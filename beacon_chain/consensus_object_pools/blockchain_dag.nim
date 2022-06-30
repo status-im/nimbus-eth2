@@ -581,7 +581,6 @@ proc updateBeaconMetrics(
 import blockchain_dag_light_client
 
 export
-  blockchain_dag_light_client.closeLightClientDataStore,
   blockchain_dag_light_client.getLightClientBootstrap,
   blockchain_dag_light_client.getLightClientUpdateForPeriod,
   blockchain_dag_light_client.getLightClientFinalityUpdate,
@@ -723,7 +722,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       vanityLogs: vanityLogs,
 
-      lcDataStore: initLightClientDataStore(lcDataConfig, cfg),
+      lcDataStore: initLightClientDataStore(
+        lcDataConfig, cfg, db.getLightClientDataDB()),
 
       onBlockAdded: onBlockCb,
       onHeadChanged: onHeadCb,

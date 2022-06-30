@@ -1056,9 +1056,6 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
 func databaseDir*(config: AnyConf): string =
   config.dataDir / "db"
 
-func cachesDir*(config: AnyConf): string =
-  config.databaseDir / "caches"
-
 func runAsService*(config: BeaconNodeConf): bool =
   config.cmd == noCommand and config.runAsServiceFlag
 

@@ -66,7 +66,7 @@ type
     delFromStmt: SqliteStmt[int64, void]
     keepFromStmt: SqliteStmt[int64, void]
 
-  LightClientDataDB* = object
+  LightClientDataDB* = ref object
     backend: SqStoreRef
       ## SQLite backend
 
@@ -92,41 +92,48 @@ template isSupportedBySQLite(slot: Slot): bool =
 template isSupportedBySQLite(period: SyncCommitteePeriod): bool =
   period <= int64.high.SyncCommitteePeriod
 
-proc initCurrentSyncCommitteeBranchStore(
-    backend: SqStoreRef): KvResult[CurrentSyncCommitteeBranchStore] =
+proc initCurrentBranchesStore(
+    backend: SqStoreRef,
+    name: string): KvResult[CurrentSyncCommitteeBranchStore] =
   ? backend.exec("""
-    CREATE TABLE IF NOT EXISTS `altair_current_sync_committee_branches` (
+    CREATE TABLE IF NOT EXISTS `""" & name & """` (
       `slot` INTEGER PRIMARY KEY,  -- `Slot` (up through 2^63-1)
       `branch` BLOB                -- `altair.CurrentSyncCommitteeBranch` (SSZ)
     );
   """)
 
   let
-    containsStmt = ? backend.prepareStmt("""
+    containsStmt = backend.prepareStmt("""
       SELECT 1 AS `exists`
-      FROM `altair_current_sync_committee_branches`
+      FROM `""" & name & """`
       WHERE `slot` = ?;
-    """, int64, int64)
-    getStmt = ? backend.prepareStmt("""
+    """, int64, int64, managed = false).expect("SQL query OK")
+    getStmt = backend.prepareStmt("""
       SELECT `branch`
-      FROM `altair_current_sync_committee_branches`
+      FROM `""" & name & """`
       WHERE `slot` = ?;
-    """, int64, seq[byte])
-    putStmt = ? backend.prepareStmt("""
-      INSERT INTO `altair_current_sync_committee_branches` (
+    """, int64, seq[byte], managed = false).expect("SQL query OK")
+    putStmt = backend.prepareStmt("""
+      INSERT INTO `""" & name & """` (
         `slot`, `branch`
       ) VALUES (?, ?);
-    """, (int64, seq[byte]), void)
-    keepFromStmt = ? backend.prepareStmt("""
-      DELETE FROM `altair_current_sync_committee_branches`
+    """, (int64, seq[byte]), void, managed = false).expect("SQL query OK")
+    keepFromStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
       WHERE `slot` < ?;
-    """, int64, void)
+    """, int64, void, managed = false).expect("SQL query OK")
 
   ok CurrentSyncCommitteeBranchStore(
     containsStmt: containsStmt,
     getStmt: getStmt,
     putStmt: putStmt,
     keepFromStmt: keepFromStmt)
+
+func close(store: CurrentSyncCommitteeBranchStore) =
+  store.containsStmt.dispose()
+  store.getStmt.dispose()
+  store.putStmt.dispose()
+  store.keepFromStmt.dispose()
 
 func hasCurrentSyncCommitteeBranch*(
     db: LightClientDataDB, slot: Slot): bool =
@@ -161,38 +168,39 @@ func putCurrentSyncCommitteeBranch*(
   let res = db.currentBranches.putStmt.exec((slot.int64, SSZ.encode(branch)))
   res.expect("SQL query OK")
 
-proc initBestUpdateStore(
-    backend: SqStoreRef): KvResult[BestLightClientUpdateStore] =
+proc initBestUpdatesStore(
+    backend: SqStoreRef,
+    name: string): KvResult[BestLightClientUpdateStore] =
   ? backend.exec("""
-    CREATE TABLE IF NOT EXISTS `altair_best_updates` (
+    CREATE TABLE IF NOT EXISTS `""" & name & """` (
       `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
       `update` BLOB                  -- `altair.LightClientUpdate` (SSZ)
     );
   """)
 
   let
-    getStmt = ? backend.prepareStmt("""
+    getStmt = backend.prepareStmt("""
       SELECT `update`
-      FROM `altair_best_updates`
+      FROM `""" & name & """`
       WHERE `period` = ?;
-    """, int64, seq[byte])
-    putStmt = ? backend.prepareStmt("""
-      REPLACE INTO `altair_best_updates` (
+    """, int64, seq[byte], managed = false).expect("SQL query OK")
+    putStmt = backend.prepareStmt("""
+      REPLACE INTO `""" & name & """` (
         `period`, `update`
       ) VALUES (?, ?);
-    """, (int64, seq[byte]), void)
-    delStmt = ? backend.prepareStmt("""
-      DELETE FROM `altair_best_updates`
+    """, (int64, seq[byte]), void, managed = false).expect("SQL query OK")
+    delStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
       WHERE `period` = ?;
-    """, int64, void)
-    delFromStmt = ? backend.prepareStmt("""
-      DELETE FROM `altair_best_updates`
+    """, int64, void, managed = false).expect("SQL query OK")
+    delFromStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
       WHERE `period` >= ?;
-    """, int64, void)
-    keepFromStmt = ? backend.prepareStmt("""
-      DELETE FROM `altair_best_updates`
+    """, int64, void, managed = false).expect("SQL query OK")
+    keepFromStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
       WHERE `period` < ?;
-    """, int64, void)
+    """, int64, void, managed = false).expect("SQL query OK")
 
   ok BestLightClientUpdateStore(
     getStmt: getStmt,
@@ -200,6 +208,13 @@ proc initBestUpdateStore(
     delStmt: delStmt,
     delFromStmt: delFromStmt,
     keepFromStmt: keepFromStmt)
+
+func close(store: BestLightClientUpdateStore) =
+  store.getStmt.dispose()
+  store.putStmt.dispose()
+  store.delStmt.dispose()
+  store.delFromStmt.dispose()
+  store.keepFromStmt.dispose()
 
 proc getBestUpdate*(
     db: LightClientDataDB, period: SyncCommitteePeriod
@@ -235,39 +250,46 @@ proc putUpdateIfBetter*(
   if is_better_update(update, existing):
     db.putBestUpdate(period, update)
 
-proc initSealedPeriodStore(
-    backend: SqStoreRef): KvResult[SealedSyncCommitteePeriodStore] =
+proc initSealedPeriodsStore(
+    backend: SqStoreRef,
+    name: string): KvResult[SealedSyncCommitteePeriodStore] =
   ? backend.exec("""
-    CREATE TABLE IF NOT EXISTS `sealed_sync_committee_periods` (
+    CREATE TABLE IF NOT EXISTS `""" & name & """` (
       `period` INTEGER PRIMARY KEY  -- `SyncCommitteePeriod`
     );
   """)
 
   let
-    containsStmt = ? backend.prepareStmt("""
+    containsStmt = backend.prepareStmt("""
       SELECT 1 AS `exists`
-      FROM `sealed_sync_committee_periods`
+      FROM `""" & name & """`
       WHERE `period` = ?;
-    """, int64, int64)
-    putStmt = ? backend.prepareStmt("""
-      INSERT INTO `sealed_sync_committee_periods` (
+    """, int64, int64, managed = false).expect("SQL query OK")
+    putStmt = backend.prepareStmt("""
+      INSERT INTO `""" & name & """` (
         `period`
       ) VALUES (?);
-    """, int64, void)
-    delFromStmt = ? backend.prepareStmt("""
-      DELETE FROM `sealed_sync_committee_periods`
+    """, int64, void, managed = false).expect("SQL query OK")
+    delFromStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
       WHERE `period` >= ?;
-    """, int64, void)
-    keepFromStmt = ? backend.prepareStmt("""
-      DELETE FROM `sealed_sync_committee_periods`
+    """, int64, void, managed = false).expect("SQL query OK")
+    keepFromStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
       WHERE `period` < ?;
-    """, int64, void)
+    """, int64, void, managed = false).expect("SQL query OK")
 
   ok SealedSyncCommitteePeriodStore(
     containsStmt: containsStmt,
     putStmt: putStmt,
     delFromStmt: delFromStmt,
     keepFromStmt: keepFromStmt)
+
+func close(store: SealedSyncCommitteePeriodStore) =
+  store.containsStmt.dispose()
+  store.putStmt.dispose()
+  store.delFromStmt.dispose()
+  store.keepFromStmt.dispose()
 
 func isPeriodSealed*(
     db: LightClientDataDB, period: SyncCommitteePeriod): bool =
@@ -305,36 +327,21 @@ func keepPeriodsFrom*(
     res3 = db.currentBranches.keepFromStmt.exec(minSlot.int64)
   res3.expect("SQL query OK")
 
+type LightClientDataDBNames* = object
+  altairCurrentBranches*: string
+  altairBestUpdates*: string
+  sealedPeriods*: string
+
 proc initLightClientDataDB*(
-    dir: string, inMemory = false): Opt[LightClientDataDB] =
-  logScope:
-    path = dir
-    inMemory
-
-  if not inMemory:
-    let res = secureCreatePath(dir)
-    if res.isErr:
-      warn "Failed to create DB directory", err = ioErrorMsg(res.error)
-      return err()
-
-  const dbName = "lcdataV1"
+    backend: SqStoreRef,
+    names: LightClientDataDBNames): KvResult[LightClientDataDB] =
   let
-    backend = SqStoreRef.init(dir, dbName, inMemory = inMemory).valueOr:
-      warn "Failed to create LC data DB", err = error
-      return err()
-
-    currentBranches = backend.initCurrentSyncCommitteeBranchStore().valueOr:
-      warn "Failed to init LC store", store = "currentBranches", err = error
-      backend.close()
-      return err()
-    bestUpdates = backend.initBestUpdateStore().valueOr:
-      warn "Failed to init LC store", store = "bestUpdates", err = error
-      backend.close()
-      return err()
-    sealedPeriods = backend.initSealedPeriodStore().valueOr:
-      warn "Failed to init LC store", store = "sealedPeriods", err = error
-      backend.close()
-      return err()
+    currentBranches =
+      ? backend.initCurrentBranchesStore(names.altairCurrentBranches)
+    bestUpdates =
+      ? backend.initBestUpdatesStore(names.altairBestUpdates)
+    sealedPeriods =
+      ? backend.initSealedPeriodsStore(names.sealedPeriods)
 
   ok LightClientDataDB(
     backend: backend,
@@ -342,7 +349,9 @@ proc initLightClientDataDB*(
     bestUpdates: bestUpdates,
     sealedPeriods: sealedPeriods)
 
-proc close*(db: var LightClientDataDB) =
+proc close*(db: LightClientDataDB) =
   if db.backend != nil:
-    db.backend.close()
-    db.reset()
+    db.currentBranches.close()
+    db.bestUpdates.close()
+    db.sealedPeriods.close()
+    db[].reset()

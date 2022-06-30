@@ -15,7 +15,7 @@ import
   ./networking/network_metadata, ./beacon_chain_db_immutable,
   ./spec/[eth2_ssz_serialization, eth2_merkleization, forks, state_transition],
   ./spec/datatypes/[phase0, altair, bellatrix],
-  ./filepath
+  "."/[beacon_chain_db_light_client, filepath]
 
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
@@ -144,6 +144,9 @@ type
       ## May contain entries for blocks that are not stored in the database.
       ##
       ## See `summaries` for an index in the other direction.
+
+    lcData: LightClientDataDB
+      ## Persistent light client data to avoid expensive recomputations
 
   DbKeyKind = enum
     kHashToState
@@ -458,6 +461,11 @@ proc new*(T: type BeaconChainDB,
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
     finalizedBlocks = FinalizedBlocks.init(db, "finalized_blocks").expectDb()
 
+    lcData = db.initLightClientDataDB(LightClientDataDBNames(
+      altairCurrentBranches: "altair_current_sync_committee_branches",
+      altairBestUpdates: "altair_best_updates",
+      sealedPeriods: "sealed_sync_committee_periods")).expectDb()
+
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
   # slow to load and has been superceded by `immutable_validators2` which uses
@@ -499,7 +507,11 @@ proc new*(T: type BeaconChainDB,
     stateDiffs: stateDiffs,
     summaries: summaries,
     finalizedBlocks: finalizedBlocks,
+    lcData: lcData
   )
+
+template getLightClientDataDB*(db: BeaconChainDB): LightClientDataDB =
+  db.lcData
 
 proc decodeSSZ[T](data: openArray[byte], output: var T): bool =
   try:
@@ -637,6 +649,7 @@ proc close*(db: BeaconChainDB) =
   if db.db == nil: return
 
   # Close things roughly in reverse order
+  db.lcData.close()
   db.finalizedBlocks.close()
   discard db.summaries.close()
   discard db.stateDiffs.close()
