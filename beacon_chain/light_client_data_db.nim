@@ -137,7 +137,7 @@ func hasCurrentSyncCommitteeBranch*(
     res.expect("SQL query OK")
     doAssert exists == 1
     return true
-  return false
+  false
 
 proc getCurrentSyncCommitteeBranch*(
     db: LightClientDataDB, slot: Slot): altair.CurrentSyncCommitteeBranch =
@@ -277,7 +277,7 @@ func isPeriodSealed*(
     res.expect("SQL query OK")
     doAssert exists == 1
     return true
-  return false
+  false
 
 func sealPeriod*(
     db: LightClientDataDB, period: SyncCommitteePeriod) =
