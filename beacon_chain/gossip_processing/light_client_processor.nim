@@ -401,7 +401,7 @@ func toValidationError(
       errIgnore($r.error)
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
-proc lightClientFinalityUpdateValidator*(
+proc processLightClientFinalityUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     finality_update: altair.LightClientFinalityUpdate
 ): Result[void, ValidationError] =
@@ -414,7 +414,7 @@ proc lightClientFinalityUpdateValidator*(
   v
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
-proc lightClientOptimisticUpdateValidator*(
+proc processLightClientOptimisticUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     optimistic_update: altair.LightClientOptimisticUpdate
 ): Result[void, ValidationError] =

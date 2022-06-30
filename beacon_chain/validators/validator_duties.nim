@@ -7,13 +7,17 @@
 
 {.push raises: [Defect].}
 
+# This module is responsible for handling beacon node validators, ie those that
+# that are running directly in the beacon node and not in a separate validator
+# client process
+
 # References to `vFuture` refer to the pre-release proposal of the libp2p based
 # light client sync protocol. Conflicting release versions are not in use.
 # https://github.com/ethereum/consensus-specs/pull/2802
 
 import
   # Standard library
-  std/[os, sequtils, tables],
+  std/[os, tables],
 
   # Nimble packages
   stew/[byteutils, objects],
@@ -47,23 +51,6 @@ from web3/engine_api_types import PayloadExecutionStatus
 const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
                       0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
 
-declareCounter beacon_attestations_sent,
-  "Number of beacon chain attestations sent by this peer"
-
-declareHistogram beacon_attestation_sent_delay,
-  "Time(s) between slot start and attestation sent moment",
-  buckets = delayBuckets
-
-declareCounter beacon_sync_committee_messages_sent,
-  "Number of sync committee messages sent by this peer"
-
-declareCounter beacon_sync_committee_contributions_sent,
-  "Number of sync committee contributions sent by this peer"
-
-declareHistogram beacon_sync_committee_message_sent_delay,
-  "Time(s) between slot start and sync committee message sent moment",
-  buckets = delayBuckets
-
 declareCounter beacon_light_client_finality_updates_sent,
   "Number of LC finality updates sent by this peer"
 
@@ -83,7 +70,6 @@ declarePublicGauge(attached_validator_balance_total,
 logScope: topics = "beacval"
 
 type
-  SendBlockResult* = Result[bool, cstring]
   ForkedBlockResult* = Result[ForkedBeaconBlock, string]
 
 proc findValidator(validators: auto, pubkey: ValidatorPubKey):
@@ -212,41 +198,7 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   else:
     true
 
-func isGoodForSending(validationResult: ValidationRes): bool =
-  # Validator clients such as Vouch can be configured to work with multiple
-  # beacon nodes simultaneously. In this configuration, the validator client
-  # will try to broadcast the gossip messages through each of the connected
-  # beacon nodes which may lead to a situation where some of the nodes see a
-  # message arriving from the network before it arrives through the REST API.
-  # This should not be considered an error and the beacon node should still
-  # broadcast the message as the intented purpose of the Vouch strategy is
-  # to ensure that the message will reach as many peers as possible.
-  validationResult.isOk() or validationResult.error[0] == ValidationResult.Ignore
-
-proc sendAttestation(
-    node: BeaconNode, attestation: Attestation,
-    subnet_id: SubnetId, checkSignature: bool): Future[SendResult] {.async.} =
-  # Validate attestation before sending it via gossip - validation will also
-  # register the attestation with the attestation pool. Notably, although
-  # libp2p calls the data handler for any subscription on the subnet
-  # topic, it does not perform validation.
-  let res = await node.processor.attestationValidator(
-    MsgSource.api, attestation, subnet_id, checkSignature)
-
-  return
-    if res.isGoodForSending:
-      let sendResult =
-        await node.network.broadcastAttestation(subnet_id, attestation)
-      if sendResult.isOk:
-        beacon_attestations_sent.inc()
-      sendResult
-    else:
-      notice "Produced attestation failed validation",
-        attestation = shortLog(attestation),
-        error = res.error()
-      err(res.error()[1])
-
-proc handleLightClientUpdates(node: BeaconNode, slot: Slot) {.async.} =
+proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
   static: doAssert lightClientFinalityUpdateSlotOffset ==
     lightClientOptimisticUpdateSlotOffset
   let sendTime = node.beaconClock.fromNow(
@@ -297,146 +249,6 @@ proc handleLightClientUpdates(node: BeaconNode, slot: Slot) {.async.} =
       warn "LC optimistic update failed to send",
         error = sendResult.error()
 
-proc scheduleSendingLightClientUpdates(node: BeaconNode, slot: Slot) =
-  if not node.config.lightClientDataServe.get:
-    return
-  if node.lightClientPool[].broadcastGossipFut != nil:
-    return
-  if slot <= node.lightClientPool[].latestBroadcastedSlot:
-    return
-  node.lightClientPool[].latestBroadcastedSlot = slot
-
-  template fut(): auto = node.lightClientPool[].broadcastGossipFut
-  fut = node.handleLightClientUpdates(slot)
-  fut.addCallback do (p: pointer) {.gcsafe.}:
-    fut = nil
-
-proc sendSyncCommitteeMessage(
-    node: BeaconNode, msg: SyncCommitteeMessage,
-    subcommitteeIdx: SyncSubcommitteeIndex,
-    checkSignature: bool): Future[SendResult] {.async.} =
-  # Validate sync committee message before sending it via gossip
-  # validation will also register the message with the sync committee
-  # message pool. Notably, although libp2p calls the data handler for
-  # any subscription on the subnet topic, it does not perform validation.
-  let res = await node.processor.syncCommitteeMessageValidator(
-    MsgSource.api, msg, subcommitteeIdx, checkSignature)
-
-  return
-    if res.isGoodForSending:
-      let sendResult =
-        await node.network.broadcastSyncCommitteeMessage(msg, subcommitteeIdx)
-      if sendResult.isOk:
-        beacon_sync_committee_messages_sent.inc()
-        node.scheduleSendingLightClientUpdates(msg.slot)
-      sendResult
-    else:
-      notice "Sync committee message failed validation",
-             msg, error = res.error()
-      SendResult.err(res.error()[1])
-
-proc sendSyncCommitteeMessages*(node: BeaconNode,
-                                msgs: seq[SyncCommitteeMessage]
-                               ): Future[seq[SendResult]] {.async.} =
-  return withState(node.dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
-      var statuses = newSeq[Option[SendResult]](len(msgs))
-
-      let
-        curPeriod = sync_committee_period(state.data.slot)
-        nextPeriod = curPeriod + 1
-
-      let (keysCur, keysNxt) =
-        block:
-          var resCur: Table[uint64, int]
-          var resNxt: Table[uint64, int]
-
-          for index, msg in msgs:
-            if msg.validator_index < lenu64(state.data.validators):
-              let msgPeriod = sync_committee_period(msg.slot + 1)
-              if msgPeriod == curPeriod:
-                resCur[msg.validator_index] = index
-              elif msgPeriod == nextPeriod:
-                resNxt[msg.validator_index] = index
-              else:
-                statuses[index] =
-                  some(SendResult.err("Message's slot out of state's head range"))
-            else:
-              statuses[index] = some(SendResult.err("Incorrect validator's index"))
-          if (len(resCur) == 0) and (len(resNxt) == 0):
-            return statuses.mapIt(it.get())
-          (resCur, resNxt)
-
-      let (pending, indices) = block:
-        var resFutures: seq[Future[SendResult]]
-        var resIndices: seq[int]
-        template headSyncCommittees(): auto = node.dag.headSyncCommittees
-        for subcommitteeIdx in SyncSubcommitteeIndex:
-          for valKey in syncSubcommittee(
-              headSyncCommittees.current_sync_committee, subcommitteeIdx):
-            let index = keysCur.getOrDefault(uint64(valKey), -1)
-            if index >= 0:
-              resIndices.add(index)
-              resFutures.add(node.sendSyncCommitteeMessage(
-                msgs[index], subcommitteeIdx, true))
-        for subcommitteeIdx in SyncSubcommitteeIndex:
-          for valKey in syncSubcommittee(
-              headSyncCommittees.next_sync_committee, subcommitteeIdx):
-            let index = keysNxt.getOrDefault(uint64(valKey), -1)
-            if index >= 0:
-              resIndices.add(index)
-              resFutures.add(node.sendSyncCommitteeMessage(
-                msgs[index], subcommitteeIdx, true))
-        (resFutures, resIndices)
-
-      await allFutures(pending)
-
-      for index, future in pending:
-        if future.done():
-          let fres = future.read()
-          if fres.isErr():
-            statuses[indices[index]] = some(SendResult.err(fres.error()))
-          else:
-            statuses[indices[index]] = some(SendResult.ok())
-        elif future.failed() or future.cancelled():
-          let exc = future.readError()
-          debug "Unexpected failure while sending committee message",
-            message = msgs[indices[index]], error = $exc.msg
-          statuses[indices[index]] = some(SendResult.err(
-            "Unexpected failure while sending committee message"))
-
-      var res: seq[SendResult]
-      for item in statuses:
-        if item.isSome():
-          res.add(item.get())
-        else:
-          res.add(SendResult.err("Message validator not in sync committee"))
-      res
-    else:
-      var res: seq[SendResult]
-      for _ in msgs:
-        res.add(SendResult.err("Waiting for altair fork"))
-      res
-
-proc sendSyncCommitteeContribution*(
-    node: BeaconNode,
-    msg: SignedContributionAndProof,
-    checkSignature: bool): Future[SendResult] {.async.} =
-  let res = await node.processor.contributionValidator(
-    MsgSource.api, msg, checkSignature)
-
-  return
-    if res.isGoodForSending:
-      let sendResult =
-        await node.network.broadcastSignedContributionAndProof(msg)
-      if sendResult.isOk:
-        beacon_sync_committee_contributions_sent.inc()
-      sendResult
-    else:
-      notice "Sync committee contribution failed validation",
-              msg, error = res.error()
-      err(res.error()[1])
-
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -460,27 +272,14 @@ proc createAndSendAttestation(node: BeaconNode,
           [uint64 indexInCommittee], committeeLen, data, signature).expect(
             "valid data")
 
-    let res = await node.sendAttestation(
+    # Logged in the router
+    let res = await node.router.routeAttestation(
       attestation, subnet_id, checkSignature = false)
     if not res.isOk():
-      warn "Attestation failed",
-        validator = shortLog(validator),
-        attestation = shortLog(attestation),
-        error = res.error()
       return
 
     if node.config.dumpEnabled:
       dump(node.config.dumpDirOutgoing, attestation.data, validator.pubkey)
-
-    let
-      wallTime = node.beaconClock.now()
-      delay = wallTime - data.slot.attestation_deadline()
-
-    notice "Attestation sent",
-      attestation = shortLog(attestation), validator = shortLog(validator),
-      delay, subnet_id
-
-    beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
   except CatchableError as exc:
     # An error could happen here when the signature task fails - we must
     # not leak the exception because this is an asyncSpawn task
@@ -737,8 +536,8 @@ proc proposeBlock(node: BeaconNode,
           return head
         res.get()
 
-  var newBlock = await makeBeaconBlockForHeadAndSlot(
-    node, randao, validator_index, node.graffitiBytes, head, slot)
+    newBlock = await makeBeaconBlockForHeadAndSlot(
+      node, randao, validator_index, node.graffitiBytes, head, slot)
 
   if newBlock.isErr():
     return head # already logged elsewhere!
@@ -784,36 +583,12 @@ proc proposeBlock(node: BeaconNode,
             message: blck, signature: signature, root: blockRoot)
         else:
           static: doAssert "Unknown SignedBeaconBlock type"
+      newBlockRef =
+        (await node.router.routeSignedBeaconBlock(signedBlock)).valueOr:
+          return head # Errors logged in router
 
-    # We produced the block using a state transition, meaning the block is valid
-    # enough that it will not be rejected by gossip - it is unlikely but
-    # possible that it will be ignored due to extreme timing conditions, for
-    # example a delay in signing.
-    # We'll start broadcasting it before integrating fully in the chaindag
-    # so that it can start propagating through the network ASAP.
-    let sendResult = await node.network.broadcastBeaconBlock(signedBlock)
-
-    if sendResult.isErr:
-      warn "Block failed to send",
-        blockRoot = shortLog(blockRoot), blck = shortLog(blck),
-        signature = shortLog(signature), validator = shortLog(validator),
-        error = sendResult.error()
-
-      return head
-
-    let
-      wallTime = node.beaconClock.now()
-
-      # storeBlock puts the block in the chaindag, and if accepted, takes care
-      # of side effects such as event api notification
-      newBlockRef = node.blockProcessor[].storeBlock(
-        MsgSource.api, wallTime, signedBlock)
-
-    if newBlockRef.isErr:
-      warn "Unable to add proposed block to block pool",
-        blockRoot = shortLog(blockRoot), blck = shortLog(blck),
-        signature = shortLog(signature), validator = shortLog(validator)
-      return head
+    if newBlockRef.isNone():
+      return head # Validation errors logged in router
 
     notice "Block proposed",
       blockRoot = shortLog(blockRoot), blck = shortLog(blck),
@@ -866,13 +641,11 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # using empty slots as fillers.
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#validator-assignments
   let
-    epochRef = block:
-      let tmp = node.dag.getEpochRef(attestationHead.blck, slot.epoch, false)
-      if isErr(tmp):
+    epochRef = node.dag.getEpochRef(
+      attestationHead.blck, slot.epoch, false).valueOr:
         warn "Cannot construct EpochRef for attestation head, report bug",
           attestationHead = shortLog(attestationHead), slot
         return
-      tmp.get()
     committees_per_slot = get_committee_count_per_slot(epochRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
@@ -910,8 +683,8 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           badVoteDetails = $registered.error()
 
 proc createAndSendSyncCommitteeMessage(node: BeaconNode,
-                                       slot: Slot,
                                        validator: AttachedValidator,
+                                       slot: Slot,
                                        subcommitteeIdx: SyncSubcommitteeIndex,
                                        head: BlockRef) {.async.} =
   try:
@@ -929,26 +702,15 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
             return
           res.get()
 
-    let res = await node.sendSyncCommitteeMessage(
+    # Logged in the router
+    let res = await node.router.routeSyncCommitteeMessage(
       msg, subcommitteeIdx, checkSignature = false)
-    if res.isErr():
-      warn "Sync committee message failed",
-        error = res.error()
+
+    if not res.isOk():
       return
 
     if node.config.dumpEnabled:
       dump(node.config.dumpDirOutgoing, msg, validator.pubkey)
-
-    let
-      wallTime = node.beaconClock.now()
-      delay = wallTime - msg.slot.sync_committee_message_deadline()
-
-    notice "Sync committee message sent",
-            message = shortLog(msg),
-            validator = shortLog(validator),
-            delay
-
-    beacon_sync_committee_message_sent_delay.observe(delay.toFloatSeconds())
   except CatchableError as exc:
     # An error could happen here when the signature task fails - we must
     # not leak the exception because this is an asyncSpawn task
@@ -956,122 +718,93 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
 
 proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
   # TODO Use a view type to avoid the copy
-  var syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
+  var
+    syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
+    epochRef = node.dag.getEpochRef(head, slot.epoch, false).valueOr:
+      warn "Cannot construct EpochRef for head, report bug",
+        attestationHead = shortLog(head), slot
+      return
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
-      let validator = node.getAttachedValidator(
-        getStateField(node.dag.headState, validators), valIdx)
+      let validator = node.getAttachedValidator(epochRef, valIdx)
       if isNil(validator) or validator.index.isNone():
         continue
-      asyncSpawn createAndSendSyncCommitteeMessage(node, slot, validator,
+      asyncSpawn createAndSendSyncCommitteeMessage(node, validator, slot,
                                                    subcommitteeIdx, head)
 
 proc signAndSendContribution(node: BeaconNode,
                              validator: AttachedValidator,
-                             contribution: SyncCommitteeContribution,
-                             selectionProof: ValidatorSig) {.async.} =
+                             subcommitteeIdx: SyncSubcommitteeIndex,
+                             head: BlockRef,
+                             slot: Slot) {.async.} =
   try:
     let
-      fork = node.dag.forkAtEpoch(contribution.slot.epoch)
+      fork = node.dag.forkAtEpoch(slot.epoch)
       genesis_validators_root = node.dag.genesis_validators_root
-      msg = (ref SignedContributionAndProof)(
+      selectionProof = block:
+        let res = await validator.getSyncCommitteeSelectionProof(
+          fork, genesis_validators_root, slot, subcommitteeIdx)
+        if res.isErr():
+          warn "Unable to generate committee selection proof",
+            validator = shortLog(validator), slot,
+            subnet_id = subcommitteeIdx, error = res.error()
+          return
+        res.get()
+
+    if not is_sync_committee_aggregator(selectionProof):
+      return
+
+    var
+      msg = SignedContributionAndProof(
         message: ContributionAndProof(
           aggregator_index: uint64 validator.index.get,
-          contribution: contribution,
           selection_proof: selectionProof))
 
-    msg[].signature = block:
+    if not node.syncCommitteeMsgPool[].produceContribution(
+        slot,
+        head.root,
+        subcommitteeIdx,
+        msg.message.contribution):
+      return
+
+    msg.signature = block:
       let res = await validator.getContributionAndProofSignature(
-        fork, genesis_validators_root, msg[].message)
+        fork, genesis_validators_root, msg.message)
 
       if res.isErr():
         warn "Unable to sign sync committee contribution",
-              validator = shortLog(validator), error_msg = res.error()
+          validator = shortLog(validator), message = shortLog(msg.message),
+          error_msg = res.error()
         return
       res.get()
 
-    # Failures logged in sendSyncCommitteeContribution
-    discard await node.sendSyncCommitteeContribution(msg[], false)
-    notice "Contribution sent", contribution = shortLog(msg[])
+    # Logged in the router
+    discard await node.router.routeSignedContributionAndProof(msg, false)
   except CatchableError as exc:
     # An error could happen here when the signature task fails - we must
     # not leak the exception because this is an asyncSpawn task
     warn "Error sending sync committee contribution", err = exc.msg
 
-proc handleSyncCommitteeContributions(node: BeaconNode,
-                                      head: BlockRef, slot: Slot) {.async.} =
-  # TODO Use a view type to avoid the copy
+proc handleSyncCommitteeContributions(
+    node: BeaconNode, head: BlockRef, slot: Slot) {.async.} =
   let
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
     syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
+    epochRef = node.dag.getEpochRef(head, slot.epoch, false).valueOr:
+      warn "Cannot construct EpochRef for head, report bug",
+        attestationHead = shortLog(head), slot
+      return
 
-  type
-    AggregatorCandidate = object
-      validator: AttachedValidator
-      subcommitteeIdx: SyncSubcommitteeIndex
-
-  var candidateAggregators: seq[AggregatorCandidate]
-  var selectionProofs: seq[Future[SignatureResult]]
-
-  var time = timeIt:
-    for subcommitteeIdx in SyncSubcommitteeIndex:
-      # TODO Hoist outside of the loop with a view type
-      #      to avoid the repeated offset calculations
-      for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
-        let validator = node.getAttachedValidator(
-          getStateField(node.dag.headState, validators), valIdx)
-        if validator == nil:
-          continue
-
-        candidateAggregators.add AggregatorCandidate(
-          validator: validator,
-          subcommitteeIdx: subcommitteeIdx)
-
-        selectionProofs.add validator.getSyncCommitteeSelectionProof(
-          fork, genesis_validators_root, slot, subcommitteeIdx)
-
-    await allFutures(selectionProofs)
-
-  debug "Prepared contributions selection proofs",
-        count = selectionProofs.len, time
-
-  var contributionsSent = 0
-
-  time = timeIt:
-    for i, proof in selectionProofs:
-      if not proof.completed:
+  for subcommitteeIdx in SyncSubCommitteeIndex:
+    for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
+      let validator = node.getAttachedValidator(epochRef, valIdx)
+      if validator == nil:
         continue
 
-      let selectionProofRes = proof.read()
-      if selectionProofRes.isErr():
-        warn "Unable to generate selection proof",
-              validator = shortLog(candidateAggregators[i].validator),
-              slot, head, subnet_id = candidateAggregators[i].subcommitteeIdx
-        continue
-      let selectionProof = selectionProofRes.get()
-      if not is_sync_committee_aggregator(selectionProof):
-        continue
-
-      var contribution: SyncCommitteeContribution
-      let contributionWasProduced =
-        node.syncCommitteeMsgPool[].produceContribution(
-          slot,
-          head.root,
-          candidateAggregators[i].subcommitteeIdx,
-          contribution)
-
-      if contributionWasProduced:
-        asyncSpawn signAndSendContribution(
-          node,
-          candidateAggregators[i].validator,
-          contribution,
-          selectionProof)
-        inc contributionsSent
-      else:
-        debug "Failure to produce contribution",
-              slot, head, subnet_id = candidateAggregators[i].subcommitteeIdx
+      asyncSpawn signAndSendContribution(
+        node, validator, subcommitteeIdx, head, slot)
 
 proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     Future[BlockRef] {.async.} =
@@ -1099,29 +832,57 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     else:
       await proposeBlock(node, validator, proposer.get(), head, slot)
 
-proc makeAggregateAndProof*(
-    pool: var AttestationPool, epochRef: EpochRef, slot: Slot,
-    committee_index: CommitteeIndex,
-    validator_index: ValidatorIndex,
-    slot_signature: ValidatorSig): Opt[AggregateAndProof] =
-  doAssert validator_index in get_beacon_committee(epochRef, slot, committee_index)
+proc signAndSendAggregate(
+    node: BeaconNode, validator: AttachedValidator, epochRef: EpochRef,
+    slot: Slot, committee_index: CommitteeIndex) {.async.} =
+  try:
+    let
+      fork = node.dag.forkAtEpoch(slot.epoch)
+      genesis_validators_root = node.dag.genesis_validators_root
+      validator_index = validator.index.get()
+      selectionProof = block:
+        let res = await validator.getSlotSignature(
+          fork, genesis_validators_root, slot)
+        if res.isErr():
+          warn "Unable to create slot signature",
+            validator = shortLog(validator),
+            slot, error = res.error()
+          return
+        res.get()
 
-  # TODO for testing purposes, refactor this into the condition check
-  # and just calculation
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregation-selection
-  if not is_aggregator(epochRef, slot, committee_index, slot_signature):
-    return err()
+    if not is_aggregator(epochRef, slot, committee_index, selectionProof):
+      return
 
-  let maybe_slot_attestation = getAggregatedAttestation(pool, slot, committee_index)
-  if maybe_slot_attestation.isNone:
-    return err()
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#construct-aggregate
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregateandproof
+    var
+      msg = SignedAggregateAndProof(
+        message: AggregateAndProof(
+          aggregator_index: uint64 validator_index,
+          selection_proof: selectionProof))
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#construct-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregateandproof
-  ok(AggregateAndProof(
-    aggregator_index: validator_index.uint64,
-    aggregate: maybe_slot_attestation.get,
-    selection_proof: slot_signature))
+    msg.message.aggregate = node.attestationPool[].getAggregatedAttestation(
+      slot, committee_index).valueOr:
+        return
+
+    msg.signature = block:
+      let res = await validator.getAggregateAndProofSignature(
+        fork, genesis_validators_root, msg.message)
+
+      if res.isErr():
+        warn "Unable to sign aggregate",
+              validator = shortLog(validator), error_msg = res.error()
+        return
+      res.get()
+
+    # Logged in the router
+    discard await node.router.routeSignedAggregateAndProof(
+      msg, checkSignature = false)
+  except CatchableError as exc:
+    # An error could happen here when the signature task fails - we must
+    # not leak the exception because this is an asyncSpawn task
+    warn "Error sending aggregate", err = exc.msg
 
 proc sendAggregatedAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) {.async.} =
@@ -1129,87 +890,19 @@ proc sendAggregatedAttestations(
   # the given slot, for which `is_aggregator` returns `true.
 
   let
-    epochRef = block:
-      let tmp = node.dag.getEpochRef(head, slot.epoch, false)
-      if isErr(tmp): # Some unusual race condition perhaps?
-        warn "Cannot construct EpochRef for head, report bug",
-          head = shortLog(head), slot
-        return
-      tmp.get()
-
-    fork = node.dag.forkAtEpoch(slot.epoch)
-    genesis_validators_root = node.dag.genesis_validators_root
+    epochRef = node.dag.getEpochRef(head, slot.epoch, false).valueOr:
+      warn "Cannot construct EpochRef for head, report bug",
+        head = shortLog(head), slot
+      return
     committees_per_slot = get_committee_count_per_slot(epochRef)
 
-  var
-    slotSigs: seq[Future[SignatureResult]] = @[]
-    slotSigsData: seq[tuple[committee_index: CommitteeIndex,
-                            validator_index: ValidatorIndex,
-                            v: AttachedValidator]] = @[]
-
   for committee_index in get_committee_indices(committees_per_slot):
-    let committee = get_beacon_committee(epochRef, slot, committee_index)
-
-    for index_in_committee, validator_index in committee:
+    for _, validator_index in
+        get_beacon_committee(epochRef, slot, committee_index):
       let validator = node.getAttachedValidator(epochRef, validator_index)
       if validator != nil:
-        # the validator index and private key pair.
-        slotSigs.add validator.getSlotSignature(
-          fork, genesis_validators_root, slot)
-        slotSigsData.add (committee_index, validator_index, validator)
-
-  await allFutures(slotSigs)
-
-  doAssert slotSigsData.len == slotSigs.len
-  for i in 0..<slotSigs.len:
-    let
-      data = slotSigsData[i]
-      slotSig = slotSigs[i].read().valueOr:
-        warn "Unable to create slot signature",
-              validator = shortLog(data.v),
-              slot, error = error
-        continue
-      aggregateAndProof = makeAggregateAndProof(
-        node.attestationPool[], epochRef, slot, data.committee_index,
-        data.validator_index, slotSig).valueOr:
-          # Don't broadcast when, e.g., this validator isn't aggregator
-          continue
-
-      sig = block:
-        let res = await getAggregateAndProofSignature(data.v,
-          fork, genesis_validators_root, aggregateAndProof)
-        if res.isErr():
-          warn "Unable to sign aggregate",
-                validator = shortLog(data.v), error_msg = res.error()
-          return
-        res.get()
-      signedAP = SignedAggregateAndProof(
-        message: aggregateAndProof,
-        signature: sig)
-    let sendResult = await node.network.broadcastAggregateAndProof(signedAP)
-
-    if sendResult.isErr:
-      warn "Aggregated attestation failed to send",
-        error = sendResult.error()
-      return
-
-    # The subnet on which the attestations (should have) arrived
-    let
-      subnet_id = compute_subnet_for_attestation(
-        committees_per_slot, slot, data.committee_index)
-    notice "Aggregated attestation sent",
-      aggregate = shortLog(signedAP.message.aggregate),
-      aggregator_index = signedAP.message.aggregator_index,
-      signature = shortLog(signedAP.signature),
-      validator = shortLog(data.v),
-      subnet_id
-
-    node.validatorMonitor[].registerAggregate(
-      MsgSource.api, node.beaconClock.now(), signedAP.message,
-      get_attesting_indices(
-        epochRef, slot,
-        data.committee_index,
-        aggregateAndProof.aggregate.aggregation_bits))
+        asyncSpawn signAndSendAggregate(
+          node, validator, epochRef, slot, committee_index)
 
 proc updateValidatorMetrics*(node: BeaconNode) =
   # Technically, this only needs to be done on epoch transitions and if there's
@@ -1366,174 +1059,26 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#broadcast-aggregate
-  # If the validator is selected to aggregate (`is_aggregator`), then they
-  # broadcast their best aggregate as a `SignedAggregateAndProof` to the global
-  # aggregate channel (`beacon_aggregate_and_proof`) `2 / INTERVALS_PER_SLOT`
-  # of the way through the `slot`-that is,
-  # `SECONDS_PER_SLOT * 2 / INTERVALS_PER_SLOT` seconds after the start of `slot`.
-  if slot > 2:
-    doAssert slot.aggregate_deadline() == slot.sync_contribution_deadline()
-    let
-      aggregateCutoff = node.beaconClock.fromNow(slot.aggregate_deadline())
-    if aggregateCutoff.inFuture:
-      debug "Waiting to send aggregate attestations",
-        aggregateCutoff = shortLog(aggregateCutoff.offset)
-      await sleepAsync(aggregateCutoff.offset)
-
-    let sendAggregatedAttestationsFut =
-      sendAggregatedAttestations(node, head, slot)
-
-    let handleSyncCommitteeContributionsFut =
-      handleSyncCommitteeContributions(node, head, slot)
-
-    await handleSyncCommitteeContributionsFut
-    await sendAggregatedAttestationsFut
-
-proc sendAttestation*(node: BeaconNode,
-                      attestation: Attestation): Future[SendResult] {.async.} =
-  # REST helper procedure.
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
+  # the result in aggregates
+  static:
+    doAssert aggregateSlotOffset == syncContributionSlotOffset, "Timing change?"
   let
-    target = node.dag.getBlockRef(attestation.data.target.root).valueOr:
-      notice "Attempt to send attestation for unknown target",
-            attestation = shortLog(attestation)
-      return SendResult.err(
-        "Attempt to send attestation for unknown block")
+    aggregateCutoff = node.beaconClock.fromNow(slot.aggregate_deadline())
+  if aggregateCutoff.inFuture:
+    debug "Waiting to send aggregate attestations",
+      aggregateCutoff = shortLog(aggregateCutoff.offset)
+    await sleepAsync(aggregateCutoff.offset)
 
-    epochRef = node.dag.getEpochRef(
-        target, attestation.data.target.epoch, false).valueOr:
-      warn "Cannot construct EpochRef for attestation, skipping send - report bug",
-        target = shortLog(target),
-        attestation = shortLog(attestation)
-      return
-    committee_index =
-      epochRef.get_committee_index(attestation.data.index).valueOr:
-        notice "Invalid committee index in attestation",
-          attestation = shortLog(attestation)
-        return SendResult.err("Invalid committee index in attestation")
-    subnet_id = compute_subnet_for_attestation(
-      get_committee_count_per_slot(epochRef), attestation.data.slot,
-      committee_index)
-    res = await node.sendAttestation(attestation, subnet_id,
-                                     checkSignature = true)
-  if not res.isOk():
-    return res
+  let sendAggregatedAttestationsFut =
+    sendAggregatedAttestations(node, head, slot)
 
-  let
-    wallTime = node.processor.getCurrentBeaconTime()
-    delay = wallTime - attestation.data.slot.attestation_deadline()
+  let handleSyncCommitteeContributionsFut =
+    handleSyncCommitteeContributions(node, head, slot)
 
-  notice "Attestation sent",
-    attestation = shortLog(attestation), delay, subnet_id
-
-  beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
-
-  return SendResult.ok()
-
-proc sendAggregateAndProof*(node: BeaconNode,
-                            proof: SignedAggregateAndProof): Future[SendResult] {.
-     async.} =
-  # REST helper procedure.
-  let res =
-    await node.processor.aggregateValidator(MsgSource.api, proof)
-  return
-    if res.isGoodForSending:
-      let sendResult = await node.network.broadcastAggregateAndProof(proof)
-
-      if sendResult.isOk:
-        notice "Aggregated attestation sent",
-          attestation = shortLog(proof.message.aggregate),
-          aggregator_index = proof.message.aggregator_index,
-          signature = shortLog(proof.signature)
-
-      sendResult
-    else:
-      notice "Aggregated attestation failed validation",
-             proof = shortLog(proof.message.aggregate), error = res.error()
-
-      err(res.error()[1])
-
-proc sendVoluntaryExit*(
-    node: BeaconNode, exit: SignedVoluntaryExit):
-    Future[SendResult] {.async.} =
-  # REST helper procedure.
-  let res =
-    node.processor[].voluntaryExitValidator(MsgSource.api, exit)
-  if res.isGoodForSending:
-    return await node.network.broadcastVoluntaryExit(exit)
-  else:
-    notice "Voluntary exit request failed validation",
-           exit = shortLog(exit.message), error = res.error()
-    return err(res.error()[1])
-
-proc sendAttesterSlashing*(
-  node: BeaconNode, slashing: AttesterSlashing): Future[SendResult] {.async.} =
-  # REST helper procedure.
-  let res =
-    node.processor[].attesterSlashingValidator(MsgSource.api, slashing)
-  if res.isGoodForSending:
-    return await node.network.broadcastAttesterSlashing(slashing)
-  else:
-    notice "Attester slashing request failed validation",
-           slashing = shortLog(slashing), error = res.error()
-    return err(res.error()[1])
-
-proc sendProposerSlashing*(
-    node: BeaconNode, slashing: ProposerSlashing): Future[SendResult]
-    {.async.} =
-  # REST helper procedure.
-  let res =
-    node.processor[].proposerSlashingValidator(MsgSource.api, slashing)
-  if res.isGoodForSending:
-    return await node.network.broadcastProposerSlashing(slashing)
-  else:
-    notice "Proposer slashing request failed validation",
-           slashing = shortLog(slashing), error = res.error()
-    return err(res.error()[1])
-
-proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
-                     ): Future[SendBlockResult] {.async.} =
-  # REST helper procedure.
-  block:
-    # Start with a quick gossip validation check such that broadcasting the
-    # block doesn't get the node into trouble
-    let res = withBlck(forked):
-      validateBeaconBlock(node.dag, node.quarantine, blck,
-                          node.beaconClock.now(), {})
-    if not res.isGoodForSending():
-      return SendBlockResult.err(res.error()[1])
-
-  # The block passed basic gossip validation - we can "safely" broadcast it now.
-  # In fact, per the spec, we should broadcast it even if it later fails to
-  # apply to our state.
-  let sendResult = await node.network.broadcastBeaconBlock(forked)
-  if sendResult.isErr:
-    return SendBlockResult.err(sendResult.error())
-
-  let
-    wallTime = node.beaconClock.now()
-    accepted = withBlck(forked):
-      let newBlockRef = node.blockProcessor[].storeBlock(
-        MsgSource.api, wallTime, blck)
-
-      # The boolean we return tells the caller whether the block was integrated
-      # into the chain
-      if newBlockRef.isOk():
-        notice "Block published",
-          blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-          signature = shortLog(blck.signature)
-        true
-      else:
-        warn "Unable to add proposed block to block pool",
-          blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-          signature = shortLog(blck.signature), err = newBlockRef.error()
-        false
-  return SendBlockResult.ok(accepted)
-
-proc registerDuty*(
-    node: BeaconNode, slot: Slot, subnet_id: SubnetId, vidx: ValidatorIndex,
-    isAggregator: bool) =
-  # Only register relevant duties
-  node.actionTracker.registerDuty(slot, subnet_id, vidx, isAggregator)
+  await handleSyncCommitteeContributionsFut
+  await sendAggregatedAttestationsFut
 
 proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
   ## Register upcoming duties of attached validators with the duty tracker
@@ -1551,13 +1096,10 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
   # be getting the duties one slot at a time
   for slot in wallSlot ..< wallSlot + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS:
     let
-      epochRef = block:
-        let tmp = node.dag.getEpochRef(head, slot.epoch, false)
-        if tmp.isErr(): # Shouldn't happen
-          warn "Cannot construct EpochRef for duties - report bug",
-            head = shortLog(head), slot
-          return
-        tmp.get()
+      epochRef = node.dag.getEpochRef(head, slot.epoch, false).valueOr:
+        warn "Cannot construct EpochRef for duties - report bug",
+          head = shortLog(head), slot
+        return
     let
       fork = node.dag.forkAtEpoch(slot.epoch)
       committees_per_slot = get_committee_count_per_slot(epochRef)
@@ -1580,4 +1122,5 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
             continue
           let isAggregator = is_aggregator(committee.lenu64, slotSigRes.get())
 
-          node.registerDuty(slot, subnet_id, validator_index, isAggregator)
+          node.actionTracker.registerDuty(
+            slot, subnet_id, validator_index, isAggregator)

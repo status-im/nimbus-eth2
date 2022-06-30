@@ -169,7 +169,6 @@ proc storeBlock*(
   let
     attestationPool = self.consensusManager.attestationPool
     startTick = Moment.now()
-    wallSlot = wallTime.slotOrZero()
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
 
@@ -502,8 +501,8 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       # sequence of
       # - newPayload(execution payload with block hash `h`) followed by
       # - forkchoiceUpdated(head = `h`)
-      # This is intrinsically somewhat optimistic, because determining the 
-      # validity of an execution payload requires the forkchoiceUpdated 
+      # This is intrinsically somewhat optimistic, because determining the
+      # validity of an execution payload requires the forkchoiceUpdated
       # head to be set to a block hash of some execution payload with unknown
       # validity; otherwise it would not be necessary to ask the EL.
       #

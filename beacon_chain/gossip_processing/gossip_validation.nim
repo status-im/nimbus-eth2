@@ -563,7 +563,8 @@ proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
     signedAggregateAndProof: SignedAggregateAndProof,
-    wallTime: BeaconTime):
+    wallTime: BeaconTime,
+    checkSignature = true, checkCover = true):
     Future[Result[
       tuple[attestingIndices: seq[ValidatorIndex], sig: CookedSig],
       ValidationError]] {.async.} =
@@ -631,22 +632,12 @@ proc validateAggregate*(
       return err(v.error)
     v.get()
 
-  if pool[].covers(aggregate.data, aggregate.aggregation_bits):
-    # https://github.com/ethereum/consensus-specs/issues/2183 - althoughh this
-    # check was temporarily removed from the spec, the intent is to reinstate it
-    # per discussion in the ticket.
-    #
-    # [IGNORE] The valid aggregate attestation defined by
-    # `hash_tree_root(aggregate)` has _not_ already been seen
-    # (via aggregate gossip, within a verified block, or through the creation of
-    # an equivalent aggregate locally).
-
-    # Our implementation of this check is slightly different in that it doesn't
-    # consider aggregates from verified blocks - this would take a rather heavy
-    # index to work correcly under fork conditions - we also check for coverage
-    # of attestation bits instead of comparing with full root of aggreagte:
-    # this captures the spirit of the checkk by ignoring aggregates that are
-    # strict subsets of other, already-seen aggregates.
+  if checkCover and
+      pool[].covers(aggregate.data, aggregate.aggregation_bits):
+    # [IGNORE] A valid aggregate attestation defined by
+    # `hash_tree_root(aggregate.data)` whose `aggregation_bits` is a non-strict
+    # superset has _not_ already been seen.
+    # https://github.com/ethereum/consensus-specs/pull/2847
     return errIgnore("Aggregate already covered")
 
   let
@@ -699,52 +690,60 @@ proc validateAggregate*(
     attesting_indices = get_attesting_indices(
       epochRef, slot, committee_index, aggregate.aggregation_bits)
 
-  let deferredCrypto = batchCrypto
-                .scheduleAggregateChecks(
-                  fork, genesis_validators_root,
-                  signedAggregateAndProof, epochRef, attesting_indices
-                )
-  if deferredCrypto.isErr():
-    return checkedReject(deferredCrypto.error)
-
   let
-    (aggregatorFut, slotFut, aggregateFut, sig) = deferredCrypto.get()
+    sig = if checkSignature:
+      let deferredCrypto = batchCrypto
+                    .scheduleAggregateChecks(
+                      fork, genesis_validators_root,
+                      signedAggregateAndProof, epochRef, attesting_indices
+                    )
+      if deferredCrypto.isErr():
+        return checkedReject(deferredCrypto.error)
 
-  block:
-    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-    var x = await aggregatorFut
-    case x
-    of BatchResult.Invalid:
-      return checkedReject("Aggregate: invalid aggregator signature")
-    of BatchResult.Timeout:
-      beacon_aggregates_dropped_queue_full.inc()
-      return errIgnore("Aggregate: timeout checking aggregator signature")
-    of BatchResult.Valid:
-      discard
+      let
+        (aggregatorFut, slotFut, aggregateFut, sig) = deferredCrypto.get()
 
-  block:
-    # [REJECT] aggregate_and_proof.selection_proof
-    var x = await slotFut
-    case x
-    of BatchResult.Invalid:
-      return checkedReject("Aggregate: invalid slot signature")
-    of BatchResult.Timeout:
-      beacon_aggregates_dropped_queue_full.inc()
-      return errIgnore("Aggregate: timeout checking slot signature")
-    of BatchResult.Valid:
-      discard
+      block:
+        # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+        var x = await aggregatorFut
+        case x
+        of BatchResult.Invalid:
+          return checkedReject("Aggregate: invalid aggregator signature")
+        of BatchResult.Timeout:
+          beacon_aggregates_dropped_queue_full.inc()
+          return errIgnore("Aggregate: timeout checking aggregator signature")
+        of BatchResult.Valid:
+          discard
 
-  block:
-    # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-    var x = await aggregateFut
-    case x
-    of BatchResult.Invalid:
-      return checkedReject("Aggregate: invalid aggregate signature")
-    of BatchResult.Timeout:
-      beacon_aggregates_dropped_queue_full.inc()
-      return errIgnore("Aggregate: timeout checking aggregate signature")
-    of BatchResult.Valid:
-      discard
+      block:
+        # [REJECT] aggregate_and_proof.selection_proof
+        var x = await slotFut
+        case x
+        of BatchResult.Invalid:
+          return checkedReject("Aggregate: invalid slot signature")
+        of BatchResult.Timeout:
+          beacon_aggregates_dropped_queue_full.inc()
+          return errIgnore("Aggregate: timeout checking slot signature")
+        of BatchResult.Valid:
+          discard
+
+      block:
+        # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
+        var x = await aggregateFut
+        case x
+        of BatchResult.Invalid:
+          return checkedReject("Aggregate: invalid aggregate signature")
+        of BatchResult.Timeout:
+          beacon_aggregates_dropped_queue_full.inc()
+          return errIgnore("Aggregate: timeout checking aggregate signature")
+        of BatchResult.Valid:
+          discard
+      sig
+    else:
+      let sig = aggregate.signature.load()
+      if not sig.isSome():
+        return checkedReject("Aggregate: unable to load signature")
+      sig.get()
 
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
