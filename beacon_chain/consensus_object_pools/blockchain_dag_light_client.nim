@@ -13,7 +13,6 @@
 import
   # Status libraries
   stew/[bitops2, objects],
-  chronos,
   # Beacon chain internals
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../light_client_data_db,

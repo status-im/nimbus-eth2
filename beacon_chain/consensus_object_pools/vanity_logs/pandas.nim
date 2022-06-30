@@ -8,7 +8,6 @@
 {.push raises: [Defect].}
 
 import chronicles
-from ".."/".."/conf import StdoutLogKind
 
 type
   VanityLogs* = object
@@ -17,22 +16,6 @@ type
 
 # Created by http://beatscribe.com/ (beatscribe#1008 on Discord)
 # These need to be the main body of the log not to be reformatted or escaped.
-proc mono🐼()  = notice "\n" & "text-version.txt".staticRead
-proc color🐼() = notice "\n" & "color-version.ans".staticRead
-proc blink🐼() = notice "\n" & "blink-version.ans".staticRead
-
-func getPandas*(stdoutKind: StdoutLogKind): VanityLogs =
-  case stdoutKind
-  of StdoutLogKind.Auto: raiseAssert "inadmissable here"
-  of StdoutLogKind.Colors:
-    VanityLogs(
-      onMergeTransitionBlock:          color🐼,
-      onFinalizedMergeTransitionBlock: blink🐼)
-  of StdoutLogKind.NoColors:
-    VanityLogs(
-      onMergeTransitionBlock:          mono🐼,
-      onFinalizedMergeTransitionBlock: mono🐼)
-  of StdoutLogKind.Json, StdoutLogKind.None:
-    VanityLogs(
-      onMergeTransitionBlock:          (proc() = notice "🐼 Proof of Stake Activated 🐼"),
-      onFinalizedMergeTransitionBlock: (proc() = notice "🐼 Proof of Stake Finalized 🐼"))
+proc mono🐼*()  = notice "\n" & "text-version.txt".staticRead
+proc color🐼*() = notice "\n" & "color-version.ans".staticRead
+proc blink🐼*() = notice "\n" & "blink-version.ans".staticRead

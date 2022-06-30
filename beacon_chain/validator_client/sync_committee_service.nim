@@ -40,9 +40,9 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
 
     message =
       block:
-        let res = await signSyncCommitteeMessage(validator, fork,
-                                                 genesisValidatorsRoot,
-                                                 slot, beaconBlockRoot)
+        let res = await getSyncCommitteeMessage(validator, fork,
+                                                genesisValidatorsRoot,
+                                                slot, beaconBlockRoot)
         if res.isErr():
           error "Unable to sign committee message using remote signer",
                 validator = shortLog(validator), slot = slot,
@@ -139,12 +139,11 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
     validatorIdx = validator.index.get()
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     fork = vc.forkAtEpoch(slot.epoch)
-    signedProof = (ref SignedContributionAndProof)(
-      message: proof)
 
   let signature =
     block:
-      let res = await validator.sign(signedProof, fork, genesisRoot)
+      let res = await validator.getContributionAndProofSignature(
+        fork, genesisRoot, proof)
       if res.isErr():
         error "Unable to sign sync committee contribution using remote signer",
               validator = shortLog(validator),
@@ -152,28 +151,27 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
               error_msg = res.error()
         return false
       res.get()
-
   debug "Sending sync contribution",
-        contribution = shortLog(signedProof.message.contribution),
+        contribution = shortLog(proof.contribution),
         validator = shortLog(validator), validator_index = validatorIdx,
         delay = vc.getDelay(slot.sync_contribution_deadline())
 
   let restSignedProof = RestSignedContributionAndProof.init(
-    signedProof.message, signedProof.signature)
+    proof, signature)
 
   let res =
     try:
       await vc.publishContributionAndProofs(@[restSignedProof])
     except ValidatorApiError as err:
       error "Unable to publish sync contribution",
-            contribution = shortLog(signedProof.message.contribution),
+            contribution = shortLog(proof.contribution),
             validator = shortLog(validator),
             validator_index = validatorIdx,
             err_msg = err.msg
       false
     except CatchableError as err:
       error "Unexpected error occurred while publishing sync contribution",
-            contribution = shortLog(signedProof.message.contribution),
+            contribution = shortLog(proof.contribution),
             validator = shortLog(validator),
             err_name = err.name, err_msg = err.msg
       false
@@ -184,7 +182,7 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
            validator_index = validatorIdx
   else:
     warn "Sync contribution was not accepted by beacon node",
-         contribution = shortLog(signedProof.message.contribution),
+         contribution = shortLog(proof.contribution),
          validator = shortLog(validator),
          validator_index = validatorIdx
   return res

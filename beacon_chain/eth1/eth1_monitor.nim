@@ -74,8 +74,6 @@ type
     when hasGenesisDetection:
       activeValidatorsCount*: uint64
 
-  DepositsMerkleizer* = SszMerkleizer[depositContractLimit]
-
   Eth1Chain* = object
     db: BeaconChainDB
     cfg: RuntimeConfig
@@ -179,12 +177,6 @@ declareGauge eth1_finalized_deposits,
 
 declareGauge eth1_chain_len,
   "The length of the in-memory chain of Eth1 blocks"
-
-func depositCountU64(s: DepositContractState): uint64 =
-  for i in 0 .. 23:
-    doAssert s.deposit_count[i] == 0
-
-  uint64.fromBytesBE s.deposit_count.toOpenArray(24, 31)
 
 template cfg(m: Eth1Monitor): auto =
   m.depositsChain.cfg
@@ -687,19 +679,6 @@ proc onBlockHeaders(p: Web3DataProviderRef,
 func getDepositsRoot*(m: DepositsMerkleizer): Eth2Digest =
   mixInLength(m.getFinalHash, int m.totalChunks)
 
-func toDepositContractState*(merkleizer: DepositsMerkleizer): DepositContractState =
-  # TODO There is an off by one discrepancy in the size of the arrays here that
-  #      need to be investigated. It shouldn't matter as long as the tree is
-  #      not populated to its maximum size.
-  result.branch[0..31] = merkleizer.getCombinedChunks[0..31]
-  result.deposit_count[24..31] = merkleizer.getChunkCount().toBytesBE
-
-func createMerkleizer(s: DepositContractState): DepositsMerkleizer =
-  DepositsMerkleizer.init(s.branch, s.depositCountU64)
-
-func createMerkleizer*(s: DepositContractSnapshot): DepositsMerkleizer =
-  createMerkleizer(s.depositContractState)
-
 func eth1DataFromMerkleizer(eth1Block: Eth2Digest,
                             merkleizer: DepositsMerkleizer): Eth1Data =
   Eth1Data(
@@ -960,13 +939,14 @@ template getOrDefault[T, E](r: Result[T, E]): T =
   get(r, default(TT))
 
 proc init*(T: type Eth1Chain, cfg: RuntimeConfig, db: BeaconChainDB): T =
-  let finalizedDeposits = db.getEth2FinalizedTo().getOrDefault()
-  let m = finalizedDeposits.createMerkleizer
+  let
+    finalizedDeposits = db.getEth2FinalizedTo().getOrDefault()
+    m = DepositsMerkleizer.init(finalizedDeposits.depositContractState)
 
   T(db: db,
     cfg: cfg,
     finalizedBlockHash: finalizedDeposits.eth1Block,
-    finalizedDepositsMerkleizer: finalizedDeposits.createMerkleizer)
+    finalizedDepositsMerkleizer: m)
 
 proc createInitialDepositSnapshot*(
     depositContractAddress: Eth1Address,

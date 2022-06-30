@@ -16,8 +16,27 @@ import
 
 export ssz_codec, merkleization, proofs
 
+type
+  DepositsMerkleizer* = SszMerkleizer[DEPOSIT_CONTRACT_LIMIT]
+
 func hash_tree_root*(x: phase0.HashedBeaconState | altair.HashedBeaconState) {.
   error: "HashedBeaconState should not be hashed".}
 
 func hash_tree_root*(x: phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock) {.
   error: "SignedBeaconBlock should not be hashed".}
+
+func depositCountU64(s: DepositContractState): uint64 =
+  for i in 0 .. 23:
+    doAssert s.deposit_count[i] == 0
+
+  uint64.fromBytesBE s.deposit_count.toOpenArray(24, 31)
+
+func init*(T: type DepositsMerkleizer, s: DepositContractState): DepositsMerkleizer =
+  DepositsMerkleizer.init(s.branch, s.depositCountU64)
+
+func toDepositContractState*(merkleizer: DepositsMerkleizer): DepositContractState =
+  # TODO There is an off by one discrepancy in the size of the arrays here that
+  #      need to be investigated. It shouldn't matter as long as the tree is
+  #      not populated to its maximum size.
+  result.branch[0..31] = merkleizer.getCombinedChunks[0..31]
+  result.deposit_count[24..31] = merkleizer.getChunkCount().toBytesBE
