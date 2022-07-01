@@ -47,9 +47,10 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + dependent_root                                                                             OK
 + get_beacon_proposer_index                                                                  OK
 + latest_block_root                                                                          OK
++ merklizer state roundtrip                                                                  OK
 + process_slots                                                                              OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Beacon time
 ```diff
 + basics                                                                                     OK
@@ -568,4 +569,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 313/318 Fail: 0/318 Skip: 5/318
+OK: 314/319 Fail: 0/319 Skip: 5/319
