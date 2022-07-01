@@ -151,13 +151,13 @@ proc addValidators*(node: BeaconNode) =
   node.addLocalValidators(localValidators)
   node.addRemoteValidators(remoteValidators)
 
-proc getAttachedValidator*(node: BeaconNode,
-                           pubkey: ValidatorPubKey): AttachedValidator =
+proc getAttachedValidator(node: BeaconNode,
+                          pubkey: ValidatorPubKey): AttachedValidator =
   node.attachedValidators[].getValidator(pubkey)
 
-proc getAttachedValidator*(node: BeaconNode,
-                           state_validators: auto,
-                           idx: ValidatorIndex): AttachedValidator =
+proc getAttachedValidator(node: BeaconNode,
+                          state_validators: auto,
+                          idx: ValidatorIndex): AttachedValidator =
   if uint64(idx) < state_validators.lenu64:
     let validator = node.getAttachedValidator(state_validators[idx].pubkey)
     if validator != nil and validator.index != some(idx):
@@ -170,9 +170,9 @@ proc getAttachedValidator*(node: BeaconNode,
       idx, validators = state_validators.len
     nil
 
-proc getAttachedValidator*(node: BeaconNode,
-                           epochRef: EpochRef,
-                           idx: ValidatorIndex): AttachedValidator =
+proc getAttachedValidator(node: BeaconNode,
+                          epochRef: EpochRef,
+                          idx: ValidatorIndex): AttachedValidator =
   let key = epochRef.validatorKey(idx)
   if key.isSome():
     let validator = node.getAttachedValidator(key.get().toPubKey())

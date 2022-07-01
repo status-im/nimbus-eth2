@@ -11,8 +11,6 @@
 # protocol. See https://github.com/ethereum/consensus-specs/pull/2802
 
 import
-  # Status libraries
-  stew/bitops2,
   # Beacon chain internals
   ../spec/datatypes/altair,
   ../light_client_data_db,
