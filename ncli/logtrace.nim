@@ -126,8 +126,6 @@ type
 
   AttestationSentMessage = object of LogMessage
     attestation: AttestationObject
-    indexInCommittee: uint64
-    validator: string
 
   AttestationReceivedMessage = object of LogMessage
     attestation: AttestationObject
@@ -137,9 +135,7 @@ type
 
   AggregatedAttestationSentMessage = object of LogMessage
     attestation: AttestationObject
-    validator: string
     signature: string
-    aggregationSlot: uint64
 
   AggregatedAttestationReceivedMessage = object of LogMessage
     aggregate: AttestationObject
@@ -155,21 +151,16 @@ type
   ContributionObject = object
     slot: uint64
     beaconBlockRoot {.serializedFieldName: "beacon_block_root".}: string
-    subnetId: uint64
+    subcommittee_index: uint64
     aggregationBits {.serializedFieldName: "aggregation_bits".}: string
 
-  ContributionMessageObject = object
-    aggregatorIndex {.serializedFieldName: "aggregator_index".}: uint64
-    contribution: ContributionObject
-    selectionProof {.serializedFieldName: "selection_proof".}: string
-
   ContributionSentObject = object
-    message: ContributionMessageObject
+    contribution: ContributionObject
+    aggregatorIndex {.serializedFieldName: "aggregator_index".}: uint64
     signature: string
 
   SCMSentMessage = object of LogMessage
     message: SyncCommitteeMessageObject
-    validator: string
 
   SCMReceivedMessage = object of LogMessage
     wallSlot: uint64

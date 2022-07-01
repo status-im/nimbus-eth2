@@ -265,7 +265,10 @@ proc routeSignedAggregateAndProof*(
   notice "Aggregated attestation sent",
     attestation = shortLog(proof.message.aggregate),
     aggregator_index = proof.message.aggregator_index,
+    selection_proof = shortLog(proof.message.selection_proof),
     signature = shortLog(proof.signature), delay
+
+  return ok()
 
 proc routeSyncCommitteeMessage*(
     router: ref MessageRouter, msg: SyncCommitteeMessage,
@@ -299,6 +302,8 @@ proc routeSyncCommitteeMessage*(
 
   if router[].onSyncCommitteeMessage != nil:
     router[].onSyncCommitteeMessage(msg.slot)
+
+  return ok()
 
 proc routeSyncCommitteeMessages*(
     router: ref MessageRouter, msgs: seq[SyncCommitteeMessage]):
@@ -394,6 +399,7 @@ proc routeSignedContributionAndProof*(
       warn "Contribution failed validation",
         contribution = shortLog(msg.message.contribution),
         aggregator_index = msg.message.aggregator_index,
+        selection_proof = shortLog(msg.message.selection_proof),
         signature = shortLog(msg.signature), error = res.error()
       return err(res.error()[1])
 
@@ -407,6 +413,7 @@ proc routeSignedContributionAndProof*(
       notice "Contribution not sent",
         contribution = shortLog(msg.message.contribution),
         aggregator_index = msg.message.aggregator_index,
+        selection_proof = shortLog(msg.message.selection_proof),
         signature = shortLog(msg.signature), error = res.error()
       return err(res.error())
 
@@ -415,7 +422,10 @@ proc routeSignedContributionAndProof*(
   notice "Contribution sent",
     contribution = shortLog(msg.message.contribution),
     aggregator_index = msg.message.aggregator_index,
+    selection_proof = shortLog(msg.message.selection_proof),
     signature = shortLog(msg.signature), delay
+
+  return ok()
 
 proc routeSignedVoluntaryExit*(
     router: ref MessageRouter, exit: SignedVoluntaryExit):
