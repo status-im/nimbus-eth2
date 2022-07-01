@@ -1352,6 +1352,18 @@ proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
     dag.db.delState(root.get())
     dag.db.delStateRoot(bsi.bid.root, bsi.slot)
 
+proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
+  # TODO: should we move that disk I/O to `onSlotEnd`
+  dag.delState(bs.toBlockSlotId().expect("not nil"))
+
+  if bs.isProposed():
+    # Update light client data
+    dag.deleteLightClientData(bs.blck.bid)
+
+    dag.optimisticRoots.excl bs.blck.root
+    dag.forkBlocks.excl(KeyedBlockRef.init(bs.blck))
+    dag.db.delBlock(bs.blck.root)
+
 proc pruneBlocksDAG(dag: ChainDAGRef) =
   ## This prunes the block DAG
   ## This does NOT prune the cached state checkpoints and EpochRef
@@ -1386,18 +1398,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
       "finalizedHead parent should have been pruned from memory already"
 
     while cur.blck.parent != nil:
-      dag.optimisticRoots.excl cur.blck.root
-
-      # TODO: should we move that disk I/O to `onSlotEnd`
-      dag.delState(cur.toBlockSlotId().expect("not nil"))
-
-      if cur.isProposed():
-        # Update light client data
-        dag.deleteLightClientData(cur.blck.bid)
-
-        dag.forkBlocks.excl(KeyedBlockRef.init(cur.blck))
-        dag.db.delBlock(cur.blck.root)
-
+      dag.pruneBlockSlot(cur)
       cur = cur.parentOrSlot
 
     dag.heads.del(n)
@@ -1435,18 +1436,8 @@ proc markBlockInvalid*(dag: ChainDAGRef, root: Eth2Digest) =
     doAssert verifyFinalization notin dag.updateFlags
     return
 
-  dag.optimisticRoots.excl root
-
   debug "markBlockInvalid"
-
-  # TODO copied from inner loop in pruneBlocksDAG, could refactor
-  dag.delState(blck.bid.atSlot())
-
-  # TODO These are gated by cur.isProposed in pruneBlocksDAG, but here should
-  # not be necessary or useful
-  dag.deleteLightClientData(blck.bid)
-  dag.forkBlocks.excl(KeyedBlockRef.init(blck))
-  dag.db.delBlock(root)
+  dag.pruneBlockSlot(blck.atSlot())
 
 proc markBlockVerified*(
     dag: ChainDAGRef, quarantine: var Quarantine, root: Eth2Digest) =
@@ -1459,8 +1450,7 @@ proc markBlockVerified*(
     return
   logScope: blck = shortLog(cur)
 
-  debug "markBlockVerified",
-    blck = shortLog(cur)
+  debug "markBlockVerified"
 
   while true:
     if not dag.is_optimistic(cur.bid.root):
@@ -1468,8 +1458,7 @@ proc markBlockVerified*(
 
     dag.optimisticRoots.excl cur.bid.root
 
-    debug "markBlockVerified ancestor",
-      blck = shortLog(cur)
+    debug "markBlockVerified ancestor"
 
     if cur.parent.isNil:
       break
