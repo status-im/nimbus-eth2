@@ -132,14 +132,9 @@ proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BlockRef)
     return
 
   # Can't use dag.head here because it hasn't been updated yet
-  let executionHeadRoot = self.dag.loadExecutionBlockRoot(newHead)
-
-  if executionHeadRoot.isZero:
-    # Nothing to call forkchoiceUpdated with; also effectively VALID.
-    self.dag.markBlockVerified(self.quarantine[], newHead.root)
-    return
-
   let
+    consensusHeadRoot = newHead.root
+    executionHeadRoot = self.dag.loadExecutionBlockRoot(newHead)
     executionFinalizedRoot =
       self.dag.loadExecutionBlockRoot(self.dag.finalizedHead.blck)
 
@@ -148,12 +143,12 @@ proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BlockRef)
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
-    self.dag.markBlockVerified(self.quarantine[], newHead.root)
+    self.dag.markBlockVerified(self.quarantine[], consensusHeadRoot)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
-    self.dag.markBlockInvalid(newHead.root)
-    self.quarantine[].addUnviable(newHead.root)
+    self.dag.markBlockInvalid(consensusHeadRoot)
+    self.quarantine[].addUnviable(consensusHeadRoot)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
-    self.dag.optimisticRoots.incl newHead.root
+    self.dag.optimisticRoots.incl consensusHeadRoot
 
 proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   ## Trigger fork choice and update the DAG with the new head block
@@ -165,11 +160,6 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
       wallSlot.start_beacon_time).valueOr:
     warn "Head selection failed, using previous head",
       head = shortLog(self.dag.head), wallSlot
-    return
-
-  if self.dag.loadExecutionBlockRoot(newHead).isZero:
-    # Nothing to call forkchoiceUpdated with; also effectively VALID.
-    self.dag.markBlockVerified(self.quarantine[], newHead.root)
     return
 
   # Store the new head in the chain DAG - this may cause epochs to be
