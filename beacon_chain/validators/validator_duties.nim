@@ -813,7 +813,7 @@ proc proposeBlock(node: BeaconNode,
       # verified. MEV-derived blocks, when they're added, might not.
       newBlockRef = await node.blockProcessor.storeBlock(
         MsgSource.api, wallTime, signedBlock, payloadValid = false,
-        blockingHeadUpdate = false)
+        blockingHeadUpdate = true)
 
     if newBlockRef.isErr:
       warn "Unable to add proposed block to block pool",
@@ -1520,7 +1520,7 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
     accepted = withBlck(forked):
       let newBlockRef = await node.blockProcessor.storeBlock(
         MsgSource.api, wallTime, blck, payloadValid = true,
-        blockingHeadUpdate = false)
+        blockingHeadUpdate = true)
 
       # The boolean we return tells the caller whether the block was integrated
       # into the chain
