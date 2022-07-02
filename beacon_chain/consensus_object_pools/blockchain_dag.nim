@@ -1441,8 +1441,8 @@ proc markBlockInvalid*(dag: ChainDAGRef, root: Eth2Digest) =
 
 proc markBlockVerified*(
     dag: ChainDAGRef, quarantine: var Quarantine, root: Eth2Digest) =
-  # Might be called when block was never optimistic to begin with. In that
-  # circumstance, bail early.
+  # Might be called when block was not optimistic to begin with, or had been
+  # but already had been marked verified.
   if not dag.is_optimistic(root):
     return
 

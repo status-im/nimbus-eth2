@@ -131,24 +131,28 @@ proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BlockRef)
   if self.eth1Monitor.isNil:
     return
 
+  let executionHeadRoot = self.dag.loadExecutionBlockRoot(newHead)
+
+  if executionHeadRoot.isZero:
+    # Blocks without execution payloads can't be optimistic.
+    self.dag.markBlockVerified(self.quarantine[], newHead.root)
+    return
+
   # Can't use dag.head here because it hasn't been updated yet
   let
-    consensusHeadRoot = newHead.root
-    executionHeadRoot = self.dag.loadExecutionBlockRoot(newHead)
     executionFinalizedRoot =
       self.dag.loadExecutionBlockRoot(self.dag.finalizedHead.blck)
-
-  let payloadExecutionStatus = await self.eth1Monitor.runForkchoiceUpdated(
-    executionHeadRoot, executionFinalizedRoot)
+    payloadExecutionStatus = await self.eth1Monitor.runForkchoiceUpdated(
+      executionHeadRoot, executionFinalizedRoot)
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
-    self.dag.markBlockVerified(self.quarantine[], consensusHeadRoot)
+    self.dag.markBlockVerified(self.quarantine[], newHead.root)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
-    self.dag.markBlockInvalid(consensusHeadRoot)
-    self.quarantine[].addUnviable(consensusHeadRoot)
+    self.dag.markBlockInvalid(newHead.root)
+    self.quarantine[].addUnviable(newHead.root)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
-    self.dag.optimisticRoots.incl consensusHeadRoot
+    self.dag.optimisticRoots.incl newHead.root
 
 proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   ## Trigger fork choice and update the DAG with the new head block
@@ -161,6 +165,10 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
     warn "Head selection failed, using previous head",
       head = shortLog(self.dag.head), wallSlot
     return
+
+  if self.dag.loadExecutionBlockRoot(newHead).isZero:
+    # Blocks without execution payloads can't be optimistic.
+    self.dag.markBlockVerified(self.quarantine[], newHead.root)
 
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
