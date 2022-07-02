@@ -400,19 +400,27 @@ proc newExecutionPayload*(
     debug "newPayload failed", msg = err.msg
     return PayloadExecutionStatus.syncing
 
-from ../consensus_object_pools/blockchain_dag import is_optimistic
+from ../consensus_object_pools/blockchain_dag import
+  getBlockRef, loadExecutionBlockRoot, markBlockInvalid
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#helpers
 proc is_optimistic_candidate_block(
     self: BlockProcessor, blck: ForkedSignedBeaconBlock): bool =
-  let parent = withBlck(blck): blck.message.parent_root
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#when-to-optimistically-import-blocks
+  # The current slot (as per the system clock) is at least
+  # `SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY` ahead of the slot of the block being
+  # imported.
+  if  blck.slot + self.safeSlotsToImportOptimistically <=
+      self.getBeaconTime().slotOrZero:
+    return true
 
-  # Only blocks with nonzero execution payloads enter the opt store.
-  self.consensusManager.dag.is_optimistic(parent) or
-    blck.slot + self.safeSlotsToImportOptimistically <=
-      self.getBeaconTime().slotOrZero
+  let
+    parentRoot = withBlck(blck): blck.message.parent_root
+    parentBlck = self.consensusManager.dag.getBlockRef(parentRoot).valueOr:
+      return false
 
-from ../consensus_object_pools/blockchain_dag import markBlockInvalid
+  # The parent of the block has execution enabled.
+  not self.consensusManager.dag.loadExecutionBlockRoot(parentBlck).isZero
 
 proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
   while true:
@@ -490,5 +498,6 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       else:
         debug "runQueueProcessingLoop: block cannot be optimistically imported",
           blck = shortLog(blck.blck)
-        blck.resfut.complete(
-          Result[void, BlockError].err(BlockError.MissingParent))
+        if not blck.resfut.isNil:
+          blck.resfut.complete(
+            Result[void, BlockError].err(BlockError.MissingParent))
