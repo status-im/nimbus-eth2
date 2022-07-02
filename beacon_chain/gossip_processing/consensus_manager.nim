@@ -135,8 +135,14 @@ proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BlockRef)
   let
     consensusHeadRoot = newHead.root
     executionHeadRoot = self.dag.loadExecutionBlockRoot(newHead)
-    executionFinalizedRoot =
-      self.dag.loadExecutionBlockRoot(self.dag.finalizedHead.blck)
+
+  if executionHeadRoot.isZero:
+    # Can happen if an post-merge block has been received for processing, but
+    # the fork choice head is still pre-merge.
+    return
+
+  let executionFinalizedRoot =
+    self.dag.loadExecutionBlockRoot(self.dag.finalizedHead.blck)
 
   let payloadExecutionStatus = await self.eth1Monitor.runForkchoiceUpdated(
     executionHeadRoot, executionFinalizedRoot)
@@ -150,17 +156,19 @@ proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BlockRef)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
     self.dag.optimisticRoots.incl consensusHeadRoot
 
-proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
+template updateHeadWith(self: var ConsensusManager, wallSlot: Slot, body: untyped) =
   ## Trigger fork choice and update the DAG with the new head block
   ## This does not automatically prune the DAG after finalization
   ## `pruneFinalized` must be called for pruning.
 
   # Grab the new head according to our latest attestation data
-  let newHead = self.attestationPool[].selectOptimisticHead(
+  let newHead {.inject.} = self.attestationPool[].selectOptimisticHead(
       wallSlot.start_beacon_time).valueOr:
     warn "Head selection failed, using previous head",
       head = shortLog(self.dag.head), wallSlot
     return
+
+  body
 
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
@@ -168,27 +176,14 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   self.checkExpectedBlock()
 
-proc updateHeadWithExecution*(self: ref ConsensusManager, wallSlot: Slot)
-    {.async.} =
-  ## Trigger fork choice and update the DAG with the new head block
-  ## This does not automatically prune the DAG after finalization
-  ## `pruneFinalized` must be called for pruning.
+proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
+  self.updateHeadWith(wallSlot):
+    discard
 
-  # Grab the new head according to our latest attestation data
-  let newHead = self.attestationPool[].selectOptimisticHead(
-      wallSlot.start_beacon_time).valueOr:
-    warn "Head selection failed, using previous head",
-      head = shortLog(self.dag.head), wallSlot
-    return
-
-  # Ensure dag.updateHead has most current information
-  await self.updateExecutionClientHead(newHead)
-
-  # Store the new head in the chain DAG - this may cause epochs to be
-  # justified and finalized
-  self.dag.updateHead(newHead, self.quarantine[])
-
-  self[].checkExpectedBlock()
+proc updateHeadWithExecution*(
+    self: ref ConsensusManager, wallSlot: Slot) {.async.} =
+  self[].updateHeadWith(wallSlot):
+    await self.updateExecutionClientHead(newHead)
 
 proc pruneStateCachesAndForkChoice*(self: var ConsensusManager) =
   ## Prune unneeded and invalidated data after finalization
