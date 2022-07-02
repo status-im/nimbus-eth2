@@ -310,3 +310,40 @@ const
   jsonMediaType* = MediaType.init("application/json")
   sszMediaType* = MediaType.init("application/octet-stream")
   textEventStreamMediaType* = MediaType.init("text/event-stream")
+
+type
+  ResponseContentType* = enum
+    # Please note that the order of content types here determines
+    # the order of preference for the returned result by Nimbus.
+    # This Nimbus preference is used when the request doesn't
+    # explicitly state another preference.
+    jsonResponseType = "application/json"
+    sszResponseType = "application/octet-stream"
+
+proc pickResponseType*(request: HttpRequestRef): Result[ResponseContentType, void] =
+  proc mediaTypesSeq: seq[MediaType] {.compileTime.} =
+    for t in enumStrValuesArray ResponseContentType:
+      result.add MediaType.init(t)
+
+  const mediaTypes = mediaTypesSeq()
+
+  let pick = try: request.preferredContentType(mediaTypes)
+             except ValueError:
+               # TODO: Fix this API in Chronos.
+               # Mixing Result with Exceptions is awkward to use.
+               return err()
+  if pick.isErr:
+    return err()
+
+  for idx, mediaType in mediaTypes:
+    if pick.get == mediaType:
+      return ok ResponseContentType(idx)
+
+proc okResponse*(
+    responseType: ResponseContentType,
+    value: auto): RestApiResponse =
+  case responseType
+  of jsonResponseType:
+    RestApiResponse.jsonResponse value
+  of sszResponseType:
+    RestApiResponse.sszResponse value

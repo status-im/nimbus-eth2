@@ -13,6 +13,11 @@ import ../beacon_node,
 
 logScope: topics = "rest_light_client"
 
+const
+  # TODO: This needs to be specified in the spec
+  # https://github.com/ethereum/beacon-APIs/pull/181#issuecomment-1172877455
+  MAX_CLIENT_UPDATES = 10000
+
 proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://github.com/ethereum/beacon-APIs/pull/181
   router.api(MethodGet,
@@ -25,9 +30,13 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                          $block_root.error())
       block_root.get()
 
-    let bootstrap = node.dag.getLightClientBootstrap(vroot)
+    let
+      responseType = request.pickResponseType().valueOr:
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+      bootstrap = node.dag.getLightClientBootstrap(vroot)
+
     if bootstrap.isOk:
-      return RestApiResponse.jsonResponse(bootstrap)
+      return responseType.okResponse bootstrap.get
     else:
       return RestApiResponse.jsonError(Http404, LCBootstrapUnavailable)
 
@@ -53,7 +62,10 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidCountError,
                                          $rcount.error())
       rcount.get()
+
     let
+      responseType = request.pickResponseType().valueOr:
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
       headPeriod = node.dag.head.slot.sync_committee_period
        # Limit number of updates in response
       maxSupportedCount =
@@ -69,16 +81,26 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let update = node.dag.getLightClientUpdateForPeriod(period)
       if update.isSome:
         updates.add update.get
-    return RestApiResponse.jsonResponse(updates)
+
+    return
+      case responseType
+      of jsonResponseType:
+        RestApiResponse.jsonResponse(updates)
+      of sszResponseType:
+        RestApiResponse.sszResponse(updates.asSszList(MAX_CLIENT_UPDATES))
 
   # https://github.com/ethereum/beacon-APIs/pull/181
   router.api(MethodGet,
              "/eth/v0/beacon/light_client/finality_update") do (
     ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
-    let finality_update = node.dag.getLightClientFinalityUpdate()
+    let
+      responseType = request.pickResponseType().valueOr:
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+      finality_update = node.dag.getLightClientFinalityUpdate()
+
     if finality_update.isSome:
-      return RestApiResponse.jsonResponse(finality_update)
+      return responseType.okResponse finality_update.get
     else:
       return RestApiResponse.jsonError(Http404, LCFinUpdateUnavailable)
 
@@ -87,8 +109,12 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v0/beacon/light_client/optimistic_update") do (
     ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
-    let optimistic_update = node.dag.getLightClientOptimisticUpdate()
+    let
+      responseType = request.pickResponseType().valueOr:
+        return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+      optimistic_update = node.dag.getLightClientOptimisticUpdate()
+
     if optimistic_update.isSome:
-      return RestApiResponse.jsonResponse(optimistic_update)
+      return responseType.okResponse optimistic_update.get
     else:
       return RestApiResponse.jsonError(Http404, LCOptUpdateUnavailable)
