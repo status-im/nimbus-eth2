@@ -164,7 +164,6 @@ proc storeBackfillBlock(
 
   res
 
-from chronicles/chronos_tools import traceAsyncErrors
 from ../consensus_object_pools/attestation_pool import addForkChoice
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
@@ -173,7 +172,6 @@ proc storeBlock*(
     self: ref BlockProcessor,
     src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock, payloadValid: bool,
-    blockingHeadUpdate: bool,
     queueTick: Moment = Moment.now(),
     validationDur = Duration()):
     Future[Result[BlockRef, BlockError]] {.async.} =
@@ -256,16 +254,21 @@ proc storeBlock*(
 
   # Eagerly update head: the incoming block "should" get selected.
   #
-  # storeBlock gets called from validator_duties and from the block processing
-  # loop. The block processing loop can tolerate relatively longer delays. The
-  # validator_duties context is after a block being proposed; storeBlock is in
-  # a tail call position, so it's comparatively safe to wait here.
-  if blockingHeadUpdate:
-    await self.consensusManager.updateHeadWithExecution(
-      wallTime.slotOrZero)
+  # storeBlock gets called from validator_duties, which depends on its not
+  # blocking progress any longer than necessary, and processBlock here, in
+  # which case it's fine to await for a while on engine API results.
+  if not is_execution_block(signedBlock.message):
+    self.consensusManager[].updateHead(wallTime.slotOrZero)
   else:
-    traceAsyncErrors self.consensusManager.updateHeadWithExecution(
-      wallTime.slotOrZero)
+    # This primarily exists to ensure that by the time the DAG updateHead is
+    # called valid blocks have already been registered as verified. The head
+    # can lag a slot behind wall clock, complicating detecting synced status
+    # for validating, otherwise.
+    #
+    # TODO have a third version which is fire-and-forget for when it is merge
+    # but payloadValid is true, i.e. fcU is for EL's benefit, not CL. Current
+    # behavior adds unnecessary latency to CL event loop.
+    await self.consensusManager.updateHeadWithExecution(wallTime.slotOrZero)
 
   let
     updateHeadTick = Moment.now()
@@ -340,8 +343,8 @@ proc processBlock(
 
   let res = withBlck(entry.blck):
     await self.storeBlock(
-      entry.src, wallTime, blck, payloadValid = payloadValid,
-      blockingHeadUpdate = true, entry.queueTick, entry.validationDur)
+      entry.src, wallTime, blck, payloadValid, entry.queueTick,
+      entry.validationDur)
 
   if entry.resfut != nil:
     entry.resfut.complete(

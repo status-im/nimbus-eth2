@@ -808,12 +808,9 @@ proc proposeBlock(node: BeaconNode,
       wallTime = node.beaconClock.now()
 
       # storeBlock puts the block in the chaindag, and if accepted, takes care
-      # of side effects such as event api notification. If the payload in this
-      # block was from getPayload from this EL it must be valid, and the block
-      # verified. MEV-derived blocks, when they're added, might not.
+      # of side effects such as event api notification
       newBlockRef = await node.blockProcessor.storeBlock(
-        MsgSource.api, wallTime, signedBlock, payloadValid = false,
-        blockingHeadUpdate = true)
+        MsgSource.api, wallTime, signedBlock, true)
 
     if newBlockRef.isErr:
       warn "Unable to add proposed block to block pool",
@@ -1519,8 +1516,7 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
     wallTime = node.beaconClock.now()
     accepted = withBlck(forked):
       let newBlockRef = await node.blockProcessor.storeBlock(
-        MsgSource.api, wallTime, blck, payloadValid = true,
-        blockingHeadUpdate = true)
+        MsgSource.api, wallTime, blck, payloadValid  = true)
 
       # The boolean we return tells the caller whether the block was integrated
       # into the chain

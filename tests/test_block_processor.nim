@@ -48,8 +48,7 @@ suite "Block processor" & preset():
 
   test "Reverse order block add & get" & preset():
     let missing = waitFor processor.storeBlock(
-      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2,
-      payloadValid = true, blockingHeadUpdate = true)
+      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2, payloadValid = true)
     check: missing.error == BlockError.MissingParent
 
     check:
@@ -59,8 +58,7 @@ suite "Block processor" & preset():
 
     let
       status = waitFor processor.storeBlock(
-        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1,
-        payloadValid = true, blockingHeadUpdate = true)
+        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1, payloadValid = true)
       b1Get = dag.getBlockRef(b1.root)
 
     check:
