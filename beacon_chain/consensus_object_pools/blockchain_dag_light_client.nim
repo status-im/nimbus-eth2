@@ -15,7 +15,7 @@ import
   stew/[bitops2, objects],
   # Beacon chain internals
   ../spec/datatypes/[phase0, altair, bellatrix],
-  ../light_client_data_db,
+  ../beacon_chain_db_light_client,
   "."/[block_pools_types, blockchain_dag]
 
 logScope: topics = "chaindag"
@@ -124,30 +124,17 @@ proc syncCommitteeRootForPeriod(
   do: err()
 
 proc initLightClientDataStore*(
-    config: LightClientDataConfig, cfg: RuntimeConfig): LightClientDataStore =
+    config: LightClientDataConfig,
+    cfg: RuntimeConfig,
+    db: LightClientDataDB): LightClientDataStore =
   ## Initialize light client data store.
-  var lcDataStore = LightClientDataStore(
+  LightClientDataStore(
+    db: db,
     serve: config.serve,
     importMode: config.importMode,
     maxPeriods: config.maxPeriods.get(cfg.defaultLightClientDataMaxPeriods),
     onLightClientFinalityUpdate: config.onLightClientFinalityUpdate,
     onLightClientOptimisticUpdate: config.onLightClientOptimisticUpdate)
-
-  if config.serve or config.importMode != LightClientDataImportMode.None:
-    lcDataStore.db =
-      if config.dbDir.isSome:
-        initLightClientDataDB(config.dbDir.get, inMemory = false).valueOr:
-          warn "Falling back to in-memory LC data DB"
-          initLightClientDataDB(config.dbDir.get, inMemory = true).expect(
-            "In-memory LC data DB expected to succeed")
-      else:
-        initLightClientDataDB(".", inMemory = true).expect(
-          "In-memory LC data DB expected to succeed")
-
-  lcDataStore
-
-proc closeLightClientDataStore*(dag: ChainDAGRef) =
-  dag.lcDataStore.db.close()
 
 func targetLightClientTailSlot(dag: ChainDAGRef): Slot =
   ## Earliest slot for which light client data is retained.

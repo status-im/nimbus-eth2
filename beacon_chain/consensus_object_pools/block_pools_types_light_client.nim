@@ -13,7 +13,7 @@
 import
   # Beacon chain internals
   ../spec/datatypes/altair,
-  ../light_client_data_db,
+  ../beacon_chain_db_light_client,
   ./block_dag
 
 type
@@ -62,8 +62,6 @@ type
       ## The earliest slot for which light client data is imported.
 
   LightClientDataConfig* = object
-    dbDir*: Option[string]
-      ## Directory to store light client data DB in
     serve*: bool
       ## Whether to make local light client data available or not
     importMode*: LightClientDataImportMode
