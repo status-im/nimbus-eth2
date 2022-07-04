@@ -141,7 +141,8 @@ type
       ## in the case where an earlier genesis block exists.
 
     head*: BlockRef
-      ## The most recently known head, as chosen by fork choice
+      ## The most recently known head, as chosen by fork choice; might be
+      ## optimistic
 
     backfill*: BeaconBlockSummary
       ## The backfill points to the oldest block with an unbroken ancestry from
@@ -225,6 +226,9 @@ type
       ## using the head state is slightly wrong - if a reorg deeper than
       ## EPOCHS_PER_SYNC_COMMITTEE_PERIOD is happening, some valid sync
       ## committee messages will be rejected
+
+    optimisticRoots*: HashSet[Eth2Digest]
+      ## https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#helpers
 
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and

@@ -299,10 +299,12 @@ p2pProtocol BeaconSync(version = 1,
 
     if startSlot.epoch >= dag.cfg.ALTAIR_FORK_EPOCH:
       # "Clients MAY limit the number of blocks in the response."
-      # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyrange
+      # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#beaconblocksbyrange
       debug "Block range v1 request for post-altair range",
         peer, startSlot, reqCount, reqStep
       return
+
+    # Phase 0 blocks are never optimistic.
 
     var blocks: array[MAX_REQUEST_BLOCKS, BlockId]
 
@@ -387,11 +389,13 @@ p2pProtocol BeaconSync(version = 1,
       if blockRef.slot.epoch >= dag.cfg.ALTAIR_FORK_EPOCH:
         # Skipping this block should be fine because the spec says:
         # "Clients MAY limit the number of blocks in the response."
-        # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyroot
+        # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#beaconblocksbyroot
         #
         # Also, our response would be indistinguishable from a node
         # that have been synced exactly to the altair transition slot.
         continue
+
+      # Phase 0 blocks are never optimistic.
 
       if dag.getBlockSZ(blockRef.bid, bytes):
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
@@ -454,6 +458,13 @@ p2pProtocol BeaconSync(version = 1,
 
     for i in startIndex..endIndex:
       if dag.getBlockSZ(blocks[i], bytes):
+        # In general, there is not much intermediate time between post-merge
+        # blocks all being optimistic and none of them being optimistic. The
+        # EL catches up, tells the CL the head is verified, and that's it.
+        if  blocks[i].slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
+            dag.is_optimistic(dag.head.root):
+          continue
+
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
           warn "Cannot read block size, database corrupt?",
             bytes = bytes.len(), blck = shortLog(blocks[i])
@@ -510,6 +521,13 @@ p2pProtocol BeaconSync(version = 1,
           continue
 
       if dag.getBlockSZ(blockRef.bid, bytes):
+        # In general, there is not much intermediate time between post-merge
+        # blocks all being optimistic and none of them being optimistic. The
+        # EL catches up, tells the CL the head is verified, and that's it.
+        if  blockRef.slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
+            dag.is_optimistic(dag.head.root):
+          continue
+
         let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
           warn "Cannot read block size, database corrupt?",
             bytes = bytes.len(), blck = shortLog(blockRef)

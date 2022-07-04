@@ -29,6 +29,7 @@ proc addResolvedHeadBlock(
        dag: ChainDAGRef,
        state: var ForkedHashedBeaconState,
        trustedBlock: ForkyTrustedSignedBeaconBlock,
+       blockVerified: bool,
        parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
@@ -73,6 +74,7 @@ proc addResolvedHeadBlock(
   debug "Block resolved",
     blockRoot = shortLog(blockRoot),
     blck = shortLog(trustedBlock.message),
+    blockVerified,
     heads = dag.heads.len(),
     stateDataDur, sigVerifyDur, stateVerifyDur,
     putBlockDur = putBlockTick - startTick,
@@ -80,6 +82,9 @@ proc addResolvedHeadBlock(
 
   # Update light client data
   dag.processNewBlockForLightClient(state, trustedBlock, parent.bid)
+
+  if not blockVerified:
+    dag.optimisticRoots.incl blockRoot
 
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
@@ -136,6 +141,7 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
 proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
+    blockVerified: bool,
     onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
                   OnBellatrixBlockAdded
     ): Result[BlockRef, BlockError] =
@@ -256,11 +262,21 @@ proc addHeadBlock*(
   ok addResolvedHeadBlock(
     dag, dag.clearanceState,
     signedBlock.asTrusted(),
+    blockVerified = blockVerified,
     parent, cache,
     onBlockAdded,
     stateDataDur = stateDataTick - startTick,
     sigVerifyDur = sigVerifyTick - stateDataTick,
     stateVerifyDur = stateVerifyTick - sigVerifyTick)
+
+proc addHeadBlock*(
+    dag: ChainDAGRef, verifier: var BatchVerifier,
+    signedBlock: ForkySignedBeaconBlock,
+    onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
+                  OnBellatrixBlockAdded
+    ): Result[BlockRef, BlockError] =
+  addHeadBlock(
+    dag, verifier, signedBlock, blockVerified = true, onBlockAdded)
 
 proc addBackfillBlock*(
     dag: ChainDAGRef,

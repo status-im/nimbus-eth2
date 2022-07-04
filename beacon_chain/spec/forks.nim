@@ -268,21 +268,27 @@ template toString*(kind: BeaconStateFork): string =
     "bellatrix"
 
 template toFork*[T:
+    phase0.BeaconBlock |
     phase0.SignedBeaconBlock |
+    phase0.TrustedBeaconBlock |
     phase0.SigVerifiedSignedBeaconBlock |
     phase0.MsgTrustedSignedBeaconBlock |
     phase0.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Phase0
 template toFork*[T:
+    altair.BeaconBlock |
     altair.SignedBeaconBlock |
+    altair.TrustedBeaconBlock |
     altair.SigVerifiedSignedBeaconBlock |
     altair.MsgTrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Altair
 template toFork*[T:
+    bellatrix.BeaconBlock |
     bellatrix.SignedBeaconBlock |
+    bellatrix.TrustedBeaconBlock |
     bellatrix.SigVerifiedSignedBeaconBlock |
     bellatrix.MsgTrustedSignedBeaconBlock |
     bellatrix.TrustedSignedBeaconBlock](

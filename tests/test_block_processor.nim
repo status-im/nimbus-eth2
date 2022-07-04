@@ -44,11 +44,11 @@ suite "Block processor" & preset():
       getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
       processor = BlockProcessor.new(
         false, "", "", keys.newRng(), taskpool, consensusManager,
-        validatorMonitor, getTimeFn)
+        validatorMonitor, getTimeFn, safeSlotsToImportOptimistically = 128)
 
   test "Reverse order block add & get" & preset():
-    let missing = processor[].storeBlock(
-      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2)
+    let missing = waitFor processor.storeBlock(
+      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2, payloadValid = true)
     check: missing.error == BlockError.MissingParent
 
     check:
@@ -57,8 +57,8 @@ suite "Block processor" & preset():
       FetchRecord(root: b1.root) in quarantine[].checkMissing()
 
     let
-      status = processor[].storeBlock(
-        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1)
+      status = waitFor processor.storeBlock(
+        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1, payloadValid = true)
       b1Get = dag.getBlockRef(b1.root)
 
     check:

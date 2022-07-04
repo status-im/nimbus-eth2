@@ -207,10 +207,11 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   # TODO if everyone follows this logic, the network will not recover from a
   #      halt: nobody will be producing blocks because everone expects someone
   #      else to do it
-  if wallSlot.afterGenesis and head.slot + node.config.syncHorizon < wallSlot.slot:
+  if  wallSlot.afterGenesis and
+      head.slot + node.config.syncHorizon < wallSlot.slot:
     false
   else:
-    true
+    not node.dag.is_optimistic(head.root)
 
 func isGoodForSending(validationResult: ValidationRes): bool =
   # Validator clients such as Vouch can be configured to work with multiple
@@ -602,12 +603,14 @@ proc getExecutionPayload(
           node.eth1Monitor.terminalBlockHash.get.asEth2Digest
         else:
           default(Eth2Digest)
+      executionBlockRoot = node.dag.loadExecutionBlockRoot(node.dag.head)
       latestHead =
-        if not node.dag.head.executionBlockRoot.isZero:
-          node.dag.head.executionBlockRoot
+        if not executionBlockRoot.isZero:
+          executionBlockRoot
         else:
           terminalBlockHash
-      latestFinalized = node.dag.finalizedHead.blck.executionBlockRoot
+      latestFinalized =
+        node.dag.loadExecutionBlockRoot(node.dag.finalizedHead.blck)
       payload_id = (await forkchoice_updated(
         proposalState.bellatrixData.data, latestHead, latestFinalized,
         node.getSuggestedFeeRecipient(pubkey),
@@ -806,8 +809,8 @@ proc proposeBlock(node: BeaconNode,
 
       # storeBlock puts the block in the chaindag, and if accepted, takes care
       # of side effects such as event api notification
-      newBlockRef = node.blockProcessor[].storeBlock(
-        MsgSource.api, wallTime, signedBlock)
+      newBlockRef = await node.blockProcessor.storeBlock(
+        MsgSource.api, wallTime, signedBlock, true)
 
     if newBlockRef.isErr:
       warn "Unable to add proposed block to block pool",
@@ -1512,8 +1515,8 @@ proc sendBeaconBlock*(node: BeaconNode, forked: ForkedSignedBeaconBlock
   let
     wallTime = node.beaconClock.now()
     accepted = withBlck(forked):
-      let newBlockRef = node.blockProcessor[].storeBlock(
-        MsgSource.api, wallTime, blck)
+      let newBlockRef = await node.blockProcessor.storeBlock(
+        MsgSource.api, wallTime, blck, payloadValid  = true)
 
       # The boolean we return tells the caller whether the block was integrated
       # into the chain
