@@ -88,7 +88,10 @@ proc process_randao(
   let
     epoch = state.get_current_epoch()
 
-  if skipBlsValidation notin flags:
+  if skipRandaoVerification in flags:
+    if body.randao_reveal.toRaw != ValidatorSig.infinity.toRaw:
+      return err("process_randao: expected point-at-infinity for skipRandaoVerification")
+  elif skipBlsValidation notin flags:
     let proposer_pubkey = state.validators.item(proposer_index.get).pubkey
 
     if not verify_epoch_signature(

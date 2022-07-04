@@ -477,6 +477,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
+    skip_randao_verification_bool: bool = false,
     execution_payload: Opt[ExecutionPayload] = Opt.none(ExecutionPayload),
     transactions_root: Opt[Eth2Digest] = Opt.none(Eth2Digest),
     execution_payload_root: Opt[Eth2Digest] = Opt.none(Eth2Digest)):
@@ -553,6 +554,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       effectiveExecutionPayload,
       noRollback, # Temporary state - no need for rollback
       cache,
+      verificationFlags = if skip_randao_verification_bool: {skipRandaoVerification} else: {},
       transactions_root =
         if transactions_root.isSome:
           Opt.some transactions_root.get
