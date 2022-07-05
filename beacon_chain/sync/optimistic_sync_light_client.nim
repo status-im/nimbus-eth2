@@ -55,7 +55,7 @@ proc reportOptimisticCandidateBlock(optSync: LCOptimisticSync) {.gcsafe.} =
       optSync.finalizedIsExecutionBlock =
         withBlck(finalizedBlock.get):
           when stateFork >= BeaconStateFork.Bellatrix:
-            some blck.message.body.is_execution_block()
+            some blck.message.is_execution_block()
           else:
             some false
 

@@ -11,10 +11,9 @@
 # protocol. See https://github.com/ethereum/consensus-specs/pull/2802
 
 import
-  # Status libraries
-  stew/bitops2,
   # Beacon chain internals
   ../spec/datatypes/altair,
+  ../beacon_chain_db_light_client,
   ./block_dag
 
 type
@@ -49,15 +48,6 @@ type
       ## Key is the block ID of which the post state was used to get the data.
       ## Data stored for the finalized head block and all non-finalized blocks.
 
-    currentBranches*: Table[Slot, altair.CurrentSyncCommitteeBranch]
-      ## Cached data for creating future `LightClientBootstrap` instances.
-      ## Key is the block slot of which the post state was used to get the data.
-      ## Data stored for all finalized epoch boundary blocks.
-
-    bestUpdates*: Table[SyncCommitteePeriod, altair.LightClientUpdate]
-      ## Stores the `LightClientUpdate` with the most `sync_committee_bits` per
-      ## `SyncCommitteePeriod`. Sync committee finality gives precedence.
-
     pendingBest*:
       Table[(SyncCommitteePeriod, Eth2Digest), altair.LightClientUpdate]
       ## Same as `bestUpdates`, but for `SyncCommitteePeriod` with not yet
@@ -89,6 +79,8 @@ type
 
     cache*: LightClientDataCache
       ## Cached data to accelerate creating light client data
+    db*: LightClientDataDB
+      ## Persistent light client data to avoid expensive recomputations
 
     # -----------------------------------
     # Config

@@ -97,7 +97,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                   )
         res
 
-    # TODO (cheatfate): Proper implementation required
+    # getSyncedHead() implies non-optimistic node.
     let optimistic =
       if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
         some(false)
@@ -151,7 +151,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             )
         res
 
-    # TODO (cheatfate): Proper implementation required
+    # getSyncedHead() implies non-optimistic node.
     let optimistic =
       if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
         some(false)

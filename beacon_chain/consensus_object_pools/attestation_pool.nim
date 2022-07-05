@@ -723,9 +723,11 @@ func getAggregatedAttestation*(pool: var AttestationPool,
 
   res
 
-proc selectHead*(pool: var AttestationPool, wallTime: BeaconTime): Opt[BlockRef] =
+proc selectOptimisticHead*(
+    pool: var AttestationPool, wallTime: BeaconTime): Opt[BlockRef] =
   ## Trigger fork choice and returns the new head block.
   ## Can return `nil`
+  # TODO rename this to get_optimistic_head
   let newHead = pool.forkChoice.get_head(pool.dag, wallTime)
 
   if newHead.isErr:

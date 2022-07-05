@@ -137,13 +137,13 @@ proc addValidators*(node: BeaconNode) =
   node.addLocalValidators(localValidators)
   node.addRemoteValidators(remoteValidators)
 
-proc getAttachedValidator*(node: BeaconNode,
-                           pubkey: ValidatorPubKey): AttachedValidator =
+proc getAttachedValidator(node: BeaconNode,
+                          pubkey: ValidatorPubKey): AttachedValidator =
   node.attachedValidators[].getValidator(pubkey)
 
-proc getAttachedValidator*(node: BeaconNode,
-                           state_validators: auto,
-                           idx: ValidatorIndex): AttachedValidator =
+proc getAttachedValidator(node: BeaconNode,
+                          state_validators: auto,
+                          idx: ValidatorIndex): AttachedValidator =
   if uint64(idx) < state_validators.lenu64:
     let validator = node.getAttachedValidator(state_validators[idx].pubkey)
     if validator != nil and validator.index != some(idx):
@@ -156,9 +156,9 @@ proc getAttachedValidator*(node: BeaconNode,
       idx, validators = state_validators.len
     nil
 
-proc getAttachedValidator*(node: BeaconNode,
-                           epochRef: EpochRef,
-                           idx: ValidatorIndex): AttachedValidator =
+proc getAttachedValidator(node: BeaconNode,
+                          epochRef: EpochRef,
+                          idx: ValidatorIndex): AttachedValidator =
   let key = epochRef.validatorKey(idx)
   if key.isSome():
     let validator = node.getAttachedValidator(key.get().toPubKey())
@@ -193,10 +193,11 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   # TODO if everyone follows this logic, the network will not recover from a
   #      halt: nobody will be producing blocks because everone expects someone
   #      else to do it
-  if wallSlot.afterGenesis and head.slot + node.config.syncHorizon < wallSlot.slot:
+  if  wallSlot.afterGenesis and
+      head.slot + node.config.syncHorizon < wallSlot.slot:
     false
   else:
-    true
+    not node.dag.is_optimistic(head.root)
 
 proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
   static: doAssert lightClientFinalityUpdateSlotOffset ==
@@ -401,12 +402,14 @@ proc getExecutionPayload(
           node.eth1Monitor.terminalBlockHash.get.asEth2Digest
         else:
           default(Eth2Digest)
+      executionBlockRoot = node.dag.loadExecutionBlockRoot(node.dag.head)
       latestHead =
-        if not node.dag.head.executionBlockRoot.isZero:
-          node.dag.head.executionBlockRoot
+        if not executionBlockRoot.isZero:
+          executionBlockRoot
         else:
           terminalBlockHash
-      latestFinalized = node.dag.finalizedHead.blck.executionBlockRoot
+      latestFinalized =
+        node.dag.loadExecutionBlockRoot(node.dag.finalizedHead.blck)
       payload_id = (await forkchoice_updated(
         proposalState.bellatrixData.data, latestHead, latestFinalized,
         node.getSuggestedFeeRecipient(pubkey),

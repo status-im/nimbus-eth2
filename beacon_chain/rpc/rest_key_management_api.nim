@@ -198,18 +198,18 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
       if res.isOk:
         case res.value()
         of RemoveValidatorStatus.deleted:
-          keysAndDeleteStatus.add(
-            pubkey, RequestItemStatus(status: $KeystoreStatus.deleted))
+          keysAndDeleteStatus[pubkey] =
+            RequestItemStatus(status: $KeystoreStatus.deleted)
 
         # At first all keys with status missing directory after removal receive
         # status 'not_found'
         of RemoveValidatorStatus.notFound:
-          keysAndDeleteStatus.add(
-            pubkey, RequestItemStatus(status: $KeystoreStatus.notFound))
+          keysAndDeleteStatus[pubkey] =
+            RequestItemStatus(status: $KeystoreStatus.notFound)
       else:
-        keysAndDeleteStatus.add(pubkey,
-                                RequestItemStatus(status: $KeystoreStatus.error,
-                                                  message: $res.error()))
+        keysAndDeleteStatus[pubkey] =
+          RequestItemStatus(status: $KeystoreStatus.error,
+                            message: $res.error())
 
     # If we discover slashing protection data for a validator that was not
     # found, this means the validator was active in the past, so we must
