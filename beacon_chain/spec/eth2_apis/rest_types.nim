@@ -568,7 +568,7 @@ type
   ProduceBlockResponse* = DataEnclosedObject[phase0.BeaconBlock]
   ProduceBlockResponseV2* = ForkedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
-  SubmitBlindedBlockResponse* = DataEnclosedObject[SignedBuilderBid]
+  SubmitBlindedBlockResponse* = DataEnclosedObject[bellatrix.ExecutionPayload]
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)
