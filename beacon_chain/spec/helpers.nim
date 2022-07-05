@@ -88,6 +88,12 @@ func get_current_epoch*(state: ForkedHashedBeaconState): Epoch =
   ## Return the current epoch.
   withState(state): get_current_epoch(state.data)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_previous_epoch
+func get_previous_epoch*(
+    state: ForkyBeaconState | ForkedHashedBeaconState): Epoch =
+  ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
+  get_previous_epoch(get_current_epoch(state))
+
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Returns the randao mix at a recent ``epoch``.

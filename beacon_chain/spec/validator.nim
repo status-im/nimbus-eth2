@@ -184,16 +184,6 @@ iterator get_committee_indices*(committee_count_per_slot: uint64): CommitteeInde
     let committee_index = CommitteeIndex.init(idx).expect("value clamped")
     yield committee_index
 
-func get_previous_epoch*(state: ForkyBeaconState): Epoch =
-  ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
-  # Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
-  get_previous_epoch(get_current_epoch(state))
-
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_previous_epoch
-func get_previous_epoch*(state: ForkedHashedBeaconState): Epoch =
-  ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
-  get_previous_epoch(get_current_epoch(state))
-
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#compute_committee
 func compute_committee_slice*(
     active_validators, index, count: uint64): Slice[int] =

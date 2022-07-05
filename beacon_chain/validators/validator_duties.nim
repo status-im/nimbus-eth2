@@ -1102,7 +1102,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
     else:
       await proposeBlock(node, validator, proposer.get(), head, slot)
 
-proc makeAggregateAndProof*(
+proc makeAggregateAndProof(
     pool: var AttestationPool, epochRef: EpochRef, slot: Slot,
     committee_index: CommitteeIndex,
     validator_index: ValidatorIndex,

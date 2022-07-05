@@ -144,6 +144,14 @@ func validatorKey*(
   ## non-head branch)!
   validatorKey(epochRef.dag, index)
 
+template is_merge_transition_complete(
+    stateParam: ForkedHashedBeaconState): bool =
+  withState(stateParam):
+    when stateFork >= BeaconStateFork.Bellatrix:
+      is_merge_transition_complete(state.data)
+    else:
+      false
+
 func init*(
     T: type EpochRef, dag: ChainDAGRef, state: ForkedHashedBeaconState,
     cache: var StateCache): T =
@@ -154,28 +162,31 @@ func init*(
     epochRef = EpochRef(
       dag: dag, # This gives access to the validator pubkeys through an EpochRef
       key: dag.epochAncestor(state.latest_block_id, epoch),
-      eth1_data: getStateField(state, eth1_data),
-      eth1_deposit_index: getStateField(state, eth1_deposit_index),
-      current_justified_checkpoint:
-        getStateField(state, current_justified_checkpoint),
-      finalized_checkpoint: getStateField(state, finalized_checkpoint),
+
+      eth1_data:
+        getStateField(state, eth1_data),
+      eth1_deposit_index:
+        getStateField(state, eth1_deposit_index),
+
+      checkpoints:
+        FinalityCheckpoints(
+          justified: getStateField(state, current_justified_checkpoint),
+          finalized: getStateField(state, finalized_checkpoint)),
+
+      # beacon_proposers: Separately filled below
       proposer_dependent_root: proposer_dependent_root,
+
       shuffled_active_validator_indices:
         cache.get_shuffled_active_validator_indices(state, epoch),
       attester_dependent_root: attester_dependent_root,
-      merge_transition_complete:
-        case state.kind:
-        of BeaconStateFork.Phase0, BeaconStateFork.Altair: false
-        of BeaconStateFork.Bellatrix:
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
-          state.bellatrixData.data.latest_execution_payload_header !=
-            (static(ExecutionPayloadHeader()))
+
+      merge_transition_complete: state.is_merge_transition_complete()
     )
     epochStart = epoch.start_slot()
 
   for i in 0'u64..<SLOTS_PER_EPOCH:
-    epochRef.beacon_proposers[i] = get_beacon_proposer_index(
-      state, cache, epochStart + i)
+    epochRef.beacon_proposers[i] =
+      get_beacon_proposer_index(state, cache, epochStart + i)
 
   # When fork choice runs, it will need the effective balance of the justified
   # checkpoint - we pre-load the balances here to avoid rewinding the justified
@@ -1019,7 +1030,7 @@ proc getEpochRef*(
   ##
   ## Requests for epochs < dag.finalizedHead.slot.epoch may fail, either because
   ## the search was limited by the `preFinalized` flag or because state history
-  ## has been pruned - none will be returned in this case.
+  ## has been pruned - `none` will be returned in this case.
   if not preFinalized and epoch < dag.finalizedHead.slot.epoch:
     return err()
 
@@ -1597,13 +1608,6 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
     statePruneDur = statePruneTick - startTick,
     epochRefPruneDur = epochRefPruneTick - statePruneTick
 
-template getHeadStateMergeComplete*(dag: ChainDAGRef): bool =
-  withState(dag.headState):
-    when stateFork >= BeaconStateFork.Bellatrix:
-      is_merge_transition_complete(state.data)
-    else:
-      false
-
 proc loadExecutionBlockRoot*(dag: ChainDAGRef, blck: BlockRef): Eth2Digest =
   if dag.cfg.blockForkAtEpoch(blck.bid.slot.epoch) < BeaconBlockFork.Bellatrix:
     return ZERO_HASH
@@ -1659,7 +1663,7 @@ proc updateHead*(
 
   let
     lastHeadStateRoot = getStateRoot(dag.headState)
-    lastHeadMergeComplete = dag.getHeadStateMergeComplete()
+    lastHeadMergeComplete = dag.headState.is_merge_transition_complete()
 
   # Start off by making sure we have the right state - updateState will try
   # to use existing in-memory states to make this smooth
@@ -1676,7 +1680,9 @@ proc updateHead*(
 
   dag.head = newHead
 
-  if dag.getHeadStateMergeComplete() and not lastHeadMergeComplete:
+  if  dag.headState.is_merge_transition_complete() and not
+      lastHeadMergeComplete and
+      dag.vanityLogs.onMergeTransitionBlock != nil:
     dag.vanityLogs.onMergeTransitionBlock()
 
   dag.db.putHeadBlock(newHead.root)
@@ -1780,7 +1786,8 @@ proc updateHead*(
       dag.db.updateFinalizedBlocks(newFinalized)
 
     if  dag.loadExecutionBlockRoot(oldFinalizedHead.blck).isZero and
-        not dag.loadExecutionBlockRoot(dag.finalizedHead.blck).isZero:
+        not dag.loadExecutionBlockRoot(dag.finalizedHead.blck).isZero and
+        dag.vanityLogs.onFinalizedMergeTransitionBlock != nil:
       dag.vanityLogs.onFinalizedMergeTransitionBlock()
 
     # Pruning the block dag is required every time the finalized head changes

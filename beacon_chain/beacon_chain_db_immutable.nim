@@ -178,4 +178,4 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: ExecutionPayloadHeader  # [New in Merge]
+    latest_execution_payload_header*: ExecutionPayloadHeader  # [New in Bellatrix]

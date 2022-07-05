@@ -15,7 +15,7 @@ import
   # Internal
   ../spec/helpers,
   ../spec/datatypes/[phase0, altair],
-  ./blockchain_dag
+  "."/[attestation_pool, blockchain_dag]
 
 export phase0, altair, merge, deques, sets, blockchain_dag
 
@@ -53,9 +53,11 @@ type
     ## Records voluntary exit indices seen.
 
     dag*: ChainDAGRef
+    attestationPool*: ref AttestationPool
     onVoluntaryExitReceived*: OnVoluntaryExitCallback
 
 func init*(T: type ExitPool, dag: ChainDAGRef,
+           attestationPool: ref AttestationPool = nil,
            onVoluntaryExit: OnVoluntaryExitCallback = nil): T =
   ## Initialize an ExitPool from the dag `headState`
   T(
@@ -67,6 +69,7 @@ func init*(T: type ExitPool, dag: ChainDAGRef,
     voluntary_exits:
       initDeque[SignedVoluntaryExit](initialSize = VOLUNTARY_EXITS_BOUND.int),
     dag: dag,
+    attestationPool: attestationPool,
     onVoluntaryExitReceived: onVoluntaryExit
    )
 
@@ -77,15 +80,6 @@ func addExitMessage(subpool: var auto, exitMessage, bound: auto) =
 
   subpool.addLast(exitMessage)
   doAssert subpool.lenu64 <= bound
-
-iterator getValidatorIndices(attester_slashing: AttesterSlashing): uint64 =
-  let attestation_2_indices =
-    toHashSet(attester_slashing.attestation_2.attesting_indices.asSeq)
-
-  for validator_index in attester_slashing.attestation_1.attesting_indices.asSeq:
-    if validator_index notin attestation_2_indices:
-      continue
-    yield validator_index
 
 iterator getValidatorIndices(proposer_slashing: ProposerSlashing): uint64 =
   yield proposer_slashing.signed_header_1.message.proposer_index
@@ -111,6 +105,10 @@ func isSeen*(pool: ExitPool, msg: SignedVoluntaryExit): bool =
 func addMessage*(pool: var ExitPool, msg: AttesterSlashing) =
   for idx in getValidatorIndices(msg):
     pool.prior_seen_attester_slashed_indices.incl idx
+    if pool.attestationPool != nil:
+      let i = ValidatorIndex.init(idx).valueOr:
+        continue
+      pool.attestationPool.forkChoice.process_equivocation(i)
 
   pool.attester_slashings.addExitMessage(msg, ATTESTER_SLASHINGS_BOUND)
 

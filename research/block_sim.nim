@@ -308,10 +308,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         newBlock = getNewBlock[phase0.SignedBeaconBlock](state, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
-            epochRef: EpochRef):
+            epochRef: EpochRef, unrealized: FinalityCheckpoints):
           # Callback add to fork choice if valid
           attPool.addForkChoice(
-            epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
+            epochRef, blckRef, unrealized, signedBlock.message,
+            blckRef.slot.start_beacon_time)
 
       dag.updateHead(added[], quarantine[])
       if dag.needStateCachesAndForkChoicePruning():
@@ -329,10 +330,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         newBlock = getNewBlock[altair.SignedBeaconBlock](state, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: altair.TrustedSignedBeaconBlock,
-            epochRef: EpochRef):
+            epochRef: EpochRef, unrealized: FinalityCheckpoints):
           # Callback add to fork choice if valid
           attPool.addForkChoice(
-            epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
+            epochRef, blckRef, unrealized, signedBlock.message,
+            blckRef.slot.start_beacon_time)
 
       dag.updateHead(added[], quarantine[])
       if dag.needStateCachesAndForkChoicePruning():
@@ -350,10 +352,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         newBlock = getNewBlock[bellatrix.SignedBeaconBlock](state, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: bellatrix.TrustedSignedBeaconBlock,
-            epochRef: EpochRef):
+            epochRef: EpochRef, unrealized: FinalityCheckpoints):
           # Callback add to fork choice if valid
           attPool.addForkChoice(
-            epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
+            epochRef, blckRef, unrealized, signedBlock.message,
+            blckRef.slot.start_beacon_time)
 
       dag.updateHead(added[], quarantine[])
       if dag.needStateCachesAndForkChoicePruning():

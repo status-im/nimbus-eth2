@@ -370,8 +370,8 @@ func get_block_root_at_slot*(state: ForkyBeaconState, slot: Slot): Eth2Digest =
   doAssert slot < state.slot
   state.block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
-func get_block_root_at_slot*(state: ForkedHashedBeaconState,
-                             slot: Slot): Eth2Digest =
+func get_block_root_at_slot*(
+    state: ForkedHashedBeaconState, slot: Slot): Eth2Digest =
   ## Return the block root at a recent ``slot``.
   withState(state):
     get_block_root_at_slot(state.data, slot)
@@ -381,12 +381,17 @@ func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, epoch.start_slot())
 
+func get_block_root*(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
+  ## Return the block root at the start of a recent ``epoch``.
+  withState(state):
+    get_block_root(state.data, epoch)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_total_balance
 template get_total_balance(
     state: ForkyBeaconState, validator_indices: untyped): Gwei =
   ## Return the combined effective balance of the ``indices``.
   ## ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
-  ## Math safe up to ~10B ETH, afterwhich this overflows uint64.
+  ## Math safe up to ~10B ETH, after which this overflows uint64.
   var res = 0.Gwei
   for validator_index in validator_indices:
     res += state.validators[validator_index].effective_balance
@@ -399,8 +404,8 @@ func is_eligible_for_activation_queue*(validator: Validator): bool =
     validator.effective_balance == MAX_EFFECTIVE_BALANCE
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#is_eligible_for_activation
-func is_eligible_for_activation*(state: ForkyBeaconState, validator: Validator):
-    bool =
+func is_eligible_for_activation*(
+    state: ForkyBeaconState, validator: Validator): bool =
   ## Check if ``validator`` is eligible for activation.
 
   # Placement in queue is finalized
@@ -709,7 +714,7 @@ proc process_attestation*(
     pa[].inclusion_delay = state.slot - attestation.data.slot
     pa[].proposer_index = proposer_index.get().uint64
 
-  # Altair and Merge
+  # Altair and Bellatrix
   template updateParticipationFlags(epoch_participation: untyped) =
     let proposer_reward = get_proposer_reward(
       state, attestation, base_reward_per_increment, cache, epoch_participation)

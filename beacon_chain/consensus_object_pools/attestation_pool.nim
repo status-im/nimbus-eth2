@@ -14,7 +14,9 @@ import
   metrics,
   chronicles, stew/byteutils,
   # Internal
-  ../spec/[beaconstate, eth2_merkleization, forks, helpers, validator],
+  ../spec/[
+    beaconstate, eth2_merkleization, forks, helpers,
+    state_transition_epoch, validator],
   ../spec/datatypes/[phase0, altair, bellatrix],
   "."/[spec_cache, blockchain_dag, block_quarantine],
   ../fork_choice/fork_choice,
@@ -121,24 +123,30 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
       blckRef = blocks[blocks.len - i - 1]
       status =
         if i < (blocks.len - ForkChoiceHorizon) and (i mod 1024 != 0):
-          # Fork choice needs to know about the full block tree up to the
+          # Fork choice needs to know about the full block tree back through the
           # finalization point, but doesn't really need to have overly accurate
           # justification and finalization points until we get close to head -
           # nonetheless, we'll make sure to pass a fresh finalization point now
           # and then to make sure the fork choice data structure doesn't grow
           # too big - getting an EpochRef can be expensive.
           forkChoice.backend.process_block(
-            blckRef.root, blckRef.parent.root,
-            epochRef.current_justified_checkpoint,
-            epochRef.finalized_checkpoint)
+            blckRef.root, blckRef.parent.root, epochRef.checkpoints)
         else:
           epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch, false).expect(
             "Getting an EpochRef should always work for non-finalized blocks")
           let blck = dag.getForkedBlock(blckRef.bid).expect(
-              "Should be able to load initial fork choice blocks")
+            "Should be able to load initial fork choice blocks")
+          var unrealized: FinalityCheckpoints
+          if enableTestFeatures in dag.updateFlags and blckRef == dag.head:
+            unrealized = withState(dag.headState):
+              when stateFork >= BeaconStateFork.Altair:
+                state.data.compute_unrealized_finality()
+              else:
+                var cache: StateCache
+                state.data.compute_unrealized_finality(cache)
           withBlck(blck):
             forkChoice.process_block(
-              dag, epochRef, blckRef, blck.message,
+              dag, epochRef, blckRef, unrealized, blck.message,
               blckRef.slot.start_beacon_time)
 
     doAssert status.isOk(), "Error in preloading the fork choice: " & $status.error
@@ -395,11 +403,12 @@ func covers*(
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
+                    unrealized: FinalityCheckpoints,
                     blck: ForkyTrustedBeaconBlock,
                     wallTime: BeaconTime) =
   ## Add a verified block to the fork choice context
   let state = pool.forkChoice.process_block(
-    pool.dag, epochRef, blckRef, blck, wallTime)
+    pool.dag, epochRef, blckRef, unrealized, blck, wallTime)
 
   if state.isErr:
     # This indicates that the fork choice and the chain dag are out of sync -

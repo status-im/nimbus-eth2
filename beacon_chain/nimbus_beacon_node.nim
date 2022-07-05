@@ -312,7 +312,7 @@ proc initFullNode(
     lightClientPool = newClone(
       LightClientPool())
     exitPool = newClone(
-      ExitPool.init(dag, onVoluntaryExitAdded))
+      ExitPool.init(dag, attestationPool, onVoluntaryExitAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.eth1Monitor)
     blockProcessor = BlockProcessor.new(

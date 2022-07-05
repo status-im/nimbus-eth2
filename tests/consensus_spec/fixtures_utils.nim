@@ -10,7 +10,7 @@ import
   std/[os, strutils, typetraits],
   # Internals
   ../../beacon_chain/spec/[
-    eth2_merkleization, eth2_ssz_serialization],
+    eth2_merkleization, eth2_ssz_serialization, forks],
   # Status libs,
   snappy,
   stew/byteutils
@@ -22,11 +22,35 @@ export
 # ---------------------------------------------
 
 # #######################
+# Path parsing
+
+func forkForPathComponent*(forkPath: string): Opt[BeaconStateFork] =
+  for fork in BeaconStateFork:
+    if ($fork).toLowerAscii() == forkPath:
+      return ok fork
+  err()
+
+# #######################
 # JSON deserialization
 
 func readValue*(r: var JsonReader, a: var seq[byte]) =
   ## Custom deserializer for seq[byte]
   a = hexToSeqByte(r.readValue(string))
+
+# #######################
+# Mock RuntimeConfig
+
+func genesisTestRuntimeConfig*(stateFork: BeaconStateFork): RuntimeConfig =
+  var res = defaultRuntimeConfig
+  case stateFork
+  of BeaconStateFork.Bellatrix:
+    res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+  of BeaconStateFork.Altair:
+    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+  of BeaconStateFork.Phase0:
+    discard
+  res
 
 # #######################
 # Test helpers

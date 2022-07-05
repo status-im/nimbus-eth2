@@ -166,6 +166,82 @@ ConsensusSpecPreset-minimal
 + EF - Phase 0 - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
 + EF - Phase 0 - Rewards - with_slashed_validators [Preset: minimal]                         OK
 + EF - Phase 0 - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
++ ForkChoice - minimal/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
++ ForkChoice - minimal/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
++ ForkChoice - minimal/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
++ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
++ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/discard_equivocations        OK
++ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/filtered_block_tree          OK
++ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/genesis                      OK
++ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
++ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
++ ForkChoice - minimal/altair/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/basic                        OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justif OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_ju OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/new_justified_is_later_than_ OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_before_finalized    OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_checkpoints         OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot OK
+  ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots_ OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/on_block_update_justified_ch OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/proposer_boost               OK
++ ForkChoice - minimal/altair/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
++ ForkChoice - minimal/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_hone OK
++ ForkChoice - minimal/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_a OK
++ ForkChoice - minimal/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla            OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/chain_no_attestations     OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/discard_equivocations     OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/filtered_block_tree       OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/genesis                   OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/proposer_boost_correct_he OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier OK
++ ForkChoice - minimal/bellatrix/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_atte OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/basic                     OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_jus OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/new_justified_is_later_th OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root  OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_before_finalized OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_checkpoints      OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_s OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_s OK
+  ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_future_block     Skip
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slo OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/on_block_update_justified OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost            OK
++ ForkChoice - minimal/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_ OK
+  ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/all_valid           Skip
+  ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/block_lookup_failed Skip
+  ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_early_for_merge Skip
+  ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_late_for_merge  Skip
++ ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
++ ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
++ ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
++ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
++ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/discard_equivocations        OK
++ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/filtered_block_tree          OK
++ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/genesis                      OK
++ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
++ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
++ ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/basic                        OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justif OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_ju OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/new_justified_is_later_than_ OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_before_finalized    OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_checkpoints         OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot OK
+  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots_ OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_update_justified_ch OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
++ ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
 + Slots - double_empty_epoch                                                                 OK
 + Slots - empty_epoch                                                                        OK
 + Slots - over_epoch_boundary                                                                OK
@@ -405,7 +481,7 @@ ConsensusSpecPreset-minimal
 + fork_random_misc_balances                                                                  OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 402/402 Fail: 0/402 Skip: 0/402
+OK: 471/478 Fail: 0/478 Skip: 7/478
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -1017,31 +1093,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 38/38 Fail: 0/38 Skip: 0/38
-## EF - ForkChoice [Preset: minimal]
-```diff
-  ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        Skip
-  ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/discard_equivocations        Skip
-  ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/filtered_block_tree          Skip
-  ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/genesis                      Skip
-  ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  Skip
-  ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we Skip
-  ForkChoice - minimal/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/basic                        Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justif Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_ju Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/new_justified_is_later_than_ Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_before_finalized    Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_checkpoints         Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slot Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots_ Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_update_justified_ch Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               Skip
-  ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo Skip
-```
-OK: 0/21 Fail: 0/21 Skip: 21/21
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1301,4 +1352,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1088/1111 Fail: 0/1111 Skip: 23/1111
+OK: 1157/1166 Fail: 0/1166 Skip: 9/1166
