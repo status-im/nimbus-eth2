@@ -1565,7 +1565,7 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     proc SIGTERMHandler(signal: cint) {.noconv.} =
       notice "Shutting down after having received SIGTERM"
       bnStatus = BeaconNodeStatus.Stopping
-    c_signal(SIGTERM, SIGTERMHandler)
+    c_signal(ansi_c.SIGTERM, SIGTERMHandler)
 
   # main event loop
   while bnStatus == BeaconNodeStatus.Running:
@@ -2129,7 +2129,7 @@ programMain:
     proc exitImmediatelyOnSIGTERM(signal: cint) {.noconv.} =
       notice "Shutting down after having received SIGTERM"
       quit 0
-    c_signal(SIGTERM, exitImmediatelyOnSIGTERM)
+    c_signal(ansi_c.SIGTERM, exitImmediatelyOnSIGTERM)
 
   when defined(windows):
     if config.runAsService:
