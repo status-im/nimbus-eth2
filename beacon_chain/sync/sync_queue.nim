@@ -641,9 +641,9 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           hasInvalidBlock = true
 
           let req = item.request
-          warn "Received invalid sequence of blocks", request = req,
-                blocks_count = len(item.data),
-                blocks_map = getShortMap(req, item.data)
+          notice "Received invalid sequence of blocks", request = req,
+                  blocks_count = len(item.data),
+                  blocks_map = getShortMap(req, item.data)
           req.item.updateScore(PeerScoreBadBlocks)
           break
 
