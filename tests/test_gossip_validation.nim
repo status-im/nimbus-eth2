@@ -78,10 +78,11 @@ suite "Gossip validation " & preset():
         dag.headState, cache, int(SLOTS_PER_EPOCH * 5), false):
       let added = dag.addHeadBlock(verifier, blck.phase0Data) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
-          epochRef: EpochRef):
+          epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
-          epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
+          epochRef, blckRef, unrealized, signedBlock.message,
+          blckRef.slot.start_beacon_time)
 
       check: added.isOk()
       dag.updateHead(added[], quarantine[])

@@ -5,6 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [Defect].}
+
 # import ../interpreter # included to be able to use "suite"
 
 func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
@@ -14,20 +16,20 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   # Initialize the fork choice context
   # We start with epoch 0 fully finalized to avoid epoch 0 special cases.
   result.fork_choice = ForkChoiceBackend.init(
-    justifiedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalizedCheckpoint = Checkpoint(root: GenesisRoot, epoch: Epoch(1))
-  )
+    FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))))
 
   # ----------------------------------
 
   # Head should be genesis
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))),
     justified_state_balances: balances,
-    expected_head: GenesisRoot
-  )
+    expected_head: GenesisRoot)
 
   # Add block 2
   #
@@ -38,9 +40,9 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessBlock,
     root: fakeHash(2),
     parent_root: GenesisRoot,
-    blk_justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
-  )
+    blk_checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))))
 
   # Head should be 2
   #
@@ -49,11 +51,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   #       2 <- head
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))),
     justified_state_balances: balances,
-    expected_head: fakeHash(2)
-  )
+    expected_head: fakeHash(2))
 
   # Add block 1 as a fork
   #
@@ -64,9 +66,9 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessBlock,
     root: fakeHash(1),
     parent_root: GenesisRoot,
-    blk_justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
-  )
+    blk_checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))))
 
   # Head is still 2 due to tiebreaker as fakeHash(2) (0xD8...) > fakeHash(1) (0x7C...)
   #
@@ -75,11 +77,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   # head-> 2  1
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))),
     justified_state_balances: balances,
-    expected_head: fakeHash(2)
-  )
+    expected_head: fakeHash(2))
 
   # Add a vote to block 1
   #
@@ -90,8 +92,7 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(0),
     block_root: fakeHash(1),
-    target_epoch: Epoch(2)
-  )
+    target_epoch: Epoch(2))
 
   # Head is now 1 as 1 has an extra vote
   #
@@ -100,11 +101,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   #        2  1 <- head
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))),
     justified_state_balances: balances,
-    expected_head: fakeHash(1)
-  )
+    expected_head: fakeHash(1))
 
   # Add a vote to block 2
   #
@@ -115,8 +116,7 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(1),
     block_root: fakeHash(2),
-    target_epoch: Epoch(2)
-  )
+    target_epoch: Epoch(2))
 
   # Head is back to 2 due to tiebreaker as fakeHash(2) (0xD8...) > fakeHash(1) (0x7C...)
   #
@@ -125,11 +125,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   # head-> 2  1
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))),
     justified_state_balances: balances,
-    expected_head: fakeHash(2)
-  )
+    expected_head: fakeHash(2))
 
   # Add block 3 as on chain 1
   #
@@ -142,9 +142,9 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessBlock,
     root: fakeHash(3),
     parent_root: fakeHash(1),
-    blk_justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
-  )
+    blk_checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))))
 
   # Head is still 2
   #
@@ -153,8 +153,9 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   # head-> 2  1
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))),
     justified_state_balances: balances,
     expected_head: fakeHash(2)
   )
@@ -170,8 +171,7 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(0),
     block_root: fakeHash(3),
-    target_epoch: Epoch(3)
-  )
+    target_epoch: Epoch(3))
 
   # Head is still 2
   #
@@ -180,11 +180,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   # head-> 2  1
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))),
     justified_state_balances: balances,
-    expected_head: fakeHash(2)
-  )
+    expected_head: fakeHash(2))
 
   # Move validator #1 vote from 2 to 1 (this is an equivocation, but fork choice doesn't
   # care)
@@ -198,8 +198,7 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(1),
     block_root: fakeHash(1),
-    target_epoch: Epoch(3)
-  )
+    target_epoch: Epoch(3))
 
   # Head is now 3
   #
@@ -210,11 +209,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   #           3 <- head
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))),
     justified_state_balances: balances,
-    expected_head: fakeHash(3)
-  )
+    expected_head: fakeHash(3))
 
   # Add block 4 on chain 1-3
   #
@@ -229,9 +228,9 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessBlock,
     root: fakeHash(4),
     parent_root: fakeHash(3),
-    blk_justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
-  )
+    blk_checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))))
 
   # Head is now 4
   #
@@ -244,11 +243,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   #           4 <- head
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))),
     justified_state_balances: balances,
-    expected_head: fakeHash(4)
-  )
+    expected_head: fakeHash(4))
 
   # Add block 5, which has a justified epoch of 2.
   #
@@ -265,9 +264,9 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessBlock,
     root: fakeHash(5),
     parent_root: fakeHash(4),
-    blk_justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    blk_finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2))
-  )
+    blk_checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))))
 
   # Ensure that 5 is filtered out and the head stays at 4.
   #
@@ -282,11 +281,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   #          5
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))),
     justified_state_balances: balances,
-    expected_head: fakeHash(4)
-  )
+    expected_head: fakeHash(4))
 
   # Add block 6, which has a justified epoch of 0.
   #
@@ -303,9 +302,9 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessBlock,
     root: fakeHash(6),
     parent_root: fakeHash(4),
-    blk_justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
-  )
+    blk_checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))))
 
   # Move both votes to 5.
   #
@@ -322,14 +321,13 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(0),
     block_root: fakeHash(5),
-    target_epoch: Epoch(4)
-  )
+    target_epoch: Epoch(4))
+
   result.ops.add Operation(
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(1),
     block_root: fakeHash(5),
-    target_epoch: Epoch(4)
-  )
+    target_epoch: Epoch(4))
 
   # Add blocks 7, 8 and 9. Adding these blocks helps test the `best_descendant`
   # functionality.
@@ -353,25 +351,26 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessBlock,
     root: fakeHash(7),
     parent_root: fakeHash(5),
-    blk_justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
-  )
+    blk_checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))))
+
   result.ops.add Operation(
     kind: ProcessBlock,
     root: fakeHash(8),
     parent_root: fakeHash(7),
-    blk_justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    blk_finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1))
-  )
+    blk_checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))))
 
   # Finalizes 5
   result.ops.add Operation(
     kind: ProcessBlock,
     root: fakeHash(9),
     parent_root: fakeHash(8),
-    blk_justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    blk_finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2))
-  )
+    blk_checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))))
 
   # Ensure that 6 is the head, even though 5 has all the votes. This is testing to ensure
   # that 5 is filtered out due to a differing justified epoch.
@@ -393,11 +392,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   #         9
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
-    finalized_checkpoint: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: GenesisRoot, epoch: Epoch(1)),
+      finalized: Checkpoint(root: GenesisRoot, epoch: Epoch(1))),
     justified_state_balances: balances,
-    expected_head: fakeHash(6)
-  )
+    expected_head: fakeHash(6))
 
   # Change fork-choice justified epoch to 1, and the start block to 5 and ensure that 9 is
   # the head.
@@ -421,11 +420,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   # head-> 9
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))),
     justified_state_balances: balances,
-    expected_head: fakeHash(9)
-  )
+    expected_head: fakeHash(9))
 
   # Update votes to block 9
   #          0
@@ -447,23 +446,22 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(0),
     block_root: fakeHash(9),
-    target_epoch: Epoch(5)
-  )
+    target_epoch: Epoch(5))
+
   result.ops.add Operation(
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(1),
     block_root: fakeHash(9),
-    target_epoch: Epoch(5)
-  )
+    target_epoch: Epoch(5))
 
   # Head should still be 9
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))),
     justified_state_balances: balances,
-    expected_head: fakeHash(9)
-  )
+    expected_head: fakeHash(9))
 
   # Add block 10 (also finalizes 5)
   #          0
@@ -485,18 +483,18 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessBlock,
     root: fakeHash(10),
     parent_root: fakeHash(8),
-    blk_justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    blk_finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2))
-  )
+    blk_checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))))
 
   # Head should still be 9
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))),
     justified_state_balances: balances,
-    expected_head: fakeHash(9)
-  )
+    expected_head: fakeHash(9))
 
   # Introduce 2 new validators
   balances = @[Gwei(1), Gwei(1), Gwei(1), Gwei(1)]
@@ -521,14 +519,13 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(2),
     block_root: fakeHash(10),
-    target_epoch: Epoch(5)
-  )
+    target_epoch: Epoch(5))
+
   result.ops.add Operation(
     kind: ProcessAttestation,
     validator_index: ValidatorIndex(3),
     block_root: fakeHash(10),
-    target_epoch: Epoch(5)
-  )
+    target_epoch: Epoch(5))
 
   # Check that the head is now 10.
   #
@@ -549,11 +546,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   #        9  10 <- head
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))),
     justified_state_balances: balances,
-    expected_head: fakeHash(10)
-  )
+    expected_head: fakeHash(10))
 
   # Set the last 2 validators balances to 0
   balances = @[Gwei(1), Gwei(1), Gwei(0), Gwei(0)]
@@ -566,11 +563,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   # head -> 9  10
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))),
     justified_state_balances: balances,
-    expected_head: fakeHash(9)
-  )
+    expected_head: fakeHash(9))
 
   # Set the last 2 validators balances back to 1
   balances = @[Gwei(1), Gwei(1), Gwei(1), Gwei(1)]
@@ -583,11 +580,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   #         9  10 <- head
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))),
     justified_state_balances: balances,
-    expected_head: fakeHash(10)
-  )
+    expected_head: fakeHash(10))
 
   # Remove the validators
   balances = @[Gwei(1), Gwei(1)]
@@ -600,11 +597,11 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   # head -> 9  10
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))),
     justified_state_balances: balances,
-    expected_head: fakeHash(9)
-  )
+    expected_head: fakeHash(9))
 
   # Ensure that pruning does prune.
   #
@@ -630,17 +627,16 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
   result.ops.add Operation(
     kind: Prune,
     finalized_root: fakeHash(5),
-    expected_len: 6
-  )
+    expected_len: 6)
 
   # Prune shouldn't have changed the head
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))),
     justified_state_balances: balances,
-    expected_head: fakeHash(9)
-  )
+    expected_head: fakeHash(9))
 
   # Add block 11
   #
@@ -657,18 +653,18 @@ func setup_votes(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operation]] =
     kind: ProcessBlock,
     root: fakeHash(11),
     parent_root: fakeHash(9),
-    blk_justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    blk_finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2))
-  )
+    blk_checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))))
 
   # Head is now 11
   result.ops.add Operation(
     kind: FindHead,
-    justified_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
-    finalized_checkpoint: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+    checkpoints: FinalityCheckpoints(
+      justified: Checkpoint(root: fakeHash(5), epoch: Epoch(2)),
+      finalized: Checkpoint(root: fakeHash(5), epoch: Epoch(2))),
     justified_state_balances: balances,
-    expected_head: fakeHash(11)
-  )
+    expected_head: fakeHash(11))
 
 proc test_votes() =
   test "fork_choice - testing with votes":

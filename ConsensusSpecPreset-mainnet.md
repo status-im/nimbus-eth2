@@ -158,6 +158,58 @@ ConsensusSpecPreset-mainnet
 + EF - Phase 0 - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]          OK
 + EF - Phase 0 - Rewards - with_slashed_validators [Preset: mainnet]                         OK
 + EF - Phase 0 - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
++ ForkChoice - mainnet/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_great OK
++ ForkChoice - mainnet/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_n OK
++ ForkChoice - mainnet/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
++ ForkChoice - mainnet/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
++ ForkChoice - mainnet/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
++ ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
++ ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/discard_equivocations        OK
++ ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/genesis                      OK
++ ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
++ ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
++ ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
++ ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/basic                        OK
++ ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
+  ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
++ ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/proposer_boost               OK
++ ForkChoice - mainnet/altair/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
++ ForkChoice - mainnet/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_gr OK
++ ForkChoice - mainnet/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boos OK
++ ForkChoice - mainnet/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_hone OK
++ ForkChoice - mainnet/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_a OK
++ ForkChoice - mainnet/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla            OK
++ ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/chain_no_attestations     OK
++ ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/discard_equivocations     OK
++ ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/genesis                   OK
++ ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/proposer_boost_correct_he OK
++ ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier OK
++ ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_atte OK
++ ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/basic                     OK
++ ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root  OK
+  ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/on_block_future_block     Skip
++ ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost            OK
++ ForkChoice - mainnet/bellatrix/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_ OK
+  ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/all_valid           Skip
+  ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/block_lookup_failed Skip
+  ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_early_for_merge Skip
+  ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_late_for_merge  Skip
++ ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_great OK
++ ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_n OK
++ ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
++ ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
++ ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/discard_equivocations        OK
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/genesis                      OK
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
++ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
++ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/basic                        OK
++ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
+  ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
++ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
++ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
 + Slots - double_empty_epoch                                                                 OK
 + Slots - empty_epoch                                                                        OK
 + Slots - over_epoch_boundary                                                                OK
@@ -379,7 +431,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_misc_balances                                                                  OK
 + next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 376/376 Fail: 0/376 Skip: 0/376
+OK: 421/428 Fail: 0/428 Skip: 7/428
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -961,21 +1013,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 38/38 Fail: 0/38 Skip: 0/38
-## EF - ForkChoice [Preset: mainnet]
-```diff
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
-  ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/discard_equivocations        Skip
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/genesis                      OK
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
-+ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/basic                        OK
-+ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
-  ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
-+ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
-+ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
-```
-OK: 9/11 Fail: 0/11 Skip: 2/11
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -1224,4 +1261,4 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 1038/1042 Fail: 0/1042 Skip: 4/1042
+OK: 1074/1083 Fail: 0/1083 Skip: 9/1083

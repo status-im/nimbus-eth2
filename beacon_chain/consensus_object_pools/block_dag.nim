@@ -35,7 +35,7 @@ type
     executionBlockRoot*: Option[Eth2Digest]
 
     parent*: BlockRef ##\
-    ## Not nil, except for the finalized head
+      ## Not nil, except for the finalized head
 
   BlockSlot* = object
     ## Unique identifier for a particular fork and time in the block chain -
@@ -55,8 +55,7 @@ func init*(
     executionPayloadRoot: Option[Eth2Digest], slot: Slot): BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
-    executionBlockRoot: executionPayloadRoot,
-  )
+    executionBlockRoot: executionPayloadRoot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
@@ -177,6 +176,15 @@ func atSlotEpoch*(blck: BlockRef, epoch: Epoch): BlockSlot =
       BlockSlot()
     else:
       tmp.blck.atSlot(start)
+
+func atCheckpoint*(blck: BlockRef, checkpoint: Checkpoint): Opt[BlockSlot] =
+  ## Rewind from `blck` to the given `checkpoint` iff it is an ancestor
+  let target = blck.atSlot(checkpoint.epoch.start_slot)
+  if target.blck == nil:
+    return err()
+  if target.blck.root != checkpoint.root:
+    return err()
+  ok target
 
 func toBlockSlotId*(bs: BlockSlot): Opt[BlockSlotId] =
   if isNil(bs.blck):

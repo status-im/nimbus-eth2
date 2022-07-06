@@ -126,17 +126,8 @@ func check_beacon_and_target_block(
   # compute_start_slot_at_epoch(attestation.data.target.epoch)) ==
   # attestation.data.target.root
   # the sanity of target.epoch has been checked by check_attestation_slot_target
-  let
-    target = blck.atSlot(data.target.epoch.start_slot())
-
-  if isNil(target.blck):
-    # Shouldn't happen - we've checked that the target epoch is within range
-    # already
-    return errReject("Attestation target block not found")
-
-  if not (target.blck.root == data.target.root):
-    return errReject(
-      "Attestation target block not the correct ancestor of LMD vote block")
+  let target = blck.atCheckpoint(data.target).valueOr:
+    return errReject("Attestation target is not ancestor of LMD vote block")
 
   ok(target)
 

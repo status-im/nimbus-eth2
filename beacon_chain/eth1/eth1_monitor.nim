@@ -528,27 +528,27 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[void] {.async.} =
       if p.terminalBlockHash.isSome:
         p.terminalBlockHash.get
       else:
-        # TODO can't use static(default(...)) in this context
-        default(BlockHash),
+        # https://github.com/nim-lang/Nim/issues/19802
+        (static(default(BlockHash))),
     terminalBlockNumber:
       if p.terminalBlockNumber.isSome:
         p.terminalBlockNumber.get
       else:
-        # TODO can't use static(default(...)) in this context
-        default(Quantity))
+        # https://github.com/nim-lang/Nim/issues/19802
+        (static(default(Quantity))))
   let ecTransitionConfiguration =
     await p.dataProvider.web3.provider.engine_exchangeTransitionConfigurationV1(
       ccTransitionConfiguration)
   if ccTransitionConfiguration != ecTransitionConfiguration:
     warn "exchangeTransitionConfiguration: Configuration mismatch detected",
       consensusTerminalTotalDifficulty =
-        ccTransitionConfiguration.terminalTotalDifficulty,
+        $ccTransitionConfiguration.terminalTotalDifficulty,
       consensusTerminalBlockHash =
         ccTransitionConfiguration.terminalBlockHash,
       consensusTerminalBlockNumber =
         ccTransitionConfiguration.terminalBlockNumber.uint64,
       executionTerminalTotalDifficulty =
-        ecTransitionConfiguration.terminalTotalDifficulty,
+        $ecTransitionConfiguration.terminalTotalDifficulty,
       executionTerminalBlockHash =
         ecTransitionConfiguration.terminalBlockHash,
       executionTerminalBlockNumber =
