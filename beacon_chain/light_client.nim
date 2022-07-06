@@ -183,7 +183,7 @@ import
 from
   ./gossip_processing/eth2_processor
 import
-  lightClientFinalityUpdateValidator, lightClientOptimisticUpdateValidator
+  processLightClientFinalityUpdate, processLightClientOptimisticUpdate
 
 declareCounter beacon_light_client_finality_updates_received,
   "Number of valid LC finality updates processed by this node"
@@ -287,12 +287,12 @@ proc installMessageValidators*(
     lightClient.network.addValidator(
       getLightClientFinalityUpdateTopic(digest),
       proc(msg: altair.LightClientFinalityUpdate): ValidationResult =
-        validate(msg, lightClientFinalityUpdateValidator))
+        validate(msg, processLightClientFinalityUpdate))
 
     lightClient.network.addValidator(
       getLightClientOptimisticUpdateTopic(digest),
       proc(msg: altair.LightClientOptimisticUpdate): ValidationResult =
-        validate(msg, lightClientOptimisticUpdateValidator))
+        validate(msg, processLightClientOptimisticUpdate))
 
 const lightClientTopicParams = TopicParams.init()
 static: lightClientTopicParams.validateParameters().tryGet()

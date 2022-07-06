@@ -9,10 +9,10 @@
 
 import
   # Standard libraries
-  std/[options, tables, sequtils],
+  std/[tables, sequtils],
   # Status libraries
   metrics,
-  chronicles, stew/byteutils,
+  chronicles, stew/[byteutils, results],
   # Internal
   ../spec/[
     beaconstate, eth2_merkleization, forks, helpers,
@@ -22,7 +22,7 @@ import
   ../fork_choice/fork_choice,
   ../beacon_clock
 
-export options, tables, phase0, altair, bellatrix, blockchain_dag, fork_choice
+export tables, results, phase0, altair, bellatrix, blockchain_dag, fork_choice
 
 const
   ATTESTATION_LOOKBACK* =
@@ -177,12 +177,12 @@ proc addForkChoiceVotes(
       # hopefully the fork choice will heal itself over time.
       error "Couldn't add attestation to fork choice, bug?", err = v.error()
 
-func candidateIdx(pool: AttestationPool, slot: Slot): Option[int] =
+func candidateIdx(pool: AttestationPool, slot: Slot): Opt[int] =
   if slot >= pool.startingSlot and
       slot < (pool.startingSlot + pool.candidates.lenu64):
-    some(int(slot mod pool.candidates.lenu64))
+    Opt.some(int(slot mod pool.candidates.lenu64))
   else:
-    none(int)
+    Opt.none(int)
 
 proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
   if wallSlot + 1 < pool.candidates.lenu64:
@@ -209,15 +209,15 @@ proc updateCurrent(pool: var AttestationPool, wallSlot: Slot) =
 
   pool.startingSlot = newStartingSlot
 
-func oneIndex(bits: CommitteeValidatorsBits): Option[int] =
+func oneIndex(bits: CommitteeValidatorsBits): Opt[int] =
   # Find the index of the set bit, iff one bit is set
-  var res = none(int)
+  var res = Opt.none(int)
   for idx in 0..<bits.len():
     if bits[idx]:
       if res.isNone():
-        res = some(idx)
+        res = Opt.some(idx)
       else: # More than one bit set!
-        return none(int)
+        return Opt.none(int)
   res
 
 func toAttestation(entry: AttestationEntry, validation: Validation): Attestation =
@@ -417,8 +417,8 @@ proc addForkChoice*(pool: var AttestationPool,
     error "Couldn't add block to fork choice, bug?",
       blck = shortLog(blck), err = state.error
 
-iterator attestations*(pool: AttestationPool, slot: Option[Slot],
-                       committee_index: Option[CommitteeIndex]): Attestation =
+iterator attestations*(pool: AttestationPool, slot: Opt[Slot],
+                       committee_index: Opt[CommitteeIndex]): Attestation =
   let candidateIndices =
     if slot.isSome():
       let candidateIdx = pool.candidateIdx(slot.get())
@@ -690,11 +690,11 @@ func bestValidation(aggregates: openArray[Validation]): (int, int) =
 
 func getAggregatedAttestation*(pool: var AttestationPool,
                                slot: Slot,
-                               attestation_data_root: Eth2Digest): Option[Attestation] =
+                               attestation_data_root: Eth2Digest): Opt[Attestation] =
   let
     candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:
-    return none(Attestation)
+    return Opt.none(Attestation)
 
   pool.candidates[candidateIdx.get].withValue(attestation_data_root, entry):
     entry[].updateAggregates()
@@ -702,22 +702,22 @@ func getAggregatedAttestation*(pool: var AttestationPool,
     let (bestIndex, _) = bestValidation(entry[].aggregates)
 
     # Found the right hash, no need to look further
-    return some(entry[].toAttestation(entry[].aggregates[bestIndex]))
+    return Opt.some(entry[].toAttestation(entry[].aggregates[bestIndex]))
 
-  none(Attestation)
+  Opt.none(Attestation)
 
 func getAggregatedAttestation*(pool: var AttestationPool,
                                slot: Slot,
-                               index: CommitteeIndex): Option[Attestation] =
+                               index: CommitteeIndex): Opt[Attestation] =
   ## Select the attestation that has the most votes going for it in the given
   ## slot/index
   ## https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#construct-aggregate
   let
     candidateIdx = pool.candidateIdx(slot)
   if candidateIdx.isNone:
-    return none(Attestation)
+    return Opt.none(Attestation)
 
-  var res: Option[Attestation]
+  var res: Opt[Attestation]
   for _, entry in pool.candidates[candidateIdx.get].mpairs():
     doAssert entry.data.slot == slot
     if index != entry.data.index:
@@ -728,7 +728,7 @@ func getAggregatedAttestation*(pool: var AttestationPool,
     let (bestIndex, best) = bestValidation(entry.aggregates)
 
     if res.isNone() or best > res.get().aggregation_bits.countOnes():
-      res = some(entry.toAttestation(entry.aggregates[bestIndex]))
+      res = Opt.some(entry.toAttestation(entry.aggregates[bestIndex]))
 
   res
 

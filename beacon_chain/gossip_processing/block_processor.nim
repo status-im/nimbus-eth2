@@ -182,7 +182,6 @@ proc storeBlock*(
   let
     attestationPool = self.consensusManager.attestationPool
     startTick = Moment.now()
-    wallSlot = wallTime.slotOrZero()
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
 

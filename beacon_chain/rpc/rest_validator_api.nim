@@ -528,7 +528,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         var res: seq[Future[SendResult]]
         for proof in proofs:
-          res.add(node.sendAggregateAndProof(proof))
+          res.add(node.router.routeSignedAggregateAndProof(proof))
         res
     await allFutures(pending)
     for future in pending:
@@ -602,7 +602,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         get_committee_count_per_slot(epochRef), request.slot,
         request.committee_index)
 
-      node.registerDuty(
+      node.actionTracker.registerDuty(
         request.slot, subnet_id, request.validator_index,
         request.is_aggregator)
 
@@ -728,7 +728,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         var res: seq[Future[SendResult]]
         for proof in proofs:
-          res.add(node.sendSyncCommitteeContribution(proof, true))
+          res.add(node.router.routeSignedContributionAndProof(proof, true))
         res
 
     let failures =
