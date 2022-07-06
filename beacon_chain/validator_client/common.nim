@@ -116,6 +116,17 @@ type
   SyncCommitteeDutiesMap* = Table[ValidatorPubKey, EpochSyncDuties]
   ProposerMap* = Table[Epoch, ProposedData]
 
+  DoppelgangerStatus* {.pure.} = enum
+    None, Checking, Passed, Failed
+
+  DoppelgangerState* = object
+    startEpoch*: Epoch
+    status*: DoppelgangerStatus
+
+  DoppelgangerDetection* = object
+    startSlot*: Slot
+    validators*: Table[ValidatorIndex, DoppelgangerState]
+
   ValidatorClient* = object
     config*: ValidatorClientConf
     graffitiBytes*: GraffitiBytes
@@ -131,6 +142,7 @@ type
     sigtermHandleFut*: Future[void]
     beaconClock*: BeaconClock
     attachedValidators*: ValidatorPool
+    doppelgangerDetection*: DoppelgangerDetection
     forks*: seq[Fork]
     forksAvailable*: AsyncEvent
     nodesAvailable*: AsyncEvent
@@ -346,3 +358,25 @@ proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
 
 proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
   SyncSubcommitteeIndex(uint16(index) div SYNC_SUBCOMMITTEE_SIZE)
+
+proc currentSlot*(vc: ValidatorClientRef): Slot =
+  vc.beaconClock.now().slotOrZero()
+
+proc doppelgangerAdd*(vc: ValidatorClientRef,
+                      index: ValidatorIndex): Result[void, cstring] =
+  if vc.config.doppelgangerDetection:
+    let state = DoppelgangerState(
+      startEpoch: vc.currentSlot().epoch(), status: DoppelgangerStatus.Checking)
+    let res = vc.doppelgangerDetection.validators.hasKeyOrPut(index, state)
+    if res:
+      return err("Validator is already in doppelganger's table")
+  ok()
+
+proc doppelgangerCheck*(vc: ValidatorClientRef, index: ValidatorIndex): bool =
+  if vc.config.doppelgangerDetection:
+    let default = DoppelgangerState(status: DoppelgangerStatus.None)
+    let currentEpoch = vc.currentSlot().epoch()
+    let state = vc.doppelgangerDetection.validators.getOrDefault(index, default)
+    state.status == DoppelgangerStatus.Passed
+  else:
+    true

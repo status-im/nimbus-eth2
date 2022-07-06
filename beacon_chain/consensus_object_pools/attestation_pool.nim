@@ -756,3 +756,11 @@ proc prune*(pool: var AttestationPool) =
     # If pruning fails, it's likely the result of a bug - this shouldn't happen
     # but we'll keep running hoping that the fork chocie will recover eventually
     error "Couldn't prune fork choice, bug?", err = v.error()
+
+proc validatorSeenAtEpoch*(pool: var AttestationPool, epoch: Epoch,
+                           vindex: ValidatorIndex): bool =
+  if uint64(vindex) < uint64(len(pool.nextAttestationEpoch)):
+    let mark = pool.nextAttestationEpoch[int(vindex)]
+    (mark.subnet > epoch) or (mark.aggregate > epoch)
+  else:
+    false

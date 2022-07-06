@@ -234,6 +234,11 @@ type
     discovery_addresses*: seq[string]
     metadata*: RestMetadata
 
+  RestActivityItem* = object
+    index*: ValidatorIndex
+    epoch*: Epoch
+    active*: bool
+
   RestPublishedSignedBeaconBlock* = distinct ForkedSignedBeaconBlock
 
   RestPublishedBeaconBlock* = distinct ForkedBeaconBlock

@@ -758,6 +758,15 @@ type
       abbr: "d"
       name: "data-dir" .}: OutDir
 
+    doppelgangerDetection* {.
+      desc: "If enabled, the validator client prudently listens for 2 epochs " &
+            "for attestations from a validator with the same index " &
+            "(a doppelganger), before sending an attestation itself. This " &
+            "protects against slashing (due to double-voting) but means you " &
+            "will miss two attestations when restarting."
+      defaultValue: true
+      name: "doppelganger-detection" .}: bool
+
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool
