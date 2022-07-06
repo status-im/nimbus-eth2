@@ -785,22 +785,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(
         Http404, BlockNotFoundError, "v1 API supports only phase 0 blocks")
 
-    let contentType =
-      block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
+    let responseType = request.pickResponseType().valueOr:
+      return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
 
     return
-      if contentType == sszMediaType:
+      case responseType
+      of sszResponseType:
         var data: seq[byte]
         if not node.dag.getBlockSSZ(bid, data):
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
         RestApiResponse.response(data, Http200, $sszMediaType)
-      elif contentType == jsonMediaType:
+      of jsonResponseType:
         let bdata = node.dag.getForkedBlock(bid).valueOr:
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
@@ -811,8 +807,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # issue..
           RestApiResponse.jsonError(
             Http404, BlockNotFoundError, "v1 API supports only phase 0 blocks")
-      else:
-        RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
   router.api(MethodGet, "/eth/v2/beacon/blocks/{block_id}") do (
@@ -824,15 +818,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       bid = node.getBlockId(blockIdent).valueOr:
         return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
-    let contentType =
-      block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
+    let responseType = request.pickResponseType().valueOr:
+      return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+
     return
-      if contentType == sszMediaType:
+      case responseType
+      of sszResponseType:
         var data: seq[byte]
         if not node.dag.getBlockSSZ(bid, data):
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
@@ -843,7 +834,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         RestApiResponse.response(data, Http200, $sszMediaType,
                                  headers = headers)
-      elif contentType == jsonMediaType:
+      of jsonResponseType:
         let bdata = node.dag.getForkedBlock(bid).valueOr:
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
@@ -856,8 +847,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           node.getBlockOptimistic(bdata),
           headers
         )
-      else:
-        RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockRoot
   router.api(MethodGet, "/eth/v1/beacon/blocks/{block_id}/root") do (

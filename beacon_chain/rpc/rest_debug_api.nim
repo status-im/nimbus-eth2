@@ -30,23 +30,15 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                            $bres.error())
         bres.get()
-    let contentType =
-      block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
+
+    let responseType = request.pickResponseType().valueOr:
+      return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+
     node.withStateForBlockSlotId(bslot):
       return
         case state.kind
         of BeaconStateFork.Phase0:
-          if contentType == sszMediaType:
-            RestApiResponse.sszResponse(state.phase0Data.data, [])
-          elif contentType == jsonMediaType:
-            RestApiResponse.jsonResponse(state.phase0Data.data)
-          else:
-            RestApiResponse.jsonError(Http500, InvalidAcceptError)
+          responseType.okResponse state.phase0Data.data
         of BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
           RestApiResponse.jsonError(Http404, StateNotFoundError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
@@ -65,26 +57,22 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                            $bres.error())
         bres.get()
-    let contentType =
-      block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
+
+    let responseType = request.pickResponseType().valueOr:
+      return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+
     node.withStateForBlockSlotId(bslot):
       return
-        if contentType == jsonMediaType:
+        case responseType
+        of jsonResponseType:
           RestApiResponse.jsonResponseState(
             state,
             node.getStateOptimistic(state)
           )
-        elif contentType == sszMediaType:
+        of sszResponseType:
           let headers = [("eth-consensus-version", state.kind.toString())]
           withState(state):
             RestApiResponse.sszResponse(state.data, headers)
-        else:
-          RestApiResponse.jsonError(Http500, InvalidAcceptError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeads

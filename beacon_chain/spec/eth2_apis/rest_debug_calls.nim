@@ -94,8 +94,9 @@ proc getStateV2*(client: RestClientRef, state_id: StateIdent,
       of "application/json":
         let state =
           block:
-            let res = newClone(decodeBytes(GetStateV2Response, resp.data,
-                                  resp.contentType))
+            let res = newClone(decodeBytes(GetStateV2Response,
+                                           resp.data,
+                                           resp.contentType))
             if res[].isErr():
               raise newException(RestError, $res[].error())
             newClone(res[].get())

@@ -131,6 +131,12 @@ type
 
 {.push raises: [Defect].}
 
+template asSszList*[T](x: seq[T], limit: static Limit): untyped =
+  # XXX This works around generic instantiation problems
+  type E = typeof x[0]
+  const L = limit
+  List[E, L](x)
+
 proc writeValue*(writer: var JsonWriter[RestJson],
                  epochFlags: EpochParticipationFlags)
                 {.raises: [IOError, Defect].} =
@@ -448,7 +454,7 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
   RestApiResponse.error(status, data, "application/json")
 
 proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
-                  headers: openArray[tuple[key: string, value: string]]
+                  headers: openArray[tuple[key: string, value: string]] = []
                  ): RestApiResponse =
   let res =
     block:
