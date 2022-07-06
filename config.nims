@@ -175,7 +175,7 @@ switch("warning", "LockLevel:off")
 # ############################################################
 
 # This applies per-file compiler flags to C files
-# which do not support {.localPassc: "-fno-lto".}
+# which do not support {.localPassC: "-fno-lto".}
 # Unfortunately this is filename based instead of path-based
 # Assumes GCC
 
@@ -203,4 +203,3 @@ put("ecp_BLS12381.always", "-fno-lto")
 # sqlite3.c: In function ‘sqlite3SelectNew’:
 # vendor/nim-sqlite3-abi/sqlite3.c:124500: warning: function may return address of local variable [-Wreturn-local-addr]
 put("sqlite3.always", "-fno-lto") # -Wno-return-local-addr
-

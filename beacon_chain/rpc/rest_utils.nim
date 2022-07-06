@@ -60,7 +60,7 @@ proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
   ok(head)
 
 proc getSyncedHead*(node: BeaconNode,
-                     epoch: Epoch): Result[BlockRef, cstring] =
+                    epoch: Epoch): Result[BlockRef, cstring] =
   if epoch > MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
   node.getSyncedHead(epoch.start_slot())

@@ -196,20 +196,17 @@ proc storeBlock*(
 
   type Trusted = typeof signedBlock.asTrusted()
   let blck = dag.addHeadBlock(self.verifier, signedBlock, payloadValid) do (
-      blckRef: BlockRef, trustedBlock: Trusted, epochRef: EpochRef):
+      blckRef: BlockRef, trustedBlock: Trusted,
+      epochRef: EpochRef, unrealized: FinalityCheckpoints):
     # Callback add to fork choice if valid
     attestationPool[].addForkChoice(
-      epochRef, blckRef, trustedBlock.message, wallTime)
+      epochRef, blckRef, unrealized, trustedBlock.message, wallTime)
 
     vm[].registerBeaconBlock(
       src, wallTime, trustedBlock.message)
 
     for attestation in trustedBlock.message.body.attestations:
-      for validator_index in get_attesting_indices(
-          epochRef, attestation.data.slot,
-          CommitteeIndex.init(attestation.data.index).expect(
-            "index has been checked"),
-          attestation.aggregation_bits):
+      for validator_index in dag.get_attesting_indices(attestation):
         vm[].registerAttestationInBlock(attestation.data, validator_index,
           trustedBlock.message.slot)
 

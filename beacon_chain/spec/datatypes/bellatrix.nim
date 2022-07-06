@@ -265,7 +265,7 @@ type
     sync_aggregate*: SyncAggregate # TODO TrustedSyncAggregate after batching
 
     # Execution
-    execution_payload*: ExecutionPayload  # [New in Merge]
+    execution_payload*: ExecutionPayload  # [New in Bellatrix]
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -285,7 +285,7 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload  # [New in Merge]
+    execution_payload*: ExecutionPayload  # [New in Bellatrix]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object

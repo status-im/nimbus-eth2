@@ -61,7 +61,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[macros, hashes, strutils, tables, typetraits],
+  std/[macros, hashes, sets, strutils, tables, typetraits],
   stew/[assign2, byteutils, results],
   chronicles,
   json_serialization,
@@ -245,6 +245,10 @@ type
   Checkpoint* = object
     epoch*: Epoch
     root*: Eth2Digest
+
+  FinalityCheckpoints* = object
+    justified*: Checkpoint
+    finalized*: Checkpoint
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#AttestationData
   AttestationData* = object
@@ -510,33 +514,6 @@ type
 
     flags*: set[RewardFlags]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_total_balance
-  TotalBalances* = object
-    # The total effective balance of all active validators during the _current_
-    # epoch.
-    current_epoch_raw*: Gwei
-    # The total effective balance of all active validators during the _previous_
-    # epoch.
-    previous_epoch_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _current_ epoch.
-    current_epoch_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _current_ epoch and agreed with the state about the beacon block at the
-    # first slot of the _current_ epoch.
-    current_epoch_target_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _previous_ epoch.
-    previous_epoch_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _previous_ epoch and agreed with the state about the beacon block at the
-    # first slot of the _previous_ epoch.
-    previous_epoch_target_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _previous_ epoch and agreed with the state about the beacon block at the
-    # time of attestation.
-    previous_epoch_head_attesters_raw*: Gwei
-
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#domain-types
   DOMAIN_BEACON_PROPOSER* = DomainType([byte 0x00, 0x00, 0x00, 0x00])
@@ -775,6 +752,12 @@ func shortLog*(v: Checkpoint): auto =
   # epoch:root when logging epoch, root:slot when logging slot!
   $shortLog(v.epoch) & ":" & shortLog(v.root)
 
+func shortLog*(v: FinalityCheckpoints): auto =
+  (
+    justified: shortLog(v.justified),
+    finalized: shortLog(v.finalized)
+  )
+
 func shortLog*(v: AttestationData): auto =
   (
     slot: shortLog(v.slot),
@@ -799,12 +782,25 @@ func shortLog*(v: SomeAttestation): auto =
     signature: shortLog(v.signature)
   )
 
+template asTrusted*(x: Attestation): TrustedAttestation =
+  isomorphicCast[TrustedAttestation](x)
+
 func shortLog*(v: SomeIndexedAttestation): auto =
   (
     attestating_indices: v.attesting_indices,
     data: shortLog(v.data),
     signature: shortLog(v.signature)
   )
+
+iterator getValidatorIndices*(attester_slashing: SomeAttesterSlashing): uint64 =
+  template attestation_1(): auto = attester_slashing.attestation_1
+  template attestation_2(): auto = attester_slashing.attestation_2
+
+  let attestation_2_indices = toHashSet(attestation_2.attesting_indices.asSeq)
+  for validator_index in attestation_1.attesting_indices.asSeq:
+    if validator_index notin attestation_2_indices:
+      continue
+    yield validator_index
 
 func shortLog*(v: SomeAttesterSlashing): auto =
   (
@@ -833,6 +829,7 @@ func shortLog*(v: SomeSignedVoluntaryExit): auto =
 chronicles.formatIt AttestationData: it.shortLog
 chronicles.formatIt Attestation: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog
+chronicles.formatIt FinalityCheckpoints: it.shortLog
 
 const
   # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm

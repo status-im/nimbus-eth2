@@ -10,7 +10,9 @@
 import
   chronicles,
   stew/[assign2, results],
-  ../spec/[beaconstate, forks, signatures, signatures_batch, state_transition],
+  ../spec/[
+    beaconstate, forks, signatures, signatures_batch,
+    state_transition, state_transition_epoch],
   "."/[block_dag, blockchain_dag, blockchain_dag_light_client]
 
 export results, signatures_batch, block_dag, blockchain_dag
@@ -89,7 +91,14 @@ proc addResolvedHeadBlock(
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    onBlockAdded(blockRef, trustedBlock, epochRef)
+    var unrealized: FinalityCheckpoints
+    if enableTestFeatures in dag.updateFlags:
+      unrealized = withState(state):
+        when stateFork >= BeaconStateFork.Altair:
+          state.data.compute_unrealized_finality()
+        else:
+          state.data.compute_unrealized_finality(cache)
+    onBlockAdded(blockRef, trustedBlock, epochRef, unrealized)
   if not(isNil(dag.onBlockAdded)):
     dag.onBlockAdded(ForkedTrustedSignedBeaconBlock.init(trustedBlock))
 

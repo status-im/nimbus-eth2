@@ -154,7 +154,7 @@ type
       ## backfilling reaches this point - empty when not backfilling.
 
     heads*: seq[BlockRef]
-    ## Candidate heads of candidate chains
+      ## Candidate heads of candidate chains
 
     finalizedHead*: BlockSlot
       ## The latest block that was finalized according to the block in head
@@ -243,10 +243,12 @@ type
   EpochRef* = ref object
     dag*: ChainDAGRef
     key*: EpochKey
-    current_justified_checkpoint*: Checkpoint
-    finalized_checkpoint*: Checkpoint
+
     eth1_data*: Eth1Data
     eth1_deposit_index*: uint64
+
+    checkpoints*: FinalityCheckpoints
+
     beacon_proposers*: array[SLOTS_PER_EPOCH, Option[ValidatorIndex]]
     proposer_dependent_root*: Eth2Digest
 
@@ -270,17 +272,20 @@ type
   OnPhase0BlockAdded* = proc(
     blckRef: BlockRef,
     blck: phase0.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
   OnAltairBlockAdded* = proc(
     blckRef: BlockRef,
     blck: altair.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
   OnBellatrixBlockAdded* = proc(
     blckRef: BlockRef,
     blck: bellatrix.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
   HeadChangeInfoObject* = object
     slot*: Slot

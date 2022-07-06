@@ -169,8 +169,9 @@ func is_eligible_validator*(validator: ParticipationInfo): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#get_unslashed_participating_indices
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_total_balance
-func get_unslashed_participating_balances*(state: altair.BeaconState | bellatrix.BeaconState):
-    UnslashedParticipatingBalances =
+func get_unslashed_participating_balances*(
+    state: altair.BeaconState | bellatrix.BeaconState
+): UnslashedParticipatingBalances =
   let
     previous_epoch = get_previous_epoch(state)
     current_epoch = get_current_epoch(state)
@@ -234,112 +235,61 @@ func is_unslashed_participating_index(
     has_flag(epoch_participation[].item(validator_index), flag_index) and
     not state.validators[validator_index].slashed
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#justification-and-finalization
-proc process_justification_and_finalization*(state: var phase0.BeaconState,
-    balances: TotalBalances, flags: UpdateFlags = {}) =
-  # Initial FFG checkpoint values have a `0x00` stub for `root`.
-  # Skip FFG updates in the first two epochs to avoid corner cases that might
-  # result in modifying this stub.
-  if get_current_epoch(state) <= GENESIS_EPOCH + 1:
-    return
-
-  let
-    previous_epoch = get_previous_epoch(state)
-    current_epoch = get_current_epoch(state)
-    old_previous_justified_checkpoint = state.previous_justified_checkpoint
-    old_current_justified_checkpoint = state.current_justified_checkpoint
-
-  # Process justifications
-  state.previous_justified_checkpoint = state.current_justified_checkpoint
-
-  ## Spec:
-  ## state.justification_bits[1:] = state.justification_bits[:-1]
-  ## state.justification_bits[0] = 0b0
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#misc
-  const JUSTIFICATION_BITS_LENGTH = 4
-
-  state.justification_bits = JustificationBits(
-    (uint8(state.justification_bits) shl 1) and
-    uint8((2^JUSTIFICATION_BITS_LENGTH) - 1))
-
-  let total_active_balance = balances.current_epoch
-  if balances.previous_epoch_target_attesters * 3 >=
-      total_active_balance * 2:
-    state.current_justified_checkpoint =
-      Checkpoint(epoch: previous_epoch,
-                 root: get_block_root(state, previous_epoch))
-    uint8(state.justification_bits).setBit 1
-
-    trace "Justified with previous epoch",
-      current_epoch = current_epoch,
-      checkpoint = shortLog(state.current_justified_checkpoint)
-  elif verifyFinalization in flags:
-    warn "Low attestation participation in previous epoch",
-      balances, epoch = get_current_epoch(state)
-
-  if balances.current_epoch_target_attesters * 3 >=
-      total_active_balance * 2:
-    state.current_justified_checkpoint =
-      Checkpoint(epoch: current_epoch,
-                 root: get_block_root(state, current_epoch))
-    uint8(state.justification_bits).setBit 0
-
-    trace "Justified with current epoch",
-      current_epoch = current_epoch,
-      checkpoint = shortLog(state.current_justified_checkpoint)
-
-  # Process finalizations
-  let bitfield = uint8(state.justification_bits)
-
-  ## The 2nd/3rd/4th most recent epochs are justified, the 2nd using the 4th
-  ## as source
-  if (bitfield and 0b1110) == 0b1110 and
-     old_previous_justified_checkpoint.epoch + 3 == current_epoch:
-    state.finalized_checkpoint = old_previous_justified_checkpoint
-
-    trace "Finalized with rule 234",
-      current_epoch = current_epoch,
-      checkpoint = shortLog(state.finalized_checkpoint)
-
-  ## The 2nd/3rd most recent epochs are justified, the 2nd using the 3rd as
-  ## source
-  if (bitfield and 0b110) == 0b110 and
-     old_previous_justified_checkpoint.epoch + 2 == current_epoch:
-    state.finalized_checkpoint = old_previous_justified_checkpoint
-
-    trace "Finalized with rule 23",
-      current_epoch = current_epoch,
-      checkpoint = shortLog(state.finalized_checkpoint)
-
-  ## The 1st/2nd/3rd most recent epochs are justified, the 1st using the 3rd as
-  ## source
-  if (bitfield and 0b111) == 0b111 and
-     old_current_justified_checkpoint.epoch + 2 == current_epoch:
-    state.finalized_checkpoint = old_current_justified_checkpoint
-
-    trace "Finalized with rule 123",
-      current_epoch = current_epoch,
-      checkpoint = shortLog(state.finalized_checkpoint)
-
-  ## The 1st/2nd most recent epochs are justified, the 1st using the 2nd as
-  ## source
-  if (bitfield and 0b11) == 0b11 and
-     old_current_justified_checkpoint.epoch + 1 == current_epoch:
-    state.finalized_checkpoint = old_current_justified_checkpoint
-
-    trace "Finalized with rule 12",
-      current_epoch = current_epoch,
-      checkpoint = shortLog(state.finalized_checkpoint)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#justification-and-finalization
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#justification-and-finalization
-# TODO merge these things -- effectively, the phase0 process_justification_and_finalization is mostly a stub in this world
-proc weigh_justification_and_finalization(state: var (altair.BeaconState | bellatrix.BeaconState),
-                                          total_active_balance: Gwei,
-                                          previous_epoch_target_balance: Gwei,
-                                          current_epoch_target_balance: Gwei,
-                                          flags: UpdateFlags = {}) =
+type FinalityState = object
+  slot: Slot
+  current_epoch_ancestor_root: Eth2Digest
+  previous_epoch_ancestor_root: Eth2Digest
+  justification_bits: JustificationBits
+  previous_justified_checkpoint: Checkpoint
+  current_justified_checkpoint: Checkpoint
+  finalized_checkpoint: Checkpoint
+
+func toFinalityState(state: ForkyBeaconState): FinalityState =
+  let
+    current_epoch = get_current_epoch(state)
+    previous_epoch = get_previous_epoch(state)
+  FinalityState(
+    slot: state.slot,
+    current_epoch_ancestor_root:
+      if state.slot > current_epoch.start_slot:
+        get_block_root(state, current_epoch)
+      else:
+        ZERO_HASH,
+    previous_epoch_ancestor_root:
+      if state.slot > previous_epoch.start_slot:
+        get_block_root(state, previous_epoch)
+      else:
+        ZERO_HASH,
+    justification_bits:
+      state.justification_bits,
+    previous_justified_checkpoint:
+      state.previous_justified_checkpoint,
+    current_justified_checkpoint:
+      state.current_justified_checkpoint,
+    finalized_checkpoint:
+      state.finalized_checkpoint)
+
+func get_current_epoch(state: FinalityState): Epoch =
+  state.slot.epoch
+
+func get_previous_epoch(state: FinalityState): Epoch =
+  get_previous_epoch(get_current_epoch(state))
+
+func get_block_root(state: FinalityState, epoch: Epoch): Eth2Digest =
+  doAssert state.slot > epoch.start_slot
+  if epoch == get_current_epoch(state):
+    state.current_epoch_ancestor_root
+  else:
+    doAssert epoch == get_previous_epoch(state)
+    state.previous_epoch_ancestor_root
+
+proc weigh_justification_and_finalization(
+    state: var (ForkyBeaconState | FinalityState),
+    total_active_balance: Gwei,
+    previous_epoch_target_balance: Gwei,
+    current_epoch_target_balance: Gwei,
+    flags: UpdateFlags = {}) =
   let
     previous_epoch = get_previous_epoch(state)
     current_epoch = get_current_epoch(state)
@@ -429,7 +379,45 @@ proc weigh_justification_and_finalization(state: var (altair.BeaconState | bella
       current_epoch = current_epoch,
       checkpoint = shortLog(state.finalized_checkpoint)
 
-proc process_justification_and_finalization*(state: var (altair.BeaconState | bellatrix.BeaconState),
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#justification-and-finalization
+proc process_justification_and_finalization*(
+    state: var phase0.BeaconState,
+    balances: TotalBalances, flags: UpdateFlags = {}) =
+  # Initial FFG checkpoint values have a `0x00` stub for `root`.
+  # Skip FFG updates in the first two epochs to avoid corner cases that might
+  # result in modifying this stub.
+  if get_current_epoch(state) <= GENESIS_EPOCH + 1:
+    return
+
+  weigh_justification_and_finalization(
+    state, balances.current_epoch,
+    balances.previous_epoch_target_attesters,
+    balances.current_epoch_target_attesters, flags)
+
+proc compute_unrealized_finality*(
+    state: phase0.BeaconState, cache: var StateCache): FinalityCheckpoints =
+  if get_current_epoch(state) <= GENESIS_EPOCH + 1:
+    return FinalityCheckpoints(
+      justified: state.current_justified_checkpoint,
+      finalized: state.finalized_checkpoint)
+
+  var info: phase0.EpochInfo
+  info.init(state)
+  info.process_attestations(state, cache)
+  template balances(): auto = info.balances
+
+  var finalityState = state.toFinalityState()
+  weigh_justification_and_finalization(
+    finalityState, balances.current_epoch,
+    balances.previous_epoch_target_attesters,
+    balances.current_epoch_target_attesters)
+  FinalityCheckpoints(
+    justified: finalityState.current_justified_checkpoint,
+    finalized: finalityState.finalized_checkpoint)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#justification-and-finalization
+proc process_justification_and_finalization*(
+    state: var (altair.BeaconState | bellatrix.BeaconState),
     balances: UnslashedParticipatingBalances,
     flags: UpdateFlags = {}) =
   # Initial FFG checkpoint values have a `0x00` stub for `root`.
@@ -446,6 +434,24 @@ proc process_justification_and_finalization*(state: var (altair.BeaconState | be
     state, balances.current_epoch,
     balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
     balances.current_epoch_TIMELY_TARGET, flags)
+
+proc compute_unrealized_finality*(
+    state: altair.BeaconState | bellatrix.BeaconState): FinalityCheckpoints =
+  if get_current_epoch(state) <= GENESIS_EPOCH + 1:
+    return FinalityCheckpoints(
+      justified: state.current_justified_checkpoint,
+      finalized: state.finalized_checkpoint)
+
+  let balances = get_unslashed_participating_balances(state)
+
+  var finalityState = state.toFinalityState()
+  weigh_justification_and_finalization(
+    finalityState, balances.current_epoch,
+    balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
+    balances.current_epoch_TIMELY_TARGET)
+  FinalityCheckpoints(
+    justified: finalityState.current_justified_checkpoint,
+    finalized: finalityState.finalized_checkpoint)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#helpers
 func get_base_reward_sqrt*(state: phase0.BeaconState, index: ValidatorIndex,
@@ -1038,23 +1044,24 @@ func process_inactivity_updates*(
 proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
     cache: var StateCache, info: var phase0.EpochInfo): Result[void, cstring] =
-  let current_epoch = get_current_epoch(state)
+  let currentEpoch = get_current_epoch(state)
   trace "process_epoch",
-    current_epoch
-  init(info, state)
+    current_epoch = currentEpoch
+
+  info.init(state)
   info.process_attestations(state, cache)
 
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
-  if verifyFinalization in flags and current_epoch >= 2:
-    doAssert state.current_justified_checkpoint.epoch + 2 >= current_epoch
+  if verifyFinalization in flags and currentEpoch >= 2:
+    doAssert state.current_justified_checkpoint.epoch + 2 >= currentEpoch
 
-  if verifyFinalization in flags and current_epoch >= 3:
+  if verifyFinalization in flags and currentEpoch >= 3:
     # Rule 2/3/4 finalization results in the most pessimal case. The other
     # three finalization rules finalize more quickly as long as the any of
     # the finalization rules triggered.
-    doAssert state.finalized_checkpoint.epoch + 3 >= current_epoch
+    doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
 
   process_rewards_and_penalties(state, info)
   ? process_registry_updates(cfg, state, cache)
