@@ -183,20 +183,24 @@ proc updateHeadWithExecution*(self: ref ConsensusManager, wallSlot: Slot)
   ## `pruneFinalized` must be called for pruning.
 
   # Grab the new head according to our latest attestation data
-  let newHead = self.attestationPool[].selectOptimisticHead(
-      wallSlot.start_beacon_time).valueOr:
-    warn "Head selection failed, using previous head",
-      head = shortLog(self.dag.head), wallSlot
-    return
+  try:
+    let newHead = self.attestationPool[].selectOptimisticHead(
+        wallSlot.start_beacon_time).valueOr:
+      warn "Head selection failed, using previous head",
+        head = shortLog(self.dag.head), wallSlot
+      return
 
-  # Ensure dag.updateHead has most current information
-  await self.updateExecutionClientHead(newHead)
+    # Ensure dag.updateHead has most current information
+    await self.updateExecutionClientHead(newHead)
 
-  # Store the new head in the chain DAG - this may cause epochs to be
-  # justified and finalized
-  self.dag.updateHead(newHead, self.quarantine[])
+    # Store the new head in the chain DAG - this may cause epochs to be
+    # justified and finalized
+    self.dag.updateHead(newHead, self.quarantine[])
 
-  self[].checkExpectedBlock()
+    self[].checkExpectedBlock()
+  except CatchableError as exc:
+    debug "updateHeadWithExecution error",
+      error = exc.msg
 
 proc pruneStateCachesAndForkChoice*(self: var ConsensusManager) =
   ## Prune unneeded and invalidated data after finalization

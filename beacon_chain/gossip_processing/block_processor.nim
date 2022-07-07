@@ -164,7 +164,6 @@ proc storeBackfillBlock(
 
   res
 
-from chronicles/chronos_tools import traceAsyncErrors
 from ../consensus_object_pools/attestation_pool import addForkChoice
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
@@ -260,7 +259,7 @@ proc storeBlock*(
     # called valid blocks have already been registered as verified. The head
     # can lag a slot behind wall clock, complicating detecting synced status
     # for validating, otherwise.
-    traceAsyncErrors self.consensusManager.updateHeadWithExecution(
+    asyncSpawn self.consensusManager.updateHeadWithExecution(
       wallTime.slotOrZero)
 
   let
