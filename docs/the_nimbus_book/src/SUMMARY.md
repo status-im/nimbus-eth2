@@ -21,6 +21,7 @@
 - [Make a deposit](./deposit.md)
 - [Import your validator keys](./keys.md)
 - [Connect your validator to eth2](./connect-eth2.md)
+- [Set up transaction fee recipients](./suggested-fee-recipient.md)
 - [Keep an eye on your validator](./keep-an-eye.md)
 - [Recover / generate keys](./more-keys.md)
 - [Perform a voluntary exit](./voluntary-exit.md)
