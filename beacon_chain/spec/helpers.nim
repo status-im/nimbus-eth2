@@ -18,6 +18,7 @@ import
   std/[algorithm, math, sets, tables],
   # Status libraries
   stew/[bitops2, byteutils, endians2, objects],
+  chronicles,
   # Internal
   ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, ssz_codec]
@@ -26,6 +27,18 @@ import
 # fails to compile if the export is not done here also
 export
   forks, eth2_merkleization, ssz_codec
+
+type FinalityCheckpoints* = object
+  justified*: Checkpoint
+  finalized*: Checkpoint
+
+func shortLog*(v: FinalityCheckpoints): auto =
+  (
+    justified: shortLog(v.justified),
+    finalized: shortLog(v.finalized)
+  )
+
+chronicles.formatIt FinalityCheckpoints: it.shortLog
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =

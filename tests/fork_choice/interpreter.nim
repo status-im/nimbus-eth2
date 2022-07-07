@@ -12,9 +12,10 @@ import
   stew/[results, endians2],
   # Internals
   ../../beacon_chain/spec/datatypes/base,
+  ../../beacon_chain/spec/helpers,
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types]
 
-export results, base, fork_choice, fork_choice_types, tables, options
+export results, base, helpers, fork_choice, fork_choice_types, tables, options
 
 func fakeHash*(index: SomeInteger): Eth2Digest =
   ## Create fake hashes

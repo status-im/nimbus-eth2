@@ -15,6 +15,7 @@ import
   stew/results,
   # Internal
   ../spec/datatypes/base,
+  ../spec/helpers,
   # Fork choice
   ./fork_choice_types
 

@@ -159,15 +159,12 @@ proc update_checkpoints(
 proc on_tick(
     self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime): FcResult[void] =
   ## Must be called at least once per slot.
-  template backend(): auto = self.backend
-  template checkpoints(): auto = self.checkpoints
-
-  let previous_time = checkpoints.time
+  let previous_time = self.checkpoints.time
 
   # update store time
   if time < previous_time:
     return err ForkChoiceError(kind: fcInconsistentTick)
-  checkpoints.time = time
+  self.checkpoints.time = time
 
   let
     current_slot = time.slotOrZero
@@ -175,7 +172,7 @@ proc on_tick(
 
   # Reset store.proposer_boost_root if this is a new slot
   if current_slot > previous_slot:
-    checkpoints.proposer_boost_root.reset()
+    self.checkpoints.proposer_boost_root = ZERO_HASH
 
   # Not a new epoch, return
   if not (current_slot > previous_slot and current_slot.is_epoch):
@@ -183,19 +180,22 @@ proc on_tick(
 
   # Update store.justified_checkpoint if a better checkpoint on the
   # store.finalized_checkpoint chain
-  if checkpoints.best_justified.epoch > checkpoints.justified.checkpoint.epoch:
+  let
+    best_justified_epoch = self.checkpoints.best_justified.epoch
+    store_justified_epoch = self.checkpoints.justified.checkpoint.epoch
+  if best_justified_epoch > store_justified_epoch:
     let
-      blck = dag.getBlockRef(checkpoints.best_justified.root).valueOr:
+      blck = dag.getBlockRef(self.checkpoints.best_justified.root).valueOr:
         return err ForkChoiceError(
           kind: fcJustifiedNodeUnknown,
-          blockRoot: checkpoints.best_justified.root)
-      finalized_ancestor = blck.atEpochStart(checkpoints.finalized.epoch)
-    if finalized_ancestor.blck.root == checkpoints.finalized.root:
-      checkpoints.update_justified(dag, blck, checkpoints.best_justified.epoch)
+          blockRoot: self.checkpoints.best_justified.root)
+      finalized_ancestor = blck.atEpochStart(self.checkpoints.finalized.epoch)
+    if finalized_ancestor.blck.root == self.checkpoints.finalized.root:
+      self.checkpoints.update_justified(dag, blck, best_justified_epoch)
 
   # Pull-up chain tips from previous epoch
-  for realized in backend.proto_array.realizePendingCheckpoints():
-    ? checkpoints.update_checkpoints(dag, realized)
+  for realized in self.backend.proto_array.realizePendingCheckpoints():
+    ? self.checkpoints.update_checkpoints(dag, realized)
 
   ok()
 

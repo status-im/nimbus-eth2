@@ -14,7 +14,8 @@ import
   stew/results,
   chronicles,
   # Internal
-  ../spec/datatypes/base
+  ../spec/datatypes/base,
+  ../spec/helpers
 
 # https://github.com/ethereum/consensus-specs/blob/v0.11.1/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804

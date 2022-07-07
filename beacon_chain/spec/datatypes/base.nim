@@ -246,10 +246,6 @@ type
     epoch*: Epoch
     root*: Eth2Digest
 
-  FinalityCheckpoints* = object
-    justified*: Checkpoint
-    finalized*: Checkpoint
-
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#AttestationData
   AttestationData* = object
     slot*: Slot
@@ -752,12 +748,6 @@ func shortLog*(v: Checkpoint): auto =
   # epoch:root when logging epoch, root:slot when logging slot!
   $shortLog(v.epoch) & ":" & shortLog(v.root)
 
-func shortLog*(v: FinalityCheckpoints): auto =
-  (
-    justified: shortLog(v.justified),
-    finalized: shortLog(v.finalized)
-  )
-
 func shortLog*(v: AttestationData): auto =
   (
     slot: shortLog(v.slot),
@@ -829,7 +819,6 @@ func shortLog*(v: SomeSignedVoluntaryExit): auto =
 chronicles.formatIt AttestationData: it.shortLog
 chronicles.formatIt Attestation: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog
-chronicles.formatIt FinalityCheckpoints: it.shortLog
 
 const
   # http://facweb.cs.depaul.edu/sjost/it212/documents/ascii-pr.htm
