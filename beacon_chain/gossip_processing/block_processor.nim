@@ -169,12 +169,11 @@ from ../consensus_object_pools/spec_cache import get_attesting_indices
 from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
 
 proc storeBlock*(
-    self: ref BlockProcessor,
+    self: var BlockProcessor,
     src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock, payloadValid: bool,
     queueTick: Moment = Moment.now(),
-    validationDur = Duration()):
-    Future[Result[BlockRef, BlockError]] {.async.} =
+    validationDur = Duration()): Result[BlockRef, BlockError] =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
   ## blocks, regardless of origin, pass through here. When storing a block,
   ## we will add it to the dag and pass it to all block consumers that need
@@ -217,7 +216,7 @@ proc storeBlock*(
             trustedBlock.message.slot, trustedBlock.root,
             state.data.current_sync_committee.pubkeys.data[i])
 
-  self[].dumpBlock(signedBlock, blck)
+  self.dumpBlock(signedBlock, blck)
 
   # There can be a scenario where we receive a block we already received.
   # However this block was before the last finalized epoch and so its parent
@@ -260,11 +259,8 @@ proc storeBlock*(
     # called valid blocks have already been registered as verified. The head
     # can lag a slot behind wall clock, complicating detecting synced status
     # for validating, otherwise.
-    #
-    # TODO have a third version which is fire-and-forget for when it is merge
-    # but payloadValid is true, i.e. fcU is for EL's benefit, not CL. Current
-    # behavior adds unnecessary latency to CL event loop.
-    await self.consensusManager.updateHeadWithExecution(wallTime.slotOrZero)
+    asyncSpawn self.consensusManager.updateHeadWithExecution(
+      wallTime.slotOrZero)
 
   let
     updateHeadTick = Moment.now()
@@ -281,7 +277,7 @@ proc storeBlock*(
 
   for quarantined in self.consensusManager.quarantine[].pop(blck.get().root):
     # Process the blocks that had the newly accepted block as parent
-    self[].addBlock(MsgSource.gossip, quarantined)
+    self.addBlock(MsgSource.gossip, quarantined)
 
   return blck
 
@@ -324,8 +320,7 @@ proc addBlock*(
 # ------------------------------------------------------------------------------
 
 proc processBlock(
-    self: ref BlockProcessor, entry: BlockEntry, payloadValid: bool)
-    {.async.} =
+    self: var BlockProcessor, entry: BlockEntry, payloadValid: bool) =
   logScope:
     blockRoot = shortLog(entry.blck.root)
 
@@ -338,7 +333,7 @@ proc processBlock(
     quit 1
 
   let res = withBlck(entry.blck):
-    await self.storeBlock(
+    self.storeBlock(
       entry.src, wallTime, blck, payloadValid, entry.queueTick,
       entry.validationDur)
 
@@ -489,7 +484,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
     else:
       if  executionPayloadStatus == PayloadExecutionStatus.valid or
           self[].is_optimistic_candidate_block(blck.blck):
-        await self.processBlock(
+        self[].processBlock(
           blck, executionPayloadStatus == PayloadExecutionStatus.valid)
       else:
         debug "runQueueProcessingLoop: block cannot be optimistically imported",
