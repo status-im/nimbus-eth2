@@ -1696,7 +1696,11 @@ proc updateHead*(
   let
     finalized_checkpoint =
       getStateField(dag.headState, finalized_checkpoint)
-    finalizedSlot = max(finalized_checkpoint.epoch.start_slot(), dag.tail.slot)
+    finalizedSlot =
+      # finalized checkpoint may move back in the head state compared to what
+      # we've seen in other forks - it does not move back in fork choice
+      # however, so we'll use the last-known-finalized in that case
+      max(finalized_checkpoint.epoch.start_slot(), dag.finalizedHead.slot)
     finalizedHead = newHead.atSlot(finalizedSlot)
 
   doAssert (not finalizedHead.blck.isNil),
