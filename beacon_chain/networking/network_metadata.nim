@@ -269,8 +269,8 @@ when not defined(gnosisChainBinary):
     const
       mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
       praterMetadata* = eth2Network("shared/prater", goerli)
-      ropstenMetadata = mergeTestnet("ropsten-beacon-chain", ropsten)
-      sepoliaMetadata = mergeTestnet("sepolia", sepolia)
+      ropstenMetadata* = mergeTestnet("ropsten-beacon-chain", ropsten)
+      sepoliaMetadata* = mergeTestnet("sepolia", sepolia)
     static:
       for network in [mainnetMetadata, praterMetadata, ropstenMetadata, sepoliaMetadata]:
         checkForkConsistency(network.cfg)
