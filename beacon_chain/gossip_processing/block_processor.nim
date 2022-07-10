@@ -13,7 +13,7 @@ import
   ../spec/signatures_batch,
   ../sszdump
 
-from ./consensus_manager import
+from ../consensus_object_pools/consensus_manager import
   ConsensusManager, updateHead, updateHeadWithExecution
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, slot
