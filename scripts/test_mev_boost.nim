@@ -45,10 +45,10 @@ const
     proposerSigningDomain: Eth2Domain.fromHex(
       "0x0000000036fa50131482fe2af396daf210839ea6dcaaaa6372e95478610d7e08")
   )
-  networkInfo = sepoliaInfo
 
 proc getValidatorRegistration(
-    timestamp: uint64, pubkey: ValidatorPubKey, privkey: ValidatorPrivKey):
+    forkVersion: Version, builderSigningDomain: Eth2Domain, timestamp: uint64,
+    pubkey: ValidatorPubKey, privkey: ValidatorPrivKey):
     SignedValidatorRegistrationV1 =
   var validatorRegistration = SignedValidatorRegistrationV1(
     message: ValidatorRegistrationV1(
@@ -57,16 +57,15 @@ proc getValidatorRegistration(
       timestamp: timestamp,
       pubkey: pubkey))
 
-  let domain = compute_domain(
-    DOMAIN_APPLICATION_BUILDER, networkInfo.runtimeConfig.GENESIS_FORK_VERSION)
-  doAssert domain == networkInfo.builderSigningDomain
+  let domain = compute_domain(DOMAIN_APPLICATION_BUILDER, forkVersion)
+  doAssert domain == builderSigningDomain
   let signingRoot = compute_signing_root(validatorRegistration.message, domain)
 
   validatorRegistration.signature =
     blsSign(privkey, signingRoot.data).toValidatorSig
   validatorRegistration
 
-proc main() {.async.} =
+proc main(networkInfo: NetworkInfo) {.async.} =
   let
     restClient = RestClientRef.new(networkInfo.restUrl).get
     localClient = RestClientRef.new("http://127.0.0.1:5052").get
@@ -79,7 +78,8 @@ proc main() {.async.} =
 
   # Validator registration
   let validatorRegistration = getValidatorRegistration(
-    epochTime().uint64, pubkey, privkey)
+    networkInfo.runtimeConfig.GENESIS_FORK_VERSION,
+    networkInfo.builderSigningDomain, epochTime().uint64, pubkey, privkey)
   doAssert 200 ==
     (await restClient.registerValidator(@[validatorRegistration])).status
 
@@ -150,4 +150,4 @@ proc main() {.async.} =
   echo fullBlck.message.body.execution_payload
   echo submitBlindedBlockResponse.data.data
 
-waitFor main()
+waitFor main(sepoliaInfo)
