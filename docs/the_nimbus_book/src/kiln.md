@@ -34,7 +34,7 @@ You will need to pass this file to both the Execution Client and the Consensus C
 Clone and build the `kiln` branch of Nethermind:
 
 ```
-git clone --recursive -b kiln https://github.com/NethermindEth/nethermind.git
+git clone --recursive https://github.com/NethermindEth/nethermind.git
 cd nethermind/src/Nethermind
 dotnet build Nethermind.sln -c Release
 ```
@@ -43,7 +43,7 @@ dotnet build Nethermind.sln -c Release
 Start Nethermind:
 
 ```
-cd kiln/nethermind/src/Nethermind/Nethermind.Runner
+cd nethermind/src/Nethermind/Nethermind.Runner
 dotnet run -c Release -- --config kiln --JsonRpc.Host=0.0.0.0 --JsonRpc.JwtSecretFile=/tmp/jwtsecret
 ```
 
@@ -51,10 +51,10 @@ dotnet run -c Release -- --config kiln --JsonRpc.Host=0.0.0.0 --JsonRpc.JwtSecre
 
 #### 2.1G Clone and build
 
-Clone and build the `merge-kiln-v2` branch from Marius' fork of Geth:
+Clone and build Geth:
 
 ```
-git clone -b merge-kiln-v2 https://github.com/MariusVanDerWijden/go-ethereum.git
+git clone https://github.com/ethereum/go-ethereum.git
 cd go-ethereum 
 make geth
 cd ..
