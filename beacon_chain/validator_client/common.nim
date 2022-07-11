@@ -63,6 +63,9 @@ type
 
   SyncCommitteeServiceRef* = ref object of ClientServiceRef
 
+  DoppelgangerServiceRef* = ref object of ClientServiceRef
+    enabled*: bool
+
   DutyAndProof* = object
     epoch*: Epoch
     dependentRoot*: Eth2Digest
@@ -119,8 +122,13 @@ type
   DoppelgangerStatus* {.pure.} = enum
     None, Checking, Passed, Failed
 
+  DoppelgangerAttempt* {.pure.} = enum
+    None, Failure, SuccessTrue, SuccessFalse
+
   DoppelgangerState* = object
     startEpoch*: Epoch
+    epochsCount*: uint64
+    lastAttempt*: DoppelgangerAttempt
     status*: DoppelgangerStatus
 
   DoppelgangerDetection* = object
@@ -362,15 +370,83 @@ proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
 proc currentSlot*(vc: ValidatorClientRef): Slot =
   vc.beaconClock.now().slotOrZero()
 
-proc doppelgangerAdd*(vc: ValidatorClientRef,
-                      index: ValidatorIndex): Result[void, cstring] =
+proc addDoppelganger*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
+                      index: ValidatorIndex) =
   if vc.config.doppelgangerDetection:
-    let state = DoppelgangerState(
-      startEpoch: vc.currentSlot().epoch(), status: DoppelgangerStatus.Checking)
-    let res = vc.doppelgangerDetection.validators.hasKeyOrPut(index, state)
+    let
+      startEpoch = vc.currentSlot().epoch()
+      state = DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
+                                lastAttempt: DoppelgangerAttempt.None,
+                                status: DoppelgangerStatus.Checking)
+      res = vc.doppelgangerDetection.validators.hasKeyOrPut(index, state)
     if res:
-      return err("Validator is already in doppelganger's table")
-  ok()
+      warn "Validator is already in doppelganger's table", pubkey = pubkey,
+           index = index
+    else:
+      info "Doppelganger protection activated", pubkey = pubkey, index = index
+
+proc removeDoppelganger*(vc: ValidatorClientRef, index: ValidatorIndex) =
+  if vc.config.doppelgangerDetection:
+    var state: DoppelgangerState
+    # We do not care about race condition, when validator is not yet added to
+    # the doppelganger's table, but it should be removed.
+    discard vc.doppelgangerDetection.validators.pop(index, state)
+
+proc addValidator*(vc: ValidatorClientRef,
+                   keystore: KeystoreData) =
+  case keystore.kind
+  of KeystoreKind.Local:
+    vc.attachedValidators.addLocalValidator(keystore)
+  of KeystoreKind.Remote:
+    let
+      httpFlags =
+        block:
+          var res: set[HttpClientFlag]
+          if RemoteKeystoreFlag.IgnoreSSLVerification in keystore.flags:
+            res.incl({HttpClientFlag.NoVerifyHost,
+                      HttpClientFlag.NoVerifyServerName})
+          res
+      prestoFlags = {RestClientFlag.CommaSeparatedArray}
+      clients =
+        block:
+          var res: seq[(RestClientRef, RemoteSignerInfo)]
+          for remote in keystore.remotes:
+            let client = RestClientRef.new($remote.url, prestoFlags,
+                                           httpFlags)
+            if client.isErr():
+              warn "Unable to resolve distributed signer address",
+                   remote_url = $remote.url, validator = $remote.pubkey
+            else:
+              res.add((client.get(), remote))
+          res
+    if len(clients) > 0:
+      vc.attachedValidators.addRemoteValidator(keystore, clients,
+                                               none[ValidatorIndex]())
+    else:
+      warn "Unable to initialize remote validator",
+           validator = $keystore.pubkey
+
+proc removeValidator*(vc: ValidatorClientRef,
+                      pubkey: ValidatorPubKey) {.async.} =
+  let validator = vc.attachedValidators.getValidator(pubkey)
+  if not(isNil(validator)):
+    if vc.config.doppelgangerDetection:
+      if validator.index.isSome():
+        vc.removeDoppelganger(validator.index.get())
+    case validator.kind
+    of ValidatorKind.Local:
+      discard
+    of ValidatorKind.Remote:
+      # We must close all the REST clients running for the remote validator.
+      let pending =
+        block:
+          var res: seq[Future[void]]
+          for item in validator.clients:
+            res.add(item[0].closeWait())
+          res
+      await allFutures(pending)
+    # Remove validator from ValidatorPool.
+    vc.attachedValidators.removeValidator(pubkey)
 
 proc doppelgangerCheck*(vc: ValidatorClientRef, index: ValidatorIndex): bool =
   if vc.config.doppelgangerDetection:

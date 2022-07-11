@@ -87,7 +87,7 @@ proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
       continue
     else:
       duplicates.add(pubkey)
-      vc.attachedValidators.addLocalValidator(keystore)
+      vc.addValidator(keystore)
   return true
 
 proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =

@@ -10,6 +10,79 @@ type
   ApiOperation = enum
     Success, Timeout, Failure, Interrupt
 
+  ApiResponseSeq*[T] = object
+    status*: ApiOperation
+    data*: seq[ApiResponse[T]]
+
+template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
+                    timeout: Duration,
+                    body: untyped): ApiResponseSeq[responseType] =
+  var it {.inject.}: RestClientRef
+  type BodyType = typeof(body)
+
+  let onlineNodes =
+    vc.beaconNodes.filterIt(it.status == RestBeaconNodeStatus.Online)
+
+  if len(onlineNodes) > 0:
+    var (pendingRequests, pendingNodes) =
+      block:
+        var requests: seq[BodyType]
+        var nodes: seq[BeaconNodeServerRef]
+        for node {.inject.} in onlineNodes:
+          it = node.client
+          let fut = body
+          requests.add(fut)
+          nodes.add(node)
+        (requests, nodes)
+
+    let status =
+      try:
+        await allFutures(pendingRequests).wait(timeout)
+        ApiOperation.Success
+      except AsyncTimeoutError:
+        ApiOperation.Timeout
+      except CancelledError:
+        # We should cancel all the pending requests before we return result.
+        var pendingCancel: seq[Future[void]]
+        for fut in pendingRequests:
+          if not(fut.finished()):
+            pendingCancel.add(fut.cancelAndWait())
+        await allFutures(pendingCancel)
+        ApiOperation.Interrupt
+
+    let responses =
+      block:
+        var res: seq[ApiResponse[responseType]]
+        for idx, node in pendingNodes:
+          let apiResponse =
+            block:
+              let fut = pendingRequests[idx]
+              if fut.finished():
+                if fut.failed() or fut.cancelled():
+                  let exc = fut.readError()
+                  ApiResponse[responseType].err(
+                    "[" & $exc.name & "] " & $exc.msg)
+                else:
+                  ApiResponse[responseType].ok(fut.read())
+              else:
+                case status
+                of ApiOperation.Interrupt:
+                  pendingNodes[idx].status = RestBeaconNodeStatus.Offline
+                  ApiResponse[responseType].err("Operation interrupted")
+                of ApiOperation.Timeout:
+                  pendingNodes[idx].status = RestBeaconNodeStatus.Offline
+                  ApiResponse[responseType].err("Operation timeout exceeded")
+                of ApiOperation.Success, ApiOperation.Failure:
+                  # This should not be happened, because all Futures should be
+                  # finished, and `Failure` processed when Future is finished.
+                  ApiResponse[responseType].err("Unexpected error")
+          res.add(apiResponse)
+        res
+
+    ApiResponseSeq(status: status, data: responses)
+  else:
+    ApiOperationSeq(status: ApiOperation.Success)
+
 template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
                               timeout: Duration, body: untyped,
                               handlers: untyped): untyped =
