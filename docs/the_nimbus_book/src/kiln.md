@@ -31,7 +31,7 @@ You will need to pass this file to both the Execution Client and the Consensus C
 ### Nethermind
 
 #### 2.1N Clone and build
-Clone and build the `kiln` branch of Nethermind:
+Clone and build Nethermind:
 
 ```
 git clone --recursive https://github.com/NethermindEth/nethermind.git
