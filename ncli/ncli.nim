@@ -7,8 +7,10 @@ import
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/spec/[
-    eth2_ssz_serialization, forks, helpers, state_transition],
-  ../beacon_chain/networking/network_metadata
+    eth2_ssz_serialization, forks, helpers, state_transition, signatures],
+  ../beacon_chain/networking/network_metadata,
+  ../beacon_chain/conf/eth2_types_confutils_defs,
+  ../beacon_chain/eth1/deposit_contract_abi
 
 type
   Cmd* = enum
@@ -16,6 +18,7 @@ type
     pretty = "Pretty-print SSZ object"
     transition = "Run state transition function"
     slots = "Apply empty slots"
+    verifyDeposit = "Verify deposit"
 
   NcliConf* = object
     eth2Network* {.
@@ -28,29 +31,29 @@ type
     of hashTreeRoot:
       htrKind* {.
         argument
-        desc: "kind of SSZ object: attester_slashing, attestation, signed_block, block, block_body, block_header, deposit, deposit_data, eth1_data, state, proposer_slashing, or voluntary_exit"}: string
+        desc: "kind of SSZ object: attester_slashing, attestation, signed_block, block, block_body, block_header, deposit, deposit_data, eth1_data, state, proposer_slashing, or voluntary_exit" .}: string
 
       htrFile* {.
         argument
-        desc: "filename of SSZ or JSON-encoded object of which to compute hash tree root"}: string
+        desc: "filename of SSZ or JSON-encoded object of which to compute hash tree root" .}: string
 
     of pretty:
       prettyKind* {.
         argument
-        desc: "kind of SSZ object: attester_slashing, attestation, signed_block, block, block_body, block_header, deposit, deposit_data, eth1_data, state, proposer_slashing, or voluntary_exit"}: string
+        desc: "kind of SSZ object: attester_slashing, attestation, signed_block, block, block_body, block_header, deposit, deposit_data, eth1_data, state, proposer_slashing, or voluntary_exit" .}: string
 
       prettyFile* {.
         argument
-        desc: "filename of SSZ or JSON-encoded object to pretty-print"}: string
+        desc: "filename of SSZ or JSON-encoded object to pretty-print" .}: string
 
     of transition:
       preState* {.
         argument
-        desc: "State to which to apply specified block"}: string
+        desc: "State to which to apply specified block" .}: string
 
       blck* {.
         argument
-        desc: "Block to apply to preState"}: string
+        desc: "Block to apply to preState" .}: string
 
       postState* {.
         argument
@@ -59,20 +62,39 @@ type
       verifyStateRoot* {.
         argument
         desc: "Verify state root (default true)"
-        defaultValue: true}: bool
+        defaultValue: true .}: bool
 
     of slots:
       preState2* {.
         argument
-        desc: "State to which to apply specified block"}: string
+        desc: "State to which to apply specified block" .}: string
 
       slot* {.
         argument
-        desc: "Block to apply to preState"}: uint64
+        desc: "Block to apply to preState" .}: uint64
 
       postState2* {.
         argument
-        desc: "Filename of state resulting from applying blck to preState"}: string
+        desc: "Filename of state resulting from applying blck to preState" .}: string
+
+    of verifyDeposit:
+      pubkey* {.
+        desc: "The validator's public BLS signing key" .}: Option[ValidatorPubKey]
+
+      withdrawalCredentials* {.
+        desc: "The validator's withdrawal credentials (The prefixed 32 bytes form mandated by the spec)"
+        name: "withdrawal-credentials" .}: Option[Eth2Digest]
+
+      amount* {.
+        defaultValue: 32000000000
+        desc: "The deposit amount in gwei" .}: Gwei
+
+      signature* {.
+        desc: "The deposit signature" .}: Option[ValidatorSig]
+
+      depositData* {.
+        argument
+        desc: "Deposit event data from the official deposit contract in ABI form (hex-encoded)" .}: Option[string]
 
 template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
   case value.kind:
@@ -168,7 +190,6 @@ proc doSSZ(conf: NcliConf) =
     else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
-
   case kind
   of "attester_slashing": printit(AttesterSlashing)
   of "attestation": printit(Attestation)
@@ -191,6 +212,62 @@ proc doSSZ(conf: NcliConf) =
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
 
+template init[N: static int](T: type DynamicBytes[N, N]): T =
+  T newSeq[byte](N)
+
+proc doVerifyDeposit(conf: NcliConf) =
+  let cfg = getRuntimeConfig(conf.eth2Network)
+
+  let deposit = if conf.depositData.isSome:
+    let eventBytes = conf.depositData.get.substr(10)
+    var
+      pubkey = init deposit_contract_abi.PubKeyBytes
+      withdrawalCredentials = init WithdrawalCredentialsBytes
+      amount = init Int64LeBytes
+      signature = init SignatureBytes
+      index = init Int64LeBytes
+
+    echo eventBytes
+
+    try:
+      var offset = 0
+      offset += decode(eventBytes, offset, pubkey)
+      offset += decode(eventBytes, offset, withdrawalCredentials)
+      offset += decode(eventBytes, offset, amount)
+      offset += decode(eventBytes, offset, signature)
+    except CatchableError as err:
+      echo "Invalid deposit event: ", err.msg
+      quit 1
+
+    DepositData(
+      pubkey: ValidatorPubKey.init(pubkey.toArray),
+      withdrawal_credentials: Eth2Digest(data: withdrawalCredentials.toArray),
+      amount: bytes_to_uint64(amount.toArray),
+      signature: ValidatorSig.init(signature.toArray))
+  else:
+    var missingParams: seq[string]
+
+    if conf.pubkey.isNone: missingParams.add "pubkey"
+    if conf.withdrawalCredentials.isNone: missingParams.add "withdrawal-credentials"
+    if conf.signature.isNone: missingParams.add "singature"
+
+    if missingParams.len > 0:
+      echo "Please supply the hex-encoded deposit data as an argument or provide all of the following parameters:"
+      for param in missingParams:
+        echo "  --", param
+      quit 1
+
+    DepositData(
+      pubkey: conf.pubkey.get,
+      withdrawal_credentials: conf.withdrawalCredentials.get,
+      amount: conf.amount,
+      signature: conf.signature.get)
+
+  let status = if verify_deposit_signature(cfg, deposit): "valid"
+               else: "invalid"
+
+  echo "The deposit is ", status
+
 when isMainModule:
   let
     conf = NcliConf.load()
@@ -200,3 +277,4 @@ when isMainModule:
   of pretty: doSSZ(conf)
   of transition: doTransition(conf)
   of slots: doSlots(conf)
+  of verifyDeposit: doVerifyDeposit(conf)
