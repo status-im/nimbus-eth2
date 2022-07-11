@@ -954,21 +954,21 @@ func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
            pubkey, GENESIS_EPOCH) >= epoch or
          pubkey in node.attachedValidators.validators)
 
+func getCurrentSyncCommiteeSubnets(node: BeaconNode, slot: Slot): SyncnetBits =
+  let syncCommittee = withState(node.dag.headState):
+    when stateFork >= BeaconStateFork.Altair:
+      state.data.current_sync_committee
+    else:
+      default(SyncCommittee)
+
+  getSyncSubnets(node.hasSyncPubKey(slot.epoch), syncCommittee)
+
 proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addPhase0MessageHandlers(forkDigest, slot)
 
   # If this comes online near sync committee period, it'll immediately get
   # replaced as usual by trackSyncCommitteeTopics, which runs at slot end.
-  let
-    syncCommittee =
-      withState(node.dag.headState):
-        when stateFork >= BeaconStateFork.Altair:
-          state.data.current_sync_committee
-        else:
-          default(SyncCommittee)
-
-    currentSyncCommitteeSubnets = getSyncSubnets(
-      node.hasSyncPubKey(slot.epoch), syncCommittee)
+  let currentSyncCommitteeSubnets = node.getCurrentSyncCommiteeSubnets(slot)
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if currentSyncCommitteeSubnets[subcommitteeIdx]:
@@ -996,15 +996,7 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   # set of subscriptions, and use current_sync_committee. Furthermore, this
   # is potentially useful at arbitrary times, so don't guard it by checking
   # for epoch alignment.
-  let
-    syncCommittee =
-      withState(node.dag.headState):
-        when stateFork >= BeaconStateFork.Altair:
-          state.data.current_sync_committee
-        else:
-          default(SyncCommittee)
-    currentSyncCommitteeSubnets =
-      getSyncSubnets(node.hasSyncPubKey(slot.epoch), syncCommittee)
+  let currentSyncCommitteeSubnets = node.getCurrentSyncCommiteeSubnets(slot)
 
   debug "trackCurrentSyncCommitteeTopics: aligning with sync committee subnets",
     currentSyncCommitteeSubnets,
@@ -1038,6 +1030,18 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
 
   node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
 
+func getNextSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
+  let epochToSyncPeriod = nearSyncCommitteePeriod(epoch)
+
+  let syncCommittee = withState(node.dag.headState):
+    when stateFork >= BeaconStateFork.Altair:
+      state.data.next_sync_committee
+    else:
+      return static(default(SyncnetBits))
+
+  getSyncSubnets(
+    node.hasSyncPubKey(epoch + epochToSyncPeriod.get), syncCommittee)
+
 proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   let
     epoch = slot.epoch
@@ -1048,20 +1052,14 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
         node.dag.cfg.GENESIS_FORK_VERSION:
     return
 
+  # No lookahead required
   if epochToSyncPeriod.get == 0:
     node.trackCurrentSyncCommitteeTopics(slot)
     return
 
-  let
-    syncCommittee =
-      withState(node.dag.headState):
-        when stateFork >= BeaconStateFork.Altair:
-          state.data.next_sync_committee
-        else:
-          default(SyncCommittee)
-    nextSyncCommitteeSubnets = getSyncSubnets(
-      node.hasSyncPubKey(epoch + epochToSyncPeriod.get), syncCommittee)
-    forkDigests = node.forkDigests()
+  let nextSyncCommitteeSubnets = node.getNextSyncCommitteeSubnets(epoch)
+
+  let forkDigests = node.forkDigests()
 
   var newSubcommittees: SyncnetBits
 
@@ -1251,11 +1249,28 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   # -1 is a more useful output than 18446744073709551615 as an indicator of
   # no future attestation/proposal known.
-  template displayInt64(x: Slot): int64 =
+  template formatInt64(x: Slot): int64 =
     if x == high(uint64).Slot:
       -1'i64
     else:
       toGaugeValue(x)
+
+  template formatSyncCommitteeStatus(): string =
+    let slotsToNextSyncCommitteePeriod =
+      SLOTS_PER_SYNC_COMMITTEE_PERIOD - since_sync_committee_period_start(slot)
+
+    # int64 conversion is safe
+    doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
+
+    if not node.getCurrentSyncCommiteeSubnets(slot).isZeros:
+      "current"
+    # if 0 => fallback is getCurrentSyncCommitttee so avoid duplicate effort
+    elif since_sync_committee_period_start(slot) > 0 and
+         not node.getNextSyncCommitteeSubnets(slot.epoch).isZeros:
+      "in " & toTimeLeftString(
+        SECONDS_PER_SLOT.int64.seconds * slotsToNextSyncCommitteePeriod.int64)
+    else:
+      "none"
 
   info "Slot end",
     slot = shortLog(slot),
@@ -1264,8 +1279,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         "n/a"
       else:
         shortLog(nextActionWaitTime),
-    nextAttestationSlot = displayInt64(nextAttestationSlot),
-    nextProposalSlot = displayInt64(nextProposalSlot),
+    nextAttestationSlot = formatInt64(nextAttestationSlot),
+    nextProposalSlot = formatInt64(nextProposalSlot),
+    syncCommitteeDuties = formatSyncCommitteeStatus(),
     head = shortLog(head)
 
   if nextAttestationSlot != FAR_FUTURE_SLOT:
