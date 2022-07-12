@@ -639,7 +639,7 @@ proc mapErrTo*[T, E](r: Result[T, E], v: static KeystoreGenerationErrorKind):
     KeystoreGenerationError(kind: v, error: $e))
 
 proc loadNetKeystore*(keystorePath: string,
-                      insecurePwd: Option[string]): Option[lcrypto.PrivateKey] =
+                      insecurePwd: Option[string]): Opt[lcrypto.PrivateKey] =
 
   if not(checkSensitiveFilePermissions(keystorePath)):
     error "Network keystorage file has insecure permissions",
@@ -662,7 +662,7 @@ proc loadNetKeystore*(keystorePath: string,
     let decrypted = decryptNetKeystore(keyStore,
                                        KeystorePass.init(insecurePwd.get()))
     if decrypted.isOk:
-      return some(decrypted.get())
+      return ok(decrypted.get())
     else:
       error "Network keystore decryption failed", key_store = keystorePath
       return
@@ -676,7 +676,7 @@ proc loadNetKeystore*(keystorePath: string,
         decrypted
     )
     if res.isOk():
-      some(res.get())
+      ok(res.get())
     else:
       return
 
