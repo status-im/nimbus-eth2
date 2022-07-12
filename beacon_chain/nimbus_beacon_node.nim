@@ -1024,8 +1024,8 @@ func getNextSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   # but more than SYNC_COMMITTEE_SUBNET_COUNT epochs from when the next sync
   # committee period begins, in which case `epochsToNextSyncPeriod` is none.
   if  epochsToSyncPeriod.isNone or
-      forkVersionAtEpoch(node.dag.cfg, epoch + epochsToSyncPeriod.get) ==
-        node.dag.cfg.GENESIS_FORK_VERSION:
+      node.dag.cfg.stateForkAtEpoch(epoch + epochsToSyncPeriod.get) <
+        BeaconStateFork.Altair
     return static(default(SyncnetBits))
 
   let syncCommittee = withState(node.dag.headState):
