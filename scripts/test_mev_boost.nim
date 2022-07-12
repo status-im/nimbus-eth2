@@ -1,12 +1,18 @@
+# beacon_chain
+# Copyright (c) 2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
   std/macros,
   chronos, presto/client, web3/ethtypes,
   ../beacon_chain/spec/mev/rest_bellatrix_mev_calls
 
-from ../beacon_chain/beacon_chain_db import DepositContractSnapshot
 from ../beacon_chain/eth1/eth1_monitor import
-  Eth1Monitor, Web3DataProvider, asEth2Digest, ensureDataProvider,
-  forkchoiceUpdated, getBlockByNumber, init, new
+  DepositContractSnapshot, Eth1Monitor, Web3DataProvider, asEth2Digest,
+  ensureDataProvider, forkchoiceUpdated, getBlockByNumber, init, new
 from ../beacon_chain/networking/network_metadata import Eth1Network
 from ../beacon_chain/spec/datatypes/bellatrix import SignedBeaconBlock
 from ../beacon_chain/spec/helpers import compute_domain, compute_signing_root
