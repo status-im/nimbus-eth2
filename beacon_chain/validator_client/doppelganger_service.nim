@@ -8,7 +8,10 @@
 import chronicles
 import common, api
 
-logScope: service = "doppelganger_service"
+const
+  ServiceName = "doppelganger_service"
+
+logScope: service = ServiceName
 
 const
   DOPPELGANGER_EPOCHS_COUNT = 2
@@ -19,15 +22,6 @@ proc getCheckingList*(vc: ValidatorClientRef): seq[ValidatorIndex] =
     if value.status == DoppelgangerStatus.Checking:
       res.add(index)
   res
-
-proc init*(t: typedesc[DoppelgangerServiceRef],
-           vc: ValidatorClientRef): Future[DoppelgangerServiceRef] {.async.} =
-  debug "Initializing service"
-  var res = DoppelgangerServiceRef(
-    client: vc, state: ServiceState.Initialized,
-    enabled: vc.config.doppelgangerDetection
-  )
-  return res
 
 proc waitForNextEpoch(service: DoppelgangerServiceRef) {.async.} =
   let vc = service.client
@@ -52,7 +46,7 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
           if value.status == DoppelgangerStatus.Checking:
             value.epochsCount = 0'u64
             value.lastAttempt = DoppelgangerAttempt.SuccessTrue
-            debug "Validator's activity has been seen for epoch",
+            warn "Validator's activity has been seen",
                   validator_index = vindex, epoch = epoch
         else:
           if value.status == DoppelgangerStatus.Checking:
@@ -63,9 +57,9 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
                     validator_index = vindex
             else:
               inc(value.epochsCount)
-              debug "There is no validator's activity for epoch",
-                    validator_index = vindex, epoch = epoch,
-                    epochs_count = value.epochsCount
+              notice "Validator's activity was not seen",
+                     validator_index = vindex, epoch = epoch,
+                     epochs_count = value.epochsCount
 
 proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
   let vc = service.client
@@ -104,6 +98,15 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
       break
 
   debug "Service stopped"
+
+proc init*(t: typedesc[DoppelgangerServiceRef],
+           vc: ValidatorClientRef): Future[DoppelgangerServiceRef] {.async.} =
+  logScope: service = ServiceName
+  let res = DoppelgangerServiceRef(name: ServiceName,
+                                   client: vc, state: ServiceState.Initialized,
+                                   enabled: vc.config.doppelgangerDetection)
+  debug "Initializing service"
+  return res
 
 proc start*(service: DoppelgangerServiceRef) =
   service.lifeFut = mainLoop(service)
