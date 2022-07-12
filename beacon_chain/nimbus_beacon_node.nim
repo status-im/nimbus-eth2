@@ -959,7 +959,7 @@ func getCurrentSyncCommiteeSubnets(node: BeaconNode, slot: Slot): SyncnetBits =
     when stateFork >= BeaconStateFork.Altair:
       state.data.current_sync_committee
     else:
-      default(SyncCommittee)
+      return static(default(SyncnetBits))
 
   getSyncSubnets(node.hasSyncPubKey(slot.epoch), syncCommittee)
 
