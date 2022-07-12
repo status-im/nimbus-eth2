@@ -179,18 +179,18 @@ proc is_valid_indexed_attestation*(
   ok()
 
 func makeAttestationData*(
-    epochRef: EpochRef, bs: BlockSlot,
+    epochRef: EpochRef, attestationHead: BlockSlot,
     committee_index: CommitteeIndex): AttestationData =
-  ## Create an attestation / vote for the block `bs` using the
+  ## Create an attestation / vote for the block `attestationHead` using the
   ## data in `epochRef` to fill in the rest of the fields.
-  ## `epochRef` is the epoch information corresponding to the `bs` advanced to
-  ## the slot we're attesting to.
+  ## `epochRef` is the epoch information corresponding to the `attestationHead`
+  ## advanced to the slot we're attesting to.
 
   let
-    slot = bs.slot
+    slot = attestationHead.slot
     current_epoch = slot.epoch()
     epoch_boundary_slot = current_epoch.start_slot()
-    epoch_boundary_block = bs.blck.atSlot(epoch_boundary_slot)
+    epoch_boundary_block = attestationHead.blck.atSlot(epoch_boundary_slot)
 
   doAssert current_epoch == epochRef.epoch
 
@@ -198,10 +198,10 @@ func makeAttestationData*(
   AttestationData(
     slot: slot,
     index: committee_index.asUInt64,
-    beacon_block_root: bs.blck.root,
+    beacon_block_root: attestationHead.blck.root,
     source: epochRef.checkpoints.justified,
     target: Checkpoint(
-      epoch: current_epoch,
+      epoch: attestationHead.slot.epoch,
       root: epoch_boundary_block.blck.root))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#validator-assignments
