@@ -258,7 +258,8 @@ proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
       inc(res.online)
   res
 
-proc waitOnlineNodes*(vc: ValidatorClientRef) {.async.} =
+proc waitOnlineNodes*(vc: ValidatorClientRef,
+                      timeoutFut: Future[void] = nil) {.async.} =
   doAssert(not(isNil(vc.fallbackService)))
   while true:
     if vc.onlineNodesCount() != 0:
@@ -270,7 +271,26 @@ proc waitOnlineNodes*(vc: ValidatorClientRef) {.async.} =
               online_nodes = vc.onlineNodesCount(),
               unusable_nodes = vc.unusableNodesCount(),
               total_nodes = len(vc.beaconNodes)
-      await vc.fallbackService.onlineEvent.wait()
+      if isNil(timeoutFut):
+        await vc.fallbackService.onlineEvent.wait()
+      else:
+        let breakLoop =
+          block:
+            let waitFut = vc.fallbackService.onlineEvent.wait()
+            try:
+              discard await race(waitFut, timeoutFut)
+            except CancelledError as exc:
+              if not(waitFut.finished()):
+                await waitFut.cancelAndWait()
+              raise exc
+
+            if not(waitFut.finished()):
+              await waitFut.cancelAndWait()
+              true
+            else:
+              false
+        if breakLoop:
+          break
 
 proc checkCompatible(vc: ValidatorClientRef,
                      node: BeaconNodeServerRef) {.async.} =

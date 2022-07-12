@@ -5,11 +5,20 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/algorithm
 import chronicles
 import common, api
 
 logScope: service = "doppelganger_service"
+
+const
+  DOPPELGANGER_EPOCHS_COUNT = 2
+
+proc getCheckingList*(vc: ValidatorClientRef): seq[ValidatorIndex] =
+  var res: seq[ValidatorIndex]
+  for index, value in vc.doppelgangerDetection.validators.pairs():
+    if value.status == DoppelgangerStatus.Checking:
+      res.add(index)
+  res
 
 proc init*(t: typedesc[DoppelgangerServiceRef],
            vc: ValidatorClientRef): Future[DoppelgangerServiceRef] {.async.} =
@@ -26,36 +35,37 @@ proc waitForNextEpoch(service: DoppelgangerServiceRef) {.async.} =
   debug "Sleeping until next epoch", sleep_time = sleepTime
   await sleepAsync(sleepTime)
 
-proc resyncDoppelgangerDetection(service: DoppelgangerServiceRef,
-                                 epoch: Epoch) =
+proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
+                       activities: GetValidatorsActivityResponse) =
   let vc = service.client
-  for validator in vc.attachedValidators.items():
-    if validator.index.isSome():
-      let
-        index = validator.index.get()
-        state = DoppelgangerState.init(epoch)
-      discard vc.doppelgangerDetection.validators.hasKeyOrPut(index, state)
-
-proc mainStep(service: DoppelgangerServiceRef): Future[bool] {.async.} =
-  try:
-    await service.waitForNextEpoch()
-    let
-      currentEpoch = vc.currentSlot().epoch()
-      previousEpoch =
-        if currentEpoch == Epoch(0):
-          currentEpoch
+  if len(activities.data) == 0:
+    debug "Unable to monitor validator's activity for epoch", epoch = epoch
+    for index, value in vc.doppelgangerDetection.validators.mpairs():
+      if value.status == DoppelgangerStatus.Checking:
+        value.epochsCount = 0'u64
+        value.lastAttempt = DoppelgangerAttempt.Failure
+  else:
+    for activity in activities.data:
+      let vindex = activity.index
+      vc.doppelgangerDetection.validators.withValue(vindex, value):
+        if activity.active:
+          if value.status == DoppelgangerStatus.Checking:
+            value.epochsCount = 0'u64
+            value.lastAttempt = DoppelgangerAttempt.SuccessTrue
+            debug "Validator's activity has been seen for epoch",
+                  validator_index = vindex, epoch = epoch
         else:
-          currentEpoch - 1'u64
-      service.resyncDoppelgangerDetection(currentEpoch)
-      let indexList = vc.doppelgangerDetection.validators.keys().toSeq()
-    return true
-  except CancelledError:
-    debug "Service interrupted"
-    return false
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
-    return false
+          if value.status == DoppelgangerStatus.Checking:
+            value.lastAttempt = DoppelgangerAttempt.SuccessFalse
+            if value.epochsCount == DOPPELGANGER_EPOCHS_COUNT:
+              value.status = DoppelgangerStatus.Passed
+              info "Validator successfully passed doppelganger detection",
+                    validator_index = vindex
+            else:
+              inc(value.epochsCount)
+              debug "There is no validator's activity for epoch",
+                    validator_index = vindex, epoch = epoch,
+                    epochs_count = value.epochsCount
 
 proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
   let vc = service.client
@@ -78,21 +88,19 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
               currentEpoch
             else:
               currentEpoch - 1'u64
-          indexList = vc.doppelgangerDetection.validators.keys().toSeq()
+          validators = vc.getCheckingList()
+          activities = await vc.getValidatorsActivity(previousEpoch, validators)
+        service.processActivities(previousEpoch, activities)
         false
       except CancelledError:
         debug "Service interrupted"
         true
       except CatchableError as exc:
         warn "Service crashed with unexpected error", err_name = exc.name,
-        err_msg = exc.msg
+             err_msg = exc.msg
         true
 
     if breakLoop:
-      break
-
-    let res = await mainStep(service)
-    if not(res):
       break
 
   debug "Service stopped"

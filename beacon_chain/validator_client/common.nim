@@ -120,7 +120,7 @@ type
   ProposerMap* = Table[Epoch, ProposedData]
 
   DoppelgangerStatus* {.pure.} = enum
-    None, Checking, Passed, Failed
+    None, Checking, Passed
 
   DoppelgangerAttempt* {.pure.} = enum
     None, Failure, SuccessTrue, SuccessFalse
@@ -145,6 +145,7 @@ type
     attestationService*: AttestationServiceRef
     blockService*: BlockServiceRef
     syncCommitteeService*: SyncCommitteeServiceRef
+    doppelgangerService*: DoppelgangerServiceRef
     runSlotLoopFut*: Future[void]
     sigintHandleFut*: Future[void]
     sigtermHandleFut*: Future[void]
