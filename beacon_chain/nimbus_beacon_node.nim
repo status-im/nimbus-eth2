@@ -1018,7 +1018,15 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
 
 func getNextSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
-  let epochToSyncPeriod = nearSyncCommitteePeriod(epoch)
+  let epochsToSyncPeriod = nearSyncCommitteePeriod(epoch)
+
+  # The end-slot tracker might call this when it's theoretically applicable,
+  # but more than SYNC_COMMITTEE_SUBNET_COUNT epochs from when the next sync
+  # committee period begins, in which case `epochsToNextSyncPeriod` is none.
+  if  epochsToSyncPeriod.isNone or
+      forkVersionAtEpoch(node.dag.cfg, epoch + epochsToSyncPeriod.get) ==
+        node.dag.cfg.GENESIS_FORK_VERSION:
+    return static(default(SyncnetBits))
 
   let syncCommittee = withState(node.dag.headState):
     when stateFork >= BeaconStateFork.Altair:
@@ -1027,20 +1035,20 @@ func getNextSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
       return static(default(SyncnetBits))
 
   getSyncSubnets(
-    node.hasSyncPubKey(epoch + epochToSyncPeriod.get), syncCommittee)
+    node.hasSyncPubKey(epoch + epochsToSyncPeriod.get), syncCommittee)
 
 proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   let
     epoch = slot.epoch
-    epochToSyncPeriod = nearSyncCommitteePeriod(epoch)
+    epochsToSyncPeriod = nearSyncCommitteePeriod(epoch)
 
-  if  epochToSyncPeriod.isNone or
-      forkVersionAtEpoch(node.dag.cfg, epoch + epochToSyncPeriod.get) ==
+  if  epochsToSyncPeriod.isNone or
+      forkVersionAtEpoch(node.dag.cfg, epoch + epochsToSyncPeriod.get) ==
         node.dag.cfg.GENESIS_FORK_VERSION:
     return
 
   # No lookahead required
-  if epochToSyncPeriod.get == 0:
+  if epochsToSyncPeriod.get == 0:
     node.trackCurrentSyncCommitteeTopics(slot)
     return
 
@@ -1054,7 +1062,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if  (not node.network.metadata.syncnets[subcommitteeIdx]) and
         nextSyncCommitteeSubnets[subcommitteeIdx] and
-        node.syncCommitteeMsgPool[].isEpochLeadTime(epochToSyncPeriod.get):
+        node.syncCommitteeMsgPool[].isEpochLeadTime(epochsToSyncPeriod.get):
       for gossipFork in node.gossipState:
         node.network.subscribe(getSyncCommitteeTopic(
           forkDigests[gossipFork], subcommitteeIdx), basicParams)
@@ -1064,7 +1072,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
     metadata_syncnets = node.network.metadata.syncnets,
     nextSyncCommitteeSubnets,
     gossipState = node.gossipState,
-    epochsToSyncPeriod = epochToSyncPeriod.get,
+    epochsToSyncPeriod = epochsToSyncPeriod.get,
     newSubcommittees
 
   node.network.updateSyncnetsMetadata(
