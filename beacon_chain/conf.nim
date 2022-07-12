@@ -21,7 +21,7 @@ import
   eth/common/eth_types as commonEthTypes, eth/net/nat,
   eth/p2p/discoveryv5/enr,
   json_serialization, web3/[ethtypes, confutils_defs],
-  ./spec/[keystore, network, crypto],
+  ./spec/[engine_authentication, keystore, network, crypto],
   ./spec/datatypes/base,
   ./networking/network_metadata,
   ./validators/slashing_protection_common,
@@ -1153,3 +1153,27 @@ proc loadEth2Network*(
 
 template loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata =
   loadEth2Network(config.eth2Network)
+
+proc loadJwtSecret*(
+    rng: var HmacDrbgContext,
+    dataDir: string,
+    jwtSecret: Option[string],
+    allowCreate: bool): Option[seq[byte]] =
+  # Some Web3 endpoints aren't compatible with JWT, but if explicitly chosen,
+  # use it regardless.
+  if jwtSecret.isSome or allowCreate:
+    let secret = rng.checkJwtSecret(dataDir, jwtSecret)
+    if secret.isErr:
+      fatal "Specified a JWT secret file which couldn't be loaded",
+        err = secret.error
+      quit 1
+
+    some secret.get
+  else:
+    none(seq[byte])
+
+template loadJwtSecret*(
+    rng: var HmacDrbgContext,
+    config: BeaconNodeConf,
+    allowCreate: bool): Option[seq[byte]] =
+  rng.loadJwtSecret(string(config.dataDir), config.jwtSecret, allowCreate)
