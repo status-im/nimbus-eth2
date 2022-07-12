@@ -495,20 +495,7 @@ proc init*(T: type BeaconNode,
     fatal "--finalized-checkpoint-block cannot be specified without --finalized-checkpoint-state"
     quit 1
 
-  let optJwtSecret =
-    # Some Web3 endpoints aren't compatible with JWT, but if explicitly chosen,
-    # use it regardless.
-    if config.jwtSecret.isSome:
-      let jwtSecret = rng[].checkJwtSecret(
-        string(config.dataDir), config.jwtSecret)
-      if jwtSecret.isErr:
-         fatal "Specified a JWT secret file which couldn't be loaded",
-           err = jwtSecret.error
-         quit 1
-
-      some jwtSecret.get
-    else:
-      none(seq[byte])
+  let optJwtSecret = rng[].loadJwtSecret(config, allowCreate = false)
 
   template getDepositContractSnapshot: auto =
     if depositContractSnapshot.isSome:
@@ -1872,15 +1859,7 @@ proc doCreateTestnet*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.raises
     eth1Hash = if config.web3Urls.len == 0: eth1BlockHash
                else: (waitFor getEth1BlockHash(
                  config.web3Urls[0], blockId("latest"),
-                 block:
-                   let jwtSecret = rng.checkJwtSecret(
-                     string(config.dataDir), config.jwtSecret)
-                   if jwtSecret.isErr:
-                      fatal "Specified a JWT secret file which couldn't be loaded",
-                        err = jwtSecret.error
-                      quit 1
-
-                   some jwtSecret.get)).asEth2Digest
+                 rng.loadJwtSecret(config, allowCreate = true))).asEth2Digest
     cfg = getRuntimeConfig(config.eth2Network)
   var
     initialState = newClone(initialize_beacon_state_from_eth1(
@@ -1961,15 +1940,7 @@ proc doWeb3Cmd(config: BeaconNodeConf, rng: var HmacDrbgContext)
 
     waitFor testWeb3Provider(config.web3TestUrl,
                              metadata.cfg.DEPOSIT_CONTRACT_ADDRESS,
-                             block:
-                               let jwtSecret = rng.checkJwtSecret(
-                                 string(config.dataDir), config.jwtSecret)
-
-                               if jwtSecret.isErr:
-                                 fatal "Specified a JWT secret file which couldn't be loaded",
-                                   err = jwtSecret.error
-                                 quit 1
-                               some jwtSecret.get)
+                             rng.loadJwtSecret(config, allowCreate = true))
 
 proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].}=
   let
