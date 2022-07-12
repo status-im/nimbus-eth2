@@ -495,11 +495,10 @@ proc init*(T: type BeaconNode,
         fatal "Failed to load the checkpoint block", err = err.msg
         quit 1
 
-      withBlck(checkpointBlock):
-        if not blck.message.slot.is_epoch:
-          fatal "--finalized-checkpoint-block must point to a block for an epoch slot",
-            slot = blck.message.slot
-          quit 1
+      if not checkpointBlock.slot.is_epoch:
+        fatal "--finalized-checkpoint-block must point to a block for an epoch slot",
+          slot = checkpointBlock.slot
+        quit 1
 
   elif config.finalizedCheckpointBlock.isSome:
     # TODO We can download the state from somewhere in the future relying
