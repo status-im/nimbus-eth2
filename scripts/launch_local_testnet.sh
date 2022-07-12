@@ -82,7 +82,7 @@ ETH2_DOCKER_IMAGE=""
 REMOTE_SIGNER_NODES=0
 REMOTE_SIGNER_THRESHOLD=1
 REMOTE_VALIDATORS_COUNT=0
-LC_NODES=0
+LC_NODES=1
 ACCOUNT_PASSWORD="nimbus"
 RUN_GETH="0"
 DL_GETH="0"
@@ -230,10 +230,11 @@ while true; do
     --eth2-docker-image)
       ETH2_DOCKER_IMAGE="$2"
       shift 2
-      # TODO The validator client is still not being shipped with
-      #      our docker images, so we must disable it:
-      echo "warning: --eth-docker-image implies --disable-vc"
+      # TODO The validator client and light client are not being shipped with
+      #      our docker images, so we must disable them:
+      echo "warning: --eth-docker-image implies --disable-vc --light-clients=0"
       USE_VC="0"
+      LC_NODES="0"
       ;;
     --lighthouse-vc-nodes)
       LIGHTHOUSE_VC_NODES="$2"
@@ -269,6 +270,12 @@ while true; do
       exit 1
   esac
 done
+if [[ -n "${ETH2_DOCKER_IMAGE}" ]]; then
+  if (( USE_VC || LC_NODES )); then
+    echo "invalid config: USE_VC=${USE_VC} LC_NODES=${LC_NODES}"
+    false
+  fi
+fi
 
 # when sourcing env.sh, it will try to execute $@, so empty it
 EXTRA_ARGS="$@"
