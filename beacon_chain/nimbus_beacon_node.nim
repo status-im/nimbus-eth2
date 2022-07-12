@@ -1397,8 +1397,9 @@ proc onSecond(node: BeaconNode, time: Moment) =
     bnStatus = BeaconNodeStatus.Stopping
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
-  let sleepTime = chronos.seconds(1)
-  const nanosecondsIn1s = float(chronos.seconds(1).nanoseconds)
+  const
+    sleepTime = chronos.seconds(1)
+    nanosecondsIn1s = float(sleepTime.nanoseconds)
   while true:
     let start = chronos.now(chronos.Moment)
     await chronos.sleepAsync(sleepTime)

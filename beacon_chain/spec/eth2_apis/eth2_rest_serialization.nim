@@ -98,6 +98,7 @@ type
     seq[ValidatorIndex] |
     seq[Attestation] |
     seq[SignedAggregateAndProof] |
+    seq[SignedValidatorRegistrationV1] |
     seq[RestCommitteeSubscription] |
     seq[RestSyncCommitteeSubscription] |
     seq[RestSyncCommitteeMessage] |
