@@ -471,6 +471,11 @@ proc init*(T: type BeaconNode,
       fatal "Failed to read checkpoint state file", err = err.msg
       quit 1
 
+    if not getStateField(checkpointState[], slot).is_epoch:
+      fatal "--finalized-checkpoint-state must point to a state for an epoch slot",
+        slot = getStateField(checkpointState[], slot)
+      quit 1
+
     if config.finalizedCheckpointBlock.isNone:
       if getStateField(checkpointState[], slot) > 0:
         fatal "Specifying a non-genesis --finalized-checkpoint-state requires specifying --finalized-checkpoint-block as well"
@@ -489,6 +494,12 @@ proc init*(T: type BeaconNode,
       except IOError as err:
         fatal "Failed to load the checkpoint block", err = err.msg
         quit 1
+
+      if not checkpointBlock.slot.is_epoch:
+        fatal "--finalized-checkpoint-block must point to a block for an epoch slot",
+          slot = checkpointBlock.slot
+        quit 1
+
   elif config.finalizedCheckpointBlock.isSome:
     # TODO We can download the state from somewhere in the future relying
     #      on the trusted `state_root` appearing in the checkpoint block.
