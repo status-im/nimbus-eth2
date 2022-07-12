@@ -361,6 +361,7 @@ define CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT
 		--network=$(1) \
 		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_lc_$$(date +"%Y%m%d%H%M%S").log \
+		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--trusted-block-root="$(LC_TRUSTED_BLOCK_ROOT)"
 endef
 

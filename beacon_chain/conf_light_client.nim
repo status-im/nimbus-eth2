@@ -39,6 +39,14 @@ type LightClientConf* = object
     desc: "Specifies a path for the written Json log file (deprecated)"
     name: "log-file" .}: Option[OutFile]
 
+  # Storage
+  dataDir* {.
+    desc: "The directory where nimbus will store all blockchain data"
+    defaultValue: config.defaultDataDir()
+    defaultValueDesc: ""
+    abbr: "d"
+    name: "data-dir" .}: OutDir
+
   # Network
   eth2Network* {.
     desc: "The Eth2 network to join"
@@ -116,9 +124,30 @@ type LightClientConf* = object
     desc: "Recent trusted finalized block root to initialize light client from"
     name: "trusted-block-root" .}: Eth2Digest
 
+  # Execution layer
+  web3Urls* {.
+    desc: "One or more execution layer Web3 provider URLs"
+    name: "web3-url" .}: seq[string]
+
+  jwtSecret* {.
+    desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating jwt tokens"
+    name: "jwt-secret" .}: Option[string]
+
+  safeSlotsToImportOptimistically* {.
+    hidden
+    desc: "Modify SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY"
+    defaultValue: 128
+    name: "safe-slots-to-import-optimistically" .}: uint16
+
   # Testing
   stopAtEpoch* {.
     hidden
     desc: "The wall-time epoch at which to exit the program. (for testing purposes)"
     defaultValue: 0
     name: "stop-at-epoch" .}: uint64
+
+template loadJwtSecret*(
+    rng: var HmacDrbgContext,
+    config: LightClientConf,
+    allowCreate: bool): Option[seq[byte]] =
+  rng.loadJwtSecret(string(config.dataDir), config.jwtSecret, allowCreate)

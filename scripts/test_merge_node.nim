@@ -22,7 +22,6 @@ from web3/engine_api_types import PayloadExecutionStatus
 from ../beacon_chain/networking/network_metadata import Eth1Network
 from ../beacon_chain/spec/datatypes/base import ZERO_HASH
 from ../beacon_chain/spec/presets import Eth1Address, defaultRuntimeConfig
-from ../tests/testdbutil import makeTestDB
 
 # TODO factor this out and have a version with the result of the jwt secret
 # slurp for testing purposes
@@ -54,9 +53,8 @@ proc run() {.async.} =
     echo "args are: web3url jwtsecretfilename"
 
   let
-    db = makeTestDB(64)
     eth1Monitor = Eth1Monitor.init(
-      defaultRuntimeConfig, db, nil, @[paramStr(1)],
+      defaultRuntimeConfig, db = nil, nil, @[paramStr(1)],
       none(DepositContractSnapshot), none(Eth1Network), false,
       some readJwtSecret(paramStr(2)).get)
 

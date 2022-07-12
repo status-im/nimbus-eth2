@@ -19,7 +19,6 @@ from web3/engine_api_types import PayloadExecutionStatus
 from ../beacon_chain/networking/network_metadata import Eth1Network
 from ../beacon_chain/spec/datatypes/base import ZERO_HASH
 from ../beacon_chain/spec/presets import Eth1Address, defaultRuntimeConfig
-from ../tests/testdbutil import makeTestDB
 
 {.push raises: [Defect].}
 
@@ -55,10 +54,9 @@ const
 
 proc run() {.async.} =
   let
-    db = makeTestDB(64)
     jwtSecret = some readJwtSecret("jwt.hex").get
     eth1Monitor = Eth1Monitor.init(
-      defaultRuntimeConfig, db, nil, @[web3Url],
+      defaultRuntimeConfig, db = nil, nil, @[web3Url],
       none(DepositContractSnapshot), none(Eth1Network), false, jwtSecret)
     web3Provider = (await Web3DataProvider.new(
       default(Eth1Address), web3Url, jwtSecret)).get
