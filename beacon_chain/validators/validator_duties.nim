@@ -337,44 +337,6 @@ proc get_execution_payload(
     asConsensusExecutionPayload(
       await execution_engine.getPayload(payload_id.get))
 
-proc getSuggestedFeeRecipient(node: BeaconNode, pubkey: ValidatorPubKey):
-    Eth1Address =
-  template defaultSuggestedFeeRecipient(): Eth1Address =
-    if node.config.suggestedFeeRecipient.isSome:
-      node.config.suggestedFeeRecipient.get
-    else:
-      # https://github.com/nim-lang/Nim/issues/19802
-      (static(default(Eth1Address)))
-
-  const feeRecipientFilename = "suggested_fee_recipient.hex"
-  let
-    keyName = "0x" & pubkey.toHex()
-    feeRecipientPath =
-      node.config.validatorsDir() / keyName / feeRecipientFilename
-
-  # In this particular case, an error might be by design. If the file exists,
-  # but doesn't load or parse that's a more urgent matter to fix. Many people
-  # people might prefer, however, not to override their default suggested fee
-  # recipients per validator, so don't warn very loudly, if at all.
-  if not fileExists(feeRecipientPath):
-    debug "getSuggestedFeeRecipient: did not find fee recipient file; using default fee recipient",
-      feeRecipientPath
-    return defaultSuggestedFeeRecipient()
-
-  try:
-    # Avoid being overly flexible initially. Trailing whitespace is common
-    # enough it probably should be allowed, but it is reasonable to simply
-    # disallow the mostly-pointless flexibility of leading whitespace.
-    Eth1Address.fromHex(strip(
-      readFile(feeRecipientPath), leading = false, trailing = true))
-  except CatchableError as exc:
-    # Because the nonexistent validator case was already checked, any failure
-    # at this point is serious enough to alert the user.
-    warn "getSuggestedFeeRecipient: failed loading fee recipient file; falling back to default fee recipient",
-      feeRecipientPath,
-      err = exc.msg
-    defaultSuggestedFeeRecipient()
-
 proc getExecutionPayload(
     node: BeaconNode, proposalState: auto, pubkey: ValidatorPubKey):
     Future[ExecutionPayload] {.async.} =
@@ -410,9 +372,11 @@ proc getExecutionPayload(
           terminalBlockHash
       latestFinalized =
         node.dag.loadExecutionBlockRoot(node.dag.finalizedHead.blck)
+      feeRecipient = node.config.getSuggestedFeeRecipient(pubkey).valueOr:
+        node.config.defaultFeeRecipient
       payload_id = (await forkchoice_updated(
         proposalState.bellatrixData.data, latestHead, latestFinalized,
-        node.getSuggestedFeeRecipient(pubkey),
+        feeRecipient,
         node.consensusManager.eth1Monitor))
       payload = awaitWithTimeout(
         get_execution_payload(payload_id, node.consensusManager.eth1Monitor),

@@ -168,6 +168,17 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + addExitMessage/getVoluntaryExitMessage                                                     OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Fee recipient management [Preset: mainnet]
+```diff
++ Configuring the fee recpient [Preset: mainnet]                                             OK
++ Invalid Authorization Header [Preset: mainnet]                                             OK
++ Invalid Authorization Token [Preset: mainnet]                                              OK
++ Missing Authorization header [Preset: mainnet]                                             OK
++ Obtaining the fee recpient of a missing validator returns 404 [Preset: mainnet]            OK
++ Obtaining the fee recpient of an unconfigured validator returns the suggested default [Pre OK
++ Setting the fee recipient on a missing validator creates a record for it [Preset: mainnet] OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## FinalizedBlocks [Preset: mainnet]
 ```diff
 + Basic ops [Preset: mainnet]                                                                OK
@@ -569,4 +580,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 314/319 Fail: 0/319 Skip: 5/319
+OK: 321/326 Fail: 0/326 Skip: 5/326
