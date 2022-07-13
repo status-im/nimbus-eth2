@@ -1330,8 +1330,8 @@ func syncStatus(node: BeaconNode): string =
   else:
     "synced"
 
-proc onSlotStart(
-    node: BeaconNode, wallTime: BeaconTime, lastSlot: Slot) {.async.} =
+proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
+                 lastSlot: Slot): Future[bool] {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
   ## wallTime: current system time - we will strive to perform all duties up
@@ -1357,7 +1357,8 @@ proc onSlotStart(
     delay = shortLog(delay)
 
   # Check before any re-scheduling of onSlotStart()
-  checkIfShouldStopAtEpoch(wallSlot, node.config.stopAtEpoch)
+  if checkIfShouldStopAtEpoch(wallSlot, node.config.stopAtEpoch):
+    quit(0)
 
   when defined(windows):
     if node.config.runAsService:
@@ -1378,6 +1379,8 @@ proc onSlotStart(
   await node.handleValidatorDuties(lastSlot, wallSlot)
 
   await onSlotEnd(node, wallSlot)
+
+  return false
 
 proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.quarantine[].checkMissing()
@@ -1605,7 +1608,7 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     proc SIGTERMHandler(signal: cint) {.noconv.} =
       notice "Shutting down after having received SIGTERM"
       bnStatus = BeaconNodeStatus.Stopping
-    c_signal(SIGTERM, SIGTERMHandler)
+    c_signal(ansi_c.SIGTERM, SIGTERMHandler)
 
   # main event loop
   while bnStatus == BeaconNodeStatus.Running:
@@ -2153,7 +2156,7 @@ programMain:
     proc exitImmediatelyOnSIGTERM(signal: cint) {.noconv.} =
       notice "Shutting down after having received SIGTERM"
       quit 0
-    c_signal(SIGTERM, exitImmediatelyOnSIGTERM)
+    c_signal(ansi_c.SIGTERM, exitImmediatelyOnSIGTERM)
 
   when defined(windows):
     if config.runAsService:

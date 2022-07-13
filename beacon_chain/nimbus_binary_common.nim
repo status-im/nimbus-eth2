@@ -31,7 +31,7 @@ export
 
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
-                           lastSlot: Slot): Future[void] {.gcsafe,
+                           lastSlot: Slot): Future[bool] {.gcsafe,
   raises: [Defect].}
 
 # silly chronicles, colors is a compile-time property
@@ -216,7 +216,8 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
   {.pop.}
   config
 
-proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot, stopAtEpoch: uint64) =
+proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot,
+                               stopAtEpoch: uint64): bool =
   # Offset backwards slightly to allow this epoch's finalization check to occur
   if scheduledSlot > 3 and stopAtEpoch > 0'u64 and
       (scheduledSlot - 3).epoch() >= stopAtEpoch:
@@ -224,9 +225,9 @@ proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot, stopAtEpoch: uint64) =
       chosenEpoch = stopAtEpoch,
       epoch = scheduledSlot.epoch(),
       slot = scheduledSlot
-
-    # Brute-force, but ensure it's reliable enough to run in CI.
-    quit(0)
+    true
+  else:
+    false
 
 proc resetStdin*() =
   when defined(posix):
@@ -302,7 +303,9 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
           curSlot = shortLog(curSlot),
           nextSlot = shortLog(curSlot)
 
-    await slotProc(node, wallTime, curSlot)
+    let breakLoop = await slotProc(node, wallTime, curSlot)
+    if breakLoop:
+      break
 
     curSlot = wallSlot
     nextSlot = wallSlot + 1

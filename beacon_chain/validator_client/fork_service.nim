@@ -70,21 +70,35 @@ proc waitForNextEpoch(service: ForkServiceRef) {.async.} =
   await sleepAsync(sleepTime)
 
 proc mainLoop(service: ForkServiceRef) {.async.} =
-  service.state = ServiceState.Running
   let vc = service.client
+  service.state = ServiceState.Running
   debug "Service started"
-  try:
-    while true:
-      await vc.pollForFork()
-      await service.waitForNextEpoch()
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
+
+  while true:
+    # This loop could look much more nicer/better, when
+    # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
+    # become safe to combine loops, breaks and exception handlers.
+    let breakLoop =
+      try:
+        await vc.pollForFork()
+        await service.waitForNextEpoch()
+        false
+      except CancelledError:
+        debug "Service interrupted"
+        true
+      except CatchableError as exc:
+        warn "Service crashed with unexpected error", err_name = exc.name,
+             err_msg = exc.msg
+        true
+
+    if breakLoop:
+      break
 
 proc init*(t: typedesc[ForkServiceRef],
             vc: ValidatorClientRef): Future[ForkServiceRef] {.async.} =
   debug "Initializing service"
-  var res = ForkServiceRef(client: vc, state: ServiceState.Initialized)
+  let res = ForkServiceRef(name: "fork_service",
+                           client: vc, state: ServiceState.Initialized)
   await vc.pollForFork()
   return res
 

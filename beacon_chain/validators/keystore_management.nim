@@ -1220,7 +1220,7 @@ proc pickPasswordAndSaveWallet(rng: var HmacDrbgContext,
     block:
       let prompt = "Please enter a password: "
       let confirm = "Please repeat the password: "
-      ? keyboardCreatePassword(prompt, confirm).mapErr(proc(e: auto): string = $e)
+      ? keyboardCreatePassword(prompt, confirm)
   defer: burnMem(password)
 
   var name: WalletName
