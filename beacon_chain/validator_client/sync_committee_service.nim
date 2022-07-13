@@ -12,6 +12,8 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/eth2_apis/rest_types
 
+logScope: service = "sync_committee_service"
+
 type
   ContributionItem* = object
     aggregator_index: uint64
@@ -20,16 +22,17 @@ type
     subcommitteeIdx: SyncSubcommitteeIndex
 
 proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
-                                slot: Slot,
-                                beaconBlockRoot: Eth2Digest,
-                                duty: SyncDutyAndProof): Future[bool] {.async.} =
+                                slot: Slot, beaconBlockRoot: Eth2Digest,
+                                duty: SyncDutyAndProof): Future[bool] {.
+     async.} =
   let
     vc = service.client
     fork = vc.forkAtEpoch(slot.epoch)
     genesisValidatorsRoot = vc.beaconGenesis.genesis_validators_root
 
     vindex = duty.data.validator_index
-    subcommitteeIdx = getSubcommitteeIndex(duty.data.validator_sync_committee_index)
+    subcommitteeIdx = getSubcommitteeIndex(
+      duty.data.validator_sync_committee_index)
 
     validator =
       block:
@@ -63,6 +66,9 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
             validator = shortLog(validator),
             validator_index = vindex
       return false
+    except CancelledError:
+      debug "Publish sync committee message request was interrupted"
+      return false
     except CatchableError as exc:
       error "Unexpected error occurred while publishing sync committee message",
             message = shortLog(message),
@@ -89,14 +95,16 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
 proc produceAndPublishSyncCommitteeMessages(service: SyncCommitteeServiceRef,
                                             slot: Slot,
                                             beaconBlockRoot: Eth2Digest,
-                                            duties: seq[SyncDutyAndProof]) {.async.} =
+                                            duties: seq[SyncDutyAndProof]) {.
+     async.} =
   let vc = service.client
 
   let pendingSyncCommitteeMessages =
     block:
       var res: seq[Future[bool]]
       for duty in duties:
-        debug "Serving sync message duty", duty = duty.data, epoch = slot.epoch()
+        debug "Serving sync message duty", duty = duty.data,
+              epoch = slot.epoch()
         res.add(service.serveSyncCommitteeMessage(slot,
                                                   beaconBlockRoot,
                                                   duty))
@@ -125,14 +133,16 @@ proc produceAndPublishSyncCommitteeMessages(service: SyncCommitteeServiceRef,
       (succeed, errored, failed)
 
   let delay = vc.getDelay(slot.attestation_deadline())
-  debug "Sync committee message statistics", total = len(pendingSyncCommitteeMessages),
+  debug "Sync committee message statistics",
+        total = len(pendingSyncCommitteeMessages),
         succeed = statistics[0], failed_to_deliver = statistics[1],
         not_accepted = statistics[2], delay = delay, slot = slot,
         duties_count = len(duties)
 
 proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
                                 proof: ContributionAndProof,
-                                validator: AttachedValidator): Future[bool] {.async.} =
+                                validator: AttachedValidator): Future[bool] {.
+     async.} =
   let
     vc = service.client
     slot = proof.contribution.slot
@@ -169,6 +179,9 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
             validator_index = validatorIdx,
             err_msg = err.msg
       false
+    except CancelledError:
+      debug "Publish sync contribution request was interrupted"
+      return false
     except CatchableError as err:
       error "Unexpected error occurred while publishing sync contribution",
             contribution = shortLog(proof.contribution),
@@ -225,9 +238,13 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
               error "Unable to get sync message contribution data", slot = slot,
                     beaconBlockRoot = shortLog(beaconBlockRoot)
               return
+            except CancelledError:
+              debug "Request for sync message contribution was interrupted"
+              return
             except CatchableError as exc:
-              error "Unexpected error occurred while getting sync message contribution",
-                    slot = slot, beaconBlockRoot = shortLog(beaconBlockRoot),
+              error "Unexpected error occurred while getting sync message "&
+                    "contribution", slot = slot,
+                    beaconBlockRoot = shortLog(beaconBlockRoot),
                     err_name = exc.name, err_msg = exc.msg
               return
 
@@ -262,7 +279,8 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
         (succeed, errored, failed)
 
     let delay = vc.getDelay(slot.aggregate_deadline())
-    debug "Sync message contribution statistics", total = len(pendingAggregates),
+    debug "Sync message contribution statistics",
+          total = len(pendingAggregates),
           succeed = statistics[0], failed_to_deliver = statistics[1],
           not_accepted = statistics[2], delay = delay, slot = slot
 
@@ -271,7 +289,8 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
 
 proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
                                          slot: Slot,
-                                         duties: seq[SyncDutyAndProof]) {.async.} =
+                                         duties: seq[SyncDutyAndProof]) {.
+     async.} =
   let
     vc = service.client
     startTime = Moment.now()
@@ -281,6 +300,9 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     await vc.waitForBlockPublished(slot).wait(nanoseconds(timeout.nanoseconds))
     let dur = Moment.now() - startTime
     debug "Block proposal awaited", slot = slot, duration = dur
+  except CancelledError:
+    debug "Block proposal waiting was interrupted"
+    return
   except AsyncTimeoutError:
     let dur = Moment.now() - startTime
     debug "Block was not produced in time", slot = slot, duration = dur
@@ -289,13 +311,21 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     let delay = vc.getDelay(slot.sync_committee_message_deadline())
     debug "Producing sync committee messages", delay = delay, slot = slot,
           duties_count = len(duties)
+
   let beaconBlockRoot =
     block:
       try:
         let res = await vc.getHeadBlockRoot()
         res.root
+      except ValidatorApiError as exc:
+        error "Unable to retrieve head block's root to sign", reason = exc.msg
+        return
+      except CancelledError:
+        debug "Block root request was interrupted"
+        return
       except CatchableError as exc:
-        error "Could not request sync message block root to sign"
+        error "Unexpected error while requesting sync message block root",
+              err_name = exc.name, err_msg = exc.msg, slot = slot
         return
 
   try:
@@ -305,6 +335,9 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
   except ValidatorApiError:
     error "Unable to proceed sync committee messages", slot = slot,
            duties_count = len(duties)
+    return
+  except CancelledError:
+    debug "Sync committee producing process was interrupted"
     return
   except CatchableError as exc:
     error "Unexpected error while producing sync committee messages",
@@ -336,25 +369,39 @@ proc spawnSyncCommitteeTasks(service: SyncCommitteeServiceRef, slot: Slot) =
 proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
-  try:
-    while true:
-      let sleepTime =
-        syncCommitteeMessageSlotOffset + vc.beaconClock.durationToNextSlot()
+  debug "Service started"
 
-      let sres = vc.getCurrentSlot()
-      if sres.isSome():
-        let currentSlot = sres.get()
-        service.spawnSyncCommitteeTasks(currentSlot)
-      await sleepAsync(sleepTime)
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
+  while true:
+    # This loop could look much more nicer/better, when
+    # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
+    # become safe to combine loops, breaks and exception handlers.
+    let breakLoop =
+      try:
+        let sleepTime =
+          syncCommitteeMessageSlotOffset + vc.beaconClock.durationToNextSlot()
+
+        let sres = vc.getCurrentSlot()
+        if sres.isSome():
+          let currentSlot = sres.get()
+          service.spawnSyncCommitteeTasks(currentSlot)
+        await sleepAsync(sleepTime)
+        false
+      except CancelledError:
+        debug "Service interrupted"
+        true
+      except CatchableError as exc:
+        warn "Service crashed with unexpected error", err_name = exc.name,
+             err_msg = exc.msg
+        true
+
+    if breakLoop:
+      break
 
 proc init*(t: typedesc[SyncCommitteeServiceRef],
            vc: ValidatorClientRef): Future[SyncCommitteeServiceRef] {.async.} =
   debug "Initializing service"
-  var res = SyncCommitteeServiceRef(client: vc,
-                                    state: ServiceState.Initialized)
+  let res = SyncCommitteeServiceRef(name: "sync_committee_service",
+                                    client: vc, state: ServiceState.Initialized)
   return res
 
 proc start*(service: SyncCommitteeServiceRef) =

@@ -148,7 +148,8 @@ programMain:
       traceAsyncErrors eth1Monitor.exchangeTransitionConfiguration()
 
     let wallSlot = getBeaconTime().slotOrZero()
-    checkIfShouldStopAtEpoch(wallSlot, config.stopAtEpoch)
+    if checkIfShouldStopAtEpoch(wallSlot, config.stopAtEpoch):
+      quit(0)
 
     lightClient.updateGossipStatus(wallSlot + 1)
 

@@ -295,7 +295,7 @@ type
               "You can use a 0x-prefixed hex encoded string to specify raw bytes"
         name: "graffiti" .}: Option[GraffitiBytes]
 
-      verifyFinalization* {.
+      strictVerification* {.
         hidden
         desc: "Specify whether to verify finalization occurs on schedule (debug only)"
         defaultValue: false

@@ -76,6 +76,9 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
             validator = shortLog(validator),
             validator_index = vindex
       return false
+    except CancelledError:
+      debug "Publish attestation request was interrupted"
+      return false
     except CatchableError as exc:
       error "Unexpected error occured while publishing attestation",
             attestation = shortLog(attestation),
@@ -140,6 +143,9 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
             attestation = shortLog(signedProof.message.aggregate),
             validator = shortLog(validator),
             validator_index = vindex
+      return false
+    except CancelledError:
+      debug "Publish aggregate and proofs request was interrupted"
       return false
     except CatchableError as exc:
       error "Unexpected error occured while publishing aggregated attestation",
@@ -257,6 +263,9 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
         error "Unable to get aggregated attestation data", slot = slot,
               attestation_root = shortLog(attestationRoot)
         return
+      except CancelledError:
+        debug "Aggregated attestation request was interrupted"
+        return
       except CatchableError as exc:
         error "Unexpected error occured while getting aggregated attestation",
               slot = slot, attestation_root = shortLog(attestationRoot),
@@ -318,6 +327,9 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
     await vc.waitForBlockPublished(slot).wait(nanoseconds(timeout.nanoseconds))
     let dur = Moment.now() - startTime
     debug "Block proposal awaited", slot = slot, duration = dur
+  except CancelledError:
+    debug "Block proposal waiting was interrupted"
+    return
   except AsyncTimeoutError:
     let dur = Moment.now() - startTime
     debug "Block was not produced in time", slot = slot, duration = dur
@@ -333,6 +345,9 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
     except ValidatorApiError:
       error "Unable to proceed attestations", slot = slot,
             committee_index = committee_index, duties_count = len(duties)
+      return
+    except CancelledError:
+      debug "Publish attestation request was interrupted"
       return
     except CatchableError as exc:
       error "Unexpected error while producing attestations", slot = slot,
@@ -370,24 +385,38 @@ proc spawnAttestationTasks(service: AttestationServiceRef,
 proc mainLoop(service: AttestationServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
-  try:
-    while true:
-      let sleepTime =
-        attestationSlotOffset + vc.beaconClock.durationToNextSlot()
+  debug "Service started"
 
-      let sres = vc.getCurrentSlot()
-      if sres.isSome():
-        let currentSlot = sres.get()
-        service.spawnAttestationTasks(currentSlot)
-      await sleepAsync(sleepTime)
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
+  while true:
+    # This loop could look much more nicer/better, when
+    # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
+    # become safe to combine loops, breaks and exception handlers.
+    let breakLoop =
+      try:
+        let sleepTime =
+          attestationSlotOffset + vc.beaconClock.durationToNextSlot()
+        let sres = vc.getCurrentSlot()
+        if sres.isSome():
+          let currentSlot = sres.get()
+          service.spawnAttestationTasks(currentSlot)
+        await sleepAsync(sleepTime)
+        false
+      except CancelledError:
+        debug "Service interrupted"
+        true
+      except CatchableError as exc:
+        warn "Service crashed with unexpected error", err_name = exc.name,
+             err_msg = exc.msg
+        true
+
+    if breakLoop:
+      break
 
 proc init*(t: typedesc[AttestationServiceRef],
            vc: ValidatorClientRef): Future[AttestationServiceRef] {.async.} =
   debug "Initializing service"
-  var res = AttestationServiceRef(client: vc, state: ServiceState.Initialized)
+  let res = AttestationServiceRef(name: "attestation_service",
+                                  client: vc, state: ServiceState.Initialized)
   return res
 
 proc start*(service: AttestationServiceRef) =

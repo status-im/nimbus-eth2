@@ -13,8 +13,6 @@ import
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
   ../eth1/eth1_monitor
 
-# TODO: Move to "consensus_object_pools" folder
-
 type
   ConsensusManager* = object
     expectedSlot: Slot

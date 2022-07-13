@@ -45,6 +45,7 @@ type
     proposers*: seq[ValidatorPubKey]
 
   ClientServiceRef* = ref object of RootObj
+    name*: string
     state*: ServiceState
     lifeFut*: Future[void]
     client*: ValidatorClientRef
@@ -52,6 +53,7 @@ type
   DutiesServiceRef* = ref object of ClientServiceRef
 
   FallbackServiceRef* = ref object of ClientServiceRef
+    onlineEvent*: AsyncEvent
 
   ForkServiceRef* = ref object of ClientServiceRef
 
@@ -125,7 +127,9 @@ type
     attestationService*: AttestationServiceRef
     blockService*: BlockServiceRef
     syncCommitteeService*: SyncCommitteeServiceRef
-    runSlotLoop*: Future[void]
+    runSlotLoopFut*: Future[void]
+    sigintHandleFut*: Future[void]
+    sigtermHandleFut*: Future[void]
     beaconClock*: BeaconClock
     attachedValidators*: ValidatorPool
     forks*: seq[Fork]
@@ -143,7 +147,8 @@ type
 
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
-  DefaultSyncDutyAndProof* = SyncDutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
+  DefaultSyncDutyAndProof* =
+    SyncDutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
   SlotDuration* = int64(SECONDS_PER_SLOT).seconds
   OneThirdDuration* = int64(SECONDS_PER_SLOT).seconds div INTERVALS_PER_SLOT
 
@@ -168,11 +173,13 @@ chronicles.expandIt(RestAttesterDuty):
   validator_committee_index = it.validator_committee_index
 
 proc stop*(csr: ClientServiceRef) {.async.} =
+  debug "Stopping service", service_name = csr.name
   if csr.state == ServiceState.Running:
     csr.state = ServiceState.Closing
     if not(csr.lifeFut.finished()):
       await csr.lifeFut.cancelAndWait()
     csr.state = ServiceState.Closed
+    debug "Service stopped", service_name = csr.name
 
 proc isDefault*(dap: DutyAndProof): bool =
   dap.epoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64)
@@ -255,7 +262,7 @@ proc getDurationToNextAttestation*(vc: ValidatorClientRef,
       let duty = item.duties.getOrDefault(epoch, DefaultDutyAndProof)
       if not(duty.isDefault()):
         let dutySlotTime = duty.data.slot
-        if duty.data.slot < minSlot:
+        if (duty.data.slot < minSlot) and (duty.data.slot >= slot):
           minSlot = duty.data.slot
     if minSlot != FAR_FUTURE_SLOT:
       break
@@ -273,7 +280,7 @@ proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
     if not(data.isDefault()):
       for item in data.duties:
         if item.duty.pubkey in vc.attachedValidators:
-          if item.duty.slot < minSlot:
+          if (item.duty.slot < minSlot) and (item.duty.slot >= slot):
             minSlot = item.duty.slot
     if minSlot != FAR_FUTURE_SLOT:
       break
@@ -336,5 +343,5 @@ proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
       break
   res
 
-proc getSubcommitteeIndex*(syncCommitteeIndex: IndexInSyncCommittee): SyncSubcommitteeIndex =
-  SyncSubcommitteeIndex(uint16(syncCommitteeIndex) div SYNC_SUBCOMMITTEE_SIZE)
+proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
+  SyncSubcommitteeIndex(uint16(index) div SYNC_SUBCOMMITTEE_SIZE)

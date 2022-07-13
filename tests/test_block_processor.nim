@@ -14,9 +14,10 @@ import
   eth/keys, taskpools,
   ../beacon_chain/beacon_clock,
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
-  ../beacon_chain/gossip_processing/[block_processor, consensus_manager],
+  ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
-    attestation_pool, blockchain_dag, block_quarantine, block_clearance],
+    attestation_pool, blockchain_dag, block_quarantine, block_clearance,
+    consensus_manager],
   ../beacon_chain/eth1/eth1_monitor,
   ./testutil, ./testdbutil, ./testblockutil
 

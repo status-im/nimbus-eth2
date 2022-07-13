@@ -345,7 +345,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       let vindex =
         block:
-          let vid = validator_id.get()
           case vid.kind
           of ValidatorQueryKind.Key:
             let optIndices = keysToIndices(node.restKeysCache, state, [vid.key])
