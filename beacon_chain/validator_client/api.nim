@@ -33,10 +33,10 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
   let onlineNodes =
     try:
       await vc.waitOnlineNodes(timerFut)
-      vc.beaconNodes.filterIt(it.status == RestBeaconNodeStatus.Online)
+      vc.onlineNodes()
     except CancelledError:
       var default: seq[BeaconNodeServerRef]
-      if not(timerFut.finished()):
+      if not(isNil(timerFut)) and not(timerFut.finished()):
         await timerFut.cancelAndWait()
       default
     except CatchableError:
@@ -158,7 +158,6 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
         vc.onlineNodes()
       except CancelledError as exc:
         # waitOnlineNodes do not cancel `timoutFuture`.
-        var default: seq[BeaconNodeServerRef]
         if not(isNil(timerFut)) and not(timerFut.finished()):
           await timerFut.cancelAndWait()
         raise exc
