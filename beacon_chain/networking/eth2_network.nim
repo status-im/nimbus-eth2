@@ -1024,8 +1024,11 @@ proc handleIncomingStream(network: Eth2Node,
       try:
         awaitWithTimeout(
           readChunkPayload(conn, peer, maxChunkSize(MsgRec), MsgRec), deadline):
-            returnInvalidRequest(
-              errorMsgLit "Request full data not sent in time")
+            # Request was canceled, e.g., because a different peer fulfilled it.
+            # Treat this similarly to `UnexpectedEOF`, `PotentiallyExpectedEOF`.
+            await sendErrorResponse(
+              peer, conn, InvalidRequest, "Request full data not sent in time")
+            return
 
       except SerializationError as err:
         returnInvalidRequest err.formatMsg("msg")
