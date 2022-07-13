@@ -17,8 +17,8 @@ import
   ./sync/optimistic_sync_light_client,
   "."/[light_client, nimbus_binary_common, version]
 
+from ./consensus_object_pools/consensus_manager import runForkchoiceUpdated
 from ./gossip_processing/block_processor import newExecutionPayload
-from ./gossip_processing/consensus_manager import runForkchoiceUpdated
 
 programMain:
   var config = makeBannerAndConfig(
