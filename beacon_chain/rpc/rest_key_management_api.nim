@@ -50,6 +50,24 @@ proc listRemoteDistributedValidators*(node: BeaconNode): seq[DistributedKeystore
       )
   validators
 
+proc keymanagerApiError(status: HttpCode, msg: string): RestApiResponse =
+  let data =
+    block:
+      var default: string
+      try:
+        var defstrings: seq[string]
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("message", msg)
+        writer.endRecord()
+        stream.getOutput(string)
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.error(status, data, "application/json")
+
 proc checkAuthorization*(request: HttpRequestRef,
                          node: BeaconNode): Result[void, AuthorizationError] =
   let authorizations = request.headers.getList("authorization")
@@ -64,6 +82,15 @@ proc checkAuthorization*(request: HttpRequestRef,
     return err missingBearerScheme
   else:
     return err noAuthorizationHeader
+
+proc authErrorResponse(error: AuthorizationError): RestApiResponse =
+  let status = case error:
+    of missingBearerScheme, noAuthorizationHeader:
+      Http401
+    of incorrectToken:
+      Http403
+
+  keymanagerApiError(status, InvalidAuthorizationError)
 
 proc validateUri*(url: string): Result[Uri, cstring] =
   let surl = parseUri(url)
@@ -106,8 +133,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/api/eth/v1/keystores") do () -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
-      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
-                                       $authStatus.error())
+      return authErrorResponse authStatus.error
     let response = GetKeystoresResponse(data: listLocalValidators(node))
     return RestApiResponse.jsonResponsePlain(response)
 
@@ -116,16 +142,14 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
       contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
-      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
-                                       $authStatus.error())
+      return authErrorResponse authStatus.error
     let request =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
+          return keymanagerApiError(Http404, EmptyRequestBodyError)
         let dres = decodeBody(KeystoresAndSlashingProtection, contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidKeystoreObjects,
-                                           $dres.error())
+          return keymanagerApiError(Http400, InvalidKeystoreObjects)
         dres.get()
 
     if request.slashing_protection.isSome():
@@ -133,13 +157,13 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
       let nodeSPDIR = toSPDIR(node.attachedValidators.slashingProtection)
       if nodeSPDIR.metadata.genesis_validators_root.Eth2Digest !=
          slashing_protection.metadata.genesis_validators_root.Eth2Digest:
-        return RestApiResponse.jsonError(Http400,
+        return keymanagerApiError(Http400,
           "The slashing protection database and imported file refer to " &
           "different blockchains.")
       let res = inclSPDIR(node.attachedValidators.slashingProtection,
                           slashing_protection)
       if res == siFailure:
-        return RestApiResponse.jsonError(Http500,
+        return keymanagerApiError(Http500,
           "Internal server error; Failed to import slashing protection data")
 
     var response: PostKeystoresResponse
@@ -169,16 +193,14 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
       contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
-      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
-                                       $authStatus.error())
+      return authErrorResponse authStatus.error
     let keys =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
+          return keymanagerApiError(Http404, EmptyRequestBodyError)
         let dres = decodeBody(DeleteKeystoresBody, contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidValidatorPublicKey,
-                                           $dres.error())
+          return keymanagerApiError(Http400, InvalidValidatorPublicKey)
         dres.get().pubkeys
 
     var
@@ -230,8 +252,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/api/eth/v1/remotekeys") do () -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
-      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
-                                       $authStatus.error())
+      return authErrorResponse authStatus.error
     let response = GetRemoteKeystoresResponse(data: listRemoteValidators(node))
     return RestApiResponse.jsonResponsePlain(response)
 
@@ -240,16 +261,14 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
-      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
-                                       $authStatus.error())
+      return authErrorResponse authStatus.error
     let keys =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
+          return keymanagerApiError(Http404, EmptyRequestBodyError)
         let dres = decodeBody(ImportRemoteKeystoresBody, contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidKeystoreObjects,
-                                           $dres.error())
+          return keymanagerApiError(Http400, InvalidKeystoreObjects)
         dres.get().remote_keys
 
     var response: PostKeystoresResponse
@@ -274,16 +293,14 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
-      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
-                                       $authStatus.error())
+      return authErrorResponse authStatus.error
     let keys =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
+          return keymanagerApiError(Http404, EmptyRequestBodyError)
         let dres = decodeBody(DeleteKeystoresBody, contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidValidatorPublicKey,
-                                           $dres.error())
+          return keymanagerApiError(Http400, InvalidValidatorPublicKey)
         dres.get().pubkeys
 
     var response: DeleteRemoteKeystoresResponse
@@ -292,13 +309,78 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
       response.data.add(status)
     return RestApiResponse.jsonResponsePlain(response)
 
+  # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/ListFeeRecipient
+  router.api(MethodGet, "/api/eth/v1/validator/{pubkey}/feerecipient") do (
+             pubkey: ValidatorPubKey) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, node)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let
+      pubkey = pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      ethaddress = node.config.getSuggestedFeeRecipient(pubkey)
+
+    return if ethaddress.isOk:
+      RestApiResponse.jsonResponse(ListFeeRecipientResponse(
+        pubkey: pubkey,
+        ethaddress: ethaddress.get))
+    else:
+      case ethaddress.error
+      of noSuchValidator:
+        keymanagerApiError(Http404, "No matching validator found")
+      of invalidFeeRecipientFile:
+        keymanagerApiError(Http500, "Error reading fee recipient file")
+
+  # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/SetFeeRecipient
+  router.api(MethodPost, "/api/eth/v1/validator/{pubkey}/feerecipient") do (
+             pubkey: ValidatorPubKey,
+             contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, node)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let
+      pubkey= pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      feeRecipientReq =
+        block:
+          if contentBody.isNone():
+            return keymanagerApiError(Http400, InvalidFeeRecipientRequestError)
+          let dres = decodeBody(SetFeeRecipientRequest, contentBody.get())
+          if dres.isErr():
+            return keymanagerApiError(Http400, InvalidFeeRecipientRequestError)
+          dres.get()
+
+      status = node.config.setFeeRecipient(pubkey, feeRecipientReq.ethaddress)
+
+    return if status.isOk:
+      RestApiResponse.response("", Http202, "text/plain")
+    else:
+      keymanagerApiError(
+        Http500, "Failed to set fee recipient: " & status.error)
+
+  # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/DeleteFeeRecipient
+  router.api(MethodDelete, "/api/eth/v1/validator/{pubkey}/feerecipient") do (
+             pubkey: ValidatorPubKey) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, node)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let
+      pubkey = pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      res = removeFeeRecipientFile(node.config, pubkey)
+
+    return if res.isOk:
+      RestApiResponse.response("", Http204, "text/plain")
+    else:
+      keymanagerApiError(
+        Http500, "Failed to remove fee recipient file: " & res.error)
+
   # TODO: These URLs will be changed once we submit a proposal for
   #       /api/eth/v2/remotekeys that supports distributed keys.
   router.api(MethodGet, "/api/eth/v1/remotekeys/distributed") do () -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
-      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
-                                       $authStatus.error())
+      return authErrorResponse authStatus.error
     let response = GetDistributedKeystoresResponse(data: listRemoteDistributedValidators(node))
     return RestApiResponse.jsonResponsePlain(response)
 
@@ -308,16 +390,14 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
-      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
-                                       $authStatus.error())
+      return authErrorResponse authStatus.error
     let keys =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
+          return keymanagerApiError(Http404, EmptyRequestBodyError)
         let dres = decodeBody(ImportDistributedKeystoresBody, contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidKeystoreObjects,
-                                           $dres.error())
+          return keymanagerApiError(Http400, InvalidKeystoreObjects)
         dres.get.remote_keys
 
     var response: PostKeystoresResponse
@@ -339,16 +419,14 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, node)
     if authStatus.isErr():
-      return RestApiResponse.jsonError(Http401, InvalidAuthorization,
-                                       $authStatus.error())
+      return authErrorResponse authStatus.error
     let keys =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
+          return keymanagerApiError(Http404, EmptyRequestBodyError)
         let dres = decodeBody(DeleteKeystoresBody, contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidValidatorPublicKey,
-                                           $dres.error())
+          return keymanagerApiError(Http400, InvalidValidatorPublicKey)
         dres.get.pubkeys
 
     var response: DeleteRemoteKeystoresResponse
@@ -387,6 +465,21 @@ proc installKeymanagerHandlers*(router: var RestRouter, node: BeaconNode) =
     MethodDelete,
     "/eth/v1/remotekeys",
     "/api/eth/v1/remotekeys")
+
+  router.redirect(
+    MethodGet,
+    "/eth/v1/validator/{pubkey}/feerecipient",
+    "/api/eth/v1/validator/{pubkey}/feerecipient")
+
+  router.redirect(
+    MethodPost,
+    "/eth/v1/validator/{pubkey}/feerecipient",
+    "/api/eth/v1/validator/{pubkey}/feerecipient")
+
+  router.redirect(
+    MethodDelete,
+    "/eth/v1/validator/{pubkey}/feerecipient",
+    "/api/eth/v1/validator/{pubkey}/feerecipient")
 
   router.redirect(
     MethodGet,

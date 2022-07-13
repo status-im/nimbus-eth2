@@ -65,6 +65,13 @@ type
   DeleteRemoteKeystoresResponse* = object
     data*: seq[RemoteKeystoreStatus]
 
+  SetFeeRecipientRequest* = object
+    ethaddress*: Eth1Address
+
+  ListFeeRecipientResponse* = object
+    pubkey*: ValidatorPubKey
+    ethaddress*: Eth1Address
+
   KeystoreStatus* = enum
     error =  "error"
     notActive = "not_active"
@@ -77,6 +84,9 @@ type
     noAuthorizationHeader = "Missing Authorization Header"
     missingBearerScheme = "Bearer Authentication is not included in request"
     incorrectToken = "Authentication token is incorrect"
+
+  KeymanagerGenericError* = object
+    message*: string
 
 proc `<`*(x, y: KeystoreInfo | RemoteKeystoreInfo): bool =
   for a, b in fields(x, y):

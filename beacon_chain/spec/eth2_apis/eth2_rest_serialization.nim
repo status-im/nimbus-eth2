@@ -69,6 +69,8 @@ const
     [byte('a'), byte('l'), byte('t'), byte('a'), byte('i'), byte('r')]
 
 type
+  EmptyBody* = object
+
   RestGenericError* = object
     code*: uint64
     message*: string
@@ -81,29 +83,31 @@ type
 
   EncodeTypes* =
     AttesterSlashing |
+    DeleteKeystoresBody |
+    EmptyBody |
+    ImportDistributedKeystoresBody |
+    ImportRemoteKeystoresBody |
+    KeystoresAndSlashingProtection |
     ProposerSlashing |
-    phase0.SignedBeaconBlock |
-    altair.SignedBeaconBlock |
-    bellatrix.SignedBeaconBlock |
+    SetFeeRecipientRequest |
     SignedBlindedBeaconBlock |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
     Web3SignerRequest |
-    KeystoresAndSlashingProtection |
-    DeleteKeystoresBody |
-    ImportRemoteKeystoresBody |
-    ImportDistributedKeystoresBody
+    altair.SignedBeaconBlock |
+    bellatrix.SignedBeaconBlock |
+    phase0.SignedBeaconBlock
 
   EncodeArrays* =
-    seq[ValidatorIndex] |
     seq[Attestation] |
+    seq[RemoteKeystoreInfo] |
+    seq[RestCommitteeSubscription] |
+    seq[RestSignedContributionAndProof] |
+    seq[RestSyncCommitteeMessage] |
+    seq[RestSyncCommitteeSubscription] |
     seq[SignedAggregateAndProof] |
     seq[SignedValidatorRegistrationV1] |
-    seq[RestCommitteeSubscription] |
-    seq[RestSyncCommitteeSubscription] |
-    seq[RestSyncCommitteeMessage] |
-    seq[RestSignedContributionAndProof] |
-    seq[RemoteKeystoreInfo]
+    seq[ValidatorIndex]
 
   DecodeTypes* =
     DataEnclosedObject |
@@ -111,20 +115,22 @@ type
     DataRootEnclosedObject |
     DataVersionEnclosedObject |
     GetBlockV2Response |
+    GetDistributedKeystoresResponse |
     GetKeystoresResponse |
     GetRemoteKeystoresResponse |
-    GetDistributedKeystoresResponse |
-    GetStateV2Response |
     GetStateForkResponse |
+    GetStateV2Response |
+    KeymanagerGenericError |
+    KeystoresAndSlashingProtection |
+    ListFeeRecipientResponse |
     ProduceBlockResponseV2 |
     RestDutyError |
-    RestValidator |
     RestGenericError |
+    RestValidator |
     Web3SignerErrorResponse |
     Web3SignerKeysResponse |
     Web3SignerSignatureResponse |
-    Web3SignerStatusResponse |
-    KeystoresAndSlashingProtection
+    Web3SignerStatusResponse
 
   SszDecodeTypes* =
     GetPhase0StateSszResponse |
@@ -470,11 +476,10 @@ template hexOriginal(data: openArray[byte]): string =
   to0xHex(data)
 
 proc decodeJsonString*[T](t: typedesc[T],
-                          data: JsonString,
-                          requireAllFields = true): Result[T, cstring] =
+                          data: JsonString): Result[T, cstring] =
   try:
     ok(RestJson.decode(string(data), T,
-                       requireAllFields = requireAllFields,
+                       requireAllFields = true,
                        allowUnknownFields = true))
   except SerializationError:
     err("Unable to deserialize data")
@@ -1558,8 +1563,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(Web3SignerAggregationSlotData,
-                                     data.get(), true)
+          let res = decodeJsonString(Web3SignerAggregationSlotData, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `aggregation_slot` format")
@@ -1574,7 +1578,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(AggregateAndProof, data.get(), true)
+          let res = decodeJsonString(AggregateAndProof, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `aggregate_and_proof` format")
@@ -1590,7 +1594,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(AttestationData, data.get(), true)
+          let res = decodeJsonString(AttestationData, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `attestation` format")
@@ -1606,7 +1610,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(phase0.BeaconBlock, data.get(), true)
+          let res = decodeJsonString(phase0.BeaconBlock, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `block` format")
@@ -1622,7 +1626,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(Web3SignerForkedBeaconBlock, data.get(), true)
+          let res = decodeJsonString(Web3SignerForkedBeaconBlock, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `beacon_block` format")
@@ -1636,7 +1640,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `deposit` is missing")
       let data =
         block:
-          let res = decodeJsonString(Web3SignerDepositData, data.get(), true)
+          let res = decodeJsonString(Web3SignerDepositData, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `deposit` format")
@@ -1652,8 +1656,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(Web3SignerRandaoRevealData, data.get(),
-                                     true)
+          let res = decodeJsonString(Web3SignerRandaoRevealData, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `randao_reveal` format")
@@ -1669,7 +1672,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(VoluntaryExit, data.get(), true)
+          let res = decodeJsonString(VoluntaryExit, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `voluntary_exit` format")
@@ -1686,8 +1689,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(Web3SignerSyncCommitteeMessageData,
-                                     data.get(), true)
+          let res = decodeJsonString(Web3SignerSyncCommitteeMessageData, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `sync_committee_message` format")
@@ -1705,8 +1707,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(SyncAggregatorSelectionData,
-                                     data.get(), true)
+          let res = decodeJsonString(SyncAggregatorSelectionData, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `sync_aggregator_selection_data` format")
@@ -1724,8 +1725,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedValue("Field `fork_info` is missing")
       let data =
         block:
-          let res = decodeJsonString(ContributionAndProof,
-                                     data.get(), true)
+          let res = decodeJsonString(ContributionAndProof, data.get())
           if res.isErr():
             reader.raiseUnexpectedValue(
               "Incorrect field `contribution_and_proof` format")
@@ -2068,7 +2068,10 @@ proc readValue*(reader: var JsonReader[RestJson],
       for item in strKeystores:
         let key =
           try:
-            RestJson.decode(item, Keystore, allowUnknownFields = true)
+            RestJson.decode(item,
+                            Keystore,
+                            requireAllFields = true,
+                            allowUnknownFields = true)
           except SerializationError as exc:
             # TODO re-raise the exception by adjusting the column index, so the user
             # will get an accurate syntax error within the larger message
@@ -2080,7 +2083,10 @@ proc readValue*(reader: var JsonReader[RestJson],
     if strSlashing.isSome():
       let db =
         try:
-          RestJson.decode(strSlashing.get(), SPDIR, allowUnknownFields = true)
+          RestJson.decode(strSlashing.get(),
+                          SPDIR,
+                          requireAllFields = true,
+                          allowUnknownFields = true)
         except SerializationError as exc:
           reader.raiseUnexpectedValue("Invalid slashing protection format")
       some(db)
@@ -2172,8 +2178,12 @@ proc decodeBody*[T](t: typedesc[T],
     return err("Unsupported content type")
   let data =
     try:
-      RestJson.decode(body.data, T, allowUnknownFields = true)
+      RestJson.decode(body.data, T,
+                      requireAllFields = true,
+                      allowUnknownFields = true)
     except SerializationError as exc:
+      debug "Failed to deserialize REST JSON data",
+            err = exc.formatMsg("<data>")
       return err("Unable to deserialize data")
     except CatchableError:
       return err("Unexpected deserialization error")
@@ -2222,8 +2232,12 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openArray[byte],
   case contentType
   of "application/json":
     try:
-      ok RestJson.decode(value, T, allowUnknownFields = true)
-    except SerializationError:
+      ok RestJson.decode(value, T,
+                         requireAllFields = true,
+                         allowUnknownFields = true)
+    except SerializationError as exc:
+      debug "Failed to deserialize REST JSON data",
+            err = exc.formatMsg("<data>")
       err("Serialization error")
   else:
     err("Content-Type not supported")
