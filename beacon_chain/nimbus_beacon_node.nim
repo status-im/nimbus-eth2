@@ -180,7 +180,7 @@ proc loadChainDag(
       if shouldEnableTestFeatures: {enableTestFeatures}
       else: {}
     chainDagFlags =
-      if config.verifyFinalization: {verifyFinalization}
+      if config.strictVerification: {strictVerification}
       else: {}
     onLightClientFinalityUpdateCb =
       if config.lightClientDataServe.get: onLightClientFinalityUpdate
@@ -798,7 +798,7 @@ proc init*(T: type BeaconNode,
 
   node
 
-func verifyFinalization(node: BeaconNode, slot: Slot) =
+func strictVerification(node: BeaconNode, slot: Slot) =
   # Epoch must be >= 4 to check finalization
   const SETTLING_TIME_OFFSET = 1'u64
   let epoch = slot.epoch()
@@ -1370,8 +1370,8 @@ proc onSlotStart(
   finalization_delay.set(
     wallSlot.epoch.toGaugeValue - finalizedEpoch.toGaugeValue)
 
-  if node.config.verifyFinalization:
-    verifyFinalization(node, wallSlot)
+  if node.config.strictVerification:
+    strictVerification(node, wallSlot)
 
   node.consensusManager[].updateHead(wallSlot)
 

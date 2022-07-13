@@ -97,7 +97,7 @@ iterator get_attesting_indices*(
       slot =
         check_attestation_slot_target(attestation.data).valueOr:
           warn "Invalid attestation slot"
-          doAssert verifyFinalization notin dag.updateFlags
+          doAssert strictVerification notin dag.updateFlags
           break
       blck =
         dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
@@ -106,19 +106,19 @@ iterator get_attesting_indices*(
       target =
         blck.atCheckpoint(attestation.data.target).valueOr:
           warn "Invalid attestation target"
-          doAssert verifyFinalization notin dag.updateFlags
+          doAssert strictVerification notin dag.updateFlags
           break
       epochRef =
         dag.getEpochRef(target.blck, target.slot.epoch, false).valueOr:
           warn "Attestation `EpochRef` not found"
-          doAssert verifyFinalization notin dag.updateFlags
+          doAssert strictVerification notin dag.updateFlags
           break
 
       committeesPerSlot = get_committee_count_per_slot(epochRef)
       committeeIndex =
         CommitteeIndex.init(attestation.data.index, committeesPerSlot).valueOr:
           warn "Unexpected committee index in block attestation"
-          doAssert verifyFinalization notin dag.updateFlags
+          doAssert strictVerification notin dag.updateFlags
           break
 
     for validator in get_attesting_indices(

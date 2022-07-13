@@ -158,7 +158,7 @@ func check_attestation_subnet(
 # ----------------------------------------------------------------
 
 template checkedReject(msg: cstring): untyped =
-  if verifyFinalization in pool.dag.updateFlags:
+  if strictVerification in pool.dag.updateFlags:
     # This doesn't depend on the wall clock or the exact state of the DAG; it's
     # an internal consistency/correctness check only, and effectively never has
     # false positives. These don't, for example, arise from timeouts.
@@ -167,7 +167,7 @@ template checkedReject(msg: cstring): untyped =
 
 template checkedReject(error: ValidationError): untyped =
   doAssert error[0] == ValidationResult.Reject
-  if verifyFinalization in pool.dag.updateFlags:
+  if strictVerification in pool.dag.updateFlags:
     # This doesn't depend on the wall clock or the exact state of the DAG; it's
     # an internal consistency/correctness check only, and effectively never has
     # false positives. These don't, for example, arise from timeouts.
