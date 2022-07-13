@@ -27,7 +27,8 @@ from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
 
 export
-  web3Types, deques
+  web3Types, deques,
+  beacon_chain_db.DepositContractSnapshot
 
 logScope:
   topics = "eth1"
