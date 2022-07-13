@@ -75,7 +75,7 @@ programMain:
     genesisBlockRoot = get_initial_beacon_block(genesisState[]).root
 
     rng = keys.newRng()
-    netKeys = optimisticgetRandomNetKeys(rng[])
+    netKeys = getRandomNetKeys(rng[])
     network = createEth2Node(
       rng, config, netKeys, cfg,
       forkDigests, getBeaconTime, genesis_validators_root)
