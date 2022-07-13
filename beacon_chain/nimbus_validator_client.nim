@@ -19,7 +19,7 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
     try:
       await allFutures(pending)
     except CancelledError as exc:
-      debug "Gensis information request was interrupted"
+      debug "Genesis information request was interrupted"
       raise exc
 
     let (errorNodes, genesisList) =
