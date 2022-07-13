@@ -41,7 +41,7 @@ proc updateExistingState(
   let ok = dag.updateState(state, bsi, save, cache)
   if not ok:
     error "State failed to load unexpectedly", bsi, tail = dag.tail.slot
-    doAssert verifyFinalization notin dag.updateFlags
+    doAssert strictVerification notin dag.updateFlags
   ok
 
 template withUpdatedExistingState(
@@ -54,7 +54,7 @@ template withUpdatedExistingState(
       okBody
     do:
       error "State failed to load unexpectedly", bsi, tail = dag.tail.slot
-      doAssert verifyFinalization notin dag.updateFlags
+      doAssert strictVerification notin dag.updateFlags
       failureBody
 
 proc getExistingBlockIdAtSlot(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
@@ -62,7 +62,7 @@ proc getExistingBlockIdAtSlot(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
   let bsi = dag.getBlockIdAtSlot(slot)
   if bsi.isErr:
     error "Block failed to load unexpectedly", slot, tail = dag.tail.slot
-    doAssert verifyFinalization notin dag.updateFlags
+    doAssert strictVerification notin dag.updateFlags
   bsi
 
 proc existingParent(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
@@ -70,7 +70,7 @@ proc existingParent(dag: ChainDAGRef, bid: BlockId): Opt[BlockId] =
   let parent = dag.parent(bid)
   if parent.isErr:
     error "Parent failed to load unexpectedly", bid, tail = dag.tail.slot
-    doAssert verifyFinalization notin dag.updateFlags
+    doAssert strictVerification notin dag.updateFlags
   parent
 
 proc getExistingForkedBlock(
@@ -79,7 +79,7 @@ proc getExistingForkedBlock(
   let bdata = dag.getForkedBlock(bid)
   if bdata.isErr:
     error "Block failed to load unexpectedly", bid, tail = dag.tail.slot
-    doAssert verifyFinalization notin dag.updateFlags
+    doAssert strictVerification notin dag.updateFlags
   bdata
 
 proc existingCurrentSyncCommitteeForPeriod(
@@ -91,7 +91,7 @@ proc existingCurrentSyncCommitteeForPeriod(
   if syncCommittee.isErr:
     error "Current sync committee failed to load unexpectedly",
       period, tail = dag.tail.slot
-    doAssert verifyFinalization notin dag.updateFlags
+    doAssert strictVerification notin dag.updateFlags
   syncCommittee
 
 template syncCommitteeRoot(
@@ -149,7 +149,7 @@ func handleUnexpectedLightClientError(dag: ChainDAGRef, buggedSlot: Slot) =
   ## If there is an unexpected error, adjust `tailSlot` to keep track of the
   ## section for which complete light client data is available, and to avoid
   ## failed lookups of cached light client data.
-  doAssert verifyFinalization notin dag.updateFlags
+  doAssert strictVerification notin dag.updateFlags
   if buggedSlot >= dag.lcDataStore.cache.tailSlot:
     dag.lcDataStore.cache.tailSlot = buggedSlot + 1
 

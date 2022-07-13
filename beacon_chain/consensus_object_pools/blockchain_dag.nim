@@ -699,7 +699,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            lcDataConfig = default(LightClientDataConfig)): ChainDAGRef =
   cfg.checkForkConsistency()
 
-  doAssert updateFlags - {verifyFinalization, enableTestFeatures} == {},
+  doAssert updateFlags - {strictVerification, enableTestFeatures} == {},
     "Other flags not supported in ChainDAG"
 
   # TODO we require that the db contains both a head and a tail block -
@@ -725,9 +725,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       genesis: BlockId(root: genesisRoot, slot: GENESIS_SLOT),
       tail: tailBlock.toBlockId(),
 
-      # The only allowed flag right now is verifyFinalization, as the others all
+      # The only allowed flag right now is strictVerification, as the others all
       # allow skipping some validation.
-      updateFlags: {verifyFinalization, enableTestFeatures} * updateFlags,
+      updateFlags: {strictVerification, enableTestFeatures} * updateFlags,
       cfg: cfg,
 
       vanityLogs: vanityLogs,
@@ -1433,7 +1433,7 @@ proc markBlockInvalid*(dag: ChainDAGRef, root: Eth2Digest) =
     # "It is outside of the scope of the specification since it's only possible
     # with a faulty EE. Such a scenario requires manual intervention."
     warn "markBlockInvalid: attempt to invalidate valid block"
-    doAssert verifyFinalization notin dag.updateFlags
+    doAssert strictVerification notin dag.updateFlags
     return
 
   if root == dag.finalizedHead.blck.root:
@@ -1444,7 +1444,7 @@ proc markBlockInvalid*(dag: ChainDAGRef, root: Eth2Digest) =
     #
     # But be slightly less aggressive, and only check finalized.
     warn "markBlockInvalid: finalized block invalidated"
-    doAssert verifyFinalization notin dag.updateFlags
+    doAssert strictVerification notin dag.updateFlags
     return
 
   debug "markBlockInvalid"

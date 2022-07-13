@@ -319,7 +319,7 @@ proc weigh_justification_and_finalization(
     trace "Justified with previous epoch",
       current_epoch = current_epoch,
       checkpoint = shortLog(state.current_justified_checkpoint)
-  elif verifyFinalization in flags:
+  elif strictVerification in flags:
     warn "Low attestation participation in previous epoch",
       total_active_balance,
       previous_epoch_target_balance,
@@ -1054,10 +1054,10 @@ proc process_epoch*(
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
-  if verifyFinalization in flags and currentEpoch >= 2:
+  if strictVerification in flags and currentEpoch >= 2:
     doAssert state.current_justified_checkpoint.epoch + 2 >= currentEpoch
 
-  if verifyFinalization in flags and currentEpoch >= 3:
+  if strictVerification in flags and currentEpoch >= 3:
     # Rule 2/3/4 finalization results in the most pessimal case. The other
     # three finalization rules finalize more quickly as long as the any of
     # the finalization rules triggered.
@@ -1111,10 +1111,10 @@ proc process_epoch*(
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
-  if verifyFinalization in flags and currentEpoch >= 2:
+  if strictVerification in flags and currentEpoch >= 2:
     doAssert state.current_justified_checkpoint.epoch + 2 >= currentEpoch
 
-  if verifyFinalization in flags and currentEpoch >= 3:
+  if strictVerification in flags and currentEpoch >= 3:
     # Rule 2/3/4 finalization results in the most pessimal case. The other
     # three finalization rules finalize more quickly as long as the any of
     # the finalization rules triggered.

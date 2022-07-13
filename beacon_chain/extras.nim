@@ -26,7 +26,9 @@ type
     ## Also useful to avoid unnecessary work when replaying known, good blocks.
     skipStateRootValidation ##\
     ## Skip verification of block state root.
-    verifyFinalization
+    strictVerification ##\
+    ## Strictly assert on unexpected conditions to aid debugging.
+    ## Should not be used in production, as additional asserts are reachable.
     slotProcessed ##\
     ## Allow blocks to be applied to states with the same slot number as the
     ## block which is what happens when `process_block` is called separately
