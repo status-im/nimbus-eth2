@@ -86,6 +86,9 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
         res.add(index)
       res
 
+  if validatorIndices.len == 0:
+    return 0
+
   var duties: seq[RestAttesterDuty]
   var currentRoot: Option[Eth2Digest]
 
