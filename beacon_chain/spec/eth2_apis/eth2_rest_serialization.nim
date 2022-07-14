@@ -2179,7 +2179,7 @@ proc decodeBody*[T](t: typedesc[T],
   let data =
     try:
       RestJson.decode(body.data, T,
-                      requireAllFields = true,
+                      requireAllFields = false,
                       allowUnknownFields = true)
     except SerializationError as exc:
       debug "Failed to deserialize REST JSON data",
@@ -2233,7 +2233,7 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openArray[byte],
   of "application/json":
     try:
       ok RestJson.decode(value, T,
-                         requireAllFields = true,
+                         requireAllFields = false,
                          allowUnknownFields = true)
     except SerializationError as exc:
       debug "Failed to deserialize REST JSON data",
