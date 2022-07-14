@@ -808,7 +808,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   let summariesTick = Moment.now()
 
   if not foundHeadState:
-    fatal "Could not load head state, database corrupt? For Kiln testnet: database schema changed; need to resync from pre-Bellatrix database or genesis",
+    fatal "Could not load head state, database corrupt?",
       head = shortLog(head), tail = shortLog(dag.tail),
       genesis = shortLog(dag.genesis)
     quit 1
