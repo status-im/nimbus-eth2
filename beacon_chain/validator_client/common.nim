@@ -381,7 +381,7 @@ proc addDoppelganger*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
                                 status: DoppelgangerStatus.Checking)
       res = vc.doppelgangerDetection.validators.hasKeyOrPut(index, state)
     if res:
-      warn "Validator is already in doppelganger's table", pubkey = pubkey,
+      warn "Validator is already in doppelganger table", pubkey = pubkey,
            index = index
     else:
       info "Doppelganger protection activated", pubkey = pubkey, index = index

@@ -13,7 +13,7 @@ import
   ./rest_utils,
   ../eth1/eth1_monitor,
   ../validators/validator_duties,
-  ../spec/forks,
+  ../spec/[forks, beacon_time],
   ../beacon_node, ../nimbus_binary_common
 
 export rest_utils
@@ -298,18 +298,13 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $epoch.error())
         let
           res = epoch.get()
-          wallTime = node.beaconClock.now()
-          wallEpoch = wallTime.slotOrZero().epoch
+          wallEpoch = node.currentSlot().epoch()
           nextEpoch =
-            if wallEpoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64):
+            if wallEpoch == FAR_FUTURE_EPOCH:
               wallEpoch
             else:
               wallEpoch + 1
-          prevEpoch =
-            if wallEpoch == Epoch(0):
-              wallEpoch
-            else:
-              wallEpoch - 1
+          prevEpoch = get_previous_epoch(wallEpoch)
         if (res < prevEpoch) or (res > nextEpoch):
           return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
                     "Requested epoch is more than one epoch from current epoch")
