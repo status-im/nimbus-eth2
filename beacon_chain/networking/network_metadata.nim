@@ -294,7 +294,7 @@ when not defined(gnosisChainBinary):
         case toLowerAscii(networkName)
         of "mainnet":
           mainnetMetadata
-        of "prater":
+        of "prater", "goerli":
           praterMetadata
         of "ropsten":
           ropstenMetadata
