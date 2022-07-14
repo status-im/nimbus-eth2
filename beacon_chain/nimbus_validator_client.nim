@@ -5,7 +5,8 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import validator_client/[common, fallback_service, duties_service,
-                         attestation_service, fork_service, sync_committee_service]
+                         attestation_service, fork_service,
+                         sync_committee_service]
 
 proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
@@ -170,9 +171,12 @@ proc asyncRun(vc: ValidatorClientRef) {.async.} =
   vc.attestationService.start()
   vc.syncCommitteeService.start()
 
+  var exitEventFut = vc.gracefulExit.wait()
   try:
     vc.runSlotLoopFut = runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
-    await vc.runSlotLoopFut
+    discard await race(vc.runSlotLoopFut, exitEventFut)
+    if not(vc.runSlotLoopFut.finished()):
+      notice "Received shutdown event, exiting"
   except CancelledError:
     debug "Main loop interrupted"
   except CatchableError as exc:
@@ -185,10 +189,8 @@ proc asyncRun(vc: ValidatorClientRef) {.async.} =
   var pending: seq[Future[void]]
   if not(vc.runSlotLoopFut.finished()):
     pending.add(vc.runSlotLoopFut.cancelAndWait())
-  if not(vc.sigintHandleFut.finished()):
-    pending.add(vc.sigintHandleFut.cancelAndWait())
-  if not(vc.sigtermHandleFut.finished()):
-    pending.add(vc.sigtermHandleFut.cancelAndWait())
+  if not(exitEventFut.finished()):
+    pending.add(exitEventFut.cancelAndWait())
   debug "Stopping running services"
   pending.add(vc.fallbackService.stop())
   pending.add(vc.forkService.stop())
@@ -268,6 +270,7 @@ programMain:
         graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
         nodesAvailable: newAsyncEvent(),
         forksAvailable: newAsyncEvent(),
+        gracefulExit: newAsyncEvent(),
         sigintHandleFut: waitSignal(SIGINT),
         sigtermHandleFut: waitSignal(SIGTERM)
       )
@@ -278,6 +281,7 @@ programMain:
         graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
         nodesAvailable: newAsyncEvent(),
         forksAvailable: newAsyncEvent(),
+        gracefulExit: newAsyncEvent(),
         sigintHandleFut: newFuture[void]("sigint_placeholder"),
         sigtermHandleFut: newFuture[void]("sigterm_placeholder")
       )

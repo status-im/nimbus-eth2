@@ -120,7 +120,6 @@ type
     config*: ValidatorClientConf
     graffitiBytes*: GraffitiBytes
     beaconNodes*: seq[BeaconNodeServerRef]
-    nodesAvailable*: AsyncEvent
     fallbackService*: FallbackServiceRef
     forkService*: ForkServiceRef
     dutiesService*: DutiesServiceRef
@@ -134,6 +133,8 @@ type
     attachedValidators*: ValidatorPool
     forks*: seq[Fork]
     forksAvailable*: AsyncEvent
+    nodesAvailable*: AsyncEvent
+    gracefulExit*: AsyncEvent
     attesters*: AttesterMap
     proposers*: ProposerMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
@@ -173,13 +174,13 @@ chronicles.expandIt(RestAttesterDuty):
   validator_committee_index = it.validator_committee_index
 
 proc stop*(csr: ClientServiceRef) {.async.} =
-  debug "Stopping service", service_name = csr.name
+  debug "Stopping service", service = csr.name
   if csr.state == ServiceState.Running:
     csr.state = ServiceState.Closing
     if not(csr.lifeFut.finished()):
       await csr.lifeFut.cancelAndWait()
     csr.state = ServiceState.Closed
-    debug "Service stopped", service_name = csr.name
+    debug "Service stopped", service = csr.name
 
 proc isDefault*(dap: DutyAndProof): bool =
   dap.epoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64)
