@@ -87,7 +87,7 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
               await allFutures(pending)
               raise exc
             except CatchableError as exc:
-              # This case could not be happened.
+              # This case should not happen.
               ApiOperation.Failure
 
       block:
