@@ -31,7 +31,6 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
         vc.onlineNodes()
       except CancelledError as exc:
         # waitOnlineNodes do not cancel `timoutFuture`.
-        var default: seq[BeaconNodeServerRef]
         if not(isNil(timerFut)) and not(timerFut.finished()):
           await timerFut.cancelAndWait()
         raise exc
