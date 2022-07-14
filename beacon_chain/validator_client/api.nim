@@ -25,7 +25,24 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
   var iterationsCount = 0
 
   while true:
-    let onlineNodes = vc.onlineNodes()
+    let onlineNodes =
+      try:
+        await vc.waitOnlineNodes(timerFut)
+        vc.onlineNodes()
+      except CancelledError as exc:
+        # waitOnlineNodes do not cancel `timoutFuture`.
+        var default: seq[BeaconNodeServerRef]
+        if not(isNil(timerFut)) and not(timerFut.finished()):
+          await timerFut.cancelAndWait()
+        raise exc
+      except CatchableError:
+        # This case could not be happened.
+        var default: seq[BeaconNodeServerRef]
+        default
+
+    if len(onlineNodes) == 0:
+      # `onlineNodes` sequence is empty only if operation timeout exceeded.
+      break
 
     if iterationsCount != 0:
       debug "Request got failed", iterations_count = iterationsCount
@@ -44,13 +61,13 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
               # be able to check errors.
               await allFutures(bodyFut)
               ApiOperation.Success
-            except CancelledError:
+            except CancelledError as exc:
               # `allFutures()` could not cancel Futures.
-              await bodyFut.cancelAndWait()
-              ApiOperation.Interrupt
+              if not(bodyFut.finished()):
+                await bodyFut.cancelAndWait()
+              raise exc
             except CatchableError as exc:
-              # This only could happened if `allFutures()` start raise
-              # exceptions.
+              # This case could not be happened.
               ApiOperation.Failure
           else:
             try:
@@ -60,17 +77,17 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
               else:
                 await bodyFut.cancelAndWait()
                 ApiOperation.Timeout
-            except CancelledError:
+            except CancelledError as exc:
               # `race()` could not cancel Futures.
+              var pending: seq[Future[void]]
               if not(bodyFut.finished()):
-                if not(timerFut.finished()):
-                  timerFut.cancel()
-                await allFutures(bodyFut.cancelAndWait(), timerFut)
-              else:
-                await cancelAndWait(timerFut)
-              ApiOperation.Interrupt
+                pending.add(bodyFut.cancelAndWait())
+              if not(isNil(timerFut)) and not(timerFut.finished()):
+                pending.add(timerFut.cancelAndWait())
+              await allFutures(pending)
+              raise exc
             except CatchableError as exc:
-              # This only could happened if `race()` start raise exceptions.
+              # This case could not be happened.
               ApiOperation.Failure
 
       block:
@@ -111,8 +128,6 @@ template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
 
     if exitNow:
       break
-
-    await vc.waitOnlineNodes()
 
 proc getDutyErrorMessage(response: RestPlainResponse): string =
   let res = decodeBytes(RestDutyError, response.data,
@@ -216,7 +231,8 @@ proc getSyncCommitteeDuties*(
        validators: seq[ValidatorIndex]
      ): Future[GetSyncCommitteeDutiesResponse] {.async.} =
   logScope: request = "getSyncCommitteeDuties"
-  vc.firstSuccessTimeout(RestResponse[GetSyncCommitteeDutiesResponse], SlotDuration,
+  vc.firstSuccessTimeout(RestResponse[GetSyncCommitteeDutiesResponse],
+                         SlotDuration,
                          getSyncCommitteeDuties(it, epoch, validators)):
     if apiResponse.isErr():
       debug "Unable to retrieve sync committee duties", endpoint = node,
@@ -466,7 +482,8 @@ proc submitPoolSyncCommitteeSignature*(
       let response = apiResponse.get()
       case response.status
       of 200:
-        debug "Sync committee message was successfully published", endpoint = node
+        debug "Sync committee message was successfully published",
+              endpoint = node
         return true
       of 400:
         debug "Received invalid request response",
@@ -484,7 +501,8 @@ proc submitPoolSyncCommitteeSignature*(
               response_error = response.getDutyErrorMessage()
         RestBeaconNodeStatus.Offline
 
-  raise newException(ValidatorApiError, "Unable to submit sync committee message")
+  raise newException(ValidatorApiError,
+                     "Unable to submit sync committee message")
 
 proc getAggregatedAttestation*(
        vc: ValidatorClientRef,

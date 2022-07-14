@@ -1,6 +1,9 @@
 import common
 
-logScope: service = "fallback_service"
+const
+  ServiceName = "fallback_service"
+
+logScope: service = ServiceName
 
 type
   BeaconNodesCounters* = object
@@ -38,7 +41,8 @@ proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
       inc(res.online)
   res
 
-proc waitOnlineNodes*(vc: ValidatorClientRef) {.async.} =
+proc waitOnlineNodes*(vc: ValidatorClientRef,
+                      timeoutFut: Future[void] = nil) {.async.} =
   doAssert(not(isNil(vc.fallbackService)))
   while true:
     if vc.onlineNodesCount() != 0:
@@ -50,7 +54,26 @@ proc waitOnlineNodes*(vc: ValidatorClientRef) {.async.} =
               online_nodes = vc.onlineNodesCount(),
               unusable_nodes = vc.unusableNodesCount(),
               total_nodes = len(vc.beaconNodes)
-      await vc.fallbackService.onlineEvent.wait()
+      if isNil(timeoutFut):
+        await vc.fallbackService.onlineEvent.wait()
+      else:
+        let breakLoop =
+          block:
+            let waitFut = vc.fallbackService.onlineEvent.wait()
+            try:
+              discard await race(waitFut, timeoutFut)
+            except CancelledError as exc:
+              if not(waitFut.finished()):
+                await waitFut.cancelAndWait()
+              raise exc
+
+            if not(waitFut.finished()):
+              await waitFut.cancelAndWait()
+              true
+            else:
+              false
+        if breakLoop:
+          break
 
 proc checkCompatible(vc: ValidatorClientRef,
                      node: BeaconNodeServerRef) {.async.} =
@@ -207,13 +230,10 @@ proc checkNodes*(service: FallbackServiceRef) {.async.} =
   try:
     await allFutures(pendingChecks)
   except CancelledError as exc:
-    let pending =
-      block:
-        var res: seq[Future[void]]
-        for fut in pendingChecks:
-          if not(fut.finished()):
-            res.add(fut.cancelAndWait())
-        res
+    var pending: seq[Future[void]]
+    for future in pendingChecks:
+      if not(future.finished()):
+        pending.add(future.cancelAndWait())
     await allFutures(pending)
     raise exc
 
@@ -255,10 +275,11 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
 
 proc init*(t: typedesc[FallbackServiceRef],
            vc: ValidatorClientRef): Future[FallbackServiceRef] {.async.} =
-  debug "Initializing service"
-  var res = FallbackServiceRef(name: "fallback_service", client: vc,
+  logScope: service = ServiceName
+  var res = FallbackServiceRef(name: ServiceName, client: vc,
                                state: ServiceState.Initialized,
                                onlineEvent: newAsyncEvent())
+  debug "Initializing service"
   # Perform initial nodes check.
   await res.checkNodes()
   return res
