@@ -49,17 +49,8 @@ def runStages(nodeDir) {
 			stage("Testnet finalization") { timeout(75) {
 				// EXECUTOR_NUMBER will be 0 or 1, since we have 2 executors per Jenkins node
 				sh """#!/bin/bash
-				set -e
-				./scripts/launch_local_testnet.sh --preset minimal --nodes 4 --stop-at-epoch 5 --disable-htop --enable-logtrace \
-					--data-dir local_testnet0_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rest-port \
-					\$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 600 \
-					--kill-old-processes --light-clients 1 \
-					-- --verify-finalization --discv5:no
-				./scripts/launch_local_testnet.sh --nodes 4 --stop-at-epoch 5 --disable-htop --enable-logtrace \
-					--data-dir local_testnet1_data --base-port \$(( 9000 + EXECUTOR_NUMBER * 100 )) --base-rest-port \
-					\$(( 7000 + EXECUTOR_NUMBER * 100 )) --base-metrics-port \$(( 8008 + EXECUTOR_NUMBER * 100 )) --timeout 2400 \
-					--kill-old-processes --light-clients 1 \
-					-- --verify-finalization --discv5:no
+				make local-testnet-minimal
+				make local-testnet-mainnet
 				"""
 			} }
 		} catch(e) {
