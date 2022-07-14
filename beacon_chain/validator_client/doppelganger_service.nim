@@ -48,6 +48,8 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
             value.lastAttempt = DoppelgangerAttempt.SuccessTrue
             warn "Validator's activity has been seen",
                   validator_index = vindex, epoch = epoch
+            vc.gracefulExit.fire()
+            return
         else:
           if value.status == DoppelgangerStatus.Checking:
             value.lastAttempt = DoppelgangerAttempt.SuccessFalse
@@ -96,8 +98,6 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
 
     if breakLoop:
       break
-
-  debug "Service stopped"
 
 proc init*(t: typedesc[DoppelgangerServiceRef],
            vc: ValidatorClientRef): Future[DoppelgangerServiceRef] {.async.} =

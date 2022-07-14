@@ -12,23 +12,28 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
   var nodes = vc.beaconNodes
   while true:
-    var pending: seq[Future[RestResponse[GetGenesisResponse]]]
+    var pendingRequests: seq[Future[RestResponse[GetGenesisResponse]]]
     for node in nodes:
       debug "Requesting genesis information", endpoint = node
-      pending.add(node.client.getGenesis())
+      pendingRequests.add(node.client.getGenesis())
 
     try:
-      await allFutures(pending)
+      await allFutures(pendingRequests)
     except CancelledError as exc:
+      var pending: seq[Future[void]]
       debug "Genesis information request was interrupted"
+      for future in pendingRequests:
+        if not(future.finished()):
+          pending.add(future.cancelAndWait())
+      await allFutures(pending)
       raise exc
 
     let (errorNodes, genesisList) =
       block:
         var gres: seq[RestGenesis]
         var bres: seq[BeaconNodeServerRef]
-        for i in 0 ..< len(pending):
-          let fut = pending[i]
+        for i in 0 ..< len(pendingRequests):
+          let fut = pendingRequests[i]
           if fut.done():
             let resp = fut.read()
             if resp.status == 200:
@@ -201,40 +206,6 @@ proc asyncRun(vc: ValidatorClientRef) {.async.} =
   pending.add(vc.attestationService.stop())
   pending.add(vc.syncCommitteeService.stop())
   await allFutures(pending)
-
-template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
-  let future = body
-  discard await race(future, vc.sigintHandleFut, vc.sigtermHandleFut)
-  if future.finished():
-    if future.failed() or future.cancelled():
-      let exc = future.readError()
-      debug "Validator client initialization failed", err_name = $exc.name,
-            err_msg = $exc.msg
-      var pending: seq[Future[void]]
-      if not(vc.sigintHandleFut.finished()):
-        pending.add(cancelAndWait(vc.sigintHandleFut))
-      if not(vc.sigtermHandleFut.finished()):
-        pending.add(cancelAndWait(vc.sigtermHandleFut))
-      await allFutures(pending)
-      false
-    else:
-      true
-  else:
-    let signal = if vc.sigintHandleFut.finished(): "SIGINT" else: "SIGTERM"
-    info "Got interrupt, trying to shutdown gracefully", signal = signal
-    var pending = @[cancelAndWait(future)]
-    if not(vc.sigintHandleFut.finished()):
-      pending.add(cancelAndWait(vc.sigintHandleFut))
-    if not(vc.sigtermHandleFut.finished()):
-      pending.add(cancelAndWait(vc.sigtermHandleFut))
-    await allFutures(pending)
-    false
-
-proc asyncLoop*(vc: ValidatorClientRef) {.async.} =
-  if not(vc.runWithSignals(asyncInit(vc))):
-    return
-  if not(vc.runWithSignals(asyncRun(vc))):
-    return
 
 template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
   let future = body

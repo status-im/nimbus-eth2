@@ -130,7 +130,6 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
     slot = proof.aggregate.data.slot
     vindex = validator.index.get()
     fork = vc.forkAtEpoch(slot.epoch)
-    vindex = validator.index.get()
 
   if not vc.doppelgangerCheck(vindex):
     info "Aggregate attestation has not been served " &

@@ -14,6 +14,13 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
       else:
         defaultGraffitiBytes()
     fork = vc.forkAtEpoch(slot.epoch)
+    vindex = validator.index.get()
+
+  if not vc.doppelgangerCheck(vindex):
+    info "Block has not been produced (doppelganger check still active)",
+         slot = slot, validator = shortLog(validator),
+         validator_index = vindex
+    return
 
   debug "Publishing block", validator = shortLog(validator),
                             delay = vc.getDelay(slot.block_deadline()),
