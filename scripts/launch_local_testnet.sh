@@ -428,8 +428,8 @@ download_geth() {
   fi
 }
 
-GETH_NUM_NODES="${NUM_NODES}"
-NIMBUSEL_NUM_NODES="${NUM_NODES}"
+GETH_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
+NIMBUSEL_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
 
 if [[ "${RUN_GETH}" == "1" ]]; then
   if [[ ! -e "${GETH_BINARY}" ]]; then
@@ -802,6 +802,11 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     fi
   fi
 done
+for NUM_LC in $(seq 0 $(( LC_NODES - 1 ))); do
+  LC_DATA_DIR="${DATA_DIR}/lc${NUM_LC}"
+  rm -rf "${LC_DATA_DIR}"
+  scripts/makedir.sh "${LC_DATA_DIR}" 2>&1
+done
 
 CLI_CONF_FILE="$CONTAINER_DATA_DIR/config.toml"
 
@@ -958,9 +963,19 @@ if [ "$LC_NODES" -ge "1" ]; then
     "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/headers/finalized" | \
       "${JQ_BINARY}" -r '.data.root')"
   for NUM_LC in $(seq 0 $(( LC_NODES - 1 ))); do
+    LC_DATA_DIR="${DATA_DIR}/lc${NUM_LC}"
+
+    if [ ${#EL_RPC_PORTS[@]} -eq 0 ]; then # check if the array is empty
+      WEB3_ARG=""
+    else
+      WEB3_ARG="--web3-url=http://127.0.0.1:${EL_RPC_PORTS[$(( NUM_NODES + NUM_LC ))]}"
+    fi
+
+    # TODO re-add --jwt-secret
     ./build/nimbus_light_client \
       --log-level="${LOG_LEVEL}" \
       --log-format="json" \
+      --data-dir="${LC_DATA_DIR}" \
       --network="${CONTAINER_DATA_DIR}" \
       --bootstrap-node="${LC_BOOTSTRAP_NODE}" \
       --tcp-port=$(( BASE_PORT + NUM_NODES + NUM_LC )) \
@@ -968,6 +983,7 @@ if [ "$LC_NODES" -ge "1" ]; then
       --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
       --nat="extip:127.0.0.1" \
       --trusted-block-root="${LC_TRUSTED_BLOCK_ROOT}" \
+      ${WEB3_ARG} \
       ${STOP_AT_EPOCH_FLAG} \
       &> "${DATA_DIR}/log_lc${NUM_LC}.txt" &
     PIDS="${PIDS},$!"

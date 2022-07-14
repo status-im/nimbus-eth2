@@ -84,7 +84,7 @@ from web3/engine_api_types import
 
 func `$`(h: BlockHash): string = $h.asEth2Digest
 
-proc runForkchoiceUpdated(
+proc runForkchoiceUpdated*(
     eth1Monitor: Eth1Monitor, headBlockRoot, finalizedBlockRoot: Eth2Digest):
     Future[PayloadExecutionStatus] {.async.} =
   # Allow finalizedBlockRoot to be 0 to avoid sync deadlocks.

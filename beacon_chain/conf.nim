@@ -150,7 +150,7 @@ type
       name: "wallets-dir" .}: Option[InputDir]
 
     web3Urls* {.
-      desc: "One or more Web3 provider URLs used for obtaining deposit contract data"
+      desc: "One or more execution layer Web3 provider URLs"
       name: "web3-url" .}: seq[string]
 
     web3ForcePolling* {.

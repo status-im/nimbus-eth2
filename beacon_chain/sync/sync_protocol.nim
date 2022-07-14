@@ -676,7 +676,7 @@ proc useSyncV2*(state: BeaconSyncNetworkState): bool =
   let
     wallTimeSlot = state.getBeaconTime().slotOrZero
 
-  wallTimeSlot.epoch >= state.dag.cfg.ALTAIR_FORK_EPOCH
+  wallTimeSlot.epoch >= state.cfg.ALTAIR_FORK_EPOCH
 
 proc useSyncV2*(peer: Peer): bool =
   peer.networkState(BeaconSync).useSyncV2()

@@ -941,7 +941,11 @@ template getOrDefault[T, E](r: Result[T, E]): T =
 
 proc init*(T: type Eth1Chain, cfg: RuntimeConfig, db: BeaconChainDB): T =
   let
-    finalizedDeposits = db.getEth2FinalizedTo().getOrDefault()
+    finalizedDeposits =
+      if db != nil:
+        db.getEth2FinalizedTo().getOrDefault()
+      else:
+        default(DepositContractSnapshot)
     m = DepositsMerkleizer.init(finalizedDeposits.depositContractState)
 
   T(db: db,
