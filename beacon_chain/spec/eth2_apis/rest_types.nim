@@ -560,7 +560,7 @@ type
   GetStateValidatorBalancesResponse* = DataEnclosedObject[seq[RestValidatorBalance]]
   GetStateValidatorResponse* = DataEnclosedObject[RestValidator]
   GetStateValidatorsResponse* = DataEnclosedObject[seq[RestValidator]]
-  GetSyncCommitteeDutiesResponse* = DataRootEnclosedObject[seq[RestSyncCommitteeDuty]]
+  GetSyncCommitteeDutiesResponse* = DataEnclosedObject[seq[RestSyncCommitteeDuty]]
   GetSyncingStatusResponse* = DataEnclosedObject[RestSyncInfo]
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]

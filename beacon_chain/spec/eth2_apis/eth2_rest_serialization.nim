@@ -2179,11 +2179,12 @@ proc decodeBody*[T](t: typedesc[T],
   let data =
     try:
       RestJson.decode(body.data, T,
-                      requireAllFields = false,
+                      requireAllFields = true,
                       allowUnknownFields = true)
     except SerializationError as exc:
       debug "Failed to deserialize REST JSON data",
-            err = exc.formatMsg("<data>")
+            err = exc.formatMsg("<data>"),
+            data = string.fromBytes(body.data)
       return err("Unable to deserialize data")
     except CatchableError:
       return err("Unexpected deserialization error")
@@ -2233,11 +2234,12 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openArray[byte],
   of "application/json":
     try:
       ok RestJson.decode(value, T,
-                         requireAllFields = false,
+                         requireAllFields = true,
                          allowUnknownFields = true)
     except SerializationError as exc:
       debug "Failed to deserialize REST JSON data",
-            err = exc.formatMsg("<data>")
+            err = exc.formatMsg("<data>"),
+            data = string.fromBytes(value)
       err("Serialization error")
   else:
     err("Content-Type not supported")

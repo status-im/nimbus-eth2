@@ -157,6 +157,41 @@ restapi-test:
 		--resttest-delay 30 \
 		--kill-old-processes
 
+local-testnet-minimal:
+	./scripts/launch_local_testnet.sh \
+		--preset minimal \
+		--nodes 4 \
+		--stop-at-epoch 5 \
+		--disable-htop \
+		--enable-logtrace \
+		--data-dir local_testnet0_data \
+		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
+		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
+		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--timeout 600 \
+		--kill-old-processes \
+		--light-clients 1 \
+		-- \
+		--verify-finalization \
+		--discv5:no
+
+local-testnet-mainnet:
+	./scripts/launch_local_testnet.sh \
+		--nodes 4 \
+		--stop-at-epoch 5 \
+		--disable-htop \
+		--enable-logtrace \
+		--data-dir local_testnet1_data \
+		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
+		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
+		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--timeout 2400 \
+		--kill-old-processes \
+		--light-clients 1 \
+		-- \
+		--verify-finalization \
+		--discv5:no
+
 # test binaries that can output an XML report
 XML_TEST_BINARIES := \
 	consensus_spec_tests_mainnet \
