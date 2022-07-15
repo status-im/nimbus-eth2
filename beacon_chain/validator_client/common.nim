@@ -371,20 +371,37 @@ proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
 proc currentSlot*(vc: ValidatorClientRef): Slot =
   vc.beaconClock.now().slotOrZero()
 
-proc addDoppelganger*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
-                      index: ValidatorIndex) =
+proc addDoppelganger*(vc: ValidatorClientRef, validator: AttachedValidator) =
+  logScope:
+    validator = shortLog(validator)
+
   if vc.config.doppelgangerDetection:
     let
+      vindex = validator.index.get()
       startEpoch = vc.currentSlot().epoch()
-      state = DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
-                                lastAttempt: DoppelgangerAttempt.None,
-                                status: DoppelgangerStatus.Checking)
-      res = vc.doppelgangerDetection.validators.hasKeyOrPut(index, state)
+      state =
+        if (startEpoch == GENESIS_EPOCH) and
+           (validator.startSlot == GENESIS_SLOT):
+          DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
+                            lastAttempt: DoppelgangerAttempt.None,
+                            status: DoppelgangerStatus.Passed)
+        else:
+          DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
+                            lastAttempt: DoppelgangerAttempt.None,
+                            status: DoppelgangerStatus.Checking)
+      res = vc.doppelgangerDetection.validators.hasKeyOrPut(vindex, state)
+
     if res:
-      warn "Validator is already in doppelganger table", pubkey = pubkey,
-           index = index
+      warn "Validator is already in doppelganger table",
+           validator_index = vindex, start_epoch = startEpoch,
+           start_slot = validator.startSlot
     else:
-      info "Doppelganger protection activated", pubkey = pubkey, index = index
+      if state.status == DoppelgangerStatus.Checking:
+        info "Doppelganger protection activated", validator_index = vindex,
+             start_epoch = startEpoch, start_slot = validator.startSlot
+      else:
+        info "Doppelganger protection skipped", validator_index = vindex,
+             start_epoch = startEpoch, start_slot = validator.startSlot
 
 proc removeDoppelganger*(vc: ValidatorClientRef, index: ValidatorIndex) =
   if vc.config.doppelgangerDetection:
