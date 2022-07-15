@@ -917,16 +917,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 35/35 Fail: 0/35 Skip: 0/35
-## EF - Altair - Sync protocol - Light client [Preset: minimal]
-```diff
-  All tests                                                                                  Skip
-```
-OK: 0/1 Fail: 0/1 Skip: 1/1
-## EF - Altair - Sync protocol - Update ranking [Preset: minimal]
-```diff
-  All tests                                                                                  Skip
-```
-OK: 0/1 Fail: 0/1 Skip: 1/1
 ## EF - Altair - Unittests - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -1352,4 +1342,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1157/1166 Fail: 0/1166 Skip: 9/1166
+OK: 1157/1164 Fail: 0/1164 Skip: 7/1164

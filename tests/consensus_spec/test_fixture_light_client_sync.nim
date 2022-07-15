@@ -10,6 +10,25 @@
 # This implements the pre-release proposal of the libp2p based light client sync
 # protocol. See https://github.com/ethereum/consensus-specs/pull/2802
 
+# These tests are for the pre-release proposal of the libp2p based light
+# client sync protocol. Corresponding test vectors need manual integration.
+# https://github.com/ethereum/consensus-specs/pull/2802
+#
+# To locally integrate the test vectors, clone the pre-release spec repo
+# at latest commit of https://github.com/ethereum/consensus-specs/pull/2802
+# and place it next to the `nimbus-eth2` repo, so that `nimbus-eth2` and
+# `consensus-specs` are in the same directory.
+#
+# To generate the additional test vectors, from `consensus-specs`:
+# $ rm -rf ../consensus-spec-tests && \
+#   doctoc specs && make lint && make gen_light_client
+#
+# To integrate the additional test vectors into `nimbus-eth2`, first run
+# `make test` from `nimbus-eth2` to ensure that the regular test vectors
+# have been downloaded and extracted, then proceed from `nimbus-eth2` with:
+# $ rsync -r ../consensus-spec-tests/tests/ \
+#   ../nimbus-eth2/vendor/nim-eth2-scenarios/tests-v1.2.0-rc.1/
+
 import
   # Standard library
   std/[json, os, streams],
@@ -21,11 +40,8 @@ import
   ../../../beacon_chain/spec/light_client_sync,
   ../../../beacon_chain/spec/datatypes/altair,
   # Test utilities
-  ../../testutil,
-  ../fixtures_utils
-
-const TestsDir =
-  SszTestsDir/const_preset/"altair"/"sync_protocol"/"light_client_sync"/"pyspec_tests"
+  ../testutil,
+  ./fixtures_utils
 
 type
   TestMeta = object
@@ -84,75 +100,52 @@ proc loadSteps(path: string): seq[TestStep] =
                           current_slot: s["current_slot"].getInt().Slot,
                           checks: s["checks"].getChecks())
     else:
-      doAssert false, "Unreachable: " & $step
+      doAssert false, "Unknown test step: " & $step
 
-proc runTest(identifier: string) =
-  let testDir = TestsDir / identifier
+proc runTest(path: string) =
+  test "Light client - Sync - " & path.relativePath(SszTestsDir):
+    let
+      (cfg, unknowns) = readRuntimeConfig(path/"config.yaml")
+      meta = block:
+        var s = openFileStream(path/"meta.yaml")
+        defer: close(s)
+        var res: TestMeta
+        yaml.load(s, res)
+        res
+      genesis_validators_root =
+        Eth2Digest.fromHex(meta.genesis_validators_root)
+      trusted_block_root =
+        Eth2Digest.fromHex(meta.trusted_block_root)
 
-  proc `testImpl _ sync_protocol_light_client_sync _ identifier`() =
-    test identifier:
-      let
-        meta = block:
-          var s = openFileStream(testDir/"meta.yaml")
-          defer: close(s)
-          var res: TestMeta
-          yaml.load(s, res)
-          res
-        genesis_validators_root =
-          Eth2Digest.fromHex(meta.genesis_validators_root)
-        trusted_block_root =
-          Eth2Digest.fromHex(meta.trusted_block_root)
+      bootstrap = parseTest(path/"bootstrap.ssz_snappy", SSZ,
+                            altair.LightClientBootstrap)
+      steps = loadSteps(path)
+    doAssert unknowns.len == 0, "Unknown config constants: " & $unknowns
 
-        bootstrap = parseTest(testDir/"bootstrap.ssz_snappy", SSZ,
-                              altair.LightClientBootstrap)
-        steps = loadSteps(testDir)
+    var store =
+      initialize_light_client_store(trusted_block_root, bootstrap).get
+    for step in steps:
+      case step.kind
+      of TestStepKind.ForceUpdate:
+        try_light_client_store_force_update(
+          store, step.current_slot)
+      of TestStepKind.ProcessUpdate:
+        let res = process_light_client_update(
+          store, step.update, step.current_slot,
+          cfg, genesis_validators_root)
+        check res.isOk
+      check:
+        store.finalized_header.slot == step.checks.finalized_slot
+        hash_tree_root(store.finalized_header) == step.checks.finalized_root
+        store.optimistic_header.slot == step.checks.optimistic_slot
+        hash_tree_root(store.optimistic_header) == step.checks.optimistic_root
 
-      var cfg = defaultRuntimeConfig
-      cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-
-      var store =
-        initialize_light_client_store(trusted_block_root, bootstrap).get
-
-      for step in steps:
-        case step.kind
-        of TestStepKind.ForceUpdate:
-          try_light_client_store_force_update(
-            store, step.current_slot)
-        of TestStepKind.ProcessUpdate:
-          let res = process_light_client_update(
-            store, step.update, step.current_slot,
-            cfg, genesis_validators_root)
-          check res.isOk
-        check:
-          store.finalized_header.slot == step.checks.finalized_slot
-          hash_tree_root(store.finalized_header) == step.checks.finalized_root
-          store.optimistic_header.slot == step.checks.optimistic_slot
-          hash_tree_root(store.optimistic_header) == step.checks.optimistic_root
-
-  `testImpl _ sync_protocol_light_client_sync _ identifier`()
-
-suite "EF - Altair - Sync protocol - Light client" & preset():
-  try:
-    for kind, path in walkDir(TestsDir, relative = true, checkDir = true):
-      runTest(path)
-  except OSError:
-    # These tests are for the pre-release proposal of the libp2p based light
-    # client sync protocol. Corresponding test vectors need manual integration.
-    # https://github.com/ethereum/consensus-specs/pull/2802
-    #
-    # To locally integrate the test vectors, clone the pre-release spec repo
-    # at latest commit of https://github.com/ethereum/consensus-specs/pull/2802
-    # and place it next to the `nimbus-eth2` repo, so that `nimbus-eth2` and
-    # `consensus-specs` are in the same directory.
-    #
-    # To generate the additional test vectors, from `consensus-specs`:
-    # $ rm -rf ../consensus-spec-tests && \
-    #   doctoc specs && make lint && make gen_sync_protocol
-    #
-    # To integrate the additional test vectors into `nimbus-eth2`, first run
-    # `make test` from `nimbus-eth2` to ensure that the regular test vectors
-    # have been downloaded and extracted, then proceed from `nimbus-eth2` with:
-    # $ rsync -r ../consensus-spec-tests/tests/ \
-    #   ../nimbus-eth2/vendor/nim-eth2-scenarios/tests-v1.2.0-rc.1/
-    test "All tests":
-      skip()
+suite "EF - Light client - Sync" & preset():
+  const presetPath = SszTestsDir/const_preset
+  for kind, path in walkDir(presetPath, relative = true, checkDir = true):
+    let basePath =
+      presetPath/path/"light_client"/"sync"/"pyspec_tests"
+    if kind != pcDir or not dirExists(basePath):
+      continue
+    for kind, path in walkDir(basePath, relative = true, checkDir = true):
+      runTest(basePath/path)

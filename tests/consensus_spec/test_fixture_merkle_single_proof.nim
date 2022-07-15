@@ -18,8 +18,8 @@ import
   ../../../beacon_chain/spec/datatypes/altair,
   ../../../beacon_chain/spec/helpers,
   # Test utilities
-  ../../testutil,
-  ../fixtures_utils
+  ../testutil,
+  ./fixtures_utils
 
 const TestsDir =
   SszTestsDir/const_preset/"altair"/"merkle"/"single_proof"/"pyspec_tests"

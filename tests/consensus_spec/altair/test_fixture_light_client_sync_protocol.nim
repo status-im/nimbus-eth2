@@ -161,7 +161,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       res
     genesisState = newClone(initGenesisState(cfg = cfg))
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L25-L67
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L25-L67
   test "test_process_light_client_update_not_timeout":
     let forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
@@ -207,7 +207,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       store.optimistic_header == update.attested_header
       store.current_max_active_participants > 0
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L70-L116
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L70-L116
   test "test_process_light_client_update_at_period_boundary":
     var forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
@@ -260,7 +260,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       store.optimistic_header == update.attested_header
       store.current_max_active_participants > 0
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L119-L166
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L119-L166
   test "process_light_client_update_timeout":
     let forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
@@ -316,7 +316,7 @@ suite "EF - Altair - Unittests - Sync protocol" & preset():
       store.optimistic_header == update.attested_header
       store.current_max_active_participants > 0
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/altair/unittests/test_sync_protocol.py#L169-L223
+  # https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L169-L223
   test "process_light_client_update_finality_updated":
     let forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
