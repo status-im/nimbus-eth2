@@ -62,32 +62,14 @@ proc initialLoad(
     path: string, db: BeaconChainDB,
     StateType, BlockType: typedesc
 ): tuple[dag: ChainDAGRef, fkChoice: ref ForkChoice] =
-  let state = newClone(parseTest(
-    path/"anchor_state.ssz_snappy",
-    SSZ, StateType
-  ))
+  let
+    forkedState = loadForkedState(
+      path/"anchor_state.ssz_snappy",
+      StateType.toFork)
 
-  # TODO stack usage. newClone and assignClone do not seem to
-  # prevent temporaries created by case objects
-  let forkedState = new ForkedHashedBeaconState
-  when StateType is bellatrix.BeaconState:
-    forkedState.kind = BeaconStateFork.Bellatrix
-    forkedState.bellatrixData.data = state[]
-    forkedState.bellatrixData.root = hash_tree_root(state[])
-  elif StateType is altair.BeaconState:
-    forkedState.kind = BeaconStateFork.Altair
-    forkedState.altairData.data = state[]
-    forkedState.altairData.root = hash_tree_root(state[])
-  elif StateType is phase0.BeaconState:
-    forkedState.kind = BeaconStateFork.Phase0
-    forkedState.phase0Data.data = state[]
-    forkedState.phase0Data.root = hash_tree_root(state[])
-  else: {.error: "Unknown state fork: " & name(StateType).}
-
-  let blck = parseTest(
-    path/"anchor_block.ssz_snappy",
-    SSZ, BlockType
-  )
+    blck = parseTest(
+      path/"anchor_block.ssz_snappy",
+      SSZ, BlockType)
 
   when BlockType is bellatrix.BeaconBlock:
     let signedBlock = ForkedSignedBeaconBlock.init(bellatrix.SignedBeaconBlock(

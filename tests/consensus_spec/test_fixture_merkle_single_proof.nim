@@ -21,43 +21,46 @@ import
   ../testutil,
   ./fixtures_utils
 
-const TestsDir =
-  SszTestsDir/const_preset/"altair"/"merkle"/"single_proof"/"pyspec_tests"
+proc runTest(path: string, fork: BeaconStateFork) =
+  test "Merkle - Single proof - " & path.relativePath(SszTestsDir):
+    type
+      TestProof = object
+        leaf: string
+        leaf_index: GeneralizedIndex
+        branch: seq[string]
 
-proc runTest(identifier: string) =
-  let testDir = TestsDir / identifier
+    let
+      proof = block:
+        let s = openFileStream(path/"proof.yaml")
+        defer: close(s)
+        var res: TestProof
+        yaml.load(s, res)
+        res
 
-  proc `testImpl _ merkle_single_proof _ identifier`() =
-    test identifier:
-      type
-        TestProof = object
-          leaf: string
-          leaf_index: GeneralizedIndex
-          branch: seq[string]
+      state = loadForkedState(path/"state.ssz_snappy", fork)
 
-      let
-        proof = block:
-          let s = openFileStream(testDir/"proof.yaml")
-          defer: close(s)
-          var res: TestProof
-          yaml.load(s, res)
-          res
-
-        state = newClone(parseTest(testDir/"state.ssz_snappy", SSZ,
-                                   altair.BeaconState))
-
+    withState(state[]):
       var computedProof = newSeq[Eth2Digest](log2trunc(proof.leaf_index))
-      build_proof(state[], proof.leaf_index, computedProof).get
+      build_proof(state.data, proof.leaf_index, computedProof).get
 
       check:
         computedProof == proof.branch.mapIt(Eth2Digest.fromHex(it))
-        is_valid_merkle_branch(Eth2Digest.fromHex(proof.leaf), computedProof,
-                               log2trunc(proof.leaf_index),
-                               get_subtree_index(proof.leaf_index),
-                               hash_tree_root(state[]))
+        is_valid_merkle_branch(
+          Eth2Digest.fromHex(proof.leaf),
+          computedProof,
+          log2trunc(proof.leaf_index),
+          get_subtree_index(proof.leaf_index),
+          state.root)
 
-  `testImpl _ merkle_single_proof _ identifier`()
-
-suite "EF - Altair - Merkle - Single proof" & preset():
-  for kind, path in walkDir(TestsDir, relative = true, checkDir = true):
-    runTest(path)
+suite "EF - Merkle - Single proof" & preset():
+  const presetPath = SszTestsDir/const_preset
+  for kind, path in walkDir(presetPath, relative = true, checkDir = true):
+    let testsPath = presetPath/path/"merkle"/"single_proof"
+    if kind != pcDir or not dirExists(testsPath):
+      continue
+    let
+      fork = forkForPathComponent(path).valueOr:
+        raiseAssert "Unknown test fork: " & testsPath
+      basePath = testsPath/"pyspec_tests"
+    for kind, path in walkDir(basePath, relative = true, checkDir = true):
+      runTest(basePath/path, fork)

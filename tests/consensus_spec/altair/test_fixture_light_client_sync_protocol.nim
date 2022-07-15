@@ -153,7 +153,7 @@ func initialize_light_client_store(state: auto): LightClientStore =
     current_max_active_participants: 0,
   )
 
-suite "EF - Altair - Unittests - Sync protocol" & preset():
+suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
   let
     cfg = block:
       var res = defaultRuntimeConfig

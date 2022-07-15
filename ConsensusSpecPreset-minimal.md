@@ -242,6 +242,10 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_update_justified_ch OK
 + ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
 + ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
++ Merkle - Single proof - minimal/altair/merkle/single_proof/pyspec_tests/finality_root_merk OK
++ Merkle - Single proof - minimal/altair/merkle/single_proof/pyspec_tests/next_sync_committe OK
++ Merkle - Single proof - minimal/bellatrix/merkle/single_proof/pyspec_tests/finality_root_m OK
++ Merkle - Single proof - minimal/bellatrix/merkle/single_proof/pyspec_tests/next_sync_commi OK
 + Slots - double_empty_epoch                                                                 OK
 + Slots - empty_epoch                                                                        OK
 + Slots - over_epoch_boundary                                                                OK
@@ -471,7 +475,6 @@ ConsensusSpecPreset-minimal
 + bellatrix_fork_random_large_validator_set                                                  OK
 + bellatrix_fork_random_low_balances                                                         OK
 + bellatrix_fork_random_misc_balances                                                        OK
-+ finality_root_merkle_proof                                                                 OK
 + fork_base_state                                                                            OK
 + fork_many_next_epoch                                                                       OK
 + fork_next_epoch                                                                            OK
@@ -479,9 +482,8 @@ ConsensusSpecPreset-minimal
 + fork_random_large_validator_set                                                            OK
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
-+ next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 471/478 Fail: 0/478 Skip: 7/478
+OK: 473/480 Fail: 0/480 Skip: 7/480
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -917,7 +919,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 35/35 Fail: 0/35 Skip: 0/35
-## EF - Altair - Unittests - Sync protocol [Preset: minimal]
+## EF - Altair - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
 + process_light_client_update_timeout                                                        OK
@@ -1342,4 +1344,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1157/1164 Fail: 0/1164 Skip: 7/1164
+OK: 1159/1166 Fail: 0/1166 Skip: 7/1166
