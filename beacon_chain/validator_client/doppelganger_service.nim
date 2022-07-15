@@ -90,7 +90,7 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
                                                           validators)
           service.processActivities(previousEpoch, activities)
         else:
-          debug "No validators require doppelganger protection found"
+          debug "No validators found that require doppelganger protection"
           discard
         false
       except CancelledError:
