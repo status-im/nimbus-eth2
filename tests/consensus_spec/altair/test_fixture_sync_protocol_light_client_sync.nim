@@ -32,6 +32,12 @@ type
     genesis_validators_root: string
     trusted_block_root: string
 
+  TestChecks = object
+    finalized_slot: Slot
+    finalized_root: Eth2Digest
+    optimistic_slot: Slot
+    optimistic_root: Eth2Digest
+
   TestStepKind {.pure.} = enum
     ForceUpdate
     ProcessUpdate
@@ -43,6 +49,7 @@ type
     of TestStepKind.ProcessUpdate:
       update: altair.LightClientUpdate
     current_slot: Slot
+    checks: TestChecks
 
 proc loadSteps(path: string): seq[TestStep] =
   let stepsYAML = readFile(path/"steps.yaml")
@@ -50,10 +57,22 @@ proc loadSteps(path: string): seq[TestStep] =
 
   result = @[]
   for step in steps[0]:
+    func getChecks(c: JsonNode): TestChecks =
+      TestChecks(
+        finalized_slot:
+          c["finalized_header"]["slot"].getInt().Slot,
+        finalized_root:
+          Eth2Digest.fromHex(c["finalized_header"]["root"].getStr()),
+        optimistic_slot:
+          c["optimistic_header"]["slot"].getInt().Slot,
+        optimistic_root:
+          Eth2Digest.fromHex(c["optimistic_header"]["root"].getStr()))
+
     if step.hasKey"force_update":
       let s = step["force_update"]
       result.add TestStep(kind: TestStepKind.ForceUpdate,
-                          current_slot: s["current_slot"].getInt().Slot)
+                          current_slot: s["current_slot"].getInt().Slot,
+                          checks: s["checks"].getChecks())
     elif step.hasKey"process_update":
       let
         s = step["process_update"]
@@ -62,7 +81,8 @@ proc loadSteps(path: string): seq[TestStep] =
                            altair.LightClientUpdate)
       result.add TestStep(kind: TestStepKind.ProcessUpdate,
                           update: update,
-                          current_slot: s["current_slot"].getInt().Slot)
+                          current_slot: s["current_slot"].getInt().Slot,
+                          checks: s["checks"].getChecks())
     else:
       doAssert false, "Unreachable: " & $step
 
@@ -87,13 +107,6 @@ proc runTest(identifier: string) =
                               altair.LightClientBootstrap)
         steps = loadSteps(testDir)
 
-        expected_finalized_header =
-          parseTest(testDir/"expected_finalized_header.ssz_snappy", SSZ,
-                    BeaconBlockHeader)
-        expected_optimistic_header =
-          parseTest(testDir/"expected_optimistic_header.ssz_snappy", SSZ,
-                    BeaconBlockHeader)
-
       var cfg = defaultRuntimeConfig
       cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
 
@@ -110,10 +123,11 @@ proc runTest(identifier: string) =
             store, step.update, step.current_slot,
             cfg, genesis_validators_root)
           check res.isOk
-
-      check:
-        store.finalized_header == expected_finalized_header
-        store.optimistic_header == expected_optimistic_header
+        check:
+          store.finalized_header.slot == step.checks.finalized_slot
+          hash_tree_root(store.finalized_header) == step.checks.finalized_root
+          store.optimistic_header.slot == step.checks.optimistic_slot
+          hash_tree_root(store.optimistic_header) == step.checks.optimistic_root
 
   `testImpl _ sync_protocol_light_client_sync _ identifier`()
 
