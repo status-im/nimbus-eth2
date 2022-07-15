@@ -34,13 +34,15 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
     try:
       await vc.waitOnlineNodes(timerFut)
       vc.onlineNodes()
-    except CancelledError:
+    except CancelledError as exc:
       var default: seq[BeaconNodeServerRef]
       if not(isNil(timerFut)) and not(timerFut.finished()):
         await timerFut.cancelAndWait()
-      default
-    except CatchableError:
+      raise exc
+    except CatchableError as exc:
       # This case could not be happened.
+      error "Unexpected exception while waiting for beacon nodes",
+            err_name = $exc.name, err_msg = $exc.msg
       var default: seq[BeaconNodeServerRef]
       default
 
@@ -74,7 +76,7 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
             if not(timerFut.finished()):
               await timerFut.cancelAndWait()
             ApiOperation.Success
-      except CancelledError:
+      except CancelledError as exc:
         # We should cancel all the pending requests and timer before we return
         # result.
         var pendingCancel: seq[Future[void]]
@@ -84,7 +86,7 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
         if not(isNil(timerFut)) and not(timerFut.finished()):
           pendingCancel.add(timerFut.cancelAndWait())
         await allFutures(pendingCancel)
-        ApiOperation.Interrupt
+        raise exc
       except CatchableError:
         # This should not be happened, because allFutures() and race() did not
         # raise any exceptions.

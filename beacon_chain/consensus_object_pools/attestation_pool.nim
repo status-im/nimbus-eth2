@@ -759,8 +759,8 @@ proc prune*(pool: var AttestationPool) =
 
 proc validatorSeenAtEpoch*(pool: var AttestationPool, epoch: Epoch,
                            vindex: ValidatorIndex): bool =
-  if uint64(vindex) < uint64(len(pool.nextAttestationEpoch)):
-    let mark = pool.nextAttestationEpoch[int(vindex)]
+  if uint64(vindex) < lenu64(pool.nextAttestationEpoch):
+    let mark = pool.nextAttestationEpoch[vindex]
     (mark.subnet > epoch) or (mark.aggregate > epoch)
   else:
     false
