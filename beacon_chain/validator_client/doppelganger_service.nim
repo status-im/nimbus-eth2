@@ -85,8 +85,13 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
             else:
               currentEpoch - 1'u64
           validators = vc.getCheckingList()
-          activities = await vc.getValidatorsActivity(previousEpoch, validators)
-        service.processActivities(previousEpoch, activities)
+        if len(validators) > 0:
+          let activities = await vc.getValidatorsActivity(previousEpoch,
+                                                          validators)
+          service.processActivities(previousEpoch, activities)
+        else:
+          debug "No validators require doppelganger protection found"
+          discard
         false
       except CancelledError:
         debug "Service interrupted"
