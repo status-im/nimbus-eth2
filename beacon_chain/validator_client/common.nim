@@ -393,11 +393,12 @@ proc removeDoppelganger*(vc: ValidatorClientRef, index: ValidatorIndex) =
     # the doppelganger's table, but it should be removed.
     discard vc.doppelgangerDetection.validators.pop(index, state)
 
-proc addValidator*(vc: ValidatorClientRef,
-                   keystore: KeystoreData) =
+proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
+  let slot = vc.currentSlot()
   case keystore.kind
   of KeystoreKind.Local:
-    vc.attachedValidators.addLocalValidator(keystore)
+    vc.attachedValidators.addLocalValidator(keystore, none[ValidatorIndex](),
+                                            slot)
   of KeystoreKind.Remote:
     let
       httpFlags =
@@ -422,7 +423,7 @@ proc addValidator*(vc: ValidatorClientRef,
           res
     if len(clients) > 0:
       vc.attachedValidators.addRemoteValidator(keystore, clients,
-                                               none[ValidatorIndex]())
+                                               none[ValidatorIndex](), slot)
     else:
       warn "Unable to initialize remote validator",
            validator = $keystore.pubkey
@@ -449,11 +450,20 @@ proc removeValidator*(vc: ValidatorClientRef,
     # Remove validator from ValidatorPool.
     vc.attachedValidators.removeValidator(pubkey)
 
-proc doppelgangerCheck*(vc: ValidatorClientRef, index: ValidatorIndex): bool =
+proc doppelgangerCheck*(vc: ValidatorClientRef,
+                        validator: AttachedValidator): bool =
   if vc.config.doppelgangerDetection:
-    let default = DoppelgangerState(status: DoppelgangerStatus.None)
-    let currentEpoch = vc.currentSlot().epoch()
-    let state = vc.doppelgangerDetection.validators.getOrDefault(index, default)
-    state.status == DoppelgangerStatus.Passed
+    if validator.index.isNone():
+      return false
+    if validator.startSlot > GENESIS_SLOT:
+      let
+        vindex = validator.index.get()
+        default = DoppelgangerState(status: DoppelgangerStatus.None)
+        currentEpoch = vc.currentSlot().epoch()
+        state = vc.doppelgangerDetection.validators.getOrDefault(vindex,
+                                                                 default)
+      state.status == DoppelgangerStatus.Passed
+    else:
+      true
   else:
     true

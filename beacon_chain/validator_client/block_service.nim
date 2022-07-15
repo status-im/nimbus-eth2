@@ -16,7 +16,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     fork = vc.forkAtEpoch(slot.epoch)
     vindex = validator.index.get()
 
-  if not vc.doppelgangerCheck(vindex):
+  if not(vc.doppelgangerCheck(validator)):
     info "Block has not been produced (doppelganger check still active)",
          slot = slot, validator = shortLog(validator),
          validator_index = vindex

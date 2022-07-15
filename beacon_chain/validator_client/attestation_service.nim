@@ -34,7 +34,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
   doAssert(validator.index.isSome())
   let vindex = validator.index.get()
 
-  if not vc.doppelgangerCheck(vindex):
+  if not(vc.doppelgangerCheck(validator)):
     info "Attestation has not been served (doppelganger check still active)",
          slot = duty.data.slot, validator = shortLog(validator),
          validator_index = vindex
@@ -131,7 +131,7 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
     vindex = validator.index.get()
     fork = vc.forkAtEpoch(slot.epoch)
 
-  if not vc.doppelgangerCheck(vindex):
+  if not(vc.doppelgangerCheck(validator)):
     info "Aggregate attestation has not been served " &
          "(doppelganger check still active)",
          slot = slot, validator = shortLog(validator),
