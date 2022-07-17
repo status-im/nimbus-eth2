@@ -767,6 +767,17 @@ proc init*(T: type BeaconNode,
       max(Moment.init(bellatrixEpochTime, Second),
           Moment.now)
 
+  let payloadBuilderRestClient =
+    if config.payloadBuilder.isSome:
+      RestClientRef.new(
+          config.payloadBuilder.get,
+          httpFlags = {HttpClientFlag.NewConnectionAlways}).valueOr:
+        warn "Payload builder REST client setup failed",
+          payloadBuilderUrl = config.payloadBuilder.get
+        nil
+    else:
+      nil
+
   let node = BeaconNode(
     nickname: nickname,
     graffitiBytes: if config.graffiti.isSome: config.graffiti.get
@@ -777,6 +788,7 @@ proc init*(T: type BeaconNode,
     config: config,
     attachedValidators: validatorPool,
     eth1Monitor: eth1Monitor,
+    payloadBuilderRestClient: payloadBuilderRestClient,
     restServer: restServer,
     keymanagerServer: keymanagerServer,
     keymanagerToken: keymanagerToken,
@@ -798,7 +810,7 @@ proc init*(T: type BeaconNode,
 
   node
 
-func strictVerification(node: BeaconNode, slot: Slot) =
+func verifyFinalization(node: BeaconNode, slot: Slot) =
   # Epoch must be >= 4 to check finalization
   const SETTLING_TIME_OFFSET = 1'u64
   let epoch = slot.epoch()
@@ -1373,7 +1385,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
     wallSlot.epoch.toGaugeValue - finalizedEpoch.toGaugeValue)
 
   if node.config.strictVerification:
-    strictVerification(node, wallSlot)
+    verifyFinalization(node, wallSlot)
 
   node.consensusManager[].updateHead(wallSlot)
 

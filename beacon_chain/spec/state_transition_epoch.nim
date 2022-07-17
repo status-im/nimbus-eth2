@@ -860,7 +860,7 @@ func process_registry_updates*(
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#slashings
 func get_adjusted_total_slashing_balance*(
     state: ForkyBeaconState, total_balance: Gwei): Gwei =
-  let multiplier =
+  const multiplier =
     # tradeoff here about interleaving phase0/altair, but for these
     # single-constant changes...
     when state is phase0.BeaconState:

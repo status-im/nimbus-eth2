@@ -36,5 +36,4 @@ proc submitBlindedBlock*(body: SignedBlindedBeaconBlock
 proc checkBuilderStatus*(): RestPlainResponse {.
      rest, endpoint: "/eth/v1/builder/status",
      meth: MethodGet.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.1.0/apis/builder/status.yaml
   ## https://github.com/ethereum/builder-specs/blob/v0.2.0/apis/builder/status.yaml

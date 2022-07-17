@@ -1486,6 +1486,15 @@ proc writeValue*(writer: var JsonWriter[RestJson],
       writer.writeField("signingRoot", value.signingRoot)
     writer.writeField("contribution_and_proof",
                       value.syncCommitteeContributionAndProof)
+  of Web3SignerRequestKind.ValidatorRegistration:
+    # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "VALIDATOR_REGISTRATION")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("validator_registration", value.validatorRegistration)
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson],
@@ -1736,6 +1745,25 @@ proc readValue*(reader: var JsonReader[RestJson],
         kind: Web3SignerRequestKind.SyncCommitteeContributionAndProof,
         forkInfo: forkInfo, signingRoot: signingRoot,
         syncCommitteeContributionAndProof: data
+      )
+    of Web3SignerRequestKind.ValidatorRegistration:
+      if dataName != "validator_registration":
+        reader.raiseUnexpectedValue(
+          "Field `validator_registration` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data =
+        block:
+          let res =
+            decodeJsonString(Web3SignerValidatorRegistration, data.get())
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `validator_registration` format")
+          res.get()
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.ValidatorRegistration,
+        forkInfo: forkInfo, signingRoot: signingRoot,
+        validatorRegistration: data
       )
 
 ## RemoteKeystoreStatus

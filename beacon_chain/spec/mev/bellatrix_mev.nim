@@ -23,7 +23,7 @@ type
     signature*: ValidatorSig
 
   # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#builderbid
-  BuilderBid = object
+  BuilderBid* = object
     header*: ExecutionPayloadHeader
     value*: UInt256
     pubkey*: ValidatorPubKey
@@ -64,5 +64,5 @@ const
   DOMAIN_APPLICATION_BUILDER* = DomainType([byte 0x00, 0x00, 0x00, 0x01])
 
   # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#constants
-  EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION* = 1.Epoch
+  EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION* = 1
   BUILDER_PROPOSAL_DELAY_TOLERANCE* = 1.seconds

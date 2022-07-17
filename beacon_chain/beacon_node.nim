@@ -66,6 +66,7 @@ type
     lightClientPool*: ref LightClientPool
     exitPool*: ref ExitPool
     eth1Monitor*: Eth1Monitor
+    payloadBuilderRestClient*: RestClientRef
     restServer*: RestServerRef
     keymanagerServer*: RestServerRef
     keymanagerToken*: Option[string]

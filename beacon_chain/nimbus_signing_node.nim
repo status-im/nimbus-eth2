@@ -320,6 +320,21 @@ proc installApiHandlers*(node: SigningNode) =
             validator.data.privateKey)
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)
+      of Web3SignerRequestKind.ValidatorRegistration:
+        let
+          forkInfo = request.forkInfo.get()
+          cooked = get_builder_signature(
+            forkInfo.fork, ValidatorRegistrationV1(
+              fee_recipient:
+                ExecutionAddress(data: distinctBase(Eth1Address.fromHex(
+                  request.validatorRegistration.feeRecipient))),
+              gas_limit: request.validatorRegistration.gasLimit,
+              timestamp: request.validatorRegistration.timestamp,
+              pubkey: request.validatorRegistration.pubkey,
+            ),
+            validator.data.privateKey)
+          signature = cooked.toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
 
 proc validate(key: string, value: string): int =
   case key

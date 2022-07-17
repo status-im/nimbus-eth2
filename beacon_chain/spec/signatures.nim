@@ -317,7 +317,6 @@ proc get_contribution_and_proof_signature*(
 
   blsSign(privkey, signing_root.data)
 
-
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#aggregation-selection
 func is_sync_committee_aggregator*(signature: ValidatorSig): bool =
   let
@@ -332,4 +331,26 @@ proc verify_contribution_and_proof_signature*(
   let signing_root = compute_contribution_and_proof_signing_root(
     fork, genesis_validators_root, msg)
 
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#signing
+func compute_builder_signing_root*(
+    fork: Fork, msg: BuilderBid | ValidatorRegistrationV1): Eth2Digest =
+  # Uses genesis fork version regardless
+  doAssert fork.current_version == fork.previous_version
+
+  let domain = get_domain(
+    fork, DOMAIN_APPLICATION_BUILDER, GENESIS_EPOCH, ZERO_HASH)
+  compute_signing_root(msg, domain)
+
+proc get_builder_signature*(
+    fork: Fork, msg: ValidatorRegistrationV1, privkey: ValidatorPrivKey):
+    CookedSig =
+  let signing_root = compute_builder_signing_root(fork, msg)
+  blsSign(privkey, signing_root.data)
+
+proc verify_builder_signature*(
+    fork: Fork, msg: BuilderBid,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_builder_signing_root(fork, msg)
   blsVerify(pubkey, signing_root.data, signature)
