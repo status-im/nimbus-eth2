@@ -290,7 +290,7 @@ proc keyboardCreatePassword(prompt: string,
               "brute-force with automated tools. Please increase the " &
               "variety of the user characters."
         continue
-      elif password in mostCommonPasswords:
+      elif cstring(password) in mostCommonPasswords:
         echoP "The entered password is too commonly used and it would be " &
               "easy to brute-force with automated tools."
         echo ""
