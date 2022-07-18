@@ -19,7 +19,10 @@
 # (already did Blake2b --> Keccak256 --> SHA2-256),
 # we call this function `eth2digest`, and it outputs a `Eth2Digest`. Easy to sed :)
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   # Standard library

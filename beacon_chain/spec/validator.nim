@@ -6,7 +6,10 @@
 
 # Helpers and functions pertaining to managing the validator set
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   std/[options, math, tables],

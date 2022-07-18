@@ -11,7 +11,10 @@
 # in the API which may lead to incompatibilities between clients - tread
 # carefully!
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   std/json,
