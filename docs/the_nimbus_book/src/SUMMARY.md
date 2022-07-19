@@ -32,7 +32,7 @@
 
 # How-to (misc)
 - [Upgrade / downgrade Nimbus](./keep-updated.md)
-- [Run an Execution layer node](./eth1.md)
+- [Run an Execution client](./eth1.md)
 - [Obtain Goerli ETH](./goerli-eth.md)
 - [Set up a systemd service](./beacon-node-systemd.md)
 - [Set up log rotation](./log-rotate.md)
@@ -56,16 +56,16 @@
 - [Security Audit](./audit.md)
 - [Reproducible Builds](./distribution_internals.md)
 
-
 # Downloads
-- [Download binaries](./binaries.md)
-- [Download Docker images](./docker.md)
+- [Binaries](./binaries.md)
+- [Docker](./docker.md)
+- [Source code](./build.md)
 
 # Reference
-- [JSON-RPC API](./api.md)
 - [REST API](./rest-api.md)
 - [Keymanager API](./keymanager-api.md)
 - [Help / Command line options](./options.md)
+- [Data directory](./data-dir.md)
 - [Advanced migration options](./migration-options.md)
 - [Troubleshooting](./troubleshooting.md)
 - [For developers](./developers.md)
@@ -73,3 +73,4 @@
 - [Resources](./resources.md)
 - [Prater testnet](./prater.md)
 - [FAQ](./faq.md)
+- [JSON-RPC API (deprecated)](./api.md)

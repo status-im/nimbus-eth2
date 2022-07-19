@@ -18,6 +18,10 @@ To install or upgrade a binary release, simply unpack the downloaded archive in 
 
 After unpacking, you may wish to [verify the checksum](./checksums.md).
 
+## Upgrading
+
+Upgrades (and downgrades) are performed by downloading the new version and simply replacing the binaries with the new versions
+
 ## Docker
 
 Nimbus binaries are also published via [Docker](./docker.md).

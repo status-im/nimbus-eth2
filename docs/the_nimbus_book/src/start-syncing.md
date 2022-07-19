@@ -4,15 +4,21 @@ Before you can use your node, it needs to sync with the network. Syncing starts 
 
 If you are planning to become a validator, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit, or you might miss attestations and proposal duties until it has finished syncing.
 
-> **Tip:** To get started more quickly, you can perform a [trusted node sync](./trusted-node-sync.md) instead - this requires access to a synced node or a third-party service.
+```admonish tip
+To get started more quickly, you can perform a [trusted node sync](./trusted-node-sync.md) instead - this requires access to a synced node or a third-party service.
+```
 
-> **N.B.** You need need to run an execution client (**web3 provider**) together with the beacon node. See [here](./eth1.md) for instructions on how to do so.
+```admonish note
+You need need to run an execution client (**web3 provider**) together with the beacon node. See [here](./eth1.md) for instructions on how to do so.
+```
 
 ## Networks
 
 Using Nimbus, you can connect either to a testnet, or mainnet. Mainnet is the main ethereum network where real assets are at stake, while testnets are used by users and developers alike to test their node and setup before committing real assets.
 
-> If this is the first time you're setting up your node, it is recommended you run it on a testnet first. Later, when everything is working, you can easily switch to mainned.
+```admonish tip
+If this is the first time you're setting up your node, it is recommended you run it on a testnet first. Later, when everything is working, you can easily switch to mainned.
+```
 
 ### Testnet
 
@@ -30,6 +36,8 @@ To start syncing the Ethereum beacon chain mainnet, run:
 ```
  ./run-mainnet-beacon-node.sh
 ```
+
+## Log output
 
 You should see the following output:
 
@@ -50,15 +58,7 @@ INF 2020-12-01 11:26:36.285+00:00 Slot end                                   top
 
 ## Data directory
 
-While running, the beacon node will store chain data and other information in `build/data/` in the directory where you installed Nimbus. You can change the storage location with the `--data-dir` option:
-
-```sh
-./run-mainnet-beacon-node.sh --data-dir=/data/mainnet
-```
-
-You will need to pass `--data-dir` to all commands, including when importing your keys!
-
-> ℹ️ Don't forget to put `=` after `--data-dir`!
+While running, the beacon node will store chain data and other information its data directory, which by default is found in `build/data` - for more information, see the [data directory](./data-dir.md) guide.
 
 ## Command line options
 
