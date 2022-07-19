@@ -39,6 +39,7 @@ const
 
   # This is not part of the spec! But its port which uses Lighthouse
   DefaultEth2RestPort* = 5052
+  DefaultEth2RestPortDesc* = $DefaultEth2RestPort
 
   enrAttestationSubnetsField* = "attnets"
   enrSyncSubnetsField* = "syncnets"
