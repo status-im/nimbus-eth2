@@ -45,7 +45,11 @@ const
   defaultListenAddress* = (static ValidIpAddress.init("0.0.0.0"))
   defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
   defaultSigningNodeRequestTimeout* = 60
-  defaultBeaconNode* = "http://127.0.0.1:" & $DefaultEth2RestPort
+  defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
+
+  defaultListenAddressDesc* = $defaultListenAddress
+  defaultAdminListenAddressDesc* = $defaultAdminListenAddress
+  defaultBeaconNodeDesc* = $defaultBeaconNode
 
 when defined(windows):
   {.pragma: windowsOnly.}
@@ -224,19 +228,19 @@ type
       listenAddress* {.
         desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
         defaultValue: defaultListenAddress
-        defaultValueDesc: "0.0.0.0"
+        defaultValueDesc: $defaultListenAddressDesc
         name: "listen-address" .}: ValidIpAddress
 
       tcpPort* {.
         desc: "Listening TCP port for Ethereum LibP2P traffic"
         defaultValue: defaultEth2TcpPort
-        defaultValueDesc: "9000"
+        defaultValueDesc: $defaultEth2TcpPortDesc
         name: "tcp-port" .}: Port
 
       udpPort* {.
         desc: "Listening UDP port for node discovery"
         defaultValue: defaultEth2TcpPort
-        defaultValueDesc: "9000"
+        defaultValueDesc: $defaultEth2TcpPortDesc
         name: "udp-port" .}: Port
 
       maxPeers* {.
@@ -321,7 +325,7 @@ type
       metricsAddress* {.
         desc: "Listening address of the metrics server"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
+        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "metrics-address" .}: ValidIpAddress
 
       metricsPort* {.
@@ -364,7 +368,7 @@ type
         hidden
         desc: "Listening address of the RPC server (deprecated for removal)"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
+        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "rpc-address" .}: ValidIpAddress
 
       restEnabled* {.
@@ -374,14 +378,14 @@ type
 
       restPort* {.
         desc: "Port for the REST server"
-        defaultValue: DefaultEth2RestPort
-        defaultValueDesc: "5052"
+        defaultValue: defaultEth2RestPort
+        defaultValueDesc: $defaultEth2RestPortDesc
         name: "rest-port" .}: Port
 
       restAddress* {.
         desc: "Listening address of the REST server"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
+        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "rest-address" .}: ValidIpAddress
 
       restAllowedOrigin* {.
@@ -425,14 +429,14 @@ type
 
       keymanagerPort* {.
         desc: "Listening port for the REST keymanager API"
-        defaultValue: DefaultEth2RestPort
-        defaultValueDesc: "5052"
+        defaultValue: defaultEth2RestPort
+        defaultValueDesc: $defaultEth2RestPortDesc
         name: "keymanager-port" .}: Port
 
       keymanagerAddress* {.
         desc: "Listening port for the REST keymanager API"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
+        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "keymanager-address" .}: ValidIpAddress
 
       keymanagerAllowedOrigin* {.
@@ -539,14 +543,14 @@ type
 
       bootstrapAddress* {.
         desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
-        defaultValue: init(ValidIpAddress, "127.0.0.1")
-        defaultValueDesc: "127.0.0.1"
+        defaultValue: init(ValidIpAddress, defaultAdminListenAddress)
+        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "bootstrap-address" .}: ValidIpAddress
 
       bootstrapPort* {.
         desc: "The TCP/UDP port that will be used by the bootstrap node"
         defaultValue: defaultEth2TcpPort
-        defaultValueDesc: "9000"
+        defaultValueDesc: $defaultEth2TcpPortDesc
         name: "bootstrap-port" .}: Port
 
       genesisOffset* {.
@@ -651,7 +655,7 @@ type
         restUrlForExit* {.
           desc: "URL of the beacon node REST service"
           defaultValue: defaultBeaconNode
-          defaultValueDesc: "http://127.0.0.1:5052"
+          defaultValueDesc: $defaultBeaconNodeDesc
           name: "rest-url" .}: string
 
     of BNStartUpCmd.record:
@@ -712,7 +716,7 @@ type
       trustedNodeUrl* {.
         desc: "URL of the REST API to sync from"
         defaultValue: defaultBeaconNode
-        defaultValueDesc: "http://127.0.0.1:5052"
+        defaultValueDesc: $defaultBeaconNodeDesc
         name: "trusted-node-url"
       .}: string
 
@@ -777,14 +781,14 @@ type
 
     keymanagerPort* {.
       desc: "Listening port for the REST keymanager API"
-      defaultValue: DefaultEth2RestPort
-      defaultValueDesc: "5052"
+      defaultValue: defaultEth2RestPort
+      defaultValueDesc: $defaultEth2RestPortDesc
       name: "keymanager-port" .}: Port
 
     keymanagerAddress* {.
       desc: "Listening port for the REST keymanager API"
       defaultValue: defaultAdminListenAddress
-      defaultValueDesc: "127.0.0.1"
+      defaultValueDesc: $defaultAdminListenAddressDesc
       name: "keymanager-address" .}: ValidIpAddress
 
     keymanagerTokenFile* {.
@@ -805,7 +809,7 @@ type
     beaconNodes* {.
       desc: "URL addresses to one or more beacon node HTTP REST APIs",
       defaultValue: @[defaultBeaconNode]
-      defaultValueDesc: "http://127.0.0.1:5052"
+      defaultValueDesc: $defaultBeaconNodeDesc
       name: "beacon-node" .}: seq[string]
 
   SigningNodeConf* = object
@@ -859,14 +863,14 @@ type
 
     bindPort* {.
       desc: "Port for the REST (BETA version) HTTP server"
-      defaultValue: DefaultEth2RestPort
-      defaultValueDesc: "5052"
+      defaultValue: defaultEth2RestPort
+      defaultValueDesc: $defaultEth2RestPortDesc
       name: "bind-port" .}: Port
 
     bindAddress* {.
       desc: "Listening address of the REST (BETA version) HTTP server"
       defaultValue: defaultAdminListenAddress
-      defaultValueDesc: "127.0.0.1"
+      defaultValueDesc: $defaultAdminListenAddressDesc
       name: "bind-address" .}: ValidIpAddress
 
     tlsEnabled* {.

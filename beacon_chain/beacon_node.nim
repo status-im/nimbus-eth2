@@ -37,8 +37,6 @@ export
   consensus_manager
 
 type
-  RpcServer* = RpcHttpServer
-
   EventBus* = object
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
