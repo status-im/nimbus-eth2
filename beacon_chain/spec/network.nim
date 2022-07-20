@@ -36,6 +36,7 @@ const
   MAX_CHUNK_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
 
   defaultEth2TcpPort* = 9000
+  defaultEth2TcpPortDesc* = $defaultEth2TcpPort
 
   # This is not part of the spec! But its port which uses Lighthouse
   DefaultEth2RestPort* = 5052

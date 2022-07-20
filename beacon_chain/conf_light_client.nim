@@ -67,19 +67,19 @@ type LightClientConf* = object
   listenAddress* {.
     desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
     defaultValue: defaultListenAddress
-    defaultValueDesc: defaultListenAddressDesc
+    defaultValueDesc: $defaultListenAddressDesc
     name: "listen-address" .}: ValidIpAddress
 
   tcpPort* {.
     desc: "Listening TCP port for Ethereum LibP2P traffic"
     defaultValue: defaultEth2TcpPort
-    defaultValueDesc: "9000"
+    defaultValueDesc: $defaultEth2TcpPortDesc
     name: "tcp-port" .}: Port
 
   udpPort* {.
     desc: "Listening UDP port for node discovery"
     defaultValue: defaultEth2TcpPort
-    defaultValueDesc: "9000"
+    defaultValueDesc: $defaultEth2TcpPortDesc
     name: "udp-port" .}: Port
 
   maxPeers* {.
