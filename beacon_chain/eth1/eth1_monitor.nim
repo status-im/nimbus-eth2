@@ -441,23 +441,8 @@ proc getPayload*(p: Eth1Monitor,
                  payloadId: bellatrix.PayloadID): Future[engine_api.ExecutionPayloadV1] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
-  if p.isNil:
-    warn "getPayload: nil Eth1Monitor; returning empty ExecutionPayload"
-
   if p.isNil or p.dataProvider.isNil:
     var epr: Future[engine_api.ExecutionPayloadV1]
-    epr.complete(default(engine_api.ExecutionPayloadV1))
-    return epr
-
-  if p.dataProvider.web3.isNil:
-    warn "getPayload: nil dataProvider.web3"
-    var epr: Future[engine_api.ExecutionPayloadV1] # TODO refactor
-    epr.complete(default(engine_api.ExecutionPayloadV1))
-    return epr
-
-  if p.dataProvider.web3.provider.isNil:
-    warn "getPayload: nil dataProvider.web3.provider"
-    var epr: Future[engine_api.ExecutionPayloadV1] # TODO refactor
     epr.complete(default(engine_api.ExecutionPayloadV1))
     return epr
 
@@ -479,24 +464,7 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
                         Future[engine_api.ForkchoiceUpdatedResponse] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
-  if p.isNil:
-    warn "forkchoiceUpdated (non-proposal): nil Eth1Monitor; returning syncing"
-
   if p.isNil or p.dataProvider.isNil:
-    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
-    fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
-      payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
-    return fcuR
-
-  if p.dataProvider.web3.isNil:
-    warn "forkchoiceUpdated (non-proposal): nil dataProvider.web3"
-    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
-    fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
-      payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
-    return fcuR
-
-  if p.dataProvider.web3.provider.isNil:
-    warn "forkchoiceUpdated (non-proposal): nil dataProvider.web3.provider"
     var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
     fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
       payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
@@ -522,24 +490,7 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
                         Future[engine_api.ForkchoiceUpdatedResponse] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
-  if p.isNil:
-    warn "forkchoiceUpdated (proposal): nil Eth1Monitor; returning syncing"
-
   if p.isNil or p.dataProvider.isNil:
-    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
-    fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
-      payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
-    return fcuR
-
-  if p.dataProvider.web3.isNil:
-    warn "forkchoiceUpdated (proposal): nil dataProvider.web3"
-    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
-    fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
-      payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
-    return fcuR
-
-  if p.dataProvider.web3.provider.isNil:
-    warn "forkchoiceUpdated (proposal): nil dataProvider.web3.provider"
     var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
     fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
       payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
@@ -567,7 +518,7 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[void] {.async.} =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil:
-    warn "exchangeTransitionConfiguration: nil Eth1Monitor"
+    debug "exchangeTransitionConfiguration: nil Eth1Monitor"
 
   if p.isNil or p.dataProvider.isNil:
     return
