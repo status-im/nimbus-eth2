@@ -577,8 +577,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
         # Attestations are checked based on the state that we're adding the
         # attestation to - there might have been a fork between when we first
         # saw the attestation and the time that we added it
-        if not check_attestation(
-              state.data, attestation, {skipBlsValidation}, cache).isOk():
+        if check_attestation(state.data, attestation, {}, cache).isErr():
           continue
 
         let score = attCache.score(
