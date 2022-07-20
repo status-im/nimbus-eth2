@@ -39,8 +39,8 @@ const
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
 
   # This is not part of the spec! But its port which uses Lighthouse
-  DefaultEth2RestPort* = 5052
-  DefaultEth2RestPortDesc* = $DefaultEth2RestPort
+  defaultEth2RestPort* = 5052
+  defaultEth2RestPortDesc* = $defaultEth2RestPort
 
   enrAttestationSubnetsField* = "attnets"
   enrSyncSubnetsField* = "syncnets"

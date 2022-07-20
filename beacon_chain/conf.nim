@@ -45,7 +45,7 @@ const
   defaultListenAddress* = (static ValidIpAddress.init("0.0.0.0"))
   defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
   defaultSigningNodeRequestTimeout* = 60
-  defaultBeaconNode* = "http://127.0.0.1:" & $DefaultEth2RestPort
+  defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
 
   defaultListenAddressDesc* = $defaultListenAddress
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
@@ -378,7 +378,7 @@ type
 
       restPort* {.
         desc: "Port for the REST server"
-        defaultValue: DefaultEth2RestPort
+        defaultValue: defaultEth2RestPort
         defaultValueDesc: "5052"
         name: "rest-port" .}: Port
 
@@ -429,7 +429,7 @@ type
 
       keymanagerPort* {.
         desc: "Listening port for the REST keymanager API"
-        defaultValue: DefaultEth2RestPort
+        defaultValue: defaultEth2RestPort
         defaultValueDesc: "5052"
         name: "keymanager-port" .}: Port
 
@@ -781,7 +781,7 @@ type
 
     keymanagerPort* {.
       desc: "Listening port for the REST keymanager API"
-      defaultValue: DefaultEth2RestPort
+      defaultValue: defaultEth2RestPort
       defaultValueDesc: "5052"
       name: "keymanager-port" .}: Port
 
@@ -863,8 +863,8 @@ type
 
     bindPort* {.
       desc: "Port for the REST (BETA version) HTTP server"
-      defaultValue: DefaultEth2RestPort
-      defaultValueDesc: $DefaultEth2RestPortDesc
+      defaultValue: defaultEth2RestPort
+      defaultValueDesc: $defaultEth2RestPortDesc
       name: "bind-port" .}: Port
 
     bindAddress* {.
