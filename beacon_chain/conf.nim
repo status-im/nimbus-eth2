@@ -379,7 +379,7 @@ type
       restPort* {.
         desc: "Port for the REST server"
         defaultValue: defaultEth2RestPort
-        defaultValueDesc: "5052"
+        defaultValueDesc: $defaultEth2RestPortDesc
         name: "rest-port" .}: Port
 
       restAddress* {.
@@ -430,7 +430,7 @@ type
       keymanagerPort* {.
         desc: "Listening port for the REST keymanager API"
         defaultValue: defaultEth2RestPort
-        defaultValueDesc: "5052"
+        defaultValueDesc: $defaultEth2RestPortDesc
         name: "keymanager-port" .}: Port
 
       keymanagerAddress* {.
@@ -782,7 +782,7 @@ type
     keymanagerPort* {.
       desc: "Listening port for the REST keymanager API"
       defaultValue: defaultEth2RestPort
-      defaultValueDesc: "5052"
+      defaultValueDesc: $defaultEth2RestPortDesc
       name: "keymanager-port" .}: Port
 
     keymanagerAddress* {.
