@@ -109,7 +109,8 @@ suite "Light client processor" & preset():
         res.isOk
         numOnStoreInitializedCalls == 1
 
-      for period in lowPeriod .. lastPeriodWithSupermajority:
+      # Reduce stack size by making this a `proc`
+      proc applyPeriodWithSupermajority(period: SyncCommitteePeriod) =
         let update = dag.getLightClientUpdateForPeriod(period)
         check update.isSome
         setTimeToSlot(update.get.signature_slot)
@@ -124,7 +125,11 @@ suite "Light client processor" & preset():
             store[].get.finalized_header == bootstrap.get.header
           store[].get.optimistic_header == update.get.attested_header
 
-      for period in lastPeriodWithSupermajority + 1 .. highPeriod:
+      for period in lowPeriod .. lastPeriodWithSupermajority:
+        applyPeriodWithSupermajority(period)
+
+      # Reduce stack size by making this a `proc`
+      proc applyPeriodWithoutSupermajority(period: SyncCommitteePeriod) =
         let update = dag.getLightClientUpdateForPeriod(period)
         check update.isSome
         setTimeToSlot(update.get.signature_slot)
@@ -211,6 +216,9 @@ suite "Light client processor" & preset():
           check store[].get.finalized_header == update.get.attested_header
         else:
           check store[].get.finalized_header != update.get.attested_header
+
+      for period in lastPeriodWithSupermajority + 1 .. highPeriod:
+        applyPeriodWithoutSupermajority(period)
 
       let
         previousFinalized = store[].get.finalized_header
