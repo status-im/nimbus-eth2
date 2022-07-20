@@ -864,7 +864,7 @@ type
     bindPort* {.
       desc: "Port for the REST (BETA version) HTTP server"
       defaultValue: DefaultEth2RestPort
-      defaultValueDesc: DefaultEth2RestPortDesc
+      defaultValueDesc: $DefaultEth2RestPortDesc
       name: "bind-port" .}: Port
 
     bindAddress* {.
