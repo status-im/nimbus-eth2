@@ -2,7 +2,7 @@
 
 ## Summary
 
-Nimbus has undergone an extensive, multi-vendor ([ConsenSys Diligence](https://consensys.net/diligence/), [NCC Group](https://www.nccgroup.com/uk/), and [Trail of Bits](https://www.trailofbits.com/)) security assessment over a period of many months. During that process, we were notified of several issues within the codebase. These issues have been addressed contributing significantly to the overall security of Nimbus and other applications that use its libraries.
+Nimbus has undergone an extensive, multi-vendor ([ConsenSys Diligence](https://consensys.net/diligence/), [NCC Group](https://www.nccgroup.com/uk/), and [Trail of Bits](https://www.trailofbits.com/)) security assessment over a period of several months. During that process, we were notified of several issues within the codebase. These issues have been addressed contributing significantly to the overall security of Nimbus and other applications that use its libraries.
 
 Additionally, as a result of the work done from our security vendors, we have incoroprated many new security processes and tooling to improve our ability to find security issues in the future.
 

@@ -2,7 +2,7 @@
 
 ## General
 
-### How do I check which version of Nimbus I'm currently running?
+### Which version of Nimbus am I running?
 
 You can check the version through a number of methods:
 
@@ -22,7 +22,7 @@ curl -s http://localhost:9100/eth/v1/node/version
 The metrics server is disabled by default: enable it by passing `--metrics` to the run command:
 
 ```sh
-./run-mainnet-beacon-node.sh --metrics ...
+build/nimbus_beacon_node --metrics ...
 ```
 
 ### Why is the REST server not working?
@@ -30,7 +30,7 @@ The metrics server is disabled by default: enable it by passing `--metrics` to t
 The REST server is disabled by default: enable it by passing `--rest` to the run command:
 
 ```sh
-./run-mainnet-beacon-node.sh --metrics ...
+build/nimbus_beacon_node --rest ...
 ```
 
 ### Why does my validator miss two epochs of attestations after restarting?
@@ -55,7 +55,9 @@ To stress test it, add `--subscribe-all-subnets` to the [beacon node options](./
 
 To add an additional validator, follow [the same steps](./keys.md) as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.
 
-> Note that a single Nimbus instance is able to handle multiple validators.
+```admonish note
+Note that a single Nimbus instance is able to handle multiple validators.
+```
 
 ## Networking
 
@@ -95,7 +97,7 @@ See the [data directory](./data-dir.md#permissions) page for instructions on how
 
 ### What exactly is a validator?
 
-A validator is an entity that participates in the consensus of the Ethereum protocol.
+A validator is an entity that participates in the consensus of the Ethereum protocol, and has staked 32 ETH to do so.
 
 Or in plain english, a human running a computer process. This process proposes and vouches for new blocks to be added to the blockchain.
 
@@ -146,7 +148,7 @@ At the other end of the spectrum, if your balance is closer to 31 ETH, it's prob
 
 ### When can I withdraw my funds, and what's the difference between exiting and withdrawing?
 
-You can signal your intent to stop validating by signing a voluntary exit message with your validator.
+You can signal your intent to stop validating by signing a [voluntary exit](./voluntary-exit.md) message with your validator.
 
 However, bear in mind that in Phase 0, once you've exited, there's no going back.
 

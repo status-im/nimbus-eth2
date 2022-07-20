@@ -59,7 +59,9 @@ The service file contains several options for controlling Nimbus. Important opti
 * `Environment=METRICS_ENABLED`: Metrics are used for monitoring the node - see the [metrics](./metrics-pretty-pictures.md) setup guide
 * `ExecStart=`: Custom options - see the [options](./options.md) guide
 
+```admonish note
 The example assumes Nimbus was installed in `/usr/bin/nimbus_beacon_node` - if you installed Nimbus elsewhere, make sure to update this path.
+```
 
 ### 4. Notify systemd of the newly added service
 
@@ -99,6 +101,19 @@ To rewind logs - by one day, say - run:
 
 ```sh
 sudo journalctl -u nimbus_beacon_node.service --since yesterday
+```
+
+## Import validator keys
+
+When using a service, the beacon node is running as a different user - key import must be performed as this user in order for the key files to have the correct permission:
+
+```
+# Run import command as the `nimbus` user
+sudo -u nimubs /usr/bin/nimbus_beacon_node deposit import --data-dir=/var/lib/nimbus/shared_mainnet_0 /path/to/keys
+```
+
+```admonish note
+Make sure to use the same `--data-dir` option as is used in the service file! Some guides use `--data-dir=/var/lib/nimbus` instead.
 ```
 
 ## Running multiple beacon nodes

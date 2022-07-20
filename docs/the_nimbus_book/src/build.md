@@ -1,5 +1,11 @@
 # Build the beacon node
 
+Building the beacon node from source ensures that all hardware-specific optimizations are turned on. The build process itself is simple and fully automated, but may take a few minutes.
+
+```admonish note
+Nimbus is written in a langague called [Nim](https://nim-lang.org) - the correct version will automatically be downloaded as part of the build process!
+```
+
 ## Prerequisites
 
 ```admonish tip

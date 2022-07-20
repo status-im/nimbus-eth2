@@ -8,7 +8,11 @@
 # Quickstart
 - [Run the beacon node](./quick-start.md)
 - [Run a validator](./run-a-validator.md)
-- [Run Kiln](./kiln.md)
+
+# Downloads
+- [Binaries](./binaries.md)
+- [Docker](./docker.md)
+- [Source code](./build.md)
 
 # How-to (beacon node)
 - [Install dependencies](./install.md)
@@ -20,14 +24,14 @@
 # How-to (validator)
 - [Make a deposit](./deposit.md)
 - [Import your validator keys](./keys.md)
-- [Connect your validator to eth2](./connect-eth2.md)
-- [Set up transaction fee recipients](./suggested-fee-recipient.md)
+- [Start validating](./connect-eth2.md)
+- [Graffiti the blockchain](./graffiti.md)
+- [Set up transaction fee recipient](./suggested-fee-recipient.md)
 - [Keep an eye on your validator](./keep-an-eye.md)
-- [Recover / generate keys](./more-keys.md)
 - [Perform a voluntary exit](./voluntary-exit.md)
+- [Monitor validator actions](./validator-monitor.md)
+- [Recover or generate keys](./more-keys.md)
 - [Add an additional validator](./additional-validator.md)
-- [Monitor attestation performance](./attestation-performance.md)
-- [Monitor specific validators](./validator-monitor.md)
 - [Run a separate validator client](./validator-client.md)
 
 # How-to (misc)
@@ -40,26 +44,23 @@
 - [Back up your database](./database-backup.md)
 - [Set up logging](./logging.md)
 - [Set up email notifications](./email-notifications.md)
-- [Graffiti the blockchain](./graffiti.md)
 - [Optimise for profitability](./profits.md)
 - [Monitor the health of your node](./health.md)
 - [Networking](./networking.md)
+- [Prater testnet](./prater.md)
+- [Kiln testnet](./kiln.md)
 
 # Guides
 - [Grafana and Prometheus](./metrics-pretty-pictures.md)
 - [Create your own Infura endpoint](./infura-guide.md)
 - [Migrate from another client](./migration.md)
 - [Validate with a Raspberry Pi](./pi-guide.md)
+- [Analyze attestation performance](./attestation-performance.md)
 
 # Security
 - [Security Issues / Responsible Disclosure](./security_issues.md)
 - [Security Audit](./audit.md)
 - [Reproducible Builds](./distribution_internals.md)
-
-# Downloads
-- [Binaries](./binaries.md)
-- [Docker](./docker.md)
-- [Source code](./build.md)
 
 # Reference
 - [REST API](./rest-api.md)
@@ -71,6 +72,5 @@
 - [For developers](./developers.md)
 - [Contribute](./contribute.md)
 - [Resources](./resources.md)
-- [Prater testnet](./prater.md)
 - [FAQ](./faq.md)
 - [JSON-RPC API (deprecated)](./api.md)

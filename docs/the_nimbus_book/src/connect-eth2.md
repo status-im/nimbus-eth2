@@ -1,12 +1,6 @@
-# Start performing validator duties
+# Start validating
 
 Once your keys have been [imported](./keys.md), it is time to restart the beacon node and start validating!
-
-```admonish note
-Unlike other beacon chain clients, Nimbus does not require setting up a separate validator client process - instead, it is the beacon node itself that performs validator duties. This is a simple, safe and efficient way to get started.
-
-Advanced users may want to use a separate [validator client](./validator-client.md) process instead.
-```
 
 ## (Re)start the node
 
