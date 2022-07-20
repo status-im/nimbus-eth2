@@ -4,11 +4,11 @@
 If you're eager to get started, check out our [quickstart guide](./quick-start.md).
 ```
 
-Nimbus is an implementation of both the `consensus layer` (eth2) and `execution layer` (eth1) that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and easy to use. This book describes the consensus layer client in particular.
+Nimbus is client for the Ethereum `consensus layer` (eth2) and `execution layer` (eth1) that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and easy to use.
 
-Its efficiency and low resource consumption allows it to perform well on embedded systems, resource-restricted devices -- including Raspberry Pis and mobile devices.
+This book describes the consensus layer client, `nimbus-eth2`, in particular.
 
-Being efficient also makes it an excellent companion for [execution clients](./eth1.md) and other nodes running on your server, lowering the overall hardware requirements and therefore the total cost.
+Its efficiency and low resource consumption allows it to perform well on all kinds of systems, ranging from Raspberry Pi's and mobile devices where it contributes to low power consumption and security -- to powerful servers where it leaves resources free to perform other tasks, such as running an [execution node](./eth1.md).
 
 </br>
 
