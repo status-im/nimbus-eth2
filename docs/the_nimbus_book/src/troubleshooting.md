@@ -16,7 +16,7 @@ However, the latest changes happen in the `unstable` branch - if you're looking 
 
 ## Networking
 
-A corretly configured network is key to getting good performance - the [networking guide](./networking.md) details everything you need to know!
+A correctly configured network is key to getting good performance - the [networking guide](./networking.md) details everything you need to know!
 
 ### Low peer count
 
