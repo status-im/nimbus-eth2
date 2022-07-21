@@ -95,8 +95,8 @@ programMain:
       config.safeSlotsToImportOptimistically)
 
     lightClient = createLightClient(
-      network, rng, config, cfg,
-      forkDigests, getBeaconTime, genesis_validators_root)
+      network, rng, config, cfg, forkDigests, getBeaconTime,
+      genesis_validators_root, LightClientFinalizationMode.Optimistic)
 
   info "Listening to incoming network requests"
   network.initBeaconSync(cfg, forkDigests, genesisBlockRoot, getBeaconTime)
