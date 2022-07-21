@@ -1027,7 +1027,7 @@ func walletsDir*(config: BeaconNodeConf): string =
 
 func eraDir*(config: BeaconNodeConf): string =
   # The era directory should be shared between networks of the same type..
-  string config.walletsDirFlag.get(InputDir(config.dataDir / "era"))
+  string config.eraDirFlag.get(InputDir(config.dataDir / "era"))
 
 func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
   proc fail {.noreturn.} =
