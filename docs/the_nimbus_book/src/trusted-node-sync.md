@@ -17,7 +17,7 @@ It is possibly to use trusted node sync with a third-party API provider -- see [
 ## Perform a trusted node sync
 
 ```admonish tip
-Make sure to replace `http://localhost:5052` in the commands below with the appropriate endpoint for you. `http://localhost:5052` is the endpoint exposed by Nimbus but this is not consistent across all clients.
+Make sure to replace `http://localhost:5052` in the commands below with the appropriate endpoint of the trusted beacon node. `http://localhost:5052` is the default endpoint exposed by Nimbus, but this is not consistent across all clients.
 
 For example, if your trusted node is a [Prysm node](https://docs.prylabs.network/docs/how-prysm-works/ethereum-public-api#performing-requests-against-a-local-prysm-node), it exposes `127.0.0.1:3500` by default. Which means you would run the commands below with `--trusted-node-url=http://127.0.0.1:3500`
 ```
