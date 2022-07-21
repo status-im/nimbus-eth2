@@ -31,6 +31,7 @@
 
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="custom.css">
+        <link rel="stylesheet" href="mdbook-admonish.css">
 
     </head>
     <body>
@@ -82,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="philosophy.html"><strong aria-hidden="true">2.</strong> Design goals</a></li><li class="chapter-item expanded "><a href="hardware.html"><strong aria-hidden="true">3.</strong> System requirements</a></li><li class="chapter-item expanded "><a href="preparation.html"><strong aria-hidden="true">4.</strong> Mainnet checklist</a></li><li class="chapter-item expanded "><a href="merge.html"><strong aria-hidden="true">5.</strong> Merge readiness</a></li><li class="chapter-item expanded affix "><li class="part-title">Quickstart</li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">6.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="run-a-validator.html"><strong aria-hidden="true">7.</strong> Run a validator</a></li><li class="chapter-item expanded "><a href="kiln.html"><strong aria-hidden="true">8.</strong> Run Kiln</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (beacon node)</li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">9.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">10.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="start-syncing.html"><strong aria-hidden="true">11.</strong> Sync from scratch</a></li><li class="chapter-item expanded "><a href="trusted-node-sync.html"><strong aria-hidden="true">12.</strong> Sync from a trusted node (checkpoint sync)</a></li><li class="chapter-item expanded "><a href="web3-backup.html"><strong aria-hidden="true">13.</strong> Add a backup web3 provider</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (validator)</li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">14.</strong> Make a deposit</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">15.</strong> Import your validator keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">16.</strong> Connect your validator to eth2</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">17.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="more-keys.html"><strong aria-hidden="true">18.</strong> Recover / generate keys</a></li><li class="chapter-item expanded "><a href="voluntary-exit.html"><strong aria-hidden="true">19.</strong> Perform a voluntary exit</a></li><li class="chapter-item expanded "><a href="additional-validator.html"><strong aria-hidden="true">20.</strong> Add an additional validator</a></li><li class="chapter-item expanded "><a href="attestation-performance.html"><strong aria-hidden="true">21.</strong> Monitor attestation performance</a></li><li class="chapter-item expanded "><a href="validator-monitor.html"><strong aria-hidden="true">22.</strong> Monitor specific validators</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (misc)</li><li class="chapter-item expanded "><a href="keep-updated.html" class="active"><strong aria-hidden="true">23.</strong> Upgrade / downgrade Nimbus</a></li><li class="chapter-item expanded "><a href="eth1.html"><strong aria-hidden="true">24.</strong> Run an Execution layer node</a></li><li class="chapter-item expanded "><a href="goerli-eth.html"><strong aria-hidden="true">25.</strong> Obtain Goerli ETH</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">26.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="log-rotate.html"><strong aria-hidden="true">27.</strong> Set up log rotation</a></li><li class="chapter-item expanded "><a href="checksums.html"><strong aria-hidden="true">28.</strong> Verify the integrity of Nimbus</a></li><li class="chapter-item expanded "><a href="database-backup.html"><strong aria-hidden="true">29.</strong> Back up your database</a></li><li class="chapter-item expanded "><a href="logging.html"><strong aria-hidden="true">30.</strong> Set up logging</a></li><li class="chapter-item expanded "><a href="email-notifications.html"><strong aria-hidden="true">31.</strong> Set up email notifications</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">32.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><a href="profits.html"><strong aria-hidden="true">33.</strong> Optimise for profitability</a></li><li class="chapter-item expanded "><a href="health.html"><strong aria-hidden="true">34.</strong> Monitor the health of your node</a></li><li class="chapter-item expanded "><a href="networking.html"><strong aria-hidden="true">35.</strong> Networking</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">36.</strong> Grafana and Prometheus</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">37.</strong> Create your own Infura endpoint</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">38.</strong> Migrate from another client</a></li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">39.</strong> Validate with a Raspberry Pi</a></li><li class="chapter-item expanded affix "><li class="part-title">Security</li><li class="chapter-item expanded "><a href="security_issues.html"><strong aria-hidden="true">40.</strong> Security Issues / Responsible Disclosure</a></li><li class="chapter-item expanded "><a href="audit.html"><strong aria-hidden="true">41.</strong> Security Audit</a></li><li class="chapter-item expanded "><a href="distribution_internals.html"><strong aria-hidden="true">42.</strong> Reproducible Builds</a></li><li class="chapter-item expanded affix "><li class="part-title">Downloads</li><li class="chapter-item expanded "><a href="binaries.html"><strong aria-hidden="true">43.</strong> Download binaries</a></li><li class="chapter-item expanded "><a href="docker.html"><strong aria-hidden="true">44.</strong> Download Docker images</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">45.</strong> JSON-RPC API</a></li><li class="chapter-item expanded "><a href="rest-api.html"><strong aria-hidden="true">46.</strong> REST API</a></li><li class="chapter-item expanded "><a href="keymanager-api.html"><strong aria-hidden="true">47.</strong> Keymanager API</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">48.</strong> Help / Command line options</a></li><li class="chapter-item expanded "><a href="migration-options.html"><strong aria-hidden="true">49.</strong> Advanced migration options</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">50.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">51.</strong> For developers</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">52.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">53.</strong> Resources</a></li><li class="chapter-item expanded "><a href="prater.html"><strong aria-hidden="true">54.</strong> Prater testnet</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">55.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="philosophy.html"><strong aria-hidden="true">2.</strong> Design goals</a></li><li class="chapter-item expanded "><a href="hardware.html"><strong aria-hidden="true">3.</strong> System requirements</a></li><li class="chapter-item expanded "><a href="preparation.html"><strong aria-hidden="true">4.</strong> Mainnet checklist</a></li><li class="chapter-item expanded "><a href="merge.html"><strong aria-hidden="true">5.</strong> Merge readiness</a></li><li class="chapter-item expanded affix "><li class="part-title">Quickstart</li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">6.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="run-a-validator.html"><strong aria-hidden="true">7.</strong> Run a validator</a></li><li class="chapter-item expanded affix "><li class="part-title">Downloads</li><li class="chapter-item expanded "><a href="binaries.html"><strong aria-hidden="true">8.</strong> Binaries</a></li><li class="chapter-item expanded "><a href="docker.html"><strong aria-hidden="true">9.</strong> Docker</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">10.</strong> Source code</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (beacon node)</li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">11.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">12.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="start-syncing.html"><strong aria-hidden="true">13.</strong> Sync from scratch</a></li><li class="chapter-item expanded "><a href="trusted-node-sync.html"><strong aria-hidden="true">14.</strong> Sync from a trusted node (checkpoint sync)</a></li><li class="chapter-item expanded "><a href="web3-backup.html"><strong aria-hidden="true">15.</strong> Add a backup web3 provider</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (validator)</li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">16.</strong> Make a deposit</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">17.</strong> Import your validator keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">18.</strong> Start validating</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">19.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><a href="suggested-fee-recipient.html"><strong aria-hidden="true">20.</strong> Set up transaction fee recipient</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">21.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="voluntary-exit.html"><strong aria-hidden="true">22.</strong> Perform a voluntary exit</a></li><li class="chapter-item expanded "><a href="validator-monitor.html"><strong aria-hidden="true">23.</strong> Monitor validator actions</a></li><li class="chapter-item expanded "><a href="more-keys.html"><strong aria-hidden="true">24.</strong> Recover or generate keys</a></li><li class="chapter-item expanded "><a href="additional-validator.html"><strong aria-hidden="true">25.</strong> Add an additional validator</a></li><li class="chapter-item expanded "><a href="validator-client.html"><strong aria-hidden="true">26.</strong> Run a separate validator client</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (misc)</li><li class="chapter-item expanded "><a href="keep-updated.html" class="active"><strong aria-hidden="true">27.</strong> Upgrade / downgrade Nimbus</a></li><li class="chapter-item expanded "><a href="eth1.html"><strong aria-hidden="true">28.</strong> Run an Execution client</a></li><li class="chapter-item expanded "><a href="goerli-eth.html"><strong aria-hidden="true">29.</strong> Obtain Goerli ETH</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">30.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="log-rotate.html"><strong aria-hidden="true">31.</strong> Set up log rotation</a></li><li class="chapter-item expanded "><a href="checksums.html"><strong aria-hidden="true">32.</strong> Verify the integrity of Nimbus</a></li><li class="chapter-item expanded "><a href="database-backup.html"><strong aria-hidden="true">33.</strong> Back up your database</a></li><li class="chapter-item expanded "><a href="logging.html"><strong aria-hidden="true">34.</strong> Set up logging</a></li><li class="chapter-item expanded "><a href="email-notifications.html"><strong aria-hidden="true">35.</strong> Set up email notifications</a></li><li class="chapter-item expanded "><a href="profits.html"><strong aria-hidden="true">36.</strong> Optimise for profitability</a></li><li class="chapter-item expanded "><a href="health.html"><strong aria-hidden="true">37.</strong> Monitor the health of your node</a></li><li class="chapter-item expanded "><a href="networking.html"><strong aria-hidden="true">38.</strong> Networking</a></li><li class="chapter-item expanded "><a href="prater.html"><strong aria-hidden="true">39.</strong> Prater testnet</a></li><li class="chapter-item expanded "><a href="kiln.html"><strong aria-hidden="true">40.</strong> Kiln testnet</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">41.</strong> Grafana and Prometheus</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">42.</strong> Create your own Infura endpoint</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">43.</strong> Migrate from another client</a></li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">44.</strong> Validate with a Raspberry Pi</a></li><li class="chapter-item expanded "><a href="attestation-performance.html"><strong aria-hidden="true">45.</strong> Analyze attestation performance</a></li><li class="chapter-item expanded affix "><li class="part-title">Security</li><li class="chapter-item expanded "><a href="security_issues.html"><strong aria-hidden="true">46.</strong> Security Issues / Responsible Disclosure</a></li><li class="chapter-item expanded "><a href="audit.html"><strong aria-hidden="true">47.</strong> Security Audit</a></li><li class="chapter-item expanded "><a href="distribution_internals.html"><strong aria-hidden="true">48.</strong> Reproducible Builds</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="rest-api.html"><strong aria-hidden="true">49.</strong> REST API</a></li><li class="chapter-item expanded "><a href="keymanager-api.html"><strong aria-hidden="true">50.</strong> Keymanager API</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">51.</strong> Help / Command line options</a></li><li class="chapter-item expanded "><a href="data-dir.html"><strong aria-hidden="true">52.</strong> Data directory</a></li><li class="chapter-item expanded "><a href="migration-options.html"><strong aria-hidden="true">53.</strong> Advanced migration options</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">54.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">55.</strong> For developers</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">56.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">57.</strong> Resources</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">58.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">59.</strong> JSON-RPC API (deprecated)</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -148,33 +149,51 @@
                     <main>
                         <h1 id="upgrade--downgrade-nimbus"><a class="header" href="#upgrade--downgrade-nimbus">Upgrade / downgrade Nimbus</a></h1>
 <p>Make sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the <strong>announcements</strong> channel on our <a href="https://discord.com/invite/XRxWahP">discord</a>. The release page can be found <a href="https://github.com/status-im/nimbus-eth2/releases/">here</a>.</p>
-<blockquote>
-<p><strong>Note:</strong> If your beacon node is already running, you'll need to restart it for the changes to take effect.</p>
-</blockquote>
+<div id="admonition-note" class="admonition note">
+<div class="admonition-title">
+<p>Note</p>
+<p><a class="admonition-anchor-link" href="#admonition-note"></a></p>
+</div>
+<div>
+<p>If your beacon node is already running, you'll need to restart it for the changes to take effect.</p>
+</div>
+</div>
 <p>To update to the latest version, either download the binary or compile the beacon node release (see below).</p>
-<blockquote>
-<p><strong>Tip:</strong> To check which version of Nimbus you're currently running, run <code>build/nimbus_beacon_node --version</code></p>
-</blockquote>
+<div id="admonition-tip" class="admonition tip">
+<div class="admonition-title">
+<p>Tip</p>
+<p><a class="admonition-anchor-link" href="#admonition-tip"></a></p>
+</div>
+<div>
+<p>To check which version of Nimbus you're currently running, run <code>build/nimbus_beacon_node --version</code></p>
+</div>
+</div>
 <h2 id="binaries"><a class="header" href="#binaries">Binaries</a></h2>
 <p>Open the latest <a href="https://github.com/status-im/nimbus-eth2/releases/latest">Nimbus release</a> and download the file that corresponds to your operation system and machine.</p>
 <p>Once downloaded, unpack the binaries in the same folder as your current version, overwriting the existing files.</p>
-<pre><code>wget &lt;insert download link here&gt;
-tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz -C nimbus-eth2
+<pre><code class="language-sh">wget &lt;insert download link here&gt;
+tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz --strip-components 1 -C nimbus-eth2
 rm nimbus-eth2_Linux_arm64v8*.tar.gz
 </code></pre>
 <h2 id="build-from-source"><a class="header" href="#build-from-source">Build from source</a></h2>
 <p>Upgrading Nimbus when built from source is similar to the installation process.</p>
 <p>Run:</p>
-<pre><code class="language-bash"># Download the updated source code
+<pre><code class="language-sh"># Download the updated source code
 git pull &amp;&amp; make update
 </code></pre>
 <p>Followed by:</p>
-<pre><code>make -j4 nimbus_beacon_node
+<pre><code class="language-sh">make -j4 nimbus_beacon_node
 </code></pre>
 <p>Now, restart your node.</p>
-<blockquote>
-<p><strong>Tip:</strong> In order to minimise downtime, we recommend updating and <a href="./build.html">rebuilding</a> the beacon node <strong>before restarting</strong>.</p>
-</blockquote>
+<div id="admonition-tip-1" class="admonition tip">
+<div class="admonition-title">
+<p>Tip</p>
+<p><a class="admonition-anchor-link" href="#admonition-tip-1"></a></p>
+</div>
+<div>
+<p>In order to minimise downtime, we recommend updating and <a href="./build.html">rebuilding</a> the beacon node <strong>before restarting</strong>.</p>
+</div>
+</div>
 <h2 id="urgency-guidelines"><a class="header" href="#urgency-guidelines">Urgency guidelines</a></h2>
 <p>As of <code>v1.4.0</code>, releases are marked with the following tags:</p>
 <p><code>low-urgency</code>: update at your own convenience, sometime within our normal update cycle of two weeks</p>
@@ -183,21 +202,27 @@ git pull &amp;&amp; make update
 <h2 id="install-a-specific-version"><a class="header" href="#install-a-specific-version">Install a specific version</a></h2>
 <p><em>Occassionally you may need to either upgrade or downgrade to a specific version of Nimbus.</em></p>
 <p>To pull a specific version of Nimbus (e.g. <code>v1.3.0</code>), run:</p>
-<pre><code>git checkout v1.3.0 &amp;&amp; make update
+<pre><code class="language-sh">git checkout v1.3.0 &amp;&amp; make update
 </code></pre>
 <p>Followed by:</p>
-<pre><code>make nimbus_beacon_node
+<pre><code class="language-sh">make nimbus_beacon_node
 </code></pre>
 <p>Now, restart your node.</p>
-<blockquote>
-<p><strong>Note:</strong> Alternatively, you can grab the appropriate binary release - create a backup of your <code>build</code> folder, then download the appropriate binary from here: <a href="https://github.com/status-im/nimbus-eth2/releases/tag/v1.3.0">https://github.com/status-im/nimbus-eth2/releases/tag/v1.3.0</a></p>
-</blockquote>
+<div id="admonition-note-1" class="admonition note">
+<div class="admonition-title">
+<p>Note</p>
+<p><a class="admonition-anchor-link" href="#admonition-note-1"></a></p>
+</div>
+<div>
+<p>Alternatively, you can grab the appropriate binary release - create a backup of your <code>build</code> folder, then download the appropriate binary from here: <a href="https://github.com/status-im/nimbus-eth2/releases/tag/v1.3.0">https://github.com/status-im/nimbus-eth2/releases/tag/v1.3.0</a></p>
+</div>
+</div>
 <h3 id="go-back-to-stable"><a class="header" href="#go-back-to-stable">Go back to stable</a></h3>
 <p>If you need to go back to the latest (stable) version, run:</p>
-<pre><code>git checkout stable &amp;&amp;  make update
+<pre><code class="language-sh">git checkout stable &amp;&amp;  make update
 </code></pre>
 <p>Followed by</p>
-<pre><code>make nimbus_beacon_node
+<pre><code class="language-sh">make nimbus_beacon_node
 </code></pre>
 <p>Don't forget to restart your node.</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/keep-updated.md">Edit this file on GitHub.</a></footer>
@@ -205,7 +230,7 @@ git pull &amp;&amp; make update
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="validator-monitor.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="validator-client.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
@@ -219,7 +244,7 @@ git pull &amp;&amp; make update
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="validator-monitor.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="validator-client.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 

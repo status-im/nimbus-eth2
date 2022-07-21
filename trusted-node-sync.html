@@ -31,6 +31,7 @@
 
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="custom.css">
+        <link rel="stylesheet" href="mdbook-admonish.css">
 
     </head>
     <body>
@@ -82,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="philosophy.html"><strong aria-hidden="true">2.</strong> Design goals</a></li><li class="chapter-item expanded "><a href="hardware.html"><strong aria-hidden="true">3.</strong> System requirements</a></li><li class="chapter-item expanded "><a href="preparation.html"><strong aria-hidden="true">4.</strong> Mainnet checklist</a></li><li class="chapter-item expanded "><a href="merge.html"><strong aria-hidden="true">5.</strong> Merge readiness</a></li><li class="chapter-item expanded affix "><li class="part-title">Quickstart</li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">6.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="run-a-validator.html"><strong aria-hidden="true">7.</strong> Run a validator</a></li><li class="chapter-item expanded "><a href="kiln.html"><strong aria-hidden="true">8.</strong> Run Kiln</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (beacon node)</li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">9.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">10.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="start-syncing.html"><strong aria-hidden="true">11.</strong> Sync from scratch</a></li><li class="chapter-item expanded "><a href="trusted-node-sync.html" class="active"><strong aria-hidden="true">12.</strong> Sync from a trusted node (checkpoint sync)</a></li><li class="chapter-item expanded "><a href="web3-backup.html"><strong aria-hidden="true">13.</strong> Add a backup web3 provider</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (validator)</li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">14.</strong> Make a deposit</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">15.</strong> Import your validator keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">16.</strong> Connect your validator to eth2</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">17.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="more-keys.html"><strong aria-hidden="true">18.</strong> Recover / generate keys</a></li><li class="chapter-item expanded "><a href="voluntary-exit.html"><strong aria-hidden="true">19.</strong> Perform a voluntary exit</a></li><li class="chapter-item expanded "><a href="additional-validator.html"><strong aria-hidden="true">20.</strong> Add an additional validator</a></li><li class="chapter-item expanded "><a href="attestation-performance.html"><strong aria-hidden="true">21.</strong> Monitor attestation performance</a></li><li class="chapter-item expanded "><a href="validator-monitor.html"><strong aria-hidden="true">22.</strong> Monitor specific validators</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (misc)</li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">23.</strong> Upgrade / downgrade Nimbus</a></li><li class="chapter-item expanded "><a href="eth1.html"><strong aria-hidden="true">24.</strong> Run an Execution layer node</a></li><li class="chapter-item expanded "><a href="goerli-eth.html"><strong aria-hidden="true">25.</strong> Obtain Goerli ETH</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">26.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="log-rotate.html"><strong aria-hidden="true">27.</strong> Set up log rotation</a></li><li class="chapter-item expanded "><a href="checksums.html"><strong aria-hidden="true">28.</strong> Verify the integrity of Nimbus</a></li><li class="chapter-item expanded "><a href="database-backup.html"><strong aria-hidden="true">29.</strong> Back up your database</a></li><li class="chapter-item expanded "><a href="logging.html"><strong aria-hidden="true">30.</strong> Set up logging</a></li><li class="chapter-item expanded "><a href="email-notifications.html"><strong aria-hidden="true">31.</strong> Set up email notifications</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">32.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><a href="profits.html"><strong aria-hidden="true">33.</strong> Optimise for profitability</a></li><li class="chapter-item expanded "><a href="health.html"><strong aria-hidden="true">34.</strong> Monitor the health of your node</a></li><li class="chapter-item expanded "><a href="networking.html"><strong aria-hidden="true">35.</strong> Networking</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">36.</strong> Grafana and Prometheus</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">37.</strong> Create your own Infura endpoint</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">38.</strong> Migrate from another client</a></li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">39.</strong> Validate with a Raspberry Pi</a></li><li class="chapter-item expanded affix "><li class="part-title">Security</li><li class="chapter-item expanded "><a href="security_issues.html"><strong aria-hidden="true">40.</strong> Security Issues / Responsible Disclosure</a></li><li class="chapter-item expanded "><a href="audit.html"><strong aria-hidden="true">41.</strong> Security Audit</a></li><li class="chapter-item expanded "><a href="distribution_internals.html"><strong aria-hidden="true">42.</strong> Reproducible Builds</a></li><li class="chapter-item expanded affix "><li class="part-title">Downloads</li><li class="chapter-item expanded "><a href="binaries.html"><strong aria-hidden="true">43.</strong> Download binaries</a></li><li class="chapter-item expanded "><a href="docker.html"><strong aria-hidden="true">44.</strong> Download Docker images</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">45.</strong> JSON-RPC API</a></li><li class="chapter-item expanded "><a href="rest-api.html"><strong aria-hidden="true">46.</strong> REST API</a></li><li class="chapter-item expanded "><a href="keymanager-api.html"><strong aria-hidden="true">47.</strong> Keymanager API</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">48.</strong> Help / Command line options</a></li><li class="chapter-item expanded "><a href="migration-options.html"><strong aria-hidden="true">49.</strong> Advanced migration options</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">50.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">51.</strong> For developers</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">52.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">53.</strong> Resources</a></li><li class="chapter-item expanded "><a href="prater.html"><strong aria-hidden="true">54.</strong> Prater testnet</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">55.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="philosophy.html"><strong aria-hidden="true">2.</strong> Design goals</a></li><li class="chapter-item expanded "><a href="hardware.html"><strong aria-hidden="true">3.</strong> System requirements</a></li><li class="chapter-item expanded "><a href="preparation.html"><strong aria-hidden="true">4.</strong> Mainnet checklist</a></li><li class="chapter-item expanded "><a href="merge.html"><strong aria-hidden="true">5.</strong> Merge readiness</a></li><li class="chapter-item expanded affix "><li class="part-title">Quickstart</li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">6.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="run-a-validator.html"><strong aria-hidden="true">7.</strong> Run a validator</a></li><li class="chapter-item expanded affix "><li class="part-title">Downloads</li><li class="chapter-item expanded "><a href="binaries.html"><strong aria-hidden="true">8.</strong> Binaries</a></li><li class="chapter-item expanded "><a href="docker.html"><strong aria-hidden="true">9.</strong> Docker</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">10.</strong> Source code</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (beacon node)</li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">11.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">12.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="start-syncing.html"><strong aria-hidden="true">13.</strong> Sync from scratch</a></li><li class="chapter-item expanded "><a href="trusted-node-sync.html" class="active"><strong aria-hidden="true">14.</strong> Sync from a trusted node (checkpoint sync)</a></li><li class="chapter-item expanded "><a href="web3-backup.html"><strong aria-hidden="true">15.</strong> Add a backup web3 provider</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (validator)</li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">16.</strong> Make a deposit</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">17.</strong> Import your validator keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">18.</strong> Start validating</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">19.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><a href="suggested-fee-recipient.html"><strong aria-hidden="true">20.</strong> Set up transaction fee recipient</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">21.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="voluntary-exit.html"><strong aria-hidden="true">22.</strong> Perform a voluntary exit</a></li><li class="chapter-item expanded "><a href="validator-monitor.html"><strong aria-hidden="true">23.</strong> Monitor validator actions</a></li><li class="chapter-item expanded "><a href="more-keys.html"><strong aria-hidden="true">24.</strong> Recover or generate keys</a></li><li class="chapter-item expanded "><a href="additional-validator.html"><strong aria-hidden="true">25.</strong> Add an additional validator</a></li><li class="chapter-item expanded "><a href="validator-client.html"><strong aria-hidden="true">26.</strong> Run a separate validator client</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (misc)</li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">27.</strong> Upgrade / downgrade Nimbus</a></li><li class="chapter-item expanded "><a href="eth1.html"><strong aria-hidden="true">28.</strong> Run an Execution client</a></li><li class="chapter-item expanded "><a href="goerli-eth.html"><strong aria-hidden="true">29.</strong> Obtain Goerli ETH</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">30.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="log-rotate.html"><strong aria-hidden="true">31.</strong> Set up log rotation</a></li><li class="chapter-item expanded "><a href="checksums.html"><strong aria-hidden="true">32.</strong> Verify the integrity of Nimbus</a></li><li class="chapter-item expanded "><a href="database-backup.html"><strong aria-hidden="true">33.</strong> Back up your database</a></li><li class="chapter-item expanded "><a href="logging.html"><strong aria-hidden="true">34.</strong> Set up logging</a></li><li class="chapter-item expanded "><a href="email-notifications.html"><strong aria-hidden="true">35.</strong> Set up email notifications</a></li><li class="chapter-item expanded "><a href="profits.html"><strong aria-hidden="true">36.</strong> Optimise for profitability</a></li><li class="chapter-item expanded "><a href="health.html"><strong aria-hidden="true">37.</strong> Monitor the health of your node</a></li><li class="chapter-item expanded "><a href="networking.html"><strong aria-hidden="true">38.</strong> Networking</a></li><li class="chapter-item expanded "><a href="prater.html"><strong aria-hidden="true">39.</strong> Prater testnet</a></li><li class="chapter-item expanded "><a href="kiln.html"><strong aria-hidden="true">40.</strong> Kiln testnet</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">41.</strong> Grafana and Prometheus</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">42.</strong> Create your own Infura endpoint</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">43.</strong> Migrate from another client</a></li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">44.</strong> Validate with a Raspberry Pi</a></li><li class="chapter-item expanded "><a href="attestation-performance.html"><strong aria-hidden="true">45.</strong> Analyze attestation performance</a></li><li class="chapter-item expanded affix "><li class="part-title">Security</li><li class="chapter-item expanded "><a href="security_issues.html"><strong aria-hidden="true">46.</strong> Security Issues / Responsible Disclosure</a></li><li class="chapter-item expanded "><a href="audit.html"><strong aria-hidden="true">47.</strong> Security Audit</a></li><li class="chapter-item expanded "><a href="distribution_internals.html"><strong aria-hidden="true">48.</strong> Reproducible Builds</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="rest-api.html"><strong aria-hidden="true">49.</strong> REST API</a></li><li class="chapter-item expanded "><a href="keymanager-api.html"><strong aria-hidden="true">50.</strong> Keymanager API</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">51.</strong> Help / Command line options</a></li><li class="chapter-item expanded "><a href="data-dir.html"><strong aria-hidden="true">52.</strong> Data directory</a></li><li class="chapter-item expanded "><a href="migration-options.html"><strong aria-hidden="true">53.</strong> Advanced migration options</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">54.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">55.</strong> For developers</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">56.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">57.</strong> Resources</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">58.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">59.</strong> JSON-RPC API (deprecated)</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -147,35 +148,47 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="sync-from-a-trusted-node"><a class="header" href="#sync-from-a-trusted-node">Sync from a trusted node</a></h1>
-<blockquote>
-<p><strong>Note:</strong> This feature is available from <code>v1.7.0</code> onwards</p>
-</blockquote>
+<div id="admonition-default" class="admonition note">
+<div>
+<p>This feature is available from <code>v1.7.0</code> onwards</p>
+</div>
+</div>
 <p>When you <a href="./quick-start.html">start the beacon node</a> for the first time, it will connect to the beacon chain network and start syncing automatically - a process that can take several days.</p>
-<p>Trusted node sync allows you to get started more quickly with Nimbus by fetching a recent checkpoint from a trusted node - you can get started in minutes instead of days.</p>
+<p>Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node - you can get started in minutes instead of days.</p>
 <p>To use trusted node sync, you must have access to a node that you trust that exposes the <a href="./rest-api.html">Beacon API</a> (for example a locally running backup node).</p>
 <p>Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.</p>
 <p>It is possibly to use trusted node sync with a third-party API provider -- see <a href="trusted-node-sync.html#verify-you-synced-the-correct-chain">here</a> for how to verify that the chain you are given corresponds to the canonical chain at the time.</p>
 <h2 id="perform-a-trusted-node-sync"><a class="header" href="#perform-a-trusted-node-sync">Perform a trusted node sync</a></h2>
-<blockquote>
-<p><strong>Tip:</strong> Make sure to replace <code>http://localhost:5052</code> in the commands below with the appropriate endpoint for you. <code>http://localhost:5052</code> is the endpoint exposed by Nimbus but this is not consistent across all clients. For example, if your trusted node is a <a href="https://docs.prylabs.network/docs/how-prysm-works/ethereum-public-api#performing-requests-against-a-local-prysm-node">Prysm node</a>, it exposes <code>127.0.0.1:3500</code> by default. Which means you would run the commands below with</p>
-<p><code>--trusted-node-url=http://127.0.0.1:3500</code></p>
-</blockquote>
+<div id="admonition-tip" class="admonition tip">
+<div class="admonition-title">
+<p>Tip</p>
+<p><a class="admonition-anchor-link" href="#admonition-tip"></a></p>
+</div>
+<div>
+<p>Make sure to replace <code>http://localhost:5052</code> in the commands below with the appropriate endpoint of the trusted beacon node. <code>http://localhost:5052</code> is the default endpoint exposed by Nimbus, but this is not consistent across all clients.</p>
+<p>For example, if your trusted node is a <a href="https://docs.prylabs.network/docs/how-prysm-works/ethereum-public-api#performing-requests-against-a-local-prysm-node">Prysm node</a>, it exposes <code>127.0.0.1:3500</code> by default. Which means you would run the commands below with <code>--trusted-node-url=http://127.0.0.1:3500</code></p>
+</div>
+</div>
 <p><strong>Mainnet</strong></p>
-<p>To sync Mainnet, from the <code>nimbus-eth2</code> directory run:</p>
-<pre><code class="language-sh">build/nimbus_beacon_node trustedNodeSync --network:mainnet \
- --data-dir=build/data/shared_mainnet_0 \
- --trusted-node-url=http://localhost:5052
+<pre><code class="language-sh">build/nimbus_beacon_node trustedNodeSync \
+  --network:mainnet \
+  --data-dir=build/data/shared_mainnet_0 \
+  --trusted-node-url=http://localhost:5052
 </code></pre>
 <p><strong>Prater (testnet)</strong></p>
-<p>To sync Prater, from the <code>nimbus-eth2</code> directory run:</p>
 <pre><code class="language-sh">build/nimbus_beacon_node trustedNodeSync --network:prater \
  --data-dir=build/data/shared_prater_0  \
  --trusted-node-url=http://localhost:5052
 </code></pre>
-<blockquote>
-<p><strong>Note:</strong>
-Because trusted node sync by default copies all blocks via REST, if you use a third-party service to sync from, you may hit API limits. If this happens to you, you may need to use the <code>--backfill</code> option to <a href="./trusted-node-sync.html#delay-block-history-backfill">delay the backfill of the block history</a>.</p>
-</blockquote>
+<div id="admonition-note" class="admonition note">
+<div class="admonition-title">
+<p>Note</p>
+<p><a class="admonition-anchor-link" href="#admonition-note"></a></p>
+</div>
+<div>
+<p>Because trusted node sync by default copies all blocks via REST, you may hit API limits if you are using a third-party provider. If this happens to you, you may need to use the <code>--backfill</code> option to <a href="./trusted-node-sync.html#delay-block-history-backfill">delay the backfill of the block history</a>.</p>
+</div>
+</div>
 <h2 id="verify-you-synced-the-correct-chain"><a class="header" href="#verify-you-synced-the-correct-chain">Verify you synced the correct chain</a></h2>
 <p>When performing a trusted node sync, you can manually verify that the correct chain was synced by comparing the head hash with other sources (e.g. your friends, forums, chats and web sites). If you're syncing using your own backup node you can retrieve the current head from the node using:</p>
 <pre><code class="language-sh"># Make sure to enable the `--rest` option when running your node:
@@ -183,37 +196,59 @@ Because trusted node sync by default copies all blocks via REST, if you use a th
 curl http://localhost:5052/eth/v1/beacon/blocks/head/root
 </code></pre>
 <p>The <code>head</code> root is also printed in the log output at regular intervals.</p>
-<blockquote>
-<p><strong>Note:</strong> this same <a href="./rest-api.html">Beacon API</a> request should work with any third-party provider.</p>
-<p>For example, to test it out with our mainnet <a href="rest-api.html#test-your-tooling-against-our-servers">testing server</a>, you could run:</p>
-<pre><code>curl -X GET http://testing.mainnet.beacon-api.nimbus.team/eth/v1/beacon/blocks/head/root
-</code></pre>
-</blockquote>
+<div id="admonition-note-1" class="admonition note">
+<div class="admonition-title">
+<p>Note</p>
+<p><a class="admonition-anchor-link" href="#admonition-note-1"></a></p>
+</div>
+<div>
+<p>The same <a href="./rest-api.html">Beacon API</a> request works with any third-party provider.</p>
+<p>For example, to compare it out with our mainnet <a href="rest-api.html#test-your-tooling-against-our-servers">testing server</a>, you can run:
+<code>curl -X GET http://testing.mainnet.beacon-api.nimbus.team/eth/v1/beacon/blocks/head/root</code></p>
+</div>
+</div>
 <h2 id="advanced"><a class="header" href="#advanced">Advanced</a></h2>
 <h3 id="delay-block-history-backfill"><a class="header" href="#delay-block-history-backfill">Delay block history backfill</a></h3>
 <p>By default, both the state and the full block history will be downloaded from the trusted node.</p>
 <p>It is possible to get started more quickly by delaying the backfill of the block history using the <code>--backfill=false</code> parameter. In this case, the beacon node will first sync to the current head so that it can start performing its duties, then backfill the blocks from the network.</p>
 <p>You can also resume the trusted node backfill at any time by simply running the trusted node sync command again.</p>
-<blockquote>
-<p><strong>Warning:</strong> While backfilling blocks, your node will not be able to answer historical requests or sync requests. This might lead to you being de-scored, and eventually disconnected, by your peers.</p>
-</blockquote>
+<div id="admonition-note-2" class="admonition note">
+<div class="admonition-title">
+<p>Note</p>
+<p><a class="admonition-anchor-link" href="#admonition-note-2"></a></p>
+</div>
+<div>
+<p>While backfilling blocks, your node will not be able to answer historical requests or sync requests. This might lead to you being de-scored, and eventually disconnected, by your peers.</p>
+</div>
+</div>
 <h3 id="modify-sync-point"><a class="header" href="#modify-sync-point">Modify sync point</a></h3>
 <p>By default, the node will sync up to the latest finalized checkpoint of the node that you're syncing with. While you can choose a different sync point using a block hash or a slot number, this block must fall on an epoch boundary:</p>
-<pre><code>build/nimbus_beacon_node trustedNodeSync --blockId:0x239940f2537f5bbee1a3829f9058f4c04f49897e4d325145153ca89838dfc9e2 ...
-
+<pre><code class="language-sh">build/nimbus_beacon_node trustedNodeSync \
+  --network:mainnet \
+  --data-dir=build/data/shared_mainnet_0 \
+  --blockId:0x239940f2537f5bbee1a3829f9058f4c04f49897e4d325145153ca89838dfc9e2
 </code></pre>
 <h3 id="sync-from-checkpoint-files"><a class="header" href="#sync-from-checkpoint-files">Sync from checkpoint files</a></h3>
 <p>If you have a state and a block file available, you can start the node using the finalized checkpoint options:</p>
 <pre><code class="language-sh"># Obtain a state and a block from a Beacon API - these must be in SSZ format:
+curl -o state.32000.ssz \
+  -H 'Accept: application/octet-stream' \
+  http://localhost:5052/eth/v2/debug/beacon/states/32000
+curl -o block.32000.ssz \
+  -H 'Accept: application/octet-stream' \
+  http://localhost:5052/eth/v2/beacon/blocks/32000
 
-curl -o state.32000.ssz -H 'Accept: application/octet-stream' http://localhost:5052/eth/v2/debug/beacon/states/32000
-curl -o block.32000.ssz -H 'Accept: application/octet-stream' http://localhost:5052/eth/v2/beacon/blocks/32000
-
-build/nimbus_beacon_node --data-dir:trusted --finalized-checkpoint-block=block.32000.ssz --finalized-checkpoint-state=state.32000.ssz
+# Start the beacon node using the downloaded state and block as starting point
+./run-mainnet-beacon-node.sh \
+  --finalized-checkpoint-block=block.32000.ssz \
+  --finalized-checkpoint-state=state.32000.ssz
 </code></pre>
 <h2 id="recreate-historical-state-access-indices"><a class="header" href="#recreate-historical-state-access-indices">Recreate historical state access indices</a></h2>
 <p>When performing checkpoint sync, the historical state data from the time before the checkpoint is not available. To recreate the indices and caches necessary for historical state access, run trusted node sync with the <code>--reindex</code> flag - this can be done on an already-synced node as well, in which case the process will simply resume where it left off:</p>
-<pre><code class="language-sh">build/nimbus_beacon_node trustedNodeSync --reindex=true
+<pre><code class="language-sh">build/nimbus_beacon_node trustedNodeSync \
+  --network:mainnet \
+  --data-dir=build/data/shared_mainnet_0 \
+  --reindex=true
 </code></pre>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/trusted-node-sync.md">Edit this file on GitHub.</a></footer>
                     </main>
