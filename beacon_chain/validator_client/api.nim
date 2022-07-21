@@ -32,7 +32,8 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
 
   let onlineNodes =
     try:
-      await vc.waitOnlineNodes(timerFut)
+      if not isNil(timerFut):
+        await vc.waitOnlineNodes(timerFut)
       vc.onlineNodes()
     except CancelledError as exc:
       var default: seq[BeaconNodeServerRef]
