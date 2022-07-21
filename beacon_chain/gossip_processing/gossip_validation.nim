@@ -175,51 +175,31 @@ template checkedReject(error: ValidationError): untyped =
   err(error)
 
 template validateBeaconBlockBellatrix(
-       signed_beacon_block: phase0.SignedBeaconBlock |
-                            altair.SignedBeaconBlock,
-       parent: BlockRef): untyped =
+    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock,
+    parent: BlockRef): untyped =
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
        signed_beacon_block: bellatrix.SignedBeaconBlock,
        parent: BlockRef): untyped =
   # If the execution is enabled for the block -- i.e.
   # is_execution_enabled(state, block.body) then validate the following:
-  let executionEnabled =
-    if signed_beacon_block.message.body.execution_payload !=
-        default(ExecutionPayload):
-      true
-    elif dag.getEpochRef(parent, parent.slot.epoch, true).expect(
-        "parent EpochRef doesn't fail").merge_transition_complete:
-      # Should usually be inexpensive, but could require cache refilling - the
-      # parent block can be no older than the latest finalized block
-      true
-    else:
-      # Somewhat more expensive fallback, with database I/O, but should be
-      # mostly relevant around merge transition epochs. It's possible that
-      # the previous block is phase 0 or Altair, if this is the transition
-      # block itself.
-      let blockData = dag.getForkedBlock(parent.bid)
-      if blockData.isOk():
-        case blockData.get().kind:
-        of BeaconBlockFork.Phase0:
-          false
-        of BeaconBlockFork.Altair:
-          false
-        of BeaconBlockFork.Bellatrix:
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#process_execution_payload
-          # shows how this gets folded into the state each block; checking this
-          # is equivalent, without ever requiring state replay or any similarly
-          # expensive computation.
-          blockData.get().bellatrixData.message.body.execution_payload !=
-            default(ExecutionPayload)
-      else:
-        warn "Cannot load block parent, assuming execution is disabled",
-          parent = shortLog(parent)
-        false
-
-  if executionEnabled:
+  #
+  # `is_execution_enabled(state, block.body)` is
+  # `is_merge_transition_block(state, block.body) or is_merge_transition_complete(state)` is
+  # `(not is_merge_transition_complete(state) and block.body.execution_payload != ExecutionPayload()) or is_merge_transition_complete(state)` is
+  # `is_merge_transition_complete(state) or block.body.execution_payload != ExecutionPayload()` is
+  # `is_merge_transition_complete(state) or is_execution_block(block)`
+  #
+  # `is_merge_transition_complete(state)` tests for
+  # `state.latest_execution_payload_header != ExecutionPayloadHeader()`, while
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#block-processing
+  # shows that `state.latest_execution_payload_header` being default or not is
+  # exactly equivalent to whether that block's execution payload is default or
+  # not, so test cached block information rather than reconstructing a state.
+  if  signed_beacon_block.message.is_execution_block or
+      not dag.loadExecutionBlockRoot(parent).isZero:
     # [REJECT] The block's execution payload timestamp is correct with respect
     # to the slot -- i.e. execution_payload.timestamp ==
     # compute_timestamp_at_slot(state, block.slot).
@@ -229,10 +209,17 @@ template validateBeaconBlockBellatrix(
     if not (signed_beacon_block.message.body.execution_payload.timestamp ==
         timestampAtSlot):
       quarantine[].addUnviable(signed_beacon_block.root)
-      return errReject("BeaconBlock: Mismatched execution payload timestamp")
+      return errReject("BeaconBlock: mismatched execution payload timestamp")
+
+    if signed_beacon_block.message.parent_root in dag.optimisticRoots:
+      # Definitely don't mark this as unviable.
+      # [REJECT] The block's parent (defined by `block.parent_root`) passes all
+      # validation (excluding execution node verification of the
+      # `block.body.execution_payload`).
+      return errReject("BeaconBlock: execution payload would build on optimistic parent")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_block
-# https://github.com/ethereum/consensus-specs/blob/v1.1.8/specs/bellatrix/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
@@ -306,12 +293,28 @@ proc validateBeaconBlock*(
   # (via both gossip and non-gossip sources) (a client MAY queue blocks for
   # processing once the parent block is retrieved).
   #
-  # And implicitly:
   # [REJECT] The block's parent (defined by block.parent_root) passes validation.
   let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
     if signed_beacon_block.message.parent_root in quarantine[].unviable:
       quarantine[].addUnviable(signed_beacon_block.root)
-      return errReject("BeaconBlock: parent from unviable fork")
+
+      # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/p2p-interface.md#beacon_block
+      # `is_execution_enabled(state, block.body)` check, but unlike in
+      # validateBeaconBlockBellatrix() don't have parent BlockRef.
+      if  signed_beacon_block.message.is_execution_block or
+          not dag.loadExecutionBlockRoot(dag.finalizedHead.blck).isZero:
+        # Blocks with execution enabled will be permitted to propagate
+        # regardless of the validity of the execution payload. This prevents
+        # network segregation between optimistic and non-optimistic nodes.
+        #
+        # [IGNORE] The block's parent (defined by `block.parent_root`) passes all
+        # validation (including execution node verification of the
+        # `block.body.execution_payload`).
+        return errIgnore("BeaconBlock: ignored, parent from unviable fork")
+      else:
+        # [REJECT] The block's parent (defined by `block.parent_root`) passes
+        # validation.
+        return errReject("BeaconBlock: rejected, parent from unviable fork")
 
     # When the parent is missing, we can't validate the block - we'll queue it
     # in the quarantine for later processing
@@ -321,6 +324,11 @@ proc validateBeaconBlock*(
       debug "Block quarantine full"
 
     return errIgnore("BeaconBlock: Parent not found")
+
+  # Continues block parent validity checking in optimistic case, where it does
+  # appear as a `BlockRef` (and not handled above) but isn't usable for gossip
+  # validation.
+  validateBeaconBlockBellatrix(signed_beacon_block, parent)
 
   # [REJECT] The block is from a higher slot than its parent.
   if not (signed_beacon_block.message.slot > parent.bid.slot):
@@ -343,7 +351,6 @@ proc validateBeaconBlock*(
       finalized_checkpoint.root == ancestor.root or
       finalized_checkpoint.root.isZero):
     quarantine[].addUnviable(signed_beacon_block.root)
-
     return errReject("BeaconBlock: Finalized checkpoint not an ancestor")
 
   # [REJECT] The block is proposed by the expected proposer_index for the
@@ -361,7 +368,6 @@ proc validateBeaconBlock*(
 
   if uint64(proposer.get()) != signed_beacon_block.message.proposer_index:
     quarantine[].addUnviable(signed_beacon_block.root)
-
     return errReject("BeaconBlock: Unexpected proposer proposer")
 
   # [REJECT] The proposer signature, signed_beacon_block.signature, is valid
@@ -376,8 +382,6 @@ proc validateBeaconBlock*(
     quarantine[].addUnviable(signed_beacon_block.root)
 
     return errReject("BeaconBlock: Invalid proposer signature")
-
-  validateBeaconBlockBellatrix(signed_beacon_block, parent)
 
   ok()
 

@@ -255,9 +255,6 @@ type
     shuffled_active_validator_indices*: seq[ValidatorIndex]
     attester_dependent_root*: Eth2Digest
 
-    # enables more efficient merge block validation
-    merge_transition_complete*: bool
-
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
 

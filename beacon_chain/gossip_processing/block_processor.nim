@@ -450,6 +450,16 @@ proc is_optimistic_candidate_block(
       self.getBeaconTime().slotOrZero:
     return true
 
+  # Once merge is finalized, always true; in principle, should be caught by
+  # other checks, but sometimes blocks arrive out of order, triggering some
+  # spurious false negatives because the parent-block-check does not find a
+  # parent block. This can also occur under conditions where EL client RPCs
+  # cause processing delays. Either way, bound this risk to post-merge head
+  # and pre-merge finalization.
+  if not self.consensusManager.dag.loadExecutionBlockRoot(
+      self.consensusManager.dag.finalizedHead.blck).isZero:
+    return true
+
   let
     parentRoot = withBlck(blck): blck.message.parent_root
     parentBlck = self.consensusManager.dag.getBlockRef(parentRoot).valueOr:
