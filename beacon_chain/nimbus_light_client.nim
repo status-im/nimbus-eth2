@@ -70,22 +70,24 @@ programMain:
 
     optimisticProcessor = proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock):
         Future[void] {.async.} =
-      debug "New LC optimistic block",
+      notice "New LC optimistic block",
         opt = signedBlock.toBlockId(),
         wallSlot = getBeaconTime().slotOrZero
       withBlck(signedBlock):
         when stateFork >= BeaconStateFork.Bellatrix:
           if blck.message.is_execution_block:
-            await eth1Monitor.ensureDataProvider()
-
-            # engine_newPayloadV1
             template payload(): auto = blck.message.body.execution_payload
-            discard await eth1Monitor.newExecutionPayload(payload)
 
-            # engine_forkchoiceUpdatedV1
-            discard await eth1Monitor.runForkchoiceUpdated(
-              headBlockRoot = payload.block_hash,
-              finalizedBlockRoot = ZERO_HASH)
+            if eth1Monitor != nil:
+              await eth1Monitor.ensureDataProvider()
+
+              # engine_newPayloadV1
+              discard await eth1Monitor.newExecutionPayload(payload)
+
+              # engine_forkchoiceUpdatedV1
+              discard await eth1Monitor.runForkchoiceUpdated(
+                headBlockRoot = payload.block_hash,
+                finalizedBlockRoot = ZERO_HASH)
         else: discard
       return
     optSync = initLCOptimisticSync(
@@ -93,8 +95,8 @@ programMain:
       config.safeSlotsToImportOptimistically)
 
     lightClient = createLightClient(
-      network, rng, config, cfg,
-      forkDigests, getBeaconTime, genesis_validators_root)
+      network, rng, config, cfg, forkDigests, getBeaconTime,
+      genesis_validators_root, LightClientFinalizationMode.Optimistic)
 
   info "Listening to incoming network requests"
   network.initBeaconSync(cfg, forkDigests, genesisBlockRoot, getBeaconTime)
@@ -115,7 +117,7 @@ programMain:
       true
 
   proc onFinalizedHeader(lightClient: LightClient) =
-    notice "New LC finalized header",
+    info "New LC finalized header",
       finalized_header = shortLog(lightClient.finalizedHeader.get)
     let optimisticHeader = lightClient.optimisticHeader.valueOr:
       return
@@ -127,7 +129,7 @@ programMain:
     optSync.setFinalizedHeader(finalizedHeader)
 
   proc onOptimisticHeader(lightClient: LightClient) =
-    notice "New LC optimistic header",
+    info "New LC optimistic header",
       optimistic_header = shortLog(lightClient.optimisticHeader.get)
     let optimisticHeader = lightClient.optimisticHeader.valueOr:
       return
