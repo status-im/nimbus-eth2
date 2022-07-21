@@ -7,7 +7,7 @@ Unlike other beacon chain clients, Nimbus does not require setting up a separate
 
 This is a simple, safe and efficient way to get started.
 
-advanced users may want to use a separate [validator client](./validator-client.md) process instead.
+Advanced users may want to use a separate [validator client](./validator-client.md) process instead.
 ```
 
 ## 1. Deposit
