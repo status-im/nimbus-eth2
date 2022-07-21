@@ -4,7 +4,9 @@
 
 Nimbus offers several options for logging - by default, logs are written to stdout using the [chronicles](https://github.com/status-im/nim-chronicles#introduction) `textlines` format which is convenient to read and can be used with tooling for [heroku/logfmt](https://brandur.org/logfmt).
 
-> ℹ️ `NOT` at the beginning of a log line means 'NOTICE`
+```admonish tip
+`NOT` at the beginning of a log line means 'NOTICE`
+```
 
 ## Change log level
 
