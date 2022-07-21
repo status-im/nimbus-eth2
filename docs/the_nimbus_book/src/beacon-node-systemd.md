@@ -109,7 +109,7 @@ When using a service, the beacon node is running as a different user - key impor
 
 ```
 # Run import command as the `nimbus` user
-sudo -u nimubs /usr/bin/nimbus_beacon_node deposit import --data-dir=/var/lib/nimbus/shared_mainnet_0 /path/to/keys
+sudo -u nimbus /usr/bin/nimbus_beacon_node deposit import --data-dir=/var/lib/nimbus/shared_mainnet_0 /path/to/keys
 ```
 
 ```admonish note
