@@ -27,7 +27,7 @@ drwx------ 1 nimbus nimbus 250 Jul 19 18:18 validators
 
 ### `db`
 
-The `db` folder contains historical chain data and information about the latest observed state of the chain. If you remove the `db` folder, the beacon node will have to resync the next chain.
+The `db` folder contains historical chain data and information about the latest observed state of the chain. If you remove the `db` folder, the beacon node will have to resync.
 
 ### `secrets` and `validators`
 
