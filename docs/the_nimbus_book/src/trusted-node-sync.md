@@ -40,7 +40,7 @@ build/nimbus_beacon_node trustedNodeSync --network:prater \
 ```
 
 ```admonish note
-Because trusted node sync by default copies all blocks via REST,  ou may hit API limits if you are using a third-party provider. If this happens to you, you may need to use the `--backfill` option to [delay the backfill of the block history](./trusted-node-sync.md#delay-block-history-backfill).
+Because trusted node sync by default copies all blocks via REST, you may hit API limits if you are using a third-party provider. If this happens to you, you may need to use the `--backfill` option to [delay the backfill of the block history](./trusted-node-sync.md#delay-block-history-backfill).
 ```
 
 ## Verify you synced the correct chain
