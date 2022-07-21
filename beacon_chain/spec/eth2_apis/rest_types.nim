@@ -234,6 +234,11 @@ type
     discovery_addresses*: seq[string]
     metadata*: RestMetadata
 
+  RestActivityItem* = object
+    index*: ValidatorIndex
+    epoch*: Epoch
+    active*: bool
+
   RestPublishedSignedBeaconBlock* = distinct ForkedSignedBeaconBlock
 
   RestPublishedBeaconBlock* = distinct ForkedBeaconBlock
@@ -569,6 +574,7 @@ type
   ProduceBlockResponseV2* = ForkedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   SubmitBlindedBlockResponse* = DataEnclosedObject[bellatrix.ExecutionPayload]
+  GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)

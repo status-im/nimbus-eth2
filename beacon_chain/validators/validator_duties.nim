@@ -84,14 +84,14 @@ proc findValidator(validators: auto, pubkey: ValidatorPubKey):
     some(idx.ValidatorIndex)
 
 proc addLocalValidator(node: BeaconNode, validators: auto,
-                       item: KeystoreData) =
+                       item: KeystoreData, slot: Slot) =
   let
     pubkey = item.pubkey
     index = findValidator(validators, pubkey)
-  node.attachedValidators[].addLocalValidator(item, index)
+  node.attachedValidators[].addLocalValidator(item, index, slot)
 
 proc addRemoteValidator(pool: var ValidatorPool, validators: auto,
-                        item: KeystoreData) =
+                        item: KeystoreData, slot: Slot) =
   var clients: seq[(RestClientRef, RemoteSignerInfo)]
   let httpFlags =
     block:
@@ -108,20 +108,22 @@ proc addRemoteValidator(pool: var ValidatorPool, validators: auto,
           remote_url = $remote.url, validator = $remote.pubkey
     clients.add((client.get(), remote))
   let index = findValidator(validators, item.pubkey)
-  pool.addRemoteValidator(item, clients, index)
+  pool.addRemoteValidator(item, clients, index, slot)
 
 proc addLocalValidators*(node: BeaconNode,
                          validators: openArray[KeystoreData]) =
+  let slot = node.currentSlot()
   withState(node.dag.headState):
     for item in validators:
-      node.addLocalValidator(state.data.validators.asSeq(), item)
+      node.addLocalValidator(state.data.validators.asSeq(), item, slot)
 
 proc addRemoteValidators*(node: BeaconNode,
                           validators: openArray[KeystoreData]) =
+  let slot = node.currentSlot()
   withState(node.dag.headState):
     for item in validators:
       node.attachedValidators[].addRemoteValidator(
-        state.data.validators.asSeq(), item)
+        state.data.validators.asSeq(), item, slot)
 
 proc addValidators*(node: BeaconNode) =
   let (localValidators, remoteValidators) =

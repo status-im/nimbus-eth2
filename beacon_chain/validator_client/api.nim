@@ -10,6 +10,136 @@ type
   ApiOperation = enum
     Success, Timeout, Failure, Interrupt
 
+  ApiNodeResponse*[T] = object
+    node*: BeaconNodeServerRef
+    data*: ApiResponse[T]
+
+  ApiResponseSeq*[T] = object
+    status*: ApiOperation
+    data*: seq[ApiNodeResponse[T]]
+
+template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
+                    timeout: Duration,
+                    body: untyped): ApiResponseSeq[responseType] =
+  var it {.inject.}: RestClientRef
+  type BodyType = typeof(body)
+
+  var timerFut =
+    if timeout != InfiniteDuration:
+      sleepAsync(timeout)
+    else:
+      nil
+
+  let onlineNodes =
+    try:
+      if not isNil(timerFut):
+        await vc.waitOnlineNodes(timerFut)
+      vc.onlineNodes()
+    except CancelledError as exc:
+      var default: seq[BeaconNodeServerRef]
+      if not(isNil(timerFut)) and not(timerFut.finished()):
+        await timerFut.cancelAndWait()
+      raise exc
+    except CatchableError as exc:
+      # This case could not be happened.
+      error "Unexpected exception while waiting for beacon nodes",
+            err_name = $exc.name, err_msg = $exc.msg
+      var default: seq[BeaconNodeServerRef]
+      default
+
+  if len(onlineNodes) == 0:
+    # Timeout exceeded or operation was cancelled
+    ApiResponseSeq[responseType](status: ApiOperation.Timeout)
+  else:
+    let (pendingRequests, pendingNodes) =
+      block:
+        var requests: seq[BodyType]
+        var nodes: seq[BeaconNodeServerRef]
+        for node {.inject.} in onlineNodes:
+          it = node.client
+          let fut = body
+          requests.add(fut)
+          nodes.add(node)
+        (requests, nodes)
+
+    let status =
+      try:
+        if isNil(timerFut):
+          await allFutures(pendingRequests)
+          ApiOperation.Success
+        else:
+          let waitFut = allFutures(pendingRequests)
+          discard await race(waitFut, timerFut)
+          if not(waitFut.finished()):
+            await waitFut.cancelAndWait()
+            ApiOperation.Timeout
+          else:
+            if not(timerFut.finished()):
+              await timerFut.cancelAndWait()
+            ApiOperation.Success
+      except CancelledError as exc:
+        # We should cancel all the pending requests and timer before we return
+        # result.
+        var pendingCancel: seq[Future[void]]
+        for fut in pendingRequests:
+          if not(fut.finished()):
+            pendingCancel.add(fut.cancelAndWait())
+        if not(isNil(timerFut)) and not(timerFut.finished()):
+          pendingCancel.add(timerFut.cancelAndWait())
+        await allFutures(pendingCancel)
+        raise exc
+      except CatchableError:
+        # This should not be happened, because allFutures() and race() did not
+        # raise any exceptions.
+        ApiOperation.Failure
+
+    let responses =
+      block:
+        var res: seq[ApiNodeResponse[responseType]]
+        for idx, pnode in pendingNodes.pairs():
+          let apiResponse =
+            block:
+              let fut = pendingRequests[idx]
+              if fut.finished():
+                if fut.failed() or fut.cancelled():
+                  let exc = fut.readError()
+                  ApiNodeResponse[responseType](
+                    node: pnode,
+                    data: ApiResponse[responseType].err("[" & $exc.name & "] " &
+                                                        $exc.msg)
+                  )
+                else:
+                  ApiNodeResponse[responseType](
+                    node: pnode,
+                    data: ApiResponse[responseType].ok(fut.read())
+                  )
+              else:
+                case status
+                of ApiOperation.Interrupt:
+                  pendingNodes[idx].status = RestBeaconNodeStatus.Offline
+                  ApiNodeResponse[responseType](
+                    node: pnode,
+                    data: ApiResponse[responseType].err("Operation interrupted")
+                  )
+                of ApiOperation.Timeout:
+                  pendingNodes[idx].status = RestBeaconNodeStatus.Offline
+                  ApiNodeResponse[responseType](
+                    node: pnode,
+                    data: ApiResponse[responseType].err(
+                            "Operation timeout exceeded")
+                  )
+                of ApiOperation.Success, ApiOperation.Failure:
+                  # This should not be happened, because all Futures should be
+                  # finished, and `Failure` processed when Future is finished.
+                  ApiNodeResponse[responseType](
+                    node: pnode,
+                    data: ApiResponse[responseType].err("Unexpected error")
+                  )
+          res.add(apiResponse)
+        res
+
+    ApiResponseSeq[responseType](status: status, data: responses)
+
 template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
                               timeout: Duration, body: untyped,
                               handlers: untyped): untyped =
@@ -822,3 +952,104 @@ proc prepareSyncCommitteeSubnets*(
 
   raise newException(ValidatorApiError,
                      "Unable to prepare sync committee subnet")
+
+proc getValidatorsActivity*(
+       vc: ValidatorClientRef, epoch: Epoch,
+       validators: seq[ValidatorIndex]
+     ): Future[GetValidatorsActivityResponse] {.async.} =
+  logScope: request = "getValidatorsActivity"
+  let resp = vc.onceToAll(RestPlainResponse, SlotDuration,
+                          getValidatorsActivity(it, epoch, validators))
+  case resp.status
+  of ApiOperation.Timeout:
+    debug "Unable to perform validator's activity request in time",
+          timeout = SlotDuration
+    return GetValidatorsActivityResponse()
+  of ApiOperation.Interrupt:
+    debug "Validator's activity request was interrupted"
+    return GetValidatorsActivityResponse()
+  of ApiOperation.Failure:
+    debug "Unexpected error happened while receiving validator's activity"
+    return GetValidatorsActivityResponse()
+  of ApiOperation.Success:
+    var activities: seq[RestActivityItem]
+    for apiResponse in resp.data:
+      if apiResponse.data.isErr():
+        debug "Unable to retrieve validators activity data",
+              endpoint = apiResponse.node, error = apiResponse.data.error()
+      else:
+        let
+          response = apiResponse.data.get()
+          activity =
+            block:
+              var default: seq[RestActivityItem]
+              case response.status
+              of 200:
+                let res = decodeBytes(GetValidatorsActivityResponse,
+                                      response.data, response.contentType)
+                if res.isOk():
+                  let list = res.get().data
+                  if len(list) != len(validators):
+                    debug "Received incomplete validators activity response",
+                          endpoint = apiResponse.node,
+                          validators_count = len(validators),
+                          activities_count = len(list)
+                    default
+                  else:
+                    let isOrdered =
+                      block:
+                        var res = true
+                        for index in 0 ..< len(validators):
+                          if list[index].index != validators[index]:
+                            res = false
+                            break
+                        res
+                    if not(isOrdered):
+                      debug "Received unordered validators activity response",
+                          endpoint = apiResponse.node,
+                          validators_count = len(validators),
+                          activities_count = len(list)
+                      default
+                    else:
+                      debug "Received validators activity response",
+                            endpoint = apiResponse.node,
+                            validators_count = len(validators),
+                            activities_count = len(list)
+                      list
+                else:
+                  debug "Received invalid/incomplete response",
+                        endpoint = apiResponse.node, error_message = res.error()
+                  apiResponse.node.status = RestBeaconNodeStatus.Incompatible
+                  default
+              of 400:
+                debug "Server reports invalid request",
+                      response_code = response.status,
+                      endpoint = apiResponse.node,
+                      response_error = response.getGenericErrorMessage()
+                apiResponse.node.status = RestBeaconNodeStatus.Incompatible
+                default
+              of 500:
+                debug "Server reports internal error",
+                      response_code = response.status,
+                      endpoint = apiResponse.node,
+                      response_error = response.getGenericErrorMessage()
+                apiResponse.node.status = RestBeaconNodeStatus.Offline
+                default
+              else:
+                debug "Server reports unexpected error code",
+                      response_code = response.status,
+                      endpoint = apiResponse.node,
+                      response_error = response.getGenericErrorMessage()
+                apiResponse.node.status = RestBeaconNodeStatus.Offline
+                default
+
+        if len(activity) > 0:
+          if len(activities) == 0:
+            activities = activity
+          else:
+            # If single node returns `active` it means that validator's
+            # activity was seen by this node, so result would be `active`.
+            for index in 0 ..< len(activities):
+              if activity[index].active:
+                activities[index].active = true
+    return GetValidatorsActivityResponse(data: activities)
