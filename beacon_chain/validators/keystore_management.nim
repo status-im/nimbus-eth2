@@ -38,6 +38,7 @@ const
   NetKeystoreFileName* = "network_keystore.json"
   FeeRecipientFilename* = "suggested_fee_recipient.hex"
   KeyNameSize* = 98 # 0x + hexadecimal key representation 96 characters.
+  MaxKeystoreFileSize* = 65536
 
 type
   WalletPathPair* = object
@@ -51,6 +52,8 @@ type
   AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
 
   KmResult*[T] = Result[T, cstring]
+
+  AnyKeystore* = RemoteKeystore | Keystore
 
   RemoveValidatorStatus* {.pure.} = enum
     deleted = "Deleted"
@@ -82,7 +85,7 @@ proc echoP*(msg: string) =
 
 func init*(T: type KeystoreData,
            privateKey: ValidatorPrivKey,
-           keystore: Keystore): T =
+           keystore: Keystore, handle: FileLockHandle): T {.raises: [Defect].} =
   KeystoreData(
     kind: KeystoreKind.Local,
     privateKey: privateKey,
@@ -90,35 +93,39 @@ func init*(T: type KeystoreData,
                  else: some(keystore.description[]),
     path: keystore.path,
     uuid: keystore.uuid,
+    handle: handle,
     version: uint64(keystore.version),
     pubkey: privateKey.toPubKey().toPubKey()
   )
 
-func init*(T: type KeystoreData,
-           keystore: RemoteKeystore): Result[T, cstring] =
+func init*(T: type KeystoreData, keystore: RemoteKeystore,
+           handle: FileLockHandle): Result[T, cstring] {.raises: [Defect].} =
   let cookedKey =
     block:
       let res = keystore.pubkey.load()
       if res.isNone():
         return err("Invalid validator's public key")
       res.get()
-  ok KeystoreData(
+  ok(KeystoreData(
     kind: KeystoreKind.Remote,
+    handle: handle,
     pubkey: cookedKey.toPubKey,
     description: keystore.description,
     version: keystore.version,
     remotes: keystore.remotes,
     threshold: keystore.threshold
-  )
+  ))
 
 func init*(T: type KeystoreData, cookedKey: CookedPubKey,
-           remotes: seq[RemoteSignerInfo], threshold: uint32): T =
+           remotes: seq[RemoteSignerInfo], threshold: uint32,
+           handle: FileLockHandle): T =
   KeystoreData(
     kind: KeystoreKind.Remote,
+    handle: handle,
     pubkey: cookedKey.toPubKey(),
     version: 2'u64,
     remotes: remotes,
-    threshold: threshold
+    threshold: threshold,
   )
 
 func init(T: type AddValidatorFailure, status: AddValidatorStatus,
@@ -339,38 +346,12 @@ proc keyboardGetPassword[T](prompt: string, attempts: int,
       dec(remainingAttempts)
   err("Failed to decrypt keystore")
 
-proc loadKeystoreFile*(path: string): KsResult[Keystore] {.
-     raises: [Defect].} =
-  try:
-    ok(Json.loadFile(path, Keystore))
-  except IOError as err:
-    return err("Could not read keystore file")
-  except SerializationError as err:
-    return err("Could not decode keystore file: " & err.formatMsg(path))
-
 proc loadSecretFile*(path: string): KsResult[KeystorePass] {.
      raises: [Defect].} =
-  try:
-    ok(KeystorePass.init(readFile(path)))
-  except IOError:
-    return err("Could not read password file")
-
-proc loadKeystoreUnsafe*(validatorsDir, secretsDir,
-                         keyName: string): KsResult[KeystoreData] =
-  ## Load keystore without any checks on keystore/secret permissions.
-  let
-    keystorePath = validatorsDir / keyName / KeystoreFileName
-    keystore = ? loadKeystoreFile(keystorePath)
-
-  let
-    passphrasePath = secretsDir / keyName
-    passphrase = ? loadSecretFile(passphrasePath)
-
-  let res = decryptKeystore(keystore, passphrase)
-  if res.isOk():
-    ok(KeystoreData.init(res.get(), keystore))
-  else:
-    err("Failed to decrypt keystore")
+  let res = readAllChars(path)
+  if res.isErr():
+    return err(ioErrorMsg(res.error()))
+  ok(KeystorePass.init(res.get()))
 
 proc loadRemoteKeystoreImpl(validatorsDir,
                             keyName: string): Option[KeystoreData] =
@@ -381,42 +362,84 @@ proc loadRemoteKeystoreImpl(validatorsDir,
           key_path = keystorePath
     return
 
-  let keyStore =
+  let handle =
     block:
-      let remoteKeystore =
-        try:
-          Json.loadFile(keystorePath, RemoteKeystore)
-        except IOError as err:
-          error "Failed to read remote keystore file", err = err.msg,
-                path = keystorePath
-          return
-        except SerializationError as e:
-          error "Invalid remote keystore file",
-                path = keystorePath,
-                err_msg = e.formatMsg(keystorePath)
-          return
-      let res = init(KeystoreData, remoteKeystore)
+      let res = openLockedFile(keystorePath)
       if res.isErr():
-        error "Invalid remote keystore file",
-              path = keystorePath
+        error "Unable to lock keystore file", key_path = keystorePath,
+              error_msg = ioErrorMsg(res.error())
         return
       res.get()
-  some(keyStore)
 
-proc loadKeystoreImpl(validatorsDir, secretsDir, keyName: string,
-                      nonInteractive: bool): Option[KeystoreData] =
+  var success = false
+  defer:
+    if not(success):
+      discard handle.closeLockedFile()
+
+  let keystore =
+    block:
+      let gres = handle.getData(MaxKeystoreFileSize)
+      if gres.isErr():
+        error "Could not read remote keystore file", key_path = keystorePath,
+              error_msg = ioErrorMsg(gres.error())
+        return
+      let buffer = gres.get()
+      let data =
+        try:
+          Json.decode(buffer, RemoteKeystore, requireAllFields = true,
+                      allowUnknownFields = true)
+        except SerializationError as e:
+          error "Invalid remote keystore file", key_path = keystorePath,
+                error_msg = e.formatMsg(keystorePath)
+          return
+      let kres = KeystoreData.init(data, handle)
+      if kres.isErr():
+        error "Invalid remote keystore file", key_path = keystorePath,
+              error_msg = kres.error()
+        return
+      kres.get()
+
+  success = true
+  some(keystore)
+
+proc loadLocalKeystoreImpl(validatorsDir, secretsDir, keyName: string,
+                           nonInteractive: bool): Option[KeystoreData] =
   let
     keystorePath = validatorsDir / keyName / KeystoreFileName
-    keystore =
+    passphrasePath = secretsDir / keyName
+    handle =
       block:
-        let res = loadKeystoreFile(keystorePath)
+        let res = openLockedFile(keystorePath)
         if res.isErr():
-          error "Failed to read keystore file", error = res.error(),
-                path = keystorePath
+          error "Unable to lock keystore file", key_path = keystorePath,
+                error_msg = ioErrorMsg(res.error())
           return
         res.get()
 
-  let passphrasePath = secretsDir / keyName
+  var success = false
+  defer:
+    if not(success):
+      discard handle.closeLockedFile()
+
+  let
+    keystore =
+      block:
+        let gres = handle.getData(MaxKeystoreFileSize)
+        if gres.isErr():
+          error "Could not read local keystore file", key_path = keystorePath,
+                error_msg = ioErrorMsg(gres.error())
+          return
+        let buffer = gres.get()
+        let data =
+          try:
+            Json.decode(buffer, Keystore, requireAllFields = true,
+                        allowUnknownFields = true)
+          except SerializationError as e:
+            error "Invalid local keystore file", key_path = keystorePath,
+                  error_msg = e.formatMsg(keystorePath)
+            return
+        data
+
   if fileExists(passphrasePath):
     if not(checkSensitiveFilePermissions(passphrasePath)):
       error "Password file has insecure permissions", key_path = keystorePath
@@ -426,21 +449,23 @@ proc loadKeystoreImpl(validatorsDir, secretsDir, keyName: string,
       block:
         let res = loadSecretFile(passphrasePath)
         if res.isErr():
-          error "Failed to read passphrase file", err = res.error(),
+          error "Failed to read passphrase file", error_msg = res.error(),
                 path = passphrasePath
           return
         res.get()
 
     let res = decryptKeystore(keystore, passphrase)
     if res.isOk():
-      return some(KeystoreData.init(res.get(), keystore))
+      return some(KeystoreData.init(res.get(), keystore, handle))
     else:
-      error "Failed to decrypt keystore", keystorePath, passphrasePath
+      error "Failed to decrypt keystore", key_path = keystorePath,
+            secure_path = passphrasePath
       return
 
   if nonInteractive:
-    error "Unable to load validator key store. Please ensure matching passphrase exists in the secrets dir",
-      keyName, validatorsDir, secretsDir = secretsDir
+    error "Unable to load validator key store. Please ensure matching " &
+          "passphrase exists in the secrets dir", key_path = keystorePath,
+          key_name = keyName, validatorsDir, secretsDir = secretsDir
     return
 
   let prompt = "Please enter passphrase for key \"" &
@@ -449,14 +474,16 @@ proc loadKeystoreImpl(validatorsDir, secretsDir, keyName: string,
     proc (password: string): KsResult[ValidatorPrivKey] =
       let decrypted = decryptKeystore(keystore, KeystorePass.init password)
       if decrypted.isErr():
-        error "Keystore decryption failed. Please try again", keystorePath
+        error "Keystore decryption failed. Please try again",
+              keystore_path = keystorePath
       decrypted
   )
 
-  if res.isOk():
-    some(KeystoreData.init(res.get(), keystore))
-  else:
+  if res.isErr():
     return
+
+  success = true
+  some(KeystoreData.init(res.get(), keystore, handle))
 
 proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
                    nonInteractive: bool): Option[KeystoreData] =
@@ -466,7 +493,7 @@ proc loadKeystore*(validatorsDir, secretsDir, keyName: string,
     remoteKeystorePath = keystorePath / RemoteKeystoreFileName
 
   if fileExists(localKeystorePath):
-    loadKeystoreImpl(validatorsDir, secretsDir, keyName, nonInteractive)
+    loadLocalKeystoreImpl(validatorsDir, secretsDir, keyName, nonInteractive)
   elif fileExists(remoteKeystorePath):
     loadRemoteKeystoreImpl(validatorsDir, keyName)
   else:
@@ -524,20 +551,24 @@ proc removeValidatorFiles*(validatorsDir, secretsDir, keyName: string,
 func fsName(pubkey: ValidatorPubKey|CookedPubKey): string =
   "0x" & pubkey.toHex()
 
-proc removeValidatorFiles*(conf: AnyConf, keyName: string,
-                           kind: KeystoreKind): KmResult[RemoveValidatorStatus]
-                          {.raises: [Defect].} =
+proc removeValidatorFiles*(
+       conf: AnyConf, keyName: string,
+       kind: KeystoreKind
+     ): KmResult[RemoveValidatorStatus] {.raises: [Defect].} =
   removeValidatorFiles(conf.validatorsDir(), conf.secretsDir(), keyName, kind)
 
 proc removeValidator*(pool: var ValidatorPool, conf: AnyConf,
                       publicKey: ValidatorPubKey,
-                      kind: KeystoreKind): KmResult[RemoveValidatorStatus]
-                     {.raises: [Defect].} =
+                      kind: KeystoreKind): KmResult[RemoveValidatorStatus] {.
+     raises: [Defect].} =
   let validator = pool.getValidator(publicKey)
   if isNil(validator):
     return ok(RemoveValidatorStatus.notFound)
   if validator.kind.toKeystoreKind() != kind:
     return ok(RemoveValidatorStatus.notFound)
+  let cres = validator.data.handle.closeLockedFile()
+  if cres.isErr():
+    return err("Could not unlock validator keystore file")
   let res = removeValidatorFiles(conf, publicKey.fsName, kind)
   if res.isErr():
     return err(res.error())
@@ -572,6 +603,50 @@ proc existsKeystore*(keystoreDir: string,
     if existsKeystore(keystoreDir, KeystoreKind.Remote):
       return true
   false
+
+iterator listLoadableKeys*(validatorsDir, secretsDir: string,
+                           keysMask: set[KeystoreKind]): CookedPubKey =
+  try:
+    for kind, file in walkDir(validatorsDir):
+      if kind == pcDir:
+        let
+          keyName = splitFile(file).name
+          keystoreDir = validatorsDir / keyName
+          keystoreFile = keystoreDir / KeystoreFileName
+
+        if not(checkKeyName(keyName)):
+          # Skip folders which name do not satisfy "0x[a-fA-F0-9]{96, 96}".
+          continue
+
+        if not(((KeystoreKind.Local in keysMask) and
+             fileExists(keystoreDir / KeystoreFileName)) or
+           ((KeystoreKind.Remote in keysMask) and
+             fileExists(keystoreDir / RemoteKeystoreFileName))):
+          # Skip folder which do not satisfy `keysMask`.
+          continue
+
+        let publicKey =
+          block:
+            let res = ValidatorPubKey.fromHex(keyName)
+            if res.isErr():
+              # Skip folders which could not be decoded to ValidatorPubKey.
+              continue
+            res.get()
+
+        let cookedKey =
+          block:
+            let res = publicKey.load()
+            if res.isNone():
+              # Skip folders which has invalid ValidatorPubKey.
+              continue
+            res.get()
+
+        yield cookedKey
+
+  except OSError as err:
+    error "Validator keystores directory not accessible",
+          path = validatorsDir, err = err.msg
+    quit 1
 
 iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
                                 nonInteractive: bool,
@@ -715,10 +790,11 @@ proc saveNetKeystore*(rng: var HmacDrbgContext, keystorePath: string,
           key_path = keystorePath
     res.mapErrTo(FailedToCreateKeystoreFile)
 
-proc createValidatorFiles*(secretsDir, validatorsDir, keystoreDir, secretFile,
-                           passwordAsString, keystoreFile,
-                           encodedStorage: string
-                          ): Result[void, KeystoreGenerationError] =
+proc createLocalValidatorFiles*(
+       secretsDir, validatorsDir, keystoreDir,
+       secretFile, passwordAsString, keystoreFile,
+       encodedStorage: string
+     ): Result[void, KeystoreGenerationError] {.raises: [Defect].} =
 
   var
     success = false # becomes true when everything is created successfully
@@ -730,7 +806,7 @@ proc createValidatorFiles*(secretsDir, validatorsDir, keystoreDir, secretFile,
   if not(secretsDirExisted):
     ? secureCreatePath(secretsDir).mapErrTo(FailedToCreateSecretsDir)
   defer:
-     if not (success or secretsDirExisted):
+    if not (success or secretsDirExisted):
       discard io2.removeDir(secretsDir)
 
   # validatorsDir:
@@ -738,7 +814,7 @@ proc createValidatorFiles*(secretsDir, validatorsDir, keystoreDir, secretFile,
   if not(validatorsDirExisted):
     ? secureCreatePath(validatorsDir).mapErrTo(FailedToCreateValidatorsDir)
   defer:
-     if not (success or validatorsDirExisted):
+    if not (success or validatorsDirExisted):
       discard io2.removeDir(validatorsDir)
 
   # keystoreDir:
@@ -761,9 +837,57 @@ proc createValidatorFiles*(secretsDir, validatorsDir, keystoreDir, secretFile,
   success = true
   ok()
 
-proc createValidatorFiles*(validatorsDir, keystoreDir, keystoreFile,
-                           encodedStorage: string
-                          ): Result[void, KeystoreGenerationError] =
+proc createLockedLocalValidatorFiles*(
+       secretsDir, validatorsDir, keystoreDir,
+       secretFile, passwordAsString, keystoreFile,
+       encodedStorage: string
+     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
+
+  var
+    success = false # becomes true when everything is created successfully
+    cleanupSecretsDir = true # becomes false if secretsDir already existed
+    cleanupValidatorsDir = true # becomes false if validatorsDir already existed
+
+  # secretsDir:
+  let secretsDirExisted: bool = dirExists(secretsDir)
+  if not(secretsDirExisted):
+    ? secureCreatePath(secretsDir).mapErrTo(FailedToCreateSecretsDir)
+  defer:
+    if not (success or secretsDirExisted):
+      discard io2.removeDir(secretsDir)
+
+  # validatorsDir:
+  let validatorsDirExisted: bool = dirExists(validatorsDir)
+  if not(validatorsDirExisted):
+    ? secureCreatePath(validatorsDir).mapErrTo(FailedToCreateValidatorsDir)
+  defer:
+    if not (success or validatorsDirExisted):
+      discard io2.removeDir(validatorsDir)
+
+  # keystoreDir:
+  ? secureCreatePath(keystoreDir).mapErrTo(FailedToCreateKeystoreDir)
+  defer:
+    if not success:
+      discard io2.removeDir(keystoreDir)
+
+  # secretFile:
+  ? secureWriteFile(secretFile,
+                    passwordAsString).mapErrTo(FailedToCreateSecretFile)
+  defer:
+    if not success:
+      discard io2.removeFile(secretFile)
+
+  # keystoreFile:
+  let lock =
+    ? secureWriteLockedFile(keystoreFile,
+                            encodedStorage).mapErrTo(FailedToCreateKeystoreFile)
+
+  success = true
+  ok(lock)
+
+proc createRemoteValidatorFiles*(
+       validatorsDir, keystoreDir, keystoreFile, encodedStorage: string
+     ): Result[void, KeystoreGenerationError] {.raises: [Defect].} =
   var
     success = false  # becomes true when everything is created successfully
 
@@ -787,13 +911,41 @@ proc createValidatorFiles*(validatorsDir, keystoreDir, keystoreFile,
   success = true
   ok()
 
-proc saveKeystore*(rng: var HmacDrbgContext,
-                   validatorsDir, secretsDir: string,
-                   signingKey: ValidatorPrivKey,
-                   signingPubKey: CookedPubKey,
-                   signingKeyPath: KeyPath,
-                   password: string,
-                   mode = Secure): Result[void, KeystoreGenerationError] =
+proc createLockedRemoteValidatorFiles*(
+       validatorsDir, keystoreDir, keystoreFile, encodedStorage: string
+     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
+  var
+    success = false  # becomes true when everything is created successfully
+
+  # validatorsDir:
+  let validatorsDirExisted: bool = dirExists(validatorsDir)
+  if not(validatorsDirExisted):
+    ? secureCreatePath(validatorsDir).mapErrTo(FailedToCreateValidatorsDir)
+  defer:
+     if not (success or validatorsDirExisted):
+       discard io2.removeDir(validatorsDir)
+
+  # keystoreDir:
+  ? secureCreatePath(keystoreDir).mapErrTo(FailedToCreateKeystoreDir)
+  defer:
+    if not success:
+      discard io2.removeDir(keystoreDir)
+
+  # keystoreFile:
+  let lock = ? secureWriteLockedFile(
+              keystoreFile, encodedStorage).mapErrTo(FailedToCreateKeystoreFile)
+  success = true
+  ok(lock)
+
+proc saveKeystore*(
+       rng: var HmacDrbgContext,
+       validatorsDir, secretsDir: string,
+       signingKey: ValidatorPrivKey,
+       signingPubKey: CookedPubKey,
+       signingKeyPath: KeyPath,
+       password: string,
+       mode = Secure
+     ): Result[void, KeystoreGenerationError] {.raises: [Defect].} =
   let
     keypass = KeystorePass.init(password)
     keyName = signingPubKey.fsName
@@ -811,29 +963,70 @@ proc saveKeystore*(rng: var HmacDrbgContext,
                                 keypass, signingKeyPath,
                                 mode = mode)
 
-  var encodedStorage: string
-  try:
-    encodedStorage = Json.encode(keyStore)
-  except SerializationError as e:
-    error "Could not serialize keystorage", key_path = keystoreFile
-    return err(KeystoreGenerationError(
-      kind: FailedToCreateKeystoreFile, error: e.msg))
+  let encodedStorage =
+    try:
+      Json.encode(keyStore)
+    except SerializationError as e:
+      error "Could not serialize keystorage", key_path = keystoreFile
+      return err(KeystoreGenerationError(
+        kind: FailedToCreateKeystoreFile, error: e.msg))
 
-  ? createValidatorFiles(secretsDir, validatorsDir,
-                         keystoreDir,
-                         secretsDir / keyName, keypass.str,
-                         keystoreFile, encodedStorage)
-
+  ? createLocalValidatorFiles(secretsDir, validatorsDir,
+                              keystoreDir,
+                              secretsDir / keyName, keypass.str,
+                              keystoreFile, encodedStorage)
   ok()
 
-proc saveKeystore*(validatorsDir: string,
-                   publicKey: ValidatorPubKey,
-                   urls: seq[RemoteSignerInfo],
-                   threshold: uint32,
-                   flags: set[RemoteKeystoreFlag] = {},
-                   remoteType = RemoteSignerType.Web3Signer,
-                   desc = ""): Result[void, KeystoreGenerationError]
-                  {.raises: [Defect].} =
+proc saveLockedKeystore*(
+       rng: var HmacDrbgContext,
+       validatorsDir, secretsDir: string,
+       signingKey: ValidatorPrivKey,
+       signingPubKey: CookedPubKey,
+       signingKeyPath: KeyPath,
+       password: string,
+       mode = Secure
+     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
+  let
+    keypass = KeystorePass.init(password)
+    keyName = signingPubKey.fsName
+    keystoreDir = validatorsDir / keyName
+    keystoreFile = keystoreDir / KeystoreFileName
+
+  if dirExists(keystoreDir):
+    return err(KeystoreGenerationError(kind: DuplicateKeystoreDir,
+      error: "Keystore directory already exists"))
+  if fileExists(keystoreFile):
+    return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
+      error: "Keystore file already exists"))
+
+  let keyStore = createKeystore(kdfPbkdf2, rng, signingKey,
+                                keypass, signingKeyPath,
+                                mode = mode)
+
+  let encodedStorage =
+    try:
+      Json.encode(keyStore)
+    except SerializationError as e:
+      error "Could not serialize keystorage", key_path = keystoreFile
+      return err(KeystoreGenerationError(
+        kind: FailedToCreateKeystoreFile, error: e.msg))
+
+  let lock = ? createLockedLocalValidatorFiles(secretsDir, validatorsDir,
+                                               keystoreDir,
+                                               secretsDir / keyName,
+                                               keypass.str,
+                                               keystoreFile, encodedStorage)
+  ok(lock)
+
+proc saveKeystore*(
+       validatorsDir: string,
+       publicKey: ValidatorPubKey,
+       urls: seq[RemoteSignerInfo],
+       threshold: uint32,
+       flags: set[RemoteKeystoreFlag] = {},
+       remoteType = RemoteSignerType.Web3Signer,
+       desc = ""
+     ): Result[void, KeystoreGenerationError] {.raises: [Defect].} =
   let
     keyName = publicKey.fsName
     keystoreDir = validatorsDir / keyName
@@ -863,27 +1056,90 @@ proc saveKeystore*(validatorsDir: string,
       return err(KeystoreGenerationError(
         kind: FailedToCreateKeystoreFile, error: exc.msg))
 
-  ? createValidatorFiles(validatorsDir, keystoreDir, keystoreFile,
-                         encodedStorage)
+  ? createRemoteValidatorFiles(validatorsDir, keystoreDir, keystoreFile,
+                               encodedStorage)
   ok()
 
-proc saveKeystore*(validatorsDir: string,
-                   publicKey: ValidatorPubKey,
-                   url:  HttpHostUri): Result[void, KeystoreGenerationError]
-                  {.raises: [Defect].} =
+proc saveLockedKeystore*(
+       validatorsDir: string,
+       publicKey: ValidatorPubKey,
+       urls: seq[RemoteSignerInfo],
+       threshold: uint32,
+       flags: set[RemoteKeystoreFlag] = {},
+       remoteType = RemoteSignerType.Web3Signer,
+       desc = ""
+     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
+  let
+    keyName = publicKey.fsName
+    keystoreDir = validatorsDir / keyName
+    keystoreFile = keystoreDir / RemoteKeystoreFileName
+    keystoreDesc = if len(desc) == 0: none[string]() else: some(desc)
+    keyStore = RemoteKeystore(
+      version: 2'u64,
+      description: keystoreDesc,
+      remoteType: remoteType,
+      pubkey: publicKey,
+      threshold: threshold,
+      remotes: urls,
+      flags: flags)
+
+  if dirExists(keystoreDir):
+    return err(KeystoreGenerationError(kind: DuplicateKeystoreDir,
+      error: "Keystore directory already exists"))
+  if fileExists(keystoreFile):
+    return err(KeystoreGenerationError(kind: DuplicateKeystoreFile,
+      error: "Keystore file already exists"))
+
+  let encodedStorage =
+    try:
+      Json.encode(keyStore)
+    except SerializationError as exc:
+      error "Could not serialize keystorage", key_path = keystoreFile
+      return err(KeystoreGenerationError(
+        kind: FailedToCreateKeystoreFile, error: exc.msg))
+
+  let lock = ? createLockedRemoteValidatorFiles(validatorsDir, keystoreDir,
+                                                keystoreFile, encodedStorage)
+  ok(lock)
+
+proc saveKeystore*(
+       validatorsDir: string,
+       publicKey: ValidatorPubKey,
+       url:  HttpHostUri
+     ): Result[void, KeystoreGenerationError] {.raises: [Defect].} =
   let remoteInfo = RemoteSignerInfo(url: url, id: 0)
   saveKeystore(validatorsDir, publicKey, @[remoteInfo], 1)
 
-proc saveKeystore*(conf: AnyConf,
-                   publicKey: ValidatorPubKey,
-                   remotes: seq[RemoteSignerInfo],
-                   threshold: uint32,
-                   flags: set[RemoteKeystoreFlag] = {},
-                   remoteType = RemoteSignerType.Web3Signer,
-                   desc = ""): Result[void, KeystoreGenerationError]
-                  {.raises: [Defect].} =
-  saveKeystore(
-    conf.validatorsDir(),
+proc saveLockedKeystore*(
+       validatorsDir: string,
+       publicKey: ValidatorPubKey,
+       url:  HttpHostUri
+     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
+  let remoteInfo = RemoteSignerInfo(url: url, id: 0)
+  saveLockedKeystore(validatorsDir, publicKey, @[remoteInfo], 1)
+
+proc saveKeystore*(
+       conf: AnyConf,
+       publicKey: ValidatorPubKey,
+       remotes: seq[RemoteSignerInfo],
+       threshold: uint32,
+       flags: set[RemoteKeystoreFlag] = {},
+       remoteType = RemoteSignerType.Web3Signer,
+       desc = ""
+     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
+  saveKeystore(conf.validatorsDir(),
+    publicKey, remotes, threshold, flags, remoteType, desc)
+
+proc saveLockedKeystore*(
+       conf: AnyConf,
+       publicKey: ValidatorPubKey,
+       remotes: seq[RemoteSignerInfo],
+       threshold: uint32,
+       flags: set[RemoteKeystoreFlag] = {},
+       remoteType = RemoteSignerType.Web3Signer,
+       desc = ""
+     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
+  saveLockedKeystore(conf.validatorsDir(),
     publicKey, remotes, threshold, flags, remoteType, desc)
 
 proc importKeystore*(pool: var ValidatorPool, conf: AnyConf,
@@ -914,11 +1170,13 @@ proc importKeystore*(pool: var ValidatorPool, conf: AnyConf,
   if existsKeystore(keystoreDir, {KeystoreKind.Local, KeystoreKind.Remote}):
     return err(AddValidatorFailure.init(AddValidatorStatus.existingArtifacts))
 
-  let res = saveKeystore(conf, publicKey, keystore.remotes, keystore.threshold)
+  let res = saveLockedKeystore(conf, publicKey, keystore.remotes,
+                               keystore.threshold)
   if res.isErr():
     return err(AddValidatorFailure.init(AddValidatorStatus.failed,
                                         $res.error()))
-  ok(KeystoreData.init(cookedKey, keystore.remotes, keystore.threshold))
+  ok(KeystoreData.init(cookedKey, keystore.remotes, keystore.threshold,
+                       res.get()))
 
 proc importKeystore*(pool: var ValidatorPool,
                      rng: var HmacDrbgContext,
@@ -951,14 +1209,14 @@ proc importKeystore*(pool: var ValidatorPool,
   if existsKeystore(keystoreDir, {KeystoreKind.Local, KeystoreKind.Remote}):
     return err(AddValidatorFailure.init(AddValidatorStatus.existingArtifacts))
 
-  let res = saveKeystore(rng, validatorsDir, secretsDir,
-                         privateKey, publicKey, keystore.path, password)
+  let res = saveLockedKeystore(rng, validatorsDir, secretsDir,
+                               privateKey, publicKey, keystore.path, password)
 
   if res.isErr():
     return err(AddValidatorFailure.init(AddValidatorStatus.failed,
                                         $res.error()))
 
-  ok(KeystoreData.init(privateKey, keystore))
+  ok(KeystoreData.init(privateKey, keystore, res.get()))
 
 proc generateDistirbutedStore*(rng: var HmacDrbgContext,
                                shares: seq[SecretShare],

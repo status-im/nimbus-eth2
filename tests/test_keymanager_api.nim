@@ -199,38 +199,54 @@ const
   secretNetBytes = hexToSeqByte "08021220fe442379443d6e2d7d75d3a58f96fbb35f0a9c7217796825fc9040e3b89c5736"
 
 proc listLocalValidators(validatorsDir,
-                         secretsDir: string): seq[KeystoreInfo] {.
+                         secretsDir: string): seq[ValidatorPubKey] {.
      raises: [Defect].} =
-  var validators: seq[KeystoreInfo]
-
+  var validators: seq[ValidatorPubKey]
   try:
-    for el in listLoadableKeystores(validatorsDir, secretsDir, true,
-                                    {KeystoreKind.Local}):
-      validators.add KeystoreInfo(validating_pubkey: el.pubkey,
-                                  derivation_path: el.path.string,
-                                  readonly: false)
+    for el in listLoadableKeys(validatorsDir, secretsDir,
+                               {KeystoreKind.Local}):
+      validators.add el.toPubKey()
   except OSError as err:
     error "Failure to list the validator directories",
           validatorsDir, secretsDir, err = err.msg
-
   validators
 
 proc listRemoteValidators(validatorsDir,
-                          secretsDir: string): seq[RemoteKeystoreInfo] {.
+                          secretsDir: string): seq[ValidatorPubKey] {.
      raises: [Defect].} =
-  var validators: seq[RemoteKeystoreInfo]
-
+  var validators: seq[ValidatorPubKey]
   try:
-    for el in listLoadableKeystores(validatorsDir, secretsDir, true,
-                                    {KeystoreKind.Remote}):
-      validators.add RemoteKeystoreInfo(pubkey: el.pubkey,
-                                        url: el.remotes[0].url)
-
+    for el in listLoadableKeys(validatorsDir, secretsDir,
+                               {KeystoreKind.Remote}):
+      validators.add el.toPubKey()
   except OSError as err:
     error "Failure to list the validator directories",
           validatorsDir, secretsDir, err = err.msg
-
   validators
+
+proc `==`(a: seq[ValidatorPubKey],
+          b: seq[KeystoreInfo | RemoteKeystoreInfo]): bool =
+  if len(a) != len(b):
+    return false
+  var indices: seq[int]
+  for publicKey in a:
+    let index =
+      block:
+        var res = -1
+        for k, v in b.pairs():
+          let key =
+            when b is seq[KeystoreInfo]:
+              v.validating_pubkey
+            else:
+              v.pubkey
+          if key == publicKey:
+            res = k
+            break
+        res
+    if (index == -1) or (index in indices):
+      return false
+    indices.add(index)
+  true
 
 proc runTests {.async.} =
   while bnStatus != BeaconNodeStatus.Running:
@@ -301,9 +317,9 @@ proc runTests {.async.} =
           let key = ValidatorPubKey.fromHex(item).tryGet()
           res.add(RemoteKeystoreInfo(pubkey: key, url: newPublicKeysUrl))
         # Adding non-remote keys which are already present in filesystem
-        res.add(RemoteKeystoreInfo(pubkey: localList[0].validating_pubkey,
+        res.add(RemoteKeystoreInfo(pubkey: localList[0],
                                    url: newPublicKeysUrl))
-        res.add(RemoteKeystoreInfo(pubkey: localList[1].validating_pubkey,
+        res.add(RemoteKeystoreInfo(pubkey: localList[1],
                                    url: newPublicKeysUrl))
         ImportRemoteKeystoresBody(remote_keys: res)
 
@@ -338,8 +354,8 @@ proc runTests {.async.} =
           pubkeys: @[
             ValidatorPubKey.fromHex(oldPublicKeys[0]).tryGet(),
             ValidatorPubKey.fromHex(oldPublicKeys[1]).tryGet(),
-            localList[0].validating_pubkey,
-            localList[1].validating_pubkey
+            localList[0],
+            localList[1]
           ]
         )
 
@@ -546,11 +562,11 @@ proc runTests {.async.} =
   suite "ListKeys requests" & preset():
     asyncTest "Correct token provided" & preset():
       let
-        filesystemKeystores = sorted(
+        filesystemKeys = sorted(
           listLocalValidators(validatorsDir, secretsDir))
         apiKeystores = sorted((await client.listKeys(correctTokenValue)).data)
 
-      check filesystemKeystores == apiKeystores
+      check filesystemKeys == apiKeystores
 
     asyncTest "Missing Authorization header" & preset():
       let
@@ -599,20 +615,20 @@ proc runTests {.async.} =
           responseJson1["data"][i]["message"].getStr() == ""
 
       let
-        filesystemKeystores1 = sorted(
+        filesystemKeys1 = sorted(
           listLocalValidators(validatorsDir, secretsDir))
         apiKeystores1 = sorted((await client.listKeys(correctTokenValue)).data)
 
       check:
-        filesystemKeystores1 == apiKeystores1
-        importKeystoresBody1.keystores[0].pubkey in filesystemKeystores1
-        importKeystoresBody1.keystores[1].pubkey in filesystemKeystores1
-        importKeystoresBody1.keystores[2].pubkey in filesystemKeystores1
-        importKeystoresBody1.keystores[3].pubkey in filesystemKeystores1
-        importKeystoresBody1.keystores[4].pubkey in filesystemKeystores1
-        importKeystoresBody1.keystores[5].pubkey in filesystemKeystores1
-        importKeystoresBody1.keystores[6].pubkey in filesystemKeystores1
-        importKeystoresBody1.keystores[7].pubkey in filesystemKeystores1
+        filesystemKeys1 == apiKeystores1
+        importKeystoresBody1.keystores[0].pubkey in filesystemKeys1
+        importKeystoresBody1.keystores[1].pubkey in filesystemKeys1
+        importKeystoresBody1.keystores[2].pubkey in filesystemKeys1
+        importKeystoresBody1.keystores[3].pubkey in filesystemKeys1
+        importKeystoresBody1.keystores[4].pubkey in filesystemKeys1
+        importKeystoresBody1.keystores[5].pubkey in filesystemKeys1
+        importKeystoresBody1.keystores[6].pubkey in filesystemKeys1
+        importKeystoresBody1.keystores[7].pubkey in filesystemKeys1
 
       let
         response2 = await client.importKeystoresPlain(
@@ -639,20 +655,20 @@ proc runTests {.async.} =
           responseJson3["data"][i]["message"].getStr() == ""
 
       let
-        filesystemKeystores2 = sorted(
+        filesystemKeys2 = sorted(
           listLocalValidators(validatorsDir, secretsDir))
         apiKeystores2 = sorted((await client.listKeys(correctTokenValue)).data)
 
       check:
-        filesystemKeystores2 == apiKeystores2
-        deleteKeysBody1.pubkeys[0] notin filesystemKeystores2
-        deleteKeysBody1.pubkeys[1] notin filesystemKeystores2
-        deleteKeysBody1.pubkeys[2] notin filesystemKeystores2
-        deleteKeysBody1.pubkeys[3] notin filesystemKeystores2
-        deleteKeysBody1.pubkeys[4] notin filesystemKeystores2
-        deleteKeysBody1.pubkeys[5] notin filesystemKeystores2
-        deleteKeysBody1.pubkeys[6] notin filesystemKeystores2
-        deleteKeysBody1.pubkeys[7] notin filesystemKeystores2
+        filesystemKeys2 == apiKeystores2
+        deleteKeysBody1.pubkeys[0] notin filesystemKeys2
+        deleteKeysBody1.pubkeys[1] notin filesystemKeys2
+        deleteKeysBody1.pubkeys[2] notin filesystemKeys2
+        deleteKeysBody1.pubkeys[3] notin filesystemKeys2
+        deleteKeysBody1.pubkeys[4] notin filesystemKeys2
+        deleteKeysBody1.pubkeys[5] notin filesystemKeys2
+        deleteKeysBody1.pubkeys[6] notin filesystemKeys2
+        deleteKeysBody1.pubkeys[7] notin filesystemKeys2
 
     asyncTest "Missing Authorization header" & preset():
       let
@@ -732,12 +748,12 @@ proc runTests {.async.} =
   suite "ListRemoteKeys requests" & preset():
     asyncTest "Correct token provided" & preset():
       let
-        filesystemKeystores = sorted(
+        filesystemKeys = sorted(
           listRemoteValidators(validatorsDir, secretsDir))
         apiKeystores = sorted((
           await client.listRemoteKeys(correctTokenValue)).data)
 
-      check filesystemKeystores == apiKeystores
+      check filesystemKeys == apiKeystores
 
     asyncTest "Missing Authorization header" & preset():
       let
@@ -953,21 +969,21 @@ proc runTests {.async.} =
           responseJson1["data"][i]["message"].getStr() == ""
 
       let
-        filesystemKeystores1 = sorted(
+        filesystemKeys1 = sorted(
           listRemoteValidators(validatorsDir, secretsDir))
         apiKeystores1 = sorted((
           await client.listRemoteKeys(correctTokenValue)).data)
 
       check:
-        filesystemKeystores1 == apiKeystores1
+        filesystemKeys1 == apiKeystores1
 
       for item in newPublicKeys:
         let key = ValidatorPubKey.fromHex(item).tryGet()
         let found =
           block:
             var res = false
-            for keystore in filesystemKeystores1:
-              if keystore.pubkey == key:
+            for keystore in filesystemKeys1:
+              if keystore == key:
                 res = true
                 break
             res
@@ -991,16 +1007,16 @@ proc runTests {.async.} =
         responseJson2["data"][7]["status"].getStr() == "deleted"
 
       let
-        filesystemKeystores2 = sorted(
+        filesystemKeys2 = sorted(
           listRemoteValidators(validatorsDir, secretsDir))
         apiKeystores2 = sorted((
           await client.listRemoteKeys(correctTokenValue)).data)
 
       check:
-        filesystemKeystores2 == apiKeystores2
+        filesystemKeys2 == apiKeystores2
 
-      for keystore in filesystemKeystores2:
-        let key = "0x" & keystore.pubkey.toHex()
+      for keystore in filesystemKeys2:
+        let key = "0x" & keystore.toHex()
         check:
           key notin newPublicKeys
 

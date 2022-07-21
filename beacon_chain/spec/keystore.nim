@@ -17,14 +17,14 @@ import
   # Third-party libraries
   normalize,
   # Status libraries
-  stew/[results, bitops2, base10], stew/shims/macros,
+  stew/[results, bitops2, base10, io2], stew/shims/macros,
   eth/keyfile/uuid, blscurve, json_serialization,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
   ./datatypes/base,  ./signatures
 
-export base, uri
+export base, uri, io2
 
 # We use `ncrutils` for constant-time hexadecimal encoding/decoding procedures.
 import nimcrypto/utils as ncrutils
@@ -140,10 +140,15 @@ type
     id*: uint32
     pubkey*: ValidatorPubKey
 
+  FileLockHandle* = ref object
+    ioHandle*: IoLockHandle
+    opened*: bool
+
   KeystoreData* = object
     version*: uint64
     pubkey*: ValidatorPubKey
     description*: Option[string]
+    handle*: FileLockHandle
     case kind*: KeystoreKind
     of KeystoreKind.Local:
       privateKey*: ValidatorPrivKey

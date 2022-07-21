@@ -20,6 +20,7 @@ import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/[rest_types, eth2_rest_serialization,
                      rest_remote_signer_calls],
+  ../filepath,
   ./slashing_protection
 
 export
@@ -145,6 +146,14 @@ proc updateValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey,
   if pool.validators.pop(pubkey, v):
     v.index = some(index)
     pool.validators[pubkey] = v
+
+proc close*(pool: var ValidatorPool) =
+  ## Unlock and close all validator keystore's files managed by ``pool``.
+  for validator in pool.validators.values():
+    let res = validator.data.handle.closeLockedFile()
+    if res.isErr():
+      notice "Could not unlock validator's keystore file",
+             pubkey = validator.pubkey, validator = shortLog(validator)
 
 iterator publicKeys*(pool: ValidatorPool): ValidatorPubKey =
   for item in pool.validators.keys():
