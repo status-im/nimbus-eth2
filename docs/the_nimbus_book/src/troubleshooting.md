@@ -85,7 +85,7 @@ If, on start,  you see `The command 'noCommand' does not accept arguments`
 Double check to see if your command line flags are in the correct format, i.e. `--foo=bar`, `--baz`, or `--foo-bar=qux`.
 
 ```admonish tip
-Ever option that takes a value needs a `=` between the option name and the value!
+All options accepting values need a `=` between the option name and the value!
 ```
 
 ### Address already in use error
