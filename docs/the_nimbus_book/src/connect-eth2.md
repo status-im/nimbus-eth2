@@ -7,14 +7,14 @@ Once your keys have been [imported](./keys.md), it is time to restart the beacon
 Press `Ctrl-c` to stop the beacon node if it's running, then use the same command as before to run it again:
 
 === "Mainnet"
-  ```sh
-  ./run-mainnet-beacon-node.sh
-  ```
+    ```sh
+    ./run-mainnet-beacon-node.sh
+    ```
 
 === "Prater"
-  ```sh
-  ./run-prater-beacon-node.sh
-  ```
+    ```sh
+    ./run-prater-beacon-node.sh
+    ```
 
 ## Check the logs
 

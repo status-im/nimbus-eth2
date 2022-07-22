@@ -5,7 +5,9 @@ theme:
   name: material
   features:
     - navigation.expand
+    - navigation.tabs
     - navigation.top
+    - content.tabs.link
   palette:
     scheme: default
     primary: orange
@@ -20,6 +22,7 @@ docs_dir: src
 
 markdown_extensions:
   - admonition
+  - meta
   - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true
@@ -28,9 +31,10 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
+  - tables
 
 nav:
-  - Summary:
+  - About:
     - 'philosophy.md'
     - 'hardware.md'
     - 'preparation.md'
@@ -43,49 +47,50 @@ nav:
   - Downloads:
     - 'binaries.md'
     - 'docker.md'
-
-  - How-to (beacon node):
-    - 'install.md'
-    - 'build.md'
-    - 'start-syncing.md'
-    - 'trusted-node-sync.md'
-    - 'web3-backup.md'
-
-  - How-to (validator):
-    - 'deposit.md'
-    - 'keys.md'
-    - 'connect-eth2.md'
-    - 'graffiti.md'
-    - 'suggested-fee-recipient.md'
-    - 'keep-an-eye.md'
-    - 'voluntary-exit.md'
-    - 'validator-monitor.md'
-    - 'more-keys.md'
-    - 'additional-validator.md'
-    - 'validator-client.md'
-
-  - How-to (misc):
-    - 'keep-updated.md'
-    - 'eth1.md'
-    - 'goerli-eth.md'
-    - 'beacon-node-systemd.md'
-    - 'log-rotate.md'
     - 'checksums.md'
-    - 'database-backup.md'
-    - 'logging.md'
-    - 'email-notifications.md'
-    - 'profits.md'
-    - 'health.md'
-    - 'networking.md'
-    - 'prater.md'
-    - 'kiln.md'
+
+  - How-to:
+    - Beacon node:
+      - 'install.md'
+      - 'build.md'
+      - 'start-syncing.md'
+      - 'trusted-node-sync.md'
+      - 'networking.md'
+      - 'web3-backup.md'
+
+    - Validator:
+      - 'deposit.md'
+      - 'keys.md'
+      - 'connect-eth2.md'
+      - 'graffiti.md'
+      - 'suggested-fee-recipient.md'
+      - 'keep-an-eye.md'
+      - 'voluntary-exit.md'
+      - 'validator-monitor.md'
+      - 'more-keys.md'
+      - 'additional-validator.md'
+      - 'validator-client.md'
+
+    - General:
+      - 'keep-updated.md'
+      - 'eth1.md'
+      - 'goerli-eth.md'
+      - 'beacon-node-systemd.md'
+      - 'logging.md'
+      - 'log-rotate.md'
+      - 'database-backup.md'
+      - 'email-notifications.md'
+      - 'profits.md'
+      - 'health.md'
+      - 'prater.md'
+      - 'kiln.md'
 
   - Guides:
-    - 'metrics-pretty-pictures.md'
-    - 'infura-guide.md'
     - 'migration.md'
+    - 'metrics-pretty-pictures.md'
     - 'pi-guide.md'
     - 'attestation-performance.md'
+    - 'infura-guide.md'
 
   - Security:
     - 'security_issues.md'
@@ -93,9 +98,9 @@ nav:
     - 'distribution_internals.md'
 
   - Reference:
+    - 'options.md'
     - 'rest-api.md'
     - 'keymanager-api.md'
-    - 'options.md'
     - 'data-dir.md'
     - 'migration-options.md'
     - 'troubleshooting.md'

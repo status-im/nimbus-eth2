@@ -1,4 +1,4 @@
-# Supplying your own Infura endpoint
+# Setting up an infura account
 
 > ⚠️ After The Merge, you will need to run your own [execution client](./eth1.md).
 

@@ -2,10 +2,10 @@
 
 The best way to keep track of your validator's status is using the `beaconcha.in` explorer (click on the orange magnifying glass at the very top and paste in your validator's public key):
 
- - **Testnet:** [prater.beaconcha.in](https://prater.beaconcha.in)
  - **Mainnet:** [beaconcha.in](https://beaconcha.in/)
+ - **Testnet:** [prater.beaconcha.in](https://prater.beaconcha.in)
 
-If you deposit after the [genesis](https://hackmd.io/@benjaminion/genesis) state was decided, your validator(s) will be put in a queue based on deposit time, and will slowly be inducted into the validator set after genesis. Getting through the queue may take a few hours or a day or so.
+When you make a deposit, your validator(s) will be put in a queue based on deposit time, and will slowly be inducted into the validator set. Getting through the queue may take up to a few days, depending on the length of the deposit queue.
 
 You can even create an account ([testnet link](https://prater.beaconcha.in/register), [mainnet link](https://beaconcha.in/register)) to add alerts and keep track of your validator's performance ([testnet link](https://prater.beaconcha.in/dashboard), [mainnet link](https://beaconcha.in/dashboard)).
 
@@ -32,6 +32,7 @@ INF 2022-06-16 13:23:11.008+02:00 Slot start
 ```
 
 Where:
+
 - `slot` is the current time on the beacon chain, measured in "slots"
 - `epoch` shows the current epoch - each epoch has 32 slots, and each validator performs one attestation per epoch
 - `peers` tells you how many peers you're currently connected to - depending on the number of attached validators, you may need anywhere from 10 to 60 peers connected
@@ -51,4 +52,5 @@ The string of letters -- what we call the `sync worker map` (in the above case r
     U - updating peer's status information
 ```
 
-> **Note:** You can also use you calls outlined in the [REST API page](./rest-api.md) to retrieve similar information.
+!!! tip
+    You can also use you calls outlined in the [REST API page](./rest-api.md) to retrieve similar information.

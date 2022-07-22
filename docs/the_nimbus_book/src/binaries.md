@@ -1,4 +1,4 @@
-# Nimbus binaries
+# Binaries
 
 Binary releases can be downloaded from [https://github.com/status-im/nimbus-eth2/releases/latest](https://github.com/status-im/nimbus-eth2/releases/latest).
 
@@ -8,7 +8,7 @@ We currently have binaries available for Linux `AMD64`, `ARM` and `ARM64`, Windo
 
 The binaries are available at the bottom of the page under `Assets`. You should see a list that looks like the following:
 
-![](https://i.imgur.com/6wuvM2d.png)
+![Assets](https://i.imgur.com/6wuvM2d.png)
 
 Click on the file that corresponds to your OS and architecture, unpack the archive, read the README and run the binary directly (or through one of our provided wrapper scripts).
 
@@ -24,10 +24,6 @@ tar xvf nimbus-eth2_Linux_amd64_22.6.1_2444e994.tar.gz --strip-components 1 -C n
 ```
 
 After unpacking, you may wish to [verify the checksum](./checksums.md).
-
-## Docker
-
-Nimbus binaries are also published via [Docker](./docker.md).
 
 ## Reproducible builds
 

@@ -23,7 +23,7 @@ Specifically, we'll be using the `existing-mnemonic` command. Here's a descripti
 Run the following command from the directory which contains the `deposit` executable:
 
 === "Mainnet"
-    ```
+    ```sh
     ./deposit existing-mnemonic \
     --validator_start_index 0 \
     --num_validators 1 \
@@ -31,7 +31,7 @@ Run the following command from the directory which contains the `deposit` execut
     ```
 
 === "Prater"
-    ```
+    ```sh
     ./deposit existing-mnemonic \
     --validator_start_index 0 \
     --num_validators 1 \
