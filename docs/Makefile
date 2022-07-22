@@ -5,10 +5,10 @@ mkdocs/pyenv.cfg:
 	. mkdocs/bin/activate; pip install -r requirements.txt
 
 compile:
-	pip-compile requirements.in
+	. mkdocs/bin/activate; pip-compile requirements.in
 
 sync:
-	pip-sync requirements.txt
+	. mkdocs/bin/activate; pip-sync requirements.txt
 
 serve: mkdocs
 	. mkdocs/bin/activate; cd the_nimbus_book; mkdocs serve
