@@ -454,18 +454,15 @@ type
         name: "keymanager-token-file" .}: Option[InputFile]
 
       lightClientDataServe* {.
-        hidden
         desc: "BETA: Serve data for enabling light clients to stay in sync with the network"
         name: "light-client-data-serve" .}: Option[bool]
 
       lightClientDataImportMode* {.
-        hidden
         desc: "BETA: Which classes of light client data to import. " &
               "Must be one of: none, only-new, full (slow startup), on-demand (may miss validator duties)"
         name: "light-client-data-import-mode" .}: Option[LightClientDataImportMode]
 
       lightClientDataMaxPeriods* {.
-        hidden
         desc: "BETA: Maximum number of sync committee periods to retain light client data"
         name: "light-client-data-max-periods" .}: Option[uint64]
 
