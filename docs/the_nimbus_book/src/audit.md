@@ -2,9 +2,9 @@
 
 ## Summary
 
-Nimbus has undergone an extensive, multi-vendor ([ConsenSys Diligence](https://consensys.net/diligence/), [NCC Group](https://www.nccgroup.com/uk/), and [Trail of Bits](https://www.trailofbits.com/)) security assessment over a period of many months. During that process, we were notified of several issues within the codebase. These issues have been addressed and the overall security of the Nimbus-eth2 software has been drastically improved.
+Nimbus has undergone an extensive, multi-vendor ([ConsenSys Diligence](https://consensys.net/diligence/), [NCC Group](https://www.nccgroup.com/uk/), and [Trail of Bits](https://www.trailofbits.com/)) security assessment over a period of several months. During that process, we were notified of several issues within the codebase. These issues have been addressed contributing significantly to the overall security of Nimbus and other applications that use its libraries.
 
-Additionally, as a result of the work done from our security vendors, we are now working to incorporate many new security processes and tooling to improve our ability to find security issues in the future.
+Additionally, as a result of the work done from our security vendors, we have incoroprated many new security processes and tooling to improve our ability to find security issues in the future.
 
 For more information on the issues and how they were addressed, the interested reader should direct themselves to the [scoped repositories](https://github.com/status-im/nimbus-eth2/labels?q=audit); all reported issues and their mitigations are open to the public.
 

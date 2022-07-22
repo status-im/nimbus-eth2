@@ -84,7 +84,7 @@ from web3/engine_api_types import
 
 func `$`(h: BlockHash): string = $h.asEth2Digest
 
-proc runForkchoiceUpdated(
+proc runForkchoiceUpdated*(
     eth1Monitor: Eth1Monitor, headBlockRoot, finalizedBlockRoot: Eth2Digest):
     Future[PayloadExecutionStatus] {.async.} =
   # Allow finalizedBlockRoot to be 0 to avoid sync deadlocks.
@@ -137,11 +137,9 @@ proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BlockRef)
     return
 
   # Can't use dag.head here because it hasn't been updated yet
-  let
-    executionFinalizedRoot =
-      self.dag.loadExecutionBlockRoot(self.dag.finalizedHead.blck)
-    payloadExecutionStatus = await self.eth1Monitor.runForkchoiceUpdated(
-      executionHeadRoot, executionFinalizedRoot)
+  let payloadExecutionStatus = await self.eth1Monitor.runForkchoiceUpdated(
+    executionHeadRoot,
+    self.dag.loadExecutionBlockRoot(self.dag.finalizedHead.blck))
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
@@ -151,6 +149,17 @@ proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BlockRef)
     self.quarantine[].addUnviable(newHead.root)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
     self.dag.optimisticRoots.incl newHead.root
+
+proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
+  ## Trigger fork choice and update the DAG with the new head block
+  ## This does not automatically prune the DAG after finalization
+  ## `pruneFinalized` must be called for pruning.
+
+  # Store the new head in the chain DAG - this may cause epochs to be
+  # justified and finalized
+  self.dag.updateHead(newHead, self.quarantine[])
+
+  self.checkExpectedBlock()
 
 proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   ## Trigger fork choice and update the DAG with the new head block
@@ -168,13 +177,9 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
     # Blocks without execution payloads can't be optimistic.
     self.dag.markBlockVerified(self.quarantine[], newHead.root)
 
-  # Store the new head in the chain DAG - this may cause epochs to be
-  # justified and finalized
-  self.dag.updateHead(newHead, self.quarantine[])
+  self.updateHead(newHead)
 
-  self.checkExpectedBlock()
-
-proc updateHeadWithExecution*(self: ref ConsensusManager, wallSlot: Slot)
+proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BlockRef)
     {.async.} =
   ## Trigger fork choice and update the DAG with the new head block
   ## This does not automatically prune the DAG after finalization
@@ -182,12 +187,6 @@ proc updateHeadWithExecution*(self: ref ConsensusManager, wallSlot: Slot)
 
   # Grab the new head according to our latest attestation data
   try:
-    let newHead = self.attestationPool[].selectOptimisticHead(
-        wallSlot.start_beacon_time).valueOr:
-      warn "Head selection failed, using previous head",
-        head = shortLog(self.dag.head), wallSlot
-      return
-
     # Ensure dag.updateHead has most current information
     await self.updateExecutionClientHead(newHead)
 

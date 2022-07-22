@@ -2,7 +2,10 @@ import std/algorithm
 import chronicles
 import common, api
 
-logScope: service = "fork_service"
+const
+  ServiceName = "fork_service"
+
+logScope: service = ServiceName
 
 proc validateForkSchedule(forks: openArray[Fork]): bool {.raises: [Defect].} =
   # Check if `forks` list is linked list.
@@ -45,6 +48,9 @@ proc pollForFork(vc: ValidatorClientRef) {.async.} =
       except ValidatorApiError as exc:
         error "Unable to retrieve fork schedule", reason = exc.msg
         return
+      except CancelledError as exc:
+        debug "Fork retrieval process was interrupted"
+        raise exc
       except CatchableError as exc:
         error "Unexpected error occured while getting fork information",
               err_name = exc.name, err_msg = exc.msg
@@ -96,9 +102,10 @@ proc mainLoop(service: ForkServiceRef) {.async.} =
 
 proc init*(t: typedesc[ForkServiceRef],
             vc: ValidatorClientRef): Future[ForkServiceRef] {.async.} =
-  debug "Initializing service"
-  let res = ForkServiceRef(name: "fork_service",
+  logScope: service = ServiceName
+  let res = ForkServiceRef(name: ServiceName,
                            client: vc, state: ServiceState.Initialized)
+  debug "Initializing service"
   await vc.pollForFork()
   return res
 

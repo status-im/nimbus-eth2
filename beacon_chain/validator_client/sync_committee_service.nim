@@ -12,7 +12,10 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/eth2_apis/rest_types
 
-logScope: service = "sync_committee_service"
+const
+  ServiceName = "sync_committee_service"
+
+logScope: service = ServiceName
 
 type
   ContributionItem* = object
@@ -399,9 +402,10 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
 
 proc init*(t: typedesc[SyncCommitteeServiceRef],
            vc: ValidatorClientRef): Future[SyncCommitteeServiceRef] {.async.} =
-  debug "Initializing service"
-  let res = SyncCommitteeServiceRef(name: "sync_committee_service",
+  logScope: service = ServiceName
+  let res = SyncCommitteeServiceRef(name: ServiceName,
                                     client: vc, state: ServiceState.Initialized)
+  debug "Initializing service"
   return res
 
 proc start*(service: SyncCommitteeServiceRef) =

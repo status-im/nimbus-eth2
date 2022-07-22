@@ -157,6 +157,41 @@ restapi-test:
 		--resttest-delay 30 \
 		--kill-old-processes
 
+local-testnet-minimal:
+	./scripts/launch_local_testnet.sh \
+		--data-dir $@ \
+		--preset minimal \
+		--nodes 4 \
+		--stop-at-epoch 5 \
+		--disable-htop \
+		--enable-logtrace \
+		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
+		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
+		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--timeout 600 \
+		--kill-old-processes \
+		--light-clients 1 \
+		-- \
+		--verify-finalization \
+		--discv5:no
+
+local-testnet-mainnet:
+	./scripts/launch_local_testnet.sh \
+		--data-dir $@ \
+		--nodes 4 \
+		--stop-at-epoch 5 \
+		--disable-htop \
+		--enable-logtrace \
+		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
+		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
+		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--timeout 2400 \
+		--kill-old-processes \
+		--light-clients 1 \
+		-- \
+		--verify-finalization \
+		--discv5:no
+
 # test binaries that can output an XML report
 XML_TEST_BINARIES := \
 	consensus_spec_tests_mainnet \
@@ -361,6 +396,7 @@ define CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT
 		--network=$(1) \
 		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_lc_$$(date +"%Y%m%d%H%M%S").log \
+		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--trusted-block-root="$(LC_TRUSTED_BLOCK_ROOT)"
 endef
 
@@ -426,6 +462,37 @@ prater-dev-deposit: | prater-build deposit_contract
 
 clean-prater:
 	$(call CLEAN_NETWORK,prater)
+
+
+###
+### Goerli
+###
+goerli-build: | nimbus_beacon_node nimbus_signing_node
+
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
+goerli: | goerli-build
+	$(call CONNECT_TO_NETWORK,goerli,nimbus_beacon_node,$(GOERLI_WEB3_URL))
+
+goerli-vc: | goerli-build nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,goerli,nimbus_beacon_node,$(GOERLI_WEB3_URL))
+
+goerli-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,goerli)
+
+ifneq ($(LOG_LEVEL), TRACE)
+goerli-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+goerli-dev: | goerli-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,goerli,nimbus_beacon_node,$(GOERLI_WEB3_URL))
+endif
+
+goerli-dev-deposit: | goerli-build deposit_contract
+	$(call MAKE_DEPOSIT,goerli,$(GOERLI_WEB3_URL))
+
+clean-goerli:
+	$(call CLEAN_NETWORK,goerli)
+
 
 ###
 ### Ropsten
@@ -594,6 +661,7 @@ book:
 	[[ "$$(mdbook --version)" = "mdbook v0.4.18" ]] || { echo "'mdbook v0.4.18' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.8.0" ]] || { echo "'mdbook-toc 0.8.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.1.0" ]] || { echo "'mdbook-open-on-gh 2.1.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-admonish --version)" == "mdbook-admonish 1.7.0" ]] || { echo "'mdbook-open-on-gh 1.7.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_nimbus_book && \
 	mdbook build
 

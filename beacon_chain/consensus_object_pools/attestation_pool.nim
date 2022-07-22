@@ -577,8 +577,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
         # Attestations are checked based on the state that we're adding the
         # attestation to - there might have been a fork between when we first
         # saw the attestation and the time that we added it
-        if not check_attestation(
-              state.data, attestation, {skipBlsValidation}, cache).isOk():
+        if check_attestation(state.data, attestation, {}, cache).isErr():
           continue
 
         let score = attCache.score(
@@ -756,3 +755,11 @@ proc prune*(pool: var AttestationPool) =
     # If pruning fails, it's likely the result of a bug - this shouldn't happen
     # but we'll keep running hoping that the fork chocie will recover eventually
     error "Couldn't prune fork choice, bug?", err = v.error()
+
+proc validatorSeenAtEpoch*(pool: var AttestationPool, epoch: Epoch,
+                           vindex: ValidatorIndex): bool =
+  if uint64(vindex) < lenu64(pool.nextAttestationEpoch):
+    let mark = pool.nextAttestationEpoch[vindex]
+    (mark.subnet > epoch) or (mark.aggregate > epoch)
+  else:
+    false

@@ -63,6 +63,9 @@ type
 
   SyncCommitteeServiceRef* = ref object of ClientServiceRef
 
+  DoppelgangerServiceRef* = ref object of ClientServiceRef
+    enabled*: bool
+
   DutyAndProof* = object
     epoch*: Epoch
     dependentRoot*: Eth2Digest
@@ -116,24 +119,43 @@ type
   SyncCommitteeDutiesMap* = Table[ValidatorPubKey, EpochSyncDuties]
   ProposerMap* = Table[Epoch, ProposedData]
 
+  DoppelgangerStatus* {.pure.} = enum
+    None, Checking, Passed
+
+  DoppelgangerAttempt* {.pure.} = enum
+    None, Failure, SuccessTrue, SuccessFalse
+
+  DoppelgangerState* = object
+    startEpoch*: Epoch
+    epochsCount*: uint64
+    lastAttempt*: DoppelgangerAttempt
+    status*: DoppelgangerStatus
+
+  DoppelgangerDetection* = object
+    startSlot*: Slot
+    validators*: Table[ValidatorIndex, DoppelgangerState]
+
   ValidatorClient* = object
     config*: ValidatorClientConf
     graffitiBytes*: GraffitiBytes
     beaconNodes*: seq[BeaconNodeServerRef]
-    nodesAvailable*: AsyncEvent
     fallbackService*: FallbackServiceRef
     forkService*: ForkServiceRef
     dutiesService*: DutiesServiceRef
     attestationService*: AttestationServiceRef
     blockService*: BlockServiceRef
     syncCommitteeService*: SyncCommitteeServiceRef
+    doppelgangerService*: DoppelgangerServiceRef
     runSlotLoopFut*: Future[void]
     sigintHandleFut*: Future[void]
     sigtermHandleFut*: Future[void]
     beaconClock*: BeaconClock
     attachedValidators*: ValidatorPool
+    doppelgangerDetection*: DoppelgangerDetection
     forks*: seq[Fork]
     forksAvailable*: AsyncEvent
+    nodesAvailable*: AsyncEvent
+    gracefulExit*: AsyncEvent
     attesters*: AttesterMap
     proposers*: ProposerMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
@@ -173,13 +195,13 @@ chronicles.expandIt(RestAttesterDuty):
   validator_committee_index = it.validator_committee_index
 
 proc stop*(csr: ClientServiceRef) {.async.} =
-  debug "Stopping service", service_name = csr.name
+  debug "Stopping service", service = csr.name
   if csr.state == ServiceState.Running:
     csr.state = ServiceState.Closing
     if not(csr.lifeFut.finished()):
       await csr.lifeFut.cancelAndWait()
     csr.state = ServiceState.Closed
-    debug "Service stopped", service_name = csr.name
+    debug "Service stopped", service = csr.name
 
 proc isDefault*(dap: DutyAndProof): bool =
   dap.epoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64)
@@ -345,3 +367,120 @@ proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
 
 proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
   SyncSubcommitteeIndex(uint16(index) div SYNC_SUBCOMMITTEE_SIZE)
+
+proc currentSlot*(vc: ValidatorClientRef): Slot =
+  vc.beaconClock.now().slotOrZero()
+
+proc addDoppelganger*(vc: ValidatorClientRef, validator: AttachedValidator) =
+  logScope:
+    validator = shortLog(validator)
+
+  if vc.config.doppelgangerDetection:
+    let
+      vindex = validator.index.get()
+      startEpoch = vc.currentSlot().epoch()
+      state =
+        if (startEpoch == GENESIS_EPOCH) and
+           (validator.startSlot == GENESIS_SLOT):
+          DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
+                            lastAttempt: DoppelgangerAttempt.None,
+                            status: DoppelgangerStatus.Passed)
+        else:
+          DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
+                            lastAttempt: DoppelgangerAttempt.None,
+                            status: DoppelgangerStatus.Checking)
+      res = vc.doppelgangerDetection.validators.hasKeyOrPut(vindex, state)
+
+    if res:
+      warn "Validator is already in doppelganger table",
+           validator_index = vindex, start_epoch = startEpoch,
+           start_slot = validator.startSlot
+    else:
+      if state.status == DoppelgangerStatus.Checking:
+        info "Doppelganger protection activated", validator_index = vindex,
+             start_epoch = startEpoch, start_slot = validator.startSlot
+      else:
+        info "Doppelganger protection skipped", validator_index = vindex,
+             start_epoch = startEpoch, start_slot = validator.startSlot
+
+proc removeDoppelganger*(vc: ValidatorClientRef, index: ValidatorIndex) =
+  if vc.config.doppelgangerDetection:
+    var state: DoppelgangerState
+    # We do not care about race condition, when validator is not yet added to
+    # the doppelganger's table, but it should be removed.
+    discard vc.doppelgangerDetection.validators.pop(index, state)
+
+proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
+  let slot = vc.currentSlot()
+  case keystore.kind
+  of KeystoreKind.Local:
+    vc.attachedValidators.addLocalValidator(keystore, none[ValidatorIndex](),
+                                            slot)
+  of KeystoreKind.Remote:
+    let
+      httpFlags =
+        block:
+          var res: set[HttpClientFlag]
+          if RemoteKeystoreFlag.IgnoreSSLVerification in keystore.flags:
+            res.incl({HttpClientFlag.NoVerifyHost,
+                      HttpClientFlag.NoVerifyServerName})
+          res
+      prestoFlags = {RestClientFlag.CommaSeparatedArray}
+      clients =
+        block:
+          var res: seq[(RestClientRef, RemoteSignerInfo)]
+          for remote in keystore.remotes:
+            let client = RestClientRef.new($remote.url, prestoFlags,
+                                           httpFlags)
+            if client.isErr():
+              warn "Unable to resolve distributed signer address",
+                   remote_url = $remote.url, validator = $remote.pubkey
+            else:
+              res.add((client.get(), remote))
+          res
+    if len(clients) > 0:
+      vc.attachedValidators.addRemoteValidator(keystore, clients,
+                                               none[ValidatorIndex](), slot)
+    else:
+      warn "Unable to initialize remote validator",
+           validator = $keystore.pubkey
+
+proc removeValidator*(vc: ValidatorClientRef,
+                      pubkey: ValidatorPubKey) {.async.} =
+  let validator = vc.attachedValidators.getValidator(pubkey)
+  if not(isNil(validator)):
+    if vc.config.doppelgangerDetection:
+      if validator.index.isSome():
+        vc.removeDoppelganger(validator.index.get())
+    case validator.kind
+    of ValidatorKind.Local:
+      discard
+    of ValidatorKind.Remote:
+      # We must close all the REST clients running for the remote validator.
+      let pending =
+        block:
+          var res: seq[Future[void]]
+          for item in validator.clients:
+            res.add(item[0].closeWait())
+          res
+      await allFutures(pending)
+    # Remove validator from ValidatorPool.
+    vc.attachedValidators.removeValidator(pubkey)
+
+proc doppelgangerCheck*(vc: ValidatorClientRef,
+                        validator: AttachedValidator): bool =
+  if vc.config.doppelgangerDetection:
+    if validator.index.isNone():
+      return false
+    if validator.startSlot > GENESIS_SLOT:
+      let
+        vindex = validator.index.get()
+        default = DoppelgangerState(status: DoppelgangerStatus.None)
+        currentEpoch = vc.currentSlot().epoch()
+        state = vc.doppelgangerDetection.validators.getOrDefault(vindex,
+                                                                 default)
+      state.status == DoppelgangerStatus.Passed
+    else:
+      true
+  else:
+    true

@@ -45,7 +45,11 @@ const
   defaultListenAddress* = (static ValidIpAddress.init("0.0.0.0"))
   defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
   defaultSigningNodeRequestTimeout* = 60
-  defaultBeaconNode* = "http://127.0.0.1:" & $DefaultEth2RestPort
+  defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
+
+  defaultListenAddressDesc* = $defaultListenAddress
+  defaultAdminListenAddressDesc* = $defaultAdminListenAddress
+  defaultBeaconNodeDesc* = $defaultBeaconNode
 
 when defined(windows):
   {.pragma: windowsOnly.}
@@ -149,8 +153,13 @@ type
       desc: "A directory containing wallet files"
       name: "wallets-dir" .}: Option[InputDir]
 
+    eraDirFlag* {.
+      hidden
+      desc: "A directory containing era files"
+      name: "era-dir" .}: Option[InputDir]
+
     web3Urls* {.
-      desc: "One or more Web3 provider URLs used for obtaining deposit contract data"
+      desc: "One or more execution layer Web3 provider URLs"
       name: "web3-url" .}: seq[string]
 
     web3ForcePolling* {.
@@ -224,19 +233,19 @@ type
       listenAddress* {.
         desc: "Listening address for the Ethereum LibP2P and Discovery v5 traffic"
         defaultValue: defaultListenAddress
-        defaultValueDesc: "0.0.0.0"
+        defaultValueDesc: $defaultListenAddressDesc
         name: "listen-address" .}: ValidIpAddress
 
       tcpPort* {.
         desc: "Listening TCP port for Ethereum LibP2P traffic"
         defaultValue: defaultEth2TcpPort
-        defaultValueDesc: "9000"
+        defaultValueDesc: $defaultEth2TcpPortDesc
         name: "tcp-port" .}: Port
 
       udpPort* {.
         desc: "Listening UDP port for node discovery"
         defaultValue: defaultEth2TcpPort
-        defaultValueDesc: "9000"
+        defaultValueDesc: $defaultEth2TcpPortDesc
         name: "udp-port" .}: Port
 
       maxPeers* {.
@@ -321,7 +330,7 @@ type
       metricsAddress* {.
         desc: "Listening address of the metrics server"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
+        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "metrics-address" .}: ValidIpAddress
 
       metricsPort* {.
@@ -364,7 +373,7 @@ type
         hidden
         desc: "Listening address of the RPC server (deprecated for removal)"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
+        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "rpc-address" .}: ValidIpAddress
 
       restEnabled* {.
@@ -374,14 +383,14 @@ type
 
       restPort* {.
         desc: "Port for the REST server"
-        defaultValue: DefaultEth2RestPort
-        defaultValueDesc: "5052"
+        defaultValue: defaultEth2RestPort
+        defaultValueDesc: $defaultEth2RestPortDesc
         name: "rest-port" .}: Port
 
       restAddress* {.
         desc: "Listening address of the REST server"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
+        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "rest-address" .}: ValidIpAddress
 
       restAllowedOrigin* {.
@@ -425,14 +434,14 @@ type
 
       keymanagerPort* {.
         desc: "Listening port for the REST keymanager API"
-        defaultValue: DefaultEth2RestPort
-        defaultValueDesc: "5052"
+        defaultValue: defaultEth2RestPort
+        defaultValueDesc: $defaultEth2RestPortDesc
         name: "keymanager-port" .}: Port
 
       keymanagerAddress* {.
         desc: "Listening port for the REST keymanager API"
         defaultValue: defaultAdminListenAddress
-        defaultValueDesc: "127.0.0.1"
+        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "keymanager-address" .}: ValidIpAddress
 
       keymanagerAllowedOrigin* {.
@@ -539,14 +548,14 @@ type
 
       bootstrapAddress* {.
         desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
-        defaultValue: init(ValidIpAddress, "127.0.0.1")
-        defaultValueDesc: "127.0.0.1"
+        defaultValue: init(ValidIpAddress, defaultAdminListenAddress)
+        defaultValueDesc: $defaultAdminListenAddressDesc
         name: "bootstrap-address" .}: ValidIpAddress
 
       bootstrapPort* {.
         desc: "The TCP/UDP port that will be used by the bootstrap node"
         defaultValue: defaultEth2TcpPort
-        defaultValueDesc: "9000"
+        defaultValueDesc: $defaultEth2TcpPortDesc
         name: "bootstrap-port" .}: Port
 
       genesisOffset* {.
@@ -651,7 +660,7 @@ type
         restUrlForExit* {.
           desc: "URL of the beacon node REST service"
           defaultValue: defaultBeaconNode
-          defaultValueDesc: "http://127.0.0.1:5052"
+          defaultValueDesc: $defaultBeaconNodeDesc
           name: "rest-url" .}: string
 
     of BNStartUpCmd.record:
@@ -712,7 +721,7 @@ type
       trustedNodeUrl* {.
         desc: "URL of the REST API to sync from"
         defaultValue: defaultBeaconNode
-        defaultValueDesc: "http://127.0.0.1:5052"
+        defaultValueDesc: $defaultBeaconNodeDesc
         name: "trusted-node-url"
       .}: string
 
@@ -758,6 +767,17 @@ type
       abbr: "d"
       name: "data-dir" .}: OutDir
 
+    doppelgangerDetection* {.
+      # TODO This description is shared between the BN and the VC.
+      #      Extract it in a constant (confutils fix may be needed).
+      desc: "If enabled, the validator client prudently listens for 2 epochs " &
+            "for attestations from a validator with the same index " &
+            "(a doppelganger), before sending an attestation itself. This " &
+            "protects against slashing (due to double-voting) but means you " &
+            "will miss two attestations when restarting."
+      defaultValue: true
+      name: "doppelganger-detection" .}: bool
+
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool
@@ -777,14 +797,14 @@ type
 
     keymanagerPort* {.
       desc: "Listening port for the REST keymanager API"
-      defaultValue: DefaultEth2RestPort
-      defaultValueDesc: "5052"
+      defaultValue: defaultEth2RestPort
+      defaultValueDesc: $defaultEth2RestPortDesc
       name: "keymanager-port" .}: Port
 
     keymanagerAddress* {.
       desc: "Listening port for the REST keymanager API"
       defaultValue: defaultAdminListenAddress
-      defaultValueDesc: "127.0.0.1"
+      defaultValueDesc: $defaultAdminListenAddressDesc
       name: "keymanager-address" .}: ValidIpAddress
 
     keymanagerTokenFile* {.
@@ -805,7 +825,7 @@ type
     beaconNodes* {.
       desc: "URL addresses to one or more beacon node HTTP REST APIs",
       defaultValue: @[defaultBeaconNode]
-      defaultValueDesc: "http://127.0.0.1:5052"
+      defaultValueDesc: $defaultBeaconNodeDesc
       name: "beacon-node" .}: seq[string]
 
   SigningNodeConf* = object
@@ -859,14 +879,14 @@ type
 
     bindPort* {.
       desc: "Port for the REST (BETA version) HTTP server"
-      defaultValue: DefaultEth2RestPort
-      defaultValueDesc: "5052"
+      defaultValue: defaultEth2RestPort
+      defaultValueDesc: $defaultEth2RestPortDesc
       name: "bind-port" .}: Port
 
     bindAddress* {.
       desc: "Listening address of the REST (BETA version) HTTP server"
       defaultValue: defaultAdminListenAddress
-      defaultValueDesc: "127.0.0.1"
+      defaultValueDesc: $defaultAdminListenAddressDesc
       name: "bind-address" .}: ValidIpAddress
 
     tlsEnabled* {.
@@ -1014,10 +1034,11 @@ func secretsDir*[Conf](config: Conf): string =
   string config.secretsDirFlag.get(InputDir(config.dataDir / "secrets"))
 
 func walletsDir*(config: BeaconNodeConf): string =
-  if config.walletsDirFlag.isSome:
-    config.walletsDirFlag.get.string
-  else:
-    config.dataDir / "wallets"
+  string config.walletsDirFlag.get(InputDir(config.dataDir / "wallets"))
+
+func eraDir*(config: BeaconNodeConf): string =
+  # The era directory should be shared between networks of the same type..
+  string config.eraDirFlag.get(InputDir(config.dataDir / "era"))
 
 func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
   proc fail {.noreturn.} =
@@ -1058,10 +1079,6 @@ func databaseDir*(config: AnyConf): string =
 
 func runAsService*(config: BeaconNodeConf): bool =
   config.cmd == noCommand and config.runAsServiceFlag
-
-func eraDir*(config: AnyConf): string =
-  # TODO this should be shared between all instances of the same network
-  config.dataDir / "era"
 
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =

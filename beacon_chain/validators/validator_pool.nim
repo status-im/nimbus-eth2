@@ -53,6 +53,8 @@ type
     # if the validator will be aggregating (in the near future)
     slotSignature*: Option[tuple[slot: Slot, signature: ValidatorSig]]
 
+    startSlot*: Slot
+
   SignResponse* = Web3SignerDataResponse
 
   SignatureResult* = Result[ValidatorSig, string]
@@ -81,27 +83,32 @@ template count*(pool: ValidatorPool): int =
   len(pool.validators)
 
 proc addLocalValidator*(pool: var ValidatorPool, item: KeystoreData,
-                        index: Option[ValidatorIndex]) =
+                        index: Option[ValidatorIndex], slot: Slot) =
   doAssert item.kind == KeystoreKind.Local
   let pubkey = item.pubkey
   let v = AttachedValidator(kind: ValidatorKind.Local, pubkey: pubkey,
-                            index: index, data: item)
+                            index: index, data: item, startSlot: slot)
   pool.validators[pubkey] = v
-  notice "Local validator attached", pubkey, validator = shortLog(v)
+  notice "Local validator attached", pubkey, validator = shortLog(v),
+                                     start_slot = slot
   validators.set(pool.count().int64)
 
-proc addLocalValidator*(pool: var ValidatorPool, item: KeystoreData) =
-  addLocalValidator(pool, item, none[ValidatorIndex]())
+proc addLocalValidator*(pool: var ValidatorPool, item: KeystoreData,
+                        slot: Slot) =
+  addLocalValidator(pool, item, none[ValidatorIndex](), slot)
 
 proc addRemoteValidator*(pool: var ValidatorPool, item: KeystoreData,
-                         clients: seq[(RestClientRef, RemoteSignerInfo)], index: Option[ValidatorIndex]) =
+                         clients: seq[(RestClientRef, RemoteSignerInfo)],
+                         index: Option[ValidatorIndex], slot: Slot) =
   doAssert item.kind == KeystoreKind.Remote
   let pubkey = item.pubkey
   let v = AttachedValidator(kind: ValidatorKind.Remote, pubkey: pubkey,
-                            index: index, data: item, clients: clients)
+                            index: index, data: item, clients: clients,
+                            startSlot: slot)
   pool.validators[pubkey] = v
   notice "Remote validator attached", pubkey, validator = shortLog(v),
-         remote_signer = $item.remotes
+                                      remote_signer = $item.remotes,
+                                      start_slot = slot
   validators.set(pool.count().int64)
 
 proc getValidator*(pool: ValidatorPool,

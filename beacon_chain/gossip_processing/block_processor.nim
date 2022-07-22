@@ -14,7 +14,7 @@ import
   ../sszdump
 
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, updateHead, updateHeadWithExecution
+  ConsensusManager, runForkchoiceUpdated, updateHead, updateHeadWithExecution
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, slot
 from ../consensus_object_pools/block_pools_types import BlockError, EpochRef
@@ -164,7 +164,28 @@ proc storeBackfillBlock(
 
   res
 
-from ../consensus_object_pools/attestation_pool import addForkChoice
+from web3/engine_api_types import PayloadExecutionStatus, PayloadStatusV1
+from ../eth1/eth1_monitor import
+  Eth1Monitor, asEngineExecutionPayload, ensureDataProvider, newPayload
+
+proc expectValidForkchoiceUpdated(
+    eth1Monitor: Eth1Monitor, headBlockRoot, finalizedBlockRoot: Eth2Digest):
+    Future[void] {.async.} =
+  let payloadExecutionStatus =
+    await eth1Monitor.runForkchoiceUpdated(headBlockRoot, finalizedBlockRoot)
+  if payloadExecutionStatus != PayloadExecutionStatus.valid:
+    # Only called when expecting this to be valid because `newPayload` or some
+    # previous `forkchoiceUpdated` had already marked it as valid.
+    warn "expectValidForkchoiceUpdate: forkChoiceUpdated not `VALID`",
+      payloadExecutionStatus,
+      headBlockRoot,
+      finalizedBlockRoot
+
+from ../consensus_object_pools/attestation_pool import
+  addForkChoice, selectOptimisticHead
+from ../consensus_object_pools/blockchain_dag import
+  is_optimistic, loadExecutionBlockRoot, markBlockVerified
+from ../consensus_object_pools/block_dag import shortLog
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
 
@@ -252,15 +273,42 @@ proc storeBlock*(
   # storeBlock gets called from validator_duties, which depends on its not
   # blocking progress any longer than necessary, and processBlock here, in
   # which case it's fine to await for a while on engine API results.
-  if not is_execution_block(signedBlock.message):
-    self.consensusManager[].updateHead(wallTime.slotOrZero)
+  #
+  # Three general scenarios: (1) pre-merge; (2) merge, already `VALID` by way
+  # of `newPayload`; (3) optimistically imported, need to call fcU before DAG
+  # updateHead. Handle each with as little async latency as feasible.
+
+  if payloadValid:
+    self.consensusManager.dag.markBlockVerified(
+      self.consensusManager.quarantine[], signedBlock.root)
+
+  # Grab the new head according to our latest attestation data; determines how
+  # async this needs to be.
+  let
+    wallSlot = wallTime.slotOrZero
+    newHead = attestationPool[].selectOptimisticHead(
+        wallSlot.start_beacon_time)
+
+  if newHead.isOk:
+    let executionHeadRoot =
+      self.consensusManager.dag.loadExecutionBlockRoot(newHead.get)
+    if executionHeadRoot.isZero:
+      # Blocks without execution payloads can't be optimistic.
+      self.consensusManager[].updateHead(newHead.get)
+    elif not self.consensusManager.dag.is_optimistic newHead.get.root:
+      # Not `NOT_VALID`; either `VALID` or `INVALIDATED`, but latter wouldn't
+      # be selected as head, so `VALID`. `forkchoiceUpdated` necessary for EL
+      # client only.
+      self.consensusManager[].updateHead(newHead.get)
+      asyncSpawn self.consensusManager.eth1Monitor.expectValidForkchoiceUpdated(
+        executionHeadRoot,
+        self.consensusManager.dag.loadExecutionBlockRoot(
+          self.consensusManager.dag.finalizedHead.blck))
+    else:
+      asyncSpawn self.consensusManager.updateHeadWithExecution(newHead.get)
   else:
-    # This primarily exists to ensure that by the time the DAG updateHead is
-    # called valid blocks have already been registered as verified. The head
-    # can lag a slot behind wall clock, complicating detecting synced status
-    # for validating, otherwise.
-    asyncSpawn self.consensusManager.updateHeadWithExecution(
-      wallTime.slotOrZero)
+    warn "Head selection failed, using previous head",
+      head = shortLog(self.consensusManager.dag.head), wallSlot
 
   let
     updateHeadTick = Moment.now()
@@ -343,16 +391,13 @@ proc processBlock(
       else: Result[void, BlockError].err(res.error()))
 
 from eth/async_utils import awaitWithTimeout
-from web3/engine_api_types import PayloadExecutionStatus, PayloadStatusV1
-from ../eth1/eth1_monitor import
-  Eth1Monitor, asEngineExecutionPayload, ensureDataProvider, newPayload
 from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
 
 proc newExecutionPayload*(
     eth1Monitor: Eth1Monitor, executionPayload: bellatrix.ExecutionPayload):
     Future[PayloadExecutionStatus] {.async.} =
   if eth1Monitor.isNil:
-    warn "newPayload: attempting to process execution payload without an Eth1Monitor. Ensure --web3-url setting is correct."
+    warn "newPayload: attempting to process execution payload without Eth1Monitor. Ensure --web3-url setting is correct and JWT is configured."
     return PayloadExecutionStatus.syncing
 
   debug "newPayload: inserting block into execution engine",
@@ -403,6 +448,16 @@ proc is_optimistic_candidate_block(
   # imported.
   if  blck.slot + self.safeSlotsToImportOptimistically <=
       self.getBeaconTime().slotOrZero:
+    return true
+
+  # Once merge is finalized, always true; in principle, should be caught by
+  # other checks, but sometimes blocks arrive out of order, triggering some
+  # spurious false negatives because the parent-block-check does not find a
+  # parent block. This can also occur under conditions where EL client RPCs
+  # cause processing delays. Either way, bound this risk to post-merge head
+  # and pre-merge finalization.
+  if not self.consensusManager.dag.loadExecutionBlockRoot(
+      self.consensusManager.dag.finalizedHead.blck).isZero:
     return true
 
   let
@@ -485,7 +540,8 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       if  executionPayloadStatus == PayloadExecutionStatus.valid or
           self[].is_optimistic_candidate_block(blck.blck):
         self[].processBlock(
-          blck, executionPayloadStatus == PayloadExecutionStatus.valid)
+          blck,
+          payloadValid = executionPayloadStatus == PayloadExecutionStatus.valid)
       else:
         debug "runQueueProcessingLoop: block cannot be optimistically imported",
           blck = shortLog(blck.blck)

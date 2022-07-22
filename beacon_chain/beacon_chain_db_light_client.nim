@@ -11,8 +11,6 @@
 # protocol. See https://github.com/ethereum/consensus-specs/pull/2802
 
 import
-  # Standard library
-  std/os,
   # Status libraries
   chronicles,
   eth/db/kvstore_sqlite3,

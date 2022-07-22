@@ -2038,129 +2038,90 @@ proc initAddress(T: type MultiAddress, str: string): T =
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
-proc optimisticgetRandomNetKeys*(rng: var HmacDrbgContext): NetKeyPair =
-  let res = PrivateKey.random(Secp256k1, rng)
-  if res.isErr():
-    fatal "Could not generate random network key file"
-    quit QuitFailure
-
-  let
-    privKey = res.get()
-    pubKey = privKey.getPublicKey().expect("working public key from random")
+func initNetKeys(privKey: PrivateKey): NetKeyPair =
+  let pubKey = privKey.getPublicKey().expect("working public key from random")
   NetKeyPair(seckey: privKey, pubkey: pubKey)
 
-proc getPersistentNetKeys*(rng: var HmacDrbgContext,
-                           config: BeaconNodeConf): NetKeyPair =
-  case config.cmd
-  of BNStartUpCmd.noCommand, BNStartUpCmd.record:
-    if config.netKeyFile == "random":
-      let res = PrivateKey.random(Secp256k1, rng)
-      if res.isErr():
-        fatal "Could not generate random network key file"
-        quit QuitFailure
-      let
-        privKey = res.get()
-        pubKey = privKey.getPublicKey().expect("working public key from random")
-        pres = PeerId.init(pubKey)
-      if pres.isErr():
+proc getRandomNetKeys*(rng: var HmacDrbgContext): NetKeyPair =
+  let privKey = PrivateKey.random(Secp256k1, rng).valueOr:
+    fatal "Could not generate random network key file"
+    quit QuitFailure
+  initNetKeys(privKey)
+
+proc getPersistentNetKeys(
+    rng: var HmacDrbgContext,
+    dataDir, netKeyFile: string,
+    netKeyInsecurePassword: bool,
+    allowLoadExisting: bool): NetKeyPair =
+  if netKeyFile == "random":
+    let
+      keys = rng.getRandomNetKeys()
+      pres = PeerId.init(keys.pubkey).valueOr:
         fatal "Could not obtain PeerId from network key"
         quit QuitFailure
-      info "Generating new networking key", network_public_key = pubKey,
-                                            network_peer_id = $pres.get()
-      NetKeyPair(seckey: privKey, pubkey: pubKey)
-    else:
-      let keyPath =
-        if isAbsolute(config.netKeyFile):
-          config.netKeyFile
+    info "Generating new networking key",
+      network_public_key = keys.pubkey, network_peer_id = $pres
+    keys
+  else:
+    let
+      # Insecure password used only for automated testing.
+      insecurePassword =
+        if netKeyInsecurePassword:
+          some(NetworkInsecureKeyPassword)
         else:
-          config.dataDir / config.netKeyFile
+          none[string]()
 
-      if fileAccessible(keyPath, {AccessFlags.Find}):
-        info "Network key storage is present, unlocking", key_path = keyPath
+      keyPath =
+        if isAbsolute(netKeyFile):
+          netKeyFile
+        else:
+          dataDir / netKeyFile
+    logScope: key_path = keyPath
 
-        # Insecure password used only for automated testing.
-        let insecurePassword =
-          if config.netKeyInsecurePassword:
-            some(NetworkInsecureKeyPassword)
-          else:
-            none[string]()
+    if fileAccessible(keyPath, {AccessFlags.Find}) and allowLoadExisting:
+      info "Network key storage is present, unlocking"
 
-        let res = loadNetKeystore(keyPath, insecurePassword)
-        if res.isNone():
+      let
+        privKey = loadNetKeystore(keyPath, insecurePassword).valueOr:
           fatal "Could not load network key file"
           quit QuitFailure
-        let
-          privKey = res.get()
-          pubKey = privKey.getPublicKey().expect("working public key from file")
-        info "Network key storage was successfully unlocked",
-             key_path = keyPath, network_public_key = pubKey
-        NetKeyPair(seckey: privKey, pubkey: pubKey)
-      else:
+        keys = initNetKeys(privKey)
+      info "Network key storage was successfully unlocked",
+        network_public_key = keys.pubkey
+      keys
+    else:
+      if allowLoadExisting:
         info "Network key storage is missing, creating a new one",
-             key_path = keyPath
-        let rres = PrivateKey.random(Secp256k1, rng)
-        if rres.isErr():
-          fatal "Could not generate random network key file"
-          quit QuitFailure
+            key_path = keyPath
+      let
+        keys = rng.getRandomNetKeys()
+        sres = saveNetKeystore(rng, keyPath, keys.seckey, insecurePassword)
+      if sres.isErr():
+        fatal "Could not create network key file"
+        quit QuitFailure
 
-        let
-          privKey = rres.get()
-          pubKey = privKey.getPublicKey().expect("working public key from random")
+      info "New network key storage was created",
+        network_public_key = keys.pubkey
+      keys
 
-        # Insecure password used only for automated testing.
-        let insecurePassword =
-          if config.netKeyInsecurePassword:
-            some(NetworkInsecureKeyPassword)
-          else:
-            none[string]()
-
-        let sres = saveNetKeystore(rng, keyPath, privKey, insecurePassword)
-        if sres.isErr():
-          fatal "Could not create network key file", key_path = keyPath
-          quit QuitFailure
-
-        info "New network key storage was created", key_path = keyPath,
-             network_public_key = pubKey
-        NetKeyPair(seckey: privKey, pubkey: pubKey)
+proc getPersistentNetKeys*(
+    rng: var HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
+  case config.cmd
+  of BNStartUpCmd.noCommand, BNStartUpCmd.record:
+    rng.getPersistentNetKeys(
+      string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
+      allowLoadExisting = true)
 
   of BNStartUpCmd.createTestnet:
     if config.netKeyFile == "random":
       fatal "Could not create testnet using `random` network key"
       quit QuitFailure
 
-    let keyPath =
-      if isAbsolute(config.netKeyFile):
-        config.netKeyFile
-      else:
-        config.dataDir / config.netKeyFile
-
-    let rres = PrivateKey.random(Secp256k1, rng)
-    if rres.isErr():
-      fatal "Could not generate random network key file"
-      quit QuitFailure
-
-    let
-      privKey = rres.get()
-      pubKey = privKey.getPublicKey().expect("working public key from random")
-
-    # Insecure password used only for automated testing.
-    let insecurePassword =
-      if config.netKeyInsecurePassword:
-        some(NetworkInsecureKeyPassword)
-      else:
-        none[string]()
-
-    let sres = saveNetKeystore(rng, keyPath, privKey, insecurePassword)
-    if sres.isErr():
-      fatal "Could not create network key file", key_path = keyPath
-      quit QuitFailure
-
-    info "New network key storage was created", key_path = keyPath,
-         network_public_key = pubKey
-
-    NetKeyPair(seckey: privKey, pubkey: pubKey)
+    rng.getPersistentNetKeys(
+      string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
+      allowLoadExisting = false)
   else:
-    optimisticgetRandomNetKeys(rng)
+    rng.getRandomNetKeys()
 
 func gossipId(
     data: openArray[byte], altairPrefix, topic: string): seq[byte] =

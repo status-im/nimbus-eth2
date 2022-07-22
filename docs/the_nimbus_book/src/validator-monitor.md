@@ -1,6 +1,8 @@
 # Validator monitoring
 
-> ⚠️ This feature is currently in BETA - implementation details such as metric names and counters may change in response to community feedback.
+```admonish warning
+This feature is currently in BETA - implementation details such as metric names and counters may change in response to community feedback.
+```
 
 The validator monitoring feature allows for tracking the life-cycle and performance of one or more validators in detail.
 
@@ -56,7 +58,9 @@ NOT 2021-11-17 20:53:42.108+01:00 Attestation failed to match head           top
 
 Failures are reported with a lag of two epochs (~13 minutes) - to examine the log for potential root causes, the logs from the epoch in the failure message should be looked at.
 
-> ⚠️ It should be noted that metrics are tracked for the current history - in the case of a reorg on the chain - in particular a deep reorg - no attempt is made to revisit previously reported values. In the case that finality is delayed, the risk of stale metrics increases.
+```admonish warning
+It should be noted that metrics are tracked for the current history - in the case of a reorg on the chain - in particular a deep reorg - no attempt is made to revisit previously reported values. In the case that finality is delayed, the risk of stale metrics increases.
+```
 
 Likewise, many metrics, such as aggregation inclusion, reflect conditions on the network - it may happen that the same message is counted more than once under certain conditions.
 

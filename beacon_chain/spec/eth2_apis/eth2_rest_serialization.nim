@@ -2097,6 +2097,52 @@ proc readValue*(reader: var JsonReader[RestJson],
     keystores: keystores, passwords: passwords, slashing_protection: slashing
   )
 
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: RestActivityItem) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("index", value.index)
+  writer.writeField("epoch", value.epoch)
+  writer.writeField("active", value.active)
+  writer.endRecord()
+
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var RestActivityItem) {.
+     raises: [SerializationError, IOError, Defect].} =
+  var index: Option[ValidatorIndex]
+  var epoch: Option[Epoch]
+  var active: Option[bool]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "index":
+      if index.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `index` fields found", "RestActivityItem")
+      index = some(reader.readValue(ValidatorIndex))
+    of "epoch":
+      if epoch.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `epoch` fields found", "RestActivityItem")
+      epoch = some(reader.readValue(Epoch))
+    of "active":
+      if active.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `active` fields found", "RestActivityItem")
+      active = some(reader.readValue(bool))
+    else:
+      discard
+
+  if index.isNone():
+    reader.raiseUnexpectedValue("Missing or empty `index` value")
+  if epoch.isNone():
+    reader.raiseUnexpectedValue("Missing or empty `epoch` value")
+  if active.isNone():
+    reader.raiseUnexpectedValue("Missing or empty `active` value")
+
+  value = RestActivityItem(index: index.get(), epoch: epoch.get(),
+                           active: active.get())
+
 proc dump*(value: KeystoresAndSlashingProtection): string {.
      raises: [IOError, Defect].} =
   var stream = memoryOutput()
@@ -2183,7 +2229,8 @@ proc decodeBody*[T](t: typedesc[T],
                       allowUnknownFields = true)
     except SerializationError as exc:
       debug "Failed to deserialize REST JSON data",
-            err = exc.formatMsg("<data>")
+            err = exc.formatMsg("<data>"),
+            data = string.fromBytes(body.data)
       return err("Unable to deserialize data")
     except CatchableError:
       return err("Unexpected deserialization error")
@@ -2237,7 +2284,8 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openArray[byte],
                          allowUnknownFields = true)
     except SerializationError as exc:
       debug "Failed to deserialize REST JSON data",
-            err = exc.formatMsg("<data>")
+            err = exc.formatMsg("<data>"),
+            data = string.fromBytes(value)
       err("Serialization error")
   else:
     err("Content-Type not supported")

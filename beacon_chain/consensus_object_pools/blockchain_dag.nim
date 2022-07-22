@@ -179,8 +179,6 @@ func init*(
       shuffled_active_validator_indices:
         cache.get_shuffled_active_validator_indices(state, epoch),
       attester_dependent_root: attester_dependent_root,
-
-      merge_transition_complete: state.is_merge_transition_complete()
     )
     epochStart = epoch.start_slot()
 

@@ -2,7 +2,7 @@
 
 ## General
 
-### How do I check which version of Nimbus I'm currently running?
+### Which version of Nimbus am I running?
 
 You can check the version through a number of methods:
 
@@ -22,7 +22,7 @@ curl -s http://localhost:9100/eth/v1/node/version
 The metrics server is disabled by default: enable it by passing `--metrics` to the run command:
 
 ```sh
-./run-mainnet-beacon-node.sh --metrics ...
+build/nimbus_beacon_node --metrics ...
 ```
 
 ### Why is the REST server not working?
@@ -30,7 +30,7 @@ The metrics server is disabled by default: enable it by passing `--metrics` to t
 The REST server is disabled by default: enable it by passing `--rest` to the run command:
 
 ```sh
-./run-mainnet-beacon-node.sh --metrics ...
+build/nimbus_beacon_node --rest ...
 ```
 
 ### Why does my validator miss two epochs of attestations after restarting?
@@ -55,7 +55,9 @@ To stress test it, add `--subscribe-all-subnets` to the [beacon node options](./
 
 To add an additional validator, follow [the same steps](./keys.md) as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.
 
-> Note that a single Nimbus instance is able to handle multiple validators.
+```admonish note
+Note that a single Nimbus instance is able to handle multiple validators.
+```
 
 ## Networking
 
@@ -89,61 +91,13 @@ The following errors are a sign of this:
 - `Data directory has insecure permissions`
 - `File has insecure permissions`
 
-Here is how to fix them.
-
-### Linux/ BSD / MacOS
-
-Run:
-
-```sh
-# Changing ownership to `user:group` for all files/directories in <data-dir>.
-chown user:group -R <data-dir>
-# Set permissions to (rwx------ 0700) for all directories starting from <data-dir>
-find <data-dir> -type d -exec chmod 700 {} \;
-
-# Set permissions to (rw------- 0600) for all files inside <data-dir>/validators
-find <data-dir>/validators -type f -exec chmod 0600 {} \;
-
-# Set permissions to (rw------- 0600) for all files inside <data-dir>/secrets
-find <data-dir>/secrets -type f -exec chmod 0600 {} \;
-
-```
-
-In sum:
-
-- Directories `<data-dir>`, `<data-dir>/validators`, `<data-dir>/secrets` MUST be owned by user and have `rwx------` or `0700`permissions set.
-
-- Files stored inside `<data-dir>`, `<data-dir>/validators`, `/secrets` MUST be owned by user and have `rw------` or `0600` permission set.
-
-### Windows
-
-From inside `Git Bash`, run:
-
-```sh
-# Set permissions for all the directories starting from <data-dir>
-find <data-dir> -type d -exec icacls {} /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(OI\)\(CI\)\(F\) \;
-
-# Set permissions for all the files inside <data-dir>/validators
-find <data-dir>/validators -type f -exec icacls {} /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(F\) \;
-
-# Set permissions for all the files inside <data-dir>/secrets
-find <data-dir>/secrets -type f -exec icacls {} /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(F\) \;
-```
-
-> **N.B.** Make sure you run the above from inside `Git Bash`, these commands  will not work from inside the standard Windows Command Prompt. If you don't already have a `Git Bash` shell, you'll need to install [Git for Windows](https://gitforwindows.org/).
-
-In sum:
-
-- Directories `<data-dir>`, `<data-dir>/validators`, `<data-dir>/secrets` MUST be owned by user and have permissions set for the user only (OI)(CI)(F). All inherited permissions should be removed.
-
-- Files which are stored inside <data-dir>, <data-dir>/validators, <data-dir>/secrets MUST be owned by user and have permissions set for the user only (F). All inherited permissions should be removed.
-
+See the [data directory](./data-dir.md#permissions) page for instructions on how to fix this
 
 ## Validating
 
 ### What exactly is a validator?
 
-A validator is an entity that participates in the consensus of the Ethereum protocol.
+A validator is an entity that participates in the consensus of the Ethereum protocol, and has staked 32 ETH to do so.
 
 Or in plain english, a human running a computer process. This process proposes and vouches for new blocks to be added to the blockchain.
 
@@ -194,7 +148,7 @@ At the other end of the spectrum, if your balance is closer to 31 ETH, it's prob
 
 ### When can I withdraw my funds, and what's the difference between exiting and withdrawing?
 
-You can signal your intent to stop validating by signing a voluntary exit message with your validator.
+You can signal your intent to stop validating by signing a [voluntary exit](./voluntary-exit.md) message with your validator.
 
 However, bear in mind that in Phase 0, once you've exited, there's no going back.
 
