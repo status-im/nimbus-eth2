@@ -16,6 +16,13 @@ Click on the file that corresponds to your OS and architecture, unpack the archi
 
 To install or upgrade a binary release, simply unpack the downloaded archive in a directory of your choice.
 
+```sh
+# Create a directory that can hold the beacon chain data and applications - this should be a fast SSD
+mkdir -p nimbus-eth2
+# Unpack the archive into the `nimbus-eth2` directory you just created
+tar xvf nimbus-eth2_Linux_amd64_22.6.1_2444e994.tar.gz --strip-components 1 -C nimbus-eth2
+```
+
 After unpacking, you may wish to [verify the checksum](./checksums.md).
 
 ## Docker

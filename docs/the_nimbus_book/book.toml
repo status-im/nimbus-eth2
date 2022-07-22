@@ -9,8 +9,12 @@ title = "The Nimbus Beacon Chain Book"
 command = "mdbook-open-on-gh"
 renderer = ["html"]
 
+[preprocessor.admonish]
+command = "mdbook-admonish"
+assets_version = "2.0.0" # do not edit: managed by `mdbook-admonish install`
+
 [output.html]
-additional-css = ["custom.css"]
+additional-css = ["custom.css", "mdbook-admonish.css"]
 git-repository-url = "https://github.com/status-im/nimbus-eth2"
 git-branch = "unstable"
 

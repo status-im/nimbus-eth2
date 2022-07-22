@@ -6,29 +6,34 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import validator_client/[common, fallback_service, duties_service,
                          attestation_service, fork_service,
-                         sync_committee_service]
+                         sync_committee_service, doppelganger_service]
 
 proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
   var nodes = vc.beaconNodes
   while true:
-    var pending: seq[Future[RestResponse[GetGenesisResponse]]]
+    var pendingRequests: seq[Future[RestResponse[GetGenesisResponse]]]
     for node in nodes:
       debug "Requesting genesis information", endpoint = node
-      pending.add(node.client.getGenesis())
+      pendingRequests.add(node.client.getGenesis())
 
     try:
-      await allFutures(pending)
+      await allFutures(pendingRequests)
     except CancelledError as exc:
+      var pending: seq[Future[void]]
       debug "Genesis information request was interrupted"
+      for future in pendingRequests:
+        if not(future.finished()):
+          pending.add(future.cancelAndWait())
+      await allFutures(pending)
       raise exc
 
     let (errorNodes, genesisList) =
       block:
         var gres: seq[RestGenesis]
         var bres: seq[BeaconNodeServerRef]
-        for i in 0 ..< len(pending):
-          let fut = pending[i]
+        for i in 0 ..< len(pendingRequests):
+          let fut = pendingRequests[i]
           if fut.done():
             let resp = fut.read()
             if resp.status == 200:
@@ -87,7 +92,7 @@ proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
       continue
     else:
       duplicates.add(pubkey)
-      vc.attachedValidators.addLocalValidator(keystore)
+      vc.addValidator(keystore)
   return true
 
 proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
@@ -157,6 +162,7 @@ proc asyncInit(vc: ValidatorClientRef) {.async.} =
     vc.fallbackService = await FallbackServiceRef.init(vc)
     vc.forkService = await ForkServiceRef.init(vc)
     vc.dutiesService = await DutiesServiceRef.init(vc)
+    vc.doppelgangerService = await DoppelgangerServiceRef.init(vc)
     vc.attestationService = await AttestationServiceRef.init(vc)
     vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
   except CancelledError:
@@ -168,6 +174,7 @@ proc asyncRun(vc: ValidatorClientRef) {.async.} =
   vc.fallbackService.start()
   vc.forkService.start()
   vc.dutiesService.start()
+  vc.doppelgangerService.start()
   vc.attestationService.start()
   vc.syncCommitteeService.start()
 
@@ -195,6 +202,7 @@ proc asyncRun(vc: ValidatorClientRef) {.async.} =
   pending.add(vc.fallbackService.stop())
   pending.add(vc.forkService.stop())
   pending.add(vc.dutiesService.stop())
+  pending.add(vc.doppelgangerService.stop())
   pending.add(vc.attestationService.stop())
   pending.add(vc.syncCommitteeService.stop())
   await allFutures(pending)

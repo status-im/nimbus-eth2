@@ -159,12 +159,12 @@ restapi-test:
 
 local-testnet-minimal:
 	./scripts/launch_local_testnet.sh \
+		--data-dir $@ \
 		--preset minimal \
 		--nodes 4 \
 		--stop-at-epoch 5 \
 		--disable-htop \
 		--enable-logtrace \
-		--data-dir local_testnet0_data \
 		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
 		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
 		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
@@ -177,11 +177,11 @@ local-testnet-minimal:
 
 local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
+		--data-dir $@ \
 		--nodes 4 \
 		--stop-at-epoch 5 \
 		--disable-htop \
 		--enable-logtrace \
-		--data-dir local_testnet1_data \
 		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
 		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
 		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
@@ -661,6 +661,7 @@ book:
 	[[ "$$(mdbook --version)" = "mdbook v0.4.18" ]] || { echo "'mdbook v0.4.18' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.8.0" ]] || { echo "'mdbook-toc 0.8.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.1.0" ]] || { echo "'mdbook-open-on-gh 2.1.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-admonish --version)" == "mdbook-admonish 1.7.0" ]] || { echo "'mdbook-open-on-gh 1.7.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_nimbus_book && \
 	mdbook build
 

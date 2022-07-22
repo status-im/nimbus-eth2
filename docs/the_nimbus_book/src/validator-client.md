@@ -1,12 +1,16 @@
 # Run a separate validator client
 
-> ⚠️ This feature is currently in BETA - we are still testing it and implementation details may change in response to community feedback. **We strongly advise against using it on mainnet** - your validators may get slashed
+```admonish warning
+This feature is currently in BETA - we are still testing it and implementation details may change in response to community feedback. **We strongly advise against using it on mainnet** - your validators may get slashed
+```
 
 By default, Nimbus loads validator keys into the main beacon node process, which is a simple, safe and efficient way to run a validator.
 
 Advanced users may wish to run validators in a separate process, allowing more flexible deployment strategies. The Nimbus beacon node supports both its own and third-party validator clients via the built-in [REST API](./rest-api.md).
 
-> ⚠️ So far, all slashings with known causes have been linked to overly complex setups involving separation between beacon node and validator client! Only use this setup if you've taken steps to mitigate the increased risk.
+```admonish warning
+So far, all slashings with known causes have been linked to overly complex setups involving separation between beacon node and validator client! Only use this setup if you've taken steps to mitigate the increased risk.
+```
 
 ## Build
 
@@ -34,9 +38,13 @@ build/nimbus_beacon_node deposits import \
   --data-dir:build/data/vc_shared_prater_0 "<YOUR VALIDATOR KEYS DIRECTORY>"
 ```
 
-> ⚠️ Do not use the same data directory for beacon node and validator client - they will both try to load the same keys which may result in slashing!
+```admonish warning
+Do not use the same data directory for beacon node and validator client - they will both try to load the same keys which may result in slashing!
+```
 
-> ⚠️ If you are migrating your keys from the beacon node to the validator client, simply move the `secrets` and `validators` folders in the beacon node data directory to the data directory of the validator client
+```admonish warning
+If you are migrating your keys from the beacon node to the validator client, simply move the `secrets` and `validators` folders in the beacon node data directory to the data directory of the validator client
+```
 
 With the keys imported, you are ready to start validator client:
 

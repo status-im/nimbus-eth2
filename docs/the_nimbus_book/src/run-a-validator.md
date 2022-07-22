@@ -1,6 +1,14 @@
 # Run a validator
 
-Once your beacon node is [running and synced](./quick-start.md), the next step is to run a validator.
+Once your beacon node is [running and synced](./quick-start.md), the next step is to set up a validator.
+
+```admonish note
+Unlike other beacon chain clients, Nimbus does not require setting up a separate validator client process - the beacon node can itself perform validator duties.
+
+This is a simple, safe and efficient way to get started.
+
+Advanced users may want to use a separate [validator client](./validator-client.md) process instead.
+```
 
 ## 1. Deposit
 
@@ -14,17 +22,6 @@ Once your beacon node is [running and synced](./quick-start.md), the next step i
 
 [Start performing duties](./connect-eth2.md) by restarting the node
 
-
-</br>
-
-------------------------------------------------------
-
-</br>
-
+```admonish tip
 While that's all there is to it, it is essential that you both [keep an eye on your validator](keep-an-eye.md) and [keep Nimbus updated](keep-updated.md) regularly 💫
-
-</br>
-
-
-
-
+```

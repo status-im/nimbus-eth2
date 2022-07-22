@@ -153,6 +153,11 @@ type
       desc: "A directory containing wallet files"
       name: "wallets-dir" .}: Option[InputDir]
 
+    eraDirFlag* {.
+      hidden
+      desc: "A directory containing era files"
+      name: "era-dir" .}: Option[InputDir]
+
     web3Urls* {.
       desc: "One or more execution layer Web3 provider URLs"
       name: "web3-url" .}: seq[string]
@@ -762,6 +767,17 @@ type
       abbr: "d"
       name: "data-dir" .}: OutDir
 
+    doppelgangerDetection* {.
+      # TODO This description is shared between the BN and the VC.
+      #      Extract it in a constant (confutils fix may be needed).
+      desc: "If enabled, the validator client prudently listens for 2 epochs " &
+            "for attestations from a validator with the same index " &
+            "(a doppelganger), before sending an attestation itself. This " &
+            "protects against slashing (due to double-voting) but means you " &
+            "will miss two attestations when restarting."
+      defaultValue: true
+      name: "doppelganger-detection" .}: bool
+
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool
@@ -1018,10 +1034,11 @@ func secretsDir*[Conf](config: Conf): string =
   string config.secretsDirFlag.get(InputDir(config.dataDir / "secrets"))
 
 func walletsDir*(config: BeaconNodeConf): string =
-  if config.walletsDirFlag.isSome:
-    config.walletsDirFlag.get.string
-  else:
-    config.dataDir / "wallets"
+  string config.walletsDirFlag.get(InputDir(config.dataDir / "wallets"))
+
+func eraDir*(config: BeaconNodeConf): string =
+  # The era directory should be shared between networks of the same type..
+  string config.eraDirFlag.get(InputDir(config.dataDir / "era"))
 
 func outWalletName*(config: BeaconNodeConf): Option[WalletName] =
   proc fail {.noreturn.} =
@@ -1062,10 +1079,6 @@ func databaseDir*(config: AnyConf): string =
 
 func runAsService*(config: BeaconNodeConf): bool =
   config.cmd == noCommand and config.runAsServiceFlag
-
-func eraDir*(config: AnyConf): string =
-  # TODO this should be shared between all instances of the same network
-  config.dataDir / "era"
 
 template writeValue*(writer: var JsonWriter,
                      value: TypedInputFile|InputFile|InputDir|OutPath|OutDir|OutFile) =

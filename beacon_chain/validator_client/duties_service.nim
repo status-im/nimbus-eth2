@@ -79,6 +79,9 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
             pubkey = item.validator.pubkey, index = item.index
       vc.attachedValidators.updateValidator(item.validator.pubkey,
                                             item.index)
+      # Adding validator for doppelganger detection.
+      vc.addDoppelganger(
+        vc.attachedValidators.getValidator(item.validator.pubkey))
 
 proc pollForAttesterDuties*(vc: ValidatorClientRef,
                             epoch: Epoch): Future[int] {.async.} =
