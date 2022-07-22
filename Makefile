@@ -168,9 +168,9 @@ local-testnet-minimal:
 		--base-port $$(( 29000 + EXECUTOR_NUMBER * 100 )) \
 		--base-rest-port $$(( 27500 + EXECUTOR_NUMBER * 100 )) \
 		--base-metrics-port $$(( 28008 + EXECUTOR_NUMBER * 100 )) \
+		--base-remote-signer-port $$(( 26000 + EXECUTOR_NUMBER * 100 )) \
 		--timeout 600 \
 		--kill-old-processes \
-		--light-clients 1 \
 		-- \
 		--verify-finalization \
 		--discv5:no
@@ -185,9 +185,9 @@ local-testnet-mainnet:
 		--base-port $$(( 39000 + EXECUTOR_NUMBER * 100 )) \
 		--base-rest-port $$(( 37500 + EXECUTOR_NUMBER * 100 )) \
 		--base-metrics-port $$(( 38008 + EXECUTOR_NUMBER * 100 )) \
+		--base-remote-signer-port $$(( 36000 + EXECUTOR_NUMBER * 100 )) \
 		--timeout 2400 \
 		--kill-old-processes \
-		--light-clients 1 \
 		-- \
 		--verify-finalization \
 		--discv5:no
