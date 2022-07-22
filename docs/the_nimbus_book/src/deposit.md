@@ -1,47 +1,70 @@
 # Make a deposit for your validator
-The easiest way to get your deposit in is to follow the Ethereum Foundation's launchpad instructions here:
 
-**Prater testnet**:
-[https://prater.launchpad.ethereum.org/](https://prater.launchpad.ethereum.org/)
+To make a deposit, you will need to generate keys then submit a deposit transaction to the execution chain.
 
-> Use Prater to stress test / future proof  your set up against peak mainnet load. See [here](./prater.md) for all you need to know
+```admonish tip
+The process of setting up a validator is also documented at the Ethereum launchpad site:
 
-**Mainnet**: [https://launchpad.ethereum.org/](https://launchpad.ethereum.org/)
+* [Mainnet](https://launchpad.ethereum.org/)
+* [Prater](https://prater.launchpad.ethereum.org/)
+```
 
-> ⚠️  If you are making a mainnet deposit make sure you verify that the deposit contract you are interacting with is the correct one. 
->
-> You should verify that the address is indeed: [0x00000000219ab540356cBB839Cbe05303d7705Fa](https://etherscan.io/address/0x00000000219ab540356cBB839Cbe05303d7705Fa)
+```admonish tip
+Use Prater to stress test / future proof  your set up against peak mainnet load. See [here](./prater.md) for all you need to know
+```
 
-You may notice that there have been considerable improvements to the launchpad process since the summer.
- 
-In particular, the Key Generation section is now much clearer, and you no longer have to install dependencies to get the [command line app](https://github.com/ethereum/eth2.0-deposit-cli) working.
+## Download the deposit tool
 
-We won't elaborate on each individual step here, since they are well explained on the site itself. However, there are two points of note:
+Start by downloading and unpacking the [deposit tool](https://github.com/ethereum/staking-deposit-cli/releases/latest) provided by the Ethereum Foundation:
 
-## 1. Eth1 connection
-![](https://i.imgur.com/81BgR14.png)
+```sh
+# Enter the nimbus folder we previously created
+cd nimbus-eth2
 
-In the `Select Client` section you'll first be asked to choose an eth1 client. You need to run an eth1 client in order to process incoming validator deposits from the eth1 chain.
+# Make sure to get the latest version from the download page
+wget https://github.com/ethereum/staking-deposit-cli/releases/download/v2.2.0/staking_deposit-cli-9ab0b05-linux-amd64.tar.gz
 
-![](https://i.imgur.com/l5WSGqZ.png)
+# Unpack the archive
+tar xvf staking_deposit-cli-9ab0b05-linux-amd64.tar.gz --strip-components 2
+```
 
-We recommend you choose `Go Ethereum` (or `Geth`). 
+## Generate keys
 
-*If you've followed the book up to this point, you should already have geth up and running.*
+```admonish tip
+You can increase the security of this process by downloading a [Live linux image](https://ubuntu.com/tutorials/try-ubuntu-before-you-install). To do so, copy `deposit` to a USB stick, boot into the live image, and run the tool from inside the image. Make sure you **don't** enable Wifi and unplug any Ethernet cables when using this process.
+```
 
-## 2. Block explorer
-Once you've sent off your transaction, you should see the following screen.
- 
-![](https://i.imgur.com/A4IMlhK.png)
- 
- 
+The deposit tool generates a seed phrase, and uses this to create validator and withdrawal keys.
 
-We recommend you click on `Beaconchain`. This will open up a window that allows you to keep track of your validator's status.
- 
-![](https://i.imgur.com/JHQblna.png)
+```admonish warn
+If you lose you seed phrase and your withdrawal key, your funds will be lost forever!
+```
 
-It's a good idea to bookmark this page.
+**Mainnet**
 
-## Expected waiting time (the queue)
+```sh
+# Run the deposit tool and follow the instructions on screen
+./deposit new-mnemonic --chain mainnet
+```
+
+**Prater**
+```sh
+# Run the deposit tool and follow the instructions on screen
+./deposit new-mnemonic --chain prater
+```
+
+## Make the deposit
+
+Once created, the keys are used to create a deposit transaction on the Ethereum execution chain. Follow the instructions at https://launchpad.ethereum.org/en/upload-deposit-data to upload the deposit data.
+
+```admonish warning
+If you are making a mainnet deposit make sure you verify that the deposit contract you are interacting with is the correct one.
+
+You should verify that the address is indeed: [0x00000000219ab540356cBB839Cbe05303d7705Fa](https://etherscan.io/address/0x00000000219ab540356cBB839Cbe05303d7705Fa)
+```
+
+```admonish info
 Once you send off your transaction(s), your validator will be put in a queue based on deposit time. Getting through the queue may take a few hours or days (assuming the chain is finalising). No validators are accepted into the validator set while the chain isn't finalising. The `Pending Validators` metric on the [beaconcha.in](https://beaconcha.in/) will give you the size of the queue.
+```
 
+With the keys created, you're ready to perform the [key import](./keys.md).

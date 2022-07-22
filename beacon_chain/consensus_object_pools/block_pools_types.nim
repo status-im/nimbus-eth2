@@ -19,9 +19,11 @@ import
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
 
+from "."/vanity_logs/pandas import VanityLogs
+
 export
   options, sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
-  block_pools_types_light_client, validator_monitor
+  block_pools_types_light_client, validator_monitor, VanityLogs
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
 # relationships and allowing various forms of lookups
@@ -139,7 +141,8 @@ type
       ## in the case where an earlier genesis block exists.
 
     head*: BlockRef
-      ## The most recently known head, as chosen by fork choice
+      ## The most recently known head, as chosen by fork choice; might be
+      ## optimistic
 
     backfill*: BeaconBlockSummary
       ## The backfill points to the oldest block with an unbroken ancestry from
@@ -151,7 +154,7 @@ type
       ## backfilling reaches this point - empty when not backfilling.
 
     heads*: seq[BlockRef]
-    ## Candidate heads of candidate chains
+      ## Candidate heads of candidate chains
 
     finalizedHead*: BlockSlot
       ## The latest block that was finalized according to the block in head
@@ -183,12 +186,6 @@ type
 
     cfg*: RuntimeConfig
 
-    serveLightClientData*: bool
-      ## Whether to make local light client data available or not
-
-    importLightClientData*: ImportLightClientData
-      ## Which classes of light client data to import
-
     epochRefs*: array[32, EpochRef]
       ## Cached information about a particular epoch ending with the given
       ## block - we limit the number of held EpochRefs to put a cap on
@@ -200,10 +197,17 @@ type
       ## value with other components which don't have access to the
       ## full ChainDAG.
 
-    # -----------------------------------
-    # Data to enable light clients to stay in sync with the network
+    vanityLogs*: VanityLogs
+      ## Upon the merge activating, these get displayed, at least once when the
+      ## head becomes post-merge and then when the merge is finalized. If chain
+      ## reorgs happen around the initial merge onMergeTransitionBlock might be
+      ## called several times.
 
-    lightClientCache*: LightClientCache
+    # -----------------------------------
+    # Light client data
+
+    lcDataStore*: LightClientDataStore
+      # Data store to enable light clients to sync with the network
 
     # -----------------------------------
     # Callbacks
@@ -216,16 +220,15 @@ type
       ## On beacon chain reorganization
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
-    onLightClientFinalityUpdate*: OnLightClientFinalityUpdateCallback
-      ## On new `LightClientFinalityUpdate` callback
-    onLightClientOptimisticUpdate*: OnLightClientOptimisticUpdateCallback
-      ## On new `LightClientOptimisticUpdate` callback
 
     headSyncCommittees*: SyncCommitteeCache
       ## A cache of the sync committees, as they appear in the head state -
       ## using the head state is slightly wrong - if a reorg deeper than
       ## EPOCHS_PER_SYNC_COMMITTEE_PERIOD is happening, some valid sync
       ## committee messages will be rejected
+
+    optimisticRoots*: HashSet[Eth2Digest]
+      ## https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#helpers
 
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
@@ -240,18 +243,17 @@ type
   EpochRef* = ref object
     dag*: ChainDAGRef
     key*: EpochKey
-    current_justified_checkpoint*: Checkpoint
-    finalized_checkpoint*: Checkpoint
+
     eth1_data*: Eth1Data
     eth1_deposit_index*: uint64
+
+    checkpoints*: FinalityCheckpoints
+
     beacon_proposers*: array[SLOTS_PER_EPOCH, Option[ValidatorIndex]]
     proposer_dependent_root*: Eth2Digest
 
     shuffled_active_validator_indices*: seq[ValidatorIndex]
     attester_dependent_root*: Eth2Digest
-
-    # enables more efficient merge block validation
-    merge_transition_complete*: bool
 
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
@@ -267,17 +269,20 @@ type
   OnPhase0BlockAdded* = proc(
     blckRef: BlockRef,
     blck: phase0.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
   OnAltairBlockAdded* = proc(
     blckRef: BlockRef,
     blck: altair.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
   OnBellatrixBlockAdded* = proc(
     blckRef: BlockRef,
     blck: bellatrix.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
   HeadChangeInfoObject* = object
     slot*: Slot
@@ -286,6 +291,7 @@ type
     epoch_transition*: bool
     previous_duty_dependent_root*: Eth2Digest
     current_duty_dependent_root*: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
   ReorgInfoObject* = object
     slot*: Slot
@@ -294,11 +300,18 @@ type
     new_head_block*: Eth2Digest
     old_head_state*: Eth2Digest
     new_head_state*: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
   FinalizationInfoObject* = object
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     state_root* {.serializedFieldName: "state".}: Eth2Digest
     epoch*: Epoch
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
+
+  EventBeaconBlockObject* = object
+    slot*: Slot
+    block_root* {.serializedFieldName: "block".}: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
@@ -318,6 +331,15 @@ func shortLog*(v: EpochKey): string =
 
 template setFinalizationCb*(dag: ChainDAGRef, cb: OnFinalizedCallback) =
   dag.onFinHappened = cb
+
+template setBlockCb*(dag: ChainDAGRef, cb: OnBlockCallback) =
+  dag.onBlockAdded = cb
+
+template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
+  dag.onHeadChanged = cb
+
+template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
+  dag.onReorgHappened = cb
 
 func shortLog*(v: EpochRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!
@@ -378,3 +400,13 @@ func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
     state_root: stateRoot,
     epoch: epoch
   )
+
+func init*(t: typedesc[EventBeaconBlockObject],
+           v: ForkedTrustedSignedBeaconBlock,
+           optimistic: Option[bool]): EventBeaconBlockObject =
+  withBlck(v):
+    EventBeaconBlockObject(
+      slot: blck.message.slot,
+      block_root: blck.root,
+      optimistic: optimistic
+    )

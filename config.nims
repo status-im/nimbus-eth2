@@ -118,10 +118,6 @@ switch("passL", "-fno-omit-frame-pointer")
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
 
-# TODO https://github.com/status-im/nimbus-eth2/issues/3130
-# We are still seeing problems with the websock package, se we stick to using news:
-switch("define", "json_rpc_websocket_package=news")
-
 const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("define", "withoutPCRE")
@@ -179,7 +175,7 @@ switch("warning", "LockLevel:off")
 # ############################################################
 
 # This applies per-file compiler flags to C files
-# which do not support {.localPassc: "-fno-lto".}
+# which do not support {.localPassC: "-fno-lto".}
 # Unfortunately this is filename based instead of path-based
 # Assumes GCC
 
@@ -207,4 +203,3 @@ put("ecp_BLS12381.always", "-fno-lto")
 # sqlite3.c: In function ‘sqlite3SelectNew’:
 # vendor/nim-sqlite3-abi/sqlite3.c:124500: warning: function may return address of local variable [-Wreturn-local-addr]
 put("sqlite3.always", "-fno-lto") # -Wno-return-local-addr
-

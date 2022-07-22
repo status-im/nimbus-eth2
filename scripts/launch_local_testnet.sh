@@ -10,9 +10,18 @@
 # Mostly a duplication of "tests/simulation/{start.sh,run_node.sh}", but with a focus on
 # replicating testnets as closely as possible, which means following the Docker execution labyrinth.
 
-set -e
+set -euo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")"/..
+BASEDIR="$(dirname "${BASH_SOURCE[0]}")"
+cd "$BASEDIR/.."
+
+VERBOSE="0"
+
+log() {
+  if [[ "${VERBOSE}" -ge "1" ]]; then
+    echo "${@}"
+  fi
+}
 
 # OS detection
 OS="linux"
@@ -42,10 +51,14 @@ if [[ ${PIPESTATUS[0]} != 4 ]]; then
   exit 1
 fi
 
+CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit 1; }
+JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
+
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,light-clients:,run-nimbus-el,verbose"
 
 # default values
+NIMFLAGS="${NIMFLAGS:-""}"
 NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
@@ -59,6 +72,7 @@ BASE_METRICS_PORT="8008"
 BASE_REST_PORT="7500"
 REUSE_EXISTING_DATA_DIR="0"
 REUSE_BINARIES="0"
+NIMFLAGS=""
 ENABLE_LOGTRACE="0"
 STOP_AT_EPOCH_FLAG=""
 TIMEOUT_DURATION="0"
@@ -68,6 +82,19 @@ ETH2_DOCKER_IMAGE=""
 REMOTE_SIGNER_NODES=0
 REMOTE_SIGNER_THRESHOLD=1
 REMOTE_VALIDATORS_COUNT=0
+LC_NODES=1
+ACCOUNT_PASSWORD="nimbus"
+RUN_GETH="0"
+DL_GETH="0"
+CLEANUP_DIRS=()
+
+#NIMBUS EL VARS
+RUN_NIMBUS="0"
+NIMBUS_EL_BINARY="../nimbus-eth1/build/nimbus"
+
+EL_HTTP_PORTS=()
+EL_RPC_PORTS=()
+PROCS_TO_KILL=("nimbus_beacon_node" "nimbus_validator_client" "nimbus_signing_node" "nimbus_light_client")
 
 print_help() {
   cat <<EOF
@@ -102,6 +129,11 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --threshold                 used by a threshold secret sharing mechanism and determine how many shares are need to
                               restore signature of the original secret key
   --remote-signers            number of remote signing nodes
+  --light-clients             number of light clients
+  --run-nimbus-el             Run nimbush-eth1 as EL
+  --run-geth                  Run geth EL clients
+  --dl-geth                   Download geth binary if not found
+  --verbose                   Verbose output
 EOF
 }
 
@@ -198,14 +230,35 @@ while true; do
     --eth2-docker-image)
       ETH2_DOCKER_IMAGE="$2"
       shift 2
-      # TODO The validator client is still not being shipped with
-      #      our docker images, so we must disable it:
-      echo "warning: --eth-docker-image implies --disable-vc"
+      # TODO The validator client and light client are not being shipped with
+      #      our docker images, so we must disable them:
+      echo "warning: --eth-docker-image implies --disable-vc --light-clients=0"
       USE_VC="0"
+      LC_NODES="0"
       ;;
     --lighthouse-vc-nodes)
       LIGHTHOUSE_VC_NODES="$2"
       shift 2
+      ;;
+    --light-clients)
+      LC_NODES="$2"
+      shift 2
+      ;;
+    --run-geth)
+      RUN_GETH="1"
+      shift
+      ;;
+    --dl-geth)
+      DL_GETH="1"
+      shift
+      ;;
+    --run-nimbus-el)
+      RUN_NIMBUS="1"
+      shift
+      ;;
+    --verbose)
+      VERBOSE="1"
+      shift
       ;;
     --)
       shift
@@ -217,6 +270,12 @@ while true; do
       exit 1
   esac
 done
+if [[ -n "${ETH2_DOCKER_IMAGE}" ]]; then
+  if (( USE_VC || LC_NODES )); then
+    echo "invalid config: USE_VC=${USE_VC} LC_NODES=${LC_NODES}"
+    false
+  fi
+fi
 
 # when sourcing env.sh, it will try to execute $@, so empty it
 EXTRA_ARGS="$@"
@@ -225,6 +284,7 @@ if [[ $# != 0 ]]; then
 fi
 
 if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
+  log "Deleting ${DATA_DIR}"
   rm -rf "${DATA_DIR}"
 fi
 
@@ -258,10 +318,63 @@ else
   NPROC="$(nproc)"
 fi
 
+if [[ "${RUN_NIMBUS}" == "1" && "${RUN_GETH}" == "1" ]]; then
+  echo "Use only one EL - geth or nimbus"
+  exit 1
+fi
+
+
+if [[ "${RUN_GETH}" == "1" ]]; then
+  . ./scripts/geth_vars.sh
+fi
+
+if [[ "${RUN_NIMBUS}" == "1" ]]; then
+  . ./scripts/nimbus_el_vars.sh
+fi
+
+
 # kill lingering processes from a previous run
 if [[ "${OS}" != "windows" ]]; then
   which lsof &>/dev/null || \
     { echo "'lsof' not installed and we need it to check for ports already in use. Aborting."; exit 1; }
+
+
+  #Stop geth nodes
+  if [[ "${RUN_GETH}" == "1" ]]; then
+    for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+      for PORT in $(( NUM_NODE * GETH_PORT_OFFSET + GETH_NET_BASE_PORT )) $(( NUM_NODE * GETH_PORT_OFFSET + GETH_HTTP_BASE_PORT )) \
+                  $(( NUM_NODE * GETH_PORT_OFFSET + GETH_WS_BASE_PORT )) $(( NUM_NODE * GETH_PORT_OFFSET + GETH_AUTH_RPC_PORT_BASE )); do
+        for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
+          echo -n "Found old geth processes listening on port ${PORT}, with PID ${PID}. "
+          if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
+            echo "Killing it."
+            kill -9 "${PID}" || true
+          else
+            echo "Aborting."
+            exit 1
+          fi
+        done
+      done
+    done
+  fi
+
+  if [[ "${RUN_NIMBUS}" == "1" ]]; then
+    for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+      for PORT in $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_NET_BASE_PORT )) $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_HTTP_BASE_PORT )) \
+                  $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_WS_BASE_PORT )) $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_AUTH_RPC_PORT_BASE )); do
+        for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
+          echo -n "Found old nimbus EL processes listening on port ${PORT}, with PID ${PID}. "
+          if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
+            echo "Killing it."
+            kill -9 "${PID}" || true
+          else
+            echo "Aborting."
+            exit 1
+          fi
+        done
+      done
+    done
+  fi
 
   for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     for PORT in $(( BASE_PORT + NUM_NODE )) $(( BASE_METRICS_PORT + NUM_NODE )) $(( BASE_REST_PORT + NUM_NODE )); do
@@ -269,7 +382,7 @@ if [[ "${OS}" != "windows" ]]; then
         echo -n "Found old process listening on port ${PORT}, with PID ${PID}. "
         if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
           echo "Killing it."
-          kill -9 ${PID} || true
+          kill -9 "${PID}" || true
         else
           echo "Aborting."
           exit 1
@@ -277,6 +390,77 @@ if [[ "${OS}" != "windows" ]]; then
       done
     done
   done
+fi
+
+download_geth() {
+
+  GETH_VERSION="1.10.18-de23cf91"
+
+#  "https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.10.18-de23cf91.tar.gz"
+#  "https://gethstore.blob.core.windows.net/builds/geth-darwin-amd64-1.10.18-de23cf91.tar.gz"
+#  "https://gethstore.blob.core.windows.net/builds/geth-windows-amd64-1.10.18-de23cf91.zip"
+
+  GETH_URL="https://gethstore.blob.core.windows.net/builds/"
+
+  case "${OS}" in
+    linux)
+      GETH_TARBALL="geth-linux-amd64-${GETH_VERSION}.tar.gz"
+      ;;
+    macos)
+      GETH_TARBALL="geth-darwin-amd64-${GETH_VERSION}.tar.gz"
+      ;;
+    windows)
+      GETH_TARBALL="geth-windows-amd64-${GETH_VERSION}.zip"
+      ;;
+  esac
+
+  if [[ ! -e "build/${GETH_BINARY}" ]]; then
+    log "Downloading Geth binary"
+    pushd "build" >/dev/null
+    "${CURL_BINARY}" -sSLO "${GETH_URL}/${GETH_TARBALL}"
+    local tmp_extract_dir
+    tmp_extract_dir=$(mktemp -d geth-extract-XXX)
+    CLEANUP_DIRS+=("${tmp_extract_dir}")
+    tar -xzf "${GETH_TARBALL}" --directory "${tmp_extract_dir}" --strip-components=1
+    mv "${tmp_extract_dir}/geth" .
+    GETH_BINARY="${PWD}/geth"
+    popd >/dev/null
+  fi
+}
+
+GETH_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
+NIMBUSEL_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
+
+if [[ "${RUN_GETH}" == "1" ]]; then
+  if [[ ! -e "${GETH_BINARY}" ]]; then
+    if [[ "${DL_GETH}" == "1" ]]; then
+      log "Downloading geth ..."
+      download_geth
+    else
+      echo "Missing geth executable"
+      exit 1
+    fi
+  fi
+
+  log "Starting ${GETH_NUM_NODES} Geth Nodes ..."
+  . "./scripts/start_geth_nodes.sh"
+  EL_HTTP_PORTS+=("${GETH_HTTP_PORTS[@]}")
+  EL_RPC_PORTS+=("${GETH_RPC_PORTS[@]}")
+  PROCS_TO_KILL+=("${GETH_BINARY}")
+  CLEANUP_DIRS+=("${GETH_DATA_DIRS[@]}")
+fi
+
+if [[ "${RUN_NIMBUS}" == "1" ]]; then
+  if [[ ! -e "${NIMBUS_EL_BINARY}" ]]; then
+    echo "Missing nimbus EL executable"
+    exit 1
+  fi
+
+  . "./scripts/start_nimbus_el_nodes.sh"
+  EL_HTTP_PORTS+=("${NIMBUSEL_HTTP_PORTS[@]}")
+  EL_RPC_PORTS+=("${NIMBUSEL_RPC_PORTS[@]}")
+  PROCS_TO_KILL+=("${NIMBUS_EL_BINARY}")
+  CLEANUP_DIRS+=("${NIMBUSEL_DATA_DIRS[@]}")
 fi
 
 # Download the Lighthouse binary.
@@ -301,8 +485,9 @@ LH_URL="https://github.com/sigp/lighthouse/releases/download/v${LH_VERSION}/${LH
 LH_BINARY="lighthouse-${LH_VERSION}"
 
 if [[ "${USE_VC}" == "1" && "${LIGHTHOUSE_VC_NODES}" != "0" && ! -e "build/${LH_BINARY}" ]]; then
+  echo "Downloading Lighthouse binary"
   pushd "build" >/dev/null
-  curl -sSLO "${LH_URL}"
+  "${CURL_BINARY}" -sSLO "${LH_URL}"
   tar -xzf "${LH_TARBALL}" # contains just one file named "lighthouse"
   rm lighthouse-* # deletes both the tarball and old binary versions
   mv lighthouse "${LH_BINARY}"
@@ -318,6 +503,10 @@ fi
 
 if [[ "${USE_VC}" == "1" ]]; then
   BINARIES="${BINARIES} nimbus_validator_client"
+fi
+
+if [ "$LC_NODES" -ge "1" ]; then
+  BINARIES="${BINARIES} nimbus_light_client"
 fi
 
 if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
@@ -344,6 +533,7 @@ for BINARY in ${BINARIES}; do
     break
   fi
 done
+
 if [[ "${REUSE_BINARIES}" == "0" || "${BINARIES_MISSING}" == "1" ]]; then
   ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
 fi
@@ -352,15 +542,19 @@ fi
 # instance as the parent and the target process name as a pattern to the
 # "pkill" command.
 cleanup() {
-  pkill -f -P $$ nimbus_beacon_node &>/dev/null || true
-  pkill -f -P $$ nimbus_validator_client &>/dev/null || true
-  pkill -f -P $$ nimbus_signing_node &>/dev/null || true
-  pkill -f -P $$ ${LH_BINARY} &>/dev/null || true
+  log "Cleaning up"
+
+  for proc in "${PROCS_TO_KILL[@]}"
+  do
+    pkill -f -P $$ "${proc}" &>/dev/null || true
+  done
+
   sleep 2
-  pkill -f -9 -P $$ nimbus_beacon_node &>/dev/null || true
-  pkill -f -9 -P $$ nimbus_validator_client &>/dev/null || true
-  pkill -f -9 -P $$ nimbus_signing_node &>/dev/null || true
-  pkill -f -9 -P $$ ${LH_BINARY} &>/dev/null || true
+
+  for proc in "${PROCS_TO_KILL[@]}"
+  do
+    pkill -f -9 -P $$ "${proc}" &>/dev/null || true
+  done
 
   # Delete all binaries we just built, because these are unusable outside this
   # local testnet.
@@ -373,7 +567,16 @@ cleanup() {
   if [[ -n "$ETH2_DOCKER_IMAGE" ]]; then
     docker rm $(docker stop $(docker ps -a -q --filter ancestor=$ETH2_DOCKER_IMAGE --format="{{.ID}}"))
   fi
+
+  if [ ${#CLEANUP_DIRS[@]} -ne 0 ]; then # check if the array is empty
+    for dir in "${CLEANUP_DIRS[@]}"
+    do
+      log "Deleting ${dir}"
+      rm -rf "${dir}"
+    done
+  fi
 }
+
 trap 'cleanup' SIGINT SIGTERM EXIT
 
 # timeout - implemented with a background job
@@ -391,13 +594,12 @@ fi
 REMOTE_URLS=""
 
 for NUM_REMOTE in $(seq 0 $(( REMOTE_SIGNER_NODES - 1 ))); do
-  REMOTE_PORT=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) 
+  REMOTE_PORT=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE ))
   REMOTE_URLS="${REMOTE_URLS} --remote-signer=http://127.0.0.1:${REMOTE_PORT}"
 done
 
 # deposit and testnet creation
 PIDS=""
-WEB3_ARG=""
 BOOTSTRAP_TIMEOUT=30 # in seconds
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -530,12 +732,24 @@ if [[ "${USE_VC}" == "1" ]]; then
   # if using validator client binaries in addition to beacon nodes we will
   # split the keys for this instance in half between the BN and the VC
   # and the validators for the BNs will be from the first half of all validators
-  VALIDATORS_PER_NODE=$((VALIDATORS_PER_NODE / 2 ))
-  NUM_JOBS=$((NUM_JOBS * 2 ))
+  VALIDATORS_PER_NODE=$(( VALIDATORS_PER_NODE / 2 ))
+  NUM_JOBS=$(( NUM_JOBS * 2 ))
 fi
 
 if [ "$REMOTE_SIGNER_NODES" -ge "0" ]; then
-  NUM_JOBS=$((NUM_JOBS + REMOTE_SIGNER_NODES ))
+  NUM_JOBS=$(( NUM_JOBS + REMOTE_SIGNER_NODES ))
+fi
+
+if [ "$LC_NODES" -ge "1" ]; then
+  NUM_JOBS=$(( NUM_JOBS + LC_NODES ))
+fi
+
+if [ "${RUN_GETH}" == "1" ]; then
+  NUM_JOBS=$(( NUM_JOBS + GETH_NUM_NODES ))
+fi
+
+if [ "${RUN_NIMBUS}" == "1" ]; then
+  NUM_JOBS=$(( NUM_JOBS + NIMBUSEL_NUM_NODES ))
 fi
 
 VALIDATORS_PER_VALIDATOR=$(( (SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS) / 2 ))
@@ -588,6 +802,11 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     fi
   fi
 done
+for NUM_LC in $(seq 0 $(( LC_NODES - 1 ))); do
+  LC_DATA_DIR="${DATA_DIR}/lc${NUM_LC}"
+  rm -rf "${LC_DATA_DIR}"
+  scripts/makedir.sh "${LC_DATA_DIR}" 2>&1
+done
 
 CLI_CONF_FILE="$CONTAINER_DATA_DIR/config.toml"
 
@@ -603,13 +822,19 @@ metrics = true
 metrics-address = "127.0.0.1"
 END_CLI_CONFIG
 
-for NUM_REMOTE in $(seq 0 $(( REMOTE_SIGNER_NODES - 1 ))); do
-  ./build/nimbus_signing_node \
-    --validators-dir="${DATA_DIR}/validators_shares/${NUM_REMOTE}" \
-    --secrets-dir="${DATA_DIR}/secrets_shares/${NUM_REMOTE}" \
-    --bind-port=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) \
-    > "${DATA_DIR}/log_remote_signer_${NUM_REMOTE}.txt" &
-done
+# https://ss64.com/osx/seq.html documents that at macOS seq(1) counts backwards
+# as probably do some others
+if ((REMOTE_SIGNER_NODES > 0)); then
+  for NUM_REMOTE in $(seq 0 $(( REMOTE_SIGNER_NODES - 1 ))); do
+    # TODO find some way for this and other background-launched processes to
+    # still participate in set -e, ideally
+    ./build/nimbus_signing_node \
+      --validators-dir="${DATA_DIR}/validators_shares/${NUM_REMOTE}" \
+      --secrets-dir="${DATA_DIR}/secrets_shares/${NUM_REMOTE}" \
+      --bind-port=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) \
+      > "${DATA_DIR}/log_remote_signer_${NUM_REMOTE}.txt" &
+  done
+fi
 
 # give each node time to load keys
 sleep 10
@@ -646,18 +871,27 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     done
   fi
 
+  if [ ${#EL_RPC_PORTS[@]} -eq 0 ]; then # check if the array is empty
+    WEB3_ARG=""
+  else
+    WEB3_ARG="--web3-url=http://127.0.0.1:${EL_RPC_PORTS[${NUM_NODE}]}"
+  fi
+
+  # TODO re-add --jwt-secret
   ${BEACON_NODE_COMMAND} \
     --config-file="${CLI_CONF_FILE}" \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
     --udp-port=$(( BASE_PORT + NUM_NODE )) \
-    --max-peers=$(( NUM_NODES - 1 )) \
+    --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
     --data-dir="${CONTAINER_NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
     ${WEB3_ARG} \
     ${STOP_AT_EPOCH_FLAG} \
     --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
-    --serve-light-client-data=1 --import-light-client-data=only-new \
+    --light-client-enable=on \
+    --light-client-data-serve=on \
+    --light-client-data-import-mode=only-new \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 
@@ -696,6 +930,66 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   fi
 done
 
+# light clients
+if [ "$LC_NODES" -ge "1" ]; then
+  echo "Waiting for Altair finalization"
+  while :; do
+    ALTAIR_FORK_EPOCH="$(
+      "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/config/spec" | \
+        "${JQ_BINARY}" -r '.data.ALTAIR_FORK_EPOCH')"
+    if [ "${ALTAIR_FORK_EPOCH}" -eq "${ALTAIR_FORK_EPOCH}" ]; then # check for number
+      break
+    fi
+    echo "ALTAIR_FORK_EPOCH: ${ALTAIR_FORK_EPOCH}"
+    sleep 1
+  done
+  while :; do
+    CURRENT_FORK_EPOCH="$(
+      "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/states/finalized/fork" | \
+      "${JQ_BINARY}" -r '.data.epoch')"
+    if [ "${CURRENT_FORK_EPOCH}" -ge "${ALTAIR_FORK_EPOCH}" ]; then
+      break
+    fi
+    sleep 1
+  done
+
+  log "After ALTAIR_FORK_EPOCH"
+
+  echo "Altair finalized, launching $LC_NODES light client(s)"
+  LC_BOOTSTRAP_NODE="$(
+    "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/node/identity" | \
+      "${JQ_BINARY}" -r '.data.enr')"
+  LC_TRUSTED_BLOCK_ROOT="$(
+    "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/headers/finalized" | \
+      "${JQ_BINARY}" -r '.data.root')"
+  for NUM_LC in $(seq 0 $(( LC_NODES - 1 ))); do
+    LC_DATA_DIR="${DATA_DIR}/lc${NUM_LC}"
+
+    if [ ${#EL_RPC_PORTS[@]} -eq 0 ]; then # check if the array is empty
+      WEB3_ARG=""
+    else
+      WEB3_ARG="--web3-url=http://127.0.0.1:${EL_RPC_PORTS[$(( NUM_NODES + NUM_LC ))]}"
+    fi
+
+    # TODO re-add --jwt-secret
+    ./build/nimbus_light_client \
+      --log-level="${LOG_LEVEL}" \
+      --log-format="json" \
+      --data-dir="${LC_DATA_DIR}" \
+      --network="${CONTAINER_DATA_DIR}" \
+      --bootstrap-node="${LC_BOOTSTRAP_NODE}" \
+      --tcp-port=$(( BASE_PORT + NUM_NODES + NUM_LC )) \
+      --udp-port=$(( BASE_PORT + NUM_NODES + NUM_LC )) \
+      --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
+      --nat="extip:127.0.0.1" \
+      --trusted-block-root="${LC_TRUSTED_BLOCK_ROOT}" \
+      ${WEB3_ARG} \
+      ${STOP_AT_EPOCH_FLAG} \
+      &> "${DATA_DIR}/log_lc${NUM_LC}.txt" &
+    PIDS="${PIDS},$!"
+  done
+fi
+
 # give the regular nodes time to crash
 sleep 5
 BG_JOBS="$(jobs | wc -l | tr -d ' ')"
@@ -703,7 +997,7 @@ if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
   BG_JOBS=$(( BG_JOBS - 1 )) # minus the timeout bg job
 fi
 if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
-  echo "$(( NUM_JOBS - BG_JOBS )) nimbus_beacon_node/nimbus_validator_client instance(s) exited early. Aborting."
+  echo "$(( NUM_JOBS - BG_JOBS )) nimbus_beacon_node/nimbus_validator_client/nimbus_light_client instance(s) exited early. Aborting."
   dump_logs
   dump_logtrace
   exit 1

@@ -1,5 +1,11 @@
+# beacon_chain
+# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import
-  std/[tables, strutils, uri],
   ".."/[crypto, keystore],
   ../../validators/slashing_protection_common
 
@@ -59,6 +65,13 @@ type
   DeleteRemoteKeystoresResponse* = object
     data*: seq[RemoteKeystoreStatus]
 
+  SetFeeRecipientRequest* = object
+    ethaddress*: Eth1Address
+
+  ListFeeRecipientResponse* = object
+    pubkey*: ValidatorPubKey
+    ethaddress*: Eth1Address
+
   KeystoreStatus* = enum
     error =  "error"
     notActive = "not_active"
@@ -71,6 +84,9 @@ type
     noAuthorizationHeader = "Missing Authorization Header"
     missingBearerScheme = "Bearer Authentication is not included in request"
     incorrectToken = "Authentication token is incorrect"
+
+  KeymanagerGenericError* = object
+    message*: string
 
 proc `<`*(x, y: KeystoreInfo | RemoteKeystoreInfo): bool =
   for a, b in fields(x, y):

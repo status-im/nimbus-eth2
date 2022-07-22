@@ -7,7 +7,7 @@
 
 
 # process_deposit (beaconstate.nim)
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#deposits
 # ---------------------------------------------------------------
 
 {.used.}
@@ -48,7 +48,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
       # ----------------------------------------
       let pre_val_count = state.data.validators.len
       let pre_balance = if validator_index < pre_val_count:
-                          state.data.balances[validator_index]
+                          state.data.balances.item(validator_index)
                         else:
                           0
 
@@ -61,10 +61,10 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
       check:
         state.data.validators.len == pre_val_count + 1
         state.data.balances.len == pre_val_count + 1
-        state.data.balances[validator_index] == pre_balance + deposit.data.amount
-        state.data.validators[validator_index].effective_balance ==
+        state.data.balances.item(validator_index) == pre_balance + deposit.data.amount
+        state.data.validators.item(validator_index).effective_balance ==
           round_multiple_down(
-            min(MAX_EFFECTIVE_BALANCE, state.data.balances[validator_index]),
+            min(MAX_EFFECTIVE_BALANCE, state.data.balances.item(validator_index)),
             EFFECTIVE_BALANCE_INCREMENT
           )
 
@@ -90,7 +90,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
     # ----------------------------------------
     let pre_val_count = state.data.validators.len
     let pre_balance = if validator_index < pre_val_count:
-                        state.data.balances[validator_index]
+                        state.data.balances.mitem(validator_index)
                       else:
                         0
 
@@ -103,10 +103,10 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
     check:
       state.data.validators.len == pre_val_count
       state.data.balances.len == pre_val_count
-      state.data.balances[validator_index] == pre_balance + deposit.data.amount
-      state.data.validators[validator_index].effective_balance ==
+      state.data.balances.item(validator_index) == pre_balance + deposit.data.amount
+      state.data.validators.item(validator_index).effective_balance ==
         round_multiple_down(
-          min(MAX_EFFECTIVE_BALANCE, state.data.balances[validator_index]),
+          min(MAX_EFFECTIVE_BALANCE, state.data.balances.item(validator_index)),
           EFFECTIVE_BALANCE_INCREMENT
         )
 

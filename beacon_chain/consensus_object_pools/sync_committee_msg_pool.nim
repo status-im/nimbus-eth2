@@ -10,7 +10,6 @@
 import
   std/[sets, tables],
   stew/shims/hashes,
-  bearssl,
   eth/p2p/discoveryv5/random2,
   chronicles,
   ../spec/[crypto, digest],
@@ -55,14 +54,14 @@ type
     bestContributions*: Table[Eth2Digest, BestSyncSubcommitteeContributions]
     onContributionReceived*: OnSyncContributionCallback
 
-    rng: ref BrHmacDrbgContext
+    rng: ref HmacDrbgContext
     syncCommitteeSubscriptions*: Table[ValidatorPubKey, Epoch]
 
 func hash*(x: SyncCommitteeMsgKey): Hash =
   hashAllFields(x)
 
 func init*(T: type SyncCommitteeMsgPool,
-           rng: ref BrHmacDrbgContext,
+           rng: ref HmacDrbgContext,
            onSyncContribution: OnSyncContributionCallback = nil
           ): SyncCommitteeMsgPool =
   T(rng: rng, onContributionReceived: onSyncContribution)
@@ -280,7 +279,7 @@ proc produceSyncAggregate*(
 
 proc isEpochLeadTime*(
     pool: SyncCommitteeMsgPool, epochsToSyncPeriod: uint64): bool =
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#sync-committee-subnet-stability
   # This ensures a uniform distribution without requiring additional state:
   # (1/4)                         = 1/4, 4 slots out
   # (3/4) * (1/3)                 = 1/4, 3 slots out

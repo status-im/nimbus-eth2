@@ -1,16 +1,22 @@
 # Troubleshooting
 
-> ⚠️  The commands on this page refer to the Prater testnet. If you're running mainnet, replace `prater` with `mainnet` in the commands below.
+```admonish note
+The commands on this page refer to mainnet. If you're running on `prater` or another testnet, replace `mainnet` accordingly
+```
 
+We are continuously making improvements to both stability and resource usage. If you run into any problem with Nimbus and are not running the latest version, chances are they have already been fixed - see the [update guide](./keep-updated.md) for instructions of how to upgrade.
 
-As it stands, we are continuously making improvements to both stability and memory usage. So please make sure you keep your client up to date! This means restarting your node and updating your software regularly from the `stable` branch. If you can't find a solution to your problem here, feel free to get in touch with us on our [discord](https://discord.com/invite/XRxWahP)!
+If you can't find a solution to your problem here, get in touch with us on our [discord](https://discord.com/invite/XRxWahP)!
 
-> **Note:** While the `stable` branch of the `nimbus-eth2` repository is more stable, the latest updates happen in the `unstable` branch which is (usually) merged into master every week on Tuesday. If you choose to run Nimbus directly from the `unstable` branch, be prepared for instabilities!
+```admonish note
+When installing Nimbus, you will typically be using the latest `stable` release.
 
+However, the latest changes happen in the `unstable` branch - if you're looking to test the chaings coming to the _next_ Nimbus release, consider building Nimbus from [source](./keep-updated.md#build-from-source) using the `unstable` branch.
+```
 
 ## Networking
 
-> For more complete advice on fine-tuning your networking setup see [here](./networking.md)
+A correctly configured network is key to getting good performance - the [networking guide](./networking.md) details everything you need to know!
 
 ### Low peer count
 
@@ -20,10 +26,10 @@ If you see a message that looks like the following in your logs:
 Peer count low, no new peers discovered...
 ```
 
-Your node is finding it hard to find peers. It's possible that you  may be behind a firewall. Try restarting your client and passing `--nat:extip:$EXT_IP_ADDRESS` as an option to `./run-prater-beacon-node.sh`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `1.2.3.4`, you'd run:
+Your node is finding it hard to find peers. It's possible that you  may be behind a firewall. Try restarting your client and passing `--nat:extip:$EXT_IP_ADDRESS` as an option to `./run-mainnet-beacon-node.sh`, where `$EXT_IP_ADDRESS` is your real IP. For example, if your real IP address is `1.2.3.4`, you'd run:
 
 ```
-./run-prater-beacon-node.sh --nat:extip:1.2.3.4
+./run-mainnet-beacon-node.sh --nat:extip:1.2.3.4
 ```
 
 If this doesn't improve things, you may need to [set enr-auto-update](./networking.md#set-enr-auto-update) and/or [set up port forwarding](./networking.md#set-up-port-forwarding).
@@ -45,6 +51,7 @@ There can be several reasons behind why this is the case. The first thing to che
 If this doesn't fix the problem, please double check your node is able to [receive incoming connections](./networking.md#check-for-incoming-connections).
 
 ## Misc
+
 ### Console hanging for too long on update
 
 To update and restart, run `git pull`, `make update`, followed by `make nimbus_beacon_node`:
@@ -54,7 +61,7 @@ cd nimbus-eth2
 git pull
 make update # Update dependencies
 make nimbus_beacon_node # Rebuild beacon node
-./run-prater-beacon-node.sh # Restart using same keys as last run
+./run-mainnet-beacon-node.sh # Restart using same keys as last run
 ```
 
 If you find that `make update` causes the console to hang for too long, try running `make update V=1` or `make update V=2` instead (these will print a more verbose output to the console which may make it easier to diagnose the problem).
@@ -62,18 +69,24 @@ If you find that `make update` causes the console to hang for too long, try runn
 >**Note:** rest assured that when you restart the beacon node, the software will resume from where it left off, using the validator keys you have already imported.
 
 ### Starting over after importing wrong keys
-The directory that stores the blockchain data of the testnet is `build/data/prater_shared_0` (if you're connecting to another testnet, replace `prater` with that testnet's name). If you've imported the wrong keys, and wish to start over, delete this repository.
+
+Your keys and secrets are stored in the [data directory](./data-dir.md) (usually `build/data/shared_mainnet_0`). If you imported the wrong keys, simply remove them from `validators` and `secrets` found in the data directory.
 
 ### Sync problems
-If you’re experiencing sync problems, we recommend running `make clean-prater` to delete the database and restart your sync (make sure you’ve updated to the latest `stable` first though).
 
-> **Warning**: `make clean-prater` will erase all of your syncing progress so far, so it should only be used as a last resort -- if your client gets stuck for a long time (because it's unable to find the right chain and/or stay with the same head value) and a normal restart doesn't improve things.
+If you’re experiencing sync problems, make sure that your network is healthy and that you have a recent version installed.
+
+In rare cases, such as after an unclean shutdown, it may happen that the database has been corrupted and you need to restart the sync - to do so, remove the `db` folder from the [data directory](./data-dir.md) and restart the node. You can get re-synced faster using [trusted node sync](./trusted-node-sync.md).
 
 ### noCommand does not accept arguments
 
 If, on start,  you see `The command 'noCommand' does not accept arguments`
 
 Double check to see if your command line flags are in the correct format, i.e. `--foo=bar`, `--baz`, or `--foo-bar=qux`.
+
+```admonish tip
+All options accepting values need a `=` between the option name and the value!
+```
 
 ### Address already in use error
 
@@ -83,19 +96,19 @@ If you're seeing an error that looks like:
 Error: unhandled exception: (98) Address already in use [TransportOsError]
 ```
 
-It's probably because you're running multiple validators -- and the default base port `9000` is already in use.
+It means that you're running another node that is using the same port as the one you're trying to start (or that you're trying to start a second instance of the same node).
 
 To change the base port, run:
 
 ```
-./run-prater-beacon-node.sh --tcp-port=9100 --udp-port=9100
+./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 
 (You can replace `9100` with a port of your choosing)
 
 ###  Catching up on validator duties
 
-If you're being flooded with `Catching up on validator duties` messages, then your CPU is probably too slow to run Nimbus. Please check that your setup matches our [system requirements](./hardware.md).
+If you're being flooded with `Catching up on validator duties` messages, your CPU is probably too slow to run Nimbus. Please check that your setup matches our [system requirements](./hardware.md).
 
 ### Local timer is broken error
 
@@ -108,13 +121,12 @@ WRN 2021-01-08 06:32:46.975+00:00 Local timer is broken or peer's status informa
 This is likely due to the fact that your local clock is off. To compare your local time with a internet time, run:
 
 ```
-cat </dev/tcp/time.nist.gov/13 ; date -u 
+cat </dev/tcp/time.nist.gov/13 ; date -u
 ```
 
-The first line in the output will give you internet time. And the second line will give you the time according to your machine. These shouldn't be more than a second apart.
+The first line in the output will give you internet time. And the second line will give you the time according to your machine. These shouldn't be more than half a second apart. See the [requirements](./install.md#time) page for more information on how to set automatic time synchronization.
 
 ### Eth1 chain monitor failure
-
 
 If you see an error that looks like the following:
 
@@ -126,7 +138,7 @@ It's because your node can't connect to the web3 provider you have specified. Pl
 
 ### Discovered new external address warning log
 
-```console
+```
 WRN 2021-03-11 13:26:25.943-08:00
 Discovered new external address but ENR auto update is off
 topics="discv5" tid=77655 file=protocol.nim:940 majority=Some("myIPaddressHere":9000) previous=None[Address]
@@ -141,10 +153,9 @@ If that doesn't fix the problem, double check that your [ports are open](https:/
 See our page on [monitoring the health of your node](./health.md) for more.
 
 
-
 ## Raspberry Pi
 
 ### Trouble transferring data to/from USB3.0 SSDs
 
-We have seen reports of extremely degraded performance when using several types of USB3.0 to SSD adapter or when using native USB3.0 disk drives. [This post](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426) details why there is a difference in behaviour from models prior to Pi 4 and the recommended workaround.
+We have seen reports of degraded performance when using several types of USB3.0 to SSD adapters or when using native USB3.0 disk drives. [This post](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426) details why there is a difference in behaviour from models prior to Pi 4 and the recommended workaround.
 

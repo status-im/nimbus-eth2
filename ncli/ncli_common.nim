@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  re, strutils, os, math,
+  std/[os, re, strutils],
   stew/bitops2,
   ../beacon_chain/spec/[
     datatypes/base,
@@ -41,7 +41,7 @@ type
     currentEpochParticipation: EpochParticipationFlags
     previousEpochParticipation: EpochParticipationFlags
 
-  PubkeyToIndexTable = Table[ValidatorPubKey, int]
+  PubkeyToIndexTable = Table[ValidatorPubKey, ValidatorIndex]
 
   AuxiliaryState* = object
     epochParticipationFlags: ParticipationFlags
@@ -138,7 +138,7 @@ func collectSlashings(
       state, total_balance)
 
   for index in 0 ..< state.validators.len:
-    let validator = unsafeAddr state.validators.asSeq()[index]
+    let validator = unsafeAddr state.validators[index]
     if slashing_penalty_applies(validator[], epoch):
       rewardsAndPenalties[index].slashing_outcome +=
         validator[].get_slashing_penalty(
@@ -340,12 +340,13 @@ proc collectFromDeposits(
       let pubkey = deposit.data.pubkey
       let amount = deposit.data.amount
       var index = findValidatorIndex(state.data, pubkey)
-      if index == -1:
-        index = pubkeyToIndex.getOrDefault(pubkey, -1)
-      if index != -1:
-        rewardsAndPenalties[index].deposits += amount
+      if index.isNone:
+        if pubkey in pubkeyToIndex:
+          index = Opt[ValidatorIndex].ok(pubkeyToIndex[pubkey])
+      if index.isSome:
+        rewardsAndPenalties[index.get()].deposits += amount
       elif verify_deposit_signature(cfg, deposit.data):
-        pubkeyToIndex[pubkey] = rewardsAndPenalties.len
+        pubkeyToIndex[pubkey] = ValidatorIndex(rewardsAndPenalties.len)
         rewardsAndPenalties.add(
           RewardsAndPenalties(deposits: amount))
 

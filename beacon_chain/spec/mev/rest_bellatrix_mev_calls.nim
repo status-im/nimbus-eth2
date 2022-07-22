@@ -12,11 +12,12 @@ import
 
 export chronos, client, rest_types, eth2_rest_serialization
 
-proc registerValidators*(body: SignedValidatorRegistrationV1
-                        ): RestPlainResponse {.
+proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
+                       ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/builder/validators",
      meth: MethodPost.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.0.0/apis/builder/validators.yaml
+  ## https://github.com/ethereum/builder-specs/blob/v0.2.0/apis/builder/validators.yaml
+  ## https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/register_validator.yaml
 
 proc getHeader*(slot: Slot,
                 parent_hash: Eth2Digest,
@@ -24,15 +25,16 @@ proc getHeader*(slot: Slot,
                ): RestResponse[GetHeaderResponse] {.
      rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
      meth: MethodGet.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.0.0/apis/builder/header.yaml
+  ## https://github.com/ethereum/builder-specs/blob/v0.2.0/apis/builder/header.yaml
 
 proc submitBlindedBlock*(body: SignedBlindedBeaconBlock
                         ): RestResponse[SubmitBlindedBlockResponse] {.
      rest, endpoint: "/eth/v1/builder/blinded_blocks",
      meth: MethodPost.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.0.0/apis/builder/blinded_blocks.yaml
+  ## https://github.com/ethereum/builder-specs/blob/v0.2.0/apis/builder/blinded_blocks.yaml
 
 proc checkBuilderStatus*(): RestPlainResponse {.
      rest, endpoint: "/eth/v1/builder/status",
      meth: MethodGet.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.0.0/apis/builder/status.yaml
+  ## https://github.com/ethereum/builder-specs/blob/v0.1.0/apis/builder/status.yaml
+  ## https://github.com/ethereum/builder-specs/blob/v0.2.0/apis/builder/status.yaml

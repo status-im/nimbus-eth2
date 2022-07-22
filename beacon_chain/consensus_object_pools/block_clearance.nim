@@ -10,7 +10,9 @@
 import
   chronicles,
   stew/[assign2, results],
-  ../spec/[beaconstate, forks, signatures, signatures_batch, state_transition],
+  ../spec/[
+    beaconstate, forks, signatures, signatures_batch,
+    state_transition, state_transition_epoch],
   "."/[block_dag, blockchain_dag, blockchain_dag_light_client]
 
 export results, signatures_batch, block_dag, blockchain_dag
@@ -29,6 +31,7 @@ proc addResolvedHeadBlock(
        dag: ChainDAGRef,
        state: var ForkedHashedBeaconState,
        trustedBlock: ForkyTrustedSignedBeaconBlock,
+       blockVerified: bool,
        parent: BlockRef, cache: var StateCache,
        onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
@@ -73,6 +76,7 @@ proc addResolvedHeadBlock(
   debug "Block resolved",
     blockRoot = shortLog(blockRoot),
     blck = shortLog(trustedBlock.message),
+    blockVerified,
     heads = dag.heads.len(),
     stateDataDur, sigVerifyDur, stateVerifyDur,
     putBlockDur = putBlockTick - startTick,
@@ -81,10 +85,20 @@ proc addResolvedHeadBlock(
   # Update light client data
   dag.processNewBlockForLightClient(state, trustedBlock, parent.bid)
 
+  if not blockVerified:
+    dag.optimisticRoots.incl blockRoot
+
   # Notify others of the new block before processing the quarantine, such that
   # notifications for parents happens before those of the children
   if onBlockAdded != nil:
-    onBlockAdded(blockRef, trustedBlock, epochRef)
+    var unrealized: FinalityCheckpoints
+    if enableTestFeatures in dag.updateFlags:
+      unrealized = withState(state):
+        when stateFork >= BeaconStateFork.Altair:
+          state.data.compute_unrealized_finality()
+        else:
+          state.data.compute_unrealized_finality(cache)
+    onBlockAdded(blockRef, trustedBlock, epochRef, unrealized)
   if not(isNil(dag.onBlockAdded)):
     dag.onBlockAdded(ForkedTrustedSignedBeaconBlock.init(trustedBlock))
 
@@ -136,6 +150,7 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
 proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
+    blockVerified: bool,
     onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
                   OnBellatrixBlockAdded
     ): Result[BlockRef, BlockError] =
@@ -256,11 +271,21 @@ proc addHeadBlock*(
   ok addResolvedHeadBlock(
     dag, dag.clearanceState,
     signedBlock.asTrusted(),
+    blockVerified = blockVerified,
     parent, cache,
     onBlockAdded,
     stateDataDur = stateDataTick - startTick,
     sigVerifyDur = sigVerifyTick - stateDataTick,
     stateVerifyDur = stateVerifyTick - sigVerifyTick)
+
+proc addHeadBlock*(
+    dag: ChainDAGRef, verifier: var BatchVerifier,
+    signedBlock: ForkySignedBeaconBlock,
+    onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
+                  OnBellatrixBlockAdded
+    ): Result[BlockRef, BlockError] =
+  addHeadBlock(
+    dag, verifier, signedBlock, blockVerified = true, onBlockAdded)
 
 proc addBackfillBlock*(
     dag: ChainDAGRef,
@@ -316,7 +341,8 @@ proc addBackfillBlock*(
         head = shortLog(dag.head)
       quit 1
 
-    dag.backfill = blck.toBeaconBlockSummary()
+    # Signal that we're done by resetting backfill
+    reset(dag.backfill)
     dag.db.finalizedBlocks.insert(blck.slot, blockRoot)
     dag.updateFrontfillBlocks()
 

@@ -9,26 +9,26 @@
 
 import
   # Standard library
-  std/[json, os, strutils, tables],
+  std/[json, os, sequtils, strutils, tables],
   # Status libraries
   stew/[results, endians2], chronicles,
   eth/keys, taskpools,
   # Internals
-  ../../beacon_chain/spec/[helpers, forks],
+  ../../beacon_chain/spec/[helpers, forks, state_transition_block],
   ../../beacon_chain/spec/datatypes/[
     base,
     phase0, altair, bellatrix],
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types],
   ../../beacon_chain/[beacon_chain_db, beacon_clock],
   ../../beacon_chain/consensus_object_pools/[
-    blockchain_dag, block_clearance, spec_cache],
+    blockchain_dag, block_clearance, block_quarantine, spec_cache],
   # Third-party
   yaml,
   # Test
   ../testutil,
   ./fixtures_utils
 
-# Test format described at https://github.com/ethereum/consensus-specs/tree/v1.1.6/tests/formats/fork_choice
+# Test format described at https://github.com/ethereum/consensus-specs/tree/v1.2.0-rc.1/tests/formats/fork_choice
 # Note that our implementation has been optimized with "ProtoArray"
 # instead of following the spec (in particular the "store").
 
@@ -38,31 +38,30 @@ type
     opOnAttestation
     opOnBlock
     opOnMergeBlock
+    opOnAttesterSlashing
     opChecks
 
   Operation = object
     valid: bool
     # variant specific fields
-    case kind*: OpKind
+    case kind: OpKind
     of opOnTick:
       tick: int
     of opOnAttestation:
       att: Attestation
     of opOnBlock:
-      blk: ForkedSignedBeaconBlock
+      blck: ForkedSignedBeaconBlock
     of opOnMergeBlock:
       powBlock: PowBlock
+    of opOnAttesterSlashing:
+      attesterSlashing: AttesterSlashing
     of opChecks:
       checks: JsonNode
 
 proc initialLoad(
-       path: string, db: BeaconChainDB,
-       StateType, BlockType: typedesc): tuple[
-       dag: ChainDAGRef, fkChoice: ref ForkChoice
-    ] =
-
-   # TODO: support more than phase 0 genesis
-
+    path: string, db: BeaconChainDB,
+    StateType, BlockType: typedesc
+): tuple[dag: ChainDAGRef, fkChoice: ref ForkChoice] =
   let state = newClone(parseTest(
     path/"anchor_state.ssz_snappy",
     SSZ, StateType
@@ -71,32 +70,54 @@ proc initialLoad(
   # TODO stack usage. newClone and assignClone do not seem to
   # prevent temporaries created by case objects
   let forkedState = new ForkedHashedBeaconState
-  forkedState.kind = BeaconStateFork.Phase0
-  forkedState.phase0Data.data = state[]
-  forkedState.phase0Data.root = hash_tree_root(state[])
+  when StateType is bellatrix.BeaconState:
+    forkedState.kind = BeaconStateFork.Bellatrix
+    forkedState.bellatrixData.data = state[]
+    forkedState.bellatrixData.root = hash_tree_root(state[])
+  elif StateType is altair.BeaconState:
+    forkedState.kind = BeaconStateFork.Altair
+    forkedState.altairData.data = state[]
+    forkedState.altairData.root = hash_tree_root(state[])
+  elif StateType is phase0.BeaconState:
+    forkedState.kind = BeaconStateFork.Phase0
+    forkedState.phase0Data.data = state[]
+    forkedState.phase0Data.root = hash_tree_root(state[])
+  else: {.error: "Unknown state fork: " & name(StateType).}
 
-  let blk = parseTest(
+  let blck = parseTest(
     path/"anchor_block.ssz_snappy",
     SSZ, BlockType
   )
 
-
-  let signedBlock = ForkedSignedBeaconBlock.init(phase0.SignedBeaconBlock(
-        message: blk,
-        # signature: - unused as it's trusted
-        root: hash_tree_root(blk)
-      ))
+  when BlockType is bellatrix.BeaconBlock:
+    let signedBlock = ForkedSignedBeaconBlock.init(bellatrix.SignedBeaconBlock(
+      message: blck,
+      # signature: - unused as it's trusted
+      root: hash_tree_root(blck)
+    ))
+  elif BlockType is altair.BeaconBlock:
+    let signedBlock = ForkedSignedBeaconBlock.init(altair.SignedBeaconBlock(
+      message: blck,
+      # signature: - unused as it's trusted
+      root: hash_tree_root(blck)
+    ))
+  elif BlockType is phase0.BeaconBlock:
+    let signedBlock = ForkedSignedBeaconBlock.init(phase0.SignedBeaconBlock(
+      message: blck,
+      # signature: - unused as it's trusted
+      root: hash_tree_root(blck)
+    ))
+  else: {.error: "Unknown block fork: " & name(BlockType).}
 
   ChainDAGRef.preInit(
     db,
     forkedState[], forkedState[],
-    asTrusted(signedBlock)
-  )
+    asTrusted(signedBlock))
 
   let
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = ChainDAGRef.init(
-      defaultRuntimeConfig, db, validatorMonitor, {})
+      forkedState[].kind.genesisTestRuntimeConfig, db, validatorMonitor, {})
     fkChoice = newClone(ForkChoice.init(
       dag.getFinalizedEpochRef(),
       dag.finalizedHead.blck,
@@ -104,38 +125,15 @@ proc initialLoad(
 
   (dag, fkChoice)
 
-proc loadOps(path: string, fork: BeaconBlockFork): seq[Operation] =
+proc loadOps(path: string, fork: BeaconStateFork): seq[Operation] =
   let stepsYAML = readFile(path/"steps.yaml")
   let steps = yaml.loadToJson(stepsYAML)
 
   result = @[]
   for step in steps[0]:
     if step.hasKey"tick":
-      result.add Operation(kind: opOnTick, tick: step["tick"].getInt())
-    elif step.hasKey"block":
-      let filename = step["block"].getStr()
-      case fork
-      of BeaconBlockFork.Phase0:
-        let blk = parseTest(
-          path/filename & ".ssz_snappy",
-          SSZ, phase0.SignedBeaconBlock
-        )
-        result.add Operation(kind: opOnBlock,
-          blk: ForkedSignedBeaconBlock.init(blk))
-      of BeaconBlockFork.Altair:
-        let blk = parseTest(
-          path/filename & ".ssz_snappy",
-          SSZ, altair.SignedBeaconBlock
-        )
-        result.add Operation(kind: opOnBlock,
-          blk: ForkedSignedBeaconBlock.init(blk))
-      of BeaconBlockFork.Bellatrix:
-        let blk = parseTest(
-          path/filename & ".ssz_snappy",
-          SSZ, bellatrix.SignedBeaconBlock
-        )
-        result.add Operation(kind: opOnBlock,
-          blk: ForkedSignedBeaconBlock.init(blk))
+      result.add Operation(kind: opOnTick,
+        tick: step["tick"].getInt())
     elif step.hasKey"attestation":
       let filename = step["attestation"].getStr()
       let att = parseTest(
@@ -144,11 +142,43 @@ proc loadOps(path: string, fork: BeaconBlockFork): seq[Operation] =
       )
       result.add Operation(kind: opOnAttestation,
         att: att)
+    elif step.hasKey"block":
+      let filename = step["block"].getStr()
+      case fork
+      of BeaconStateFork.Phase0:
+        let blck = parseTest(
+          path/filename & ".ssz_snappy",
+          SSZ, phase0.SignedBeaconBlock
+        )
+        result.add Operation(kind: opOnBlock,
+          blck: ForkedSignedBeaconBlock.init(blck))
+      of BeaconStateFork.Altair:
+        let blck = parseTest(
+          path/filename & ".ssz_snappy",
+          SSZ, altair.SignedBeaconBlock
+        )
+        result.add Operation(kind: opOnBlock,
+          blck: ForkedSignedBeaconBlock.init(blck))
+      of BeaconStateFork.Bellatrix:
+        let blck = parseTest(
+          path/filename & ".ssz_snappy",
+          SSZ, bellatrix.SignedBeaconBlock
+        )
+        result.add Operation(kind: opOnBlock,
+          blck: ForkedSignedBeaconBlock.init(blck))
+    elif step.hasKey"attester_slashing":
+      let filename = step["attester_slashing"].getStr()
+      let attesterSlashing = parseTest(
+        path/filename & ".ssz_snappy",
+        SSZ, AttesterSlashing
+      )
+      result.add Operation(kind: opOnAttesterSlashing,
+        attesterSlashing: attesterSlashing)
     elif step.hasKey"checks":
       result.add Operation(kind: opChecks,
         checks: step["checks"])
     else:
-      doAssert false, "Unreachable: " & $step
+      doAssert false, "Unknown test step: " & $step
 
     if step.hasKey"valid":
       doAssert step.len == 2
@@ -182,38 +212,24 @@ proc stepOnBlock(
     type TrustedBlock = bellatrix.TrustedSignedBeaconBlock
 
   let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
-      blckRef: BlockRef, signedBlock: TrustedBlock, epochRef: EpochRef
-    ):
+      blckRef: BlockRef, signedBlock: TrustedBlock,
+      epochRef: EpochRef, unrealized: FinalityCheckpoints):
 
     # 3. Update fork choice if valid
     let status = fkChoice[].process_block(
-      dag,
-      epochRef,
-      blckRef,
-      signedBlock.message,
-      time
-    )
+      dag, epochRef, blckRef, unrealized, signedBlock.message, time)
     doAssert status.isOk()
 
+    # 4. Update DAG with new head
+    var quarantine = Quarantine.init()
+    let newHead = fkChoice[].get_head(dag, time).get()
+    dag.updateHead(dag.getBlockRef(newHead).get(), quarantine)
+    if dag.needStateCachesAndForkChoicePruning():
+      dag.pruneStateCachesDAG()
+      let pruneRes = fkChoice[].prune()
+      doAssert pruneRes.isOk()
+
   blockAdded
-
-proc stepOnAttestation(
-       dag: ChainDAGRef,
-       fkChoice: ref ForkChoice,
-       att: Attestation,
-       time: BeaconTime): FcResult[void] =
-  let epochRef =
-    dag.getEpochRef(
-      dag.head, time.slotOrZero().epoch(), false).expect("no pruning in test")
-  let attesters = epochRef.get_attesting_indices(
-    att.data.slot, CommitteeIndex(att.data.index), att.aggregation_bits)
-  let status = fkChoice[].on_attestation(
-    dag,
-    att.data.slot, att.data.beacon_block_root, attesters,
-    time
-  )
-
-  status
 
 proc stepChecks(
        checks: JsonNode,
@@ -260,34 +276,20 @@ proc stepChecks(
     else:
       doAssert false, "Unsupported check '" & $check & "'"
 
-proc runTest(path: string, fork: BeaconBlockFork) =
+proc doRunTest(path: string, fork: BeaconStateFork) =
   let db = BeaconChainDB.new("", inMemory = true)
   defer:
     db.close()
 
-  let stores = case fork
-    of BeaconBlockFork.Phase0:
-      initialLoad(
-        path, db,
-        phase0.BeaconState, phase0.BeaconBlock
-      )
-    else:
-      doAssert false, "Unsupported fork: " & $fork
-      (ChainDAGRef(), (ref ForkChoice)())
-    # of BeaconBlockFork.Altair:
-    #   initialLoad(
-    #     path, db,
-    #     # The tests always use phase 0 block for anchor - https://github.com/ethereum/consensus-specs/pull/2323
-    #     # TODO: support altair genesis state
-    #     altair.BeaconState, phase0.BeaconBlock
-    #   )
-    # of BeaconBlockFork.Merge:
-    #   initialLoad(
-    #     path, db,
-    #     # The tests always use phase 0 block for anchor - https://github.com/ethereum/consensus-specs/pull/2323
-    #     # TODO: support merge genesis state
-    #     bellatrix.BeaconState, phase0.BeaconBlock
-    #   )
+  let stores =
+    case fork
+    of BeaconStateFork.Bellatrix:
+      initialLoad(path, db, bellatrix.BeaconState, bellatrix.BeaconBlock)
+    of BeaconStateFork.Altair:
+      initialLoad(path, db, altair.BeaconState, altair.BeaconBlock)
+    of BeaconStateFork.Phase0:
+      initialLoad(path, db, phase0.BeaconState, phase0.BeaconBlock)
+
   var
     taskpool = Taskpool.new()
     verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
@@ -302,52 +304,68 @@ proc runTest(path: string, fork: BeaconBlockFork) =
     case step.kind
     of opOnTick:
       time = BeaconTime(ns_since_genesis: step.tick.seconds.nanoseconds)
-      doAssert stores.fkChoice.checkpoints.on_tick(time).isOk
+      let status = stores.fkChoice[].update_time(stores.dag, time)
+      doAssert status.isOk == step.valid
+    of opOnAttestation:
+      let status = stores.fkChoice[].on_attestation(
+        stores.dag, step.att.data.slot, step.att.data.beacon_block_root,
+        toSeq(stores.dag.get_attesting_indices(step.att.asTrusted)), time)
+      doAssert status.isOk == step.valid
     of opOnBlock:
-      withBlck(step.blk):
+      withBlck(step.blck):
         let status = stepOnBlock(
           stores.dag, stores.fkChoice,
-          verifier,
-          state[], stateCache,
-          blck,
-          time)
+          verifier, state[], stateCache,
+          blck, time)
         doAssert status.isOk == step.valid
-    of opOnAttestation:
-      let status = stepOnAttestation(
-        stores.dag, stores.fkChoice,
-        step.att, time)
-      doAssert status.isOk == step.valid
+    of opOnAttesterSlashing:
+      let indices =
+        check_attester_slashing(state[], step.attesterSlashing, flags = {})
+      if indices.isOk:
+        for idx in indices.get:
+          stores.fkChoice[].process_equivocation(idx)
+      doAssert indices.isOk == step.valid
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)
     else:
       doAssert false, "Unsupported"
 
-suite "EF - ForkChoice" & preset():
+proc runTest(path: string, fork: BeaconStateFork) =
   const SKIP = [
     # protoArray can handle blocks in the future gracefully
     # spec: https://github.com/ethereum/consensus-specs/blame/v1.1.3/specs/phase0/fork-choice.md#L349
     # test: tests/fork_choice/scenarios/no_votes.nim
     #       "Ensure the head is still 4 whilst the justified epoch is 0."
     "on_block_future_block",
+
+    # TODO on_merge_block
+    "too_early_for_merge",
+    "too_late_for_merge",
+    "block_lookup_failed",
+    "all_valid",
   ]
 
-  for fork in [BeaconBlockFork.Phase0]: # TODO: init ChainDAG from Merge/Altair
-    let forkStr = toLowerAscii($fork)
-    for testKind in ["get_head", "on_block"]:
-      let basePath = SszTestsDir/const_preset/forkStr/"fork_choice"/testKind/"pyspec_tests"
+  test "ForkChoice - " & path.relativePath(SszTestsDir):
+    when defined(windows):
+      # Some test files have very long paths
+      skip()
+    else:
+      if os.splitPath(path).tail in SKIP:
+        skip()
+      else:
+        doRunTest(path, fork)
+
+suite "EF - ForkChoice" & preset():
+  const presetPath = SszTestsDir/const_preset
+  for kind, path in walkDir(presetPath, relative = true, checkDir = true):
+    let testsPath = presetPath/path/"fork_choice"
+    if kind != pcDir or not dirExists(testsPath):
+      continue
+    let fork = forkForPathComponent(path).valueOr:
+      raiseAssert "Unknown test fork: " & testsPath
+    for kind, path in walkDir(testsPath, relative = true, checkDir = true):
+      let basePath = testsPath/path/"pyspec_tests"
+      if kind != pcDir:
+        continue
       for kind, path in walkDir(basePath, relative = true, checkDir = true):
-        test "ForkChoice - " & const_preset/forkStr/"fork_choice"/testKind/"pyspec_tests"/path:
-          if const_preset == "minimal":
-            # TODO: Minimal tests have long paths issues on Windows
-            # and some are testing implementation details:
-            # - assertion that input block is not in the future
-            # - block slot is later than finalized slot
-            # - ...
-            # that ProtoArray handles gracefully
-            skip()
-          elif path in SKIP:
-            skip()
-          else:
-            runTest(basePath/path, fork)
-
-
+        runTest(basePath/path, fork)

@@ -15,7 +15,7 @@ import
   normalize,
   # Status libraries
   stew/[results, bitops2, base10], stew/shims/macros,
-  bearssl, eth/keyfile/uuid, blscurve, json_serialization,
+  eth/keyfile/uuid, blscurve, json_serialization,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
@@ -29,7 +29,7 @@ import nimcrypto/utils as ncrutils
 export
   results, burnMem, writeValue, readValue
 
-{.localPassc: "-fno-lto".} # no LTO for crypto
+{.localPassC: "-fno-lto".} # no LTO for crypto
 
 type
   KeystoreMode* = enum
@@ -261,11 +261,6 @@ func longName*(wallet: Wallet): string =
   else:
     wallet.name.string & " (" & wallet.uuid.string & ")"
 
-proc getRandomBytes*(rng: var BrHmacDrbgContext, n: Natural): seq[byte]
-                    {.raises: [Defect].} =
-  result = newSeq[byte](n)
-  brHmacDrbgGenerate(rng, result)
-
 macro wordListArray*(filename: static string,
                      maxWords: static int = 0,
                      minWordLen: static int = 0,
@@ -357,20 +352,19 @@ template add(m: var Mnemonic, s: cstring) =
   m.string.add s
 
 proc generateMnemonic*(
-    rng: var BrHmacDrbgContext,
+    rng: var HmacDrbgContext,
     words: openArray[cstring] = englishWords,
     entropyParam: openArray[byte] = @[]): Mnemonic =
   ## Generates a valid BIP-0039 mnenomic:
   ## https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#generating-the-mnemonic
-  var entropy: seq[byte]
-  if entropyParam.len == 0:
-    setLen(entropy, 32)
-    brHmacDrbgGenerate(rng, entropy)
-  else:
-    doAssert entropyParam.len >= 128 and
-             entropyParam.len <= 256 and
-             entropyParam.len mod 32 == 0
-    entropy = @entropyParam
+  var entropy =
+    if entropyParam.len == 0:
+      rng.generateBytes(32)
+    else:
+      doAssert entropyParam.len >= 128 and
+               entropyParam.len <= 256 and
+               entropyParam.len mod 32 == 0
+      @entropyParam
 
   let
     checksumBits = entropy.len div 4 # ranges from 4 to 8
@@ -836,7 +830,7 @@ proc decryptNetKeystore*(nkeystore: JsonString,
     return err(exc.formatMsg("<keystore>"))
 
 proc createCryptoField(kdfKind: KdfKind,
-                       rng: var BrHmacDrbgContext,
+                       rng: var HmacDrbgContext,
                        secret: openArray[byte],
                        password = KeystorePass.init "",
                        salt: openArray[byte] = @[],
@@ -849,13 +843,13 @@ proc createCryptoField(kdfKind: KdfKind,
       doAssert salt.len == keyLen
       @salt
     else:
-      getRandomBytes(rng, keyLen)
+      rng.generateBytes(keyLen)
 
   let aesIv = if iv.len > 0:
     doAssert iv.len == AES.sizeBlock
     @iv
   else:
-    getRandomBytes(rng, AES.sizeBlock)
+    rng.generateBytes(AES.sizeBlock)
 
   var decKey: seq[byte]
   let kdf = case kdfKind
@@ -897,7 +891,7 @@ proc createCryptoField(kdfKind: KdfKind,
       message: CipherBytes cipherMsg))
 
 proc createNetKeystore*(kdfKind: KdfKind,
-                        rng: var BrHmacDrbgContext,
+                        rng: var HmacDrbgContext,
                         privKey: lcrypto.PrivateKey,
                         password = KeystorePass.init "",
                         description = "",
@@ -918,7 +912,7 @@ proc createNetKeystore*(kdfKind: KdfKind,
   )
 
 proc createKeystore*(kdfKind: KdfKind,
-                     rng: var BrHmacDrbgContext,
+                     rng: var HmacDrbgContext,
                      privKey: ValidatorPrivKey,
                      password = KeystorePass.init "",
                      path = KeyPath "",
@@ -960,7 +954,7 @@ proc createRemoteKeystore*(pubKey: ValidatorPubKey, remoteUri: HttpHostUri,
   )
 
 proc createWallet*(kdfKind: KdfKind,
-                   rng: var BrHmacDrbgContext,
+                   rng: var HmacDrbgContext,
                    seed: KeySeed,
                    name = WalletName "",
                    salt: openArray[byte] = @[],

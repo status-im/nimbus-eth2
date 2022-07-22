@@ -83,6 +83,6 @@ suite "EF - Altair - Sync protocol - Update ranking" & preset():
     # `make test` from `nimbus-eth2` to ensure that the regular test vectors
     # have been downloaded and extracted, then proceed from `nimbus-eth2` with:
     # $ rsync -r ../consensus-spec-tests/tests/ \
-    #   ../nimbus-eth2/vendor/nim-eth2-scenarios/tests-v1.1.10/
+    #   ../nimbus-eth2/vendor/nim-eth2-scenarios/tests-v1.2.0-rc.1/
     test "All tests":
       skip()

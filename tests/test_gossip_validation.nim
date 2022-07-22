@@ -12,12 +12,12 @@ import
   std/sequtils,
   # Status lib
   unittest2,
-  chronicles, chronos,
+  chronos,
   eth/keys, taskpools,
   # Internal
   ../beacon_chain/[beacon_clock],
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
-  ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
+  ../beacon_chain/fork_choice/fork_choice,
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
     sync_committee_msg_pool],
@@ -78,10 +78,11 @@ suite "Gossip validation " & preset():
         dag.headState, cache, int(SLOTS_PER_EPOCH * 5), false):
       let added = dag.addHeadBlock(verifier, blck.phase0Data) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
-          epochRef: EpochRef):
+          epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
         pool[].addForkChoice(
-          epochRef, blckRef, signedBlock.message, blckRef.slot.start_beacon_time)
+          epochRef, blckRef, unrealized, signedBlock.message,
+          blckRef.slot.start_beacon_time)
 
       check: added.isOk()
       dag.updateHead(added[], quarantine[])
@@ -217,12 +218,12 @@ suite "Gossip validation - Extra": # Not based on preset config
       subcommittee = toSeq(syncCommittee.syncSubcommittee(subcommitteeIdx))
       index = subcommittee[0]
       expectedCount = subcommittee.count(index)
-      pubkey = state[].data.validators[index].pubkey
+      pubkey = state[].data.validators.item(index).pubkey
       keystoreData = KeystoreData(kind: KeystoreKind.Local,
                                   privateKey: MockPrivKeys[index])
       validator = AttachedValidator(pubkey: pubkey,
         kind: ValidatorKind.Local, data: keystoreData, index: some(index))
-      resMsg = waitFor signSyncCommitteeMessage(
+      resMsg = waitFor getSyncCommitteeMessage(
         validator, state[].data.fork, state[].data.genesis_validators_root, slot,
         state[].root)
       msg = resMsg.get()
@@ -249,9 +250,11 @@ suite "Gossip validation - Extra": # Not based on preset config
           contribution.message.contribution)
         syncCommitteeMsgPool[].addContribution(
           contribution[], contribution.message.contribution.signature.load.get)
-        let signRes = waitFor validator.sign(
-          contribution, state[].data.fork, state[].data.genesis_validators_root)
+        let signRes = waitFor validator.getContributionAndProofSignature(
+          state[].data.fork, state[].data.genesis_validators_root,
+          contribution[].message)
         doAssert(signRes.isOk())
+        contribution[].signature = signRes.get()
         contribution
       aggregate = syncCommitteeMsgPool[].produceSyncAggregate(state[].root)
 

@@ -6,32 +6,32 @@
 
 
 ## Introduction
+
 This page will take you through how to use your laptop to program your Raspberry Pi, get Nimbus running, and connect to the **Prater testnet**.
-
-
 
 One of the most important aspects of the Raspberry Pi experience is trying to make it as easy as possible to get started. As such, we try our best to explain things from first-principles.
 
 ## Prerequisites
-- Raspberry Pi 4 (4GB RAM option)
+- Raspberry Pi 4 4GB (8GB recommended if also running execution client)
 - 64GB microSD Card
 - microSD USB adapter
 - 5V 3A USB-C charger
 - Reliable Wifi connection
 - Laptop
 - Basic understanding of the [command line](https://www.learnenough.com/command-line-tutorial/basics)
-- 160GB SSD
+- 200GB SSD (2TB recommended if also running execution client)
 
-> ⚠️  You will need an SSD to run the Nimbus (without an SSD drive you have absolutely no chance of syncing the Ethereum blockchain). You have two options:
->
-> 1. Use an USB portable SSD disk such as the Samsung T5 Portable SSD.
->
-> 2. Use an USB 3.0 External Hard Drive Case with a SSD Disk. For example, [Ethereum on Arm](https://twitter.com/EthereumOnARM) use an Inateck 2.5 Hard Drive Enclosure FE2011. Make sure to buy a case with an UASP compliant chip, particularly, one of these: JMicron (JMS567 or JMS578) or ASMedia (ASM1153E).
->
-> In both cases, avoid low quality SSD disks (the SSD is a key component of your node and can drastically affect both the performance and sync time). Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).
->
-> **N.B**
-> *If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please [read this recommended fix.](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426)*
+```admonish note
+You will need an SSD to run the Nimbus (without an SSD drive you have absolutely no chance of syncing the Ethereum blockchain). You have two options:
+
+1. Use an USB portable SSD disk such as the Samsung T5 Portable SSD.
+2. Use an USB 3.0 External Hard Drive Case with a SSD Disk. For example, [Ethereum on Arm](https://twitter.com/EthereumOnARM) use an Inateck 2.5 Hard Drive Enclosure FE2011. Make sure to buy a case with an UASP compliant chip, particularly, one of these: JMicron (JMS567 or JMS578) or ASMedia (ASM1153E).
+
+In both cases, avoid low quality SSD disks (the SSD is a key component of your node and can drastically affect both the performance and sync time). Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).
+
+```admonish note
+If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please [read this recommended fix.](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426)
+```
 
 ### 1. Download Raspberry Pi Imager
 
@@ -231,7 +231,7 @@ Follow [this guide](https://www.tomshardware.com/how-to/boot-raspberry-pi-4-usb)
 >
 > If your Pi is headless (no monitor attached) you can use the [`rpi-clone`](https://github.com/billw2/rpi-clone) repository to copy the contents of the SD over to the SSD; in a nutshell, replace steps 14 and 15 of the above guide with the following commands (which you should run from the Pi's `home` directory):
 > ```bash
-> git clone https://github.com/billw2/rpi-clone.git 
+> git clone https://github.com/billw2/rpi-clone.git
 > cd rpi-clone
 > sudo cp rpi-clone rpi-clone-setup /usr/local/sbin
 > sudo rpi-clone-setup -t testhostname
@@ -363,7 +363,7 @@ Although we don't expect a modern Pi to fail, we recommend buying a spare Pi, an
 
 #### Systemd
 
-Now that you have Nimbus up and running, we recommend [setting up a systemd service](https://www.raspberrypi.org/documentation/linux/usage/systemd.md) with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly). 
+Now that you have Nimbus up and running, we recommend [setting up a systemd service](https://www.raspberrypi.org/documentation/linux/usage/systemd.md) with an autorestart on boot (should you experience an unexpected power outage, this will ensure your validator restarts correctly).
 
 Systemd will also ensure your validator keeps running when you exit your ssh session (`Ctrl-C`) and/or switch off your laptop.
 

@@ -12,16 +12,17 @@ import
   stew/[results, endians2],
   # Internals
   ../../beacon_chain/spec/datatypes/base,
+  ../../beacon_chain/spec/helpers,
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types]
 
-export results, base, fork_choice, fork_choice_types, tables, options
+export results, base, helpers, fork_choice, fork_choice_types, tables, options
 
 func fakeHash*(index: SomeInteger): Eth2Digest =
   ## Create fake hashes
   ## Those are just the value serialized in big-endian
-  ## We add 16x16 to avoid having a zero hash are those are special cased
+  ## We add 16x16 to avoid having a zero hash as those are special cased
   ## We store them in the first 8 bytes
-  ## as those are the one used in hash tables Table[Eth2Digest, T]
+  ## as those are the ones used in hash tables Table[Eth2Digest, T]
   result.data[0 ..< 8] = (16*16+index).uint64.toBytesBE()
 
 # The fork choice tests are quite complex.
@@ -41,15 +42,13 @@ type
     # variant specific fields
     case kind*: OpKind
     of FindHead, InvalidFindHead:
-      justified_checkpoint*: Checkpoint
-      finalized_checkpoint*: Checkpoint
+      checkpoints*: FinalityCheckpoints
       justified_state_balances*: seq[Gwei]
       expected_head*: Eth2Digest
     of ProcessBlock:
       root*: Eth2Digest
       parent_root*: Eth2Digest
-      blk_justified_checkpoint*: Checkpoint
-      blk_finalized_checkpoint*: Checkpoint
+      blk_checkpoints*: FinalityCheckpoints
     of ProcessAttestation:
       validator_index*: ValidatorIndex
       block_root*: Eth2Digest
@@ -66,34 +65,29 @@ func apply(ctx: var ForkChoiceBackend, id: int, op: Operation) =
   case op.kind
   of FindHead, InvalidFindHead:
     let r = ctx.find_head(
-      op.justified_checkpoint,
-      op.finalized_checkpoint,
+      op.checkpoints,
       op.justified_state_balances,
       # Don't use proposer boosting
-      default(Eth2Digest)
-    )
+      ZERO_HASH)
     if op.kind == FindHead:
       doAssert r.isOk(), &"find_head (op #{id}) returned an error: {r.error}"
-      doAssert r.get() == op.expected_head, &"find_head (op #{id}) returned an incorrect result: {r.get()} (expected: {op.expected_head}, from justified checkpoint: {op.justified_checkpoint}, finalized checkpoint: {op.finalized_checkpoint})"
-      debugEcho &"    Found expected head: 0x{op.expected_head} from justified checkpoint {op.justified_checkpoint}, finalized checkpoint {op.finalized_checkpoint}"
+      doAssert r.get() == op.expected_head, &"find_head (op #{id}) returned an incorrect result: {r.get()} (expected: {op.expected_head}, from justified checkpoint: {op.checkpoints.justified}, finalized checkpoint: {op.checkpoints.finalized})"
+      debugEcho &"    Found expected head: 0x{op.expected_head} from justified checkpoint {op.checkpoints.justified}, finalized checkpoint {op.checkpoints.justified}"
     else:
-      doAssert r.isErr(), &"invalid_find_head (op #{id}) was unexpectedly successful, head {op.expected_head} from justified checkpoint {op.justified_checkpoint}, finalized checkpoint {op.finalized_checkpoint}"
-      debugEcho &"    Detected an expected invalid head from justified checkpoint {op.justified_checkpoint}, finalized checkpoint {op.finalized_checkpoint}"
+      doAssert r.isErr(), &"invalid_find_head (op #{id}) was unexpectedly successful, head {op.expected_head} from justified checkpoint {op.checkpoints.justified}, finalized checkpoint {op.checkpoints.finalized}"
+      debugEcho &"    Detected an expected invalid head from justified checkpoint {op.checkpoints.justified}, finalized checkpoint {op.checkpoints.finalized}"
   of ProcessBlock:
     let r = ctx.process_block(
       block_root = op.root,
       parent_root = op.parent_root,
-      justified_checkpoint = op.blk_justified_checkpoint,
-      finalized_checkpoint = op.blk_finalized_checkpoint
-    )
+      checkpoints = op.blk_checkpoints)
     doAssert r.isOk(), &"process_block (op #{id}) returned an error: {r.error}"
-    debugEcho "    Processed block      0x", op.root, " with parent 0x", op.parent_root, " and justified checkpoint ", op.blk_justified_checkpoint
+    debugEcho "    Processed block      0x", op.root, " with parent 0x", op.parent_root, " and justified checkpoint ", op.blk_checkpoints.justified
   of ProcessAttestation:
     ctx.process_attestation(
       validator_index = op.validator_index,
       block_root = op.block_root,
-      target_epoch = op.target_epoch
-    )
+      target_epoch = op.target_epoch)
     debugEcho "    Processed att target 0x", op.block_root, " from validator ", op.validator_index, " for epoch ", op.target_epoch
   of Prune:
     let r = ctx.prune(op.finalized_root)

@@ -2,7 +2,10 @@ import std/algorithm
 import chronicles
 import common, api
 
-logScope: service = "fork_service"
+const
+  ServiceName = "fork_service"
+
+logScope: service = ServiceName
 
 proc validateForkSchedule(forks: openArray[Fork]): bool {.raises: [Defect].} =
   # Check if `forks` list is linked list.
@@ -45,6 +48,9 @@ proc pollForFork(vc: ValidatorClientRef) {.async.} =
       except ValidatorApiError as exc:
         error "Unable to retrieve fork schedule", reason = exc.msg
         return
+      except CancelledError as exc:
+        debug "Fork retrieval process was interrupted"
+        raise exc
       except CatchableError as exc:
         error "Unexpected error occured while getting fork information",
               err_name = exc.name, err_msg = exc.msg
@@ -70,21 +76,36 @@ proc waitForNextEpoch(service: ForkServiceRef) {.async.} =
   await sleepAsync(sleepTime)
 
 proc mainLoop(service: ForkServiceRef) {.async.} =
-  service.state = ServiceState.Running
   let vc = service.client
+  service.state = ServiceState.Running
   debug "Service started"
-  try:
-    while true:
-      await vc.pollForFork()
-      await service.waitForNextEpoch()
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
+
+  while true:
+    # This loop could look much more nicer/better, when
+    # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
+    # become safe to combine loops, breaks and exception handlers.
+    let breakLoop =
+      try:
+        await vc.pollForFork()
+        await service.waitForNextEpoch()
+        false
+      except CancelledError:
+        debug "Service interrupted"
+        true
+      except CatchableError as exc:
+        warn "Service crashed with unexpected error", err_name = exc.name,
+             err_msg = exc.msg
+        true
+
+    if breakLoop:
+      break
 
 proc init*(t: typedesc[ForkServiceRef],
             vc: ValidatorClientRef): Future[ForkServiceRef] {.async.} =
+  logScope: service = ServiceName
+  let res = ForkServiceRef(name: ServiceName,
+                           client: vc, state: ServiceState.Initialized)
   debug "Initializing service"
-  var res = ForkServiceRef(client: vc, state: ServiceState.Initialized)
   await vc.pollForFork()
   return res
 

@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
+
 import
   ../spec/beacon_time
 
@@ -41,6 +50,8 @@ const
     "Proposer slashing object was broadcasted"
   InvalidVoluntaryExitObjectError* =
     "Unable to decode voluntary exit object(s)"
+  InvalidFeeRecipientRequestError* =
+    "Bad request. Request was malformed and could not be processed"
   VoluntaryExitValidationError* =
     "Invalid voluntary exit, it will never pass validation so it's rejected"
   VoluntaryExitValidationSuccess* =
@@ -186,7 +197,23 @@ const
     "Invalid validator's public key(s) found"
   BadRequestFormatError* =
     "Bad request format"
-  InvalidAuthorization* =
+  InvalidAuthorizationError* =
     "Invalid Authorization Header"
   PrunedStateError* =
     "Trying to access a pruned historical state"
+  InvalidBlockRootValueError* =
+    "Invalid block root value"
+  InvalidSyncPeriodError* =
+    "Invalid sync committee period requested"
+  InvalidCountError* =
+    "Invalid count requested"
+  MissingStartPeriodValueError* =
+    "Missing `start_period` value"
+  MissingCountValueError* =
+    "Missing `count` value"
+  LCBootstrapUnavailable* =
+    "LC bootstrap unavailable"
+  LCFinUpdateUnavailable* =
+    "LC finality update unavailable"
+  LCOptUpdateUnavailable* =
+    "LC optimistic update unavailable"

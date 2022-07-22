@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition - block processing, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
 #
@@ -28,7 +28,7 @@ import
 
 export extras, phase0, altair
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
     state: var ForkyBeaconState, blck: SomeForkyBeaconBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
@@ -45,7 +45,7 @@ func process_block_header*(
   if proposer_index.isNone:
     return err("process_block_header: proposer missing")
 
-  if not (blck.proposer_index.ValidatorIndex == proposer_index.get):
+  if not (blck.proposer_index == proposer_index.get):
     return err("process_block_header: proposer index incorrect")
 
   # Verify that the parent matches
@@ -53,7 +53,7 @@ func process_block_header*(
     return err("process_block_header: previous block root mismatch")
 
   # Verify proposer is not slashed
-  if state.validators.asSeq()[blck.proposer_index].slashed:
+  if state.validators.item(blck.proposer_index).slashed:
     return err("process_block_header: proposer slashed")
 
   # Cache current block as the new latest block
@@ -71,7 +71,7 @@ func `xor`[T: array](a, b: T): T =
   for i in 0..<result.len:
     result[i] = a[i] xor b[i]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#randao
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#randao
 proc process_randao(
     state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
@@ -86,7 +86,7 @@ proc process_randao(
     epoch = state.get_current_epoch()
 
   if skipBlsValidation notin flags:
-    let proposer_pubkey = state.validators.asSeq()[proposer_index.get].pubkey
+    let proposer_pubkey = state.validators.item(proposer_index.get).pubkey
 
     if not verify_epoch_signature(
         state.fork, state.genesis_validators_root, epoch, proposer_pubkey,
@@ -99,12 +99,12 @@ proc process_randao(
     mix = get_randao_mix(state, epoch)
     rr = eth2digest(body.randao_reveal.toRaw()).data
 
-  state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data =
+  state.randao_mixes.mitem(epoch mod EPOCHS_PER_HISTORICAL_VECTOR).data =
     mix.data xor rr
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#eth1-data
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody): Result[void, cstring]=
   if not state.eth1_data_votes.add body.eth1_data:
     # Count is reset  in process_final_updates, so this should never happen
@@ -115,26 +115,22 @@ func process_eth1_data(state: var ForkyBeaconState, body: SomeForkyBeaconBlockBo
     state.eth1_data = body.eth1_data
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
     state: ForkyBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
-    Result[void, cstring] =
+    Result[ValidatorIndex, cstring] =
 
   let
     header_1 = proposer_slashing.signed_header_1.message
     header_2 = proposer_slashing.signed_header_2.message
-
-  # Not from spec
-  if header_1.proposer_index >= state.validators.lenu64:
-    return err("check_proposer_slashing: invalid proposer index")
 
   # Verify header slots match
   if not (header_1.slot == header_2.slot):
@@ -149,7 +145,10 @@ proc check_proposer_slashing*(
     return err("check_proposer_slashing: headers not different")
 
   # Verify the proposer is slashable
-  let proposer = unsafeAddr state.validators.asSeq()[header_1.proposer_index]
+  if header_1.proposer_index >= state.validators.lenu64:
+    return err("check_proposer_slashing: invalid proposer index")
+
+  let proposer = unsafeAddr state.validators[header_1.proposer_index]
   if not is_slashable_validator(proposer[], get_current_epoch(state)):
     return err("check_proposer_slashing: slashed proposer")
 
@@ -163,28 +162,26 @@ proc check_proposer_slashing*(
           signed_header.signature):
         return err("check_proposer_slashing: invalid signature")
 
-  ok()
+  # Verified above against state.validators
+  ValidatorIndex.init(header_1.proposer_index)
 
 proc check_proposer_slashing*(
     state: var ForkedHashedBeaconState; proposer_slashing: SomeProposerSlashing;
-    flags: UpdateFlags): Result[void, cstring] =
+    flags: UpdateFlags): Result[ValidatorIndex, cstring] =
   withState(state):
     check_proposer_slashing(state.data, proposer_slashing, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
     cache: var StateCache):
     Result[void, cstring] =
-  ? check_proposer_slashing(state, proposer_slashing, flags)
-  slash_validator(
-    cfg, state,
-    proposer_slashing.signed_header_1.message.proposer_index.ValidatorIndex,
-    cache)
+  let proposer_index = ? check_proposer_slashing(state, proposer_slashing, flags)
+  ? slash_validator(cfg, state, proposer_index, cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -196,7 +193,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
        state: ForkyBeaconState,
        attester_slashing: SomeAttesterSlashing,
@@ -223,8 +220,10 @@ proc check_attester_slashing*(
       attestation_1.attesting_indices.asSeq, it in attesting_indices_2),
       system.cmp):
     if is_slashable_validator(
-        state.validators.asSeq()[index], get_current_epoch(state)):
-      slashed_indices.add index.ValidatorIndex
+        state.validators[index], get_current_epoch(state)):
+      slashed_indices.add ValidatorIndex.init(index).expect(
+        "checked by is_valid_indexed_attestation")
+
   if slashed_indices.len == 0:
     return err("Attester slashing: Trying to slash participant(s) twice")
 
@@ -236,7 +235,7 @@ proc check_attester_slashing*(
   withState(state):
     check_attester_slashing(state.data, attester_slashing, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
@@ -244,27 +243,24 @@ proc process_attester_slashing*(
     flags: UpdateFlags,
     cache: var StateCache
     ): Result[void, cstring] =
-  let attester_slashing_validity =
-    check_attester_slashing(state, attester_slashing, flags)
+  let slashed_attesters =
+    ? check_attester_slashing(state, attester_slashing, flags)
 
-  if attester_slashing_validity.isErr:
-    return err(attester_slashing_validity.error)
-
-  for index in attester_slashing_validity.value:
-    slash_validator(cfg, state, index, cache)
+  for index in slashed_attesters:
+    ? slash_validator(cfg, state, index, cache)
 
   ok()
 
-func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey): int =
+func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
+    Opt[ValidatorIndex] =
   # This linear scan is unfortunate, but should be fairly fast as we do a simple
   # byte comparison of the key. The alternative would be to build a Table, but
   # given that each block can hold no more than 16 deposits, it's slower to
   # build the table and use it for lookups than to scan it like this.
   # Once we have a reusable, long-lived cache, this should be revisited
-  for i in 0 ..< state.validators.len:
-    if state.validators.asSeq[i].pubkey == pubkey:
-      return i
-  -1
+  for vidx in state.validators.vindices:
+    if state.validators.asSeq[vidx].pubkey == pubkey:
+      return Opt[ValidatorIndex].ok(vidx)
 
 proc process_deposit*(cfg: RuntimeConfig,
                       state: var ForkyBeaconState,
@@ -290,9 +286,9 @@ proc process_deposit*(cfg: RuntimeConfig,
     amount = deposit.data.amount
     index = findValidatorIndex(state, pubkey)
 
-  if index != -1:
+  if index.isSome():
     # Increase balance by deposit amount
-    increase_balance(state, index.ValidatorIndex, amount)
+    increase_balance(state, index.get(), amount)
   else:
     # Verify the deposit signature (proof of possession) which is not checked
     # by the deposit contract
@@ -322,20 +318,19 @@ proc process_deposit*(cfg: RuntimeConfig,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#voluntary-exits
 proc check_voluntary_exit*(
     cfg: RuntimeConfig,
     state: ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
-    flags: UpdateFlags): Result[void, cstring] =
+    flags: UpdateFlags): Result[ValidatorIndex, cstring] =
 
   let voluntary_exit = signed_voluntary_exit.message
 
-  # Not in spec. Check that validator_index is in range
   if voluntary_exit.validator_index >= state.validators.lenu64:
     return err("Exit: invalid validator index")
 
-  let validator = unsafeAddr state.validators.asSeq()[voluntary_exit.validator_index]
+  let validator = unsafeAddr state.validators[voluntary_exit.validator_index]
 
   # Verify the validator is active
   if not is_active_validator(validator[], get_current_epoch(state)):
@@ -362,40 +357,29 @@ proc check_voluntary_exit*(
         validator[].pubkey, signed_voluntary_exit.signature):
       return err("Exit: invalid signature")
 
-  # Initiate exit
-  debug "Exit: checking voluntary exit (validator_leaving)",
-    index = voluntary_exit.validator_index,
-    num_validators = state.validators.len,
-    epoch = voluntary_exit.epoch,
-    current_epoch = get_current_epoch(state),
-    validator_slashed = validator[].slashed,
-    validator_withdrawable_epoch = validator[].withdrawable_epoch,
-    validator_exit_epoch = validator[].exit_epoch,
-    validator_effective_balance = validator[].effective_balance
-
-  ok()
+  # Checked above
+  ValidatorIndex.init(voluntary_exit.validator_index)
 
 proc check_voluntary_exit*(
     cfg: RuntimeConfig, state: ForkedHashedBeaconState;
     signed_voluntary_exit: SomeSignedVoluntaryExit;
-    flags: UpdateFlags): Result[void, cstring] =
+    flags: UpdateFlags): Result[ValidatorIndex, cstring] =
   withState(state):
     check_voluntary_exit(cfg, state.data, signed_voluntary_exit, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
-  ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
-  initiate_validator_exit(
-    cfg, state, signed_voluntary_exit.message.validator_index.ValidatorIndex,
-    cache)
+  let exited_validator =
+    ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
+  ? initiate_validator_exit(cfg, state, exited_validator, cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var ForkyBeaconState,
                         body: SomeForkyBeaconBlockBody,
@@ -425,7 +409,7 @@ proc process_operations(cfg: RuntimeConfig,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#sync-committee-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#sync-committee-processing
 func get_participant_reward*(total_active_balance: Gwei): Gwei =
   let
     total_active_increments =
@@ -440,7 +424,7 @@ func get_participant_reward*(total_active_balance: Gwei): Gwei =
 func get_proposer_reward*(participant_reward: Gwei): Gwei =
   participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#sync-committee-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
@@ -452,7 +436,7 @@ proc process_sync_aggregate*(
     var participant_pubkeys: seq[ValidatorPubKey]
     for i in 0 ..< state.current_sync_committee.pubkeys.len:
       if sync_aggregate.sync_committee_bits[i]:
-        participant_pubkeys.add state.current_sync_committee.pubkeys[i]
+        participant_pubkeys.add state.current_sync_committee.pubkeys.data[i]
 
     # p2p-interface message validators check for empty sync committees, so it
     # shouldn't run except as part of test suite.
@@ -496,7 +480,7 @@ proc process_sync_aggregate*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
     state: var bellatrix.BeaconState, payload: ExecutionPayload,
     notify_new_payload: ExecutePayload): Result[void, cstring] =
@@ -538,7 +522,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/phase0.nim
 type SomePhase0Block =
@@ -558,7 +542,7 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
 type SomeAltairBlock =

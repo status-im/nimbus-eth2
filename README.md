@@ -7,6 +7,7 @@
 
 [![Discord: Nimbus](https://img.shields.io/badge/discord-nimbus-orange.svg)](https://discord.gg/XRxWahP)
 [![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://join.status.im/nimbus-general)
+[![gitpoap badge](https://public-api.gitpoap.io/v1/repo/status-im/nimbus-eth2/badge)](https://www.gitpoap.io/gh/status-im/nimbus-eth2)
 
 Nimbus-eth2 is an extremely efficient consensus layer (eth2) client implementation. While it's optimised for embedded systems and resource-restricted devices -- including Raspberry Pis, its low resource usage also makes it an excellent choice for any server or desktop (where it simply takes up fewer resources).
 
@@ -52,7 +53,7 @@ This [guide](https://nimbus.guide/migration.html) will take you through the basi
 ## Related projects
 
 * [status-im/nimbus-eth1](https://github.com/status-im/nimbus-eth1/): Nimbus for Ethereum 1
-* [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs/tree/v1.1.5#phase-0): Consensus specification that this project implements
+* [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs/tree/v1.2.0-rc.1#phase-0): Consensus specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem in our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 

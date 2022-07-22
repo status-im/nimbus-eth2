@@ -32,7 +32,7 @@ jobs:
             shell: bash
           - target:
               os: macos
-            builder: macos-10.15
+            builder: macos-11
             shell: bash
           - target:
               os: windows
@@ -212,8 +212,8 @@ jobs:
       - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
         run: |
           if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
-            # hide the CI failure in GitHub's UI
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client || true
+            # change to "|| true" to hide the CI failures in GitHub's UI (escape hatch if a blocker is detected in 1.6)
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client || false
           else
             ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client
           fi
@@ -221,8 +221,8 @@ jobs:
       - name: Build all tools
         run: |
           if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
-            # hide the CI failure in GitHub's UI
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} || true
+            # change to "|| true" to hide the CI failures in GitHub's UI (escape hatch if a blocker is detected in 1.6)
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} || false
           else
             ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }}
           fi

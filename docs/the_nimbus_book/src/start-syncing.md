@@ -1,29 +1,43 @@
-# Sync from scratch
+# Sync your node
 
-To minimize the amount of downtime, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit.  If it's not fully synced you will miss attestations and proposals until it has finished syncing.
+Before you can use your node, it needs to sync with the network. Syncing starts automatically when you start your node, and may take several days depending on the performance of your hardware.
 
-This is particularly important if you are joining a network that's been running for a while since the sync could take some time.
+If you are planning to become a validator, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit, or you might miss attestations and proposal duties until it has finished syncing.
 
-> **Tip:** If you'd like to sync faster and start attesting immediately, we recommend taking a look at [trusted node sync](./trusted-node-sync.md)
+```admonish tip
+To get started more quickly, you can perform a [trusted node sync](./trusted-node-sync.md) instead - this requires access to a synced node or a third-party service.
+```
 
-> **N.B.** In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client (**web3 provider**) in parallel to your eth2 client. See [here](./eth1.md) for instructions on how to do so.
+```admonish note
+You need need to run an execution client (**web3 provider**) together with the beacon node. See [here](./eth1.md) for instructions on how to do so.
+```
+
+## Networks
+
+Using Nimbus, you can connect either to a testnet, or mainnet. Mainnet is the main ethereum network where real assets are at stake, while testnets are used by users and developers alike to test their node and setup before committing real assets.
+
+```admonish tip
+If this is the first time you're setting up your node, it is recommended you run it on a testnet first. Later, when everything is working, you can easily switch to mainned.
+```
 
 ### Testnet
 
 To start syncing the `prater` testnet , from the `nimbus-eth2` repository, run:
 
 ```
- ./run-prater-beacon-node.sh --web3-url="<YOUR_WEB3_PROVIDER_URL>"
+ ./run-prater-beacon-node.sh
 ```
 
 ### Mainnet
 
 
-To start syncing the eth2 mainnet, run:
+To start syncing the Ethereum beacon chain mainnet, run:
 
 ```
- ./run-mainnet-beacon-node.sh --web3-url="<YOUR_WEB3_PROVIDER_URL>"
+ ./run-mainnet-beacon-node.sh
 ```
+
+## Log output
 
 You should see the following output:
 
@@ -41,21 +55,27 @@ INF 2020-12-01 11:26:31.000+00:00 Slot start                                 top
 INF 2020-12-01 11:26:36.285+00:00 Slot end                                   topics="beacnde" tid=21815 file=nimbus_beacon_node.nim:593 slot=96567 nextSlot=96568 head=b54486c4:96563 headEpoch=3017 finalizedHead=2f5d12e4:96479 finalizedEpoch=3014
 ...
 ```
-> If you want to put the database somewhere else, (e.g. an external ssd) pass the `--data-dir=/your/path`. ⚠️ If you do this, remember to pass this flag to **all** your nimbus calls.
 
-### Command line options
+## Data directory
 
-You can pass any `nimbus_beacon_node` options to the `prater` and `mainnet` scripts. For example, if you wanted to launch Nimbus on `prater` with a different base port, say `9100`, you would run:
+While running, the beacon node will store chain data and other information its data directory, which by default is found in `build/data` - for more information, see the [data directory](./data-dir.md) guide.
 
-```
+## Command line options
+
+You can add command line options to the startup command - for example, to change the port to 9100, use:
+
+```sh
 ./run-prater-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 
-To see a list of the command line options availabe to you, with descriptions, navigate to the `build` directory and run:
+To see a list of the command line options availabe to you, with descriptions, run:
 
 ```
-./nimbus_beacon_node --help
+./build/nimbus_beacon_node --help
 ```
-### Keep track of your sync progress
+
+More information is available from the [options](./options.md) page.
+
+## Keep track of your sync progress
 
 See [here](./keep-an-eye.html#keep-track-of-your-syncing-progress) for how to keep track of your sync progress.

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -11,7 +11,7 @@
 
 import
   # Standard library
-  std/[os, tables, strutils, terminal, typetraits],
+  std/[tables, strutils, terminal, typetraits],
 
   # Nimble packages
   chronos, confutils, toml_serialization,
@@ -31,7 +31,7 @@ export
 
 type
   SlotStartProc*[T] = proc(node: T, wallTime: BeaconTime,
-                           lastSlot: Slot): Future[void] {.gcsafe,
+                           lastSlot: Slot): Future[bool] {.gcsafe,
   raises: [Defect].}
 
 # silly chronicles, colors is a compile-time property
@@ -82,6 +82,22 @@ proc updateLogLevel*(logLevel: string) {.raises: [Defect, ValueError].} =
     for topicName, settings in parseTopicDirectives(directives[1..^1]):
       if not setTopicState(topicName, settings.state, settings.logLevel):
         warn "Unrecognized logging topic", topic = topicName
+
+proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
+  if stdoutKind == StdoutLogKind.Auto:
+    if isatty(stdout):
+      # On a TTY, let's be fancy
+      StdoutLogKind.Colors
+    else:
+      # When there's no TTY, we output no colors because this matches what
+      # released binaries were doing before auto-detection was around and
+      # looks decent in systemd-captured journals.
+      StdoutLogKind.NoColors
+  else:
+    stdoutKind
+
+when defaultChroniclesStream.outputs.type.arity == 2:
+  from std/os import splitFile
 
 proc setupLogging*(
     logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]) =
@@ -135,18 +151,7 @@ proc setupLogging*(
 
     defaultChroniclesStream.outputs[1].writer = fileWriter
 
-    let tmp =
-      if stdoutKind == StdoutLogKind.Auto:
-        if isatty(stdout):
-          # On a TTY, let's be fancy
-          StdoutLogKind.Colors
-        else:
-          # When there's no TTY, we output no colors because this matches what
-          # released binaries were doing before auto-detection was around and
-          # looks decent in systemd-captured journals.
-          StdoutLogKind.NoColors
-      else:
-        stdoutKind
+    let tmp = detectTTY(stdoutKind)
 
     case tmp
     of StdoutLogKind.Auto: raiseAssert "checked above"
@@ -211,7 +216,8 @@ template makeBannerAndConfig*(clientId: string, ConfType: type): untyped =
   {.pop.}
   config
 
-proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot, stopAtEpoch: uint64) =
+proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot,
+                               stopAtEpoch: uint64): bool =
   # Offset backwards slightly to allow this epoch's finalization check to occur
   if scheduledSlot > 3 and stopAtEpoch > 0'u64 and
       (scheduledSlot - 3).epoch() >= stopAtEpoch:
@@ -219,9 +225,9 @@ proc checkIfShouldStopAtEpoch*(scheduledSlot: Slot, stopAtEpoch: uint64) =
       chosenEpoch = stopAtEpoch,
       epoch = scheduledSlot.epoch(),
       slot = scheduledSlot
-
-    # Brute-force, but ensure it's reliable enough to run in CI.
-    quit(0)
+    true
+  else:
+    false
 
 proc resetStdin*() =
   when defined(posix):
@@ -297,7 +303,9 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
           curSlot = shortLog(curSlot),
           nextSlot = shortLog(curSlot)
 
-    await slotProc(node, wallTime, curSlot)
+    let breakLoop = await slotProc(node, wallTime, curSlot)
+    if breakLoop:
+      break
 
     curSlot = wallSlot
     nextSlot = wallSlot + 1

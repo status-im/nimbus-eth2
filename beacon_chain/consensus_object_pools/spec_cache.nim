@@ -19,11 +19,13 @@ import
 export
   base, extras, block_pools_types, results
 
+logScope: topics = "spec_cache"
+
 # Spec functions implemented based on cached values instead of the full state
 func count_active_validators*(epochInfo: EpochRef): uint64 =
   epochInfo.shuffled_active_validator_indices.lenu64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(epochInfo: EpochRef): uint64 =
   get_committee_count_per_slot(count_active_validators(epochInfo))
 
@@ -36,46 +38,45 @@ func get_committee_index*(epochRef: EpochRef, index: uint64):
     Result[CommitteeIndex, cstring] =
   check_attestation_index(index, get_committee_count_per_slot(epochRef))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
     epochRef: EpochRef, slot: Slot, committee_index: CommitteeIndex):
     (int, ValidatorIndex) =
   ## Return the beacon committee at ``slot`` for ``index``.
-  let
-    committees_per_slot = get_committee_count_per_slot(epochRef)
+  doAssert slot.epoch == epochRef.epoch
+  let committees_per_slot = get_committee_count_per_slot(epochRef)
   for index_in_committee, idx in compute_committee(
     epochRef.shuffled_active_validator_indices,
     (slot mod SLOTS_PER_EPOCH) * committees_per_slot + committee_index.asUInt64,
     committees_per_slot * SLOTS_PER_EPOCH
   ): yield (index_in_committee, idx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(
     epochRef: EpochRef, slot: Slot, committee_index: CommitteeIndex):
     seq[ValidatorIndex] =
   ## Return the beacon committee at ``slot`` for ``index``.
-  let
-    committees_per_slot = get_committee_count_per_slot(epochRef)
+  doAssert slot.epoch == epochRef.epoch
+  let committees_per_slot = get_committee_count_per_slot(epochRef)
   compute_committee(
     epochRef.shuffled_active_validator_indices,
     (slot mod SLOTS_PER_EPOCH) * committees_per_slot + committee_index.asUInt64,
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
     epochRef: EpochRef, slot: Slot, committee_index: CommitteeIndex): uint64 =
   ## Return the number of members in the beacon committee at ``slot`` for ``index``.
-  let
-    committees_per_slot = get_committee_count_per_slot(epochRef)
-
+  doAssert slot.epoch == epochRef.epoch
+  let committees_per_slot = get_committee_count_per_slot(epochRef)
   compute_committee_len(
     count_active_validators(epochRef),
     (slot mod SLOTS_PER_EPOCH) * committees_per_slot + committee_index.asUInt64,
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_attesting_indices
 iterator get_attesting_indices*(epochRef: EpochRef,
                                 slot: Slot,
                                 committee_index: CommitteeIndex,
@@ -88,6 +89,41 @@ iterator get_attesting_indices*(epochRef: EpochRef,
         epochRef, slot, committee_index):
       if bits[index_in_committee]:
         yield validator_index
+
+iterator get_attesting_indices*(
+    dag: ChainDAGRef, attestation: TrustedAttestation): ValidatorIndex =
+  block: # `return` is not allowed in an inline iterator
+    let
+      slot =
+        check_attestation_slot_target(attestation.data).valueOr:
+          warn "Invalid attestation slot"
+          doAssert strictVerification notin dag.updateFlags
+          break
+      blck =
+        dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
+          # Attestation block unknown
+          break
+      target =
+        blck.atCheckpoint(attestation.data.target).valueOr:
+          warn "Invalid attestation target"
+          doAssert strictVerification notin dag.updateFlags
+          break
+      epochRef =
+        dag.getEpochRef(target.blck, target.slot.epoch, false).valueOr:
+          warn "Attestation `EpochRef` not found"
+          doAssert strictVerification notin dag.updateFlags
+          break
+
+      committeesPerSlot = get_committee_count_per_slot(epochRef)
+      committeeIndex =
+        CommitteeIndex.init(attestation.data.index, committeesPerSlot).valueOr:
+          warn "Unexpected committee index in block attestation"
+          doAssert strictVerification notin dag.updateFlags
+          break
+
+    for validator in get_attesting_indices(
+        epochRef, slot, committeeIndex, attestation.aggregation_bits):
+      yield validator
 
 func get_attesting_indices_one*(epochRef: EpochRef,
                                 slot: Slot,
@@ -103,7 +139,7 @@ func get_attesting_indices_one*(epochRef: EpochRef,
     res = some(validator_index)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(epochRef: EpochRef,
                             slot: Slot,
                             committee_index: CommitteeIndex,
@@ -113,7 +149,7 @@ func get_attesting_indices*(epochRef: EpochRef,
   for idx in get_attesting_indices(epochRef, slot, committee_index, bits):
     result.add(idx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     epochRef: EpochRef,
@@ -158,19 +194,17 @@ func makeAttestationData*(
 
   doAssert current_epoch == epochRef.epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.asUInt64,
     beacon_block_root: bs.blck.root,
-    source: epochRef.current_justified_checkpoint,
+    source: epochRef.checkpoints.justified,
     target: Checkpoint(
       epoch: current_epoch,
-      root: epoch_boundary_block.blck.root
-    )
-  )
+      root: epoch_boundary_block.blck.root))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#validator-assignments
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#validator-assignments
 iterator get_committee_assignments*(
     epochRef: EpochRef, validator_indices: HashSet[ValidatorIndex]):
     tuple[committee_index: CommitteeIndex,

@@ -8,6 +8,7 @@
 {.push raises: [Defect].}
 
 import
+  std/options,
   chronicles,
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/forks
@@ -31,10 +32,10 @@ type
     bid*: BlockId ##\
       ## Root that can be used to retrieve block data from database
 
-    executionBlockRoot*: Eth2Digest
+    executionBlockRoot*: Option[Eth2Digest]
 
     parent*: BlockRef ##\
-    ## Not nil, except for the finalized head
+      ## Not nil, except for the finalized head
 
   BlockSlot* = object
     ## Unique identifier for a particular fork and time in the block chain -
@@ -50,24 +51,23 @@ template root*(blck: BlockRef): Eth2Digest = blck.bid.root
 template slot*(blck: BlockRef): Slot = blck.bid.slot
 
 func init*(
-    T: type BlockRef, root: Eth2Digest, executionPayloadRoot: Eth2Digest,
-    slot: Slot): BlockRef =
+    T: type BlockRef, root: Eth2Digest,
+    executionPayloadRoot: Option[Eth2Digest], slot: Slot): BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
-    executionBlockRoot: executionPayloadRoot,
-  )
+    executionBlockRoot: executionPayloadRoot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
     blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock |
           phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
-  BlockRef.init(root, Eth2Digest(), blck.slot)
+  BlockRef.init(root, some ZERO_HASH, blck.slot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
     blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
-    root, Eth2Digest(blck.body.execution_payload.block_hash), blck.slot)
+    root, some Eth2Digest(blck.body.execution_payload.block_hash), blck.slot)
 
 func parent*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block
@@ -123,7 +123,7 @@ func link*(parent, child: BlockRef) =
 func get_ancestor*(blck: BlockRef, slot: Slot,
     maxDepth = 100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int):
     BlockRef =
-  ## https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_ancestor
+  ## https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/fork-choice.md#get_ancestor
   ## Return the most recent block as of the time at `slot` that not more recent
   ## than `blck` itself
   if isNil(blck): return nil
@@ -176,6 +176,15 @@ func atSlotEpoch*(blck: BlockRef, epoch: Epoch): BlockSlot =
       BlockSlot()
     else:
       tmp.blck.atSlot(start)
+
+func atCheckpoint*(blck: BlockRef, checkpoint: Checkpoint): Opt[BlockSlot] =
+  ## Rewind from `blck` to the given `checkpoint` iff it is an ancestor
+  let target = blck.atSlot(checkpoint.epoch.start_slot)
+  if target.blck == nil:
+    return err()
+  if target.blck.root != checkpoint.root:
+    return err()
+  ok target
 
 func toBlockSlotId*(bs: BlockSlot): Opt[BlockSlotId] =
   if isNil(bs.blck):

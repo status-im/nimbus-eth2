@@ -10,7 +10,8 @@
 import
   std/[os, strutils, terminal, wordwrap, unicode],
   chronicles, chronos, json_serialization, zxcvbn,
-  serialization, blscurve, eth/common/eth_types, eth/keys, confutils, bearssl,
+  bearssl/rand,
+  serialization, blscurve, eth/common/eth_types, eth/keys, confutils,
   nimbus_security_resources,
   ".."/spec/[eth2_merkleization, keystore, crypto],
   ".."/spec/datatypes/base,
@@ -21,20 +22,18 @@ import
   ./validator_pool
 
 export
-  keystore, validator_pool, crypto
+  keystore, validator_pool, crypto, rand
 
 when defined(windows):
   import stew/[windows/acl]
 
-{.localPassc: "-fno-lto".} # no LTO for crypto
+{.localPassC: "-fno-lto".} # no LTO for crypto
 
 const
   KeystoreFileName* = "keystore.json"
   RemoteKeystoreFileName* = "remote_keystore.json"
   NetKeystoreFileName* = "network_keystore.json"
-  DisableFileName* = ".disable"
-  DisableFileContent* = "Please do not remove this file manually. " &
-                        "This can lead to slashing of this validator's key."
+  FeeRecipientFilename* = "suggested_fee_recipient.hex"
   KeyNameSize* = 98 # 0x + hexadecimal key representation 96 characters.
 
 type
@@ -291,7 +290,7 @@ proc keyboardCreatePassword(prompt: string,
               "brute-force with automated tools. Please increase the " &
               "variety of the user characters."
         continue
-      elif password in mostCommonPasswords:
+      elif cstring(password) in mostCommonPasswords:
         echoP "The entered password is too commonly used and it would be " &
               "easy to brute-force with automated tools."
         echo ""
@@ -519,6 +518,9 @@ proc removeValidatorFiles*(validatorsDir, secretsDir, keyName: string,
 
   ok(RemoveValidatorStatus.deleted)
 
+func fsName(pubkey: ValidatorPubKey|CookedPubKey): string =
+  "0x" & pubkey.toHex()
+
 proc removeValidatorFiles*(conf: AnyConf, keyName: string,
                            kind: KeystoreKind): KmResult[RemoveValidatorStatus]
                           {.raises: [Defect].} =
@@ -533,8 +535,7 @@ proc removeValidator*(pool: var ValidatorPool, conf: AnyConf,
     return ok(RemoveValidatorStatus.notFound)
   if validator.kind.toKeystoreKind() != kind:
     return ok(RemoveValidatorStatus.notFound)
-  let publicKeyName: string = "0x" & publicKey.toHex()
-  let res = removeValidatorFiles(conf, publicKeyName, kind)
+  let res = removeValidatorFiles(conf, publicKey.fsName, kind)
   if res.isErr():
     return err(res.error())
   pool.removeValidator(publicKey)
@@ -638,7 +639,7 @@ proc mapErrTo*[T, E](r: Result[T, E], v: static KeystoreGenerationErrorKind):
     KeystoreGenerationError(kind: v, error: $e))
 
 proc loadNetKeystore*(keystorePath: string,
-                      insecurePwd: Option[string]): Option[lcrypto.PrivateKey] =
+                      insecurePwd: Option[string]): Opt[lcrypto.PrivateKey] =
 
   if not(checkSensitiveFilePermissions(keystorePath)):
     error "Network keystorage file has insecure permissions",
@@ -661,7 +662,7 @@ proc loadNetKeystore*(keystorePath: string,
     let decrypted = decryptNetKeystore(keyStore,
                                        KeystorePass.init(insecurePwd.get()))
     if decrypted.isOk:
-      return some(decrypted.get())
+      return ok(decrypted.get())
     else:
       error "Network keystore decryption failed", key_store = keystorePath
       return
@@ -675,11 +676,11 @@ proc loadNetKeystore*(keystorePath: string,
         decrypted
     )
     if res.isOk():
-      some(res.get())
+      ok(res.get())
     else:
       return
 
-proc saveNetKeystore*(rng: var BrHmacDrbgContext, keystorePath: string,
+proc saveNetKeystore*(rng: var HmacDrbgContext, keystorePath: string,
                       netKey: lcrypto.PrivateKey, insecurePwd: Option[string]
                      ): Result[void, KeystoreGenerationError] =
   let password =
@@ -783,7 +784,7 @@ proc createValidatorFiles*(validatorsDir, keystoreDir, keystoreFile,
   success = true
   ok()
 
-proc saveKeystore*(rng: var BrHmacDrbgContext,
+proc saveKeystore*(rng: var HmacDrbgContext,
                    validatorsDir, secretsDir: string,
                    signingKey: ValidatorPrivKey,
                    signingPubKey: CookedPubKey,
@@ -792,7 +793,7 @@ proc saveKeystore*(rng: var BrHmacDrbgContext,
                    mode = Secure): Result[void, KeystoreGenerationError] =
   let
     keypass = KeystorePass.init(password)
-    keyName = "0x" & signingPubKey.toHex()
+    keyName = signingPubKey.fsName
     keystoreDir = validatorsDir / keyName
     keystoreFile = keystoreDir / KeystoreFileName
 
@@ -831,7 +832,7 @@ proc saveKeystore*(validatorsDir: string,
                    desc = ""): Result[void, KeystoreGenerationError]
                   {.raises: [Defect].} =
   let
-    keyName = "0x" & publicKey.toHex()
+    keyName = publicKey.fsName
     keystoreDir = validatorsDir / keyName
     keystoreFile = keystoreDir / RemoteKeystoreFileName
     keystoreDesc = if len(desc) == 0: none[string]() else: some(desc)
@@ -887,7 +888,7 @@ proc importKeystore*(pool: var ValidatorPool, conf: AnyConf,
                     {.raises: [Defect].} =
   let
     publicKey = keystore.pubkey
-    keyName = "0x" & publicKey.toHex()
+    keyName = publicKey.fsName
     validatorsDir = conf.validatorsDir()
     keystoreDir = validatorsDir / keyName
     keystoreFile = keystoreDir / RemoteKeystoreFileName
@@ -917,7 +918,7 @@ proc importKeystore*(pool: var ValidatorPool, conf: AnyConf,
   ok(KeystoreData.init(cookedKey, keystore.remotes, keystore.threshold))
 
 proc importKeystore*(pool: var ValidatorPool,
-                     rng: var BrHmacDrbgContext,
+                     rng: var HmacDrbgContext,
                      conf: AnyConf, keystore: Keystore,
                      password: string): ImportResult[KeystoreData] {.
      raises: [Defect].} =
@@ -932,7 +933,7 @@ proc importKeystore*(pool: var ValidatorPool,
           AddValidatorFailure.init(AddValidatorStatus.failed, res.error()))
   let
     publicKey = privateKey.toPubKey()
-    keyName = "0x" & publicKey.toHex()
+    keyName = publicKey.fsName
     validatorsDir = conf.validatorsDir()
     secretsDir = conf.secretsDir()
     secretFile = secretsDir / keyName
@@ -956,7 +957,7 @@ proc importKeystore*(pool: var ValidatorPool,
 
   ok(KeystoreData.init(privateKey, keystore))
 
-proc generateDistirbutedStore*(rng: var BrHmacDrbgContext,
+proc generateDistirbutedStore*(rng: var HmacDrbgContext,
                                shares: seq[SecretShare],
                                pubKey: ValidatorPubKey,
                                validatorIdx: Natural,
@@ -967,7 +968,7 @@ proc generateDistirbutedStore*(rng: var BrHmacDrbgContext,
                                threshold: uint32): Result[void, KeystoreGenerationError] =
   var signers: seq[RemoteSignerInfo]
   for idx, share in shares:
-    var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
+    var password = KeystorePass.init ncrutils.toHex(rng.generateBytes(32))
     # remote signer shares
     defer: burnMem(password)
     ? saveKeystore(rng,
@@ -986,8 +987,74 @@ proc generateDistirbutedStore*(rng: var BrHmacDrbgContext,
   # actual validator
   saveKeystore(remoteValidatorDir, pubKey, signers, threshold)
 
+func validatorKeystoreDir(conf: AnyConf, pubkey: ValidatorPubKey): string =
+  conf.validatorsDir / pubkey.fsName
+
+func feeRecipientPath*(conf: AnyConf, pubkey: ValidatorPubKey): string =
+  conf.validatorKeystoreDir(pubkey) / FeeRecipientFilename
+
+proc removeFeeRecipientFile*(conf: AnyConf, pubkey: ValidatorPubKey): Result[void, string] =
+  let path = conf.feeRecipientPath(pubkey)
+  if fileExists(path):
+    let res = io2.removeFile(path)
+    if res.isErr:
+      return err res.error.ioErrorMsg
+
+  return ok()
+
+proc setFeeRecipient*(conf: AnyConf, pubkey: ValidatorPubKey, feeRecipient: Eth1Address): Result[void, string] =
+  let validatorKeystoreDir = conf.validatorKeystoreDir(pubkey)
+
+  ? secureCreatePath(validatorKeystoreDir).mapErr(proc(e: auto): string =
+    "Could not create wallet directory [" & validatorKeystoreDir & "]: " & $e)
+
+  io2.writeFile(validatorKeystoreDir / FeeRecipientFilename, $feeRecipient)
+    .mapErr(proc(e: auto): string = "Failed to write fee recipient file: " & $e)
+
+func defaultFeeRecipient*(conf: AnyConf): Eth1Address =
+  if conf.suggestedFeeRecipient.isSome:
+    conf.suggestedFeeRecipient.get
+  else:
+    # https://github.com/nim-lang/Nim/issues/19802
+    (static(default(Eth1Address)))
+
+type
+  FeeRecipientStatus* = enum
+    noSuchValidator
+    invalidFeeRecipientFile
+
+proc getSuggestedFeeRecipient*(
+    conf: AnyConf,
+    pubkey: ValidatorPubKey): Result[Eth1Address, FeeRecipientStatus] =
+  let validatorDir = conf.validatorKeystoreDir(pubkey)
+
+  # In this particular case, an error might be by design. If the file exists,
+  # but doesn't load or parse that's a more urgent matter to fix. Many people
+  # people might prefer, however, not to override their default suggested fee
+  # recipients per validator, so don't warn very loudly, if at all.
+  if not dirExists(validatorDir):
+    return err noSuchValidator
+
+  let feeRecipientPath = validatorDir / FeeRecipientFilename
+  if not fileExists(feeRecipientPath):
+    return ok conf.defaultFeeRecipient
+
+  try:
+    # Avoid being overly flexible initially. Trailing whitespace is common
+    # enough it probably should be allowed, but it is reasonable to simply
+    # disallow the mostly-pointless flexibility of leading whitespace.
+    ok Eth1Address.fromHex(strutils.strip(
+      readFile(feeRecipientPath), leading = false, trailing = true))
+  except CatchableError as exc:
+    # Because the nonexistent validator case was already checked, any failure
+    # at this point is serious enough to alert the user.
+    warn "getSuggestedFeeRecipient: failed loading fee recipient file; falling back to default fee recipient",
+      feeRecipientPath,
+      err = exc.msg
+    err invalidFeeRecipientFile
+
 proc generateDeposits*(cfg: RuntimeConfig,
-                       rng: var BrHmacDrbgContext,
+                       rng: var HmacDrbgContext,
                        seed: KeySeed,
                        firstValidatorIdx, totalNewValidators: int,
                        validatorsDir: string,
@@ -1021,7 +1088,7 @@ proc generateDeposits*(cfg: RuntimeConfig,
     derivedKey = deriveChildKey(derivedKey, 0) # This is the signing key
     let signingPubKey = derivedKey.toPubKey
 
-    var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
+    var password = KeystorePass.init ncrutils.toHex(rng.generateBytes(32))
     defer: burnMem(password)
     ? saveKeystore(rng, validatorsDir, secretsDir,
                    derivedKey, signingPubKey,
@@ -1121,7 +1188,7 @@ proc resetAttributesNoError() =
     try: stdout.resetAttributes()
     except IOError: discard
 
-proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
+proc importKeystoresFromDir*(rng: var HmacDrbgContext,
                              importedDir, validatorsDir, secretsDir: string) =
   var password: string  # TODO consider using a SecretString type
   defer: burnMem(password)
@@ -1161,7 +1228,8 @@ proc importKeystoresFromDir*(rng: var BrHmacDrbgContext,
           let privKey = ValidatorPrivKey.fromRaw(secret)
           if privKey.isOk:
             let pubkey = privKey.value.toPubKey
-            var password = KeystorePass.init ncrutils.toHex(getRandomBytes(rng, 32))
+            var
+              password = KeystorePass.init ncrutils.toHex(rng.generateBytes(32))
             defer: burnMem(password)
             let status = saveKeystore(rng, validatorsDir, secretsDir,
                                       privKey.value, pubkey,
@@ -1205,7 +1273,7 @@ template ask(prompt: string): string =
   except IOError:
     return err "failure to read data from stdin"
 
-proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
+proc pickPasswordAndSaveWallet(rng: var HmacDrbgContext,
                                config: BeaconNodeConf,
                                seed: KeySeed): Result[WalletPathPair, string] =
   echoP "When you perform operations with your wallet such as withdrawals " &
@@ -1218,7 +1286,7 @@ proc pickPasswordAndSaveWallet(rng: var BrHmacDrbgContext,
     block:
       let prompt = "Please enter a password: "
       let confirm = "Please repeat the password: "
-      ? keyboardCreatePassword(prompt, confirm).mapErr(proc(e: auto): string = $e)
+      ? keyboardCreatePassword(prompt, confirm)
   defer: burnMem(password)
 
   var name: WalletName
@@ -1275,7 +1343,7 @@ else:
     echo "\e[1;1H\e[2J\e[3J"
 
 proc createWalletInteractively*(
-    rng: var BrHmacDrbgContext,
+    rng: var HmacDrbgContext,
     config: BeaconNodeConf): Result[CreatedWallet, string] =
 
   if config.nonInteractive:
@@ -1380,7 +1448,7 @@ proc createWalletInteractively*(
   let walletPath = ? pickPasswordAndSaveWallet(rng, config, seed)
   return ok CreatedWallet(walletPath: walletPath, seed: seed)
 
-proc restoreWalletInteractively*(rng: var BrHmacDrbgContext,
+proc restoreWalletInteractively*(rng: var HmacDrbgContext,
                                  config: BeaconNodeConf) =
   var
     enteredMnemonic: string

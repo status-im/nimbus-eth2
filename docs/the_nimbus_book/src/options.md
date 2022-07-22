@@ -1,15 +1,19 @@
 # Command line options
 
-You can pass any `nimbus_beacon_node` options to the `prater` and `mainnet` scripts. For example, if you want to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, run:
+Command line options allow you to customize the way your beacon node operates.
 
-```
+You pass options to the beacon node by adding them to the command line. For example, if you want to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, run:
+
+```sh
 ./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 
-To see a list of the command line options availabe to you, with descriptions, run:
+## Available options
 
-```
-build/./nimbus_beacon_node --help
+To see the full list of command line options availabe to you, with descriptions, run:
+
+```sh
+build/nimbus_beacon_node --help
 ```
 
 You should see the following output:
@@ -62,9 +66,6 @@ The following options are available:
      --metrics-port            Listening HTTP port of the metrics server [=8008].
      --status-bar              Display a status bar at the bottom of the terminal screen [=true].
      --status-bar-contents     Textual template for the contents of the status bar.
-     --rpc                     Enable the JSON-RPC server (deprecated) [=false].
-     --rpc-port                HTTP port for the JSON-RPC service [=9190].
-     --rpc-address             Listening address of the RPC server [=127.0.0.1].
      --rest                    Enable the REST server [=false].
      --rest-port               Port for the REST server [=5052].
      --rest-address            Listening address of the REST server [=127.0.0.1].
@@ -106,6 +107,8 @@ The following options are available:
 ...
 ```
 
+## Configuration files
+
 All command line options can also be provided in a [TOML](https://toml.io/en/)
 config file specified through the `--config-file` flag. Within the config file,
 you need to use the long names of all options. Please note that certain options
@@ -120,9 +123,8 @@ sub-commands should appear in a section of the file matching the sub-command nam
 
 Here is an example config file illustrating all of the above:
 
-```
-# nimbus-eth2-config.toml
-
+```admonish example title='nimbus-eth2-config.toml'
+# Comments look like this
 doppelganger-detection = true
 web3-url = ["ws://192.168.1.10:8000"]
 num-threads = 0
@@ -131,3 +133,10 @@ num-threads = 0
 trusted-node-url = "http://192.168.1.20:5052"
 ```
 
+## Exit Codes
+
+| Exit code | Description |
+|-----------|---------|
+| 0 |  Successful exit |
+| 1 | Generic failure or unspecified error |
+| 1031 | Doppelganger detection; one might prefer not to restart automatically |

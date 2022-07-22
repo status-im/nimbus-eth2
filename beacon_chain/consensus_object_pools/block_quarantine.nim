@@ -155,11 +155,11 @@ func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
 
     for k in toRemove:
       quarantine.orphans.del k
-      quarantine.unviable.add(k[0], ())
+      quarantine.unviable[k[0]] = ()
 
     toRemove.setLen(0)
 
-  quarantine.unviable.add(root, ())
+  quarantine.unviable[root] = ()
 
 func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[(Eth2Digest, ValidatorSig)]
@@ -201,7 +201,7 @@ func addOrphan*(
   let parent_root = getForkedBlockField(signedBlock, parent_root)
 
   if parent_root in quarantine.unviable:
-    quarantine.unviable.add(signedBlock.root, ())
+    quarantine.unviable[signedBlock.root] = ()
     return true
 
   # Even if the quarantine is full, we need to schedule its parent for

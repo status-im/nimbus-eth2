@@ -1,5 +1,4 @@
 import
-  std/[sequtils],
   stew/[byteutils, results],
   chronicles,
   eth/p2p/discoveryv5/enr,
@@ -7,7 +6,6 @@ import
   ../version, ../beacon_node, ../sync/sync_manager,
   ../networking/[eth2_network, peer_pool],
   ../spec/datatypes/base,
-  ../spec/eth2_apis/rpc_types,
   ./rest_utils
 
 export rest_utils
@@ -91,7 +89,7 @@ proc getLastSeenAddress(node: BeaconNode, id: PeerId): string =
   # TODO (cheatfate): We need to provide filter here, which will be able to
   # filter such multiaddresses like `/ip4/0.0.0.0` or local addresses or
   # addresses with peer ids.
-  let addrs = node.network.switch.peerStore.addressBook.get(id).toSeq()
+  let addrs = node.network.switch.peerStore[AddressBook][id]
   if len(addrs) > 0:
     $addrs[len(addrs) - 1]
   else:
@@ -190,18 +188,19 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $dres.error())
         dres.get()
 
-    var res: seq[RpcNodePeer]
+    var res: seq[RestNodePeer]
     for peer in node.network.peers.values():
       if (peer.connectionState in connectionMask) and
          (peer.direction in directionMask):
-        let peer = (
+        let peer = RestNodePeer(
           peer_id: $peer.peerId,
           enr: if peer.enr.isSome(): peer.enr.get().toURI() else: "",
           last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
           state: peer.connectionState.toString(),
           direction: peer.direction.toString(),
-          agent: node.network.switch.peerStore.agentBook.get(peer.peerId),       # Fields `agent` and `proto` are not
-          proto: node.network.switch.peerStore.protoVersionBook.get(peer.peerId) # part of specification
+          # Fields `agent` and `proto` are not part of specification
+          agent: node.network.switch.peerStore[AgentBook][peer.peerId],
+          proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId]
         )
         res.add(peer)
     return RestApiResponse.jsonResponseWMeta(res, (count: uint64(len(res))))
@@ -242,8 +241,8 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         last_seen_p2p_address: getLastSeenAddress(node, peer.peerId),
         state: peer.connectionState.toString(),
         direction: peer.direction.toString(),
-        agent: node.network.switch.peerStore.agentBook.get(peer.peerId),       # Fields `agent` and `proto` are not
-        proto: node.network.switch.peerStore.protoVersionBook.get(peer.peerId) # part of specification
+        agent: node.network.switch.peerStore[AgentBook][peer.peerId],       # Fields `agent` and `proto` are not
+        proto: node.network.switch.peerStore[ProtoVersionBook][peer.peerId] # part of specification
       )
     )
 
@@ -254,7 +253,26 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus
   router.api(MethodGet, "/eth/v1/node/syncing") do () -> RestApiResponse:
-    return RestApiResponse.jsonResponse(node.syncManager.getInfo())
+    let
+      wallSlot = node.beaconClock.now().slotOrZero()
+      headSlot = node.dag.head.slot
+      distance = wallSlot - headSlot
+      isSyncing =
+        if isNil(node.syncManager):
+          false
+        else:
+          node.syncManager.inProgress
+      isOptimistic =
+        if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+          some(node.dag.is_optimistic(node.dag.head.root))
+        else:
+          none[bool]()
+
+      info = RestSyncInfo(
+        head_slot: headSlot, sync_distance: distance,
+        is_syncing: isSyncing, is_optimistic: isOptimistic
+      )
+    return RestApiResponse.jsonResponse(info)
 
   # https://ethereum.github.io/beacon-APIs/#/Node/getHealth
   router.api(MethodGet, "/eth/v1/node/health") do () -> RestApiResponse:

@@ -11,7 +11,6 @@ import
   eth/keys,
   stew/endians2,
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
-  ../beacon_chain/validators/validator_pool,
   ../beacon_chain/spec/datatypes/bellatrix,
   ../beacon_chain/spec/[
     beaconstate, helpers, keystore, signatures, state_transition, validator]
@@ -23,7 +22,7 @@ const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/helpers/keys.py
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/tests/core/pyspec/eth2spec/test/helpers/keys.py
 func `[]`*(_: MockPrivKeysT, index: ValidatorIndex): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
   # lighthouse. EF tests use 1 instead of 1000.
@@ -99,10 +98,10 @@ proc addTestBlock*(
     privKey = MockPrivKeys[proposer_index.get]
     randao_reveal =
       if skipBlsValidation notin flags:
-        privKey.genRandaoReveal(
+        get_epoch_signature(
           getStateField(state, fork),
           getStateField(state, genesis_validators_root),
-          getStateField(state, slot)).toValidatorSig()
+          getStateField(state, slot).epoch, privKey).toValidatorSig()
       else:
         ValidatorSig()
 
@@ -170,7 +169,7 @@ func makeAttestationData*(
     "Computed epoch was " & $slot.epoch &
     "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,
@@ -228,13 +227,13 @@ func makeAttestation*(
   # monotonic enumerable index, is wasteful and slow. Most test callers
   # want ValidatorIndex, so that's supported too.
   let
-    sac_index = committee.find(validator_index)
+    index_in_committee = committee.find(validator_index)
     data = makeAttestationData(state, slot, committee_index, beacon_block_root)
 
-  doAssert sac_index != -1, "find_beacon_committee should guarantee this"
+  doAssert index_in_committee != -1, "find_beacon_committee should guarantee this"
 
   var aggregation_bits = CommitteeValidatorsBits.init(committee.len)
-  aggregation_bits.setBit sac_index
+  aggregation_bits.setBit index_in_committee
 
   let sig = if skipBlsValidation in flags:
     ValidatorSig()

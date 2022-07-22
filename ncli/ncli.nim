@@ -1,7 +1,8 @@
 import
   std/[os, strutils, stats],
   confutils, chronicles, json_serialization,
-  stew/byteutils,
+  stew/[byteutils, io2],
+  snappy,
   ../research/simutils,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
@@ -17,7 +18,6 @@ type
     slots = "Apply empty slots"
 
   NcliConf* = object
-
     eth2Network* {.
       desc: "The Eth2 network preset to use"
       name: "network" }: Option[string]
@@ -80,24 +80,37 @@ template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
   of BeaconStateFork.Altair:    SSZ.saveFile(filename, value.altairData.data)
   of BeaconStateFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
 
+proc loadFile(filename: string, T: type): T =
+  let
+    ext = splitFile(filename).ext
+    bytes = readAllBytes(filename).expect("file exists")
+  if cmpIgnoreCase(ext, ".ssz") == 0:
+    SSZ.decode(bytes, T)
+  elif cmpIgnoreCase(ext, ".ssz_snappy") == 0:
+    SSZ.decode(snappy.decode(bytes), T)
+  elif cmpIgnoreCase(ext, ".json") == 0:
+    # JSON.loadFile(file, t)
+    echo "TODO needs porting to RestJson"
+    quit 1
+  else:
+    echo "Unknown file type: ", ext
+    quit 1
+
 proc doTransition(conf: NcliConf) =
   let
-    stateY = (ref ForkedHashedBeaconState)(
-      phase0Data: phase0.HashedBeaconState(
-        data: SSZ.loadFile(conf.preState, phase0.BeaconState)),
-      kind: BeaconStateFork.Phase0
-    )
-    blckX = SSZ.loadFile(conf.blck, phase0.SignedBeaconBlock)
+    cfg = getRuntimeConfig(conf.eth2Network)
+    stateY = newClone(readSszForkedHashedBeaconState(
+      cfg, readAllBytes(conf.preState).tryGet()))
+    blckX = readSszForkedSignedBeaconBlock(
+      cfg, readAllBytes(conf.blck).tryGet())
     flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
-
-  setStateRoot(stateY[], hash_tree_root(stateY[].phase0Data.data))
 
   var
     cache = StateCache()
     info = ForkedEpochInfo()
-  let res = state_transition(
-    getRuntimeConfig(conf.eth2Network), stateY[], blckX, cache, info,
-    flags, noRollback)
+  let res = withBlck(blckX):
+    state_transition(
+      cfg, stateY[], blck, cache, info, flags, noRollback)
   if res.isErr():
     error "State transition failed", error = res.error()
     quit 1
@@ -114,14 +127,10 @@ proc doSlots(conf: NcliConf) =
 
   var timers: array[Timers, RunningStat]
   let
-    stateY = withTimerRet(timers[tLoadState]): (ref ForkedHashedBeaconState)(
-      phase0Data: phase0.HashedBeaconState(
-        data: SSZ.loadFile(conf.preState2, phase0.BeaconState)),
-      kind: BeaconStateFork.Phase0
-    )
-
-  setStateRoot(stateY[], hash_tree_root(stateY[].phase0Data.data))
-
+    cfg = getRuntimeConfig(conf.eth2Network)
+    stateY = withTimerRet(timers[tLoadState]):
+      newClone(readSszForkedHashedBeaconState(
+        cfg, readAllBytes(conf.preState2).tryGet()))
   var
     cache = StateCache()
     info = ForkedEpochInfo()
@@ -129,11 +138,11 @@ proc doSlots(conf: NcliConf) =
     let isEpoch = (getStateField(stateY[], slot) + 1).is_epoch
     withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
       process_slots(
-        defaultRuntimeConfig, stateY[], getStateField(stateY[], slot) + 1,
+        cfg, stateY[], getStateField(stateY[], slot) + 1,
         cache, info, {}).expect("should be able to advance slot")
 
   withTimer(timers[tSaveState]):
-    saveSSZFile(conf.postState, stateY[])
+    saveSSZFile(conf.postState2, stateY[])
 
   printTimers(false, timers)
 
@@ -146,17 +155,7 @@ proc doSSZ(conf: NcliConf) =
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
   template printit(t: untyped) {.dirty.} =
-    let v = newClone(
-      if cmpIgnoreCase(ext, ".ssz") == 0:
-        SSZ.loadFile(file, t)
-      elif cmpIgnoreCase(ext, ".json") == 0:
-        # JSON.loadFile(file, t)
-        echo "TODO needs porting to RestJson"
-        quit 1
-      else:
-        echo "Unknown file type: ", ext
-        quit 1
-    )
+    let v = newClone(loadFile(file, t))
 
     case conf.cmd:
     of hashTreeRoot:
@@ -169,7 +168,6 @@ proc doSSZ(conf: NcliConf) =
     else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
-  let ext = splitFile(file).ext
 
   case kind
   of "attester_slashing": printit(AttesterSlashing)
@@ -194,7 +192,8 @@ proc doSSZ(conf: NcliConf) =
   of "voluntary_exit": printit(VoluntaryExit)
 
 when isMainModule:
-  let conf = NcliConf.load()
+  let
+    conf = NcliConf.load()
 
   case conf.cmd:
   of hashTreeRoot: doSSZ(conf)

@@ -29,7 +29,7 @@ jobs:
             shell: bash
           - target:
               os: macos
-            builder: macos-10.15
+            builder: macos-11
             shell: bash
           - target:
               os: windows
@@ -83,6 +83,7 @@ jobs:
             base-devel
             git
             mingw-w64-i686-toolchain
+            mingw-w64-i686-cmake
 
       - name: MSYS2 (Windows amd64)
         if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
@@ -93,6 +94,7 @@ jobs:
             base-devel
             git
             mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
 
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
@@ -147,6 +149,7 @@ jobs:
           fi
 
           ncpu=""
+          make_cmd="make"
           case '${{ runner.os }}' in
           'Linux')
             ncpu=$(nproc)
@@ -156,14 +159,16 @@ jobs:
             ;;
           'Windows')
             ncpu=${NUMBER_OF_PROCESSORS}
+            make_cmd="mingw32-make"
             ;;
           esac
           [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
           echo "ncpu=${ncpu}" >> $GITHUB_ENV
+          echo "make_cmd=${make_cmd}" >> $GITHUB_ENV
 
       - name: Build Nim and Nimbus dependencies
         run: |
-          make -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
           ./env.sh nim --version
 
       - name: Get latest fixtures commit hash
@@ -188,10 +193,10 @@ jobs:
 
       - name: Build all tools
         run: |
-          make -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }}
+          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }}
           # The Windows image runs out of disk space, so make some room
           rm -rf nimcache
 
       - name: Run tests
         run: |
-          make -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
+          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test

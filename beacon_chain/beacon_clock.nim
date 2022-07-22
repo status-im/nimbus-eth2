@@ -26,7 +26,7 @@ type
     ## which blocks are valid - in particular, blocks are not valid if they
     ## come from the future as seen from the local clock.
     ##
-    ## https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#fork-choice
+    ## https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/fork-choice.md#fork-choice
     ##
     # TODO consider NTP and network-adjusted timestamps as outlined here:
     #      https://ethresear.ch/t/network-adjusted-timestamps/4187
@@ -55,6 +55,9 @@ func toSlot*(c: BeaconClock, t: Time): tuple[afterGenesis: bool, slot: Slot] =
 proc now*(c: BeaconClock): BeaconTime =
   ## Current time, in slots - this may end up being less than GENESIS_SLOT(!)
   toBeaconTime(c, getTime())
+
+func getBeaconTimeFn*(c: BeaconClock): GetBeaconTimeFn =
+  return proc(): BeaconTime = c.now()
 
 proc fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Duration] =
   let now = c.now()

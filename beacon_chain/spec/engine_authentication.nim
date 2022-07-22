@@ -8,9 +8,11 @@
 import
   std/[base64, json, options, os, strutils],
   chronicles,
-  bearssl,
+  bearssl/rand,
   nimcrypto/[hmac, utils],
   stew/[byteutils, results]
+
+export rand, results
 
 {.push raises: [Defect].}
 
@@ -20,7 +22,7 @@ proc base64urlEncode(x: auto): string =
   base64.encode(x, safe = true).replace("=", "")
 
 func getIatToken*(time: int64): JsonNode =
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/authentication.md#jwt-claims
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/authentication.md#jwt-claims
   # "Required: iat (issued-at) claim. The EL SHOULD only accept iat timestamps
   # which are within +-5 seconds from the current time."
   #
@@ -32,7 +34,7 @@ func getIatToken*(time: int64): JsonNode =
   %* {"iat": time}
 
 proc getSignedToken*(key: openArray[byte], payload: string): string =
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/authentication.md#jwt-specifications
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/authentication.md#jwt-specifications
   # "The EL MUST support at least the following alg: HMAC + SHA256 (HS256)"
 
   # https://datatracker.ietf.org/doc/html/rfc7515#appendix-A.1.1
@@ -50,7 +52,7 @@ proc getSignedIatToken*(key: openArray[byte], time: int64): string =
   getSignedToken(key, $getIatToken(time))
 
 proc checkJwtSecret*(
-    rng: var BrHmacDrbgContext, dataDir: string, jwtSecret: Option[string]):
+    rng: var HmacDrbgContext, dataDir: string, jwtSecret: Option[string]):
     Result[seq[byte], cstring] =
 
   # If such a parameter is given, but the file cannot be read, or does not
@@ -65,13 +67,11 @@ proc checkJwtSecret*(
     # hex-encoded secret as a jwt.hex file on the filesystem. This file can
     # then be used to provision the counterpart client.
     #
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.8/src/engine/authentication.md#key-distribution
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/authentication.md#key-distribution
     const jwtSecretFilename = "jwt.hex"
     let jwtSecretPath = dataDir / jwtSecretFilename
 
-    var newSecret: seq[byte]
-    newSecret.setLen(MIN_SECRET_LEN)
-    rng.brHmacDrbgGenerate(newSecret)
+    let newSecret = rng.generateBytes(MIN_SECRET_LEN)
     try:
       writeFile(jwtSecretPath, newSecret.to0xHex())
     except IOError as exc:
@@ -83,6 +83,7 @@ proc checkJwtSecret*(
     return ok(newSecret)
 
   try:
+    # TODO replace with separate function
     let lines = readLines(jwtSecret.get, 1)
     if lines.len > 0:
       # Secret JWT key is parsed in constant time using nimcrypto:

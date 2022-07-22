@@ -6,7 +6,6 @@
 
 import stew/[byteutils, base10], chronicles
 import ".."/beacon_node,
-       ".."/eth1/eth1_monitor,
        ".."/spec/forks,
        "."/rest_utils
 from ../fork_choice/proto_array import PROPOSER_SCORE_BOOST
@@ -23,7 +22,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
     cachedConfigSpec =
       RestApiResponse.prepareJsonResponse(
         (
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/mainnet/phase0.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/phase0.yaml
           MAX_COMMITTEES_PER_SLOT:
             Base10.toString(MAX_COMMITTEES_PER_SLOT),
           TARGET_COMMITTEE_SIZE:
@@ -91,7 +90,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_VOLUNTARY_EXITS:
             Base10.toString(MAX_VOLUNTARY_EXITS),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/mainnet/altair.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/altair.yaml
           INACTIVITY_PENALTY_QUOTIENT_ALTAIR:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_ALTAIR),
           MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR:
@@ -107,7 +106,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           UPDATE_TIMEOUT:
             Base10.toString(UPDATE_TIMEOUT),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/mainnet/bellatrix.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/bellatrix.yaml
           INACTIVITY_PENALTY_QUOTIENT_BELLATRIX:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_BELLATRIX),
           MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX:
@@ -123,7 +122,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_EXTRA_DATA_BYTES:
             Base10.toString(uint64(MAX_EXTRA_DATA_BYTES)),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/configs/mainnet.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/mainnet.yaml
           PRESET_BASE:
             cfg.PRESET_BASE,
           CONFIG_NAME:
@@ -150,6 +149,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "0x" & $cfg.BELLATRIX_FORK_VERSION,
           BELLATRIX_FORK_EPOCH:
             Base10.toString(uint64(cfg.BELLATRIX_FORK_EPOCH)),
+          CAPELLA_FORK_VERSION:
+            "0x" & $cfg.CAPELLA_FORK_VERSION,
+          CAPELLA_FORK_EPOCH:
+            Base10.toString(uint64(cfg.CAPELLA_FORK_EPOCH)),
           SHARDING_FORK_VERSION:
             "0x" & $cfg.SHARDING_FORK_VERSION,
           SHARDING_FORK_EPOCH:
@@ -183,7 +186,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           DEPOSIT_CONTRACT_ADDRESS:
             $cfg.DEPOSIT_CONTRACT_ADDRESS,
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#constants
           # GENESIS_SLOT
           # GENESIS_EPOCH
           # FAR_FUTURE_EPOCH
@@ -210,7 +213,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           DOMAIN_AGGREGATE_AND_PROOF:
             to0xHex(DOMAIN_AGGREGATE_AND_PROOF.data),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#constants
           TIMELY_SOURCE_FLAG_INDEX:
             to0xHex([byte(TIMELY_SOURCE_FLAG_INDEX)]),
           TIMELY_TARGET_FLAG_INDEX:
@@ -237,7 +240,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             to0xHex(DOMAIN_CONTRIBUTION_AND_PROOF.data),
           # PARTICIPATION_FLAG_WEIGHTS
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
             Base10.toString(TARGET_AGGREGATORS_PER_COMMITTEE),
           RANDOM_SUBNETS_PER_VALIDATOR:
@@ -247,7 +250,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           ATTESTATION_SUBNET_COUNT:
             Base10.toString(uint64(ATTESTATION_SUBNET_COUNT)),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#constants
           TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE:
             Base10.toString(uint64(TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE)),
           SYNC_COMMITTEE_SUBNET_COUNT:

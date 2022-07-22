@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -51,7 +51,7 @@ import
 
 export results, extras, phase0, altair, bellatrix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
     state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock):
     Result[void, cstring] =
@@ -68,7 +68,7 @@ proc verify_block_signature(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func verifyStateRoot(
     state: ForkyBeaconState, blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock):
     Result[void, cstring] =
@@ -97,7 +97,7 @@ func noRollback*() =
 # Hashed-state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(
     state: var ForkyBeaconState, pre_state_root: Eth2Digest) =
   # `process_slot` is the first stage of per-slot processing - it is run for
@@ -122,11 +122,12 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
   for slot in epoch.slots():
     cache.beacon_proposer_indices.del slot
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState, previous_slot_state_root: Eth2Digest,
-    flags: UpdateFlags, cache: var StateCache, info: var ForkyEpochInfo) =
+    flags: UpdateFlags, cache: var StateCache, info: var ForkyEpochInfo):
+    Result[void, cstring] =
   # Do the per-slot and potentially the per-epoch processing, then bump the
   # slot number - we've now arrived at the slot state on top of which a block
   # optionally can be applied.
@@ -137,10 +138,12 @@ proc advance_slot(
   let is_epoch_transition = (state.slot + 1).is_epoch
   if is_epoch_transition:
     # Note: Genesis epoch = 0, no need to test if before Genesis
-    process_epoch(cfg, state, flags, cache, info)
+    ? process_epoch(cfg, state, flags, cache, info)
     clear_epoch_from_cache(cache, (state.slot + 1).epoch)
 
   state.slot += 1
+
+  ok()
 
 func noRollback*(state: var phase0.HashedBeaconState) =
   trace "Skipping rollback of broken phase 0 state"
@@ -192,8 +195,7 @@ proc process_slots*(
   while getStateField(state, slot) < slot:
     withState(state):
       withEpochInfo(state.data, info):
-        advance_slot(
-          cfg, state.data, state.root, flags, cache, info)
+        ? advance_slot(cfg, state.data, state.root, flags, cache, info)
 
       if skipLastStateRootCalculation notin flags or
           state.data.slot < slot:
@@ -289,7 +291,7 @@ proc state_transition*(
   state_transition_block(
     cfg, state, signedBlock, cache, flags, rollback)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#preparing-for-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#preparing-for-a-beaconblock
 template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
@@ -357,7 +359,7 @@ proc makeBeaconBlock*(
 
   ok(blck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#preparing-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#preparing-a-beaconblock
 template partialBeaconBlock(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,

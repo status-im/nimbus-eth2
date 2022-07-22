@@ -12,7 +12,6 @@ import
   # Standard library
   os, sequtils,
   # Status internal
-  chronicles,
   faststreams, streams,
   # Beacon chain internals
   ../../../beacon_chain/spec/[state_transition, forks, helpers],

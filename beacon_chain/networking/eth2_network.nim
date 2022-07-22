@@ -12,7 +12,7 @@ import
   std/[typetraits, os, sequtils, strutils, algorithm, math, tables],
 
   # Status libs
-  stew/[leb128, endians2, results, byteutils, io2, bitops2], bearssl,
+  stew/[leb128, endians2, results, byteutils, io2, bitops2],
   stew/shims/net as stewNet,
   stew/shims/[macros],
   faststreams/[inputs, outputs, buffers], snappy, snappy/faststreams,
@@ -25,17 +25,14 @@ import
   libp2p/stream/connection,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
-  ".."/[version, conf, beacon_clock],
+  ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
   "."/[eth2_discovery, libp2p_json_serialization, peer_pool, peer_scores]
 
-when chronicles.enabledLogLevel == LogLevel.TRACE:
-  import std/sequtils
-
 export
-  tables, version, multiaddress, peerinfo, p2pProtocol, connection,
+  tables, chronos, version, multiaddress, peerinfo, p2pProtocol, connection,
   libp2p_json_serialization, eth2_ssz_serialization, results, eth2_discovery,
   peer_pool, peer_scores
 
@@ -49,6 +46,7 @@ type
 
   Bytes = seq[byte]
   ErrorMsg = List[byte, 256]
+  SendResult* = Result[void, cstring]
 
   # TODO: This is here only to eradicate a compiler
   # warning about unused import (rpc/messages).
@@ -77,7 +75,7 @@ type
     forkId*: ENRForkID
     discoveryForkId*: ENRForkID
     forkDigests*: ref ForkDigests
-    rng*: ref BrHmacDrbgContext
+    rng*: ref HmacDrbgContext
     peers*: Table[PeerId, Peer]
     validTopics: HashSet[string]
     peerPingerHeartbeatFut: Future[void]
@@ -140,7 +138,7 @@ type
     # Private fields:
     libp2pCodecName: string
     protocolMounter*: MounterProc
-    isLightClientRequest: bool
+    isRequired, isLightClientRequest: bool
 
   ProtocolInfoObj* = object
     name*: string
@@ -170,7 +168,7 @@ type
   MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [Defect, CatchableError].}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
@@ -219,7 +217,7 @@ func phase0metadata*(node: Eth2Node): phase0.MetaData =
     seq_number: node.metadata.seq_number,
     attnets: node.metadata.attnets)
 
-func toAltairMetadata*(phase0: phase0.MetaData): altair.MetaData =
+func toAltairMetadata(phase0: phase0.MetaData): altair.MetaData =
   altair.MetaData(
     seq_number: phase0.seq_number,
     attnets: phase0.attnets)
@@ -311,14 +309,12 @@ const
   NetworkInsecureKeyPassword = "INSECUREPASSWORD"
 
 template libp2pProtocol*(name: string, version: int,
+                         isRequired = false,
                          isLightClientRequest = false) {.pragma.}
 
 func shortLog*(peer: Peer): string = shortLog(peer.peerId)
 chronicles.formatIt(Peer): shortLog(it)
 chronicles.formatIt(PublicKey): byteutils.toHex(it.getBytes().tryGet())
-
-template remote*(peer: Peer): untyped =
-  peer.peerId
 
 proc openStream(node: Eth2Node,
                 peer: Peer,
@@ -333,7 +329,7 @@ proc openStream(node: Eth2Node,
 
   return conn
 
-proc init*(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
+proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer {.gcsafe.}
 
 func peerId*(node: Eth2Node): PeerId =
   node.switch.peerInfo.peerId
@@ -341,7 +337,7 @@ func peerId*(node: Eth2Node): PeerId =
 func enrRecord*(node: Eth2Node): Record =
   node.discovery.localNode.record
 
-proc getPeer*(node: Eth2Node, peerId: PeerId): Peer =
+proc getPeer(node: Eth2Node, peerId: PeerId): Peer =
   node.peers.withValue(peerId, peer) do:
     return peer[]
   do:
@@ -352,33 +348,33 @@ proc peerFromStream(network: Eth2Node, conn: Connection): Peer =
   result = network.getPeer(conn.peerId)
   result.peerId = conn.peerId
 
-proc getKey*(peer: Peer): PeerId {.inline.} =
+func getKey*(peer: Peer): PeerId {.inline.} =
   peer.peerId
 
-proc getFuture*(peer: Peer): Future[void] {.inline.} =
+proc getFuture(peer: Peer): Future[void] {.inline.} =
   if isNil(peer.disconnectedFut):
     peer.disconnectedFut = newFuture[void]("Peer.disconnectedFut")
   peer.disconnectedFut
 
-proc getScore*(a: Peer): int =
+func getScore*(a: Peer): int =
   ## Returns current score value for peer ``peer``.
   a.score
 
-proc updateScore*(peer: Peer, score: int) {.inline.} =
+func updateScore*(peer: Peer, score: int) {.inline.} =
   ## Update peer's ``peer`` score with value ``score``.
   peer.score = peer.score + score
   if peer.score > PeerScoreHighLimit:
     peer.score = PeerScoreHighLimit
 
-proc calcThroughput(dur: Duration, value: uint64): float =
+func calcThroughput(dur: Duration, value: uint64): float =
   let secs = float(chronos.seconds(1).nanoseconds)
   if isZero(dur):
     0.0
   else:
     float(value) * (secs / float(dur.nanoseconds))
 
-proc updateNetThroughput*(peer: Peer, dur: Duration,
-                          bytesCount: uint64) {.inline.} =
+func updateNetThroughput(peer: Peer, dur: Duration,
+                         bytesCount: uint64) {.inline.} =
   ## Update peer's ``peer`` network throughput.
   let bytesPerSecond = calcThroughput(dur, bytesCount)
   let a = peer.netThroughput.average
@@ -386,19 +382,11 @@ proc updateNetThroughput*(peer: Peer, dur: Duration,
   peer.netThroughput.average = a + (bytesPerSecond - a) / float(n + 1)
   inc(peer.netThroughput.count)
 
-proc netBps*(peer: Peer): float {.inline.} =
-  ## Returns current network throughput average value in Bps for peer ``peer``.
-  round((peer.netThroughput.average * 10_000) / 10_000)
-
-proc netKbps*(peer: Peer): float {.inline.} =
+func netKbps*(peer: Peer): float {.inline.} =
   ## Returns current network throughput average value in Kbps for peer ``peer``.
   round(((peer.netThroughput.average / 1024) * 10_000) / 10_000)
 
-proc netMbps*(peer: Peer): float {.inline.} =
-  ## Returns current network throughput average value in Mbps for peer ``peer``.
-  round(((peer.netThroughput.average / (1024 * 1024)) * 10_000) / 10_000)
-
-proc `<`*(a, b: Peer): bool =
+func `<`(a, b: Peer): bool =
   ## Comparison function, which first checks peer's scores, and if the peers'
   ## score is equal it compares peers' network throughput.
   if a.score < b.score:
@@ -430,7 +418,7 @@ template awaitNonNegativeRequestQuota*(peer: Peer) =
 func allowedOpsPerSecondCost*(n: int): float =
   (replenishRate * 1000000000'f / n.float)
 
-proc isSeen*(network: Eth2Node, peerId: PeerId): bool =
+proc isSeen(network: Eth2Node, peerId: PeerId): bool =
   ## Returns ``true`` if ``peerId`` present in SeenTable and time period is not
   ## yet expired.
   let currentTime = now(chronos.Moment)
@@ -446,7 +434,7 @@ proc isSeen*(network: Eth2Node, peerId: PeerId): bool =
     else:
       true
 
-proc addSeen*(network: Eth2Node, peerId: PeerId,
+proc addSeen(network: Eth2Node, peerId: PeerId,
               period: chronos.Duration) =
   ## Adds peer with PeerId ``peerId`` to SeenTable and timeout ``period``.
   let item = SeenItem(peerId: peerId, stamp: now(chronos.Moment) + period)
@@ -498,6 +486,38 @@ proc getRequestProtoName(fn: NimNode): NimNode =
 
   return newLit("")
 
+proc isRequiredProto(fn: NimNode): NimNode =
+  # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
+  # (TODO: file as an issue)
+
+  let pragmas = fn.pragma
+  if pragmas.kind == nnkPragma and pragmas.len > 0:
+    for pragma in pragmas:
+      try:
+        if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
+          if pragma.len <= 3:
+            return newLit(false)
+          for i in 3 ..< pragma.len:
+            let param = pragma[i]
+            case param.kind
+            of nnkExprEqExpr:
+              if $param[0] == "isRequired":
+                if $param[1] == "true":
+                  return newLit(true)
+                if $param[1] == "false":
+                  return newLit(false)
+                raiseAssert "Unexpected value: " & $param
+              if $param[0] != "isLightClientRequest":
+                raiseAssert "Unexpected param: " & $param
+            of nnkIdent:
+              if i == 3:
+                return newLit(param.boolVal)
+            else: raiseAssert "Unexpected kind: " & param.kind.repr
+          return newLit(false)
+      except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
+
+  return newLit(false)
+
 proc isLightClientRequestProto(fn: NimNode): NimNode =
   # `getCustomPragmaVal` doesn't work yet on regular nnkProcDef nodes
   # (TODO: file as an issue)
@@ -509,24 +529,28 @@ proc isLightClientRequestProto(fn: NimNode): NimNode =
         if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
           if pragma.len <= 3:
             return newLit(false)
-          let param = pragma[3]
-          case param.kind
-          of nnkExprEqExpr:
-            if $param[0] != "isLightClientRequest":
-              raiseAssert "Unexpected param: " & $param
-            if $param[1] == "true":
-              return newLit(true)
-            if $param[1] == "false":
-              return newLit(false)
-            raiseAssert "Unexpected value: " & $param
-          of nnkIdent:
-            return newLit(param.boolVal)
-          else: raiseAssert "Unexpected kind: " & param.kind.repr
+          for i in 3 ..< pragma.len:
+            let param = pragma[i]
+            case param.kind
+            of nnkExprEqExpr:
+              if $param[0] == "isLightClientRequest":
+                if $param[1] == "true":
+                  return newLit(true)
+                if $param[1] == "false":
+                  return newLit(false)
+                raiseAssert "Unexpected value: " & $param
+              if $param[0] != "isRequired":
+                raiseAssert "Unexpected param: " & $param
+            of nnkIdent:
+              if i == 4:
+                return newLit(param.boolVal)
+            else: raiseAssert "Unexpected kind: " & param.kind.repr
+          return newLit(false)
       except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
 
   return newLit(false)
 
-proc writeChunkSZ*(
+proc writeChunkSZ(
     conn: Connection, responseCode: Option[ResponseCode],
     uncompressedLen: uint64, payloadSZ: openArray[byte],
     contextBytes: openArray[byte] = []): Future[void] =
@@ -547,10 +571,10 @@ proc writeChunkSZ*(
 
   conn.write(output.getOutput)
 
-proc writeChunk*(conn: Connection,
-                 responseCode: Option[ResponseCode],
-                 payload: openArray[byte],
-                 contextBytes: openArray[byte] = []): Future[void] =
+proc writeChunk(conn: Connection,
+                responseCode: Option[ResponseCode],
+                payload: openArray[byte],
+                contextBytes: openArray[byte] = []): Future[void] =
   var output = memoryOutput()
 
   try:
@@ -619,7 +643,7 @@ proc sendResponseChunkBytes(
   inc response.writtenChunks
   response.stream.writeChunk(some Success, payload, contextBytes)
 
-proc sendResponseChunk*(
+proc sendResponseChunk(
     response: UntypedResponse, val: auto,
     contextBytes: openArray[byte] = []): Future[void] =
   sendResponseChunkBytes(response, SSZ.encode(val), contextBytes)
@@ -633,8 +657,8 @@ template sendUserHandlerResultAsChunkImpl*(stream: Connection,
                                            handlerResult: auto): untyped =
   writeChunk(stream, some Success, SSZ.encode(handlerResult))
 
-proc uncompressFramedStream*(conn: Connection,
-                             expectedSize: int): Future[Result[seq[byte], cstring]]
+proc uncompressFramedStream(conn: Connection,
+                            expectedSize: int): Future[Result[seq[byte], cstring]]
                             {.async.} =
   var header: array[framingHeader.len, byte]
   try:
@@ -882,7 +906,7 @@ template send*[M](
   doAssert UntypedResponse(r).writtenChunks == 0
   sendResponseChunk(UntypedResponse(r), val, contextBytes)
 
-proc performProtocolHandshakes*(peer: Peer, incoming: bool) {.async.} =
+proc performProtocolHandshakes(peer: Peer, incoming: bool) {.async.} =
   # Loop down serially because it's easier to reason about the connection state
   # when there are fewer async races, specially during setup
   for protocol in allProtocols:
@@ -1119,7 +1143,7 @@ proc checkPeer(node: Eth2Node, peerAddr: PeerAddr): bool =
     else:
       true
 
-proc dialPeer*(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async.} =
+proc dialPeer(node: Eth2Node, peerAddr: PeerAddr, index = 0) {.async.} =
   ## Establish connection with remote peer identified by address ``peerAddr``.
   logScope:
     peer = peerAddr.peerId
@@ -1175,7 +1199,7 @@ proc toPeerAddr(node: Node): Result[PeerAddr, cstring] =
   let peerAddr = ? nodeRecord.toPeerAddr(tcpProtocol)
   ok(peerAddr)
 
-proc isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): bool =
+func isCompatibleForkId*(discoveryForkId: ENRForkID, peerForkId: ENRForkID): bool =
   if discoveryForkId.fork_digest == peerForkId.fork_digest:
     if discoveryForkId.next_fork_version < peerForkId.next_fork_version:
       # Peer knows about a fork and we don't
@@ -1411,7 +1435,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
       default(SyncnetBits)
   )
 
-proc runDiscoveryLoop*(node: Eth2Node) {.async.} =
+proc runDiscoveryLoop(node: Eth2Node) {.async.} =
   debug "Starting discovery loop"
 
   while true:
@@ -1614,20 +1638,22 @@ proc onConnEvent(node: Eth2Node, peerId: PeerId, event: ConnEvent) {.async.} =
               peer = peerId, peer_state = peer.connectionState
       peer.connectionState = Disconnected
 
-proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
-          enrForkId: ENRForkID, discoveryForkId: ENRForkID, forkDigests: ref ForkDigests,
-          getBeaconTime: GetBeaconTimeFn, switch: Switch,
-          pubsub: GossipSub, ip: Option[ValidIpAddress], tcpPort,
-          udpPort: Option[Port], privKey: keys.PrivateKey, discovery: bool,
-          rng: ref BrHmacDrbgContext): T {.raises: [Defect, CatchableError].} =
+proc new(T: type Eth2Node,
+         config: BeaconNodeConf | LightClientConf, runtimeCfg: RuntimeConfig,
+         enrForkId: ENRForkID, discoveryForkId: ENRForkID,
+         forkDigests: ref ForkDigests, getBeaconTime: GetBeaconTimeFn,
+         switch: Switch, pubsub: GossipSub,
+         ip: Option[ValidIpAddress], tcpPort, udpPort: Option[Port],
+         privKey: keys.PrivateKey, discovery: bool,
+         rng: ref HmacDrbgContext): T {.raises: [Defect, CatchableError].} =
   when not defined(local_testnet):
     let
-      connectTimeout = 1.minutes
-      seenThreshold = 5.minutes
+      connectTimeout = chronos.minutes(1)
+      seenThreshold = chronos.minutes(5)
   else:
     let
-      connectTimeout = 10.seconds
-      seenThreshold = 10.seconds
+      connectTimeout = chronos.seconds(10)
+      seenThreshold = chronos.seconds(10)
   type MetaData = altair.MetaData # Weird bug without this..
 
   # Versions up to v22.3.0 would write an empty `MetaData` to
@@ -1669,11 +1695,14 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
       node.protocolStates[proto.index] = proto.networkStateInitializer(node)
 
     for msg in proto.messages:
-      if msg.isLightClientRequest and not config.serveLightClientData.get:
-        continue
+      when config is BeaconNodeConf:
+        if msg.isLightClientRequest and not config.lightClientDataServe.get:
+          continue
+      elif config is LightClientConf:
+        if not msg.isRequired:
+          continue
       if msg.protocolMounter != nil:
         msg.protocolMounter node
-
 
   proc peerHook(peerId: PeerId, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(node, peerId, event)
@@ -1703,7 +1732,7 @@ proc new*(T: type Eth2Node, config: BeaconNodeConf, runtimeCfg: RuntimeConfig,
 
   node
 
-template publicKey*(node: Eth2Node): keys.PublicKey =
+template publicKey(node: Eth2Node): keys.PublicKey =
   node.discovery.privKey.toPublicKey
 
 proc startListening*(node: Eth2Node) {.async.} =
@@ -1771,7 +1800,7 @@ proc stop*(node: Eth2Node) {.async.} =
     trace "Eth2Node.stop(): timeout reached", timeout,
       futureErrors = waitedFutures.filterIt(it.error != nil).mapIt(it.error.msg)
 
-proc init*(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
+proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
   let res = Peer(
     peerId: peerId,
     network: network,
@@ -1790,10 +1819,11 @@ proc registerMsg(protocol: ProtocolInfo,
                  name: string,
                  mounter: MounterProc,
                  libp2pCodecName: string,
-                 isLightClientRequest: bool) =
+                 isRequired, isLightClientRequest: bool) =
   protocol.messages.add MessageInfo(name: name,
                                     protocolMounter: mounter,
                                     libp2pCodecName: libp2pCodecName,
+                                    isRequired: isRequired,
                                     isLightClientRequest: isLightClientRequest)
 
 proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
@@ -1833,6 +1863,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       MsgRecName = msg.recName
       MsgStrongRecName = msg.strongRecName
       codecNameLit = getRequestProtoName(msg.procDef)
+      isRequiredLit = isRequiredProto(msg.procDef)
       isLightClientRequestLit = isLightClientRequestProto(msg.procDef)
       protocolMounterName = ident(msgName & "Mounter")
 
@@ -1910,6 +1941,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
               msgNameLit,
               protocolMounterName,
               codecNameLit,
+              isRequiredLit,
               isLightClientRequestLit))
 
   result.implementProtocolInit = proc (p: P2PProtocol): NimNode =
@@ -1917,6 +1949,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
 #Must import here because of cyclicity
 import ../sync/sync_protocol
+export sync_protocol
 
 proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async.} =
   trace "updating peer metadata", peerId
@@ -1987,13 +2020,10 @@ proc peerTrimmerHeartbeat(node: Eth2Node) {.async.} =
 
     await sleepAsync(1.seconds div max(1, excessPeers))
 
-func asLibp2pKey*(key: keys.PublicKey): PublicKey =
-  PublicKey(scheme: Secp256k1, skkey: secp.SkPublicKey(key))
-
 func asEthKey*(key: PrivateKey): keys.PrivateKey =
   keys.PrivateKey(key.skkey)
 
-proc initAddress*(T: type MultiAddress, str: string): T =
+proc initAddress(T: type MultiAddress, str: string): T =
   let address = MultiAddress.init(str)
   if IPFS.match(address) and matchPartial(multiaddress.TCP, address):
     result = address
@@ -2004,131 +2034,95 @@ proc initAddress*(T: type MultiAddress, str: string): T =
 template tcpEndPoint(address, port): auto =
   MultiAddress.init(address, tcpProtocol, port)
 
-proc getPersistentNetKeys*(rng: var BrHmacDrbgContext,
-                           config: BeaconNodeConf): NetKeyPair =
-  case config.cmd
-  of noCommand, record:
-    if config.netKeyFile == "random":
-      let res = PrivateKey.random(Secp256k1, rng)
-      if res.isErr():
-        fatal "Could not generate random network key file"
-        quit QuitFailure
-      let
-        privKey = res.get()
-        pubKey = privKey.getPublicKey().expect("working public key from random")
-        pres = PeerId.init(pubKey)
-      if pres.isErr():
+func initNetKeys(privKey: PrivateKey): NetKeyPair =
+  let pubKey = privKey.getPublicKey().expect("working public key from random")
+  NetKeyPair(seckey: privKey, pubkey: pubKey)
+
+proc getRandomNetKeys*(rng: var HmacDrbgContext): NetKeyPair =
+  let privKey = PrivateKey.random(Secp256k1, rng).valueOr:
+    fatal "Could not generate random network key file"
+    quit QuitFailure
+  initNetKeys(privKey)
+
+proc getPersistentNetKeys(
+    rng: var HmacDrbgContext,
+    dataDir, netKeyFile: string,
+    netKeyInsecurePassword: bool,
+    allowLoadExisting: bool): NetKeyPair =
+  if netKeyFile == "random":
+    let
+      keys = rng.getRandomNetKeys()
+      pres = PeerId.init(keys.pubkey).valueOr:
         fatal "Could not obtain PeerId from network key"
         quit QuitFailure
-      info "Generating new networking key", network_public_key = pubKey,
-                                            network_peer_id = $pres.get()
-      NetKeyPair(seckey: privKey, pubkey: pubKey)
-    else:
-      let keyPath =
-        if isAbsolute(config.netKeyFile):
-          config.netKeyFile
+    info "Generating new networking key",
+      network_public_key = keys.pubkey, network_peer_id = $pres
+    keys
+  else:
+    let
+      # Insecure password used only for automated testing.
+      insecurePassword =
+        if netKeyInsecurePassword:
+          some(NetworkInsecureKeyPassword)
         else:
-          config.dataDir / config.netKeyFile
+          none[string]()
 
-      if fileAccessible(keyPath, {AccessFlags.Find}):
-        info "Network key storage is present, unlocking", key_path = keyPath
+      keyPath =
+        if isAbsolute(netKeyFile):
+          netKeyFile
+        else:
+          dataDir / netKeyFile
+    logScope: key_path = keyPath
 
-        # Insecure password used only for automated testing.
-        let insecurePassword =
-          if config.netKeyInsecurePassword:
-            some(NetworkInsecureKeyPassword)
-          else:
-            none[string]()
+    if fileAccessible(keyPath, {AccessFlags.Find}) and allowLoadExisting:
+      info "Network key storage is present, unlocking"
 
-        let res = loadNetKeystore(keyPath, insecurePassword)
-        if res.isNone():
+      let
+        privKey = loadNetKeystore(keyPath, insecurePassword).valueOr:
           fatal "Could not load network key file"
           quit QuitFailure
-        let
-          privKey = res.get()
-          pubKey = privKey.getPublicKey().expect("working public key from file")
-        info "Network key storage was successfully unlocked",
-             key_path = keyPath, network_public_key = pubKey
-        NetKeyPair(seckey: privKey, pubkey: pubKey)
-      else:
+        keys = initNetKeys(privKey)
+      info "Network key storage was successfully unlocked",
+        network_public_key = keys.pubkey
+      keys
+    else:
+      if allowLoadExisting:
         info "Network key storage is missing, creating a new one",
-             key_path = keyPath
-        let rres = PrivateKey.random(Secp256k1, rng)
-        if rres.isErr():
-          fatal "Could not generate random network key file"
-          quit QuitFailure
+            key_path = keyPath
+      let
+        keys = rng.getRandomNetKeys()
+        sres = saveNetKeystore(rng, keyPath, keys.seckey, insecurePassword)
+      if sres.isErr():
+        fatal "Could not create network key file"
+        quit QuitFailure
 
-        let
-          privKey = rres.get()
-          pubKey = privKey.getPublicKey().expect("working public key from random")
+      info "New network key storage was created",
+        network_public_key = keys.pubkey
+      keys
 
-        # Insecure password used only for automated testing.
-        let insecurePassword =
-          if config.netKeyInsecurePassword:
-            some(NetworkInsecureKeyPassword)
-          else:
-            none[string]()
+proc getPersistentNetKeys*(
+    rng: var HmacDrbgContext, config: BeaconNodeConf): NetKeyPair =
+  case config.cmd
+  of BNStartUpCmd.noCommand, BNStartUpCmd.record:
+    rng.getPersistentNetKeys(
+      string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
+      allowLoadExisting = true)
 
-        let sres = saveNetKeystore(rng, keyPath, privKey, insecurePassword)
-        if sres.isErr():
-          fatal "Could not create network key file", key_path = keyPath
-          quit QuitFailure
-
-        info "New network key storage was created", key_path = keyPath,
-             network_public_key = pubKey
-        NetKeyPair(seckey: privKey, pubkey: pubKey)
-
-  of createTestnet:
+  of BNStartUpCmd.createTestnet:
     if config.netKeyFile == "random":
       fatal "Could not create testnet using `random` network key"
       quit QuitFailure
 
-    let keyPath =
-      if isAbsolute(config.netKeyFile):
-        config.netKeyFile
-      else:
-        config.dataDir / config.netKeyFile
-
-    let rres = PrivateKey.random(Secp256k1, rng)
-    if rres.isErr():
-      fatal "Could not generate random network key file"
-      quit QuitFailure
-
-    let
-      privKey = rres.get()
-      pubKey = privKey.getPublicKey().expect("working public key from random")
-
-    # Insecure password used only for automated testing.
-    let insecurePassword =
-      if config.netKeyInsecurePassword:
-        some(NetworkInsecureKeyPassword)
-      else:
-        none[string]()
-
-    let sres = saveNetKeystore(rng, keyPath, privKey, insecurePassword)
-    if sres.isErr():
-      fatal "Could not create network key file", key_path = keyPath
-      quit QuitFailure
-
-    info "New network key storage was created", key_path = keyPath,
-         network_public_key = pubKey
-
-    NetKeyPair(seckey: privKey, pubkey: pubKey)
+    rng.getPersistentNetKeys(
+      string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
+      allowLoadExisting = false)
   else:
-    let res = PrivateKey.random(Secp256k1, rng)
-    if res.isErr():
-      fatal "Could not generate random network key file"
-      quit QuitFailure
-
-    let
-      privKey = res.get()
-      pubKey = privKey.getPublicKey().expect("working public key from random")
-    NetKeyPair(seckey: privKey, pubkey: pubKey)
+    rng.getRandomNetKeys()
 
 func gossipId(
     data: openArray[byte], altairPrefix, topic: string): seq[byte] =
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/p2p-interface.md#topics-and-messages
   const
     MESSAGE_DOMAIN_INVALID_SNAPPY = [0x00'u8, 0x00, 0x00, 0x00]
     MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
@@ -2143,16 +2137,16 @@ func gossipId(
 
   messageDigest.data[0..19]
 
-proc newBeaconSwitch*(config: BeaconNodeConf, seckey: PrivateKey,
-                      address: MultiAddress,
-                      rng: ref BrHmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
+proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
+                     seckey: PrivateKey, address: MultiAddress,
+                     rng: ref HmacDrbgContext): Switch {.raises: [Defect, CatchableError].} =
   SwitchBuilder
     .new()
     .withPrivateKey(seckey)
     .withAddress(address)
     .withRng(rng)
     .withNoise()
-    .withMplex(5.minutes, 5.minutes)
+    .withMplex(chronos.minutes(5), chronos.minutes(5))
     .withMaxConnections(config.maxPeers)
     .withAgentVersion(config.agentString)
     .withTcpTransport({ServerFlags.ReuseAddr})
@@ -2180,8 +2174,8 @@ template gossipMaxSize(T: untyped): uint32 =
   static: doAssert maxSize <= maxGossipMaxSize()
   maxSize.uint32
 
-proc createEth2Node*(rng: ref BrHmacDrbgContext,
-                     config: BeaconNodeConf,
+proc createEth2Node*(rng: ref HmacDrbgContext,
+                     config: BeaconNodeConf | LightClientConf,
                      netKeys: NetKeyPair,
                      cfg: RuntimeConfig,
                      forkDigests: ref ForkDigests,
@@ -2230,8 +2224,8 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
   let
     params = GossipSubParams(
       explicit: true,
-      pruneBackoff: 1.minutes,
-      unsubscribeBackoff: 10.seconds,
+      pruneBackoff: chronos.minutes(1),
+      unsubscribeBackoff: chronos.seconds(10),
       floodPublish: true,
       gossipFactor: 0.05,
       d: 8,
@@ -2240,18 +2234,18 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
       dScore: 6,
       dOut: 6 div 2, # less than dlow and no more than dlow/2
       dLazy: 6,
-      heartbeatInterval: 700.milliseconds,
+      heartbeatInterval: chronos.milliseconds(700),
       historyLength: 6,
       historyGossip: 3,
-      fanoutTTL: 60.seconds,
-      seenTTL: 385.seconds,
+      fanoutTTL: chronos.seconds(60),
+      seenTTL: chronos.seconds(385),
       gossipThreshold: -4000,
       publishThreshold: -8000,
       graylistThreshold: -16000, # also disconnect threshold
       opportunisticGraftThreshold: 0,
-      decayInterval: 12.seconds,
+      decayInterval: chronos.seconds(12),
       decayToZero: 0.01,
-      retainScore: 385.seconds,
+      retainScore: chronos.seconds(385),
       appSpecificWeight: 0.0,
       ipColocationFactorWeight: -53.75,
       ipColocationFactorThreshold: 3.0,
@@ -2274,7 +2268,8 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
     pubsub = GossipSub.init(
       switch = switch,
       msgIdProvider = msgIdProvider,
-      triggerSelf = true,
+      # We process messages in the validator, so we don't need data callbacks
+      triggerSelf = false,
       sign = false,
       verifySignature = false,
       anonymize = true,
@@ -2294,11 +2289,11 @@ proc createEth2Node*(rng: ref BrHmacDrbgContext,
 
   node
 
-proc announcedENR*(node: Eth2Node): enr.Record =
+func announcedENR*(node: Eth2Node): enr.Record =
   doAssert node.discovery != nil, "The Eth2Node must be initialized"
   node.discovery.localNode.record
 
-proc shortForm*(id: NetKeyPair): string =
+func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
 
 proc subscribe*(
@@ -2385,38 +2380,34 @@ proc addAsyncValidator*[MsgType](node: Eth2Node,
 proc unsubscribe*(node: Eth2Node, topic: string) =
   node.pubsub.unsubscribeAll(topic)
 
-proc traceMessage(fut: FutureBase, topic: string) =
-  fut.addCallback do (arg: pointer):
-    if not(fut.failed):
-      trace "Outgoing pubsub message sent"
-    elif fut.error != nil:
-      debug "Gossip message not sent",
-        topic, err = fut.error.msg
-    else:
-      debug "Unexpected future state for gossip",
-        topic, state = fut.state
+proc gossipEncode(msg: auto): seq[byte] =
+  let uncompressed = SSZ.encode(msg)
+  # This function only for messages we create. A message this large amounts to
+  # an internal logic error.
+  doAssert uncompressed.len <= maxGossipMaxSize()
 
-proc broadcast*(node: Eth2Node, topic: string, msg: auto) =
-  try:
-    let
-      uncompressed = SSZ.encode(msg)
-      compressed = try: snappy.encode(uncompressed)
-      except InputTooLarge:
-        raiseAssert "More than 4gb? not likely.."
+  snappy.encode(uncompressed)
 
-    # This is only for messages we create. A message this large amounts to an
-    # internal logic error.
-    doAssert uncompressed.len <= maxGossipMaxSize()
+proc broadcast(node: Eth2Node, topic: string, msg: seq[byte]):
+    Future[Result[void, cstring]] {.async.} =
+  let peers = await node.pubsub.publish(topic, msg)
+
+  # TODO remove workaround for sync committee BN/VC log spam
+  if peers > 0 or find(topic, "sync_committee_") != -1:
     inc nbc_gossip_messages_sent
+    return ok()
+  else:
+    # Increments libp2p_gossipsub_failed_publish metric
+    return err("No peers on libp2p topic")
 
-    var futSnappy = node.pubsub.publish(topic, compressed)
-    traceMessage(futSnappy, topic)
-  except IOError as exc:
-    raiseAssert exc.msg # TODO in-memory compression shouldn't fail
+proc broadcast(node: Eth2Node, topic: string, msg: auto):
+    Future[Result[void, cstring]] =
+  # Avoid {.async.} copies of message while broadcasting
+  broadcast(node, topic, gossipEncode(msg))
 
 proc subscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now, we just rely on block and
   # aggregate which are more stable and reliable
 
@@ -2427,7 +2418,7 @@ proc subscribeAttestationSubnets*(
 
 proc unsubscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now; we just rely on block and
   # aggregate which are more stable and reliable
 
@@ -2436,15 +2427,15 @@ proc unsubscribeAttestationSubnets*(
       node.unsubscribe(getAttestationTopic(forkDigest, SubnetId(subnet_id)))
 
 proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#metadata
   if node.metadata.attnets == attnets:
     return
 
   node.metadata.seq_number += 1
   node.metadata.attnets = attnets
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
   let res = node.discovery.updateRecord({
     enrAttestationSubnetsField: SSZ.encode(node.metadata.attnets)
   })
@@ -2456,7 +2447,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 
@@ -2488,83 +2479,90 @@ proc updateForkId*(node: Eth2Node, epoch: Epoch, genesis_validators_root: Eth2Di
   node.discoveryForkId = getDiscoveryForkID(node.cfg, epoch, genesis_validators_root)
 
 func forkDigestAtEpoch(node: Eth2Node, epoch: Epoch): ForkDigest =
-  case node.cfg.stateForkAtEpoch(epoch)
-  of BeaconStateFork.Bellatrix: node.forkDigests.bellatrix
-  of BeaconStateFork.Altair:    node.forkDigests.altair
-  of BeaconStateFork.Phase0:    node.forkDigests.phase0
+  node.forkDigests[].atEpoch(epoch, node.cfg)
 
 proc getWallEpoch(node: Eth2Node): Epoch =
   node.getBeaconTime().slotOrZero.epoch
 
-proc broadcastAttestation*(node: Eth2Node, subnet_id: SubnetId,
-                           attestation: Attestation) =
+proc broadcastAttestation*(
+    node: Eth2Node, subnet_id: SubnetId, attestation: Attestation):
+    Future[SendResult] =
   # Regardless of the contents of the attestation,
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#transitioning-the-gossip
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/p2p-interface.md#transitioning-the-gossip
   # implies that pre-fork, messages using post-fork digests might be
   # ignored, whilst post-fork, there is effectively a seen_ttl-based
   # timer unsubscription point that means no new pre-fork-forkdigest
   # should be sent.
-  let forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
-  let topic = getAttestationTopic(forkPrefix, subnet_id)
+  let
+    forkPrefix = node.forkDigestAtEpoch(node.getWallEpoch)
+    topic = getAttestationTopic(forkPrefix, subnet_id)
   node.broadcast(topic, attestation)
 
-proc broadcastVoluntaryExit*(node: Eth2Node, exit: SignedVoluntaryExit) =
-  let topic = getVoluntaryExitsTopic(
-    node.forkDigestAtEpoch(node.getWallEpoch))
+proc broadcastVoluntaryExit*(
+    node: Eth2Node, exit: SignedVoluntaryExit): Future[SendResult] =
+  let topic = getVoluntaryExitsTopic(node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, exit)
 
-proc broadcastAttesterSlashing*(node: Eth2Node, slashing: AttesterSlashing) =
+proc broadcastAttesterSlashing*(
+    node: Eth2Node, slashing: AttesterSlashing): Future[SendResult] =
   let topic = getAttesterSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, slashing)
 
-proc broadcastProposerSlashing*(node: Eth2Node, slashing: ProposerSlashing) =
+proc broadcastProposerSlashing*(
+    node: Eth2Node, slashing: ProposerSlashing): Future[SendResult] =
   let topic = getProposerSlashingsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, slashing)
 
-proc broadcastAggregateAndProof*(node: Eth2Node,
-                                 proof: SignedAggregateAndProof) =
+proc broadcastAggregateAndProof*(
+    node: Eth2Node, proof: SignedAggregateAndProof): Future[SendResult] =
   let topic = getAggregateAndProofsTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, proof)
 
-proc broadcastBeaconBlock*(node: Eth2Node, blck: phase0.SignedBeaconBlock) =
+proc broadcastBeaconBlock*(
+    node: Eth2Node, blck: phase0.SignedBeaconBlock): Future[SendResult] =
   let topic = getBeaconBlocksTopic(node.forkDigests.phase0)
   node.broadcast(topic, blck)
 
-proc broadcastBeaconBlock*(node: Eth2Node, blck: altair.SignedBeaconBlock) =
+proc broadcastBeaconBlock*(
+    node: Eth2Node, blck: altair.SignedBeaconBlock): Future[SendResult] =
   let topic = getBeaconBlocksTopic(node.forkDigests.altair)
   node.broadcast(topic, blck)
 
-proc broadcastBeaconBlock*(node: Eth2Node, blck: bellatrix.SignedBeaconBlock) =
+proc broadcastBeaconBlock*(
+    node: Eth2Node, blck: bellatrix.SignedBeaconBlock): Future[SendResult] =
   let topic = getBeaconBlocksTopic(node.forkDigests.bellatrix)
   node.broadcast(topic, blck)
 
-proc broadcastBeaconBlock*(node: Eth2Node, forked: ForkedSignedBeaconBlock) =
+proc broadcastBeaconBlock*(
+    node: Eth2Node, forked: ForkedSignedBeaconBlock): Future[SendResult] =
   withBlck(forked): node.broadcastBeaconBlock(blck)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,
-    subcommitteeIdx: SyncSubcommitteeIndex) =
+    subcommitteeIdx: SyncSubcommitteeIndex): Future[SendResult] =
   let topic = getSyncCommitteeTopic(
     node.forkDigestAtEpoch(node.getWallEpoch), subcommitteeIdx)
   node.broadcast(topic, msg)
 
 proc broadcastSignedContributionAndProof*(
-    node: Eth2Node, msg: SignedContributionAndProof) =
+    node: Eth2Node, msg: SignedContributionAndProof): Future[SendResult] =
   let topic = getSyncCommitteeContributionAndProofTopic(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, msg)
 
 proc broadcastLightClientFinalityUpdate*(
-    node: Eth2Node, msg: altair.LightClientFinalityUpdate) =
+    node: Eth2Node, msg: altair.LightClientFinalityUpdate):
+    Future[SendResult] =
   let topic = getLightClientFinalityUpdateTopic(
     node.forkDigestAtEpoch(msg.attested_header.slot.epoch))
   node.broadcast(topic, msg)
 
 proc broadcastLightClientOptimisticUpdate*(
-    node: Eth2Node, msg: altair.LightClientOptimisticUpdate) =
+    node: Eth2Node, msg: altair.LightClientOptimisticUpdate):
+    Future[SendResult] =
   let topic = getLightClientOptimisticUpdateTopic(
     node.forkDigestAtEpoch(msg.attested_header.slot.epoch))
   node.broadcast(topic, msg)

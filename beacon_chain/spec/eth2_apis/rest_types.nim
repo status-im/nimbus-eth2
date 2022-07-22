@@ -14,7 +14,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[json, typetraits],
+  std/json,
   stew/base10, web3/ethtypes,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix],
@@ -33,7 +33,7 @@ const
 type
   EventTopic* {.pure.} = enum
     Head, Block, Attestation, VoluntaryExit, FinalizedCheckpoint, ChainReorg,
-    ContributionAndProof
+    ContributionAndProof, LightClientFinalityUpdate, LightClientOptimisticUpdate
 
   EventTopics* = set[EventTopic]
 
@@ -121,7 +121,7 @@ type
     slot*: Slot
     beacon_block_root*: Eth2Digest
     subcommittee_index*: uint64
-    aggregation_bits*: SyncCommitteeAggregationBits ##\
+    aggregation_bits*: SyncCommitteeAggregationBits
     signature*: ValidatorSig
 
   RestContributionAndProof* = object
@@ -210,6 +210,7 @@ type
     head_slot*: Slot
     sync_distance*: uint64
     is_syncing*: bool
+    is_optimistic*: Option[bool]
 
   RestPeerCount* = object
     disconnected*: uint64
@@ -233,6 +234,11 @@ type
     discovery_addresses*: seq[string]
     metadata*: RestMetadata
 
+  RestActivityItem* = object
+    index*: ValidatorIndex
+    epoch*: Epoch
+    active*: bool
+
   RestPublishedSignedBeaconBlock* = distinct ForkedSignedBeaconBlock
 
   RestPublishedBeaconBlock* = distinct ForkedBeaconBlock
@@ -244,7 +250,7 @@ type
     of BeaconBlockFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
 
   RestSpec* = object
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/mainnet/phase0.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/phase0.yaml
     MAX_COMMITTEES_PER_SLOT*: uint64
     TARGET_COMMITTEE_SIZE*: uint64
     MAX_VALIDATORS_PER_COMMITTEE*: uint64
@@ -279,7 +285,7 @@ type
     MAX_DEPOSITS*: uint64
     MAX_VOLUNTARY_EXITS*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/mainnet/altair.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/altair.yaml
     INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
@@ -288,7 +294,7 @@ type
     MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
     UPDATE_TIMEOUT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/presets/mainnet/bellatrix.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/bellatrix.yaml
     INACTIVITY_PENALTY_QUOTIENT_BELLATRIX*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64
@@ -297,7 +303,7 @@ type
     BYTES_PER_LOGS_BLOOM*: uint64
     MAX_EXTRA_DATA_BYTES*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/configs/mainnet.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/mainnet.yaml
     PRESET_BASE*: string
     CONFIG_NAME*: string
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
@@ -311,6 +317,8 @@ type
     ALTAIR_FORK_EPOCH*: uint64
     BELLATRIX_FORK_VERSION*: Version
     BELLATRIX_FORK_EPOCH*: uint64
+    CAPELLA_FORK_VERSION*: Version
+    CAPELLA_FORK_EPOCH*: uint64
     SHARDING_FORK_VERSION*: Version
     SHARDING_FORK_EPOCH*: uint64
     SECONDS_PER_SLOT*: uint64
@@ -328,7 +336,7 @@ type
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/beacon-chain.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#constants
     # GENESIS_SLOT
     # GENESIS_EPOCH
     # FAR_FUTURE_EPOCH
@@ -346,7 +354,7 @@ type
     DOMAIN_SELECTION_PROOF*: DomainType
     DOMAIN_AGGREGATE_AND_PROOF*: DomainType
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/beacon-chain.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#constants
     TIMELY_SOURCE_FLAG_INDEX*: byte
     TIMELY_TARGET_FLAG_INDEX*: byte
     TIMELY_HEAD_FLAG_INDEX*: byte
@@ -361,13 +369,13 @@ type
     DOMAIN_CONTRIBUTION_AND_PROOF*: DomainType
     # PARTICIPATION_FLAG_WEIGHTS
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#constants
     TARGET_AGGREGATORS_PER_COMMITTEE*: uint64
     RANDOM_SUBNETS_PER_VALIDATOR*: uint64
     EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
     ATTESTATION_SUBNET_COUNT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#constants
     TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE*: uint64
     SYNC_COMMITTEE_SUBNET_COUNT*: uint64
 
@@ -422,6 +430,10 @@ type
   DataMetaEnclosedObject*[T] = object
     data*: T
     meta*: JsonNode
+
+  DataVersionEnclosedObject*[T] = object
+    data*: T
+    version*: JsonNode
 
   DataRootEnclosedObject*[T] = object
     dependent_root*: Eth2Digest
@@ -535,7 +547,7 @@ type
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
-  GetHeaderResponse* = DataEnclosedObject[SignedBuilderBid]
+  GetHeaderResponse* = DataVersionEnclosedObject[SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
@@ -553,7 +565,7 @@ type
   GetStateValidatorBalancesResponse* = DataEnclosedObject[seq[RestValidatorBalance]]
   GetStateValidatorResponse* = DataEnclosedObject[RestValidator]
   GetStateValidatorsResponse* = DataEnclosedObject[seq[RestValidator]]
-  GetSyncCommitteeDutiesResponse* = DataRootEnclosedObject[seq[RestSyncCommitteeDuty]]
+  GetSyncCommitteeDutiesResponse* = DataEnclosedObject[seq[RestSyncCommitteeDuty]]
   GetSyncingStatusResponse* = DataEnclosedObject[RestSyncInfo]
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
@@ -561,7 +573,8 @@ type
   ProduceBlockResponse* = DataEnclosedObject[phase0.BeaconBlock]
   ProduceBlockResponseV2* = ForkedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
-  SubmitBlindedBlockResponse* = DataEnclosedObject[SignedBuilderBid]
+  SubmitBlindedBlockResponse* = DataEnclosedObject[bellatrix.ExecutionPayload]
+  GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)

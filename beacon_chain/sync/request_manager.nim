@@ -15,7 +15,7 @@ import
   ../networking/eth2_network,
   ../consensus_object_pools/block_quarantine,
   "."/sync_protocol, "."/sync_manager
-export sync_manager
+export block_quarantine, sync_manager
 
 logScope:
   topics = "requman"
@@ -109,7 +109,7 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
             of BlockError.Invalid:
               # We stop processing blocks because peer is either sending us
               # junk or working a different fork
-              warn "Received invalid block",
+              notice "Received invalid block",
                 peer = peer, blocks = shortLog(items),
                 peer_score = peer.getScore()
               peer.updateScore(PeerScoreBadBlocks)

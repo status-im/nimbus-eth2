@@ -1,3 +1,12 @@
+# beacon_chain
+# Copyright (c) 2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [Defect].}
+
 import std/[options, macros],
        stew/byteutils, presto,
        ../spec/[forks],
@@ -37,6 +46,10 @@ proc validate(key: string, value: string): int =
     0
   of "{validator_id}":
     0
+  of "{block_root}":
+    0
+  of "{pubkey}":
+    int(value.len != 98)
   else:
     1
 
@@ -49,7 +62,7 @@ proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
   ok(head)
 
 proc getSyncedHead*(node: BeaconNode,
-                     epoch: Epoch): Result[BlockRef, cstring] =
+                    epoch: Epoch): Result[BlockRef, cstring] =
   if epoch > MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
   node.getSyncedHead(epoch.start_slot())
@@ -260,6 +273,45 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
 
 proc getRouter*(allowedOrigin: Option[string]): RestRouter =
   RestRouter.init(validate, allowedOrigin = allowedOrigin)
+
+proc getStateOptimistic*(node: BeaconNode,
+                         state: ForkedHashedBeaconState): Option[bool] =
+  if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+    case state.kind
+    of BeaconStateFork.Phase0, BeaconStateFork.Altair:
+      some[bool](false)
+    of BeaconStateFork.Bellatrix:
+      # A state is optimistic iff the block which created it is
+      withState(state):
+        # The block root which created the state at slot `n` is at slot `n-1`
+        if state.data.slot == GENESIS_SLOT:
+          some[bool](false)
+        else:
+          doAssert state.data.slot > 0
+          some[bool](node.dag.is_optimistic(
+            get_block_root_at_slot(state.data, state.data.slot - 1)))
+  else:
+    none[bool]()
+
+proc getBlockOptimistic*(node: BeaconNode,
+                         blck: ForkedTrustedSignedBeaconBlock |
+                               ForkedSignedBeaconBlock): Option[bool] =
+  if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+    case blck.kind
+    of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
+      some[bool](false)
+    of BeaconBlockFork.Bellatrix:
+      some[bool](node.dag.is_optimistic(blck.root))
+  else:
+    none[bool]()
+
+proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
+  let blck = node.dag.getForkedBlock(blck.bid).get()
+  case blck.kind
+  of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
+    false
+  of BeaconBlockFork.Bellatrix:
+    node.dag.is_optimistic(blck.root)
 
 const
   jsonMediaType* = MediaType.init("application/json")

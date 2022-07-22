@@ -1,10 +1,14 @@
 # The Nimbus book
 
-*This book focuses on our consensus layer client. If you're eager to get started, check out our [quickstart guide](./quick-start.md).*
+```admonish
+If you're eager to get started, check out our [quickstart guide](./quick-start.md).
+```
 
-Nimbus is a client implementation for both the `consensus layer` (eth2) and `execution layer` (eth1) that strives to be as [lightweight as possible](https://our.status.im/ethereum-is-green/) in terms of resources used. This allows it to perform well on embedded systems, resource-restricted devices -- including Raspberry Pis and mobile devices.
+Nimbus is an implementation of both the `consensus layer` (eth2) and `execution layer` (eth1) that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and easy to use. This book describes the consensus layer client in particular.
 
-However, resource-restricted hardware is not the only thing Nimbus is good for. Its low resource consumption makes it easy to run Nimbus together with other workloads on your server (this is especially valuable for stakers looking to lower the cost of their server instances).
+Its efficiency and low resource consumption allows it to perform well on embedded systems, resource-restricted devices -- including Raspberry Pis and mobile devices.
+
+Being efficient also makes it an excellent companion for [execution clients](./eth1.md) and other nodes running on your server, lowering the overall hardware requirements and therefore the total cost.
 
 </br>
 
@@ -12,22 +16,21 @@ However, resource-restricted hardware is not the only thing Nimbus is good for. 
 
 </br>
 
-This book explains the ways in which you can use Nimbus to either monitor the eth2 chain or become a fully-fledged validator.
+This book explains the ways in which you can use Nimbus to either monitor the beacon chain or become a fully-fledged validator.
 
-> **N.B.** The reality is that we are very early in the eth2 validating life cycle. Validating is not for everyone yet, and it comes with both risks and responsibilities. It isn't a particularly easy way to make money. You'll need to put effort into updating your software, researching hard-forks, having a robust setup... . As such, you should only stake if you are genuinely interested in securing the protocol.
+```admonish tip
+[The Merge](https://ethereum.org/en/upgrades/merge/) is happening soon! Bookmark our [merge readiness](./merge.md) page to stay on top of how you need to prepare.
+```
 
+> **N.B.** Staking and becoming a validator on Ethereum requires 32 ETH, a stable high-speed internet connection and an always-on server. Before staking, make sure that you understand the requirements and practice setting up a validator on a testnet. [Pooled staking](https://ethereum.org/en/staking/pools/) and [Staking as a service](https://ethereum.org/en/staking/saas/) are alternative ways to stake in the network. You can also run a Nimbus node without staking.
 
-
-### Helpful resources
+## Helpful resources
 
 - [nimbus-eth2 repository](https://github.com/status-im/nimbus-eth2)
-- [eth2 specification](https://github.com/ethereum/consensus-specs/tree/v1.1.5#phase-0)
-- [Ben Edgington's annotated spec](https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/) 
-
+- [eth2 specification](https://github.com/ethereum/consensus-specs/tree/v1.2.0-rc.1#phase-0)
+- [Ben Edgington's annotated spec](https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/)
 - [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
-
 - [Danny Ryan's annotated spec](https://notes.ethereum.org/@djrtwo/Bkn3zpwxB)
-
 
 ### Get in touch
 
@@ -35,17 +38,15 @@ Need help with anything? Join us on [Status](https://join.status.im/nimbus-gener
 
 ### Donate
 
-If you'd like to contribute to Nimbus development, our donation address is [`0x70E47C843E0F6ab0991A3189c28F2957eb6d3842`](https://etherscan.io/address/0x70E47C843E0F6ab0991A3189c28F2957eb6d3842)
+If you'd like to contribute to Nimbus development:
+
+* Our donation address is [`0x70E47C843E0F6ab0991A3189c28F2957eb6d3842`](https://etherscan.io/address/0x70E47C843E0F6ab0991A3189c28F2957eb6d3842)
+* We're also listed on [GitCoin](https://gitcoin.co/grants/137/nimbus-2)
 
 ### Stay updated
-Subscribe to our newsletter [here](https://subscribe.nimbus.guide/).
 
+Subscribe to our newsletter [here](https://subscribe.nimbus.guide/).
 
 ### Disclaimer
 
 This documentation assumes Nimbus is in its ideal state. The project is still under active development. Please submit a [Github issue](https://github.com/status-im/nimbus-eth2/issues) if you come across a problem.
-
-<!-- > > > TODO:
-
-1. fill up the gitbook content
-2. write questions in the faq.md page -->

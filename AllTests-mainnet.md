@@ -47,14 +47,26 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + dependent_root                                                                             OK
 + get_beacon_proposer_index                                                                  OK
 + latest_block_root                                                                          OK
++ merklizer state roundtrip                                                                  OK
 + process_slots                                                                              OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Beacon time
 ```diff
 + basics                                                                                     OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Block clearance (light client) [Preset: mainnet]
+```diff
++ Delayed finality update                                                                    OK
++ Error conditions                                                                           OK
++ Incremental sync                                                                           OK
++ Initial sync                                                                               OK
++ Low slot numbers                                                                           OK
++ Reorg                                                                                      OK
++ Reverse incremental sync                                                                   OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -156,6 +168,17 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + addExitMessage/getVoluntaryExitMessage                                                     OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Fee recipient management [Preset: mainnet]
+```diff
++ Configuring the fee recpient [Preset: mainnet]                                             OK
++ Invalid Authorization Header [Preset: mainnet]                                             OK
++ Invalid Authorization Token [Preset: mainnet]                                              OK
++ Missing Authorization header [Preset: mainnet]                                             OK
++ Obtaining the fee recpient of a missing validator returns 404 [Preset: mainnet]            OK
++ Obtaining the fee recpient of an unconfigured validator returns the suggested default [Pre OK
++ Setting the fee recipient on a missing validator creates a record for it [Preset: mainnet] OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## FinalizedBlocks [Preset: mainnet]
 ```diff
 + Basic ops [Preset: mainnet]                                                                OK
@@ -264,14 +287,20 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Light client processor [Preset: mainnet]
 ```diff
-+ Duplicate bootstrap [Preset: mainnet]                                                      OK
-+ Invalid bootstrap [Preset: mainnet]                                                        OK
-+ Missing bootstrap (finality update) [Preset: mainnet]                                      OK
-+ Missing bootstrap (optimistic update) [Preset: mainnet]                                    OK
-+ Missing bootstrap (update) [Preset: mainnet]                                               OK
-+ Sync [Preset: mainnet]                                                                     OK
++ Duplicate bootstrap (Optimistic) [Preset: mainnet]                                         OK
++ Duplicate bootstrap (Strict) [Preset: mainnet]                                             OK
++ Invalid bootstrap (Optimistic) [Preset: mainnet]                                           OK
++ Invalid bootstrap (Strict) [Preset: mainnet]                                               OK
++ Missing bootstrap (finality update) (Optimistic) [Preset: mainnet]                         OK
++ Missing bootstrap (finality update) (Strict) [Preset: mainnet]                             OK
++ Missing bootstrap (optimistic update) (Optimistic) [Preset: mainnet]                       OK
++ Missing bootstrap (optimistic update) (Strict) [Preset: mainnet]                           OK
++ Missing bootstrap (update) (Optimistic) [Preset: mainnet]                                  OK
++ Missing bootstrap (update) (Strict) [Preset: mainnet]                                      OK
++ Sync (Optimistic) [Preset: mainnet]                                                        OK
++ Sync (Strict) [Preset: mainnet]                                                            OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## ListKeys requests [Preset: mainnet]
 ```diff
 + Correct token provided [Preset: mainnet]                                                   OK
@@ -328,6 +357,11 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + vesion 2 single remote                                                                     OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Serialization/deserialization  [Preset: mainnet]
+```diff
++ Deserialization test vectors                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -394,14 +428,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
-+ get_branch_indices                                                                         OK
-+ get_helper_indices                                                                         OK
-+ get_path_indices                                                                           OK
 + integer_squareroot                                                                         OK
-+ is_valid_merkle_branch                                                                     OK
-+ verify_merkle_multiproof                                                                   OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Specific field types
 ```diff
 + root update                                                                                OK
@@ -542,6 +571,19 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + should register stability subnets on attester duties                                       OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## weak-subjectivity-checkpoint
+```diff
++ Correct values                                                                             OK
++ invalid characters in root                                                                 OK
++ longer root                                                                                OK
++ missing epoch                                                                              OK
++ missing root                                                                               OK
++ missing separator                                                                          OK
++ negative epoch                                                                             OK
++ non-number epoch                                                                           OK
++ shorter root                                                                               OK
+```
+OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 301/306 Fail: 0/306 Skip: 5/306
+OK: 327/332 Fail: 0/332 Skip: 5/332
