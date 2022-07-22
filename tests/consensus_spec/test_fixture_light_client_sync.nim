@@ -127,7 +127,7 @@ proc runTest(path: string) =
     for step in steps:
       case step.kind
       of TestStepKind.ForceUpdate:
-        try_light_client_store_force_update(
+        process_light_client_store_force_update(
           store, step.current_slot)
       of TestStepKind.ProcessUpdate:
         let res = process_light_client_update(

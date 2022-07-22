@@ -172,7 +172,7 @@ proc tryForceUpdate(
 
   if store[].isSome:
     doAssert self.finalizationMode == LightClientFinalizationMode.Optimistic
-    case store[].get.try_light_client_store_force_update(wallSlot)
+    case store[].get.process_light_client_store_force_update(wallSlot)
     of NoUpdate:
       discard
     of DidUpdateWithoutSupermajority:
