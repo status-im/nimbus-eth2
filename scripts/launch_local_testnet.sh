@@ -214,6 +214,26 @@ while true; do
       BASE_REMOTE_SIGNER_PORT="$2"
       shift 2
       ;;
+    --base-el-net-port)
+      BASE_EL_NET_PORT="$2"
+      shift 2
+      ;;
+    --base-el-http-port)
+      BASE_EL_HTTP_PORT="$2"
+      shift 2
+      ;;
+    --base-el-ws-port)
+      BASE_EL_WS_PORT="$2"
+      shift 2
+      ;;
+    --base-el-auth-rpc-port)
+      BASE_EL_AUTH_RPC_PORT="$2"
+      shift 2
+      ;;
+    --el-port-offset)
+      EL_PORT_OFFSET="$2"
+      shift 2
+      ;;
     --reuse-existing-data-dir)
       REUSE_EXISTING_DATA_DIR="1"
       shift
@@ -345,8 +365,8 @@ if [[ "${OS}" != "windows" ]]; then
   #Stop geth nodes
   if [[ "${RUN_GETH}" == "1" ]]; then
     for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
-      for PORT in $(( NUM_NODE * GETH_PORT_OFFSET + GETH_NET_BASE_PORT )) $(( NUM_NODE * GETH_PORT_OFFSET + GETH_HTTP_BASE_PORT )) \
-                  $(( NUM_NODE * GETH_PORT_OFFSET + GETH_WS_BASE_PORT )) $(( NUM_NODE * GETH_PORT_OFFSET + GETH_AUTH_RPC_BASE_PORT )); do
+      for PORT in $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_NET_PORT )) $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_HTTP_PORT )) \
+                  $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_WS_PORT )) $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_AUTH_RPC_PORT )); do
         for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
           echo -n "Found old geth processes listening on port ${PORT}, with PID ${PID}. "
           if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
@@ -363,8 +383,8 @@ if [[ "${OS}" != "windows" ]]; then
 
   if [[ "${RUN_NIMBUS}" == "1" ]]; then
     for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
-      for PORT in $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_NET_BASE_PORT )) $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_HTTP_BASE_PORT )) \
-                  $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_WS_BASE_PORT )) $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_AUTH_RPC_BASE_PORT )); do
+      for PORT in $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_NET_PORT )) $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_HTTP_PORT )) \
+                  $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_WS_PORT )) $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_AUTH_RPC_PORT )); do
         for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
           echo -n "Found old nimbus EL processes listening on port ${PORT}, with PID ${PID}. "
           if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then

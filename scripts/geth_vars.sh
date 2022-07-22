@@ -5,13 +5,13 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-GETH_PORT_OFFSET="${PORT_OFFSET:-100}"
 GETH_BINARY="${GETH_BINARY:-"${HOME}/go-ethereum/build/bin/geth"}"
 GETH_NUM_NODES="${GETH_NUM_NODES:-4}"
 GETH_BINARY="${GETH_BINARY:-${HOME}/go-ethereum/build/bin/geth}"
-GETH_NET_BASE_PORT="${GETH_NET_BASE_PORT:-30303}"
-GETH_HTTP_BASE_PORT="${GETH_HTTP_BASE_PORT:-8545}"
-GETH_WS_BASE_PORT="${GETH_WS_BASE_PORT:-8546}"
-GETH_AUTH_RPC_BASE_PORT="${GETH_AUTH_RPC_BASE_PORT:-8551}"
+GETH_BASE_NET_PORT="${BASE_EL_NET_PORT:-30303}"
+GETH_BASE_HTTP_PORT="${BASE_EL_HTTP_PORT:-8545}"
+GETH_BASE_WS_PORT="${BASE_EL_WS_PORT:-8546}"
+GETH_BASE_AUTH_RPC_PORT="${BASE_EL_AUTH_RPC_PORT:-8551}"
+GETH_PORT_OFFSET="${EL_PORT_OFFSET:-100}"
 GENESISJSON="${GENESISJSON:-${BASEDIR}/geth_genesis.json}"
 DISCOVER="--nodiscover"
