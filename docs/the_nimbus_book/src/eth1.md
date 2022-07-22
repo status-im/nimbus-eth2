@@ -12,13 +12,11 @@ You can pass one or more `--web3-url` parameters to the node. Any additional web
 ./run-mainnet-beacon-node.sh --web3-url=ws://127.0.0.1:8546 --web3-url=http://other:8545
 ```
 
-```admonish warn
-You need to run your own execution client after [the merge](./merge.md) - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.
-```
+!!! warn
+    You need to run your own execution client after [the merge](./merge.md) - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.
 
-```admonish note
-Syncing an execution client may take hours or even days, depending on your hardware!
-```
+!!! note
+    Syncing an execution client may take hours or even days, depending on your hardware!
 
 ## Nimbus
 
@@ -34,24 +32,26 @@ See the [Installing Geth](https://geth.ethereum.org/docs/install-and-build/insta
 
 Once you have geth installed, make sure to enable the JSON-RPC WebSocket interface when running geth:
 
-**Testnet**
-```
-geth --goerli --ws
-```
+=== "Mainnet"
+    ```
+    geth --ws
+    ```
 
-**Mainnet**
-```
-geth --ws
-```
+=== "Goerli"
+    ```
+    geth --goerli --ws
+    ```
 
->**Note:** The `--ws` flag is needed to enable the websocket RPC API. This allows Nimbus to query the eth1 chain using Web3 API calls.
+!!! note
+    The `--ws` flag is needed to enable the websocket RPC API. This allows Nimbus to query the eth1 chain using Web3 API calls.
 
 
 ### 3. Leave Geth running
 
 Let it sync - Geth uses snap sync by default. It may take anywhere between a few hours and a couple of days.
 
->**N.B.** It is safe to run Nimbus and start validating even if Geth hasn't fully synced yet
+!!! note
+    It is safe to run Nimbus and start validating even if Geth hasn't fully synced yet
 
 You'll know Geth has finished syncing, when you start seeing logs that look like the following:
 

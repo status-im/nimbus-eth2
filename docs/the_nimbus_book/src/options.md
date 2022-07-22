@@ -123,15 +123,16 @@ sub-commands should appear in a section of the file matching the sub-command nam
 
 Here is an example config file illustrating all of the above:
 
-```admonish example title='nimbus-eth2-config.toml'
-# Comments look like this
-doppelganger-detection = true
-web3-url = ["ws://192.168.1.10:8000"]
-num-threads = 0
+!!! example "nimbus-eth2.toml"
+    ```toml
+    # Comments look like this
+    doppelganger-detection = true
+    web3-url = ["ws://192.168.1.10:8000"]
+    num-threads = 0
 
-[trustedNodeSync]
-trusted-node-url = "http://192.168.1.20:5052"
-```
+    [trustedNodeSync]
+    trusted-node-url = "http://192.168.1.20:5052"
+    ```
 
 ## Exit Codes
 

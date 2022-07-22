@@ -4,9 +4,8 @@ This page will take you through how to set up a `systemd` service for your beaco
 
 `systemd` is used in order to have a command or program run when your device boots (i.e. add it as a service). Once this is done, you can start/stop enable/disable from the linux prompt.
 
-```admonish note
-[`systemd`](https://systemd.io/) is a service manager designed specifically for Linux - it cannot be used on Windows / Mac. You can get more information about systemd [here](https://fedoramagazine.org/what-is-an-init-system/)
-```
+!!! note
+    [`systemd`](https://systemd.io/) is a service manager designed specifically for Linux - it cannot be used on Windows / Mac. You can get more information about systemd [here](https://fedoramagazine.org/what-is-an-init-system/)
 
 When installing Nimbus via your package manager, a user and service will already have been created for you and you can skip straight to the configuration section.
 
@@ -35,9 +34,8 @@ curl -s https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/p
 
 The format of service files is documented in the [systemd manual](https://www.freedesktop.org/software/systemd/man/systemd.service.html).
 
-```admonish tip
-Automatic restarts increase the risk that the doppelganger detection fails - set `RestartPreventExitStatus=1031` to prevent this from happening
-```
+!!! tip
+    Automatic restarts increase the risk that the doppelganger detection fails - set `RestartPreventExitStatus=1031` to prevent this from happening
 
 ### 3. Configure your service
 
@@ -59,9 +57,8 @@ The service file contains several options for controlling Nimbus. Important opti
 * `Environment=METRICS_ENABLED`: Metrics are used for monitoring the node - see the [metrics](./metrics-pretty-pictures.md) setup guide
 * `ExecStart=`: Custom options - see the [options](./options.md) guide
 
-```admonish note
-The example assumes Nimbus was installed in `/usr/bin/nimbus_beacon_node` - if you installed Nimbus elsewhere, make sure to update this path.
-```
+!!! note
+    The example assumes Nimbus was installed in `/usr/bin/nimbus_beacon_node` - if you installed Nimbus elsewhere, make sure to update this path.
 
 ### 4. Notify systemd of the newly added service
 
@@ -112,9 +109,8 @@ When using a service, the beacon node is running as a different user - key impor
 sudo -u nimbus /usr/bin/nimbus_beacon_node deposit import --data-dir=/var/lib/nimbus/shared_mainnet_0 /path/to/keys
 ```
 
-```admonish note
-Make sure to use the same `--data-dir` option as is used in the service file! Some guides use `--data-dir=/var/lib/nimbus` instead.
-```
+!!! note
+    Make sure to use the same `--data-dir` option as is used in the service file! Some guides use `--data-dir=/var/lib/nimbus` instead.
 
 ## Running multiple beacon nodes
 

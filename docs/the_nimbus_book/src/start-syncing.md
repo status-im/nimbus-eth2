@@ -4,21 +4,18 @@ Before you can use your node, it needs to sync with the network. Syncing starts 
 
 If you are planning to become a validator, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit, or you might miss attestations and proposal duties until it has finished syncing.
 
-```admonish tip
-To get started more quickly, you can perform a [trusted node sync](./trusted-node-sync.md) instead - this requires access to a synced node or a third-party service.
-```
+!!! tip
+    To get started more quickly, you can perform a [trusted node sync](./trusted-node-sync.md) instead - this requires access to a synced node or a third-party service.
 
-```admonish note
-You need need to run an execution client (**web3 provider**) together with the beacon node. See [here](./eth1.md) for instructions on how to do so.
-```
+!!! note
+    You need need to run an execution client (**web3 provider**) together with the beacon node. See [here](./eth1.md) for instructions on how to do so.
 
 ## Networks
 
 Using Nimbus, you can connect either to a testnet, or mainnet. Mainnet is the main ethereum network where real assets are at stake, while testnets are used by users and developers alike to test their node and setup before committing real assets.
 
-```admonish tip
-If this is the first time you're setting up your node, it is recommended you run it on a testnet first. Later, when everything is working, you can easily switch to mainned.
-```
+!!! tip
+    If this is the first time you're setting up your node, it is recommended you run it on a testnet first. Later, when everything is working, you can easily switch to mainned.
 
 ### Testnet
 
@@ -78,4 +75,4 @@ More information is available from the [options](./options.md) page.
 
 ## Keep track of your sync progress
 
-See [here](./keep-an-eye.html#keep-track-of-your-syncing-progress) for how to keep track of your sync progress.
+See [here](./keep-an-eye.md#keep-track-of-your-syncing-progress) for how to keep track of your sync progress.

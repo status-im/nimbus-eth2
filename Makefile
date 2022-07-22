@@ -658,14 +658,13 @@ libnfuzz.a: | build deps
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 
 book:
+	"$(MAKE)" -C docs book
+
+auditors-book:
 	[[ "$$(mdbook --version)" = "mdbook v0.4.18" ]] || { echo "'mdbook v0.4.18' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.8.0" ]] || { echo "'mdbook-toc 0.8.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.1.0" ]] || { echo "'mdbook-open-on-gh 2.1.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	[[ "$$(mdbook-admonish --version)" == "mdbook-admonish 1.7.0" ]] || { echo "'mdbook-open-on-gh 1.7.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	cd docs/the_nimbus_book && \
-	mdbook build
-
-auditors-book:
 	cd docs/the_auditors_handbook && \
 	mdbook build
 
@@ -680,7 +679,7 @@ publish-book: | book auditors-book
 	rm -rf tmp-book/* && \
 	mkdir -p tmp-book/auditors-book && \
 	cp -a docs/the_nimbus_book/CNAME tmp-book/ && \
-	cp -a docs/the_nimbus_book/book/* tmp-book/ && \
+	cp -a docs/the_nimbus_book/site/* tmp-book/ && \
 	cp -a docs/the_auditors_handbook/book/* tmp-book/auditors-book/ && \
 	cd tmp-book && \
 	git add . && { \

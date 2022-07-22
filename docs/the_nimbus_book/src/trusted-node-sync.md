@@ -1,8 +1,7 @@
 # Sync from a trusted node
 
-```admonish title=''
-This feature is available from `v1.7.0` onwards
-```
+!!! note ""
+    This feature is available from `v1.7.0` onwards
 
 When you [start the beacon node](./quick-start.md) for the first time, it will connect to the beacon chain network and start syncing automatically - a process that can take several days.
 
@@ -16,32 +15,28 @@ It is possibly to use trusted node sync with a third-party API provider -- see [
 
 ## Perform a trusted node sync
 
-```admonish tip
-Make sure to replace `http://localhost:5052` in the commands below with the appropriate endpoint of the trusted beacon node. `http://localhost:5052` is the default endpoint exposed by Nimbus, but this is not consistent across all clients.
+!!! tip
+    Make sure to replace `http://localhost:5052` in the commands below with the appropriate endpoint of the trusted beacon node. `http://localhost:5052` is the default endpoint exposed by Nimbus, but this is not consistent across all clients.
 
-For example, if your trusted node is a [Prysm node](https://docs.prylabs.network/docs/how-prysm-works/ethereum-public-api#performing-requests-against-a-local-prysm-node), it exposes `127.0.0.1:3500` by default. Which means you would run the commands below with `--trusted-node-url=http://127.0.0.1:3500`
-```
+    For example, if your trusted node is a [Prysm node](https://docs.prylabs.network/docs/how-prysm-works/ethereum-public-api#performing-requests-against-a-local-prysm-node), it exposes `127.0.0.1:3500` by default. Which means you would run the commands below with `--trusted-node-url=http://127.0.0.1:3500`
 
-**Mainnet**
+=== "Mainnet"
+    ```sh
+    build/nimbus_beacon_node trustedNodeSync \
+      --network:mainnet \
+      --data-dir=build/data/shared_mainnet_0 \
+      --trusted-node-url=http://localhost:5052
+    ```
 
-```sh
-build/nimbus_beacon_node trustedNodeSync \
-  --network:mainnet \
-  --data-dir=build/data/shared_mainnet_0 \
-  --trusted-node-url=http://localhost:5052
-```
+=== "Prater"
+    ```sh
+    build/nimbus_beacon_node trustedNodeSync --network:prater \
+    --data-dir=build/data/shared_prater_0  \
+    --trusted-node-url=http://localhost:5052
+    ```
 
-**Prater (testnet)**
-
-```sh
-build/nimbus_beacon_node trustedNodeSync --network:prater \
- --data-dir=build/data/shared_prater_0  \
- --trusted-node-url=http://localhost:5052
-```
-
-```admonish note
-Because trusted node sync by default copies all blocks via REST, you may hit API limits if you are using a third-party provider. If this happens to you, you may need to use the `--backfill` option to [delay the backfill of the block history](./trusted-node-sync.md#delay-block-history-backfill).
-```
+!!! note
+    Because trusted node sync by default copies all blocks via REST, you may hit API limits if you are using a third-party provider. If this happens to you, you may need to use the `--backfill` option to [delay the backfill of the block history](./trusted-node-sync.md#delay-block-history-backfill).
 
 ## Verify you synced the correct chain
 
@@ -55,12 +50,11 @@ curl http://localhost:5052/eth/v1/beacon/blocks/head/root
 
 The `head` root is also printed in the log output at regular intervals.
 
-```admonish note
-The same [Beacon API](./rest-api.md) request works with any third-party provider.
+!!! note
+  The same [Beacon API](./rest-api.md) request works with any API provider.
 
-For example, to compare it out with our mainnet [testing server](rest-api.md#test-your-tooling-against-our-servers), you can run:
-`curl -X GET http://testing.mainnet.beacon-api.nimbus.team/eth/v1/beacon/blocks/head/root`
-```
+  For example, to compare it out with our mainnet [testing server](rest-api.md#test-your-tooling-against-our-servers), you can run:
+  `curl -X GET http://testing.mainnet.beacon-api.nimbus.team/eth/v1/beacon/blocks/head/root`
 
 ## Advanced
 
@@ -72,9 +66,8 @@ It is possible to get started more quickly by delaying the backfill of the block
 
 You can also resume the trusted node backfill at any time by simply running the trusted node sync command again.
 
-```admonish
-While backfilling blocks, your node will not be able to answer historical requests or sync requests. This might lead to you being de-scored, and eventually disconnected, by your peers.
-```
+!!! note
+  While backfilling blocks, your node will not be able to answer historical requests or sync requests. This might lead to you being de-scored, and eventually disconnected, by your peers.
 
 ### Modify sync point
 

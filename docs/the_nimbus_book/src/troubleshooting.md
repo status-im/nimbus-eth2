@@ -1,18 +1,16 @@
 # Troubleshooting
 
-```admonish note
-The commands on this page refer to mainnet. If you're running on `prater` or another testnet, replace `mainnet` accordingly
-```
+!!! note
+    The commands on this page refer to mainnet. If you're running on `prater` or another testnet, replace `mainnet` accordingly
 
 We are continuously making improvements to both stability and resource usage. If you run into any problem with Nimbus and are not running the latest version, chances are they have already been fixed - see the [update guide](./keep-updated.md) for instructions of how to upgrade.
 
 If you can't find a solution to your problem here, get in touch with us on our [discord](https://discord.com/invite/XRxWahP)!
 
-```admonish note
-When installing Nimbus, you will typically be using the latest `stable` release.
+!!! note
+    When installing Nimbus, you will typically be using the latest `stable` release.
 
-However, the latest changes happen in the `unstable` branch - if you're looking to test the chaings coming to the _next_ Nimbus release, consider building Nimbus from [source](./keep-updated.md#build-from-source) using the `unstable` branch.
-```
+    However, the latest changes happen in the `unstable` branch - if you're looking to test the chaings coming to the _next_ Nimbus release, consider building Nimbus from [source](./keep-updated.md#build-from-source) using the `unstable` branch.
 
 ## Networking
 
@@ -84,9 +82,8 @@ If, on start,  you see `The command 'noCommand' does not accept arguments`
 
 Double check to see if your command line flags are in the correct format, i.e. `--foo=bar`, `--baz`, or `--foo-bar=qux`.
 
-```admonish tip
-All options accepting values need a `=` between the option name and the value!
-```
+!!! tip
+    All options accepting values need a `=` between the option name and the value!
 
 ### Address already in use error
 
