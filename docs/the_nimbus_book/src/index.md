@@ -19,7 +19,7 @@ Its efficiency and low resource consumption allows it to perform well on all kin
 This book explains the ways in which you can use Nimbus to either monitor the beacon chain or become a fully-fledged validator.
 
 !!! tip
-    [The Merge](https://ethereum.org/en/upgrades/merge/) is happening soon! Bookmark our [merge readiness](./merge.md) page to stay on top of how you need to prepare.
+    [The Merge 🐼](https://ethereum.org/en/upgrades/merge/) is happening soon! Bookmark our [merge readiness](./merge.md) page to stay on top of how you need to prepare.
 
 !!! note
     Staking and becoming a validator on Ethereum requires 32 ETH, a stable high-speed internet connection and an always-on server. Before staking, make sure that you understand the requirements and practice setting up a validator on a testnet. [Pooled staking](https://ethereum.org/en/staking/pools/) and [Staking as a service](https://ethereum.org/en/staking/saas/) are alternative ways to stake in the network. You can also run a Nimbus node without staking.

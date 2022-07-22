@@ -8,9 +8,9 @@ Voluntary exits allow validators to permanently stop performing their duties, an
 Exits are subject to a wait period that depends on the length of the exit queue. While a validator is exiting, it still must perform its duties in order not to lose funds to inactivity penalities.
 
 !!! warning
-  Voluntary exits are **irreversible**. You won't be able to validate again with the same key.
+    Voluntary exits are **irreversible**. You won't be able to validate again with the same key.
 
-  You will also not be able to withdraw your funds until a future hard fork that enables withdrawals.*
+    You will also not be able to withdraw your funds until a future hard fork that enables withdrawals.*
 
 !!! note
     Voluntary exits won't be processed if the chain isn't finalising.
