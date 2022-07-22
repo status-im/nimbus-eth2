@@ -305,6 +305,7 @@ proc getBlockProposalEth1Data*(node: BeaconNode,
       state, finalizedEpochRef.eth1_data,
       finalizedEpochRef.eth1_deposit_index)
 
+# TODO: This copies the entire BeaconState on each call
 proc forkchoice_updated(state: bellatrix.BeaconState,
                         head_block_hash: Eth2Digest,
                         finalized_block_hash: Eth2Digest,
@@ -340,7 +341,10 @@ proc get_execution_payload(
       await execution_engine.getPayload(payload_id.get))
 
 proc getExecutionPayload(
-    node: BeaconNode, proposalState: auto, pubkey: ValidatorPubKey):
+    node: BeaconNode, proposalState: auto,
+    epoch: Epoch,
+    validator_index: ValidatorIndex,
+    pubkey: ValidatorPubKey):
     Future[ExecutionPayload] {.async.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
 
@@ -374,8 +378,11 @@ proc getExecutionPayload(
           terminalBlockHash
       latestFinalized =
         node.dag.loadExecutionBlockRoot(node.dag.finalizedHead.blck)
-      feeRecipient = node.config.getSuggestedFeeRecipient(pubkey).valueOr:
-        node.config.defaultFeeRecipient
+      dynamicFeeRecipient = node.dynamicFeeRecipientsStore.getDynamicFeeRecipient(
+        validator_index, epoch)
+      feeRecipient = dynamicFeeRecipient.valueOr:
+        node.config.getSuggestedFeeRecipient(pubkey).valueOr:
+          node.config.defaultFeeRecipient
       payload_id = (await forkchoice_updated(
         proposalState.bellatrixData.data, latestHead, latestFinalized,
         feeRecipient,
@@ -461,6 +468,7 @@ proc makeBeaconBlockForHeadAndSlot*(node: BeaconNode,
         let pubkey = node.dag.validatorKey(validator_index)
         (await getExecutionPayload(
           node, proposalState,
+          slot.epoch, validator_index,
           # TODO https://github.com/nim-lang/Nim/issues/19802
           if pubkey.isSome: pubkey.get.toPubKey else: default(ValidatorPubKey))),
       noRollback, # Temporary state - no need for rollback
