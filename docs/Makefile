@@ -1,7 +1,7 @@
 mkdocs: mkdocs/bin/mkdocs
 
-mkdocs/pyenv.cfg:
-	test -d mkdocs || python3 -m venv mkdocs
+mkdocs/bin/mkdocs:
+	test -d mkdocs || python -m venv mkdocs
 	. mkdocs/bin/activate; pip install -r requirements.txt
 
 compile:
