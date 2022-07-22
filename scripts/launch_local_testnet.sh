@@ -92,8 +92,6 @@ CLEANUP_DIRS=()
 RUN_NIMBUS="0"
 NIMBUS_EL_BINARY="../nimbus-eth1/build/nimbus"
 
-EL_HTTP_PORTS=()
-EL_RPC_PORTS=()
 PROCS_TO_KILL=("nimbus_beacon_node" "nimbus_validator_client" "nimbus_signing_node" "nimbus_light_client")
 
 print_help() {
@@ -449,8 +447,6 @@ if [[ "${RUN_GETH}" == "1" ]]; then
 
   log "Starting ${GETH_NUM_NODES} Geth Nodes ..."
   . "./scripts/start_geth_nodes.sh"
-  EL_HTTP_PORTS+=("${GETH_HTTP_PORTS[@]}")
-  EL_RPC_PORTS+=("${GETH_RPC_PORTS[@]}")
   PROCS_TO_KILL+=("${GETH_BINARY}")
   CLEANUP_DIRS+=("${GETH_DATA_DIRS[@]}")
 fi
@@ -462,8 +458,6 @@ if [[ "${RUN_NIMBUS}" == "1" ]]; then
   fi
 
   . "./scripts/start_nimbus_el_nodes.sh"
-  EL_HTTP_PORTS+=("${NIMBUSEL_HTTP_PORTS[@]}")
-  EL_RPC_PORTS+=("${NIMBUSEL_RPC_PORTS[@]}")
   PROCS_TO_KILL+=("${NIMBUS_EL_BINARY}")
   CLEANUP_DIRS+=("${NIMBUSEL_DATA_DIRS[@]}")
 fi
