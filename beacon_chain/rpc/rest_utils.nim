@@ -48,6 +48,8 @@ proc validate(key: string, value: string): int =
     0
   of "{block_root}":
     0
+  of "{pubkey}":
+    int(value.len != 98)
   else:
     1
 
@@ -60,7 +62,7 @@ proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
   ok(head)
 
 proc getSyncedHead*(node: BeaconNode,
-                     epoch: Epoch): Result[BlockRef, cstring] =
+                    epoch: Epoch): Result[BlockRef, cstring] =
   if epoch > MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
   node.getSyncedHead(epoch.start_slot())
@@ -274,26 +276,32 @@ proc getRouter*(allowedOrigin: Option[string]): RestRouter =
 
 proc getStateOptimistic*(node: BeaconNode,
                          state: ForkedHashedBeaconState): Option[bool] =
-  if node.dag.getHeadStateMergeComplete():
+  if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
     case state.kind
     of BeaconStateFork.Phase0, BeaconStateFork.Altair:
       some[bool](false)
     of BeaconStateFork.Bellatrix:
-      # TODO (cheatfate): Proper implementation required.
-      some[bool](false)
+      # A state is optimistic iff the block which created it is
+      withState(state):
+        # The block root which created the state at slot `n` is at slot `n-1`
+        if state.data.slot == GENESIS_SLOT:
+          some[bool](false)
+        else:
+          doAssert state.data.slot > 0
+          some[bool](node.dag.is_optimistic(
+            get_block_root_at_slot(state.data, state.data.slot - 1)))
   else:
     none[bool]()
 
 proc getBlockOptimistic*(node: BeaconNode,
                          blck: ForkedTrustedSignedBeaconBlock |
                                ForkedSignedBeaconBlock): Option[bool] =
-  if node.dag.getHeadStateMergeComplete():
+  if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
     case blck.kind
     of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
       some[bool](false)
     of BeaconBlockFork.Bellatrix:
-      # TODO (cheatfate): Proper implementation required.
-      some[bool](false)
+      some[bool](node.dag.is_optimistic(blck.root))
   else:
     none[bool]()
 
@@ -303,8 +311,7 @@ proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
   of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
     false
   of BeaconBlockFork.Bellatrix:
-    # TODO (cheatfate): Proper implementation required.
-    false
+    node.dag.is_optimistic(blck.root)
 
 const
   jsonMediaType* = MediaType.init("application/json")

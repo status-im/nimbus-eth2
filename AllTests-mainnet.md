@@ -47,9 +47,10 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 + dependent_root                                                                             OK
 + get_beacon_proposer_index                                                                  OK
 + latest_block_root                                                                          OK
++ merklizer state roundtrip                                                                  OK
 + process_slots                                                                              OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Beacon time
 ```diff
 + basics                                                                                     OK
@@ -167,6 +168,17 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + addExitMessage/getVoluntaryExitMessage                                                     OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Fee recipient management [Preset: mainnet]
+```diff
++ Configuring the fee recpient [Preset: mainnet]                                             OK
++ Invalid Authorization Header [Preset: mainnet]                                             OK
++ Invalid Authorization Token [Preset: mainnet]                                              OK
++ Missing Authorization header [Preset: mainnet]                                             OK
++ Obtaining the fee recpient of a missing validator returns 404 [Preset: mainnet]            OK
++ Obtaining the fee recpient of an unconfigured validator returns the suggested default [Pre OK
++ Setting the fee recipient on a missing validator creates a record for it [Preset: mainnet] OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## FinalizedBlocks [Preset: mainnet]
 ```diff
 + Basic ops [Preset: mainnet]                                                                OK
@@ -275,14 +287,20 @@ OK: 9/9 Fail: 0/9 Skip: 0/9
 OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Light client processor [Preset: mainnet]
 ```diff
-+ Duplicate bootstrap [Preset: mainnet]                                                      OK
-+ Invalid bootstrap [Preset: mainnet]                                                        OK
-+ Missing bootstrap (finality update) [Preset: mainnet]                                      OK
-+ Missing bootstrap (optimistic update) [Preset: mainnet]                                    OK
-+ Missing bootstrap (update) [Preset: mainnet]                                               OK
-+ Sync [Preset: mainnet]                                                                     OK
++ Duplicate bootstrap (Optimistic) [Preset: mainnet]                                         OK
++ Duplicate bootstrap (Strict) [Preset: mainnet]                                             OK
++ Invalid bootstrap (Optimistic) [Preset: mainnet]                                           OK
++ Invalid bootstrap (Strict) [Preset: mainnet]                                               OK
++ Missing bootstrap (finality update) (Optimistic) [Preset: mainnet]                         OK
++ Missing bootstrap (finality update) (Strict) [Preset: mainnet]                             OK
++ Missing bootstrap (optimistic update) (Optimistic) [Preset: mainnet]                       OK
++ Missing bootstrap (optimistic update) (Strict) [Preset: mainnet]                           OK
++ Missing bootstrap (update) (Optimistic) [Preset: mainnet]                                  OK
++ Missing bootstrap (update) (Strict) [Preset: mainnet]                                      OK
++ Sync (Optimistic) [Preset: mainnet]                                                        OK
++ Sync (Strict) [Preset: mainnet]                                                            OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## ListKeys requests [Preset: mainnet]
 ```diff
 + Correct token provided [Preset: mainnet]                                                   OK
@@ -568,4 +586,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 313/318 Fail: 0/318 Skip: 5/318
+OK: 327/332 Fail: 0/332 Skip: 5/332

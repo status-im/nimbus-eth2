@@ -117,7 +117,7 @@ type
 
     # Gossip validated -> enqueue for further verification
     # ----------------------------------------------------------------
-    blockProcessor: ref BlockProcessor
+    blockProcessor*: ref BlockProcessor
 
     # Validator monitoring
     validatorMonitor: ref ValidatorMonitor
@@ -188,7 +188,7 @@ proc new*(T: type Eth2Processor,
 # any side effects until the message is fully validated, or invalid messages
 # could be used to push out valid messages.
 
-proc blockValidator*(
+proc processSignedBeaconBlock*(
     self: var Eth2Processor, src: MsgSource,
     signedBlock: ForkySignedBeaconBlock): ValidationRes =
   let
@@ -287,7 +287,7 @@ proc checkForPotentialDoppelganger(
         const QuitDoppelganger = 1031
         quit QuitDoppelganger
 
-proc attestationValidator*(
+proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,
     attestation: Attestation, subnet_id: SubnetId,
     checkSignature: bool = true): Future[ValidationRes] {.async.} =
@@ -335,9 +335,10 @@ proc attestationValidator*(
     beacon_attestations_dropped.inc(1, [$v.error[0]])
     err(v.error())
 
-proc aggregateValidator*(
+proc processSignedAggregateAndProof*(
     self: ref Eth2Processor, src: MsgSource,
-    signedAggregateAndProof: SignedAggregateAndProof): Future[ValidationRes] {.async.} =
+    signedAggregateAndProof: SignedAggregateAndProof,
+    checkSignature = true, checkCover = true): Future[ValidationRes] {.async.} =
   var wallTime = self.getCurrentBeaconTime()
   let (afterGenesis, wallSlot) = wallTime.toSlot()
 
@@ -350,7 +351,7 @@ proc aggregateValidator*(
 
   if not afterGenesis:
     notice "Aggregate before genesis"
-    return errIgnore("Aggreagte before genesis")
+    return errIgnore("Aggregate before genesis")
 
   # Potential under/overflows are fine; would just create odd logs
   let delay =
@@ -359,7 +360,8 @@ proc aggregateValidator*(
 
   let v =
     await self.attestationPool.validateAggregate(
-      self.batchCrypto, signedAggregateAndProof, wallTime)
+      self.batchCrypto, signedAggregateAndProof, wallTime,
+      checkSignature = checkSignature, checkCover = checkCover)
 
   return if v.isOk():
     # Due to async validation the wallTime here might have changed
@@ -389,7 +391,7 @@ proc aggregateValidator*(
 
     err(v.error())
 
-proc attesterSlashingValidator*(
+proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
     attesterSlashing: AttesterSlashing): ValidationRes =
   logScope:
@@ -413,7 +415,7 @@ proc attesterSlashingValidator*(
 
   v
 
-proc proposerSlashingValidator*(
+proc processProposerSlashing*(
     self: var Eth2Processor, src: MsgSource,
     proposerSlashing: ProposerSlashing): Result[void, ValidationError] =
   logScope:
@@ -436,7 +438,7 @@ proc proposerSlashingValidator*(
 
   v
 
-proc voluntaryExitValidator*(
+proc processSignedVoluntaryExit*(
     self: var Eth2Processor, src: MsgSource,
     signedVoluntaryExit: SignedVoluntaryExit): Result[void, ValidationError] =
   logScope:
@@ -460,7 +462,7 @@ proc voluntaryExitValidator*(
 
   v
 
-proc syncCommitteeMessageValidator*(
+proc processSyncCommitteeMessage*(
     self: ref Eth2Processor, src: MsgSource,
     syncCommitteeMsg: SyncCommitteeMessage,
     subcommitteeIdx: SyncSubcommitteeIndex,
@@ -505,7 +507,7 @@ proc syncCommitteeMessageValidator*(
     beacon_sync_committee_messages_dropped.inc(1, [$v.error[0]])
     err(v.error())
 
-proc contributionValidator*(
+proc processSignedContributionAndProof*(
     self: ref Eth2Processor, src: MsgSource,
     contributionAndProof: SignedContributionAndProof,
     checkSignature: bool = true): Future[Result[void, ValidationError]] {.async.} =
@@ -547,7 +549,7 @@ proc contributionValidator*(
     err(v.error())
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
-proc lightClientFinalityUpdateValidator*(
+proc processLightClientFinalityUpdate*(
     self: var Eth2Processor, src: MsgSource,
     finality_update: altair.LightClientFinalityUpdate
 ): Result[void, ValidationError] =
@@ -558,7 +560,7 @@ proc lightClientFinalityUpdateValidator*(
   v
 
 # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
-proc lightClientOptimisticUpdateValidator*(
+proc processLightClientOptimisticUpdate*(
     self: var Eth2Processor, src: MsgSource,
     optimistic_update: altair.LightClientOptimisticUpdate
 ): Result[void, ValidationError] =

@@ -15,15 +15,16 @@ import
 
   # Local modules
   "."/[beacon_clock, beacon_chain_db, conf, light_client],
-  ./gossip_processing/[eth2_processor, block_processor, consensus_manager],
+  ./gossip_processing/[eth2_processor, block_processor],
   ./networking/eth2_network,
   ./eth1/eth1_monitor,
   ./consensus_object_pools/[
-    blockchain_dag, block_quarantine, exit_pool, attestation_pool,
-    sync_committee_msg_pool],
+    blockchain_dag, block_quarantine, consensus_manager, exit_pool,
+    attestation_pool, sync_committee_msg_pool],
   ./spec/datatypes/[base, altair],
   ./sync/[optimistic_sync_light_client, sync_manager, request_manager],
-  ./validators/[action_tracker, validator_monitor, validator_pool],
+  ./validators/[
+    action_tracker, message_router, validator_monitor, validator_pool],
   ./rpc/state_ttl_cache
 
 export
@@ -32,11 +33,10 @@ export
   attestation_pool, sync_committee_msg_pool, validator_pool,
   eth2_network, eth1_monitor, optimistic_sync_light_client,
   request_manager, sync_manager, eth2_processor, blockchain_dag,
-  block_quarantine, base, exit_pool, validator_monitor, consensus_manager
+  block_quarantine, base, exit_pool,  message_router, validator_monitor,
+  consensus_manager
 
 type
-  RpcServer* = RpcHttpServer
-
   EventBus* = object
     blocksQueue*: AsyncEventQueue[EventBeaconBlockObject]
     headQueue*: AsyncEventQueue[HeadChangeInfoObject]
@@ -85,6 +85,7 @@ type
     validatorMonitor*: ref ValidatorMonitor
     stateTtlCache*: StateTtlCache
     nextExchangeTransitionConfTime*: Moment
+    router*: ref MessageRouter
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

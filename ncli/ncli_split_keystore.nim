@@ -1,6 +1,6 @@
 import
   std/os,
-  nimcrypto/utils, confutils, eth/keys,
+  confutils, eth/keys,
   ../beacon_chain/validators/keystore_management,
   ../beacon_chain/spec/[keystore, crypto],
   ../beacon_chain/conf

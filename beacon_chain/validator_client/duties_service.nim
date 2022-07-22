@@ -2,7 +2,10 @@ import std/[sets, sequtils]
 import chronicles
 import common, api, block_service
 
-logScope: service = "duties_service"
+const
+  ServiceName = "duties_service"
+
+logScope: service = ServiceName
 
 type
   DutiesServiceLoop* = enum
@@ -17,8 +20,8 @@ chronicles.formatIt(DutiesServiceLoop):
 
 proc checkDuty(duty: RestAttesterDuty): bool =
   (duty.committee_length <= MAX_VALIDATORS_PER_COMMITTEE) and
-  (uint64(duty.committee_index) <= MAX_COMMITTEES_PER_SLOT) and
-  (uint64(duty.validator_committee_index) <= duty.committee_length) and
+  (uint64(duty.committee_index) < MAX_COMMITTEES_PER_SLOT) and
+  (uint64(duty.validator_committee_index) < duty.committee_length) and
   (uint64(duty.validator_index) <= VALIDATOR_REGISTRY_LIMIT)
 
 proc checkSyncDuty(duty: RestSyncCommitteeDuty): bool =
@@ -54,6 +57,9 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
       except ValidatorApiError:
         error "Unable to get head state's validator information"
         return
+      except CancelledError as exc:
+        debug "Validator's indices processing was interrupted"
+        raise exc
       except CatchableError as exc:
         error "Unexpected error occurred while getting validator information",
               err_name = exc.name, err_msg = exc.msg
@@ -73,6 +79,9 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
             pubkey = item.validator.pubkey, index = item.index
       vc.attachedValidators.updateValidator(item.validator.pubkey,
                                             item.index)
+      # Adding validator for doppelganger detection.
+      vc.addDoppelganger(
+        vc.attachedValidators.getValidator(item.validator.pubkey))
 
 proc pollForAttesterDuties*(vc: ValidatorClientRef,
                             epoch: Epoch): Future[int] {.async.} =
@@ -82,6 +91,9 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
       for index in vc.attachedValidators.indices():
         res.add(index)
       res
+
+  if validatorIndices.len == 0:
+    return 0
 
   var duties: seq[RestAttesterDuty]
   var currentRoot: Option[Eth2Digest]
@@ -104,6 +116,9 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
       except ValidatorApiError:
         error "Unable to get attester duties", epoch = epoch
         return 0
+      except CancelledError as exc:
+        debug "Attester duties processing was interrupted"
+        raise exc
       except CatchableError as exc:
         error "Unexpected error occured while getting attester duties",
               epoch = epoch, err_name = exc.name, err_msg = exc.msg
@@ -118,6 +133,8 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
         # changed it means that some reorg was happened in beacon node and we
         # should re-request all queries again.
         offset = 0
+        duties.setLen(0)
+        currentRoot = none[Eth2Digest]()
         continue
 
     for item in res.data:
@@ -129,7 +146,6 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
     relevantDuties = duties.filterIt(
       checkDuty(it) and (it.pubkey in vc.attachedValidators)
     )
-    dependentRoot = currentRoot.get()
     genesisRoot = vc.beaconGenesis.genesis_validators_root
 
   let addOrReplaceItems =
@@ -140,32 +156,41 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
         let map = vc.attesters.getOrDefault(duty.pubkey)
         let epochDuty = map.duties.getOrDefault(epoch, DefaultDutyAndProof)
         if not(epochDuty.isDefault()):
-          if epochDuty.dependentRoot != dependentRoot:
+          if epochDuty.dependentRoot != currentRoot.get():
             res.add((epoch, duty))
             if not(alreadyWarned):
               warn "Attester duties re-organization",
                    prior_dependent_root = epochDuty.dependentRoot,
-                   dependent_root = dependentRoot
+                   dependent_root = currentRoot.get()
               alreadyWarned = true
         else:
           info "Received new attester duty", duty, epoch = epoch,
-                                             dependent_root = dependentRoot
+                                             dependent_root = currentRoot.get()
           res.add((epoch, duty))
       res
 
   if len(addOrReplaceItems) > 0:
-    var pending: seq[Future[SignatureResult]]
+    var pendingRequests: seq[Future[SignatureResult]]
     var validators: seq[AttachedValidator]
     for item in addOrReplaceItems:
       let validator = vc.attachedValidators.getValidator(item.duty.pubkey)
       let fork = vc.forkAtEpoch(item.duty.slot.epoch)
-      let future = validator.getSlotSig(fork, genesisRoot, item.duty.slot)
-      pending.add(future)
+      let future = validator.getSlotSignature(
+        fork, genesisRoot, item.duty.slot)
+      pendingRequests.add(future)
       validators.add(validator)
 
-    await allFutures(pending)
+    try:
+      await allFutures(pendingRequests)
+    except CancelledError as exc:
+      var pendingCancel: seq[Future[void]]
+      for future in pendingRequests:
+        if not(future.finished()):
+          pendingCancel.add(future.cancelAndWait())
+      await allFutures(pendingCancel)
+      raise exc
 
-    for index, fut in pending:
+    for index, fut in pendingRequests:
       let item = addOrReplaceItems[index]
       let dap =
         if fut.done():
@@ -174,13 +199,13 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
             error "Unable to create slot signature using remote signer",
                   validator = shortLog(validators[index]),
                   error_msg = sigRes.error()
-            DutyAndProof.init(item.epoch, dependentRoot, item.duty,
+            DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
                               none[ValidatorSig]())
           else:
-            DutyAndProof.init(item.epoch, dependentRoot, item.duty,
+            DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
                               some(sigRes.get()))
         else:
-          DutyAndProof.init(item.epoch, dependentRoot, item.duty,
+          DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
                             none[ValidatorSig]())
 
       var validatorDuties = vc.attesters.getOrDefault(item.duty.pubkey)
@@ -208,6 +233,9 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
         except ValidatorApiError:
           error "Unable to get sync committee duties", epoch = epoch
           return 0
+        except CancelledError as exc:
+          debug "Sync committee duties processing was interrupted"
+          raise exc
         except CatchableError as exc:
           error "Unexpected error occurred while getting sync committee duties",
                 epoch = epoch, err_name = exc.name, err_msg = exc.msg
@@ -247,7 +275,7 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
       res
 
   if len(addOrReplaceItems) > 0:
-    var pending: seq[Future[SignatureResult]]
+    var pendingRequests: seq[Future[SignatureResult]]
     var validators: seq[AttachedValidator]
     let sres = vc.getCurrentSlot()
     if sres.isSome():
@@ -258,12 +286,20 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
           genesisRoot,
           sres.get(),
           getSubcommitteeIndex(item.duty.validator_sync_committee_index))
-        pending.add(future)
+        pendingRequests.add(future)
         validators.add(validator)
 
-      await allFutures(pending)
+    try:
+      await allFutures(pendingRequests)
+    except CancelledError as exc:
+      var pendingCancel: seq[Future[void]]
+      for future in pendingRequests:
+        if not(future.finished()):
+          pendingCancel.add(future.cancelAndWait())
+      await allFutures(pendingCancel)
+      raise exc
 
-    for index, fut in pending:
+    for index, fut in pendingRequests:
       let item = addOrReplaceItems[index]
       let dap =
         if fut.done():
@@ -363,24 +399,30 @@ proc pollForSyncCommitteeDuties* (vc: ValidatorClientRef) {.async.} =
 
     if vc.attachedValidators.count() != 0:
       var counts: array[2, tuple[epoch: Epoch, count: int]]
-      counts[0] = (currentEpoch, await vc.pollForSyncCommitteeDuties(currentEpoch))
-      counts[1] = (nextEpoch, await vc.pollForSyncCommitteeDuties(nextEpoch))
+      counts[0] =
+        (currentEpoch, await vc.pollForSyncCommitteeDuties(currentEpoch))
+      counts[1] =
+        (nextEpoch, await vc.pollForSyncCommitteeDuties(nextEpoch))
 
       if (counts[0].count == 0) and (counts[1].count == 0):
-        debug "No new sync committee member's duties received", slot = currentSlot
+        debug "No new sync committee member's duties received",
+              slot = currentSlot
 
       let subscriptions =
         block:
           var res: seq[RestSyncCommitteeSubscription]
           for item in counts:
             if item.count > 0:
-              let subscriptionsInfo = vc.syncMembersSubscriptionInfoForEpoch(item.epoch)
+              let subscriptionsInfo =
+                vc.syncMembersSubscriptionInfoForEpoch(item.epoch)
               for subInfo in subscriptionsInfo:
                 let sub = RestSyncCommitteeSubscription(
                   validator_index: subInfo.validator_index,
-                  sync_committee_indices: subInfo.validator_sync_committee_indices,
-                  until_epoch: (currentEpoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD -
-                    currentEpoch.since_sync_committee_period_start()).Epoch
+                  sync_committee_indices:
+                    subInfo.validator_sync_committee_indices,
+                  until_epoch:
+                    (currentEpoch + EPOCHS_PER_SYNC_COMMITTEE_PERIOD -
+                      currentEpoch.since_sync_committee_period_start()).Epoch
                 )
                 res.add(sub)
           res
@@ -422,6 +464,9 @@ proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
       except ValidatorApiError:
         debug "Unable to get proposer duties", slot = currentSlot,
               epoch = currentEpoch
+      except CancelledError as exc:
+        debug "Proposer duties processing was interrupted"
+        raise exc
       except CatchableError as exc:
         debug "Unexpected error occured while getting proposer duties",
               slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
@@ -479,7 +524,7 @@ template checkAndRestart(serviceLoop: DutiesServiceLoop,
       debug "The loop ended unexpectedly with an error",
             error_name = error.name, error_msg = error.msg, loop = serviceLoop
     elif future.cancelled():
-      debug "The loop is interrupted unexpectedly", loop = serviceLoop
+      debug "The loop was interrupted", loop = serviceLoop
     else:
       debug "The loop is finished unexpectedly without an error",
             loop = serviceLoop
@@ -487,40 +532,53 @@ template checkAndRestart(serviceLoop: DutiesServiceLoop,
 
 proc mainLoop(service: DutiesServiceRef) {.async.} =
   service.state = ServiceState.Running
+  debug "Service started"
 
-  try:
-    var
-      fut1 = service.attesterDutiesLoop()
-      fut2 = service.proposerDutiesLoop()
-      fut3 = service.validatorIndexLoop()
-      fut4 = service.syncCommitteeeDutiesLoop()
+  var
+    attestFut = service.attesterDutiesLoop()
+    proposeFut = service.proposerDutiesLoop()
+    indicesFut = service.validatorIndexLoop()
+    syncFut = service.syncCommitteeeDutiesLoop()
 
-    while true:
-      var breakLoop = false
+  while true:
+    # This loop could look much more nicer/better, when
+    # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
+    # become safe to combine loops, breaks and exception handlers.
+    let breakLoop =
       try:
-        discard await race(fut1, fut2, fut3, fut4)
+        discard await race(attestFut, proposeFut, indicesFut, syncFut)
+        checkAndRestart(AttesterLoop, attestFut, service.attesterDutiesLoop())
+        checkAndRestart(ProposerLoop, proposeFut, service.proposerDutiesLoop())
+        checkAndRestart(IndicesLoop, indicesFut, service.validatorIndexLoop())
+        checkAndRestart(SyncCommitteeLoop,
+                        syncFut, service.syncCommitteeeDutiesLoop())
+        false
       except CancelledError:
-        if not(fut1.finished()): fut1.cancel()
-        if not(fut2.finished()): fut2.cancel()
-        if not(fut3.finished()): fut3.cancel()
-        if not(fut4.finished()): fut4.cancel()
-        await allFutures(fut1, fut2, fut3, fut4)
-        breakLoop = true
+        debug "Service interrupted"
+        var pending: seq[Future[void]]
+        if not(attestFut.finished()):
+          pending.add(attestFut.cancelAndWait())
+        if not(proposeFut.finished()):
+          pending.add(proposeFut.cancelAndWait())
+        if not(indicesFut.finished()):
+          pending.add(indicesFut.cancelAndWait())
+        if not(syncFut.finished()):
+          pending.add(syncFut.cancelAndWait())
+        await allFutures(pending)
+        true
+      except CatchableError as exc:
+        warn "Service crashed with unexpected error", err_name = exc.name,
+             err_msg = exc.msg
+        true
 
-      if breakLoop:
-        break
-
-      checkAndRestart(AttesterLoop, fut1, service.attesterDutiesLoop())
-      checkAndRestart(ProposerLoop, fut2, service.proposerDutiesLoop())
-      checkAndRestart(IndicesLoop, fut3, service.validatorIndexLoop())
-      checkAndRestart(SyncCommitteeLoop, fut4, service.syncCommitteeeDutiesLoop())
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
+    if breakLoop:
+      break
 
 proc init*(t: typedesc[DutiesServiceRef],
            vc: ValidatorClientRef): Future[DutiesServiceRef] {.async.} =
-  var res = DutiesServiceRef(client: vc, state: ServiceState.Initialized)
+  logScope: service = ServiceName
+  let res = DutiesServiceRef(name: ServiceName,
+                             client: vc, state: ServiceState.Initialized)
   debug "Initializing service"
   # We query for indices first, to avoid empty queries for duties.
   await vc.pollForValidatorIndices()

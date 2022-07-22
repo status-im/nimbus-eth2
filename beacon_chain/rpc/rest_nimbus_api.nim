@@ -13,7 +13,7 @@ import
   ./rest_utils,
   ../eth1/eth1_monitor,
   ../validators/validator_duties,
-  ../spec/forks,
+  ../spec/[forks, beacon_time],
   ../beacon_node, ../nimbus_binary_common
 
 export rest_utils
@@ -262,6 +262,61 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       return RestApiResponse.jsonError(Http503,
         "Compile with '-d:chronosFutureTracking' to get this request working")
+
+  router.api(MethodPost, "/nimbus/v1/validator/activity/{epoch}") do (
+    epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let indexList =
+      block:
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+        let dres = decodeBody(seq[RestValidatorIndex], contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidValidatorIndexValueError,
+                                           $dres.error())
+        var res: HashSet[ValidatorIndex]
+        let items = dres.get()
+        for item in items:
+          let vres = item.toValidatorIndex()
+          if vres.isErr():
+            case vres.error()
+            of ValidatorIndexError.TooHighValue:
+              return RestApiResponse.jsonError(Http400,
+                                               TooHighValidatorIndexValueError)
+            of ValidatorIndexError.UnsupportedValue:
+              return RestApiResponse.jsonError(Http500,
+                                            UnsupportedValidatorIndexValueError)
+          res.incl(vres.get())
+        if len(res) == 0:
+          return RestApiResponse.jsonError(Http400,
+                                           EmptyValidatorIndexArrayError)
+        res
+    let qepoch =
+      block:
+        if epoch.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                           $epoch.error())
+        let
+          res = epoch.get()
+          wallEpoch = node.currentSlot().epoch()
+          nextEpoch =
+            if wallEpoch == FAR_FUTURE_EPOCH:
+              wallEpoch
+            else:
+              wallEpoch + 1
+          prevEpoch = get_previous_epoch(wallEpoch)
+        if (res < prevEpoch) or (res > nextEpoch):
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                    "Requested epoch is more than one epoch from current epoch")
+        res
+    let response = indexList.mapIt(
+      RestActivityItem(
+        index: it,
+        epoch: qepoch,
+        active: node.attestationPool[].validatorSeenAtEpoch(qepoch, it)
+      )
+    )
+    return RestApiResponse.jsonResponse(response)
 
   router.api(MethodGet, "/nimbus/v1/debug/gossip/peers") do (
     ) -> RestApiResponse:

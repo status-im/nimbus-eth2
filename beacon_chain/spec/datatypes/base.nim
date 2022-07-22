@@ -61,7 +61,7 @@
 {.push raises: [Defect].}
 
 import
-  std/[macros, hashes, strutils, tables, typetraits],
+  std/[macros, hashes, sets, strutils, tables, typetraits],
   stew/[assign2, byteutils, results],
   chronicles,
   json_serialization,
@@ -93,6 +93,8 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
+
+  DEPOSIT_CONTRACT_LIMIT* = Limit(1'u64 shl DEPOSIT_CONTRACT_TREE_DEPTH)
 
 template maxSize*(n: int) {.pragma.}
 
@@ -508,33 +510,6 @@ type
 
     flags*: set[RewardFlags]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_total_balance
-  TotalBalances* = object
-    # The total effective balance of all active validators during the _current_
-    # epoch.
-    current_epoch_raw*: Gwei
-    # The total effective balance of all active validators during the _previous_
-    # epoch.
-    previous_epoch_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _current_ epoch.
-    current_epoch_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _current_ epoch and agreed with the state about the beacon block at the
-    # first slot of the _current_ epoch.
-    current_epoch_target_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _previous_ epoch.
-    previous_epoch_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _previous_ epoch and agreed with the state about the beacon block at the
-    # first slot of the _previous_ epoch.
-    previous_epoch_target_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _previous_ epoch and agreed with the state about the beacon block at the
-    # time of attestation.
-    previous_epoch_head_attesters_raw*: Gwei
-
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#domain-types
   DOMAIN_BEACON_PROPOSER* = DomainType([byte 0x00, 0x00, 0x00, 0x00])
@@ -797,12 +772,25 @@ func shortLog*(v: SomeAttestation): auto =
     signature: shortLog(v.signature)
   )
 
+template asTrusted*(x: Attestation): TrustedAttestation =
+  isomorphicCast[TrustedAttestation](x)
+
 func shortLog*(v: SomeIndexedAttestation): auto =
   (
     attestating_indices: v.attesting_indices,
     data: shortLog(v.data),
     signature: shortLog(v.signature)
   )
+
+iterator getValidatorIndices*(attester_slashing: SomeAttesterSlashing): uint64 =
+  template attestation_1(): auto = attester_slashing.attestation_1
+  template attestation_2(): auto = attester_slashing.attestation_2
+
+  let attestation_2_indices = toHashSet(attestation_2.attesting_indices.asSeq)
+  for validator_index in attestation_1.attesting_indices.asSeq:
+    if validator_index notin attestation_2_indices:
+      continue
+    yield validator_index
 
 func shortLog*(v: SomeAttesterSlashing): auto =
   (
@@ -860,6 +848,23 @@ func init*(T: type GraffitiBytes, input: string): GraffitiBytes
     if input.len > MAX_GRAFFITI_SIZE:
       raise newException(ValueError, "The graffiti value should be 32 characters or less")
     distinctBase(result)[0 ..< input.len] = toBytes(input)
+
+func init*(
+    T: type Attestation,
+    indices_in_committee: openArray[uint64],
+    committee_len: int,
+    data: AttestationData,
+    signature: ValidatorSig): Result[T, cstring] =
+  var bits = CommitteeValidatorsBits.init(committee_len)
+  for index_in_committee in indices_in_committee:
+    if index_in_committee >= committee_len.uint64: return err("Invalid index for committee")
+    bits.setBit index_in_committee
+
+  ok Attestation(
+    aggregation_bits: bits,
+    data: data,
+    signature: signature
+  )
 
 func defaultGraffitiBytes*(): GraffitiBytes =
   const graffitiBytes =

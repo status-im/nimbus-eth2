@@ -121,7 +121,7 @@ type
     slot*: Slot
     beacon_block_root*: Eth2Digest
     subcommittee_index*: uint64
-    aggregation_bits*: SyncCommitteeAggregationBits ##\
+    aggregation_bits*: SyncCommitteeAggregationBits
     signature*: ValidatorSig
 
   RestContributionAndProof* = object
@@ -233,6 +233,11 @@ type
     p2p_addresses*: seq[string]
     discovery_addresses*: seq[string]
     metadata*: RestMetadata
+
+  RestActivityItem* = object
+    index*: ValidatorIndex
+    epoch*: Epoch
+    active*: bool
 
   RestPublishedSignedBeaconBlock* = distinct ForkedSignedBeaconBlock
 
@@ -560,7 +565,7 @@ type
   GetStateValidatorBalancesResponse* = DataEnclosedObject[seq[RestValidatorBalance]]
   GetStateValidatorResponse* = DataEnclosedObject[RestValidator]
   GetStateValidatorsResponse* = DataEnclosedObject[seq[RestValidator]]
-  GetSyncCommitteeDutiesResponse* = DataRootEnclosedObject[seq[RestSyncCommitteeDuty]]
+  GetSyncCommitteeDutiesResponse* = DataEnclosedObject[seq[RestSyncCommitteeDuty]]
   GetSyncingStatusResponse* = DataEnclosedObject[RestSyncInfo]
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]
@@ -568,7 +573,8 @@ type
   ProduceBlockResponse* = DataEnclosedObject[phase0.BeaconBlock]
   ProduceBlockResponseV2* = ForkedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
-  SubmitBlindedBlockResponse* = DataEnclosedObject[SignedBuilderBid]
+  SubmitBlindedBlockResponse* = DataEnclosedObject[bellatrix.ExecutionPayload]
+  GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)

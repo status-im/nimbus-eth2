@@ -14,9 +14,10 @@ import
   eth/keys, taskpools,
   ../beacon_chain/beacon_clock,
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
-  ../beacon_chain/gossip_processing/[block_processor, consensus_manager],
+  ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
-    attestation_pool, blockchain_dag, block_quarantine, block_clearance],
+    attestation_pool, blockchain_dag, block_quarantine, block_clearance,
+    consensus_manager],
   ../beacon_chain/eth1/eth1_monitor,
   ./testutil, ./testdbutil, ./testblockutil
 
@@ -44,11 +45,12 @@ suite "Block processor" & preset():
       getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
       processor = BlockProcessor.new(
         false, "", "", keys.newRng(), taskpool, consensusManager,
-        validatorMonitor, getTimeFn)
+        validatorMonitor, getTimeFn, safeSlotsToImportOptimistically = 128)
 
   test "Reverse order block add & get" & preset():
     let missing = processor[].storeBlock(
-      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2)
+      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2,
+      payloadValid = true)
     check: missing.error == BlockError.MissingParent
 
     check:
@@ -58,7 +60,8 @@ suite "Block processor" & preset():
 
     let
       status = processor[].storeBlock(
-        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1)
+        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1,
+        payloadValid = true)
       b1Get = dag.getBlockRef(b1.root)
 
     check:

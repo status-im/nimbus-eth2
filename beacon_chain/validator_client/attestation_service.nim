@@ -9,7 +9,10 @@ import std/sets
 import chronicles
 import "."/[common, api, block_service]
 
-logScope: service = "attestation_service"
+const
+  ServiceName = "attestation_service"
+
+logScope: service = ServiceName
 
 type
   AggregateItem* = object
@@ -28,14 +31,22 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
       res.get()
   let fork = vc.forkAtEpoch(adata.slot.epoch)
 
-  # TODO: signing_root is recomputed in signBlockProposal just after,
+  doAssert(validator.index.isSome())
+  let vindex = validator.index.get()
+
+  if not(vc.doppelgangerCheck(validator)):
+    info "Attestation has not been served (doppelganger check still active)",
+         slot = duty.data.slot, validator = shortLog(validator),
+         validator_index = vindex
+    return false
+
+  # TODO: signing_root is recomputed in getAttestationSignature just after,
   # but not for locally attached validators.
   let signingRoot =
     compute_attestation_signing_root(
       fork, vc.beaconGenesis.genesis_validators_root, adata)
   let attestationRoot = adata.hash_tree_root()
 
-  let vindex = validator.index.get()
   let notSlashable = vc.attachedValidators.slashingProtection
                        .registerAttestation(vindex, validator.pubkey,
                                             adata.source.epoch,
@@ -47,17 +58,28 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
          validator_index = vindex, badVoteDetails = $notSlashable.error
     return false
 
-  let attestation =
-    block:
-      let res = await validator.produceAndSignAttestation(adata,
-        int(duty.data.committee_length),
-        Natural(duty.data.validator_committee_index),
-        fork, vc.beaconGenesis.genesis_validators_root)
-      if res.isErr():
-        error "Unable to sign attestation", validator = shortLog(validator),
-              error_msg = res.error()
+  let attestation = block:
+    let signature =
+      try:
+        let res = await validator.getAttestationSignature(
+          fork, vc.beaconGenesis.genesis_validators_root, adata)
+        if res.isErr():
+          error "Unable to sign attestation", validator = shortLog(validator),
+                error_msg = res.error()
+          return false
+        res.get()
+      except CancelledError as exc:
+        debug "Attestation signature process was interrupted"
+        raise exc
+      except CatchableError as exc:
+        error "An unexpected error occurred while signing attestation",
+              err_name = exc.name, err_msg = exc.msg
         return false
-      res.get()
+
+    Attestation.init(
+      [duty.data.validator_committee_index],
+      int(duty.data.committee_length), adata, signature).expect(
+        "data validity checked earlier")
 
   debug "Sending attestation", attestation = shortLog(attestation),
         validator = shortLog(validator), validator_index = vindex,
@@ -73,6 +95,9 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
             validator = shortLog(validator),
             validator_index = vindex
       return false
+    except CancelledError as exc:
+      debug "Attestation publishing process was interrupted"
+      raise exc
     except CatchableError as exc:
       error "Unexpected error occured while publishing attestation",
             attestation = shortLog(attestation),
@@ -103,15 +128,23 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
     vc = service.client
     genesisRoot = vc.beaconGenesis.genesis_validators_root
     slot = proof.aggregate.data.slot
+    vindex = validator.index.get()
     fork = vc.forkAtEpoch(slot.epoch)
+
+  if not(vc.doppelgangerCheck(validator)):
+    info "Aggregate attestation has not been served " &
+         "(doppelganger check still active)",
+         slot = slot, validator = shortLog(validator),
+         validator_index = vindex
+    return false
 
   debug "Signing aggregate", validator = shortLog(validator),
          attestation = shortLog(proof.aggregate), fork = fork
 
   let signature =
-    block:
-      let res = await signAggregateAndProof(validator, proof, fork,
-                                            genesisRoot)
+    try:
+      let res = await validator.getAggregateAndProofSignature(
+        fork, genesisRoot, proof)
       if res.isErr():
         error "Unable to sign aggregate and proof using remote signer",
               validator = shortLog(validator),
@@ -119,10 +152,19 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
               error_msg = res.error()
         return false
       res.get()
+    except CancelledError as exc:
+      debug "Aggregated attestation signing process was interrupted"
+      raise exc
+    except CatchableError as exc:
+      error "Unexpected error occured while signing aggregated attestation",
+            validator = shortLog(validator),
+            attestation = shortLog(proof.aggregate),
+            validator_index = vindex,
+            err_name = exc.name, err_msg = exc.msg
+      return false
+
   let signedProof = SignedAggregateAndProof(message: proof,
                                             signature: signature)
-
-  let vindex = validator.index.get()
 
   debug "Sending aggregated attestation", fork = fork,
         attestation = shortLog(signedProof.message.aggregate),
@@ -138,6 +180,9 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
             validator = shortLog(validator),
             validator_index = vindex
       return false
+    except CancelledError as exc:
+      debug "Publish aggregate and proofs request was interrupted"
+      raise exc
     except CatchableError as exc:
       error "Unexpected error occured while publishing aggregated attestation",
             attestation = shortLog(signedProof.message.aggregate),
@@ -190,11 +235,12 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
       var errored, succeed, failed = 0
       try:
         await allFutures(pendingAttestations)
-      except CancelledError:
+      except CancelledError as exc:
         for fut in pendingAttestations:
           if not(fut.finished()):
             fut.cancel()
         await allFutures(pendingAttestations)
+        raise exc
 
       for future in pendingAttestations:
         if future.done():
@@ -254,6 +300,9 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
         error "Unable to get aggregated attestation data", slot = slot,
               attestation_root = shortLog(attestationRoot)
         return
+      except CancelledError as exc:
+        debug "Aggregated attestation request was interrupted"
+        raise exc
       except CatchableError as exc:
         error "Unexpected error occured while getting aggregated attestation",
               slot = slot, attestation_root = shortLog(attestationRoot),
@@ -277,11 +326,12 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
         var errored, succeed, failed = 0
         try:
           await allFutures(pendingAggregates)
-        except CancelledError:
+        except CancelledError as exc:
           for fut in pendingAggregates:
             if not(fut.finished()):
               fut.cancel()
           await allFutures(pendingAggregates)
+          raise exc
 
         for future in pendingAggregates:
           if future.done():
@@ -315,6 +365,9 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
     await vc.waitForBlockPublished(slot).wait(nanoseconds(timeout.nanoseconds))
     let dur = Moment.now() - startTime
     debug "Block proposal awaited", slot = slot, duration = dur
+  except CancelledError as exc:
+    debug "Block proposal waiting was interrupted"
+    raise exc
   except AsyncTimeoutError:
     let dur = Moment.now() - startTime
     debug "Block was not produced in time", slot = slot, duration = dur
@@ -331,6 +384,9 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
       error "Unable to proceed attestations", slot = slot,
             committee_index = committee_index, duties_count = len(duties)
       return
+    except CancelledError as exc:
+      debug "Publish attestation request was interrupted"
+      raise exc
     except CatchableError as exc:
       error "Unexpected error while producing attestations", slot = slot,
             committee_index = committee_index, duties_count = len(duties),
@@ -367,24 +423,39 @@ proc spawnAttestationTasks(service: AttestationServiceRef,
 proc mainLoop(service: AttestationServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
-  try:
-    while true:
-      let sleepTime =
-        attestationSlotOffset + vc.beaconClock.durationToNextSlot()
+  debug "Service started"
 
-      let sres = vc.getCurrentSlot()
-      if sres.isSome():
-        let currentSlot = sres.get()
-        service.spawnAttestationTasks(currentSlot)
-      await sleepAsync(sleepTime)
-  except CatchableError as exc:
-    warn "Service crashed with unexpected error", err_name = exc.name,
-         err_msg = exc.msg
+  while true:
+    # This loop could look much more nicer/better, when
+    # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
+    # become safe to combine loops, breaks and exception handlers.
+    let breakLoop =
+      try:
+        let sleepTime =
+          attestationSlotOffset + vc.beaconClock.durationToNextSlot()
+        let sres = vc.getCurrentSlot()
+        if sres.isSome():
+          let currentSlot = sres.get()
+          service.spawnAttestationTasks(currentSlot)
+        await sleepAsync(sleepTime)
+        false
+      except CancelledError:
+        debug "Service interrupted"
+        true
+      except CatchableError as exc:
+        warn "Service crashed with unexpected error", err_name = exc.name,
+             err_msg = exc.msg
+        true
+
+    if breakLoop:
+      break
 
 proc init*(t: typedesc[AttestationServiceRef],
            vc: ValidatorClientRef): Future[AttestationServiceRef] {.async.} =
+  logScope: service = ServiceName
+  let res = AttestationServiceRef(name: ServiceName,
+                                  client: vc, state: ServiceState.Initialized)
   debug "Initializing service"
-  var res = AttestationServiceRef(client: vc, state: ServiceState.Initialized)
   return res
 
 proc start*(service: AttestationServiceRef) =

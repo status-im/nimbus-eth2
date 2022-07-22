@@ -1,3 +1,25 @@
+2022-06-29 v22.6.1
+==================
+
+Nimbus `v22.6.1` is a `low-urgency` release which comes pre-configured with the correct TTD value for the Sepolia network and improves the behavior of Nimbus in merge testnets.
+
+### Improvement
+
+* Allow testing the Engine API JWT credentials even before the merge.
+  https://github.com/status-im/nimbus-eth2/pull/3786
+
+### Fixes
+
+* Lack of detection of the connected execution client's network when attached to the Engine API port.
+  https://github.com/status-im/nimbus-eth2/pull/3804
+
+* Logic error leading to a premature start of the `exchange transition configuration` Engine API requests.
+  https://github.com/status-im/nimbus-eth2/pull/3809
+
+* Inappropriate inclusion of the `execution_optimistic` field in REST responses before the merge.
+  https://github.com/status-im/nimbus-eth2/pull/3807
+
+
 2022-06-20 v22.6.0
 ==================
 

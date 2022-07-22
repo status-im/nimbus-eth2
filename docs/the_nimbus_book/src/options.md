@@ -4,7 +4,7 @@ Command line options allow you to customize the way your beacon node operates.
 
 You pass options to the beacon node by adding them to the command line. For example, if you want to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, run:
 
-```
+```sh
 ./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
 ```
 
@@ -12,7 +12,7 @@ You pass options to the beacon node by adding them to the command line. For exam
 
 To see the full list of command line options availabe to you, with descriptions, run:
 
-```
+```sh
 build/nimbus_beacon_node --help
 ```
 
@@ -123,9 +123,8 @@ sub-commands should appear in a section of the file matching the sub-command nam
 
 Here is an example config file illustrating all of the above:
 
-```
-# nimbus-eth2-config.toml
-
+```admonish example title='nimbus-eth2-config.toml'
+# Comments look like this
 doppelganger-detection = true
 web3-url = ["ws://192.168.1.10:8000"]
 num-threads = 0

@@ -1,6 +1,6 @@
-# Monitor attestation performance
+# Analyze attestation performance
 
-`ncli_db validatorPerf` is an advanced tool that helps you monitor the performance of your validator over time.
+`ncli_db validatorPerf` is an advanced tool that helps you analyze the performance of your validator over time.
 
 The tool requires that you [built nimbus from source](./build.md).
 
@@ -10,14 +10,14 @@ Make sure you're in the `nimbus-eth2` repository.
 
 ### 1. Build ncli_db
 The first step is to build `ncli_db`:
-```
+```sh
 make ncli_db
 ```
 
 ### 2. View options
 
 To view the options available to you, run:
-```
+```sh
 build/ncli_db --help
 ```
 
@@ -55,7 +55,7 @@ Use `start-slot` and `slots` to restrict the analysis on a specific block range.
 ### 3. Run
 
 To view the performance of all validators on Prater so far across the entire block range stored in your database, run:
-```
+```sh
 build/ncli_db validatorPerf \
 --network=prater \
 --db=build/data/shared_prater_0/db
@@ -74,7 +74,7 @@ validator_index,attestation_hits,attestation_misses,head_attestation_hits,head_a
 ### 4. Adjust to target a specific block range
 
 To restrict the analysis to the performance between slots 0 and 128, say, run:
-```
+```sh
 build/ncli_db validatorPerf \
 --network=prater \
 --db=build/data/shared_prater_0/db \

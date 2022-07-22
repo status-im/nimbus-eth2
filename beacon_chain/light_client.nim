@@ -20,7 +20,7 @@ import
   ./sync/light_client_manager,
   "."/[beacon_clock, conf_light_client]
 
-export eth2_network, conf_light_client
+export LightClientFinalizationMode, eth2_network, conf_light_client
 
 logScope: topics = "lightcl"
 
@@ -60,7 +60,8 @@ proc createLightClient(
     cfg: RuntimeConfig,
     forkDigests: ref ForkDigests,
     getBeaconTime: GetBeaconTimeFn,
-    genesis_validators_root: Eth2Digest
+    genesis_validators_root: Eth2Digest,
+    finalizationMode: LightClientFinalizationMode
 ): LightClient =
   let lightClient = LightClient(
     network: network,
@@ -85,7 +86,7 @@ proc createLightClient(
 
   lightClient.processor = LightClientProcessor.new(
     dumpEnabled, dumpDirInvalid, dumpDirIncoming,
-    cfg, genesis_validators_root,
+    cfg, genesis_validators_root, finalizationMode,
     lightClient.store, getBeaconTime, getTrustedBlockRoot,
     onStoreInitialized, onFinalizedHeader, onOptimisticHeader)
 
@@ -141,12 +142,13 @@ proc createLightClient*(
     cfg: RuntimeConfig,
     forkDigests: ref ForkDigests,
     getBeaconTime: GetBeaconTimeFn,
-    genesis_validators_root: Eth2Digest
+    genesis_validators_root: Eth2Digest,
+    finalizationMode: LightClientFinalizationMode
 ): LightClient =
   createLightClient(
     network, rng,
     config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-    cfg, forkDigests, getBeaconTime, genesis_validators_root)
+    cfg, forkDigests, getBeaconTime, genesis_validators_root, finalizationMode)
 
 proc createLightClient*(
     network: Eth2Node,
@@ -155,12 +157,13 @@ proc createLightClient*(
     cfg: RuntimeConfig,
     forkDigests: ref ForkDigests,
     getBeaconTime: GetBeaconTimeFn,
-    genesis_validators_root: Eth2Digest
+    genesis_validators_root: Eth2Digest,
+    finalizationMode: LightClientFinalizationMode
 ): LightClient =
   createLightClient(
     network, rng,
     dumpEnabled = false, dumpDirInvalid = ".", dumpDirIncoming = ".",
-    cfg, forkDigests, getBeaconTime, genesis_validators_root)
+    cfg, forkDigests, getBeaconTime, genesis_validators_root, finalizationMode)
 
 proc start*(lightClient: LightClient) =
   notice "Starting light client",
@@ -183,7 +186,7 @@ import
 from
   ./gossip_processing/eth2_processor
 import
-  lightClientFinalityUpdateValidator, lightClientOptimisticUpdateValidator
+  processLightClientFinalityUpdate, processLightClientOptimisticUpdate
 
 declareCounter beacon_light_client_finality_updates_received,
   "Number of valid LC finality updates processed by this node"
@@ -287,12 +290,12 @@ proc installMessageValidators*(
     lightClient.network.addValidator(
       getLightClientFinalityUpdateTopic(digest),
       proc(msg: altair.LightClientFinalityUpdate): ValidationResult =
-        validate(msg, lightClientFinalityUpdateValidator))
+        validate(msg, processLightClientFinalityUpdate))
 
     lightClient.network.addValidator(
       getLightClientOptimisticUpdateTopic(digest),
       proc(msg: altair.LightClientOptimisticUpdate): ValidationResult =
-        validate(msg, lightClientOptimisticUpdateValidator))
+        validate(msg, processLightClientOptimisticUpdate))
 
 const lightClientTopicParams = TopicParams.init()
 static: lightClientTopicParams.validateParameters().tryGet()

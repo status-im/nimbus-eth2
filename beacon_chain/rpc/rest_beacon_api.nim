@@ -12,7 +12,6 @@ import
   ./rest_utils,
   ../beacon_node, ../networking/eth2_network,
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
-  ../validators/validator_duties,
   ../spec/[eth2_merkleization, forks, network, validator],
   ../spec/datatypes/[phase0, altair],
   ./state_ttl_cache
@@ -346,7 +345,6 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       let vindex =
         block:
-          let vid = validator_id.get()
           case vid.kind
           of ValidatorQueryKind.Key:
             let optIndices = keysToIndices(node.restKeysCache, state, [vid.key])
@@ -744,7 +742,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
   router.api(MethodPost, "/eth/v1/beacon/blocks") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    let forkedBlock =
+    let res =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
@@ -760,12 +758,12 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         withBlck(forked):
           blck.root = hash_tree_root(blck.message)
-        forked
+          await node.router.routeSignedBeaconBlock(blck)
 
-    let res = await node.sendBeaconBlock(forkedBlock)
     if res.isErr():
-      return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-    if not(res.get()):
+      return RestApiResponse.jsonError(
+        Http503, BeaconNodeInSyncError, $res.error())
+    if res.get().isNone():
       return RestApiResponse.jsonError(Http202, BlockValidationError)
 
     return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
@@ -908,18 +906,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400,
                                            InvalidCommitteeIndexValueError,
                                            $rindex.error())
-        some(rindex.get())
+        Opt.some(rindex.get())
       else:
-        none[CommitteeIndex]()
+        Opt.none(CommitteeIndex)
     let vslot =
       if slot.isSome():
         let rslot = slot.get()
         if rslot.isErr():
           return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                            $rslot.error())
-        some(rslot.get())
+        Opt.some(rslot.get())
       else:
-        none[Slot]()
+        Opt.none(Slot)
     var res: seq[Attestation]
     for item in node.attestationPool[].attestations(vslot, vindex):
       res.add(item)
@@ -945,7 +943,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         var res: seq[Future[SendResult]]
         for attestation in attestations:
-          res.add(node.sendAttestation(attestation))
+          res.add(node.router.routeAttestation(attestation))
         res
     let failures =
       block:
@@ -997,7 +995,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            InvalidAttesterSlashingObjectError,
                                            $dres.error())
         dres.get()
-    let res = await node.sendAttesterSlashing(slashing)
+    let res = await node.router.routeAttesterSlashing(slashing)
     if res.isErr():
       return RestApiResponse.jsonError(Http400,
                                        AttesterSlashingValidationError,
@@ -1029,7 +1027,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            InvalidProposerSlashingObjectError,
                                            $dres.error())
         dres.get()
-    let res = await node.sendProposerSlashing(slashing)
+    let res = await node.router.routeProposerSlashing(slashing)
     if res.isErr():
       return RestApiResponse.jsonError(Http400,
                                        ProposerSlashingValidationError,
@@ -1049,7 +1047,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                       InvalidSyncCommitteeSignatureMessageError)
         dres.get()
 
-    let results = await node.sendSyncCommitteeMessages(messages)
+    let results = await node.router.routeSyncCommitteeMessages(messages)
 
     let failures =
       block:
@@ -1092,7 +1090,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            InvalidVoluntaryExitObjectError,
                                            $dres.error())
         dres.get()
-    let res = await node.sendVoluntaryExit(exit)
+    let res = await node.router.routeSignedVoluntaryExit(exit)
     if res.isErr():
       return RestApiResponse.jsonError(Http400,
                                        VoluntaryExitValidationError,

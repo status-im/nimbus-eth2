@@ -18,6 +18,7 @@ import
   std/[algorithm, math, sets, tables],
   # Status libraries
   stew/[bitops2, byteutils, endians2, objects],
+  chronicles,
   # Internal
   ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, ssz_codec]
@@ -26,6 +27,18 @@ import
 # fails to compile if the export is not done here also
 export
   forks, eth2_merkleization, ssz_codec
+
+type FinalityCheckpoints* = object
+  justified*: Checkpoint
+  finalized*: Checkpoint
+
+func shortLog*(v: FinalityCheckpoints): auto =
+  (
+    justified: shortLog(v.justified),
+    finalized: shortLog(v.finalized)
+  )
+
+chronicles.formatIt FinalityCheckpoints: it.shortLog
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#integer_squareroot
 func integer_squareroot*(n: SomeInteger): SomeInteger =
@@ -88,6 +101,12 @@ func get_current_epoch*(state: ForkedHashedBeaconState): Epoch =
   ## Return the current epoch.
   withState(state): get_current_epoch(state.data)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_previous_epoch
+func get_previous_epoch*(
+    state: ForkyBeaconState | ForkedHashedBeaconState): Epoch =
+  ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
+  get_previous_epoch(get_current_epoch(state))
+
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Returns the randao mix at a recent ``epoch``.
@@ -110,6 +129,10 @@ func compute_domain*(
     fork_version: Version,
     genesis_validators_root: Eth2Digest = ZERO_HASH): Eth2Domain =
   ## Return the domain for the ``domain_type`` and ``fork_version``.
+  #
+  # TODO Can't be used as part of a const/static expression:
+  # https://github.com/nim-lang/Nim/issues/15952
+  # https://github.com/nim-lang/Nim/issues/19969
   let fork_data_root =
     compute_fork_data_root(fork_version, genesis_validators_root)
   result[0..3] = domain_type.data
@@ -288,11 +311,13 @@ func is_merge_transition_complete*(state: bellatrix.BeaconState): bool =
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#helpers
-func is_execution_block*(
-  body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
-        bellatrix.SigVerifiedBeaconBlockBody): bool =
-  const defaultBellatrixExecutionPayload = default(bellatrix.ExecutionPayload)
-  body.execution_payload != defaultBellatrixExecutionPayload
+func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
+  when typeof(blck).toFork >= BeaconBlockFork.Bellatrix:
+    const defaultExecutionPayload =
+      default(typeof(blck.body.execution_payload))
+    blck.body.execution_payload != defaultExecutionPayload
+  else:
+    false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(

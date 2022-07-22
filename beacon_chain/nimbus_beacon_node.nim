@@ -14,6 +14,7 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   eth/keys,
+  ./consensus_object_pools/vanity_logs/pandas,
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[engine_authentication, weak_subjectivity],
@@ -29,8 +30,6 @@ from
   libp2p/protocols/pubsub/gossipsub
 import
   TopicParams, validateParameters, init
-
-from "."/consensus_object_pools/vanity_logs/pandas import getPandas
 
 when defined(windows):
   import winlean
@@ -145,6 +144,22 @@ versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
 
 logScope: topics = "beacnde"
 
+func getPandas(stdoutKind: StdoutLogKind): VanityLogs =
+  case stdoutKind
+  of StdoutLogKind.Auto: raiseAssert "inadmissable here"
+  of StdoutLogKind.Colors:
+    VanityLogs(
+      onMergeTransitionBlock:          color🐼,
+      onFinalizedMergeTransitionBlock: blink🐼)
+  of StdoutLogKind.NoColors:
+    VanityLogs(
+      onMergeTransitionBlock:          mono🐼,
+      onFinalizedMergeTransitionBlock: mono🐼)
+  of StdoutLogKind.Json, StdoutLogKind.None:
+    VanityLogs(
+      onMergeTransitionBlock:          (proc() = notice "🐼 Proof of Stake Activated 🐼"),
+      onFinalizedMergeTransitionBlock: (proc() = notice "🐼 Proof of Stake Finalized 🐼"))
+
 proc loadChainDag(
     config: BeaconNodeConf,
     cfg: RuntimeConfig,
@@ -153,21 +168,8 @@ proc loadChainDag(
     validatorMonitor: ref ValidatorMonitor,
     networkGenesisValidatorsRoot: Option[Eth2Digest],
     shouldEnableTestFeatures: bool): ChainDAGRef =
-  var dag: ChainDAGRef
   info "Loading block DAG from database", path = config.databaseDir
 
-  proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
-    # TODO (cheatfate): Proper implementation required
-    let optimistic =
-      if isNil(dag):
-        none[bool]()
-      else:
-        if dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
-    eventBus.blocksQueue.emit(EventBeaconBlockObject.init(data, optimistic))
-  proc onHeadChanged(data: HeadChangeInfoObject) =
-    eventBus.headQueue.emit(data)
-  proc onChainReorg(data: ReorgInfoObject) =
-    eventBus.reorgQueue.emit(data)
   proc onLightClientFinalityUpdate(data: altair.LightClientFinalityUpdate) =
     eventBus.finUpdateQueue.emit(data)
   proc onLightClientOptimisticUpdate(data: altair.LightClientOptimisticUpdate) =
@@ -178,7 +180,7 @@ proc loadChainDag(
       if shouldEnableTestFeatures: {enableTestFeatures}
       else: {}
     chainDagFlags =
-      if config.verifyFinalization: {verifyFinalization}
+      if config.strictVerification: {strictVerification}
       else: {}
     onLightClientFinalityUpdateCb =
       if config.lightClientDataServe.get: onLightClientFinalityUpdate
@@ -186,18 +188,15 @@ proc loadChainDag(
     onLightClientOptimisticUpdateCb =
       if config.lightClientDataServe.get: onLightClientOptimisticUpdate
       else: nil
-
-  dag = ChainDAGRef.init(
-    cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
-    onBlockAdded, onHeadChanged, onChainReorg,
-    onLCFinalityUpdateCb = onLightClientFinalityUpdateCb,
-    onLCOptimisticUpdateCb = onLightClientOptimisticUpdateCb,
-    lightClientDataServe = config.lightClientDataServe.get,
-    lightClientDataImportMode = config.lightClientDataImportMode.get,
-    lightClientDataMaxPeriods = config.lightClientDataMaxPeriods,
-    vanityLogs = getPandas(detectTTY(config.logStdout)))
-
-  let
+    dag = ChainDAGRef.init(
+      cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
+      vanityLogs = getPandas(detectTTY(config.logStdout)),
+      lcDataConfig = LightClientDataConfig(
+        serve: config.lightClientDataServe.get,
+        importMode: config.lightClientDataImportMode.get,
+        maxPeriods: config.lightClientDataMaxPeriods,
+        onLightClientFinalityUpdate: onLightClientFinalityUpdateCb,
+        onLightClientOptimisticUpdate: onLightClientOptimisticUpdateCb))
     databaseGenesisValidatorsRoot =
       getStateField(dag.headState, genesis_validators_root)
 
@@ -240,6 +239,32 @@ proc initFullNode(
     node.eventBus.contribQueue.emit(data)
   proc onVoluntaryExitAdded(data: SignedVoluntaryExit) =
     node.eventBus.exitQueue.emit(data)
+  proc onBlockAdded(data: ForkedTrustedSignedBeaconBlock) =
+    let optimistic =
+      if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
+        some node.dag.is_optimistic(data.root)
+      else:
+        none[bool]()
+    node.eventBus.blocksQueue.emit(
+      EventBeaconBlockObject.init(data, optimistic))
+  proc onHeadChanged(data: HeadChangeInfoObject) =
+    let eventData =
+      if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
+        var res = data
+        res.optimistic = some node.dag.is_optimistic(data.block_root)
+        res
+      else:
+        data
+    node.eventBus.headQueue.emit(eventData)
+  proc onChainReorg(data: ReorgInfoObject) =
+    let eventData =
+      if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
+        var res = data
+        res.optimistic = some node.dag.is_optimistic(data.new_head_block)
+        res
+      else:
+        data
+    node.eventBus.reorgQueue.emit(eventData)
   proc makeOnFinalizationCb(
       # This `nimcall` functions helps for keeping track of what
       # needs to be captured by the onFinalization closure.
@@ -253,7 +278,14 @@ proc initFullNode(
                                     finalizedEpochRef.eth1_data,
                                     finalizedEpochRef.eth1_deposit_index)
       node.updateLightClientFromDag()
-      eventBus.finalQueue.emit(data)
+      let eventData =
+        if node.currentSlot().epoch() >= dag.cfg.BELLATRIX_FORK_EPOCH:
+          var res = data
+          res.optimistic = some node.dag.is_optimistic(data.block_root)
+          res
+        else:
+          data
+      eventBus.finalQueue.emit(eventData)
 
   func getLocalHeadSlot(): Slot =
     dag.head.slot
@@ -280,12 +312,13 @@ proc initFullNode(
     lightClientPool = newClone(
       LightClientPool())
     exitPool = newClone(
-      ExitPool.init(dag, onVoluntaryExitAdded))
+      ExitPool.init(dag, attestationPool, onVoluntaryExitAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.eth1Monitor)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime)
+      rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime,
+      config.safeSlotsToImportOptimistically)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock):
         Future[Result[void, BlockError]] =
       # The design with a callback for block verification is unusual compared
@@ -308,8 +341,30 @@ proc initFullNode(
       node.network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.backfill.slot, blockVerifier, maxHeadAge = 0)
+    router = (ref MessageRouter)(
+      processor: processor,
+      network: node.network,
+    )
+
+  if node.config.lightClientDataServe.get:
+    proc scheduleSendingLightClientUpdates(slot: Slot) =
+      if node.lightClientPool[].broadcastGossipFut != nil:
+        return
+      if slot <= node.lightClientPool[].latestBroadcastedSlot:
+        return
+      node.lightClientPool[].latestBroadcastedSlot = slot
+
+      template fut(): auto = node.lightClientPool[].broadcastGossipFut
+      fut = node.handleLightClientUpdates(slot)
+      fut.addCallback do (p: pointer) {.gcsafe.}:
+        fut = nil
+
+    router.onSyncCommitteeMessage = scheduleSendingLightClientUpdates
 
   dag.setFinalizationCb makeOnFinalizationCb(node.eventBus, node.eth1Monitor)
+  dag.setBlockCb(onBlockAdded)
+  dag.setHeadCb(onHeadChanged)
+  dag.setReorgCb(onChainReorg)
 
   node.dag = dag
   node.quarantine = quarantine
@@ -323,6 +378,7 @@ proc initFullNode(
   node.requestManager = RequestManager.init(node.network, blockVerifier)
   node.syncManager = syncManager
   node.backfiller = backfiller
+  node.router = router
 
   debug "Loading validators", validatorsDir = config.validatorsDir()
 
@@ -415,6 +471,11 @@ proc init*(T: type BeaconNode,
       fatal "Failed to read checkpoint state file", err = err.msg
       quit 1
 
+    if not getStateField(checkpointState[], slot).is_epoch:
+      fatal "--finalized-checkpoint-state must point to a state for an epoch slot",
+        slot = getStateField(checkpointState[], slot)
+      quit 1
+
     if config.finalizedCheckpointBlock.isNone:
       if getStateField(checkpointState[], slot) > 0:
         fatal "Specifying a non-genesis --finalized-checkpoint-state requires specifying --finalized-checkpoint-block as well"
@@ -433,26 +494,19 @@ proc init*(T: type BeaconNode,
       except IOError as err:
         fatal "Failed to load the checkpoint block", err = err.msg
         quit 1
+
+      if not checkpointBlock.slot.is_epoch:
+        fatal "--finalized-checkpoint-block must point to a block for an epoch slot",
+          slot = checkpointBlock.slot
+        quit 1
+
   elif config.finalizedCheckpointBlock.isSome:
     # TODO We can download the state from somewhere in the future relying
     #      on the trusted `state_root` appearing in the checkpoint block.
     fatal "--finalized-checkpoint-block cannot be specified without --finalized-checkpoint-state"
     quit 1
 
-  let optJwtSecret =
-    # Some Web3 endpoints aren't compatible with JWT, but if explicitly chosen,
-    # use it regardless.
-    if config.jwtSecret.isSome:
-      let jwtSecret = rng[].checkJwtSecret(
-        string(config.dataDir), config.jwtSecret)
-      if jwtSecret.isErr:
-         fatal "Specified a JWT secret file which couldn't be loaded",
-           err = jwtSecret.error
-         quit 1
-
-      some jwtSecret.get
-    else:
-      none(seq[byte])
+  let optJwtSecret = rng[].loadJwtSecret(config, allowCreate = false)
 
   template getDepositContractSnapshot: auto =
     if depositContractSnapshot.isSome:
@@ -473,6 +527,12 @@ proc init*(T: type BeaconNode,
         some snapshotRes.get
     else:
       none(DepositContractSnapshot)
+
+  if config.web3Urls.len() == 0:
+    if cfg.BELLATRIX_FORK_EPOCH == FAR_FUTURE_EPOCH:
+      notice "Running without execution client - validator features partially disabled (see https://nimbus.guide/eth1.html)"
+    else:
+      notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
 
   var eth1Monitor: Eth1Monitor
   if not ChainDAGRef.isInitialized(db).isOk():
@@ -693,11 +753,19 @@ proc init*(T: type BeaconNode,
       else:
         nil
 
-    bellatrixEpochTime =
-      genesisTime + cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH * SECONDS_PER_SLOT
+    maxSecondsInMomentType = Moment.high.epochSeconds
+    # If the Bellatrix epoch is above this value, the calculation
+    # below will overflow. This happens in practice for networks
+    # where the `BELLATRIX_FORK_EPOCH` is not yet specified.
+    maxSupportedBellatrixEpoch = (maxSecondsInMomentType.uint64 - genesisTime) div
+                                 (SLOTS_PER_EPOCH * SECONDS_PER_SLOT)
+    bellatrixEpochTime = if cfg.BELLATRIX_FORK_EPOCH < maxSupportedBellatrixEpoch:
+      int64(genesisTime + cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH * SECONDS_PER_SLOT)
+    else:
+      maxSecondsInMomentType
 
     nextExchangeTransitionConfTime =
-      max(Moment.init(int64 bellatrixEpochTime, Second),
+      max(Moment.init(bellatrixEpochTime, Second),
           Moment.now)
 
   let node = BeaconNode(
@@ -730,7 +798,7 @@ proc init*(T: type BeaconNode,
 
   node
 
-func verifyFinalization(node: BeaconNode, slot: Slot) =
+func strictVerification(node: BeaconNode, slot: Slot) =
   # Epoch must be >= 4 to check finalization
   const SETTLING_TIME_OFFSET = 1'u64
   let epoch = slot.epoch()
@@ -884,21 +952,21 @@ func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
            pubkey, GENESIS_EPOCH) >= epoch or
          pubkey in node.attachedValidators.validators)
 
+func getCurrentSyncCommiteeSubnets(node: BeaconNode, slot: Slot): SyncnetBits =
+  let syncCommittee = withState(node.dag.headState):
+    when stateFork >= BeaconStateFork.Altair:
+      state.data.current_sync_committee
+    else:
+      return static(default(SyncnetBits))
+
+  getSyncSubnets(node.hasSyncPubKey(slot.epoch), syncCommittee)
+
 proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addPhase0MessageHandlers(forkDigest, slot)
 
   # If this comes online near sync committee period, it'll immediately get
   # replaced as usual by trackSyncCommitteeTopics, which runs at slot end.
-  let
-    syncCommittee =
-      withState(node.dag.headState):
-        when stateFork >= BeaconStateFork.Altair:
-          state.data.current_sync_committee
-        else:
-          default(SyncCommittee)
-
-    currentSyncCommitteeSubnets = getSyncSubnets(
-      node.hasSyncPubKey(slot.epoch), syncCommittee)
+  let currentSyncCommitteeSubnets = node.getCurrentSyncCommiteeSubnets(slot)
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if currentSyncCommitteeSubnets[subcommitteeIdx]:
@@ -926,15 +994,7 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   # set of subscriptions, and use current_sync_committee. Furthermore, this
   # is potentially useful at arbitrary times, so don't guard it by checking
   # for epoch alignment.
-  let
-    syncCommittee =
-      withState(node.dag.headState):
-        when stateFork >= BeaconStateFork.Altair:
-          state.data.current_sync_committee
-        else:
-          default(SyncCommittee)
-    currentSyncCommitteeSubnets =
-      getSyncSubnets(node.hasSyncPubKey(slot.epoch), syncCommittee)
+  let currentSyncCommitteeSubnets = node.getCurrentSyncCommiteeSubnets(slot)
 
   debug "trackCurrentSyncCommitteeTopics: aligning with sync committee subnets",
     currentSyncCommitteeSubnets,
@@ -968,30 +1028,44 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
 
   node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
 
+func getNextSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
+  let epochsToSyncPeriod = nearSyncCommitteePeriod(epoch)
+
+  # The end-slot tracker might call this when it's theoretically applicable,
+  # but more than SYNC_COMMITTEE_SUBNET_COUNT epochs from when the next sync
+  # committee period begins, in which case `epochsToNextSyncPeriod` is none.
+  if  epochsToSyncPeriod.isNone or
+      node.dag.cfg.stateForkAtEpoch(epoch + epochsToSyncPeriod.get) <
+        BeaconStateFork.Altair:
+    return static(default(SyncnetBits))
+
+  let syncCommittee = withState(node.dag.headState):
+    when stateFork >= BeaconStateFork.Altair:
+      state.data.next_sync_committee
+    else:
+      return static(default(SyncnetBits))
+
+  getSyncSubnets(
+    node.hasSyncPubKey(epoch + epochsToSyncPeriod.get), syncCommittee)
+
 proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   let
     epoch = slot.epoch
-    epochToSyncPeriod = nearSyncCommitteePeriod(epoch)
+    epochsToSyncPeriod = nearSyncCommitteePeriod(epoch)
 
-  if  epochToSyncPeriod.isNone or
-      forkVersionAtEpoch(node.dag.cfg, epoch + epochToSyncPeriod.get) ==
-        node.dag.cfg.GENESIS_FORK_VERSION:
+  if  epochsToSyncPeriod.isNone or
+      node.dag.cfg.stateForkAtEpoch(epoch + epochsToSyncPeriod.get) <
+        BeaconStateFork.Altair:
     return
 
-  if epochToSyncPeriod.get == 0:
+  # No lookahead required
+  if epochsToSyncPeriod.get == 0:
     node.trackCurrentSyncCommitteeTopics(slot)
     return
 
-  let
-    syncCommittee =
-      withState(node.dag.headState):
-        when stateFork >= BeaconStateFork.Altair:
-          state.data.next_sync_committee
-        else:
-          default(SyncCommittee)
-    nextSyncCommitteeSubnets = getSyncSubnets(
-      node.hasSyncPubKey(epoch + epochToSyncPeriod.get), syncCommittee)
-    forkDigests = node.forkDigests()
+  let nextSyncCommitteeSubnets = node.getNextSyncCommitteeSubnets(epoch)
+
+  let forkDigests = node.forkDigests()
 
   var newSubcommittees: SyncnetBits
 
@@ -999,7 +1073,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if  (not node.network.metadata.syncnets[subcommitteeIdx]) and
         nextSyncCommitteeSubnets[subcommitteeIdx] and
-        node.syncCommitteeMsgPool[].isEpochLeadTime(epochToSyncPeriod.get):
+        node.syncCommitteeMsgPool[].isEpochLeadTime(epochsToSyncPeriod.get):
       for gossipFork in node.gossipState:
         node.network.subscribe(getSyncCommitteeTopic(
           forkDigests[gossipFork], subcommitteeIdx), basicParams)
@@ -1009,7 +1083,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
     metadata_syncnets = node.network.metadata.syncnets,
     nextSyncCommitteeSubnets,
     gossipState = node.gossipState,
-    epochsToSyncPeriod = epochToSyncPeriod.get,
+    epochsToSyncPeriod = epochsToSyncPeriod.get,
     newSubcommittees
 
   node.network.updateSyncnetsMetadata(
@@ -1181,11 +1255,28 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   # -1 is a more useful output than 18446744073709551615 as an indicator of
   # no future attestation/proposal known.
-  template displayInt64(x: Slot): int64 =
+  template formatInt64(x: Slot): int64 =
     if x == high(uint64).Slot:
       -1'i64
     else:
       toGaugeValue(x)
+
+  template formatSyncCommitteeStatus(): string =
+    let slotsToNextSyncCommitteePeriod =
+      SLOTS_PER_SYNC_COMMITTEE_PERIOD - since_sync_committee_period_start(slot)
+
+    # int64 conversion is safe
+    doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
+
+    if not node.getCurrentSyncCommiteeSubnets(slot).isZeros:
+      "current"
+    # if 0 => fallback is getCurrentSyncCommitttee so avoid duplicate effort
+    elif since_sync_committee_period_start(slot) > 0 and
+         not node.getNextSyncCommitteeSubnets(slot.epoch).isZeros:
+      "in " & toTimeLeftString(
+        SECONDS_PER_SLOT.int64.seconds * slotsToNextSyncCommitteePeriod.int64)
+    else:
+      "none"
 
   info "Slot end",
     slot = shortLog(slot),
@@ -1194,8 +1285,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
         "n/a"
       else:
         shortLog(nextActionWaitTime),
-    nextAttestationSlot = displayInt64(nextAttestationSlot),
-    nextProposalSlot = displayInt64(nextProposalSlot),
+    nextAttestationSlot = formatInt64(nextAttestationSlot),
+    nextProposalSlot = formatInt64(nextProposalSlot),
+    syncCommitteeDuties = formatSyncCommitteeStatus(),
     head = shortLog(head)
 
   if nextAttestationSlot != FAR_FUTURE_SLOT:
@@ -1233,11 +1325,13 @@ func syncStatus(node: BeaconNode): string =
     node.syncManager.syncStatus
   elif node.backfiller.inProgress:
     "backfill: " & node.backfiller.syncStatus
+  elif node.dag.is_optimistic(node.dag.head.root):
+    "opt synced"
   else:
     "synced"
 
-proc onSlotStart(
-    node: BeaconNode, wallTime: BeaconTime, lastSlot: Slot) {.async.} =
+proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
+                 lastSlot: Slot): Future[bool] {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
   ## skip a few in case we're running late.
   ## wallTime: current system time - we will strive to perform all duties up
@@ -1263,7 +1357,8 @@ proc onSlotStart(
     delay = shortLog(delay)
 
   # Check before any re-scheduling of onSlotStart()
-  checkIfShouldStopAtEpoch(wallSlot, node.config.stopAtEpoch)
+  if checkIfShouldStopAtEpoch(wallSlot, node.config.stopAtEpoch):
+    quit(0)
 
   when defined(windows):
     if node.config.runAsService:
@@ -1276,14 +1371,16 @@ proc onSlotStart(
   finalization_delay.set(
     wallSlot.epoch.toGaugeValue - finalizedEpoch.toGaugeValue)
 
-  if node.config.verifyFinalization:
-    verifyFinalization(node, wallSlot)
+  if node.config.strictVerification:
+    strictVerification(node, wallSlot)
 
   node.consensusManager[].updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
 
   await onSlotEnd(node, wallSlot)
+
+  return false
 
 proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.quarantine[].checkMissing()
@@ -1311,8 +1408,9 @@ proc onSecond(node: BeaconNode, time: Moment) =
     bnStatus = BeaconNodeStatus.Stopping
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
-  let sleepTime = chronos.seconds(1)
-  const nanosecondsIn1s = float(chronos.seconds(1).nanoseconds)
+  const
+    sleepTime = chronos.seconds(1)
+    nanosecondsIn1s = float(sleepTime.nanoseconds)
   while true:
     let start = chronos.now(chronos.Moment)
     await chronos.sleepAsync(sleepTime)
@@ -1347,7 +1445,7 @@ proc installMessageValidators(node: BeaconNode) =
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.phase0),
     proc (signedBlock: phase0.SignedBeaconBlock): ValidationResult =
-      toValidationResult(node.processor[].blockValidator(
+      toValidationResult(node.processor[].processSignedBeaconBlock(
         MsgSource.gossip, signedBlock)))
 
   template installPhase0Validators(digest: auto) =
@@ -1359,7 +1457,7 @@ proc installMessageValidators(node: BeaconNode) =
           # This proc needs to be within closureScope; don't lift out of loop.
           proc(attestation: Attestation): Future[ValidationResult] {.async.} =
             return toValidationResult(
-              await node.processor.attestationValidator(
+              await node.processor.processAttestation(
                 MsgSource.gossip, attestation, subnet_id)))
 
     node.network.addAsyncValidator(
@@ -1367,28 +1465,28 @@ proc installMessageValidators(node: BeaconNode) =
       proc(signedAggregateAndProof: SignedAggregateAndProof):
           Future[ValidationResult] {.async.} =
         return toValidationResult(
-          await node.processor.aggregateValidator(
-            MsgSource.gossip, signedAggregateAndProof)))
+          await node.processor.processSignedAggregateAndProof(
+            MsgSource.gossip, signedAggregateAndProof, false)))
 
     node.network.addValidator(
       getAttesterSlashingsTopic(digest),
       proc (attesterSlashing: AttesterSlashing): ValidationResult =
         toValidationResult(
-          node.processor[].attesterSlashingValidator(
+          node.processor[].processAttesterSlashing(
             MsgSource.gossip, attesterSlashing)))
 
     node.network.addValidator(
       getProposerSlashingsTopic(digest),
       proc (proposerSlashing: ProposerSlashing): ValidationResult =
         toValidationResult(
-          node.processor[].proposerSlashingValidator(
+          node.processor[].processProposerSlashing(
             MsgSource.gossip, proposerSlashing)))
 
     node.network.addValidator(
       getVoluntaryExitsTopic(digest),
       proc (signedVoluntaryExit: SignedVoluntaryExit): ValidationResult =
         toValidationResult(
-          node.processor[].voluntaryExitValidator(
+          node.processor[].processSignedVoluntaryExit(
             MsgSource.gossip, signedVoluntaryExit)))
 
   installPhase0Validators(forkDigests.phase0)
@@ -1401,13 +1499,13 @@ proc installMessageValidators(node: BeaconNode) =
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.altair),
     proc (signedBlock: altair.SignedBeaconBlock): ValidationResult =
-      toValidationResult(node.processor[].blockValidator(
+      toValidationResult(node.processor[].processSignedBeaconBlock(
         MsgSource.gossip, signedBlock)))
 
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.bellatrix),
     proc (signedBlock: bellatrix.SignedBeaconBlock): ValidationResult =
-      toValidationResult(node.processor[].blockValidator(
+      toValidationResult(node.processor[].processSignedBeaconBlock(
         MsgSource.gossip, signedBlock)))
 
   template installSyncCommitteeeValidators(digest: auto) =
@@ -1419,14 +1517,14 @@ proc installMessageValidators(node: BeaconNode) =
           # This proc needs to be within closureScope; don't lift out of loop.
           proc(msg: SyncCommitteeMessage): Future[ValidationResult] {.async.} =
             return toValidationResult(
-              await node.processor.syncCommitteeMessageValidator(
+              await node.processor.processSyncCommitteeMessage(
                 MsgSource.gossip, msg, idx)))
 
     node.network.addAsyncValidator(
       getSyncCommitteeContributionAndProofTopic(digest),
       proc(msg: SignedContributionAndProof): Future[ValidationResult] {.async.} =
         return toValidationResult(
-          await node.processor.contributionValidator(
+          await node.processor.processSignedContributionAndProof(
             MsgSource.gossip, msg)))
 
   installSyncCommitteeeValidators(forkDigests.altair)
@@ -1510,7 +1608,7 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     proc SIGTERMHandler(signal: cint) {.noconv.} =
       notice "Shutting down after having received SIGTERM"
       bnStatus = BeaconNodeStatus.Stopping
-    c_signal(SIGTERM, SIGTERMHandler)
+    c_signal(ansi_c.SIGTERM, SIGTERMHandler)
 
   # main event loop
   while bnStatus == BeaconNodeStatus.Running:
@@ -1800,15 +1898,7 @@ proc doCreateTestnet*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.raises
     eth1Hash = if config.web3Urls.len == 0: eth1BlockHash
                else: (waitFor getEth1BlockHash(
                  config.web3Urls[0], blockId("latest"),
-                 block:
-                   let jwtSecret = rng.checkJwtSecret(
-                     string(config.dataDir), config.jwtSecret)
-                   if jwtSecret.isErr:
-                      fatal "Specified a JWT secret file which couldn't be loaded",
-                        err = jwtSecret.error
-                      quit 1
-
-                   some jwtSecret.get)).asEth2Digest
+                 rng.loadJwtSecret(config, allowCreate = true))).asEth2Digest
     cfg = getRuntimeConfig(config.eth2Network)
   var
     initialState = newClone(initialize_beacon_state_from_eth1(
@@ -1889,15 +1979,7 @@ proc doWeb3Cmd(config: BeaconNodeConf, rng: var HmacDrbgContext)
 
     waitFor testWeb3Provider(config.web3TestUrl,
                              metadata.cfg.DEPOSIT_CONTRACT_ADDRESS,
-                             block:
-                               let jwtSecret = rng.checkJwtSecret(
-                                 string(config.dataDir), config.jwtSecret)
-
-                               if jwtSecret.isErr:
-                                 fatal "Specified a JWT secret file which couldn't be loaded",
-                                   err = jwtSecret.error
-                                 quit 1
-                               some jwtSecret.get)
+                             rng.loadJwtSecret(config, allowCreate = true))
 
 proc doSlashingExport(conf: BeaconNodeConf) {.raises: [IOError, Defect].}=
   let
@@ -2074,7 +2156,7 @@ programMain:
     proc exitImmediatelyOnSIGTERM(signal: cint) {.noconv.} =
       notice "Shutting down after having received SIGTERM"
       quit 0
-    c_signal(SIGTERM, exitImmediatelyOnSIGTERM)
+    c_signal(ansi_c.SIGTERM, exitImmediatelyOnSIGTERM)
 
   when defined(windows):
     if config.runAsService:

@@ -19,12 +19,10 @@ import
   ../spec/[eth2_merkleization, digest],
   ../spec/datatypes/base
 
-const depositContractLimit* = Limit(1'u64 shl DEPOSIT_CONTRACT_TREE_DEPTH)
-
 func attachMerkleProofs*(deposits: var openArray[Deposit]) =
   let depositsRoots = mapIt(deposits, hash_tree_root(it.data))
 
-  var incrementalMerkleProofs = createMerkleizer(depositContractLimit)
+  var incrementalMerkleProofs = createMerkleizer(DEPOSIT_CONTRACT_LIMIT)
 
   for i in 0 ..< depositsRoots.len:
     incrementalMerkleProofs.addChunkAndGenMerkleProof(depositsRoots[i], deposits[i].proof)

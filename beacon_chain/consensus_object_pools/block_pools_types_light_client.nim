@@ -11,10 +11,9 @@
 # protocol. See https://github.com/ethereum/consensus-specs/pull/2802
 
 import
-  # Status libraries
-  stew/bitops2,
   # Beacon chain internals
   ../spec/datatypes/altair,
+  ../beacon_chain_db_light_client,
   ./block_dag
 
 type
@@ -37,20 +36,11 @@ type
   CachedLightClientData* = object
     ## Cached data from historical non-finalized states to improve speed when
     ## creating future `LightClientUpdate` and `LightClientBootstrap` instances.
-    current_sync_committee_branch*:
-      array[log2trunc(altair.CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
-    next_sync_committee_branch*:
-      array[log2trunc(altair.NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+    current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
+    next_sync_committee_branch*: altair.NextSyncCommitteeBranch
 
     finalized_slot*: Slot
-    finality_branch*:
-      array[log2trunc(altair.FINALIZED_ROOT_INDEX), Eth2Digest]
-
-  CachedLightClientBootstrap* = object
-    ## Cached data from historical finalized epoch boundary blocks to improve
-    ## speed when creating future `LightClientBootstrap` instances.
-    current_sync_committee_branch*:
-      array[log2trunc(altair.CURRENT_SYNC_COMMITTEE_INDEX), Eth2Digest]
+    finality_branch*: altair.FinalityBranch
 
   LightClientDataCache* = object
     data*: Table[BlockId, CachedLightClientData]
@@ -58,19 +48,10 @@ type
       ## Key is the block ID of which the post state was used to get the data.
       ## Data stored for the finalized head block and all non-finalized blocks.
 
-    bootstrap*: Table[Slot, CachedLightClientBootstrap]
-      ## Cached data for creating future `LightClientBootstrap` instances.
-      ## Key is the block slot of which the post state was used to get the data.
-      ## Data stored for all finalized epoch boundary blocks.
-
-    best*: Table[SyncCommitteePeriod, altair.LightClientUpdate]
-      ## Stores the `LightClientUpdate` with the most `sync_committee_bits` per
-      ## `SyncCommitteePeriod`. Sync committee finality gives precedence.
-
     pendingBest*:
       Table[(SyncCommitteePeriod, Eth2Digest), altair.LightClientUpdate]
-      ## Same as `best`, but for `SyncCommitteePeriod` with not yet finalized
-      ## `next_sync_committee`. Key is `(attested_period,
+      ## Same as `bestUpdates`, but for `SyncCommitteePeriod` with not yet
+      ## finalized `next_sync_committee`. Key is `(attested_period,
       ## hash_tree_root(current_sync_committee | next_sync_committee)`.
 
     latest*: altair.LightClientFinalityUpdate
@@ -80,12 +61,26 @@ type
     tailSlot*: Slot
       ## The earliest slot for which light client data is imported.
 
+  LightClientDataConfig* = object
+    serve*: bool
+      ## Whether to make local light client data available or not
+    importMode*: LightClientDataImportMode
+      ## Which classes of light client data to import
+    maxPeriods*: Option[uint64]
+      ## Maximum number of sync committee periods to retain light client data
+    onLightClientFinalityUpdate*: OnLightClientFinalityUpdateCallback
+      ## On new `LightClientFinalityUpdate` callback
+    onLightClientOptimisticUpdate*: OnLightClientOptimisticUpdateCallback
+      ## On new `LightClientOptimisticUpdate` callback
+
   LightClientDataStore* = object
     # -----------------------------------
     # Light client data
 
     cache*: LightClientDataCache
-      ## Cached data to accelerate serving light client data
+      ## Cached data to accelerate creating light client data
+    db*: LightClientDataDB
+      ## Persistent light client data to avoid expensive recomputations
 
     # -----------------------------------
     # Config

@@ -141,7 +141,8 @@ type
       ## in the case where an earlier genesis block exists.
 
     head*: BlockRef
-      ## The most recently known head, as chosen by fork choice
+      ## The most recently known head, as chosen by fork choice; might be
+      ## optimistic
 
     backfill*: BeaconBlockSummary
       ## The backfill points to the oldest block with an unbroken ancestry from
@@ -153,7 +154,7 @@ type
       ## backfilling reaches this point - empty when not backfilling.
 
     heads*: seq[BlockRef]
-    ## Candidate heads of candidate chains
+      ## Candidate heads of candidate chains
 
     finalizedHead*: BlockSlot
       ## The latest block that was finalized according to the block in head
@@ -226,6 +227,9 @@ type
       ## EPOCHS_PER_SYNC_COMMITTEE_PERIOD is happening, some valid sync
       ## committee messages will be rejected
 
+    optimisticRoots*: HashSet[Eth2Digest]
+      ## https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#helpers
+
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
     ## committees in a beacon state - the epoch level information in the state
@@ -239,18 +243,17 @@ type
   EpochRef* = ref object
     dag*: ChainDAGRef
     key*: EpochKey
-    current_justified_checkpoint*: Checkpoint
-    finalized_checkpoint*: Checkpoint
+
     eth1_data*: Eth1Data
     eth1_deposit_index*: uint64
+
+    checkpoints*: FinalityCheckpoints
+
     beacon_proposers*: array[SLOTS_PER_EPOCH, Option[ValidatorIndex]]
     proposer_dependent_root*: Eth2Digest
 
     shuffled_active_validator_indices*: seq[ValidatorIndex]
     attester_dependent_root*: Eth2Digest
-
-    # enables more efficient merge block validation
-    merge_transition_complete*: bool
 
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
@@ -266,17 +269,20 @@ type
   OnPhase0BlockAdded* = proc(
     blckRef: BlockRef,
     blck: phase0.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
   OnAltairBlockAdded* = proc(
     blckRef: BlockRef,
     blck: altair.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
   OnBellatrixBlockAdded* = proc(
     blckRef: BlockRef,
     blck: bellatrix.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
   HeadChangeInfoObject* = object
     slot*: Slot
@@ -326,6 +332,15 @@ func shortLog*(v: EpochKey): string =
 template setFinalizationCb*(dag: ChainDAGRef, cb: OnFinalizedCallback) =
   dag.onFinHappened = cb
 
+template setBlockCb*(dag: ChainDAGRef, cb: OnBlockCallback) =
+  dag.onBlockAdded = cb
+
+template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
+  dag.onHeadChanged = cb
+
+template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
+  dag.onReorgHappened = cb
+
 func shortLog*(v: EpochRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!
   if v.isNil():
@@ -354,40 +369,36 @@ func blockRef*(key: KeyedBlockRef): BlockRef =
 
 func init*(t: typedesc[HeadChangeInfoObject], slot: Slot, blockRoot: Eth2Digest,
            stateRoot: Eth2Digest, epochTransition: bool,
-           previousDutyDepRoot: Eth2Digest, currentDutyDepRoot: Eth2Digest,
-           optimistic: Option[bool]): HeadChangeInfoObject =
+           previousDutyDepRoot: Eth2Digest,
+           currentDutyDepRoot: Eth2Digest): HeadChangeInfoObject =
   HeadChangeInfoObject(
     slot: slot,
     block_root: blockRoot,
     state_root: stateRoot,
     epoch_transition: epochTransition,
     previous_duty_dependent_root: previousDutyDepRoot,
-    current_duty_dependent_root: currentDutyDepRoot,
-    optimistic: optimistic
+    current_duty_dependent_root: currentDutyDepRoot
   )
 
 func init*(t: typedesc[ReorgInfoObject], slot: Slot, depth: uint64,
            oldHeadBlockRoot: Eth2Digest, newHeadBlockRoot: Eth2Digest,
-           oldHeadStateRoot: Eth2Digest, newHeadStateRoot: Eth2Digest,
-           optimistic: Option[bool]): ReorgInfoObject =
+           oldHeadStateRoot: Eth2Digest,
+           newHeadStateRoot: Eth2Digest): ReorgInfoObject =
   ReorgInfoObject(
     slot: slot,
     depth: depth,
     old_head_block: oldHeadBlockRoot,
     new_head_block: newHeadBlockRoot,
     old_head_state: oldHeadStateRoot,
-    new_head_state: newHeadStateRoot,
-    optimistic: optimistic
+    new_head_state: newHeadStateRoot
   )
 
 func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
-           stateRoot: Eth2Digest, epoch: Epoch,
-           optimistic: Option[bool]): FinalizationInfoObject =
+           stateRoot: Eth2Digest, epoch: Epoch): FinalizationInfoObject =
   FinalizationInfoObject(
     block_root: blockRoot,
     state_root: stateRoot,
-    epoch: epoch,
-    optimistic: optimistic
+    epoch: epoch
   )
 
 func init*(t: typedesc[EventBeaconBlockObject],

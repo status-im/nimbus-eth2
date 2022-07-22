@@ -72,6 +72,33 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#get_total_balance
+  TotalBalances* = object
+    # The total effective balance of all active validators during the _current_
+    # epoch.
+    current_epoch_raw*: Gwei
+    # The total effective balance of all active validators during the _previous_
+    # epoch.
+    previous_epoch_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _current_ epoch.
+    current_epoch_attesters_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _current_ epoch and agreed with the state about the beacon block at the
+    # first slot of the _current_ epoch.
+    current_epoch_target_attesters_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _previous_ epoch.
+    previous_epoch_attesters_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _previous_ epoch and agreed with the state about the beacon block at the
+    # first slot of the _previous_ epoch.
+    previous_epoch_target_attesters_raw*: Gwei
+    # The total effective balance of all validators who attested during the
+    # _previous_ epoch and agreed with the state about the beacon block at the
+    # time of attestation.
+    previous_epoch_head_attesters_raw*: Gwei
+
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
   #      https://github.com/nim-lang/RFCs/issues/250

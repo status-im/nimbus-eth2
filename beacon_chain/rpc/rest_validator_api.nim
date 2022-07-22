@@ -97,9 +97,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                   )
         res
 
-    # TODO (cheatfate): Proper implementation required
+    # getSyncedHead() implies non-optimistic node.
     let optimistic =
-      if node.dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
+      if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+        some(false)
+      else:
+        none[bool]()
 
     return RestApiResponse.jsonResponseWRoot(
       duties, epochRef.attester_dependent_root, optimistic)
@@ -148,9 +151,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             )
         res
 
-    # TODO (cheatfate): Proper implementation required
+    # getSyncedHead() implies non-optimistic node.
     let optimistic =
-      if node.dag.getHeadStateMergeComplete(): some(false) else: none[bool]()
+      if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+        some(false)
+      else:
+        none[bool]()
 
     return RestApiResponse.jsonResponseWRoot(
       duties, epochRef.proposer_dependent_root, optimistic)
@@ -522,7 +528,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         var res: seq[Future[SendResult]]
         for proof in proofs:
-          res.add(node.sendAggregateAndProof(proof))
+          res.add(node.router.routeSignedAggregateAndProof(proof))
         res
     await allFutures(pending)
     for future in pending:
@@ -596,7 +602,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         get_committee_count_per_slot(epochRef), request.slot,
         request.committee_index)
 
-      node.registerDuty(
+      node.actionTracker.registerDuty(
         request.slot, subnet_id, request.validator_index,
         request.is_aggregator)
 
@@ -722,7 +728,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         var res: seq[Future[SendResult]]
         for proof in proofs:
-          res.add(node.sendSyncCommitteeContribution(proof, true))
+          res.add(node.router.routeSignedContributionAndProof(proof, true))
         res
 
     let failures =

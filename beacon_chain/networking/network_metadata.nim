@@ -117,15 +117,16 @@ func deploymentPhase*(genesisData: string): DeploymentPhase =
     testnets = [
       # Kiln
       "0C572B620000000099B09FCD43E5905236C370F184056BEC6E6638CFC31A323B304FC4AA789CB4AD",
-      # Ropsten
-      "F0DB94620000000044F1E56283CA88B35C789F7F449E52339BC1FEFE3A45913A43A6D16EDCD33CF1",
-      # Prater
-      "60F4596000000000043DB0D9A83813551EE2F33450D23797757D430911A9320530AD8A0EABC43EFB",
-      # Sepolia
-      "607DB06200000000D8EA171F3C94AEA21EBC42A1ED61052ACF3F9209C00E4EFBAADDAC09ED9B8078",
     ]
     devnets = [
-      "placeholder",
+      # Ropsten
+      "F0DB94620000000044F1E56283CA88B35C789F7F449E52339BC1FEFE3A45913A43A6D16EDCD33CF1",
+      # Sepolia
+      "607DB06200000000D8EA171F3C94AEA21EBC42A1ED61052ACF3F9209C00E4EFBAADDAC09ED9B8078",
+      # Mainnet Shadow Fork 9
+      "0C2ECC6200000000209BA2806D11E2394A9C6682815453EDCFDBA1DCE0C25D71BCFEF6363FBD3A43",
+      # Prater
+      "60F4596000000000043DB0D9A83813551EE2F33450D23797757D430911A9320530AD8A0EABC43EFB",
     ]
 
   let data = (genesisData[0 ..< 40].toHex())
@@ -270,8 +271,8 @@ when not defined(gnosisChainBinary):
     const
       mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
       praterMetadata* = eth2Network("shared/prater", goerli)
-      ropstenMetadata = mergeTestnet("ropsten-beacon-chain", ropsten)
-      sepoliaMetadata = mergeTestnet("sepolia", sepolia)
+      ropstenMetadata* = mergeTestnet("ropsten-beacon-chain", ropsten)
+      sepoliaMetadata* = mergeTestnet("sepolia", sepolia)
     static:
       for network in [mainnetMetadata, praterMetadata, ropstenMetadata, sepoliaMetadata]:
         checkForkConsistency(network.cfg)
@@ -293,7 +294,7 @@ when not defined(gnosisChainBinary):
         case toLowerAscii(networkName)
         of "mainnet":
           mainnetMetadata
-        of "prater":
+        of "prater", "goerli":
           praterMetadata
         of "ropsten":
           ropstenMetadata

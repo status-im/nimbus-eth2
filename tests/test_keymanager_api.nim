@@ -35,6 +35,7 @@ const
   tokenFilePath = dataDir / "keymanager-token.txt"
   keymanagerPort = 47000
   correctTokenValue = "some secret token"
+  defaultFeeRecipient = Eth1Address.fromHex("0x000000000000000000000000000000000000DEAD")
   newPrivateKeys = [
     "0x598c9b81749ba7bb8eb37781027359e3ffe87d0e1579e21c453ce22af0c05e35",
     "0x14e4470a1d8913ec0602048af78addf0fd7a37f591dd3feda828d10a10c0f6ff",
@@ -66,7 +67,15 @@ const
     "0xa782e5161ba8e9ac135b0db3203a8c23aa61e19be6b9c198393d8b2b902bad8139863d9cf26bc2cbdc3b747bafc64606",
     "0xb33f17216dda29dba1a9257e75b3dd8446c9ea217b563c20950c43f64300f7bd3d5f0dfa02274cab988e594552b7189e"
   ]
+  unusedPublicKeys = [
+    "0xc22f17216dda29dba1a9257e75b3dd8446c9ea217b563c20950c43f64300f7bd3d5f0dfa02274cab988e594552b7232d",
+    "0x0bbca63e35c7a159fc2f187d300cad9ef5f5e73e55f78c391e7bc2c2feabc2d9d63dfe99edd7058ad0ab9d7f14aade5f"
+  ]
+
   newPublicKeysUrl = HttpHostUri(parseUri("http://127.0.0.1/remote"))
+
+func specifiedFeeRecipient(x: int): Eth1Address =
+  copyMem(addr result, unsafeAddr x, sizeof x)
 
 proc contains*(keylist: openArray[KeystoreInfo], key: ValidatorPubKey): bool =
   for item in keylist:
@@ -159,6 +168,7 @@ proc startSingleNodeNetwork {.raises: [CatchableError, Defect].} =
     "--keymanager-address=127.0.0.1",
     "--keymanager-port=" & $keymanagerPort,
     "--keymanager-token-file=" & tokenFilePath,
+    "--suggested-fee-recipient=" & $defaultFeeRecipient,
     "--light-client-enable=off",
     "--light-client-data-serve=off",
     "--light-client-data-import-mode=none",
@@ -552,9 +562,7 @@ proc runTests {.async.} =
 
       check:
         response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $noAuthorizationHeader
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Header" & preset():
       let
@@ -564,9 +572,7 @@ proc runTests {.async.} =
 
       check:
         response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $missingBearerScheme
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Token" & preset():
       let
@@ -575,10 +581,8 @@ proc runTests {.async.} =
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
-        response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $incorrectToken
+        response.status == 403
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
       expect RestError:
         let keystores = await client.listKeys("Invalid Token")
@@ -660,9 +664,7 @@ proc runTests {.async.} =
 
       check:
         response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $noAuthorizationHeader
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Header" & preset():
       let
@@ -673,9 +675,7 @@ proc runTests {.async.} =
 
       check:
         response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $missingBearerScheme
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Token" & preset():
       let
@@ -685,10 +685,8 @@ proc runTests {.async.} =
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
-        response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $incorrectToken
+        response.status == 403
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
   suite "DeleteKeys requests" & preset():
     asyncTest "Deleting not existing key" & preset():
@@ -710,9 +708,7 @@ proc runTests {.async.} =
 
       check:
         response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $noAuthorizationHeader
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Header" & preset():
       let
@@ -723,9 +719,7 @@ proc runTests {.async.} =
 
       check:
         response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $missingBearerScheme
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Token" & preset():
       let
@@ -735,10 +729,8 @@ proc runTests {.async.} =
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
-        response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $incorrectToken
+        response.status == 403
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
   suite "ListRemoteKeys requests" & preset():
     asyncTest "Correct token provided" & preset():
@@ -757,9 +749,7 @@ proc runTests {.async.} =
 
       check:
         response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $noAuthorizationHeader
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Header" & preset():
       let
@@ -769,9 +759,7 @@ proc runTests {.async.} =
 
       check:
         response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $missingBearerScheme
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Token" & preset():
       let
@@ -780,13 +768,173 @@ proc runTests {.async.} =
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
-        response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $incorrectToken
+        response.status == 403
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
       expect RestError:
         let keystores = await client.listKeys("Invalid Token")
+
+  suite "Fee recipient management" & preset():
+    asyncTest "Missing Authorization header" & preset():
+      let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
+
+      block:
+        let
+          response = await client.listFeeRecipientPlain(pubkey)
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.setFeeRecipientPlain(
+            pubkey,
+            default SetFeeRecipientRequest)
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.deleteFeeRecipientPlain(pubkey, EmptyBody())
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+    asyncTest "Invalid Authorization Header" & preset():
+      let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
+
+      block:
+        let
+          response = await client.listFeeRecipientPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.setFeeRecipientPlain(
+            pubkey,
+            default SetFeeRecipientRequest,
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+
+      block:
+        let
+          response = await client.deleteFeeRecipientPlain(
+            pubkey,
+            EmptyBody(),
+            extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 401
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+    asyncTest "Invalid Authorization Token" & preset():
+      let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
+
+      block:
+        let
+          response = await client.listFeeRecipientPlain(
+            pubkey,
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 403
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.setFeeRecipientPlain(
+            pubkey,
+            default SetFeeRecipientRequest,
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 403
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+      block:
+        let
+          response = await client.deleteFeeRecipientPlain(
+            pubkey,
+            EmptyBody(),
+            extraHeaders = @[("Authorization", "Bearer InvalidToken")])
+          responseJson = Json.decode(response.data, JsonNode)
+
+        check:
+          response.status == 403
+          responseJson["message"].getStr() == InvalidAuthorizationError
+
+    asyncTest "Obtaining the fee recpient of a missing validator returns 404" & preset():
+      let
+        pubkey = ValidatorPubKey.fromHex(unusedPublicKeys[0]).expect("valid key")
+        response = await client.listFeeRecipientPlain(
+          pubkey,
+          extraHeaders = @[("Authorization", "Bearer " & correctTokenValue)])
+
+      check:
+        response.status == 404
+
+    asyncTest "Setting the fee recipient on a missing validator creates a record for it" & preset():
+      let
+        pubkey = ValidatorPubKey.fromHex(unusedPublicKeys[1]).expect("valid key")
+        feeRecipient = specifiedFeeRecipient(1)
+
+      await client.setFeeRecipient(pubkey, feeRecipient, correctTokenValue)
+      let resultFromApi = await client.listFeeRecipient(pubkey, correctTokenValue)
+
+      check:
+        resultFromApi == feeRecipient
+
+    asyncTest "Obtaining the fee recpient of an unconfigured validator returns the suggested default" & preset():
+      let
+        pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
+        resultFromApi = await client.listFeeRecipient(pubkey, correctTokenValue)
+
+      check:
+        resultFromApi == defaultFeeRecipient
+
+    asyncTest "Configuring the fee recpient" & preset():
+      let
+        pubkey = ValidatorPubKey.fromHex(oldPublicKeys[1]).expect("valid key")
+        firstFeeRecipient = specifiedFeeRecipient(2)
+
+      await client.setFeeRecipient(pubkey, firstFeeRecipient, correctTokenValue)
+
+      let firstResultFromApi = await client.listFeeRecipient(pubkey, correctTokenValue)
+      check:
+        firstResultFromApi == firstFeeRecipient
+
+      let secondFeeRecipient = specifiedFeeRecipient(3)
+      await client.setFeeRecipient(pubkey, secondFeeRecipient, correctTokenValue)
+
+      let secondResultFromApi = await client.listFeeRecipient(pubkey, correctTokenValue)
+      check:
+        secondResultFromApi == secondFeeRecipient
+
+      await client.deleteFeeRecipient(pubkey, correctTokenValue)
+      let finalResultFromApi = await client.listFeeRecipient(pubkey, correctTokenValue)
+      check:
+        finalResultFromApi == defaultFeeRecipient
 
   suite "ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys" & preset():
     asyncTest "Importing list of remote keys" & preset():
@@ -866,9 +1014,7 @@ proc runTests {.async.} =
 
       check:
         response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $noAuthorizationHeader
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Header" & preset():
       let
@@ -879,9 +1025,7 @@ proc runTests {.async.} =
 
       check:
         response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $missingBearerScheme
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Token" & preset():
       let
@@ -891,10 +1035,8 @@ proc runTests {.async.} =
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
-        response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $incorrectToken
+        response.status == 403
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
   suite "DeleteRemoteKeys requests" & preset():
     asyncTest "Deleting not existing key" & preset():
@@ -949,9 +1091,7 @@ proc runTests {.async.} =
 
       check:
         response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $noAuthorizationHeader
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Header" & preset():
       let
@@ -962,9 +1102,7 @@ proc runTests {.async.} =
 
       check:
         response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $missingBearerScheme
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
     asyncTest "Invalid Authorization Token" & preset():
       let
@@ -974,10 +1112,8 @@ proc runTests {.async.} =
         responseJson = Json.decode(response.data, JsonNode)
 
       check:
-        response.status == 401
-        responseJson["code"].getStr() == "401"
-        responseJson["message"].getStr() == InvalidAuthorization
-        responseJson["stacktraces"][0].getStr() == $incorrectToken
+        response.status == 403
+        responseJson["message"].getStr() == InvalidAuthorizationError
 
   bnStatus = BeaconNodeStatus.Stopping
 

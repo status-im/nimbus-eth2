@@ -4,19 +4,21 @@ This page will take you through how to set up a `systemd` service for your beaco
 
 `systemd` is used in order to have a command or program run when your device boots (i.e. add it as a service). Once this is done, you can start/stop enable/disable from the linux prompt.
 
-> [`systemd`](https://systemd.io/) is a service manager designed specifically for Linux - it cannot be used on Windows / Mac. You can get more information about systemd [here](https://fedoramagazine.org/what-is-an-init-system/)
+```admonish note
+[`systemd`](https://systemd.io/) is a service manager designed specifically for Linux - it cannot be used on Windows / Mac. You can get more information about systemd [here](https://fedoramagazine.org/what-is-an-init-system/)
+```
 
 When installing Nimbus via your package manager, a user and service will already have been created for you and you can skip straight to the configuration section.
 
 ### 1. Create a dedicated user
 
-It is recommended that you create a dedicated user and group for running Nimbus. The same user can also be used for the execution client.
+We will start by creating a dedicated user and [data directory](./data-dir.md) for Nimbus. The same user can also be used for the execution client.
 
 ```sh
 # Create the `nimbus` group
 sudo groupadd nimbus
 
-# Create the `nimbus` user in the `nimbus` group - chain data will be stored in /var/lib/nimbus
+# Create the `nimbus` user in the `nimbus` group - we will use /var/lib/nimbus as data directory.
 sudo useradd -g nimbus nimbus -m -d /var/lib/nimbus
 ```
 
@@ -33,7 +35,9 @@ curl -s https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/p
 
 The format of service files is documented in the [systemd manual](https://www.freedesktop.org/software/systemd/man/systemd.service.html).
 
-> ℹ️ Automatic restarts increase the risk that the doppelganger detection fails - set `RestartPreventExitStatus=1031` to prevent this from happening
+```admonish tip
+Automatic restarts increase the risk that the doppelganger detection fails - set `RestartPreventExitStatus=1031` to prevent this from happening
+```
 
 ### 3. Configure your service
 
@@ -55,7 +59,9 @@ The service file contains several options for controlling Nimbus. Important opti
 * `Environment=METRICS_ENABLED`: Metrics are used for monitoring the node - see the [metrics](./metrics-pretty-pictures.md) setup guide
 * `ExecStart=`: Custom options - see the [options](./options.md) guide
 
+```admonish note
 The example assumes Nimbus was installed in `/usr/bin/nimbus_beacon_node` - if you installed Nimbus elsewhere, make sure to update this path.
+```
 
 ### 4. Notify systemd of the newly added service
 
@@ -95,6 +101,19 @@ To rewind logs - by one day, say - run:
 
 ```sh
 sudo journalctl -u nimbus_beacon_node.service --since yesterday
+```
+
+## Import validator keys
+
+When using a service, the beacon node is running as a different user - key import must be performed as this user in order for the key files to have the correct permission:
+
+```
+# Run import command as the `nimbus` user
+sudo -u nimbus /usr/bin/nimbus_beacon_node deposit import --data-dir=/var/lib/nimbus/shared_mainnet_0 /path/to/keys
+```
+
+```admonish note
+Make sure to use the same `--data-dir` option as is used in the service file! Some guides use `--data-dir=/var/lib/nimbus` instead.
 ```
 
 ## Running multiple beacon nodes

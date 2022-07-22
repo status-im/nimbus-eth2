@@ -27,7 +27,8 @@ from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
 
 export
-  web3Types, deques
+  web3Types, deques,
+  beacon_chain_db.DepositContractSnapshot
 
 logScope:
   topics = "eth1"
@@ -73,8 +74,6 @@ type
 
     when hasGenesisDetection:
       activeValidatorsCount*: uint64
-
-  DepositsMerkleizer* = SszMerkleizer[depositContractLimit]
 
   Eth1Chain* = object
     db: BeaconChainDB
@@ -179,12 +178,6 @@ declareGauge eth1_finalized_deposits,
 
 declareGauge eth1_chain_len,
   "The length of the in-memory chain of Eth1 blocks"
-
-func depositCountU64(s: DepositContractState): uint64 =
-  for i in 0 .. 23:
-    doAssert s.deposit_count[i] == 0
-
-  uint64.fromBytesBE s.deposit_count.toOpenArray(24, 31)
 
 template cfg(m: Eth1Monitor): auto =
   m.depositsChain.cfg
@@ -536,27 +529,27 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[void] {.async.} =
       if p.terminalBlockHash.isSome:
         p.terminalBlockHash.get
       else:
-        # TODO can't use static(default(...)) in this context
-        default(BlockHash),
+        # https://github.com/nim-lang/Nim/issues/19802
+        (static(default(BlockHash))),
     terminalBlockNumber:
       if p.terminalBlockNumber.isSome:
         p.terminalBlockNumber.get
       else:
-        # TODO can't use static(default(...)) in this context
-        default(Quantity))
+        # https://github.com/nim-lang/Nim/issues/19802
+        (static(default(Quantity))))
   let ecTransitionConfiguration =
     await p.dataProvider.web3.provider.engine_exchangeTransitionConfigurationV1(
       ccTransitionConfiguration)
   if ccTransitionConfiguration != ecTransitionConfiguration:
     warn "exchangeTransitionConfiguration: Configuration mismatch detected",
       consensusTerminalTotalDifficulty =
-        ccTransitionConfiguration.terminalTotalDifficulty,
+        $ccTransitionConfiguration.terminalTotalDifficulty,
       consensusTerminalBlockHash =
         ccTransitionConfiguration.terminalBlockHash,
       consensusTerminalBlockNumber =
         ccTransitionConfiguration.terminalBlockNumber.uint64,
       executionTerminalTotalDifficulty =
-        ecTransitionConfiguration.terminalTotalDifficulty,
+        $ecTransitionConfiguration.terminalTotalDifficulty,
       executionTerminalBlockHash =
         ecTransitionConfiguration.terminalBlockHash,
       executionTerminalBlockNumber =
@@ -686,19 +679,6 @@ proc onBlockHeaders(p: Web3DataProviderRef,
 
 func getDepositsRoot*(m: DepositsMerkleizer): Eth2Digest =
   mixInLength(m.getFinalHash, int m.totalChunks)
-
-func toDepositContractState*(merkleizer: DepositsMerkleizer): DepositContractState =
-  # TODO There is an off by one discrepancy in the size of the arrays here that
-  #      need to be investigated. It shouldn't matter as long as the tree is
-  #      not populated to its maximum size.
-  result.branch[0..31] = merkleizer.getCombinedChunks[0..31]
-  result.deposit_count[24..31] = merkleizer.getChunkCount().toBytesBE
-
-func createMerkleizer(s: DepositContractState): DepositsMerkleizer =
-  DepositsMerkleizer.init(s.branch, s.depositCountU64)
-
-func createMerkleizer*(s: DepositContractSnapshot): DepositsMerkleizer =
-  createMerkleizer(s.depositContractState)
 
 func eth1DataFromMerkleizer(eth1Block: Eth2Digest,
                             merkleizer: DepositsMerkleizer): Eth1Data =
@@ -960,13 +940,18 @@ template getOrDefault[T, E](r: Result[T, E]): T =
   get(r, default(TT))
 
 proc init*(T: type Eth1Chain, cfg: RuntimeConfig, db: BeaconChainDB): T =
-  let finalizedDeposits = db.getEth2FinalizedTo().getOrDefault()
-  let m = finalizedDeposits.createMerkleizer
+  let
+    finalizedDeposits =
+      if db != nil:
+        db.getEth2FinalizedTo().getOrDefault()
+      else:
+        default(DepositContractSnapshot)
+    m = DepositsMerkleizer.init(finalizedDeposits.depositContractState)
 
   T(db: db,
     cfg: cfg,
     finalizedBlockHash: finalizedDeposits.eth1Block,
-    finalizedDepositsMerkleizer: finalizedDeposits.createMerkleizer)
+    finalizedDepositsMerkleizer: m)
 
 proc createInitialDepositSnapshot*(
     depositContractAddress: Eth1Address,

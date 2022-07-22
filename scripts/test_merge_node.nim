@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 # https://notes.ethereum.org/@9AeMAlpyQYaAAyuj47BzRw/rkwW3ceVY
 # Monitor traffic: socat -v TCP-LISTEN:9550,fork TCP-CONNECT:127.0.0.1:8550
 
@@ -12,11 +19,9 @@ import
 from std/os import paramCount, paramStr
 from nimcrypto/utils import fromHex
 from web3/engine_api_types import PayloadExecutionStatus
-from ../beacon_chain/beacon_chain_db import DepositContractSnapshot
 from ../beacon_chain/networking/network_metadata import Eth1Network
 from ../beacon_chain/spec/datatypes/base import ZERO_HASH
 from ../beacon_chain/spec/presets import Eth1Address, defaultRuntimeConfig
-from ../tests/testdbutil import makeTestDB
 
 # TODO factor this out and have a version with the result of the jwt secret
 # slurp for testing purposes
@@ -48,9 +53,8 @@ proc run() {.async.} =
     echo "args are: web3url jwtsecretfilename"
 
   let
-    db = makeTestDB(64)
     eth1Monitor = Eth1Monitor.init(
-      defaultRuntimeConfig, db, nil, @[paramStr(1)],
+      defaultRuntimeConfig, db = nil, nil, @[paramStr(1)],
       none(DepositContractSnapshot), none(Eth1Network), false,
       some readJwtSecret(paramStr(2)).get)
 

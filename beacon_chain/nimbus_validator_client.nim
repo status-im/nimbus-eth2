@@ -5,29 +5,35 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 import validator_client/[common, fallback_service, duties_service,
-                         attestation_service, fork_service, sync_committee_service]
+                         attestation_service, fork_service,
+                         sync_committee_service, doppelganger_service]
 
 proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
   var nodes = vc.beaconNodes
   while true:
-    var pending: seq[Future[RestResponse[GetGenesisResponse]]]
+    var pendingRequests: seq[Future[RestResponse[GetGenesisResponse]]]
     for node in nodes:
       debug "Requesting genesis information", endpoint = node
-      pending.add(node.client.getGenesis())
+      pendingRequests.add(node.client.getGenesis())
 
     try:
-      await allFutures(pending)
+      await allFutures(pendingRequests)
     except CancelledError as exc:
-      warn "Unexpected cancellation interrupt"
+      var pending: seq[Future[void]]
+      debug "Genesis information request was interrupted"
+      for future in pendingRequests:
+        if not(future.finished()):
+          pending.add(future.cancelAndWait())
+      await allFutures(pending)
       raise exc
 
     let (errorNodes, genesisList) =
       block:
         var gres: seq[RestGenesis]
         var bres: seq[BeaconNodeServerRef]
-        for i in 0 ..< len(pending):
-          let fut = pending[i]
+        for i in 0 ..< len(pendingRequests):
+          let fut = pendingRequests[i]
           if fut.done():
             let resp = fut.read()
             if resp.status == 200:
@@ -86,7 +92,7 @@ proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
       continue
     else:
       duplicates.add(pubkey)
-      vc.attachedValidators.addLocalValidator(keystore)
+      vc.addValidator(keystore)
   return true
 
 proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
@@ -103,6 +109,36 @@ proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
     notice "Waiting for genesis", genesisIn = genesisTime.offset
     await sleepAsync(genesisTime.offset)
   return res
+
+proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
+                 lastSlot: Slot): Future[bool] {.async.} =
+  ## Called at the beginning of a slot - usually every slot, but sometimes might
+  ## skip a few in case we're running late.
+  ## wallTime: current system time - we will strive to perform all duties up
+  ##           to this point in time
+  ## lastSlot: the last slot that we successfully processed, so we know where to
+  ##           start work from - there might be jumps if processing is delayed
+
+  let
+    # The slot we should be at, according to the clock
+    beaconTime = wallTime
+    wallSlot = wallTime.toSlot()
+
+  let
+    # If everything was working perfectly, the slot that we should be processing
+    expectedSlot = lastSlot + 1
+    delay = wallTime - expectedSlot.start_beacon_time()
+
+  if checkIfShouldStopAtEpoch(wallSlot.slot, vc.config.stopAtEpoch):
+    return true
+
+  info "Slot start",
+    slot = shortLog(wallSlot.slot),
+    attestationIn = vc.getDurationToNextAttestation(wallSlot.slot),
+    blockIn = vc.getDurationToNextBlock(wallSlot.slot),
+    delay = shortLog(delay)
+
+  return false
 
 proc asyncInit(vc: ValidatorClientRef) {.async.} =
   vc.beaconGenesis = await vc.initGenesis()
@@ -122,47 +158,88 @@ proc asyncInit(vc: ValidatorClientRef) {.async.} =
       vc.config.validatorsDir(), "slashing_protection"
     )
 
-  vc.fallbackService = await FallbackServiceRef.init(vc)
-  vc.forkService = await ForkServiceRef.init(vc)
-  vc.dutiesService = await DutiesServiceRef.init(vc)
-  vc.attestationService = await AttestationServiceRef.init(vc)
-  vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
-
-proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
-                 lastSlot: Slot) {.async.} =
-  ## Called at the beginning of a slot - usually every slot, but sometimes might
-  ## skip a few in case we're running late.
-  ## wallTime: current system time - we will strive to perform all duties up
-  ##           to this point in time
-  ## lastSlot: the last slot that we successfully processed, so we know where to
-  ##           start work from - there might be jumps if processing is delayed
-
-  let
-    # The slot we should be at, according to the clock
-    beaconTime = wallTime
-    wallSlot = wallTime.toSlot()
-
-  let
-    # If everything was working perfectly, the slot that we should be processing
-    expectedSlot = lastSlot + 1
-    delay = wallTime - expectedSlot.start_beacon_time()
-
-  checkIfShouldStopAtEpoch(wallSlot.slot, vc.config.stopAtEpoch)
-
-  info "Slot start",
-    slot = shortLog(wallSlot.slot),
-    attestationIn = vc.getDurationToNextAttestation(wallSlot.slot),
-    blockIn = vc.getDurationToNextBlock(wallSlot.slot),
-    delay = shortLog(delay)
+  try:
+    vc.fallbackService = await FallbackServiceRef.init(vc)
+    vc.forkService = await ForkServiceRef.init(vc)
+    vc.dutiesService = await DutiesServiceRef.init(vc)
+    vc.doppelgangerService = await DoppelgangerServiceRef.init(vc)
+    vc.attestationService = await AttestationServiceRef.init(vc)
+    vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
+  except CancelledError:
+    debug "Initialization process interrupted"
+    info "Closing slashing protection", path = vc.config.validatorsDir()
+    vc.attachedValidators.slashingProtection.close()
 
 proc asyncRun(vc: ValidatorClientRef) {.async.} =
   vc.fallbackService.start()
   vc.forkService.start()
   vc.dutiesService.start()
+  vc.doppelgangerService.start()
   vc.attestationService.start()
   vc.syncCommitteeService.start()
 
-  await runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
+  var exitEventFut = vc.gracefulExit.wait()
+  try:
+    vc.runSlotLoopFut = runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
+    discard await race(vc.runSlotLoopFut, exitEventFut)
+    if not(vc.runSlotLoopFut.finished()):
+      notice "Received shutdown event, exiting"
+  except CancelledError:
+    debug "Main loop interrupted"
+  except CatchableError as exc:
+    debug "Main loop failed with an error", err_name = $exc.name,
+          err_msg = $exc.msg
+
+  info "Closing slashing protection", path = vc.config.validatorsDir()
+  vc.attachedValidators.slashingProtection.close()
+  debug "Stopping main processing loop"
+  var pending: seq[Future[void]]
+  if not(vc.runSlotLoopFut.finished()):
+    pending.add(vc.runSlotLoopFut.cancelAndWait())
+  if not(exitEventFut.finished()):
+    pending.add(exitEventFut.cancelAndWait())
+  debug "Stopping running services"
+  pending.add(vc.fallbackService.stop())
+  pending.add(vc.forkService.stop())
+  pending.add(vc.dutiesService.stop())
+  pending.add(vc.doppelgangerService.stop())
+  pending.add(vc.attestationService.stop())
+  pending.add(vc.syncCommitteeService.stop())
+  await allFutures(pending)
+
+template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
+  let future = body
+  discard await race(future, vc.sigintHandleFut, vc.sigtermHandleFut)
+  if future.finished():
+    if future.failed() or future.cancelled():
+      let exc = future.readError()
+      debug "Validator client initialization failed", err_name = $exc.name,
+            err_msg = $exc.msg
+      var pending: seq[Future[void]]
+      if not(vc.sigintHandleFut.finished()):
+        pending.add(cancelAndWait(vc.sigintHandleFut))
+      if not(vc.sigtermHandleFut.finished()):
+        pending.add(cancelAndWait(vc.sigtermHandleFut))
+      await allFutures(pending)
+      false
+    else:
+      true
+  else:
+    let signal = if vc.sigintHandleFut.finished(): "SIGINT" else: "SIGTERM"
+    info "Got interrupt, trying to shutdown gracefully", signal = signal
+    var pending = @[cancelAndWait(future)]
+    if not(vc.sigintHandleFut.finished()):
+      pending.add(cancelAndWait(vc.sigintHandleFut))
+    if not(vc.sigtermHandleFut.finished()):
+      pending.add(cancelAndWait(vc.sigtermHandleFut))
+    await allFutures(pending)
+    false
+
+proc asyncLoop*(vc: ValidatorClientRef) {.async.} =
+  if not(vc.runWithSignals(asyncInit(vc))):
+    return
+  if not(vc.runWithSignals(asyncRun(vc))):
+    return
 
 programMain:
   let config = makeBannerAndConfig("Nimbus validator client " & fullVersionStr,
@@ -193,13 +270,29 @@ programMain:
                                        config,
                                        beacon_nodes_count = len(beaconNodes)
 
-  var vc = ValidatorClientRef(
-    config: config,
-    beaconNodes: beaconNodes,
-    graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
-    nodesAvailable: newAsyncEvent(),
-    forksAvailable: newAsyncEvent()
-  )
+  var vc =
+    when declared(waitSignal):
+      ValidatorClientRef(
+        config: config,
+        beaconNodes: beaconNodes,
+        graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
+        nodesAvailable: newAsyncEvent(),
+        forksAvailable: newAsyncEvent(),
+        gracefulExit: newAsyncEvent(),
+        sigintHandleFut: waitSignal(SIGINT),
+        sigtermHandleFut: waitSignal(SIGTERM)
+      )
+    else:
+      ValidatorClientRef(
+        config: config,
+        beaconNodes: beaconNodes,
+        graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
+        nodesAvailable: newAsyncEvent(),
+        forksAvailable: newAsyncEvent(),
+        gracefulExit: newAsyncEvent(),
+        sigintHandleFut: newFuture[void]("sigint_placeholder"),
+        sigtermHandleFut: newFuture[void]("sigterm_placeholder")
+      )
 
-  waitFor asyncInit(vc)
-  waitFor asyncRun(vc)
+  waitFor asyncLoop(vc)
+  info "Validator client stopped"

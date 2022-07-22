@@ -42,8 +42,8 @@ proc initLightClient*(
       config.safeSlotsToImportOptimistically)
 
     lightClient = createLightClient(
-      node.network, rng, config, cfg,
-      forkDigests, getBeaconTime, genesis_validators_root)
+      node.network, rng, config, cfg, forkDigests, getBeaconTime,
+      genesis_validators_root, LightClientFinalizationMode.Strict)
 
   if config.lightClientEnable.get:
     proc shouldSyncOptimistically(slot: Slot): bool =
