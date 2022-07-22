@@ -356,8 +356,6 @@ define CONNECT_TO_NETWORK_IN_DEV_MODE
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--light-client-enable=on \
-		--light-client-data-serve=on \
-		--light-client-data-import-mode=only-new \
 		--dump $(NODE_PARAMS)
 endef
 

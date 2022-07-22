@@ -278,7 +278,8 @@ type
       lightClientEnable* {.
         hidden
         desc: "BETA: Accelerate sync using light client."
-        name: "light-client-enable" .}: Option[bool]
+        defaultValue: false
+        name: "light-client-enable" .}: bool
 
       lightClientTrustedBlockRoot* {.
         hidden
@@ -454,16 +455,18 @@ type
         name: "keymanager-token-file" .}: Option[InputFile]
 
       lightClientDataServe* {.
-        desc: "BETA: Serve data for enabling light clients to stay in sync with the network"
-        name: "light-client-data-serve" .}: Option[bool]
+        desc: "Serve data for enabling light clients to stay in sync with the network"
+        defaultValue: true
+        name: "light-client-data-serve" .}: bool
 
       lightClientDataImportMode* {.
-        desc: "BETA: Which classes of light client data to import. " &
+        desc: "Which classes of light client data to import. " &
               "Must be one of: none, only-new, full (slow startup), on-demand (may miss validator duties)"
-        name: "light-client-data-import-mode" .}: Option[LightClientDataImportMode]
+        defaultValue: LightClientDataImportMode.OnlyNew
+        name: "light-client-data-import-mode" .}: LightClientDataImportMode
 
       lightClientDataMaxPeriods* {.
-        desc: "BETA: Maximum number of sync committee periods to retain light client data"
+        desc: "Maximum number of sync committee periods to retain light client data"
         name: "light-client-data-max-periods" .}: Option[uint64]
 
       inProcessValidators* {.

@@ -42,12 +42,6 @@ type
     goerli
     sepolia
 
-  Eth2NetworkConfigDefaults* = object
-    ## Network specific config defaults
-    lightClientEnable*: bool
-    lightClientDataServe*: bool
-    lightClientDataImportMode*: LightClientDataImportMode
-
   Eth2NetworkMetadata* = object
     case incompatible*: bool
     of false:
@@ -82,8 +76,6 @@ type
       # unknown genesis state.
       genesisData*: string
       genesisDepositsSnapshot*: string
-
-      configDefaults*: Eth2NetworkConfigDefaults
     else:
       incompatibilityDesc*: string
 
@@ -217,21 +209,6 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       else:
         ""
 
-      deploymentPhase = genesisData.deploymentPhase
-
-      configDefaults =
-        Eth2NetworkConfigDefaults(
-          lightClientEnable:
-            false, # Only produces debug logs so far
-          lightClientDataServe:
-            deploymentPhase <= DeploymentPhase.Testnet,
-          lightClientDataImportMode:
-            if deploymentPhase <= DeploymentPhase.Testnet:
-              LightClientDataImportMode.OnlyNew
-            else:
-              LightClientDataImportMode.None
-        )
-
     Eth2NetworkMetadata(
       incompatible: false,
       eth1Network: eth1Network,
@@ -239,8 +216,7 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       bootstrapNodes: bootstrapNodes,
       depositContractDeployedAt: depositContractDeployedAt,
       genesisData: genesisData,
-      genesisDepositsSnapshot: genesisDepositsSnapshot,
-      configDefaults: configDefaults)
+      genesisDepositsSnapshot: genesisDepositsSnapshot)
 
   except PresetIncompatibleError as err:
     Eth2NetworkMetadata(incompatible: true,
