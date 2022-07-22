@@ -1,11 +1,11 @@
 # Migrate from another client
 
-
 This guide will take you through the basics of how to migrate to Nimbus from another client. *See [here](./migration-options.md) for advanced options*.
 
 The main pain point involves the exporting and importing of the [slashing protection database](https://eips.ethereum.org/EIPS/eip-3076), since each client takes a slightly different approach here.
 
-**The most important takeaway is that you ensure that two clients will never validate with the same keys at the same time.** In other words, you must ensure that your original client is stopped, and no longer validating, before importing your keys into Nimbus.
+!!! warning
+    **The most important takeaway is that you ensure that two clients will never validate with the same keys at the same time.** In other words, you must ensure that your original client is stopped, and no longer validating, before importing your keys into Nimbus.
 
 > **Please take your time to get this right.** Don't hesitate to reach out to us in the `#helpdesk` channel of [our discord](https://discord.gg/j3nYBUeEad) if you come across a stumbling block. We are more than happy to help guide you through the migration process. Given what's at stake, there is no such thing as a stupid question.
 
@@ -17,9 +17,9 @@ The easiest way to do this is to follow the [beacon node quick start guide](./qu
 Once your Nimbus beacon node has synced and you're satisfied that it's working, move to **Step 2**.
 
 > **Tip:** See here for how to [keep track of your syncing progress](keep-an-eye.md#keep-track-of-your-syncing-progress).
-> 
+>
 > Alternatively, If you run the Nimbus beacon node with the `--rest` option enabled (e.g. `./run-mainnet-beacon-node.sh --rest`), you can obtain your node's syncing status by running:
-> 
+>
 > ```
 > curl -X GET http://localhost:5052/eth/v1/node/syncing
 > ```
@@ -50,8 +50,8 @@ It's important that you disable the Prysm validator as well as stopping it, to p
 Run the following to export your Prysm validator's [slashing protection](https://eips.ethereum.org/EIPS/eip-3076) history:
 
 ```
-prysm.sh validator slashing-protection-history export \ 
- --datadir=/your/prysm/wallet \ 
+prysm.sh validator slashing-protection-history export \
+ --datadir=/your/prysm/wallet \
  --slashing-protection-export-dir=/path/to/export_dir
 ```
 
@@ -94,7 +94,7 @@ This will export your history in the correct format to `slashing-protection.json
 
 ### From Teku
 
-#### 1. Disable Teku 
+#### 1. Disable Teku
 
 If you're using systemd and your service is called `teku`, run the following command to stop and disable the service:
 
@@ -125,7 +125,7 @@ Where:
 
 #### 1. Disable the Nimbus validator client
 
-Once your Nimbus beacon node on your new setup has synced and you're satisfied that it's working, stop and disable the Nimbus validator client on your current setup. 
+Once your Nimbus beacon node on your new setup has synced and you're satisfied that it's working, stop and disable the Nimbus validator client on your current setup.
 
 If you're using systemd and your service is called `nimbus-eth2-mainnet`, run the following commands to stop and disable the service:
 
@@ -169,7 +169,7 @@ Replacing `/path/to/export_dir` with the file/directory you specified when you e
 
 ## Step 5 - Start the Nimbus validator
 
-Follow the instructions [here](./connect-eth2.html) to start your validator using our pre-built [binaries](./binaries.md).
+Follow the instructions [here](./connect-eth2.md) to start your validator using our pre-built [binaries](./binaries.md).
 
 If you prefer to use Docker, see [here](./docker.md)
 

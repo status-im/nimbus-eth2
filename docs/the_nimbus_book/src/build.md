@@ -2,15 +2,13 @@
 
 Building the beacon node from source ensures that all hardware-specific optimizations are turned on. The build process itself is simple and fully automated, but may take a few minutes.
 
-```admonish note
-Nimbus is written in the [Nim](https://nim-lang.org) programming language - the correct version will automatically be downloaded as part of the build process!
-```
+!!! note
+    Nimbus is written in the [Nim](https://nim-lang.org) programming language - the correct version will automatically be downloaded as part of the build process!
 
 ## Prerequisites
 
-```admonish tip
-If you are planning to use the precompiled binaries, you can skip this section and go straight to the [binaries](./binaries.md)!
-```
+!!! tip
+    If you are planning to use the precompiled binaries, you can skip this section and go straight to the [binaries](./binaries.md)!
 
 When building from source, you will need additional build dependencies to be installed:
 
@@ -85,6 +83,5 @@ To build the Nimbus beacon node and its dependencies, run:
 make -j4 nimbus_beacon_node
 ```
 
-```admonish tip
-Omit `-j4` on systems with 4GB of memory or less.
-```
+!!! tip
+    Omit `-j4` on systems with 4GB of memory or less.

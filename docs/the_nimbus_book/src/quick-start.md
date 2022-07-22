@@ -10,13 +10,12 @@ Running a beacon node is a [worthwhile endeavor](https://vitalik.ca/general/2021
 
 The guide assumes [Ubuntu Linux](https://ubuntu.com/download/server) is being used, and therefore some familiarity with [the linux command line](https://ubuntu.com/tutorials/command-line-for-beginners) is needed.
 
-```admonish note
-To become a validator, you will first need to be running a beacon node.
-```
+!!! note
+    To become a validator, you will first need to be running a beacon node.
 
-```admonish note
-You can practice running the node safely on the [Prater testnet](./prater.md) - throughout, we'll provide instructions for both Prater and Mainnet.
-```
+!!! tip
+    You can practice running the node safely on the [Prater testnet](./prater.md) - throughout, we'll provide instructions for both Prater and Mainnet.
+
 
 ## 1. Prepare
 
@@ -37,9 +36,8 @@ wget https://github.com/status-im/nimbus-eth2/releases/download/v22.6.1/nimbus-e
 tar xvf nimbus-eth2_Linux_amd64_22.6.1_2444e994.tar.gz --strip-components 1 -C nimbus-eth2
 ```
 
-```admonish tip
-Advanced users looking to take advantage of hardware-specific features and optimization may wish to [build from source](./build.md) instead!
-```
+!!! tip
+    Advanced users looking to take advantage of hardware-specific features and optimization may wish to [build from source](./build.md) instead!
 
 ## 3. Start the node
 
@@ -49,19 +47,19 @@ Once you've installed the binaries, you can [start the node](./start-syncing.md)
 cd nimbus-eth2
 ```
 
-**Mainnet**
+=== "Mainnet"
 
-```sh
-# Start a mainnet node
-./run-mainnet-beacon-node.sh
-```
+    ```sh
+    # Start a mainnet node
+    ./run-mainnet-beacon-node.sh
+    ```
 
-**Prater**
+=== "Prater"
 
-```sh
-# Start a prater testnet node
-./run-prater-beacon-node.sh
-```
+    ```sh
+    # Start a prater testnet node
+    ./run-prater-beacon-node.sh
+    ```
 
 Once the beacon node starts, you'll see it logging information to the console, like so:
 

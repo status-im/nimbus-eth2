@@ -2,15 +2,13 @@
 
 Make sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the **announcements** channel on our [discord](https://discord.com/invite/XRxWahP). The release page can be found [here](https://github.com/status-im/nimbus-eth2/releases/).
 
-```admonish note
-If your beacon node is already running, you'll need to restart it for the changes to take effect.
-```
+!!! note
+    If your beacon node is already running, you'll need to restart it for the changes to take effect.
 
 To update to the latest version, either download the binary or compile the beacon node release (see below).
 
-```admonish tip
-To check which version of Nimbus you're currently running, run `build/nimbus_beacon_node --version`
-```
+!!! tip
+    To check which version of Nimbus you're currently running, run `build/nimbus_beacon_node --version`
 
 ## Binaries
 
@@ -43,9 +41,8 @@ make -j4 nimbus_beacon_node
 
 Now, restart your node.
 
-```admonish tip
-In order to minimise downtime, we recommend updating and [rebuilding](./build.md) the beacon node **before restarting**.
-```
+!!! tip
+    In order to minimise downtime, we recommend updating and [rebuilding](./build.md) the beacon node **before restarting**.
 
 ## Urgency guidelines
 
@@ -75,9 +72,8 @@ make nimbus_beacon_node
 
 Now, restart your node.
 
-```admonish note
-Alternatively, you can grab the appropriate binary release - create a backup of your `build` folder, then download the appropriate binary from here: [https://github.com/status-im/nimbus-eth2/releases/tag/v1.3.0](https://github.com/status-im/nimbus-eth2/releases/tag/v1.3.0)
-```
+!!! note
+    Alternatively, you can grab the appropriate binary release - create a backup of your `build` folder, then download the appropriate binary from here: [https://github.com/status-im/nimbus-eth2/releases/tag/v1.3.0](https://github.com/status-im/nimbus-eth2/releases/tag/v1.3.0)
 
 ### Go back to stable
 

@@ -14,31 +14,29 @@ Specifically, we'll be using the `existing-mnemonic` command. Here's a descripti
 
 ## Recover existing key
 
-```admonish warning
-Recovering validator keys from a mnemonic should only be used as a last resort. Exposing your mnemonic to a computer at any time puts it at risk of being compromised. Your mnemonic is not encrypted and if leaked, can be used to steal your funds.
-```
+!!! warning
+    Recovering validator keys from a mnemonic should only be used as a last resort. Exposing your mnemonic to a computer at any time puts it at risk of being compromised. Your mnemonic is not encrypted and if leaked, can be used to steal your funds.
 
-```admonish note
-The commands below assume you are trying to recover the first key you created, hence `--validator_start_index` has been set to `0`.
-```
+!!! note
+    The commands below assume you are trying to recover the first key you created, hence `--validator_start_index` has been set to `0`.
 
 Run the following command from the directory which contains the `deposit` executable:
 
-**Mainnet**
-```
-./deposit existing-mnemonic \
- --validator_start_index 0 \
- --num_validators 1 \
- --chain mainnet
-```
+=== "Mainnet"
+    ```
+    ./deposit existing-mnemonic \
+    --validator_start_index 0 \
+    --num_validators 1 \
+    --chain mainnet
+    ```
 
-**Prater**
-```
-./deposit existing-mnemonic \
- --validator_start_index 0 \
- --num_validators 1 \
- --chain prater
-```
+=== "Prater"
+    ```
+    ./deposit existing-mnemonic \
+    --validator_start_index 0 \
+    --num_validators 1 \
+    --chain prater
+    ```
 
 You'll be prompted to enter your mnemonic, and a new password for your keystore.
 
@@ -48,31 +46,29 @@ Copy the `validator_keys` directory to `nimbus-eth2` and then follow the instruc
 
 ## Generate another key
 
-```admonish warning
-If you wish to use your new key with a separate client instance, make sure not to include your first key in the second setup - doing so will lead to it being slashed!
-```
+!!! warning
+    If you wish to use your new key with a separate client instance, make sure not to include your first key in the second setup - doing so will lead to it being slashed!
 
-```admonish note
-The commands below assume you already have one key and wish to generate a second, hence `--validator_start_index` has been set to `1` (as `0` would be the original key)
-```
+!!! note
+    The commands below assume you already have one key and wish to generate a second, hence `--validator_start_index` has been set to `1` (as `0` would be the original key)
 
 Run the following command from the directory which contains the `deposit` executable:
 
-**Mainnet**
-```
-./deposit existing-mnemonic \
- --validator_start_index 1 \
- --num_validators 1 \
- --chain mainnet
-```
+=== "Mainnet"
+    ```
+    ./deposit existing-mnemonic \
+    --validator_start_index 1 \
+    --num_validators 1 \
+    --chain mainnet
+    ```
 
-**Prater**
-```
-./deposit existing-mnemonic \
- --validator_start_index 1 \
-  --num_validators 1 \
-  --chain prater
-```
+=== "Prater"
+    ```
+    ./deposit existing-mnemonic \
+    --validator_start_index 1 \
+    --num_validators 1 \
+    --chain prater
+    ```
 
 You'll be prompted to enter your mnemonic, and a new password for your keystore.
 
