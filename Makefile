@@ -151,9 +151,9 @@ libbacktrace:
 restapi-test:
 	./tests/simulation/restapi.sh \
 		--data-dir resttest0_data \
-		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
-		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
-		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--base-port $$(( 19000 + EXECUTOR_NUMBER * 100 )) \
+		--base-rest-port $$(( 17500 + EXECUTOR_NUMBER * 100 )) \
+		--base-metrics-port $$(( 18008 + EXECUTOR_NUMBER * 100 )) \
 		--resttest-delay 30 \
 		--kill-old-processes
 
@@ -165,9 +165,9 @@ local-testnet-minimal:
 		--stop-at-epoch 5 \
 		--disable-htop \
 		--enable-logtrace \
-		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
-		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
-		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--base-port $$(( 29000 + EXECUTOR_NUMBER * 100 )) \
+		--base-rest-port $$(( 27500 + EXECUTOR_NUMBER * 100 )) \
+		--base-metrics-port $$(( 28008 + EXECUTOR_NUMBER * 100 )) \
 		--timeout 600 \
 		--kill-old-processes \
 		--light-clients 1 \
@@ -182,9 +182,9 @@ local-testnet-mainnet:
 		--stop-at-epoch 5 \
 		--disable-htop \
 		--enable-logtrace \
-		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
-		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
-		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--base-port $$(( 39000 + EXECUTOR_NUMBER * 100 )) \
+		--base-rest-port $$(( 37500 + EXECUTOR_NUMBER * 100 )) \
+		--base-metrics-port $$(( 38008 + EXECUTOR_NUMBER * 100 )) \
 		--timeout 2400 \
 		--kill-old-processes \
 		--light-clients 1 \
