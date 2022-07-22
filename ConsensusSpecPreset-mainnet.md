@@ -210,10 +210,6 @@ ConsensusSpecPreset-mainnet
   ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
 + ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
 + ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
-+ Merkle - Single proof - mainnet/altair/merkle/single_proof/pyspec_tests/finality_root_merk OK
-+ Merkle - Single proof - mainnet/altair/merkle/single_proof/pyspec_tests/next_sync_committe OK
-+ Merkle - Single proof - mainnet/bellatrix/merkle/single_proof/pyspec_tests/finality_root_m OK
-+ Merkle - Single proof - mainnet/bellatrix/merkle/single_proof/pyspec_tests/next_sync_commi OK
 + Slots - double_empty_epoch                                                                 OK
 + Slots - empty_epoch                                                                        OK
 + Slots - over_epoch_boundary                                                                OK
@@ -433,7 +429,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 423/430 Fail: 0/430 Skip: 7/430
+OK: 419/426 Fail: 0/426 Skip: 7/426
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -1253,4 +1249,4 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 1076/1083 Fail: 0/1083 Skip: 7/1083
+OK: 1072/1079 Fail: 0/1079 Skip: 7/1079

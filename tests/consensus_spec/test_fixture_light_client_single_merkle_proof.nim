@@ -22,7 +22,7 @@ import
   ./fixtures_utils
 
 proc runTest(path: string, fork: BeaconStateFork) =
-  test "Merkle - Single proof - " & path.relativePath(SszTestsDir):
+  test "Light client - Single merkle proof - " & path.relativePath(SszTestsDir):
     type
       TestProof = object
         leaf: string
@@ -52,10 +52,10 @@ proc runTest(path: string, fork: BeaconStateFork) =
           get_subtree_index(proof.leaf_index),
           state.root)
 
-suite "EF - Merkle - Single proof" & preset():
+suite "EF - Light client - Single merkle proof" & preset():
   const presetPath = SszTestsDir/const_preset
   for kind, path in walkDir(presetPath, relative = true, checkDir = true):
-    let testsPath = presetPath/path/"merkle"/"single_proof"
+    let testsPath = presetPath/path/"light_client"/"single_merkle_proof"
     if kind != pcDir or not dirExists(testsPath):
       continue
     let
