@@ -148,12 +148,29 @@ update: | update-common
 libbacktrace:
 	+ "$(MAKE)" -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
 
+# Make sure ports don't overlap to support concurrent execution of tests
+# Avoid selecting ephemeral ports that may be used by others; safe = 5001-9999
+#
+# EXECUTOR_NUMBER: [0, 1] (depends on max number of concurrent CI jobs)
+#
+# The following port ranges are allocated (entire continuous range):
+# - --base-port + [0, --nodes + --light-clients)
+# - --base-rest-port + [0, --nodes)
+# - --base-metrics-port + [0, --nodes)
+# - --base-remote-signer-port + [0, --remote-signers)
+#
+# If --run-geth or --run-nimbus is specified (only these ports):
+# - --base-el-net-port + --el-port-offset * [0, --nodes + --light-clients)
+# - --base-el-http-port + --el-port-offset * [0, --nodes + --light-clients)
+# - --base-el-ws-port + --el-port-offset * [0, --nodes + --light-clients)
+# - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
+
 restapi-test:
 	./tests/simulation/restapi.sh \
 		--data-dir resttest0_data \
-		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
-		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
-		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--base-port $$(( 5001 + EXECUTOR_NUMBER * 500 )) \
+		--base-rest-port $$(( 5031 + EXECUTOR_NUMBER * 500 )) \
+		--base-metrics-port $$(( 5061 + EXECUTOR_NUMBER * 500 )) \
 		--resttest-delay 30 \
 		--kill-old-processes
 
@@ -165,12 +182,17 @@ local-testnet-minimal:
 		--stop-at-epoch 5 \
 		--disable-htop \
 		--enable-logtrace \
-		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
-		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
-		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
+		--base-rest-port $$(( 6031 + EXECUTOR_NUMBER * 500 )) \
+		--base-metrics-port $$(( 6061 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-port $$(( 6101 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-net-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 6202 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-ws-port $$(( 6203 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-auth-rpc-port $$(( 6204 + EXECUTOR_NUMBER * 500 )) \
+		--el-port-offset 5 \
 		--timeout 600 \
 		--kill-old-processes \
-		--light-clients 1 \
 		-- \
 		--verify-finalization \
 		--discv5:no
@@ -182,12 +204,17 @@ local-testnet-mainnet:
 		--stop-at-epoch 5 \
 		--disable-htop \
 		--enable-logtrace \
-		--base-port $$(( 9100 + EXECUTOR_NUMBER * 100 )) \
-		--base-rest-port $$(( 7100 + EXECUTOR_NUMBER * 100 )) \
-		--base-metrics-port $$(( 8108 + EXECUTOR_NUMBER * 100 )) \
+		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
+		--base-rest-port $$(( 7031 + EXECUTOR_NUMBER * 500 )) \
+		--base-metrics-port $$(( 7061 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-port $$(( 7101 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-net-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 7202 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-ws-port $$(( 7203 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-auth-rpc-port $$(( 7204 + EXECUTOR_NUMBER * 500 )) \
+		--el-port-offset 5 \
 		--timeout 2400 \
 		--kill-old-processes \
-		--light-clients 1 \
 		-- \
 		--verify-finalization \
 		--discv5:no

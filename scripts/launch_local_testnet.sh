@@ -55,7 +55,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,light-clients:,run-nimbus-el,verbose"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-remote-signer-port:,base-el-net-port:,base-el-http-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,light-clients:,run-nimbus-el,verbose"
 
 # default values
 NIMFLAGS="${NIMFLAGS:-""}"
@@ -70,6 +70,11 @@ BASE_PORT="9000"
 BASE_REMOTE_SIGNER_PORT="6000"
 BASE_METRICS_PORT="8008"
 BASE_REST_PORT="7500"
+BASE_EL_NET_PORT="30303"
+BASE_EL_HTTP_PORT="8545"
+BASE_EL_WS_PORT="8546"
+BASE_EL_AUTH_RPC_PORT="8551"
+EL_PORT_OFFSET="10"
 REUSE_EXISTING_DATA_DIR="0"
 REUSE_BINARIES="0"
 NIMFLAGS=""
@@ -112,6 +117,12 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
   --base-rest-port            bootstrap node's REST port (default: ${BASE_REST_PORT})
   --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
+  --base-remote-signer-port   first remote signing node's port (default: ${BASE_REMOTE_SIGNER_PORT})
+  --base-el-net-port          first EL's network traffic port (default: ${BASE_EL_NET_PORT})
+  --base-el-http-port         first EL's HTTP web3 port (default: ${BASE_EL_HTTP_PORT})
+  --base-el-ws-port           first EL's WebSocket web3 port (default: ${BASE_EL_WS_PORT})
+  --base-el-auth-rpc-port     first EL's authenticated engine API port (default: ${BASE_EL_AUTH_RPC_PORT})
+  --el-port-offset            offset to apply between ports of multiple ELs (default: ${EL_PORT_OFFSET})
   --disable-htop              don't use "htop" to see the nimbus_beacon_node processes
   --disable-vc                don't use validator client binaries for validators
                               (by default validators are split 50/50 between beacon nodes
@@ -209,6 +220,30 @@ while true; do
       ;;
     --base-metrics-port)
       BASE_METRICS_PORT="$2"
+      shift 2
+      ;;
+    --base-remote-signer-port)
+      BASE_REMOTE_SIGNER_PORT="$2"
+      shift 2
+      ;;
+    --base-el-net-port)
+      BASE_EL_NET_PORT="$2"
+      shift 2
+      ;;
+    --base-el-http-port)
+      BASE_EL_HTTP_PORT="$2"
+      shift 2
+      ;;
+    --base-el-ws-port)
+      BASE_EL_WS_PORT="$2"
+      shift 2
+      ;;
+    --base-el-auth-rpc-port)
+      BASE_EL_AUTH_RPC_PORT="$2"
+      shift 2
+      ;;
+    --el-port-offset)
+      EL_PORT_OFFSET="$2"
       shift 2
       ;;
     --reuse-existing-data-dir)
@@ -342,8 +377,8 @@ if [[ "${OS}" != "windows" ]]; then
   #Stop geth nodes
   if [[ "${RUN_GETH}" == "1" ]]; then
     for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
-      for PORT in $(( NUM_NODE * GETH_PORT_OFFSET + GETH_NET_BASE_PORT )) $(( NUM_NODE * GETH_PORT_OFFSET + GETH_HTTP_BASE_PORT )) \
-                  $(( NUM_NODE * GETH_PORT_OFFSET + GETH_WS_BASE_PORT )) $(( NUM_NODE * GETH_PORT_OFFSET + GETH_AUTH_RPC_PORT_BASE )); do
+      for PORT in $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_NET_PORT )) $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_HTTP_PORT )) \
+                  $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_WS_PORT )) $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_AUTH_RPC_PORT )); do
         for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
           echo -n "Found old geth processes listening on port ${PORT}, with PID ${PID}. "
           if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
@@ -360,8 +395,8 @@ if [[ "${OS}" != "windows" ]]; then
 
   if [[ "${RUN_NIMBUS}" == "1" ]]; then
     for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
-      for PORT in $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_NET_BASE_PORT )) $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_HTTP_BASE_PORT )) \
-                  $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_WS_BASE_PORT )) $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_AUTH_RPC_PORT_BASE )); do
+      for PORT in $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_NET_PORT )) $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_HTTP_PORT )) \
+                  $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_WS_PORT )) $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_AUTH_RPC_PORT )); do
         for PID in $(lsof -n -i tcp:${PORT} -sTCP:LISTEN -t); do
           echo -n "Found old nimbus EL processes listening on port ${PORT}, with PID ${PID}. "
           if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then

@@ -12,6 +12,7 @@ pipeline {
 
   options {
     timestamps()
+    ansiColor('xterm')
     /* This also includes wait time in the queue. */
     timeout(time: 24, unit: 'HOURS')
     /* Limit builds retained. */
@@ -72,8 +73,7 @@ pipeline {
     }
 
     stage('Finalizations') {
-      /* TODO: Try in parallel. */
-      stages {
+      stages {  /* parallel builds of minimal / mainnet not yet supported */
         stage('minimal') {
           steps { script { timeout(15) {
             launchLocalTestnet('minimal')
