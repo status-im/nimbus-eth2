@@ -471,7 +471,6 @@ ConsensusSpecPreset-minimal
 + bellatrix_fork_random_large_validator_set                                                  OK
 + bellatrix_fork_random_low_balances                                                         OK
 + bellatrix_fork_random_misc_balances                                                        OK
-+ finality_root_merkle_proof                                                                 OK
 + fork_base_state                                                                            OK
 + fork_many_next_epoch                                                                       OK
 + fork_next_epoch                                                                            OK
@@ -479,9 +478,8 @@ ConsensusSpecPreset-minimal
 + fork_random_large_validator_set                                                            OK
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
-+ next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 471/478 Fail: 0/478 Skip: 7/478
+OK: 469/476 Fail: 0/476 Skip: 7/476
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -917,17 +915,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 35/35 Fail: 0/35 Skip: 0/35
-## EF - Altair - Sync protocol - Light client [Preset: minimal]
-```diff
-  All tests                                                                                  Skip
-```
-OK: 0/1 Fail: 0/1 Skip: 1/1
-## EF - Altair - Sync protocol - Update ranking [Preset: minimal]
-```diff
-  All tests                                                                                  Skip
-```
-OK: 0/1 Fail: 0/1 Skip: 1/1
-## EF - Altair - Unittests - Sync protocol [Preset: minimal]
+## EF - Altair - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
 + process_light_client_update_timeout                                                        OK
@@ -1352,4 +1340,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1157/1166 Fail: 0/1166 Skip: 9/1166
+OK: 1155/1162 Fail: 0/1162 Skip: 7/1162

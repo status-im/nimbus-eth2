@@ -422,16 +422,14 @@ ConsensusSpecPreset-mainnet
 + bellatrix_fork_random_3                                                                    OK
 + bellatrix_fork_random_low_balances                                                         OK
 + bellatrix_fork_random_misc_balances                                                        OK
-+ finality_root_merkle_proof                                                                 OK
 + fork_base_state                                                                            OK
 + fork_many_next_epoch                                                                       OK
 + fork_next_epoch                                                                            OK
 + fork_next_epoch_with_block                                                                 OK
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
-+ next_sync_committee_merkle_proof                                                           OK
 ```
-OK: 421/428 Fail: 0/428 Skip: 7/428
+OK: 419/426 Fail: 0/426 Skip: 7/426
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -852,17 +850,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 35/35 Fail: 0/35 Skip: 0/35
-## EF - Altair - Sync protocol - Light client [Preset: mainnet]
-```diff
-  All tests                                                                                  Skip
-```
-OK: 0/1 Fail: 0/1 Skip: 1/1
-## EF - Altair - Sync protocol - Update ranking [Preset: mainnet]
-```diff
-  All tests                                                                                  Skip
-```
-OK: 0/1 Fail: 0/1 Skip: 1/1
-## EF - Altair - Unittests - Sync protocol [Preset: mainnet]
+## EF - Altair - Unittests - Light client - Sync protocol [Preset: mainnet]
 ```diff
 + process_light_client_update_finality_updated                                               OK
 + process_light_client_update_timeout                                                        OK
@@ -1261,4 +1249,4 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 OK: 27/27 Fail: 0/27 Skip: 0/27
 
 ---TOTAL---
-OK: 1074/1083 Fail: 0/1083 Skip: 9/1083
+OK: 1072/1079 Fail: 0/1079 Skip: 7/1079

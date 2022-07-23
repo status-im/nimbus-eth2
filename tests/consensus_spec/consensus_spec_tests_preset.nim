@@ -14,6 +14,9 @@ import
   ./phase0/all_phase0_fixtures,
   ./altair/all_altair_fixtures,
   ./bellatrix/all_bellatrix_fixtures,
-  ./test_fixture_fork_choice
+  ./test_fixture_fork_choice,
+  ./test_fixture_light_client_single_merkle_proof,
+  ./test_fixture_light_client_sync,
+  ./test_fixture_light_client_update_ranking
 
 summarizeLongTests("ConsensusSpecPreset")

@@ -180,14 +180,14 @@ func apply_light_client_update(
     didProgress = true
   didProgress
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#try_light_client_store_force_update
+# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#process_light_client_store_force_update
 type
   ForceUpdateResult* = enum
     NoUpdate,
     DidUpdateWithoutSupermajority,
     DidUpdateWithoutFinality
 
-func try_light_client_store_force_update*(
+func process_light_client_store_force_update*(
     store: var LightClientStore,
     current_slot: Slot): ForceUpdateResult {.discardable.} =
   var res = NoUpdate
