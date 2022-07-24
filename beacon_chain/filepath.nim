@@ -17,8 +17,6 @@ import spec/keystore
 
 when defined(windows):
   import stew/[windows/acl]
-else:
-  import posix
 
 type
   ByteChar = byte | char
@@ -32,7 +30,7 @@ const
 
 proc openLockedFile*(keystorePath: string): IoResult[FileLockHandle] =
   let
-    flags = {OpenFlags.Read, OpenFlags.Exclusive}
+    flags = {OpenFlags.Read, OpenFlags.Write, OpenFlags.Exclusive}
     handle = ? openFile(keystorePath, flags)
 
   var success = false
