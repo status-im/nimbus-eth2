@@ -40,7 +40,7 @@ When building from source, you will need additional build dependencies to be ins
 
 === "Windows"
 
-    To build Nimbus on windows, the Mingw-w64 build environment is recommended.
+    To build Nimbus on Windows, the MinGW-w64 build environment is recommended.
 
     Install Mingw-w64 for your architecture using the "[MinGW-W64 Online Installer](https://sourceforge.net/projects/mingw-w64/files/)":
 
