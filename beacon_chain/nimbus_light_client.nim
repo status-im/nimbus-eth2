@@ -60,11 +60,13 @@ programMain:
 
     eth1Monitor =
       if config.web3Urls.len > 0:
-        Eth1Monitor.init(
+        let res = Eth1Monitor.init(
           cfg, db = nil, getBeaconTime, config.web3Urls,
           none(DepositContractSnapshot), metadata.eth1Network,
           forcePolling = false,
           rng[].loadJwtSecret(config, allowCreate = false))
+        waitFor res.ensureDataProvider()
+        res
       else:
         nil
 
