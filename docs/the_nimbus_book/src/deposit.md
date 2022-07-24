@@ -55,9 +55,9 @@ Once created, the keys are used to create a deposit transaction on the Ethereum 
 !!! warning
     If you are making a mainnet deposit make sure you verify that the deposit contract you are interacting with is the correct one.
 
-    You should verify that the address is indeed: [0x00000000219ab540356cBB839Cbe05303d7705Fa](https://etherscan.io/address/0x00000000219a
+    You should verify that the address is indeed: [0x00000000219ab540356cBB839Cbe05303d7705Fa](https://etherscan.io/address/0x00000000219ab540356cBB839Cbe05303d7705Fa)
 
 !!! info
-    Once you send off your transaction(s), your validator will be put in a queue based on deposit time. Getting through the queue may take a few hours or days (assuming the chain is finalising). No validators are accepted into the validator set while the chain isn't finalising. The `Pending Validators` metric on the [beaconcha.in](https://beaconcha.in/) will give you the size of the queue.give you the size of the queue.
+    Once you send off your transaction(s), your validator will be put in a queue based on deposit time. Getting through the queue may take a few hours or days (assuming the chain is finalising). No validators are accepted into the validator set while the chain isn't finalising. The `Pending Validators` metric on the [beaconcha.in](https://beaconcha.in/) will give you the size of the queue.
 
 With the keys created, you're ready to perform the [key import](./keys.md).
