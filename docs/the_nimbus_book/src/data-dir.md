@@ -4,9 +4,8 @@ Nimbus stores all the information it needs to run in a data directory. In this d
 
 When following the installation guide, the chain data will be stored in `build/data` with separate directories for each chain (mainnet, prater, etc).
 
-```admonish tip
-The `--data-dir=/path/to/data` allows picking a specific data directory to store the chain - make sure you use the same `--data-dir` option for all beacon node commands!
-```
+!!! tip
+    The `--data-dir=/path/to/data` allows picking a specific data directory to store the chain - make sure you use the same `--data-dir` option for all beacon node commands!
 
 ## Contents
 
@@ -33,9 +32,8 @@ The `db` folder contains historical chain data and information about the latest 
 
 These two folders contain your validator keys as well as the passwords needed to unlock them when starting the beacon node.
 
-```admonish warning
-Be careful not to copy the `secrets` and `validator` folders, leaving them in two locations - instead, always move them to the new location! Using the same validators with two nodes poses a significant slashing risk!
-```
+!!! warning
+    Be careful not to copy the `secrets` and `validator` folders, leaving them in two locations - instead, always move them to the new location! Using the same validators with two nodes poses a significant slashing risk!
 
 ## Moving the data directory
 
@@ -94,9 +92,8 @@ find <data-dir>/validators -type f -exec icacls {} /inheritance:r /grant:r $USER
 find <data-dir>/secrets -type f -exec icacls {} /inheritance:r /grant:r $USERDOMAIN\\$USERNAME:\(F\) \;
 ```
 
-```admonish note
-Make sure you run the above from inside `Git Bash`, these commands  will not work from inside the standard Windows Command Prompt. If you don't already have a `Git Bash` shell, you'll need to install [Git for Windows](https://gitforwindows.org/).
-```
+!!! note
+    Make sure you run the above from inside `Git Bash`, these commands  will not work from inside the standard Windows Command Prompt. If you don't already have a `Git Bash` shell, you'll need to install [Git for Windows](https://gitforwindows.org/).
 
 In sum:
 

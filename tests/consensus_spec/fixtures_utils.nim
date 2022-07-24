@@ -9,6 +9,7 @@ import
   # Standard library
   std/[os, strutils, typetraits],
   # Internals
+  ../../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../../beacon_chain/spec/[
     eth2_merkleization, eth2_ssz_serialization, forks],
   # Status libs,
@@ -112,3 +113,26 @@ proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
     stderr.write $Format & " load issue for file \"", path, "\"\n"
     stderr.write err.formatMsg(path), "\n"
     quit 1
+
+proc loadForkedState*(
+    path: string, fork: BeaconStateFork): ref ForkedHashedBeaconState =
+  # TODO stack usage. newClone and assignClone do not seem to
+  # prevent temporaries created by case objects
+  let forkedState = new ForkedHashedBeaconState
+  case fork
+  of BeaconStateFork.Bellatrix:
+    let state = newClone(parseTest(path, SSZ, bellatrix.BeaconState))
+    forkedState.kind = BeaconStateFork.Bellatrix
+    forkedState.bellatrixData.data = state[]
+    forkedState.bellatrixData.root = hash_tree_root(state[])
+  of BeaconStateFork.Altair:
+    let state = newClone(parseTest(path, SSZ, altair.BeaconState))
+    forkedState.kind = BeaconStateFork.Altair
+    forkedState.altairData.data = state[]
+    forkedState.altairData.root = hash_tree_root(state[])
+  of BeaconStateFork.Phase0:
+    let state = newClone(parseTest(path, SSZ, phase0.BeaconState))
+    forkedState.kind = BeaconStateFork.Phase0
+    forkedState.phase0Data.data = state[]
+    forkedState.phase0Data.root = hash_tree_root(state[])
+  forkedState

@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+
+site_name: The Nimbus Guide
+theme:
+  name: material
+  features:
+    - navigation.expand
+    - navigation.top
+  palette:
+    scheme: default
+    primary: orange
+    accent: amber
+
+# Support urls previously used by mdbook
+use_directory_urls: false
+repo_url: https://github.com/status-im/nimbus-eth2
+edit_uri: edit/unstable/docs/the_nimbus_book/src
+site_url: https://nimbus.guide
+docs_dir: src
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Summary:
+    - 'philosophy.md'
+    - 'hardware.md'
+    - 'preparation.md'
+    - 'merge.md'
+
+  - Quickstart:
+    - 'quick-start.md'
+    - 'run-a-validator.md'
+
+  - Downloads:
+    - 'binaries.md'
+    - 'docker.md'
+
+  - How-to (beacon node):
+    - 'install.md'
+    - 'build.md'
+    - 'start-syncing.md'
+    - 'trusted-node-sync.md'
+    - 'web3-backup.md'
+
+  - How-to (validator):
+    - 'deposit.md'
+    - 'keys.md'
+    - 'connect-eth2.md'
+    - 'graffiti.md'
+    - 'suggested-fee-recipient.md'
+    - 'keep-an-eye.md'
+    - 'voluntary-exit.md'
+    - 'validator-monitor.md'
+    - 'more-keys.md'
+    - 'additional-validator.md'
+    - 'validator-client.md'
+
+  - How-to (misc):
+    - 'keep-updated.md'
+    - 'eth1.md'
+    - 'goerli-eth.md'
+    - 'beacon-node-systemd.md'
+    - 'log-rotate.md'
+    - 'checksums.md'
+    - 'database-backup.md'
+    - 'logging.md'
+    - 'email-notifications.md'
+    - 'profits.md'
+    - 'health.md'
+    - 'networking.md'
+    - 'prater.md'
+    - 'kiln.md'
+
+  - Guides:
+    - 'metrics-pretty-pictures.md'
+    - 'infura-guide.md'
+    - 'migration.md'
+    - 'pi-guide.md'
+    - 'attestation-performance.md'
+
+  - Security:
+    - 'security_issues.md'
+    - 'audit.md'
+    - 'distribution_internals.md'
+
+  - Reference:
+    - 'rest-api.md'
+    - 'keymanager-api.md'
+    - 'options.md'
+    - 'data-dir.md'
+    - 'migration-options.md'
+    - 'troubleshooting.md'
+    - 'developers.md'
+    - 'contribute.md'
+    - 'resources.md'
+    - 'faq.md'
+    - 'api.md'

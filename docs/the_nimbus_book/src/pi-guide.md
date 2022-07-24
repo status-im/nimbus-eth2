@@ -21,17 +21,16 @@ One of the most important aspects of the Raspberry Pi experience is trying to ma
 - Basic understanding of the [command line](https://www.learnenough.com/command-line-tutorial/basics)
 - 200GB SSD (2TB recommended if also running execution client)
 
-```admonish note
-You will need an SSD to run the Nimbus (without an SSD drive you have absolutely no chance of syncing the Ethereum blockchain). You have two options:
+!!! note
+    You will need an SSD to run the Nimbus - mechanical hard drives are typically too slow to run an Ethereum node. You have two options:
 
-1. Use an USB portable SSD disk such as the Samsung T5 Portable SSD.
-2. Use an USB 3.0 External Hard Drive Case with a SSD Disk. For example, [Ethereum on Arm](https://twitter.com/EthereumOnARM) use an Inateck 2.5 Hard Drive Enclosure FE2011. Make sure to buy a case with an UASP compliant chip, particularly, one of these: JMicron (JMS567 or JMS578) or ASMedia (ASM1153E).
+    1. Use an USB portable SSD disk such as the Samsung T5 Portable SSD.
+    2. Use an USB 3.0 External Hard Drive Case with a SSD Disk. For example, [Ethereum on Arm](https://twitter.com/EthereumOnARM) use an Inateck 2.5 Hard Drive Enclosure FE2011. Make sure to buy a case with an UASP compliant chip, particularly, one of these: JMicron (JMS567 or JMS578) or ASMedia (ASM1153E).
 
-In both cases, avoid low quality SSD disks (the SSD is a key component of your node and can drastically affect both the performance and sync time). Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).
+    In both cases, avoid low quality SSD disks (the SSD is a key component of your node and can drastically affect both the performance and sync time). Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).
 
-```admonish note
-If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please [read this recommended fix.](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426)
-```
+!!! note
+    If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please [read this recommended fix.](https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426)
 
 ### 1. Download Raspberry Pi Imager
 
