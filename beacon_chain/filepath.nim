@@ -28,7 +28,7 @@ const
     when defined(windows):
       IoErrorCode(996) # ERROR_IO_INCOMPLETE
     else:
-      IoErrorCode(ENOSPC)
+      IoErrorCode(28) # ENOSPC
 
 proc openLockedFile*(keystorePath: string): IoResult[FileLockHandle] =
   let
