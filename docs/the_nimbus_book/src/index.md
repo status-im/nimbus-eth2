@@ -1,10 +1,9 @@
 # The Nimbus Guide
 
-!!! note
-    If you're eager to get started, check out our [quickstart guide](./quick-start.md).
+!!! note ""
+    If you're eager to get started, check out our [quickstart guide](./quick-start.md). Coming from a different client? Check out the [migration guide](./migration.md).
 
-
-Nimbus is client for the Ethereum `consensus layer` (eth2) and `execution layer` (eth1) that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and easy to use.
+Nimbus is a client for the Ethereum `consensus layer` (eth2) and `execution layer` (eth1) that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and [easy to use](./run-a-validator.md).
 
 This book describes the consensus layer client, `nimbus-eth2`, in particular.
 
@@ -26,8 +25,7 @@ This book explains the ways in which you can use Nimbus to either monitor the be
 
 ## Helpful resources
 
-- [nimbus-eth2 repository](https://github.com/status-im/nimbus-eth2)
-- [eth2 specification](https://github.com/ethereum/consensus-specs/tree/v1.2.0-rc.1#phase-0)
+- [Ethereum consensus spec](https://github.com/ethereum/consensus-specs/)
 - [Ben Edgington's annotated spec](https://benjaminion.xyz/eth2-annotated-spec/phase0/beacon-chain/)
 - [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
 - [Danny Ryan's annotated spec](https://notes.ethereum.org/@djrtwo/Bkn3zpwxB)

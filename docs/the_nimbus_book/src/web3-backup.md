@@ -1,4 +1,4 @@
-# Add a backup web3 provider
+# Backup web3 provider
 
 It's a good idea to add a backup web3 provider in case your main one goes down. You can do this by simply repeating the `--web3-url` parameter on launch.
 

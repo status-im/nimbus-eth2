@@ -1,4 +1,4 @@
-# Network setup
+# Networking options
 
 Nimbus will automatically connect to peers based on the health and quality of peers that it's already connected to. Depending on the network and the number of validators attached to the node, Nimbus may need anywhere from 10 to 60 peers connected to operate well.
 

@@ -4,7 +4,7 @@ Nimbus stores all the information it needs to run in a data directory. In this d
 
 When following the installation guide, the chain data will be stored in `build/data` with separate directories for each chain (mainnet, prater, etc).
 
-!!! tip
+!!! tip "The `--data-dir` option"
     The `--data-dir=/path/to/data` allows picking a specific data directory to store the chain - make sure you use the same `--data-dir` option for all beacon node commands!
 
 ## Contents

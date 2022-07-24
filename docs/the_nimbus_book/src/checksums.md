@@ -1,4 +1,4 @@
-# Verify the integrity of Nimbus
+# Checksums
 
 Checksums for each build are included in the [release notes](https://github.com/status-im/nimbus-eth2/releases/). Please make sure you get into the habit of verifying these 🙏
 
