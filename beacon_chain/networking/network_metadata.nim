@@ -18,9 +18,6 @@ import
   ../spec/eth2_ssz_serialization,
   ../spec/datatypes/phase0
 
-from ../consensus_object_pools/block_pools_types_light_client
-  import LightClientDataImportMode
-
 # ATTENTION! This file will produce a large C file, because we are inlining
 # genesis states as C literals in the generated code (and blobs in the final
 # binary). It makes sense to keep the file small and separated from the rest
