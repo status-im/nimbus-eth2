@@ -17,6 +17,8 @@ import spec/keystore
 
 when defined(windows):
   import stew/[windows/acl]
+else:
+  import posix
 
 type
   ByteChar = byte | char
@@ -38,7 +40,7 @@ proc openLockedFile*(keystorePath: string): IoResult[FileLockHandle] =
     if not(success):
       discard closeFile(handle)
 
-  let lock = ? lockFile(handle)
+  let lock = ? lockFile(handle, LockType.Exclusive)
   success = true
   ok(FileLockHandle(ioHandle: lock, opened: true))
 
@@ -127,6 +129,6 @@ proc secureWriteLockedFile*[T: ByteChar](path: string,
     # Data was partially written, and `write` did not return any errors, so
     # lets return INCOMPLETE_ERROR.
     return err(INCOMPLETE_ERROR)
-  let res = ? lockFile(handle)
+  let res = ? lockFile(handle, LockType.Exclusive)
   success = true
   ok(FileLockHandle(ioHandle: res, opened: true))
