@@ -33,7 +33,7 @@ tar xvf staking_deposit-cli-9ab0b05-linux-amd64.tar.gz --strip-components 2
 
 The deposit tool generates a seed phrase, and uses this to create validator and withdrawal keys.
 
-!!! warn
+!!! danger
     If you lose you seed phrase and your withdrawal key, your funds will be lost forever!
 
 === "Mainnet"

@@ -1,4 +1,4 @@
-# JSON-RPC API
+# JSON-RPC API (deprecated)
 
 !!! warning
     As of v22.6.0, the Nimbus JSON-RPC interface has been **removed** following an extended deprecation period. You are encouraged to migrate your applications to the [REST API](./rest-api.md).

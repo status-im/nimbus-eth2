@@ -10,31 +10,25 @@ Check that your machine matches the [minimal system requirements](./hardware.md)
 
 The beacon chain relies on your computer having the correct time set (±0.5 seconds). It is important that you periodically synchronize the time with an NTP server.
 
-If the above sounds like latin to you, don't worry. You should be fine as long as you haven't messed around with the time and date settings on your computer (they should be set automatically).
+If the above sounds like latin to you, don't worry. You should be fine as long as you haven't changed the time and date settings on your computer (they should be set automatically).
 
-### Windows and macOS
+=== "Linux"
 
-Make sure that the options for setting time automatically are enabled.
+    On Linux, it is recommended to install [chrony](https://chrony.tuxfamily.org/).
 
-### Linux
+    To install it:
 
-On Linux, it is recommended to install [chrony](https://chrony.tuxfamily.org/).
+    ```sh
+    # Debian and Ubuntu
+    sudo apt-get install -y chrony
 
-To install it:
+    # Fedora
+    sudo dnf install chrony
 
-```sh
-# Debian and Ubuntu
-sudo apt-get install -y chrony
+    # Archlinux, using an AUR manager
+    yourAURmanager chrony
+    ```
 
-# Fedora
-sudo dnf install chrony
+=== "Windows, macOS"
 
-# Archlinux, using an AUR manager
-yourAURmanager chrony
-```
-
-## Execution client
-
-To run a beacon node, you need to have access to an execution client exposing the web3 API - throughout, we'll assume an execution client is running on the same machine as the beacon node, but this is not required.
-
-See the [execution client](./eth1.md) guide for further instructions!
+    Make sure that the options for setting time automatically are enabled.

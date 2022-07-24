@@ -24,7 +24,7 @@ If you're a Linux user and want to track how much network I/O your system uses o
 
 To install, run:
 
-```
+```sh
 sudo apt install vnstat
 ```
 

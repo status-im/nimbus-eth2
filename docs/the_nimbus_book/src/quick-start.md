@@ -16,12 +16,17 @@ The guide assumes [Ubuntu Linux](https://ubuntu.com/download/server) is being us
 !!! tip
     You can practice running the node safely on the [Prater testnet](./prater.md) - throughout, we'll provide instructions for both Prater and Mainnet.
 
-
 ## 1. Prepare
 
-Prepare your machine by installing [Nimbus' dependencies](./install.md). In particular, this step will show how to set up an [execution client](./eth1.md).
+Prepare your machine by installing [Nimbus' dependencies](./install.md).
 
-## 2. Install
+## 2. Set up an execution client
+
+To run a beacon node, you need to have access to an execution client exposing the web3 API - throughout, we'll assume an execution client is running on the same machine as the beacon node, but this is not required.
+
+See the [execution client](./eth1.md) guide for instructions on how to pick and install an execution client!
+
+## 3. Install Nimbus
 
 Next, download the [latest release](./binaries.md) and install it by unpacking the archive. Using a command line terminal:
 
@@ -39,7 +44,7 @@ tar xvf nimbus-eth2_Linux_amd64_22.6.1_2444e994.tar.gz --strip-components 1 -C n
 !!! tip
     Advanced users looking to take advantage of hardware-specific features and optimization may wish to [build from source](./build.md) instead!
 
-## 3. Start the node
+## 4. Start the node
 
 Once you've installed the binaries, you can [start the node](./start-syncing.md) which will initiate the sync process.
 
@@ -69,8 +74,8 @@ INF 2022-07-19 15:42:58.145+02:00 Launching beacon node                      top
 
 Congratulations! Your beacon node is up and running, and syncing the network!
 
-## Where to go from here
+!!! success "What next?"
 
-* If you will be running the node on a regular basis, it is recommended you set up a [systemd service](./beacon-node-systemd.md) that automatically restarts your node if the computer reboots.
-* If you wish to stake, continue your journey by following the [validator quick start](./run-a-validator.md).
-* The [monitoring](./health.md) page contains information about how to keep your node healthy
+    * If you will be running the node on a regular basis, it is recommended you set up a [systemd service](./beacon-node-systemd.md) that automatically restarts your node if the computer reboots.
+    * If you wish to stake, continue your journey by following the [validator quick start](./run-a-validator.md).
+    * The [monitoring](./health.md) page contains information about how to keep your node healthy

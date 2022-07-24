@@ -1,4 +1,4 @@
-# Upgrade / downgrade Nimbus
+# Upgrade / downgrade
 
 Make sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the **announcements** channel on our [discord](https://discord.com/invite/XRxWahP). The release page can be found [here](https://github.com/status-im/nimbus-eth2/releases/).
 
