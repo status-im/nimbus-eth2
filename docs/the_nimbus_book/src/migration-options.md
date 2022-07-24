@@ -1,4 +1,4 @@
-# Advanced client migration
+# Client migration (advanced)
 
 The main migration guide is located [here](./migration.md). Here we document a couple of advanced options you can use if you wish to have more fine-grained control.
 

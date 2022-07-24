@@ -51,7 +51,7 @@ When building from source, you will need additional build dependencies to be ins
 
     Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build `nimbus-eth2`.
 
-    > **Note:** If the online installer isn't working you can try installing `Mingw-w64` through [MSYS2](https://www.msys2.org/).
+    > **Note:** If the online installer isn't working you can try installing `mingw-w64` through [MSYS2](https://www.msys2.org/).
 
 === "Android"
 

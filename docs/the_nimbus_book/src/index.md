@@ -3,7 +3,7 @@
 !!! note ""
     If you're eager to get started, check out our [quickstart guide](./quick-start.md). Coming from a different client? Check out the [migration guide](./migration.md).
 
-Nimbus is client for the Ethereum `consensus layer` (eth2) and `execution layer` (eth1) that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and [easy to use](./run-a-validator.md).
+Nimbus is a client for the Ethereum `consensus layer` (eth2) and `execution layer` (eth1) that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and [easy to use](./run-a-validator.md).
 
 This book describes the consensus layer client, `nimbus-eth2`, in particular.
 

@@ -3,7 +3,7 @@
 The best way to keep track of your validator's status is using the `beaconcha.in` explorer (click on the orange magnifying glass at the very top and paste in your validator's public key):
 
  - **Mainnet:** [beaconcha.in](https://beaconcha.in/)
- - **Testnet:** [prater.beaconcha.in](https://prater.beaconcha.in)
+ - **Prater:** [prater.beaconcha.in](https://prater.beaconcha.in)
 
 When you make a deposit, your validator(s) will be put in a queue based on deposit time, and will slowly be inducted into the validator set. Getting through the queue may take up to a few days, depending on the length of the deposit queue.
 
