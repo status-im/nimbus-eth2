@@ -174,6 +174,7 @@ restapi-test:
 		--resttest-delay 30 \
 		--kill-old-processes
 
+.PHONY: local-testnet-minimal
 local-testnet-minimal:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
@@ -197,6 +198,7 @@ local-testnet-minimal:
 		--verify-finalization \
 		--discv5:no
 
+.PHONY: local-testnet-mainnet
 local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
