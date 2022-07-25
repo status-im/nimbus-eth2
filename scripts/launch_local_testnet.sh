@@ -581,14 +581,14 @@ cleanup() {
 
   for proc in "${PROCS_TO_KILL[@]}"
   do
-    pkill -f -P $$ "${proc}" &>/dev/null || true
+    pkill -f -P $$ "${proc}" || true
   done
 
   sleep 2
 
   for proc in "${PROCS_TO_KILL[@]}"
   do
-    pkill -f -9 -P $$ "${proc}" &>/dev/null || true
+    pkill -f -9 -P $$ "${proc}" || true
   done
 
   # Delete all binaries we just built, because these are unusable outside this
