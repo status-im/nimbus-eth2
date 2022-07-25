@@ -86,3 +86,8 @@ proc publishContributionAndProofs*(body: seq[RestSignedContributionAndProof]): R
      rest, endpoint: "/eth/v1/validator/contribution_and_proofs",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/publishContributionAndProofs
+
+proc prepareBeaconProposer*(body: PrepareBeaconProposerBody): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/prepare_beacon_proposer",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/ValidatorRequiredApi/prepareBeaconProposer
