@@ -75,15 +75,15 @@ pipeline {
     stage('Finalizations') {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
         stage('minimal') {
-          steps { script { timeout(15) {
+          steps { script {
             launchLocalTestnet('minimal')
-          } } }
+          } }
         }
 
         stage('mainnet') {
-          steps { script { timeout(45) {
+          steps { script {
             launchLocalTestnet('mainnet')
-          } } }
+          } }
         }
       }
     }
