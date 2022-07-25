@@ -612,36 +612,28 @@ iterator listLoadableKeys*(validatorsDir, secretsDir: string,
         let
           keyName = splitFile(file).name
           keystoreDir = validatorsDir / keyName
-          keystoreFile = keystoreDir / KeystoreFileName
 
         if not(checkKeyName(keyName)):
           # Skip folders which name do not satisfy "0x[a-fA-F0-9]{96, 96}".
           continue
 
-        if not(((KeystoreKind.Local in keysMask) and
-             fileExists(keystoreDir / KeystoreFileName)) or
-           ((KeystoreKind.Remote in keysMask) and
-             fileExists(keystoreDir / RemoteKeystoreFileName))):
+        if not(existsKeystore(keystoreDir, keysMask)):
           # Skip folder which do not satisfy `keysMask`.
           continue
 
-        let publicKey =
-          block:
-            let res = ValidatorPubKey.fromHex(keyName)
-            if res.isErr():
-              # Skip folders which could not be decoded to ValidatorPubKey.
-              continue
-            res.get()
+        let kres = ValidatorPubKey.fromHex(keyName)
+        if kres.isErr():
+          # Skip folders which could not be decoded to ValidatorPubKey.
+          continue
+        let publicKey = kres.get()
 
-        let cookedKey =
-          block:
-            let res = publicKey.load()
-            if res.isNone():
-              # Skip folders which has invalid ValidatorPubKey.
-              continue
-            res.get()
+        let cres = publicKey.load()
+        if cres.isNone():
+          # Skip folders which has invalid ValidatorPubKey
+          # (point is not on curve).
+          continue
 
-        yield cookedKey
+        yield cres.get()
 
   except OSError as err:
     error "Validator keystores directory not accessible",
