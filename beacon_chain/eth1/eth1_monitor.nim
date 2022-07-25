@@ -542,7 +542,8 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[void] {.async.} =
     try:
       awaitWithRetries(
         p.dataProvider.web3.provider.engine_exchangeTransitionConfigurationV1(
-          ccTransitionConfiguration))
+          ccTransitionConfiguration),
+        timeout = 1.seconds)
     except CatchableError as err:
       debug "Failed to exchange transition configuration", err = err.msg
       return
@@ -639,7 +640,7 @@ template awaitOrRaiseOnTimeout[T](fut: Future[T],
 
 when hasDepositRootChecks:
   const
-    contractCallTimeout = seconds(60)
+    contractCallTimeout = 60.seconds
 
   func fetchDepositContractData(p: Web3DataProviderRef, blk: Eth1Block):
                                 Future[DepositContractDataStatus] {.async.} =
@@ -922,7 +923,7 @@ proc new*(T: type Web3DataProvider,
           jwtSecret: Option[seq[byte]]):
           Future[Result[Web3DataProviderRef, string]] {.async.} =
   let web3Fut = newWeb3(web3Url, getJsonRpcRequestHeaders(jwtSecret))
-  yield web3Fut or sleepAsync(chronos.seconds(10))
+  yield web3Fut or sleepAsync(10.seconds)
   if (not web3Fut.finished) or web3Fut.failed:
     await cancelAndWait(web3Fut)
     if web3Fut.failed:
@@ -1030,7 +1031,7 @@ func clear(chain: var Eth1Chain) =
   chain.hasConsensusViolation = false
 
 proc detectPrimaryProviderComingOnline(m: Eth1Monitor) {.async.} =
-  const checkInterval = chronos.seconds(30)
+  const checkInterval = 30.seconds
 
   let
     web3Url = m.web3Urls[0]
