@@ -577,18 +577,22 @@ fi
 # instance as the parent and the target process name as a pattern to the
 # "pkill" command.
 cleanup() {
+  set -x
+  # Print current process tree for debugging.
+  ps --forest -o pid,tty,stat,time,cmd -g $$ || true
+
   log "Cleaning up"
 
   for proc in "${PROCS_TO_KILL[@]}"
   do
-    pkill -f -P $$ "${proc}" &>/dev/null || true
+    pkill -e -f -P $$ "${proc}" || true
   done
 
   sleep 2
 
   for proc in "${PROCS_TO_KILL[@]}"
   do
-    pkill -f -9 -P $$ "${proc}" &>/dev/null || true
+    pkill -e -f -9 -P $$ "${proc}" || true
   done
 
   # Delete all binaries we just built, because these are unusable outside this
