@@ -56,21 +56,21 @@ pipeline {
       } }
     }
 
-    stage('Tests') {
-      parallel {
-        stage('General') {
-          steps { timeout(60) {
-            sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
-          } }
-        }
+    //stage('Tests') {
+    //  parallel {
+    //    stage('General') {
+    //      steps { timeout(60) {
+    //        sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
+    //      } }
+    //    }
 
-        stage('REST') {
-          steps { timeout(5) {
-            sh 'make restapi-test'
-          } }
-        }
-      }
-    }
+    //    stage('REST') {
+    //      steps { timeout(5) {
+    //        sh 'make restapi-test'
+    //      } }
+    //    }
+    //  }
+    //}
 
     stage('Finalizations') {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
