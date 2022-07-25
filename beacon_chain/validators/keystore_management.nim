@@ -456,6 +456,7 @@ proc loadLocalKeystoreImpl(validatorsDir, secretsDir, keyName: string,
 
     let res = decryptKeystore(keystore, passphrase)
     if res.isOk():
+      success = true
       return some(KeystoreData.init(res.get(), keystore, handle))
     else:
       error "Failed to decrypt keystore", key_path = keystorePath,
