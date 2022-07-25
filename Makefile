@@ -191,7 +191,7 @@ local-testnet-minimal:
 		--base-el-ws-port $$(( 6203 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-auth-rpc-port $$(( 6204 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
-		--timeout 600 \
+		--timeout 30 \
 		--kill-old-processes \
 		-- \
 		--verify-finalization \
@@ -213,7 +213,7 @@ local-testnet-mainnet:
 		--base-el-ws-port $$(( 7203 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-auth-rpc-port $$(( 7204 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
-		--timeout 2400 \
+		--timeout 30 \
 		--kill-old-processes \
 		-- \
 		--verify-finalization \
