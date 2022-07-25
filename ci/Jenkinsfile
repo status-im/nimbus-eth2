@@ -23,9 +23,11 @@ pipeline {
     ))
     /* Throttle number of concurrent builds. */
     throttleJobProperty(
-      categories: ['nimbus-eth2'],
       throttleEnabled: true,
-      throttleOption: 'category'
+      throttleOption: 'category',
+      categories: ['nimbus-eth2'],
+      maxConcurrentPerNode: 1,
+      maxConcurrentTotal: 6
     )
     /* Abort old builds for non-main branches. */
     disableConcurrentBuilds(
