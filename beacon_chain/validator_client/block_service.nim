@@ -1,8 +1,16 @@
+import metrics
 import ".."/spec/forks
 import common, api
 import chronicles
 
 logScope: service = "block_service"
+
+declareCounter beacon_blocks_sent,
+  "Number of beacon blocks sent by this node"
+
+declareHistogram beacon_blocks_sent_delay,
+  "Time(s) between expected and actual block send moment",
+  buckets = DelayBuckets
 
 proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                   validator: AttachedValidator) {.async.} =
@@ -113,6 +121,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
               err_name = exc.name, err_msg = exc.msg
         return
     if res:
+      beacon_blocks_sent.inc()
+      beacon_blocks_sent_delay.observe(vc.getDelay(slot.block_deadline()))
       notice "Block published", blockRoot = shortLog(blockRoot),
              blck = shortLog(beaconBlock), signature = shortLog(signature),
              validator = shortLog(validator)

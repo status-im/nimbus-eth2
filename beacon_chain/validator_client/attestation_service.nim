@@ -14,6 +14,16 @@ const
 
 logScope: service = ServiceName
 
+declareCounter beacon_attestations_sent,
+  "Number of attestations sent by the node"
+
+declareCounter beacon_aggregates_sent,
+  "Number of beacon chain attestations sent by the node"
+
+declareHistogram beacon_attestation_sent_delay,
+  "Time(s) between expected and actual attestation send moment",
+  buckets = DelayBuckets
+
 type
   AggregateItem* = object
     aggregator_index: uint64
@@ -108,6 +118,8 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
 
   let delay = vc.getDelay(adata.slot.attestation_deadline())
   if res:
+    beacon_attestations_sent.inc()
+    beacon_attestation_sent_delay.observe(delay)
     notice "Attestation published", attestation = shortLog(attestation),
                                     validator = shortLog(validator),
                                     validator_index = vindex,
@@ -191,6 +203,7 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
       return false
 
   if res:
+    beacon_aggregates_sent.inc()
     notice "Aggregated attestation published",
            attestation = shortLog(signedProof.message.aggregate),
            validator = shortLog(validator),
