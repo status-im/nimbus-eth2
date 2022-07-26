@@ -194,6 +194,7 @@ local-testnet-minimal:
 		--el-port-offset 5 \
 		--timeout 60 \
 		--kill-old-processes \
+		--reuse-binaries \
 		-- \
 		--verify-finalization \
 		--discv5:no
@@ -217,6 +218,7 @@ local-testnet-mainnet:
 		--el-port-offset 5 \
 		--timeout 90 \
 		--kill-old-processes \
+		--reuse-binaries \
 		-- \
 		--verify-finalization \
 		--discv5:no
