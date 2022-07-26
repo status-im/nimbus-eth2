@@ -7,7 +7,7 @@
 
 import
   std/sets,
-  chronicles,
+  metrics, chronicles,
   "."/[common, api, block_service],
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/eth2_apis/rest_types
@@ -93,7 +93,7 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
   let delay = vc.getDelay(message.slot.sync_committee_message_deadline())
   if res:
     beacon_sync_committee_messages_sent.inc()
-    beacon_sync_committee_message_sent_delay.observe(delay)
+    beacon_sync_committee_message_sent_delay.observe(delay.toFloatSeconds())
     notice "Sync committee message published",
            message = shortLog(message),
            validator = shortLog(validator),

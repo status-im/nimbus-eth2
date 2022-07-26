@@ -37,8 +37,8 @@ const
   TIME_DELAY_FROM_SLOT* = 79.milliseconds
   SUBSCRIPTION_BUFFER_SLOTS* = 2'u64
 
-  const DelayBuckets* = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
-                         0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
+  DelayBuckets* = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
+                   0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
 
 type
   ServiceState* {.pure.} = enum

@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import std/sets
-import chronicles
+import metrics, chronicles
 import "."/[common, api, block_service]
 
 const
@@ -119,7 +119,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
   let delay = vc.getDelay(adata.slot.attestation_deadline())
   if res:
     beacon_attestations_sent.inc()
-    beacon_attestation_sent_delay.observe(delay)
+    beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
     notice "Attestation published", attestation = shortLog(attestation),
                                     validator = shortLog(validator),
                                     validator_index = vindex,
