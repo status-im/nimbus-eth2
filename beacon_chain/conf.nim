@@ -811,6 +811,22 @@ type
       desc: "A file specifying the authorizition token required for accessing the keymanager API"
       name: "keymanager-token-file" .}: Option[InputFile]
 
+    metricsEnabled* {.
+      desc: "Enable the metrics server"
+      defaultValue: false
+      name: "metrics" .}: bool
+
+    metricsAddress* {.
+      desc: "Listening address of the metrics server"
+      defaultValue: defaultAdminListenAddress
+      defaultValueDesc: $defaultAdminListenAddressDesc
+      name: "metrics-address" .}: ValidIpAddress
+
+    metricsPort* {.
+      desc: "Listening HTTP port of the metrics server"
+      defaultValue: 8008
+      name: "metrics-port" .}: Port
+
     graffiti* {.
       desc: "The graffiti value that will appear in proposed blocks. " &
             "You can use a 0x-prefixed hex encoded string to specify " &

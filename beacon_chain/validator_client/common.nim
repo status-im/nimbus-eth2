@@ -9,6 +9,7 @@ import std/[tables, os, sets, sequtils]
 import chronos, presto, presto/client as presto_client, chronicles, confutils,
        json_serialization/std/[options, net],
        stew/[base10, results, byteutils]
+import metrics, metrics/chronos_httpserver
 
 # Local modules
 import
@@ -137,6 +138,7 @@ type
 
   ValidatorClient* = object
     config*: ValidatorClientConf
+    metricsServer*: Option[MetricsHttpServerRef]
     graffitiBytes*: GraffitiBytes
     beaconNodes*: seq[BeaconNodeServerRef]
     fallbackService*: FallbackServiceRef
