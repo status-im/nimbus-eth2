@@ -721,7 +721,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                               contentBody.get())
         if dres.isErr():
           return RestApiResponse.jsonError(Http400,
-                                        InvalidContributionAndProofMessageError)
+                                           InvalidContributionAndProofMessageError)
         dres.get()
 
     let pending =
@@ -758,6 +758,29 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonMsgResponse(
         ContributionAndProofValidationSuccess
       )
+
+  # https://ethereum.github.io/beacon-APIs/#/ValidatorRequiredApi/prepareBeaconProposer
+  router.api(MethodPost,
+             "/eth/v1/validator/prepare_beacon_proposer") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      proposerData =
+        block:
+          if contentBody.isNone():
+            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+          let dres = decodeBody(PrepareBeaconProposerBody, contentBody.get())
+          if dres.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                             InvalidPrepareBeaconProposerError)
+          dres.get()
+      currentEpoch = node.beaconClock.now.slotOrZero.epoch
+
+    node.dynamicFeeRecipientsStore.addMapping(
+      proposerData.validator_index,
+      proposerData.fee_recipient,
+      currentEpoch)
+
+    return RestApiResponse.response("", Http200, "text/plain")
 
   # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
   # `/api` path component
@@ -820,4 +843,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     MethodPost,
     "/api/eth/v1/validator/contribution_and_proofs",
     "/eth/v1/validator/contribution_and_proofs"
+  )
+  router.redirect(
+    MethodPost,
+    "/api/eth/v1/validator/prepare_beacon_proposer",
+    "/eth/v1/validator/prepare_beacon_proposer"
   )

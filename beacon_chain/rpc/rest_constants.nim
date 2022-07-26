@@ -165,6 +165,8 @@ const
     "Unable to decode sync committee subscription request(s)"
   InvalidContributionAndProofMessageError* =
     "Unable to decode contribute and proof message(s)"
+  InvalidPrepareBeaconProposerError* =
+    "Unable to decode prepare beacon proposer request"
   SyncCommitteeMessageValidationError* =
     "Some errors happened while validating sync committee message(s)"
   SyncCommitteeMessageValidationSuccess* =

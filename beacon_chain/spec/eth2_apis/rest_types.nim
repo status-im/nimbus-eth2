@@ -239,6 +239,10 @@ type
     epoch*: Epoch
     active*: bool
 
+  PrepareBeaconProposerBody* = object
+    validator_index*: ValidatorIndex
+    fee_recipient*: Eth1Address
+
   RestPublishedSignedBeaconBlock* = distinct ForkedSignedBeaconBlock
 
   RestPublishedBeaconBlock* = distinct ForkedBeaconBlock

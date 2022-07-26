@@ -88,6 +88,7 @@ type
     ImportDistributedKeystoresBody |
     ImportRemoteKeystoresBody |
     KeystoresAndSlashingProtection |
+    PrepareBeaconProposerBody |
     ProposerSlashing |
     SetFeeRecipientRequest |
     SignedBlindedBeaconBlock |
@@ -123,6 +124,7 @@ type
     KeymanagerGenericError |
     KeystoresAndSlashingProtection |
     ListFeeRecipientResponse |
+    PrepareBeaconProposerBody |
     ProduceBlockResponseV2 |
     RestDutyError |
     RestGenericError |

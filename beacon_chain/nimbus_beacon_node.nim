@@ -787,7 +787,8 @@ proc init*(T: type BeaconNode,
     beaconClock: beaconClock,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache,
-    nextExchangeTransitionConfTime: nextExchangeTransitionConfTime)
+    nextExchangeTransitionConfTime: nextExchangeTransitionConfTime,
+    dynamicFeeRecipientsStore: DynamicFeeRecipientsStore.init())
 
   node.initLightClient(
     rng, cfg, dag.forkDigests, getBeaconTime, dag.genesis_validators_root)
@@ -1237,6 +1238,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.syncCommitteeMsgPool[].pruneData(slot)
   if slot.is_epoch:
     node.trackNextSyncCommitteeTopics(slot)
+    node.dynamicFeeRecipientsStore.pruneOldMappings(slot.epoch)
 
   # Update upcoming actions - we do this every slot in case a reorg happens
   let head = node.dag.head

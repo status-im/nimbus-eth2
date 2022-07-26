@@ -23,9 +23,6 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
   All supplied options will be forwarded to the beacon node executable.
   Please execute build/$NBC_BINARY --help to get more information.
 
-  To suppress the interactive input required by this script, you can
-  specify WEB3_URL as an environment variable.
-
 HELP
   exit 0
 fi
@@ -58,6 +55,11 @@ MISSING_BINARY_HELP
   exit 1
 fi
 
+WEB3_URL_ARG=""
+if [[ "$WEB3_URL" != "" ]]; then
+  WEB3_URL_ARG="--web3-url=${WEB3_URL}"
+fi
+
 # Allow the binary to receive signals directly.
 exec ${WINPTY} build/${NBC_BINARY} \
   --network=${NETWORK} \
@@ -67,5 +69,5 @@ exec ${WINPTY} build/${NBC_BINARY} \
   --rest \
   --rest-port=$(( ${BASE_REST_PORT} + ${NODE_ID} )) \
   --metrics \
-  ${EXTRA_ARGS} \
+  ${WEB3_URL_ARG} ${EXTRA_ARGS} \
   "$@"
