@@ -1,3 +1,61 @@
+2022-07-26 v22.7.0
+==================
+
+Nimbus `v22.7.0` is a `low` urgency release packing everything necessary for the [upcoming Prater/Goerli merge](https://wenmerge.com/) and introducing the [Nimbus validator client](https://nimbus.guide/validator-client.html) (currently in BETA).
+
+### Other Improvements
+
+* Support for fee recipient management through the [Keymanager API](https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient) and
+  through the [`/eth/v1/validator/prepare_beacon_proposer`](https://ethereum.github.io/beacon-APIs/#/Validator/prepareBeaconProposer) Beacon API end-point:
+  https://github.com/status-im/nimbus-eth2/pull/3864
+  https://github.com/status-im/nimbus-eth2/pull/3901
+
+* Support for the post-merge optimistic sync specification:
+  https://github.com/status-im/nimbus-eth2/pull/3793
+
+* More comprehensive spec-compliance in our fork-choice implementation:
+  https://github.com/status-im/nimbus-eth2/pull/3849
+
+* More spec-compliant handling of `QUANTITY` values within the Engine API responses:
+  https://github.com/status-im/nim-web3/pull/55
+  https://github.com/status-im/nimbus-eth2/issues/3844
+
+* The `Slot end` log message now includes information regarding current and
+  upcoming sync committee duties to help you identify the most appropriate
+  time to restart the client during an upgrade:
+  https://github.com/status-im/nimbus-eth2/pull/3854
+
+* Specifying a `WEB3_URL` environment variable is no longer mandatory
+  when launching beacon nodes with the `run-*-beacon-node.sh` scripts:
+  https://github.com/status-im/nimbus-eth2/pull/3810
+
+* The `--finalized-checkpoint-state` and the `--finalized-checkpoint-block`
+  command-line parameters can no longer be used with certain invalid inputs:
+  https://github.com/status-im/nimbus-eth2/pull/3858
+
+* Specifying `--network=goerli` is now equivalent to specifying `--network=prater`:
+  https://github.com/status-im/nimbus-eth2/pull/3874
+
+### Fixes
+
+* A risk for invalid block proposals during high forking activity in the
+  network due to inappropriate inclusion of attestations from other forks:
+  https://github.com/status-im/nimbus-eth2/pull/3893
+
+* Interrupted tracking of deposits, triggered by a non-responsive web3 end-point:
+  https://github.com/status-im/nimbus-eth2/pull/3905
+
+* Inappropriate error returned by the REST API when broadcasting of Gossip
+  messages is not immediately possible:
+  https://github.com/status-im/nimbus-eth2/pull/3843
+
+* Rare conditions under which P2P connections were closed inappropriately:
+  https://github.com/status-im/nimbus-eth2/pull/3795
+
+* Potential inaccuracies in the `next_action_wait` metric:
+  https://github.com/status-im/nimbus-eth2/pull/3862
+
+
 2022-06-29 v22.6.1
 ==================
 
@@ -5,18 +63,18 @@ Nimbus `v22.6.1` is a `low-urgency` release which comes pre-configured with the 
 
 ### Improvement
 
-* Allow testing the Engine API JWT credentials even before the merge.
+* Allow testing the Engine API JWT credentials even before the merge:
   https://github.com/status-im/nimbus-eth2/pull/3786
 
 ### Fixes
 
-* Lack of detection of the connected execution client's network when attached to the Engine API port.
+* Lack of detection of the connected execution client's network when attached to the Engine API port:
   https://github.com/status-im/nimbus-eth2/pull/3804
 
-* Logic error leading to a premature start of the `exchange transition configuration` Engine API requests.
+* Logic error leading to a premature start of the `exchange transition configuration` Engine API requests:
   https://github.com/status-im/nimbus-eth2/pull/3809
 
-* Inappropriate inclusion of the `execution_optimistic` field in REST responses before the merge.
+* Inappropriate inclusion of the `execution_optimistic` field in REST responses before the merge:
   https://github.com/status-im/nimbus-eth2/pull/3807
 
 
@@ -31,76 +89,76 @@ Nimbus `v22.6.0` brings support for the merge testnets Ropsten and Sepolia (plea
   https://github.com/status-im/nimbus-eth2/pull/3670
   https://github.com/status-im/nimbus-eth2/pull/3745
 
-* The execution layer priority fees recipient address can be configured individually for each validator.
+* The execution layer priority fees recipient address can be configured individually for each validator:
   https://github.com/status-im/nimbus-eth2/pull/3652
 
-* Through better defaults, the parameters `--rest-url`, `--trusted-node-url` can be omitted if the targeted node is running on the same machine.
+* Through better defaults, the parameters `--rest-url`, `--trusted-node-url` can be omitted if the targeted node is running on the same machine:
   https://github.com/status-im/nimbus-eth2/pull/3689
 
-* Improved spec-compliance with the Beacon API and the Engine API as defined after the merge.
+* Improved spec-compliance with the Beacon API and the Engine API as defined after the merge:
   https://github.com/status-im/nimbus-eth2/pull/3679
   https://github.com/status-im/nimbus-eth2/pull/3780
 
-* The custom error code `1031` will signal a detected doppelganger on the network. This can be handled in the Nimbus's service supervisor to prevent an automatic restart.
+* The custom error code `1031` will signal a detected doppelganger on the network. This can be handled in the Nimbus's service supervisor to prevent an automatic restart:
   https://github.com/status-im/nimbus-eth2/pull/3728
 
-* The Nimbus status bar can be configured to display the current version number.
+* The Nimbus status bar can be configured to display the current version number:
   https://github.com/status-im/nimbus-eth2/pull/3747
 
-* Specifying the `--terminal-total-difficulty-override` parameter is no longer necessary for the Ropsten network.
+* Specifying the `--terminal-total-difficulty-override` parameter is no longer necessary for the Ropsten network:
   https://github.com/status-im/nimbus-eth2/pull/3754
 
-* Built-in support for the Sepolia network which will launch on June 20th and reach TTD shortly after.
+* Built-in support for the Sepolia network which will launch on June 20th and reach TTD shortly after:
   https://github.com/status-im/nimbus-eth2/pull/3762
 
-* More robust syncing with the connected execution layer node in Bellatrix-enabled networks.
+* More robust syncing with the connected execution layer node in Bellatrix-enabled networks:
   https://github.com/status-im/nimbus-eth2/pull/3759
 
-* The `web3 test` command is now compatible with nodes that have been configured to serve only the Engine API.
+* The `web3 test` command is now compatible with nodes that have been configured to serve only the Engine API:
   https://github.com/status-im/nimbus-eth2/pull/3761
 
 ### Fixes
 
-* A rare crash triggered when using a HTTP web3 URL.
+* A rare crash triggered when using a HTTP web3 URL:
   https://github.com/status-im/nimbus-eth2/pull/3669
 
-* ERA checkpoint sync failing with "Backfill block must have a summary".
+* ERA checkpoint sync failing with "Backfill block must have a summary":
   https://github.com/status-im/nimbus-eth2/pull/3675
 
-* Incorrect sync progress indicator shortly after a trusted node sync
+* Incorrect sync progress indicator shortly after a trusted node sync:
   https://github.com/status-im/nimbus-eth2/pull/3736
 
-* Incorrect values returned by the `/eth/v1/node/syncing` API under rare circumstances.
+* Incorrect values returned by the `/eth/v1/node/syncing` API under rare circumstances:
   https://github.com/status-im/nimbus-eth2/pull/3720
 
-* Misleading log message when an attestation was not delivered to any peer.
+* Misleading log message when an attestation was not delivered to any peer:
   https://github.com/status-im/nimbus-eth2/pull/3737
 
-* Incorrect handling of case-sensitive web3 URLs.
+* Incorrect handling of case-sensitive web3 URLs:
   https://github.com/status-im/nimbus-eth2/pull/3757
 
-* Incorrect encoding of the `current_epoch_participation` and `previous_epoch_participation` fields in the REST requests returning `BeaconState` results.
+* Incorrect encoding of the `current_epoch_participation` and `previous_epoch_participation` fields in the REST requests returning `BeaconState` results:
   https://github.com/status-im/nimbus-eth2/pull/3776
 
-* Incorrect URL for the Keymanager delete keystores request.
+* Incorrect URL for the Keymanager delete keystores request:
   https://github.com/status-im/nimbus-eth2/pull/3727
 
-* Non-standard encoding required by the Keymanager API for the import keystores request.
+* Non-standard encoding required by the Keymanager API for the import keystores request:
   https://github.com/status-im/nimbus-eth2/pull/3768
 
-* A significant source of omitted events in the REST events API.
+* A significant source of omitted events in the REST events API:
   https://github.com/status-im/nimbus-eth2/pull/3664
 
-* Incorrect parsing of the `weak-subjectivity-checkpoint` parameter.
+* Incorrect parsing of the `weak-subjectivity-checkpoint` parameter:
   https://github.com/status-im/nimbus-eth2/pull/3765
 
-* Lack of support for trailing commas in lists and inline tables in the TOML config files.
+* Lack of support for trailing commas in lists and inline tables in the TOML config files:
   https://github.com/status-im/nim-toml-serialization/pull/47
 
 
-### Removed functionality:
+### Removed functionality
 
-* The Nimbus-specific JSON-RPC service which was deprecated in version v22.3.0 is now removed. If you are currently relying on the JSON-RPC API, please consider switching to the official [REST API](https://nimbus.guide/rest-api.html). Using any of the `--rpc` flags will now result in a warning.
+* The Nimbus-specific JSON-RPC service which was deprecated in version v22.3.0 is now removed. If you are currently relying on the JSON-RPC API, please consider switching to the official [REST API](https://nimbus.guide/rest-api.html). Using any of the `--rpc` flags will now result in a warning:
   https://github.com/status-im/nimbus-eth2/pull/3656
 
 
@@ -111,10 +169,10 @@ Nimbus `v22.5.2` is a `low-urgency` maintenance release updating Ropsten testnet
 
 ### Fixes:
 
-* Modify proposer boost from 70% to 40% to improve network consensus
+* Modify proposer boost from 70% to 40% to improve network consensus:
   https://github.com/status-im/nimbus-eth2/commit/14dc3855f6cd06579294322a6ed206f678c8530f
 
-* Update Ropsten TTD to a large enough number it can't be readily triggered by mining
+* Update Ropsten TTD to a large enough number it can't be readily triggered by mining:
   https://github.com/status-im/nimbus-eth2/pull/3668
 
 2022-05-20 v22.5.1
@@ -124,15 +182,15 @@ Nimbus `v22.5.1` is a `low-urgency` maintenance release addressing a Web3 compat
 
 ### Improvements:
 
-* Support for the Ropsten testnet, intended for merge testing
+* Support for the Ropsten testnet, intended for merge testing:
   https://github.com/status-im/nimbus-eth2/pull/3648
 
 ### Fixes:
 
-* Restore compatibility with certain Web3 endpoints
+* Restore compatibility with certain Web3 endpoints:
   https://github.com/status-im/nimbus-eth2/pull/3645
 
-* More spec-compliant handling of JSON fields in REST, for better compatibility with added and optional fields
+* More spec-compliant handling of JSON fields in REST, for better compatibility with added and optional fields:
   https://github.com/status-im/nimbus-eth2/pull/3647
 
 2022-05-17 v22.5.0
@@ -142,38 +200,38 @@ Nimbus `v22.5.0` is a `low-urgency` maintenance release. It implements the propo
 
 ### Improvements:
 
-* A safer fork-choice algorithm which implements the proposer boosting policy
+* A safer fork-choice algorithm which implements the proposer boosting policy:
   https://github.com/ethereum/consensus-specs/pull/2353
   https://github.com/status-im/nimbus-eth2/pull/3565
 
-* A completely revamped snappy implementation which brings significant speed-ups
+* A completely revamped snappy implementation which brings significant speed-ups:
   https://github.com/status-im/nimbus-eth2/pull/3564
 
-* Support for the latest Bellatrix specifications (a.k.a. The Merge) + all Kiln testnets
+* Support for the latest Bellatrix specifications (a.k.a. The Merge) + all Kiln testnets:
   https://github.com/status-im/nimbus-eth2/pull/3590
 
-* An initial preview release fеaturing built-in support for distributed keystores, (part of our [secret shared validators roadmap]( https://github.com/status-im/nimbus-eth2/issues/3416))
+* An initial preview release fеaturing built-in support for distributed keystores, (part of our [secret shared validators roadmap]( https://github.com/status-im/nimbus-eth2/issues/3416)):
   https://github.com/status-im/nimbus-eth2/pull/3616
 
-* Reduced CPU usage when serving blocks to other syncing clients
+* Reduced CPU usage when serving blocks to other syncing clients:
   https://github.com/status-im/nimbus-eth2/pull/3598
 
-* A more spec-compliant implementation of the `/eth/v1/config/spec` REST end-point (implementing the v1.1.10 version of the spec)
+* A more spec-compliant implementation of the `/eth/v1/config/spec` REST end-point (implementing the v1.1.10 version of the spec):
   https://github.com/status-im/nimbus-eth2/pull/3614
 
-* Improved compatibility with all versions of Web3Signer
+* Improved compatibility with all versions of Web3Signer:
   https://github.com/status-im/nimbus-eth2/pull/3640
 
 ### We've fixed:
 
-* The potential for missed block proposals in the case where an invalid deposit is submitted to the deposit contract
+* The potential for missed block proposals in the case where an invalid deposit is submitted to the deposit contract:
   https://github.com/status-im/nimbus-eth2/pull/3607
   https://github.com/status-im/nimbus-eth2/pull/3639
 
-* A crash triggered by the use of Web3Signer remote keystores
+* A crash triggered by the use of Web3Signer remote keystores:
   https://github.com/status-im/nimbus-eth2/pull/3616
 
-* A rare crash triggered when Nimbus is performing a large number of concurrent HTTP requests
+* A rare crash triggered when Nimbus is performing a large number of concurrent HTTP requests:
   https://github.com/status-im/nim-chronos/pull/272
   https://github.com/status-im/nim-chronos/pull/273
 
@@ -185,25 +243,25 @@ Nimbus `v22.4.0` is a `low-urgency` upgrade which brings with it further optimis
 
 ### Improvements:
 
-* All CPU cores are now used by default: previously enabled by passing `--num-threads:0` on the command-line
+* All CPU cores are now used by default: previously enabled by passing `--num-threads:0` on the command-line:
   https://github.com/status-im/nimbus-eth2/pull/3493
 
-* 250 MB reduction in memory usage:  thanks to more efficient data structures for the finalized portion of the chain history
+* 250 MB reduction in memory usage:  thanks to more efficient data structures for the finalized portion of the chain history:
   https://github.com/status-im/nimbus-eth2/pull/3513
 
-* Higher performance historic queries (using REST API) after trusted node sync: Nimbus now re-indexes the backfilled chain of blocks
+* Higher performance historic queries (using REST API) after trusted node sync: Nimbus now re-indexes the backfilled chain of blocks:
   https://github.com/status-im/nimbus-eth2/pull/3452
 
-*  Broadcasted attestations are more likely to be included in blocks by other nodes: thanks to a tweak to the attestation sending time
+*  Broadcasted attestations are more likely to be included in blocks by other nodes: thanks to a tweak to the attestation sending time:
   https://github.com/status-im/nimbus-eth2/pull/3518
 
-* The REST API now *only* returns current and relevant information in response to VC queries: in other words, information from the recent non-finalized portion of the chain history
+* The REST API now *only* returns current and relevant information in response to VC queries: in other words, information from the recent non-finalized portion of the chain history:
   https://github.com/status-im/nimbus-eth2/pull/3538
 
-* Better and more consistent gossip mesh health: the `--max-peers` option now works as a target that can be exceeded by the client temporarily in order to maintain good gossip mesh health; the newly introduced `--hard-max-peers` option now acts as the hard limit that should not be exceeded (default set to `max-peers * 1.5`)
+* Better and more consistent gossip mesh health: the `--max-peers` option now works as a target that can be exceeded by the client temporarily in order to maintain good gossip mesh health; the newly introduced `--hard-max-peers` option now acts as the hard limit that should not be exceeded (default set to `max-peers * 1.5`):
   https://github.com/status-im/nimbus-eth2/pull/3346
 
-* An [ERA files](https://our.status.im/nimbus-update-march/#era-files-a-proposed-solution-to-historical-data-queries) developer preview: ERA files are an ultra-efficient long-term storage format for finalized chain history
+* An [ERA files](https://our.status.im/nimbus-update-march/#era-files-a-proposed-solution-to-historical-data-queries) developer preview: ERA files are an ultra-efficient long-term storage format for finalized chain history:
   https://github.com/status-im/nimbus-eth2/blob/unstable/docs/e2store.md
 
 ### We've fixed:
@@ -239,19 +297,19 @@ Nimbus `v22.3.0` is a `low-urgency` upgrade that marks the beginning of a more p
 
 > Please note that the new versioning scheme is tied to the calendar. The number 22 indicates the year of the release (2022), while 3 is the month (March). The last digit is the patch number of the release and it will have a non-zero value only when we ship a hotfix during the month.
 
-### Improvements:
+### Improvements
 
-* Nimbus can now run as a service on Windows: use the `--run-as-service` flag
+* Nimbus can now run as a service on Windows: use the `--run-as-service` flag:
   https://github.com/status-im/nimbus-eth2/pull/3441
 
-* All command-line options can now be provided in a configuration file: use the `--config-file` flag
+* All command-line options can now be provided in a configuration file: use the `--config-file` flag:
   https://github.com/status-im/nimbus-eth2/pull/3442
   https://nimbus.guide/options.html
 
-* Lower CPU and bandwidth usage, thanks to better handling of already-seen attestation aggregates
+* Lower CPU and bandwidth usage, thanks to better handling of already-seen attestation aggregates:
   https://github.com/status-im/nimbus-eth2/pull/3439
 
-* Reduced memory usage for nodes bootstrapped with [trusted node sync](https://nimbus.guide/trusted-node-sync.html)
+* Reduced memory usage for nodes bootstrapped with [trusted node sync](https://nimbus.guide/trusted-node-sync.html):
   https://github.com/status-im/nimbus-eth2/pull/3429
 
 ### We've fixed:
@@ -283,7 +341,7 @@ Nimbus `v1.7.0` is a `low-urgency` feature-packed upgrade, which brings support 
 
 Of particular note: the [Keymanager API](https://nimbus.guide/keymanager-api.html) now supports remote keystores (a.k.a web3signer keystores).
 
-### Breaking changes
+### Breaking changes:
 
 - Nimbus will no longer rewrite HTTP(S) web3 URLs to their respective WebSocket alternatives. Please review your setup to ensure you are using the desired web3 end-point.
 
@@ -291,24 +349,47 @@ Of particular note: the [Keymanager API](https://nimbus.guide/keymanager-api.htm
 
 ### Improvements:
 
-* [Trusted node sync](https://nimbus.guide/trusted-node-sync.html): https://github.com/status-im/nimbus-eth2/pull/3326
-* Full support for HTTP and HTTPS web3 URLs: https://github.com/status-im/nimbus-eth2/pull/3354
-  * Nimbus now treats the first `--web3-url` as a primary and preferred web3 provider. Any extra URLs are treated as fallback providers (to be used only when the primary is offline). As soon as the primary is usable again, Nimbus will switch back to it.
-* The Keymanager API now supports management of remote keystores (also known as web3signer keystores): https://github.com/status-im/nimbus-eth2/pull/3360
-* The typical memory usage of Nimbus on mainnet is now below 1GB: https://github.com/status-im/nimbus-eth2/pull/3293
-  * 128MB of savings come from exploiting a provision in the official spec, which allows clients to respond with only non-finalized blocks to network queries which request blocks by their root hash.
-* Faster beacon node startup-times: https://github.com/status-im/nimbus-eth2/pull/3320
-* The REST API is now compatible with CORS-enabled clients (e.g. browsers): https://github.com/status-im/nimbus-eth2/pull/3378
-  * Use the `--rest-allow-origin` and/or `--keymanager-allow-origin` parameters to specify the allowed origin.
+* [Trusted node sync](https://nimbus.guide/trusted-node-sync.html):
+  https://github.com/status-im/nimbus-eth2/pull/3326
+
+* Full support for HTTP and HTTPS web3 URLs:
+  https://github.com/status-im/nimbus-eth2/pull/3354
+
+* Nimbus now treats the first `--web3-url` as a primary and preferred web3 provider. Any extra URLs are treated as fallback providers (to be used only when the primary is offline). As soon as the primary is usable again, Nimbus will switch back to it.
+
+* The Keymanager API now supports management of remote keystores (also known as web3signer keystores):
+  https://github.com/status-im/nimbus-eth2/pull/3360
+                                                                                                  * The typical memory usage of Nimbus on mainnet is now below 1GB:
+  https://github.com/status-im/nimbus-eth2/pull/3293
+
+* 128MB of savings come from exploiting a provision in the official spec, which allows clients to respond with only non-finalized blocks to network queries which request blocks by their root hash.
+
+* Faster beacon node startup-times:
+  https://github.com/status-im/nimbus-eth2/pull/3320
+                                                                                      
+* The REST API is now compatible with CORS-enabled clients (e.g. browsers):
+  https://github.com/status-im/nimbus-eth2/pull/3378
+  
+* Use the `--rest-allow-origin` and/or `--keymanager-allow-origin` parameters to specify the allowed origin.
 
 * A new `--rest-url` parameter for the `deposits exit` command: https://github.com/status-im/nimbus-eth2/pull/3344, https://github.com/status-im/nimbus-eth2/pull/3318
-  * You can now issue exits uing any beacon node which provides the [official REST API](https://nimbus.guide/rest-api.html). The Nimbus-specific [JSON-RPC API](https://nimbus.guide/api.html) will be deprecated in our next release, with a view to completely phasing it out over the next few months.
+
+* You can now issue exits uing any beacon node which provides the [official REST API](https://nimbus.guide/rest-api.html). The Nimbus-specific [JSON-RPC API](https://nimbus.guide/api.html) will be deprecated in our next release, with a view to completely phasing it out over the next few months.
+
 * The REST API will now returns JSON data by default which simplifies testing the API with `curl`.
-  * The notable exception here is when the client requests SSZ data by supplying an `Accept: application/octet-stream` header.
-* Fairer request capping strategy for block sync requests and reduced CPU usage when serving them: https://github.com/status-im/nimbus-eth2/pull/3358
+  
+* The notable exception here is when the client requests SSZ data by supplying an `Accept: application/octet-stream` header.
+
+* Fairer request capping strategy for block sync requests and reduced CPU usage when serving them:
+  https://github.com/status-im/nimbus-eth2/pull/3358
+
 * More accurate Nim GC memory usage metrics.
-* BLST upgrade (latest version): https://github.com/status-im/nimbus-eth2/pull/3364
-* The `web3 test` command now provides more data about the selected provided: https://github.com/status-im/nimbus-eth2/pull/3354
+
+* BLST upgrade (latest version):
+  https://github.com/status-im/nimbus-eth2/pull/3364
+
+* The `web3 test` command now provides more data about the selected provided:
+  https://github.com/status-im/nimbus-eth2/pull/3354
 
 ### We've fixed:
 
