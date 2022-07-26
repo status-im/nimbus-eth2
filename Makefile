@@ -25,7 +25,8 @@ NODE_ID := 0
 BASE_PORT := 9000
 BASE_REST_PORT := 5052
 BASE_METRICS_PORT := 8008
-EXECUTOR_NUMBER := 0
+# WARNING: Use lazy assignment to allow CI to override.
+EXECUTOR_NUMBER ?= 0
 
 ROPSTEN_WEB3_URL := "--web3-url=wss://ropsten.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
