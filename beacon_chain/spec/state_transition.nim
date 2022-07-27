@@ -543,6 +543,7 @@ proc makeBeaconBlock*(
     # Override for MEV
     if transactions_root.isSome and execution_payload_root.isSome:
       withState(state):
+        static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
         when stateFork == BeaconStateFork.Bellatrix:
           state.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
