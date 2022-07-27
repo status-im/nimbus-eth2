@@ -35,11 +35,18 @@ jobs:
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
 
-      - name: Upload checksum artefact
+      - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v2
         with:
           name: Linux_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Linux_amd64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
   build-arm64:
@@ -79,11 +86,18 @@ jobs:
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
 
-      - name: Upload checksum artefact
+      - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v2
         with:
           name: Linux_arm64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Linux_arm64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
   build-arm:
@@ -123,11 +137,18 @@ jobs:
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
 
-      - name: Upload checksum artefact
+      - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v2
         with:
           name: Linux_arm_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Linux_arm_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
   build-win64:
@@ -159,11 +180,18 @@ jobs:
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
 
-      - name: Upload checksum artefact
+      - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v2
         with:
           name: Windows_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Windows_amd64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
   build-macos-amd64:
@@ -195,11 +223,18 @@ jobs:
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
 
-      - name: Upload checksum artefact
+      - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v2
         with:
           name: macOS_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macOS_amd64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
   build-macos-arm64:
@@ -231,11 +266,18 @@ jobs:
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
 
-      - name: Upload checksum artefact
+      - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v2
         with:
           name: macOS_arm64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macOS_arm64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
 
   prepare-prerelease:
