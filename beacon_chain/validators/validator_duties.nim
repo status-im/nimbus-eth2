@@ -592,13 +592,6 @@ proc getBlindedBeaconBlock(
 
   return ok blindedBlock
 
-# TODO temporary, don't merge with this still here
-func mevGraffitiBytes(): GraffitiBytes =
-  const graffitiBytes =
-    toBytes("Nimbus-MEV/v" & versionAsStr & "-" & gitRevision)
-  static: doAssert graffitiBytes.len <= MAX_GRAFFITI_SIZE
-  distinctBase(result)[0 ..< graffitiBytes.len] = graffitiBytes
-
 proc proposeBlockMEV(
     node: BeaconNode, head: BlockRef, validator: AttachedValidator, slot: Slot,
     randao: ValidatorSig, validator_index: ValidatorIndex):
@@ -630,7 +623,7 @@ proc proposeBlockMEV(
     getFieldNames(ExecutionPayloadHeader))
 
   let newBlock = await makeBeaconBlockForHeadAndSlot(
-    node, randao, validator_index, mevGraffitiBytes(), head, slot,
+    node, randao, validator_index, node.graffitiBytes, head, slot,
     execution_payload = Opt.some shimExecutionPayload,
     transactions_root = Opt.some executionPayloadHeader.get.transactions_root,
     execution_payload_root =
@@ -672,9 +665,6 @@ proc proposeBlockMEV(
 
     const httpOk = 200
     if unblindedPayload.status == httpOk:
-      debug "proposeBlockMEV: submitBlindedBlock succeeded",
-        slot, head = shortLog(head), validator_index, blindedBlock
-
       if  hash_tree_root(
             blindedBlock.get.message.body.execution_payload_header) !=
           hash_tree_root(unblindedPayload.data.data):
@@ -1229,6 +1219,8 @@ proc registerValidators(node: BeaconNode) {.async.} =
         builderStatus = restBuilderStatus
       return
 
+    # TODO split this across slots of epoch to support larger numbers of
+    # validators
     # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#validator-registration
     var validatorRegistrations: seq[SignedValidatorRegistrationV1]
     for validator in node.attachedValidators[].validators.values:
