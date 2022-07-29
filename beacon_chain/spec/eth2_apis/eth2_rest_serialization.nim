@@ -816,11 +816,10 @@ template unrecognizedFieldWarning =
         fieldName, typeName = typetraits.name(typeof value)
 
 ## ForkedBeaconBlock
-proc prepareForkedBlockReading(
-    reader: var JsonReader[RestJson], value: auto,
-    version: var Option[BeaconBlockFork], data: var Option[JsonString])
-    {.raises: [Defect, IOError, SerializationError, UnexpectedTokenError].} =
-  for fieldName in readObjectFields(reader):
+template prepareForkedBlockReading(
+    reader: var JsonReader[RestJson], value: untyped,
+    version: var Option[BeaconBlockFork], data: var Option[JsonString]) =
+  for fieldName {.inject.} in readObjectFields(reader):
     case fieldName
     of "version":
       if version.isSome():
