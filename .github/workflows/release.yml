@@ -21,17 +21,24 @@ jobs:
           echo "::set-output name=archive::"${ARCHIVE}
           echo "::set-output name=archive_dir::"${ARCHIVE%.tar.gz}
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
+          tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
         uses: actions/upload-artifact@v2
         with:
           name: Linux_amd64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
-      - name: Upload checksum artefact
+      - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v2
         with:
           name: Linux_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Linux_amd64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
       - name: Login to Docker Hub
         uses: docker/login-action@v1
@@ -85,17 +92,24 @@ jobs:
           echo "::set-output name=archive::"${ARCHIVE}
           echo "::set-output name=archive_dir::"${ARCHIVE%.tar.gz}
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
+          tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
         uses: actions/upload-artifact@v2
         with:
           name: Linux_arm64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
-      - name: Upload checksum artefact
+      - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v2
         with:
           name: Linux_arm64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Linux_arm64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
       - name: Login to Docker Hub
         uses: docker/login-action@v1
@@ -150,17 +164,24 @@ jobs:
           echo "::set-output name=archive::"${ARCHIVE}
           echo "::set-output name=archive_dir::"${ARCHIVE%.tar.gz}
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
+          tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
         uses: actions/upload-artifact@v2
         with:
           name: Linux_arm_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
-      - name: Upload checksum artefact
+      - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v2
         with:
           name: Linux_arm_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Linux_arm_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
       - name: Login to Docker Hub
         uses: docker/login-action@v1
@@ -208,17 +229,24 @@ jobs:
           echo "::set-output name=archive::"${ARCHIVE}
           echo "::set-output name=archive_dir::"${ARCHIVE%.tar.gz}
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
+          tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
         uses: actions/upload-artifact@v2
         with:
           name: Windows_amd64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
-      - name: Upload checksum artefact
+      - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v2
         with:
           name: Windows_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Windows_amd64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
   build-macos-amd64:
     name: macOS AMD64 release asset
@@ -235,17 +263,24 @@ jobs:
           echo "::set-output name=archive::"${ARCHIVE}
           echo "::set-output name=archive_dir::"${ARCHIVE%.tar.gz}
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
+          tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
         uses: actions/upload-artifact@v2
         with:
           name: macOS_amd64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
-      - name: Upload checksum artefact
+      - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v2
         with:
           name: macOS_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macOS_amd64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
   build-macos-arm64:
     name: macOS ARM64 release asset
@@ -262,17 +297,24 @@ jobs:
           echo "::set-output name=archive::"${ARCHIVE}
           echo "::set-output name=archive_dir::"${ARCHIVE%.tar.gz}
           tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
+          tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
       - name: Upload archive artefact
         uses: actions/upload-artifact@v2
         with:
           name: macOS_arm64_archive
           path: ./dist/${{ steps.make_dist.outputs.archive }}
           retention-days: 2
-      - name: Upload checksum artefact
+      - name: Upload BN checksum artefact
         uses: actions/upload-artifact@v2
         with:
           name: macOS_arm64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macOS_arm64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
   prepare-release:
     name: Prepare release draft
