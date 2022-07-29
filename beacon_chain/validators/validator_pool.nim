@@ -219,11 +219,31 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           v.data.privateKey).toValidatorSig())
     of ValidatorKind.Remote:
       when blck is BlindedBeaconBlock:
-        # TODO implement when Web3Signer protocol etended to handle this
-        err "Web3 remote signing and MEV combination unsupported"
-      else:
         let request = Web3SignerRequest.init(
-          fork, genesis_validators_root, blck.Web3SignerForkedBeaconBlock)
+          fork, genesis_validators_root,
+          Web3SignerForkedBeaconBlock(
+            kind: BeaconBlockFork.Bellatrix,
+            bellatrixData: blck.toBeaconBlockHeader))
+        await v.signData(request)
+      else:
+        let
+          web3SignerBlock =
+            case blck.kind
+            of BeaconBlockFork.Phase0:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Phase0,
+                phase0Data: blck.phase0Data)
+            of BeaconBlockFork.Altair:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Altair,
+                altairData: blck.altairData)
+            of BeaconBlockFork.Bellatrix:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Bellatrix,
+                bellatrixData: blck.bellatrixData.toBeaconBlockHeader)
+
+          request = Web3SignerRequest.init(
+            fork, genesis_validators_root, web3SignerBlock)
         await v.signData(request)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregate-signature

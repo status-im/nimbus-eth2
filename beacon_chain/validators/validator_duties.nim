@@ -485,7 +485,6 @@ proc makeBeaconBlockForHeadAndSlot*(
         if transactions_root.isSome:
           Opt.some transactions_root.get
         else:
-          # TODO using just "Opt.none Eth2Digest," triggers invalid indentation
           Opt.none(Eth2Digest),
       execution_payload_root =
         if execution_payload_root.isSome:
