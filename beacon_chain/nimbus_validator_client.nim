@@ -4,9 +4,13 @@
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
+import metrics, metrics/chronos_httpserver
 import validator_client/[common, fallback_service, duties_service,
                          attestation_service, fork_service,
                          sync_committee_service, doppelganger_service]
+
+type
+  ValidatorClientError* = object of CatchableError
 
 proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
@@ -110,6 +114,40 @@ proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
     await sleepAsync(genesisTime.offset)
   return res
 
+proc initMetrics(vc: ValidatorClientRef): Future[bool] {.async.} =
+  if vc.config.metricsEnabled:
+    let
+      metricsAddress = vc.config.metricsAddress
+      metricsPort = vc.config.metricsPort
+      url = "http://" & $metricsAddress & ":" & $metricsPort & "/metrics"
+    info "Starting metrics HTTP server", url = url
+    let server =
+      block:
+        let res = MetricsHttpServerRef.new($metricsAddress, metricsPort)
+        if res.isErr():
+          error "Could not start metrics HTTP server", url = url,
+                error_msg = res.error()
+          return false
+        res.get()
+    vc.metricsServer = some(server)
+    try:
+      await server.start()
+    except MetricsError as exc:
+      error "Could not start metrics HTTP server", url = url,
+            error_msg = exc.msg, error_name = exc.name
+      return false
+  return true
+
+proc shutdownMetrics(vc: ValidatorClientRef) {.async.} =
+  if vc.config.metricsEnabled:
+    if vc.metricsServer.isSome():
+      info "Shutting down metrics HTTP server"
+      await vc.metricsServer.get().close()
+
+proc shutdownSlashingProtection(vc: ValidatorClientRef) =
+  info "Closing slashing protection", path = vc.config.validatorsDir()
+  vc.attachedValidators.slashingProtection.close()
+
 proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
   ## Called at the beginning of a slot - usually every slot, but sometimes might
@@ -148,8 +186,19 @@ proc asyncInit(vc: ValidatorClientRef) {.async.} =
 
   vc.beaconClock = await vc.initClock()
 
-  if not(await initValidators(vc)):
-    fatal "Could not initialize local validators"
+  if not(await initMetrics(vc)):
+    raise newException(ValidatorClientError,
+                       "Could not initialize metrics server")
+
+  try:
+    if not(await initValidators(vc)):
+      await vc.shutdownMetrics()
+      raise newException(ValidatorClientError,
+                         "Could not initialize local validators")
+  except CancelledError:
+    debug "Initialization process interrupted"
+    await vc.shutdownMetrics()
+    return
 
   info "Initializing slashing protection", path = vc.config.validatorsDir()
   vc.attachedValidators.slashingProtection =
@@ -165,10 +214,16 @@ proc asyncInit(vc: ValidatorClientRef) {.async.} =
     vc.doppelgangerService = await DoppelgangerServiceRef.init(vc)
     vc.attestationService = await AttestationServiceRef.init(vc)
     vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
+  except CatchableError as exc:
+    warn "Unexpected error encountered while initializing",
+          error_name = exc.name, error_msg = exc.msg
+    await vc.shutdownMetrics()
+    vc.shutdownSlashingProtection()
   except CancelledError:
     debug "Initialization process interrupted"
-    info "Closing slashing protection", path = vc.config.validatorsDir()
-    vc.attachedValidators.slashingProtection.close()
+    await vc.shutdownMetrics()
+    vc.shutdownSlashingProtection()
+    return
 
 proc asyncRun(vc: ValidatorClientRef) {.async.} =
   vc.fallbackService.start()
@@ -190,8 +245,8 @@ proc asyncRun(vc: ValidatorClientRef) {.async.} =
     debug "Main loop failed with an error", err_name = $exc.name,
           err_msg = $exc.msg
 
-  info "Closing slashing protection", path = vc.config.validatorsDir()
-  vc.attachedValidators.slashingProtection.close()
+  await vc.shutdownMetrics()
+  vc.shutdownSlashingProtection()
   debug "Stopping main processing loop"
   var pending: seq[Future[void]]
   if not(vc.runSlotLoopFut.finished()):

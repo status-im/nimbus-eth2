@@ -7,7 +7,7 @@
 
 import
   std/sets,
-  chronicles,
+  metrics, chronicles,
   "."/[common, api, block_service],
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/eth2_apis/rest_types
@@ -16,6 +16,16 @@ const
   ServiceName = "sync_committee_service"
 
 logScope: service = ServiceName
+
+declareCounter beacon_sync_committee_messages_sent,
+  "Number of sync committee messages sent by the node"
+
+declareHistogram beacon_sync_committee_message_sent_delay,
+  "Time(s) between expected and actual sync committee message send moment",
+  buckets = DelayBuckets
+
+declareCounter beacon_sync_committee_contributions_sent,
+  "Number of sync committee contributions sent by the node"
 
 type
   ContributionItem* = object
@@ -82,6 +92,8 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
 
   let delay = vc.getDelay(message.slot.sync_committee_message_deadline())
   if res:
+    beacon_sync_committee_messages_sent.inc()
+    beacon_sync_committee_message_sent_delay.observe(delay.toFloatSeconds())
     notice "Sync committee message published",
            message = shortLog(message),
            validator = shortLog(validator),
@@ -193,6 +205,7 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
       false
 
   if res:
+    beacon_sync_committee_contributions_sent.inc()
     notice "Sync contribution published",
            validator = shortLog(validator),
            validator_index = validatorIdx

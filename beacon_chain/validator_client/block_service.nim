@@ -1,8 +1,22 @@
+# beacon_chain
+# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import ".."/spec/forks
 import common, api
-import chronicles
+import chronicles, metrics
 
 logScope: service = "block_service"
+
+declareCounter beacon_blocks_sent,
+  "Number of beacon blocks sent by this node"
+
+declareHistogram beacon_blocks_sent_delay,
+  "Time(s) between expected and actual block send moment",
+  buckets = DelayBuckets
 
 proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                   validator: AttachedValidator) {.async.} =
@@ -113,6 +127,9 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
               err_name = exc.name, err_msg = exc.msg
         return
     if res:
+      let delay = vc.getDelay(slot.block_deadline())
+      beacon_blocks_sent.inc()
+      beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
       notice "Block published", blockRoot = shortLog(blockRoot),
              blck = shortLog(beaconBlock), signature = shortLog(signature),
              validator = shortLog(validator)

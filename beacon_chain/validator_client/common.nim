@@ -9,6 +9,7 @@ import std/[tables, os, sets, sequtils]
 import chronos, presto, presto/client as presto_client, chronicles, confutils,
        json_serialization/std/[options, net],
        stew/[base10, results, byteutils]
+import metrics, metrics/chronos_httpserver
 
 # Local modules
 import
@@ -35,6 +36,9 @@ const
   HISTORICAL_DUTIES_EPOCHS* = 2'u64
   TIME_DELAY_FROM_SLOT* = 79.milliseconds
   SUBSCRIPTION_BUFFER_SLOTS* = 2'u64
+
+  DelayBuckets* = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
+                   0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
 
 type
   ServiceState* {.pure.} = enum
@@ -137,6 +141,7 @@ type
 
   ValidatorClient* = object
     config*: ValidatorClientConf
+    metricsServer*: Option[MetricsHttpServerRef]
     graffitiBytes*: GraffitiBytes
     beaconNodes*: seq[BeaconNodeServerRef]
     fallbackService*: FallbackServiceRef
