@@ -755,7 +755,7 @@ proc proposeBlock(node: BeaconNode,
   # "Honest validators will not utilize the external builder network until
   # after the transition from the proof-of-work chain to the proof-of-stake
   # beacon chain has been finalized by the proof-of-stake validators."
-  if  node.config.payloadBuilder.isSome and
+  if  node.config.payloadBuilderEnable and
       not node.dag.loadExecutionBlockRoot(node.dag.finalizedHead.blck).isZero:
     let newBlockMEV = await node.proposeBlockMEV(
       head, validator, slot, randao, validator_index)
@@ -1201,12 +1201,12 @@ proc getValidatorRegistration(
 
 proc registerValidators(node: BeaconNode) {.async.} =
   try:
-    if  node.config.payloadBuilder.isNone or
+    if  (not node.config.payloadBuilderEnable) or
         node.currentSlot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH:
       return
-    elif  node.config.payloadBuilder.isSome and
+    elif  node.config.payloadBuilderEnable and
           node.payloadBuilderRestClient.isNil:
-      warn "registerValidators: node.config.payloadBuilder.isSome and node.payloadBuilderRestClient.isNil"
+      warn "registerValidators: node.config.payloadBuilderEnable and node.payloadBuilderRestClient.isNil"
       return
 
     const HttpOk = 200
@@ -1214,7 +1214,7 @@ proc registerValidators(node: BeaconNode) {.async.} =
     let restBuilderStatus = await node.payloadBuilderRestClient.checkBuilderStatus
     if restBuilderStatus.status != HttpOk:
       warn "registerValidators: specified builder not available",
-        builderUrl = node.config.payloadBuilder.get,
+        builderUrl = node.config.payloadBuilderUrl,
         builderStatus = restBuilderStatus
       return
 

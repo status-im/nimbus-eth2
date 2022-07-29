@@ -537,10 +537,15 @@ type
         desc: "Suggested fee recipient"
         name: "suggested-fee-recipient" .}: Option[Address]
 
-      payloadBuilder* {.
+      payloadBuilderEnable* {.
+        hidden
+        desc: "Enable external payload builder"
+        name: "payload-builder-enable" .}: bool
+
+      payloadBuilderUrl* {.
         hidden
         desc: "Payload builder URL"
-        name: "payload-builder" .}: Option[string]
+        name: "payload-builder-url" .}: string
 
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
