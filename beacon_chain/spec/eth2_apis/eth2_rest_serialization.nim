@@ -819,7 +819,7 @@ template unrecognizedFieldWarning =
 proc prepareForkedBlockReading(
     reader: var JsonReader[RestJson], value: auto,
     version: var Option[BeaconBlockFork], data: var Option[JsonString])
-    {.raises: [IOError, SerializationError, UnexpectedTokenError].} =
+    {.raises: [Defect, IOError, SerializationError, UnexpectedTokenError].} =
   for fieldName in readObjectFields(reader):
     case fieldName
     of "version":
