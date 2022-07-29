@@ -11,7 +11,10 @@ import
   ../spec/[beaconstate, forks, helpers],
   ../beacon_clock
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 logScope: topics = "val_mon"
 

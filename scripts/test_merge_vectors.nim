@@ -20,7 +20,10 @@ from ../beacon_chain/networking/network_metadata import Eth1Network
 from ../beacon_chain/spec/datatypes/base import ZERO_HASH
 from ../beacon_chain/spec/presets import Eth1Address, defaultRuntimeConfig
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 # TODO hm, actually factor this out into a callable function
 # and have a version with the result of the jwt secret slurp for testing purposes

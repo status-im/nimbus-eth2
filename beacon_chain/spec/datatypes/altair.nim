@@ -13,7 +13,10 @@
 #      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 # References to `vFuture` refer to the pre-release proposal of the libp2p based
 # light client sync protocol. Conflicting release versions are not in use.

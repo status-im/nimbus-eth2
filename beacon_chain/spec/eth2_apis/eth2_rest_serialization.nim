@@ -138,7 +138,10 @@ type
     GetPhase0StateSszResponse |
     GetPhase0BlockSszResponse
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 proc writeValue*(writer: var JsonWriter[RestJson],
                  epochFlags: EpochParticipationFlags)

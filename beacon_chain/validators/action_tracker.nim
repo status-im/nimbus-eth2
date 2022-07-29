@@ -14,7 +14,10 @@ import
 
 export forks, tables, sets
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 const
   SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS* = 4

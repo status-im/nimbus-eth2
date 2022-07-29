@@ -14,7 +14,10 @@ import
   chronos,
   ../beacon_chain/eth1/eth1_monitor
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 from std/os import paramCount, paramStr
 from nimcrypto/utils import fromHex

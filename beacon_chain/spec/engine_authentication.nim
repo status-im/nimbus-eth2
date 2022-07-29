@@ -14,7 +14,10 @@ import
 
 export rand, results
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 proc base64urlEncode(x: auto): string =
   # The only strings this gets are internally generated, and don't have
