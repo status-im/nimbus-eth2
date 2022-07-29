@@ -14,7 +14,7 @@ You can pass one or more `--web3-url` parameters to the node. Any additional web
   --web3-url=http://other:8545
 ```
 
-!!! warn
+!!! warning
     You need to run your own execution client after [the merge](./merge.md) - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.
 
 !!! info

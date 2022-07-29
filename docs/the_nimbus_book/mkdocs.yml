@@ -74,6 +74,7 @@ nav:
     - General:
       - 'keep-updated.md'
       - 'eth1.md'
+      - 'el-light-client.md'
       - 'goerli-eth.md'
       - 'beacon-node-systemd.md'
       - 'logging.md'

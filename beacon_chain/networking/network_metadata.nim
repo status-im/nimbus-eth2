@@ -18,9 +18,6 @@ import
   ../spec/eth2_ssz_serialization,
   ../spec/datatypes/phase0
 
-from ../consensus_object_pools/block_pools_types_light_client
-  import LightClientDataImportMode
-
 # ATTENTION! This file will produce a large C file, because we are inlining
 # genesis states as C literals in the generated code (and blobs in the final
 # binary). It makes sense to keep the file small and separated from the rest
@@ -41,12 +38,6 @@ type
     rinkeby
     goerli
     sepolia
-
-  Eth2NetworkConfigDefaults* = object
-    ## Network specific config defaults
-    lightClientEnable*: bool
-    lightClientDataServe*: bool
-    lightClientDataImportMode*: LightClientDataImportMode
 
   Eth2NetworkMetadata* = object
     case incompatible*: bool
@@ -82,8 +73,6 @@ type
       # unknown genesis state.
       genesisData*: string
       genesisDepositsSnapshot*: string
-
-      configDefaults*: Eth2NetworkConfigDefaults
     else:
       incompatibilityDesc*: string
 
@@ -221,21 +210,6 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       else:
         ""
 
-      deploymentPhase = genesisData.deploymentPhase
-
-      configDefaults =
-        Eth2NetworkConfigDefaults(
-          lightClientEnable:
-            false, # Only produces debug logs so far
-          lightClientDataServe:
-            deploymentPhase <= DeploymentPhase.Testnet,
-          lightClientDataImportMode:
-            if deploymentPhase <= DeploymentPhase.Testnet:
-              LightClientDataImportMode.OnlyNew
-            else:
-              LightClientDataImportMode.None
-        )
-
     Eth2NetworkMetadata(
       incompatible: false,
       eth1Network: eth1Network,
@@ -243,8 +217,7 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       bootstrapNodes: bootstrapNodes,
       depositContractDeployedAt: depositContractDeployedAt,
       genesisData: genesisData,
-      genesisDepositsSnapshot: genesisDepositsSnapshot,
-      configDefaults: configDefaults)
+      genesisDepositsSnapshot: genesisDepositsSnapshot)
 
   except PresetIncompatibleError as err:
     Eth2NetworkMetadata(incompatible: true,

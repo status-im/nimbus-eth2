@@ -183,17 +183,17 @@ proc loadChainDag(
       if config.strictVerification: {strictVerification}
       else: {}
     onLightClientFinalityUpdateCb =
-      if config.lightClientDataServe.get: onLightClientFinalityUpdate
+      if config.lightClientDataServe: onLightClientFinalityUpdate
       else: nil
     onLightClientOptimisticUpdateCb =
-      if config.lightClientDataServe.get: onLightClientOptimisticUpdate
+      if config.lightClientDataServe: onLightClientOptimisticUpdate
       else: nil
     dag = ChainDAGRef.init(
       cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
       vanityLogs = getPandas(detectTTY(config.logStdout)),
       lcDataConfig = LightClientDataConfig(
-        serve: config.lightClientDataServe.get,
-        importMode: config.lightClientDataImportMode.get,
+        serve: config.lightClientDataServe,
+        importMode: config.lightClientDataImportMode,
         maxPeriods: config.lightClientDataMaxPeriods,
         onLightClientFinalityUpdate: onLightClientFinalityUpdateCb,
         onLightClientOptimisticUpdate: onLightClientOptimisticUpdateCb))
@@ -343,10 +343,9 @@ proc initFullNode(
       getFrontfillSlot, dag.backfill.slot, blockVerifier, maxHeadAge = 0)
     router = (ref MessageRouter)(
       processor: processor,
-      network: node.network,
-    )
+      network: node.network)
 
-  if node.config.lightClientDataServe.get:
+  if node.config.lightClientDataServe:
     proc scheduleSendingLightClientUpdates(slot: Slot) =
       if node.lightClientPool[].broadcastGossipFut != nil:
         return
@@ -1847,18 +1846,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
-
-  template applyConfigDefault(field: untyped): untyped =
-    if config.`field`.isNone:
-      if not metadata.configDefaults.`field`.isZeroMemory:
-        info "Applying network config default",
-          eth2Network = config.eth2Network,
-          `field` = metadata.configDefaults.`field`
-      config.`field` = some metadata.configDefaults.`field`
-
-  applyConfigDefault(lightClientEnable)
-  applyConfigDefault(lightClientDataServe)
-  applyConfigDefault(lightClientDataImportMode)
 
   let node = BeaconNode.init(
     metadata.cfg,

@@ -45,7 +45,7 @@ proc initLightClient*(
       node.network, rng, config, cfg, forkDigests, getBeaconTime,
       genesis_validators_root, LightClientFinalizationMode.Strict)
 
-  if config.lightClientEnable.get:
+  if config.lightClientEnable:
     proc shouldSyncOptimistically(slot: Slot): bool =
       const
         # Minimum number of slots to be ahead of DAG to use optimistic sync
@@ -83,14 +83,14 @@ proc initLightClient*(
 
   elif config.lightClientTrustedBlockRoot.isSome:
     warn "Ignoring `lightClientTrustedBlockRoot`, light client not enabled",
-      lightClientEnable = config.lightClientEnable.get,
+      lightClientEnable = config.lightClientEnable,
       lightClientTrustedBlockRoot = config.lightClientTrustedBlockRoot
 
   node.lcOptSync = optSync
   node.lightClient = lightClient
 
 proc startLightClient*(node: BeaconNode) =
-  if not node.config.lightClientEnable.get:
+  if not node.config.lightClientEnable:
     return
 
   node.lcOptSync.start()
@@ -98,10 +98,10 @@ proc startLightClient*(node: BeaconNode) =
 
 proc installLightClientMessageValidators*(node: BeaconNode) =
   let eth2Processor =
-    if node.config.lightClientDataServe.get:
+    if node.config.lightClientDataServe:
       # Process gossip using both full node and light client
       node.processor
-    elif node.config.lightClientEnable.get:
+    elif node.config.lightClientEnable:
       # Only process gossip using light client
       nil
     else:
@@ -113,7 +113,7 @@ proc installLightClientMessageValidators*(node: BeaconNode) =
 proc updateLightClientGossipStatus*(
     node: BeaconNode, slot: Slot, dagIsBehind: bool) =
   let isBehind =
-    if node.config.lightClientDataServe.get:
+    if node.config.lightClientDataServe:
       # Forward DAG's readiness to handle light client gossip
       dagIsBehind
     else:
@@ -123,7 +123,7 @@ proc updateLightClientGossipStatus*(
   node.lightClient.updateGossipStatus(slot, some isBehind)
 
 proc updateLightClientFromDag*(node: BeaconNode) =
-  if not node.config.lightClientEnable.get:
+  if not node.config.lightClientEnable:
     return
   if node.config.lightClientTrustedBlockRoot.isSome:
     return
