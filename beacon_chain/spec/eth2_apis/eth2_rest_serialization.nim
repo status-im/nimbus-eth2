@@ -816,9 +816,10 @@ template unrecognizedFieldWarning =
         fieldName, typeName = typetraits.name(typeof value)
 
 ## ForkedBeaconBlock
-template prepareForkedBlockReading(
-    reader: var JsonReader[RestJson], version: var Option[BeaconBlockFork],
-    data: var Option[JsonString]) =
+proc prepareForkedBlockReading(
+    reader: var JsonReader[RestJson], value: auto,
+    version: var Option[BeaconBlockFork], data: var Option[JsonString])
+    {.raises: [IOError, SerializationError, UnexpectedTokenError].} =
   for fieldName in readObjectFields(reader):
     case fieldName
     of "version":
@@ -855,7 +856,7 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     version: Option[BeaconBlockFork]
     data: Option[JsonString]
 
-  prepareForkedBlockReading(reader, version, data)
+  prepareForkedBlockReading(reader, value, version, data)
 
   case version.get():
   of BeaconBlockFork.Phase0:
@@ -902,7 +903,7 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     version: Option[BeaconBlockFork]
     data: Option[JsonString]
 
-  prepareForkedBlockReading(reader, version, data)
+  prepareForkedBlockReading(reader, value, version, data)
 
   case version.get():
   of BeaconBlockFork.Phase0:
