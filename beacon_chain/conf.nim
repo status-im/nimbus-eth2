@@ -540,6 +540,7 @@ type
       payloadBuilderEnable* {.
         hidden
         desc: "Enable external payload builder"
+        defaultValue: false
         name: "payload-builder-enable" .}: bool
 
       payloadBuilderUrl* {.
