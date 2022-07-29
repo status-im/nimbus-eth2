@@ -34,7 +34,7 @@ The following options are available:
      --validators-dir          A directory containing validator keystores.
      --secrets-dir             A directory containing validator keystore passwords.
      --wallets-dir             A directory containing wallet files.
-     --web3-url                One or more Web3 provider URLs used for obtaining deposit contract data.
+     --web3-url                One or more execution layer Web3 provider URLs.
      --non-interactive         Do not display interative prompts. Quit on missing configuration.
      --netkey-file             Source of network (secp256k1) private key file (random|<path>) [=random].
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key file [=false].
@@ -42,12 +42,15 @@ The following options are available:
      --subscribe-all-subnets   Subscribe to all subnet topics when gossiping [=false].
      --num-threads             Number of worker threads ("0" = use as many threads as there are CPU cores
                                available) [=0].
+     --jwt-secret              A file containing the hex-encoded 256 bit secret key to be used for
+                               verifying/generating jwt tokens.
  -b, --bootstrap-node          Specifies one or more bootstrap nodes to use when connecting to the network.
      --bootstrap-file          Specifies a line-delimited file of bootstrap Ethereum network addresses.
      --listen-address          Listening address for the Ethereum LibP2P and Discovery v5 traffic [=0.0.0.0].
      --tcp-port                Listening TCP port for Ethereum LibP2P traffic [=9000].
      --udp-port                Listening UDP port for node discovery [=9000].
-     --max-peers               The maximum number of peers to connect to [=160].
+     --max-peers               The target number of peers to connect to [=160].
+     --hard-max-peers          The maximum number of peers to connect to. Defaults to maxPeers * 1.5.
      --nat                     Specify method to use for determining public address. Must be one of: any, none,
                                upnp, pmp, extip:<IP> [=any].
      --enr-auto-update         Discovery can automatically update its ENR with the IP address and UDP port as
@@ -85,6 +88,10 @@ The following options are available:
                                CORS-enabled clients such as browsers).
      --keymanager-token-file   A file specifying the authorization token required for accessing the keymanager
                                API.
+     --light-client-data-serve  Serve data for enabling light clients to stay in sync with the network [=true].
+     --light-client-data-import-mode  Which classes of light client data to import. Must be one of: none, only-new,
+                               full (slow startup), on-demand (may miss validator duties) [=only-new].
+     --light-client-data-max-periods  Maximum number of sync committee periods to retain light client data.
      --in-process-validators   Disable the push model (the beacon node tells a signing process with the private
                                keys of the validators what to sign and when) and load the validators in the
                                beacon node itself [=true].
@@ -103,6 +110,7 @@ The following options are available:
                                enabled (BETA).
      --validator-monitor-totals  Publish metrics to single 'totals' label for better collection performance when
                                monitoring many validators (BETA) [=false].
+     --suggested-fee-recipient  Suggested fee recipient.
 
 ...
 ```

@@ -23,13 +23,13 @@ type
   LightClientDataImportMode* {.pure.} = enum
     ## Controls which classes of light client data are imported.
     None = "none"
-      ## Import no light client data.
+      ## Do not import new light client data.
     OnlyNew = "only-new"
-      ## Import only new light client data.
+      ## Incrementally import new light client data.
     Full = "full"
-      ## Import light client data for entire weak subjectivity period.
+      ## Import historic light client data (slow startup).
     OnDemand = "on-demand"
-      ## Don't precompute historic data. Slow, may miss validator duties.
+      ## Like `full`, but import on demand instead of on start.
 
   OnLightClientFinalityUpdateCallback* =
     proc(data: altair.LightClientFinalityUpdate) {.gcsafe, raises: [Defect].}

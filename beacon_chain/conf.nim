@@ -467,6 +467,7 @@ type
         desc: "Which classes of light client data to import. " &
               "Must be one of: none, only-new, full (slow startup), on-demand (may miss validator duties)"
         defaultValue: LightClientDataImportMode.OnlyNew
+        defaultValueDesc: $LightClientDataImportMode.OnlyNew
         name: "light-client-data-import-mode" .}: LightClientDataImportMode
 
       lightClientDataMaxPeriods* {.
