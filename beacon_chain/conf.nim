@@ -546,6 +546,7 @@ type
       payloadBuilderUrl* {.
         hidden
         desc: "Payload builder URL"
+        defaultValue: ""
         name: "payload-builder-url" .}: string
 
     of BNStartUpCmd.createTestnet:
