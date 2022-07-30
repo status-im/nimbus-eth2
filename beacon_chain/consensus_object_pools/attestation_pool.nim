@@ -536,6 +536,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   ## given state
   ## https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#attestations
   let newBlockSlot = state.data.slot.uint64
+  info "getAttestationsForBlock: entering"
 
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
     return # Too close to genesis
@@ -557,7 +558,10 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       else:
         static: doAssert false
 
+  info "getAttestationsForBlock: about to scan attestations through ATTESTATION_LOOKBACK"
   for i in 0..<ATTESTATION_LOOKBACK:
+    info "getAttestationsForBlock: looking previous slot",
+      slotOffset = i
     if i > maxAttestationSlot: # Around genesis..
       break
 
@@ -617,6 +621,8 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
 
   var res: seq[Attestation]
   let totalCandidates = candidates.len()
+  info "getAttestationsForBlock: about to greedily pack attestations",
+    totalCandidates
   while candidates.len > 0 and res.lenu64() < MAX_ATTESTATIONS:
     block:
       # Find the candidate with the highest score - slot is used as a
@@ -661,7 +667,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   let
     packingDur = Moment.now() - startPackingTick
 
-  debug "Packed attestations for block",
+  info "Packed attestations for block",
     newBlockSlot, packingDur, totalCandidates, attestations = res.len()
   attestation_pool_block_attestation_packing_time.set(
     packingDur.toFloatSeconds())
