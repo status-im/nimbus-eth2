@@ -486,10 +486,20 @@ type
       serializedFieldName: "beacon_block_root".}: Eth2Digest
     slot*: Slot
 
+  # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
+  Web3SignerValidatorRegistration* = object
+    feeRecipient* {.
+      serializedFieldName: "fee_recipient".}: string
+    gasLimit* {.
+      serializedFieldName: "gas_limit".}: uint64
+    timestamp*: uint64
+    pubkey*: ValidatorPubKey
+
   Web3SignerRequestKind* {.pure.} = enum
     AggregationSlot, AggregateAndProof, Attestation, Block, BlockV2,
     Deposit, RandaoReveal, VoluntaryExit, SyncCommitteeMessage,
-    SyncCommitteeSelectionProof, SyncCommitteeContributionAndProof
+    SyncCommitteeSelectionProof, SyncCommitteeContributionAndProof,
+    ValidatorRegistration
 
   Web3SignerRequest* = object
     signingRoot*: Option[Eth2Digest]
@@ -528,6 +538,10 @@ type
     of Web3SignerRequestKind.SyncCommitteeContributionAndProof:
       syncCommitteeContributionAndProof* {.
         serializedFieldName: "contribution_and_proof".}: ContributionAndProof
+    of Web3SignerRequestKind.ValidatorRegistration:
+      validatorRegistration* {.
+        serializedFieldName: "validator_registration".}:
+          Web3SignerValidatorRegistration
 
   GetBlockResponse* = DataEnclosedObject[phase0.SignedBeaconBlock]
   GetStateResponse* = DataEnclosedObject[phase0.BeaconState]
@@ -772,6 +786,26 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
     )),
     signingRoot: signingRoot,
     syncCommitteeContributionAndProof: data
+  )
+
+from stew/byteutils import to0xHex
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesis_validators_root: Eth2Digest,
+           data: ValidatorRegistrationV1,
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.ValidatorRegistration,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesis_validators_root: genesis_validators_root
+    )),
+    signingRoot: signingRoot,
+    validatorRegistration: Web3SignerValidatorRegistration(
+      feeRecipient: data.fee_recipient.data.to0xHex,
+      gasLimit: data.gas_limit,
+      timestamp: data.timestamp,
+      pubkey: data.pubkey)
   )
 
 func init*(t: typedesc[RestSyncCommitteeMessage],

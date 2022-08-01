@@ -819,14 +819,10 @@ template unrecognizedFieldWarning =
         fieldName, typeName = typetraits.name(typeof value)
 
 ## ForkedBeaconBlock
-proc readValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
-    reader: var JsonReader[RestJson],
-    value: var BlockType) {.raises: [IOError, SerializationError, Defect].} =
-  var
-    version: Option[BeaconBlockFork]
-    data: Option[JsonString]
-
-  for fieldName in readObjectFields(reader):
+template prepareForkedBlockReading(
+    reader: var JsonReader[RestJson], value: untyped,
+    version: var Option[BeaconBlockFork], data: var Option[JsonString]) =
+  for fieldName {.inject.} in readObjectFields(reader):
     case fieldName
     of "version":
       if version.isSome():
@@ -854,6 +850,15 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
     reader.raiseUnexpectedValue("Field version is missing")
   if data.isNone():
     reader.raiseUnexpectedValue("Field data is missing")
+
+proc readValue*[BlockType: ForkedBeaconBlock](
+    reader: var JsonReader[RestJson],
+    value: var BlockType) {.raises: [IOError, SerializationError, Defect].} =
+  var
+    version: Option[BeaconBlockFork]
+    data: Option[JsonString]
+
+  prepareForkedBlockReading(reader, value, version, data)
 
   case version.get():
   of BeaconBlockFork.Phase0:
@@ -893,6 +898,58 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
       reader.raiseUnexpectedValue("Incorrect bellatrix block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
 
+proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
+    reader: var JsonReader[RestJson],
+    value: var BlockType) {.raises: [IOError, SerializationError, Defect].} =
+  var
+    version: Option[BeaconBlockFork]
+    data: Option[JsonString]
+
+  prepareForkedBlockReading(reader, value, version, data)
+
+  case version.get():
+  of BeaconBlockFork.Phase0:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             phase0.BeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[phase0.BeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect phase0 block format")
+    value = Web3SignerForkedBeaconBlock(
+      kind: BeaconBlockFork.Phase0,
+      phase0Data: res.get())
+  of BeaconBlockFork.Altair:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             altair.BeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[altair.BeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect altair block format")
+    value = Web3SignerForkedBeaconBlock(
+      kind: BeaconBlockFork.Altair,
+      altairData: res.get())
+  of BeaconBlockFork.Bellatrix:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             BeaconBlockHeader,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[BeaconBlockHeader]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect bellatrix block format")
+    value = Web3SignerForkedBeaconBlock(
+      kind: BeaconBlockFork.Bellatrix,
+      bellatrixData: res.get())
 
 proc writeValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
     writer: var JsonWriter[RestJson],
@@ -1441,6 +1498,9 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("fork_info", value.forkInfo.get())
     if isSome(value.signingRoot):
       writer.writeField("signingRoot", value.signingRoot)
+
+    # https://github.com/ConsenSys/web3signer/blob/41834a927088f1bde7a097e17d19e954d0058e54/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L421-L425 (branch v22.7.0)
+    # It's the "beacon_block" field even when it's not a block, but a header
     writer.writeField("beacon_block", value.beaconBlock)
   of Web3SignerRequestKind.Deposit:
     writer.writeField("type", "DEPOSIT")
@@ -1489,6 +1549,15 @@ proc writeValue*(writer: var JsonWriter[RestJson],
       writer.writeField("signingRoot", value.signingRoot)
     writer.writeField("contribution_and_proof",
                       value.syncCommitteeContributionAndProof)
+  of Web3SignerRequestKind.ValidatorRegistration:
+    # https://consensys.github.io/web3signer/web3signer-eth2.html#operation/ETH2_SIGN
+    doAssert(value.forkInfo.isSome(),
+             "forkInfo should be set for this type of request")
+    writer.writeField("type", "VALIDATOR_REGISTRATION")
+    writer.writeField("fork_info", value.forkInfo.get())
+    if isSome(value.signingRoot):
+      writer.writeField("signingRoot", value.signingRoot)
+    writer.writeField("validator_registration", value.validatorRegistration)
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson],
@@ -1532,6 +1601,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           Web3SignerRequestKind.SyncCommitteeSelectionProof
         of "SYNC_COMMITTEE_CONTRIBUTION_AND_PROOF":
           Web3SignerRequestKind.SyncCommitteeContributionAndProof
+        of "VALIDATOR_REGISTRATION":
+          Web3SignerRequestKind.ValidatorRegistration
         else:
           reader.raiseUnexpectedValue("Unexpected `type` value")
       )
@@ -1625,6 +1696,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         forkInfo: forkInfo, signingRoot: signingRoot, blck: data
       )
     of Web3SignerRequestKind.BlockV2:
+      # https://github.com/ConsenSys/web3signer/blob/41834a927088f1bde7a097e17d19e954d0058e54/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L421-L425 (branch v22.7.0)
+      # It's the "beacon_block" field even when it's not a block, but a header
       if dataName != "beacon_block":
         reader.raiseUnexpectedValue("Field `beacon_block` is missing")
       if forkInfo.isNone():
@@ -1739,6 +1812,25 @@ proc readValue*(reader: var JsonReader[RestJson],
         kind: Web3SignerRequestKind.SyncCommitteeContributionAndProof,
         forkInfo: forkInfo, signingRoot: signingRoot,
         syncCommitteeContributionAndProof: data
+      )
+    of Web3SignerRequestKind.ValidatorRegistration:
+      if dataName != "validator_registration":
+        reader.raiseUnexpectedValue(
+          "Field `validator_registration` is missing")
+      if forkInfo.isNone():
+        reader.raiseUnexpectedValue("Field `fork_info` is missing")
+      let data =
+        block:
+          let res =
+            decodeJsonString(Web3SignerValidatorRegistration, data.get())
+          if res.isErr():
+            reader.raiseUnexpectedValue(
+              "Incorrect field `validator_registration` format")
+          res.get()
+      Web3SignerRequest(
+        kind: Web3SignerRequestKind.ValidatorRegistration,
+        forkInfo: forkInfo, signingRoot: signingRoot,
+        validatorRegistration: data
       )
 
 ## RemoteKeystoreStatus

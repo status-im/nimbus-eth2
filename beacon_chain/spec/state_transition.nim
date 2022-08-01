@@ -518,7 +518,10 @@ proc makeBeaconBlock*(
     # TODO:
     # `verificationFlags` is needed only in tests and can be
     # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[ForkedBeaconBlock, cstring] =
+    verificationFlags: UpdateFlags = {},
+    transactions_root: Opt[Eth2Digest] = Opt.none Eth2Digest,
+    execution_payload_root: Opt[Eth2Digest] = Opt.none Eth2Digest):
+    Result[ForkedBeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
@@ -539,6 +542,30 @@ proc makeBeaconBlock*(
     if res.isErr:
       rollback(state)
       return err(res.error())
+
+    # Override for MEV
+    if transactions_root.isSome and execution_payload_root.isSome:
+      withState(state):
+        static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
+        when stateFork == BeaconStateFork.Bellatrix:
+          state.data.latest_execution_payload_header.transactions_root =
+            transactions_root.get
+
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#beaconblockbody
+          # Effectively hash_tree_root(ExecutionPayload) with the beacon block
+          # body, with the execution payload replaced by the execution payload
+          # header. htr(payload) == htr(payload header), so substitute.
+          state.data.latest_block_header.body_root = hash_tree_root(
+            [hash_tree_root(randao_reveal),
+             hash_tree_root(eth1_data),
+             hash_tree_root(graffiti),
+             hash_tree_root(exits.proposer_slashings),
+             hash_tree_root(exits.attester_slashings),
+             hash_tree_root(List[Attestation, Limit MAX_ATTESTATIONS](attestations)),
+             hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
+             hash_tree_root(exits.voluntary_exits),
+             hash_tree_root(sync_aggregate),
+             execution_payload_root.get])
 
     state.`kind Data`.root = hash_tree_root(state.`kind Data`.data)
     blck.`kind Data`.state_root = state.`kind Data`.root

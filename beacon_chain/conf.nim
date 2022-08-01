@@ -541,6 +541,18 @@ type
         desc: "Suggested fee recipient"
         name: "suggested-fee-recipient" .}: Option[Address]
 
+      payloadBuilderEnable* {.
+        hidden
+        desc: "Enable external payload builder"
+        defaultValue: false
+        name: "payload-builder-enable" .}: bool
+
+      payloadBuilderUrl* {.
+        hidden
+        desc: "Payload builder URL"
+        defaultValue: ""
+        name: "payload-builder-url" .}: string
+
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
         desc: "A LaunchPad deposits file for the genesis state validators"

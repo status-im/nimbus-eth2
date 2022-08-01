@@ -210,7 +210,8 @@ proc signData(v: AttachedValidator,
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#signature
 proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
-                        block_root: Eth2Digest, blck: ForkedBeaconBlock
+                        block_root: Eth2Digest,
+                        blck: ForkedBeaconBlock | BlindedBeaconBlock
                        ): Future[SignatureResult] {.async.} =
   return
     case v.kind
@@ -220,9 +221,33 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           fork, genesis_validators_root, slot, block_root,
           v.data.privateKey).toValidatorSig())
     of ValidatorKind.Remote:
-      let request = Web3SignerRequest.init(
-        fork, genesis_validators_root, blck.Web3SignerForkedBeaconBlock)
-      await v.signData(request)
+      when blck is BlindedBeaconBlock:
+        let request = Web3SignerRequest.init(
+          fork, genesis_validators_root,
+          Web3SignerForkedBeaconBlock(
+            kind: BeaconBlockFork.Bellatrix,
+            bellatrixData: blck.toBeaconBlockHeader))
+        await v.signData(request)
+      else:
+        let
+          web3SignerBlock =
+            case blck.kind
+            of BeaconBlockFork.Phase0:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Phase0,
+                phase0Data: blck.phase0Data)
+            of BeaconBlockFork.Altair:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Altair,
+                altairData: blck.altairData)
+            of BeaconBlockFork.Bellatrix:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Bellatrix,
+                bellatrixData: blck.bellatrixData.toBeaconBlockHeader)
+
+          request = Web3SignerRequest.init(
+            fork, genesis_validators_root, web3SignerBlock)
+        await v.signData(request)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
@@ -363,3 +388,17 @@ proc getSlotSignature*(v: AttachedValidator, fork: Fork,
 
   v.slotSignature = some((slot, signature.get))
   return signature
+
+# https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#signing
+proc getBuilderSignature*(v: AttachedValidator, fork: Fork,
+    validatorRegistration: ValidatorRegistrationV1):
+    Future[SignatureResult] {.async.} =
+  return
+    case v.kind
+    of ValidatorKind.Local:
+      SignatureResult.ok(get_builder_signature(
+        fork, validatorRegistration, v.data.privateKey).toValidatorSig())
+    of ValidatorKind.Remote:
+      let request = Web3SignerRequest.init(
+        fork, ZERO_HASH, validatorRegistration)
+      await v.signData(request)

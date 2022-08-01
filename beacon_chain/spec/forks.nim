@@ -15,7 +15,8 @@ import
   chronicles,
   ../extras,
   "."/[block_id, eth2_merkleization, eth2_ssz_serialization, presets],
-  ./datatypes/[phase0, altair, bellatrix]
+  ./datatypes/[phase0, altair, bellatrix],
+  ./mev/bellatrix_mev
 
 export
   extras, block_id, phase0, altair, bellatrix, eth2_merkleization,
@@ -110,7 +111,11 @@ type
     of BeaconBlockFork.Altair:    altairData*:    altair.BeaconBlock
     of BeaconBlockFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
 
-  Web3SignerForkedBeaconBlock* {.borrow: `.`} = distinct ForkedBeaconBlock
+  Web3SignerForkedBeaconBlock* = object
+    case kind*: BeaconBlockFork
+    of BeaconBlockFork.Phase0:    phase0Data*:    phase0.BeaconBlock
+    of BeaconBlockFork.Altair:    altairData*:    altair.BeaconBlock
+    of BeaconBlockFork.Bellatrix: bellatrixData*: BeaconBlockHeader
 
   ForkedTrustedBeaconBlock* = object
     case kind*: BeaconBlockFork
@@ -452,10 +457,9 @@ template withBlck*(
 func proposer_index*(x: ForkedBeaconBlock): uint64 =
   withBlck(x): blck.proposer_index
 
-func hash_tree_root*(x: ForkedBeaconBlock): Eth2Digest =
+func hash_tree_root*(x: ForkedBeaconBlock | Web3SignerForkedBeaconBlock):
+    Eth2Digest =
   withBlck(x): hash_tree_root(blck)
-
-func hash_tree_root*(x: Web3SignerForkedBeaconBlock): Eth2Digest {.borrow.}
 
 template getForkedBlockField*(
     x: ForkedSignedBeaconBlock |
@@ -522,7 +526,7 @@ template withStateAndBlck*(
     body
 
 func toBeaconBlockHeader*(
-    blck: SomeForkyBeaconBlock): BeaconBlockHeader =
+    blck: SomeForkyBeaconBlock | BlindedBeaconBlock): BeaconBlockHeader =
   ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.
   BeaconBlockHeader(
     slot: blck.slot,
