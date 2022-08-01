@@ -82,12 +82,17 @@ if defined(disableMarchNative):
   if defined(i386) or defined(amd64):
     if defined(macosx):
       # https://support.apple.com/kb/SP777
-      # "macOS Mojave - Technical Specifications": EOL as of 2021-10 so macOS
-      # users on pre-Nehalem must be running either some Hackintosh, or using
-      # an unsupported macOS version beyond that most recently EOL'd. Nehalem
-      # supports instruction set extensions through SSE4.2 and POPCNT.
-      switch("passC", "-march=nehalem")
-      switch("passL", "-march=nehalem")
+      # "macOS Mojave - Technical Specifications": EOL as of 2021-10
+      # https://support.apple.com/kb/SP803
+      # "macOS Catalina - Technical Specifications" lists current oldest
+      # supported models: MacBook Air (Mid 2012 or newer), MacBook Pro
+      # (Mid 2012 or newer), Mac mini (Late 2012 or newer), and iMac (Late 2012
+      # or newer). These all have Ivy Bridge CPUs or newer.
+      #
+      # This ensures AVX, AES, PCLMUL, FSGSBASE, RDRND, and F16C instruction
+      # set support.
+      switch("passC", "-march=ivybridge")
+      switch("passL", "-march=ivybridge")
     else:
       switch("passC", "-mssse3")
       switch("passL", "-mssse3")
