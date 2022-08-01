@@ -834,7 +834,7 @@ proc getPhase0BlockSSZ(
     db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
   let dataPtr = addr data # Short-lived
   var success = true
-  proc decode(data: openArray[byte]) =
+  func decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
     except CatchableError: success = false
   db.backend.get(subkey(phase0.SignedBeaconBlock, key), decode).expectDb() and
@@ -844,7 +844,7 @@ proc getPhase0BlockSZ(
     db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
   let dataPtr = addr data # Short-lived
   var success = true
-  proc decode(data: openArray[byte]) =
+  func decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.encodeFramed(
       snappy.decode(data, maxDecompressedDbRecordSize))
     except CatchableError: success = false
@@ -857,7 +857,7 @@ proc getBlockSSZ*(
     T: type phase0.TrustedSignedBeaconBlock): bool =
   let dataPtr = addr data # Short-lived
   var success = true
-  proc decode(data: openArray[byte]) =
+  func decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
     except CatchableError: success = false
   db.blocks[BeaconBlockFork.Phase0].get(key.data, decode).expectDb() and success or
@@ -868,7 +868,7 @@ proc getBlockSSZ*(
     T: type altair.TrustedSignedBeaconBlock): bool =
   let dataPtr = addr data # Short-lived
   var success = true
-  proc decode(data: openArray[byte]) =
+  func decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
     except CatchableError: success = false
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
@@ -878,7 +878,7 @@ proc getBlockSSZ*(
     T: type bellatrix.TrustedSignedBeaconBlock): bool =
   let dataPtr = addr data # Short-lived
   var success = true
-  proc decode(data: openArray[byte]) =
+  func decode(data: openArray[byte]) =
     try: dataPtr[] = decodeFramed(data)
     except CatchableError: success = false
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
@@ -899,7 +899,7 @@ proc getBlockSZ*(
     T: type phase0.TrustedSignedBeaconBlock): bool =
   let dataPtr = addr data # Short-lived
   var success = true
-  proc decode(data: openArray[byte]) =
+  func decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.encodeFramed(
       snappy.decode(data, maxDecompressedDbRecordSize))
     except CatchableError: success = false
@@ -911,7 +911,7 @@ proc getBlockSZ*(
     T: type altair.TrustedSignedBeaconBlock): bool =
   let dataPtr = addr data # Short-lived
   var success = true
-  proc decode(data: openArray[byte]) =
+  func decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.encodeFramed(
       snappy.decode(data, maxDecompressedDbRecordSize))
     except CatchableError: success = false
@@ -922,7 +922,7 @@ proc getBlockSZ*(
     T: type bellatrix.TrustedSignedBeaconBlock): bool =
   let dataPtr = addr data # Short-lived
   var success = true
-  proc decode(data: openArray[byte]) =
+  func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
 
