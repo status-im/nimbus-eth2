@@ -283,7 +283,7 @@ type
         hidden
         desc: "BETA: Accelerate sync using light client."
         defaultValue: false
-        name: "light-client-enable" .}: bool
+        name: "light-client" .}: bool
 
       lightClientTrustedBlockRoot* {.
         hidden
@@ -545,7 +545,7 @@ type
         hidden
         desc: "Enable external payload builder"
         defaultValue: false
-        name: "payload-builder-enable" .}: bool
+        name: "payload-builder" .}: bool
 
       payloadBuilderUrl* {.
         hidden
