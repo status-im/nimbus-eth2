@@ -43,7 +43,7 @@ The following options are available:
      --num-threads             Number of worker threads ("0" = use as many threads as there are CPU cores
                                available) [=0].
      --jwt-secret              A file containing the hex-encoded 256 bit secret key to be used for
-                               verifying/generating jwt tokens.
+                               verifying/generating JWT tokens.
  -b, --bootstrap-node          Specifies one or more bootstrap nodes to use when connecting to the network.
      --bootstrap-file          Specifies a line-delimited file of bootstrap Ethereum network addresses.
      --listen-address          Listening address for the Ethereum LibP2P and Discovery v5 traffic [=0.0.0.0].

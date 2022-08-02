@@ -26,7 +26,7 @@ else:
   {.push raises: [].}
 
 # TODO hm, actually factor this out into a callable function
-# and have a version with the result of the jwt secret slurp for testing purposes
+# and have a version with the result of the JWT secret slurp for testing purposes
 proc readJwtSecret(jwtSecretFile: string): Result[seq[byte], cstring] =
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/authentication.md#key-distribution
   # If such a parameter is given, but the file cannot be read, or does not
