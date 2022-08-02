@@ -210,7 +210,7 @@ type
 
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/authentication.md#key-distribution
     jwtSecret* {.
-      desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating jwt tokens"
+      desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating JWT tokens"
       name: "jwt-secret" .}: Option[string]
 
     case cmd* {.
@@ -467,6 +467,7 @@ type
         desc: "Which classes of light client data to import. " &
               "Must be one of: none, only-new, full (slow startup), on-demand (may miss validator duties)"
         defaultValue: LightClientDataImportMode.OnlyNew
+        defaultValueDesc: $LightClientDataImportMode.OnlyNew
         name: "light-client-data-import-mode" .}: LightClientDataImportMode
 
       lightClientDataMaxPeriods* {.

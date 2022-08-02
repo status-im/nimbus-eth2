@@ -23,7 +23,8 @@ All requests must be authorized through the `Authorization: Bearer` scheme with 
 ### Enabling connections from outside machines
 By default, only connections from the same machine are entertained. If you wish to change this you can configure the port and listening address with the `--keymanager-port` and `--keymanager-address` options respectively.
 
-> ⚠️ The Keymanager API port should only be exposed through a secure channel (e.g. HTTPS, an SSH tunnel, a VPN, etc.)
+!!! warning
+    The Keymanager API port should only be exposed through a secure channel (e.g. HTTPS, an SSH tunnel, a VPN, etc.)
 
 ## Specification
 

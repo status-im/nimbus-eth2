@@ -26,7 +26,7 @@ from ../beacon_chain/networking/network_metadata import Eth1Network
 from ../beacon_chain/spec/datatypes/base import ZERO_HASH
 from ../beacon_chain/spec/presets import Eth1Address, defaultRuntimeConfig
 
-# TODO factor this out and have a version with the result of the jwt secret
+# TODO factor this out and have a version with the result of the JWT secret
 # slurp for testing purposes
 proc readJwtSecret(jwtSecretFile: string): Result[seq[byte], cstring] =
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/authentication.md#key-distribution

@@ -103,6 +103,7 @@ nav:
     - 'keymanager-api.md'
     - 'data-dir.md'
     - 'migration-options.md'
+    - 'light-client-data.md'
     - 'troubleshooting.md'
     - 'developers.md'
     - 'contribute.md'

@@ -133,7 +133,7 @@ type LightClientConf* = object
     name: "web3-url" .}: seq[string]
 
   jwtSecret* {.
-    desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating jwt tokens"
+    desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating JWT tokens"
     name: "jwt-secret" .}: Option[string]
 
   safeSlotsToImportOptimistically* {.
