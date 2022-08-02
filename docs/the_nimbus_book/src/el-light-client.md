@@ -1,9 +1,9 @@
 # Light client based EL sync
 
-Execution layer (EL) implementations provide the [web3 API](https://ethereum.github.io/execution-apis/api-documentation/) to expose information stored on the Ethereum blockchain. With [the merge 🐼](./merge.md), EL's can no longer run standalone and require an external component to determine the latest state to sync to.
+Execution layer (EL) clients provide the [web3 API](https://ethereum.github.io/execution-apis/api-documentation/) to expose information stored on the Ethereum blockchain. With [the merge 🐼](./merge.md), EL clients can no longer run standalone and require an external component to determine the latest state to sync to.
 
 !!! warning
-    It is recommended to pair the EL with a consensus layer (CL) full node. To use Nimbus, follow the [installation instructions](./install.md).
+    It is recommended to pair the EL client with a consensus layer (CL) full node. To use Nimbus, follow the [installation instructions](./install.md).
 
 In environments where running a full node is not feasible, a light client may be used instead. Light clients delegate full validation to other network participants and operate under a honest supermajority (> 2/3) assumption among elected participants. Due to this delegation, light clients are typically behind by ~4/3 slots (~15 seconds on Ethereum mainnet). On the other hand, light clients do not require storing a big database and need much less bandwith and compute power to stay in sync with the Ethereum network.
 
@@ -31,9 +31,9 @@ make -j4 nimbus_light_client
 
 This may take a few minutes. When the process finishes, the `nimbus_light_client` executable can be found in the `build` subdirectory.
 
-## Pairing with the EL
+## Pairing with the EL client
 
-To ensure that only the light client can control the EL, a file with random content (JWT secret) must be created. The format is 64 hexadecimal (0-9, a-f) characters. To create one, the following command may be used:
+To ensure that only the light client can control the EL client, a file with random content (JWT secret) must be created. The format is 64 hexadecimal (0-9, a-f) characters. To create one, the following command may be used:
 
 ```sh
 openssl rand -hex 32 | tr -d "\n" > "$HOME/jwtsecret"
@@ -42,11 +42,11 @@ openssl rand -hex 32 | tr -d "\n" > "$HOME/jwtsecret"
 !!! tip
     To adjust where the file is created, adjust the `$HOME/jwtsecret` portion in the command above. Also adjust other commands in this guide accordingly.
 
-The JWT secret must be passed to both the EL and the light client to complete the pairing.
+The JWT secret must be passed to both the EL client and the light client to complete the pairing.
 
-## Running the EL
+## Running the EL client
 
-In addition to the [regular instructions](./eth1.md) to run an EL, the JWT secret must be configured. The following sections explain how to do this for certain EL implementations.
+In addition to the [regular instructions](./eth1.md) to run an EL client, the JWT secret must be configured. The following sections explain how to do this for certain EL clients.
 
 ### Geth
 
@@ -74,7 +74,7 @@ In addition to the [regular instructions](./eth1.md) to run an EL, the JWT secre
 
 ### Others
 
-Please consult your EL's documentation for instructions on how to configure the JWT secret and running the EL.
+Please consult your EL client's documentation for instructions on how to configure the JWT secret and running the EL client.
 
 ## Running the light client
 
@@ -96,7 +96,7 @@ A block root may be obtained from another trusted beacon node, or from a trusted
     On the [beaconcha.in](https://beaconcha.in) website ([Goerli](https://prater.beaconcha.in)), navigate to the `Epochs` section and select a recent `Finalized` epoch. Then, scroll down to the bottom of the page. If the bottom-most slot has a `Proposed` status, copy its `Root Hash`. Otherwise, for example if the bottom-most slot was `Missed`, go back and pick a different epoch.
 
 !!! warning
-    Selecting a block root from an untrusted source or using an outdated block root may lead to the light client syncing to an unexpected state. If that happens, stop the light client and restart it with a new trusted block root. Depending on the EL, its database must be deleted and sync restarted from scratch.
+    Selecting a block root from an untrusted source or using an outdated block root may lead to the light client syncing to an unexpected state. If that happens, stop the light client and restart it with a new trusted block root. Depending on the EL client, its database must be deleted and sync restarted from scratch.
 
 2. Starting the light client
 
@@ -123,7 +123,7 @@ To start the light client, run the following commands (inserting your own truste
 
 ## Observing the sync process
 
-After a while, the light client will pick up beacon block headers from the Ethereum network and start informing the EL about the latest data. You should see logs similar to the following:
+After a while, the light client will pick up beacon block headers from the Ethereum network and start informing the EL client about the latest data. You should see logs similar to the following:
 
 ### Nimbus
 
@@ -145,7 +145,7 @@ NOT 2022-07-24 22:09:05.069+02:00 New LC optimistic block                    opt
 ```
 
 !!! note
-    The [light client protocol](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) implementations to serve additional data. As this is a new protocol, not all implementations are supporting it yet. Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.
+    The [light client protocol](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data. As this is a new protocol, not all implementations are supporting it yet. Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.
 
 ### Geth
 
@@ -154,7 +154,7 @@ WARN [07-24|22:19:16.777] Ignoring payload with missing parent     number=12,658
 INFO [07-24|22:19:16.778] Forkchoice requested sync to new head    number=12,658,012 hash=306fad..bdfd44
 INFO [07-24|22:19:17.232] Syncing beacon headers                   downloaded=7168 left=12,650,843 eta=13m21.441s
 INFO [07-24|22:19:21.626] Syncing beacon headers                   downloaded=75201 left=0          eta=0s
-INFO [07-24|22:19:21.627] Block synchronisation started 
+INFO [07-24|22:19:21.627] Block synchronisation started
 ```
 
 ### Nethermind
