@@ -348,6 +348,39 @@ type
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
 
+  TrustedPartialBeaconBlockBody = object
+    ## A full verified block
+    randao_reveal*: TrustedSig
+    eth1_data*: Eth1Data
+      ## Eth1 data vote
+
+    graffiti*: GraffitiBytes
+      ## Arbitrary data
+
+    # Operations
+    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    sync_aggregate*: TrustedSyncAggregate
+
+    # Execution
+    execution_payload* {.dontSerialize.}: ExecutionPayload  # [New in Bellatrix]
+
+  TrustedPartialBeaconBlock = object
+    slot*: Slot
+    proposer_index*: uint64 # `ValidatorIndex` after validation
+    parent_root*: Eth2Digest
+    state_root*: Eth2Digest
+    body*: TrustedPartialBeaconBlockBody
+
+  TrustedSignedPartialBeaconBlock* = object
+    message*: TrustedPartialBeaconBlock
+    signature*: TrustedSig
+
+    root*: Eth2Digest # serialized signal of whether to fetch execution payload
+
   BlockParams = object
     parentHash*: string
     timestamp*: string

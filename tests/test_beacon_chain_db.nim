@@ -95,7 +95,8 @@ suite "Beacon chain DB" & preset():
     let db = BeaconChainDB.new("", inMemory = true)
 
     let
-      signedBlock = withDigest((phase0.TrustedBeaconBlock)())
+      signedBlock = withDigest((phase0.TrustedBeaconBlock)(
+        slot: 9733107.Slot))
       root = hash_tree_root(signedBlock.message)
 
     db.putBlock(signedBlock)
@@ -138,7 +139,8 @@ suite "Beacon chain DB" & preset():
     let db = BeaconChainDB.new("", inMemory = true)
 
     let
-      signedBlock = withDigest((altair.TrustedBeaconBlock)())
+      signedBlock = withDigest((altair.TrustedBeaconBlock)(
+        slot: 9733107.Slot))
       root = hash_tree_root(signedBlock.message)
 
     db.putBlock(signedBlock)
@@ -177,11 +179,56 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check Bellatrix blocks" & preset():
+  test "sanity check non-split Bellatrix blocks" & preset():
     let db = BeaconChainDB.new("", inMemory = true)
 
     let
-      signedBlock = withDigest((bellatrix.TrustedBeaconBlock)())
+      signedBlock = withDigest((bellatrix.TrustedBeaconBlock)(
+        slot: 9733107.Slot))
+      root = hash_tree_root(signedBlock.message)
+
+    db.putBlockBellatrixTesting(signedBlock)
+
+    var tmp, tmp2: seq[byte]
+    check:
+      db.containsBlock(root)
+      not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
+      db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
+      db.getBlock(root, bellatrix.TrustedSignedBeaconBlock).get() == signedBlock
+      db.getBlockSSZ(root, tmp, bellatrix.TrustedSignedBeaconBlock)
+      db.getBlockSZ(root, tmp2, bellatrix.TrustedSignedBeaconBlock)
+      tmp == SSZ.encode(signedBlock)
+      tmp2 == encodeFramed(tmp)
+      uncompressedLenFramed(tmp2).isSome
+
+    db.delBlock(root)
+    check:
+      not db.containsBlock(root)
+      not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
+      db.getBlock(root, bellatrix.TrustedSignedBeaconBlock).isErr()
+      not db.getBlockSSZ(root, tmp, bellatrix.TrustedSignedBeaconBlock)
+      not db.getBlockSZ(root, tmp2, bellatrix.TrustedSignedBeaconBlock)
+
+    db.putStateRoot(root, signedBlock.message.slot, root)
+    var root2 = root
+    root2.data[0] = root.data[0] + 1
+    db.putStateRoot(root, signedBlock.message.slot + 1, root2)
+
+    check:
+      db.getStateRoot(root, signedBlock.message.slot).get() == root
+      db.getStateRoot(root, signedBlock.message.slot + 1).get() == root2
+
+    db.close()
+
+  test "sanity check split Bellatrix blocks" & preset():
+    let db = BeaconChainDB.new("", inMemory = true)
+
+    let
+      signedBlock = withDigest((bellatrix.TrustedBeaconBlock)(
+        slot: 9733107.Slot))
       root = hash_tree_root(signedBlock.message)
 
     db.putBlock(signedBlock)

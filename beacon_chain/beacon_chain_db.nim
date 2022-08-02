@@ -111,6 +111,8 @@ type
 
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
     blocks: array[BeaconBlockFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
+    partialBlocks: array[BeaconBlockFork, KvStoreRef] # BlockRoot -> TrustedSignedPartialBeaconBlock
+    executionPayloads: array[BeaconBlockFork, KvStoreRef] # BlockRoot -> ExecutionPayload
 
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
 
@@ -464,6 +466,12 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("blocks").expectDb(),
       kvStore db.openKvStore("altair_blocks").expectDb(),
       kvStore db.openKvStore("bellatrix_blocks").expectDb()]
+    partialBlocks = [
+      nil, nil,
+      kvStore db.openKvStore("bellatrix_partialblocks").expectDb()]
+    executionPayloads = [
+      nil, nil,
+      kvStore db.openKvStore("bellatrix_executionpayloads").expectDb()]
 
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
@@ -517,6 +525,8 @@ proc new*(T: type BeaconChainDB,
     checkpoint: proc() = db.checkpoint(),
     keyValues: keyValues,
     blocks: blocks,
+    partialBlocks: partialBlocks,
+    executionPayloads: executionPayloads,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
     stateDiffs: stateDiffs,
@@ -670,6 +680,10 @@ proc close*(db: BeaconChainDB) =
   discard db.stateDiffs.close()
   for kv in db.statesNoVal: discard kv.close()
   discard db.stateRoots.close()
+  for kv in db.executionPayloads:
+    if not kv.isNil: discard kv.close()
+  for kv in db.partialBlocks:
+    if not kv.isNil: discard kv.close()
   for kv in db.blocks: discard kv.close()
   discard db.keyValues.close()
 
@@ -701,6 +715,17 @@ proc putBlock*(
 proc putBlock*(
     db: BeaconChainDB,
     value: bellatrix.TrustedSignedBeaconBlock) =
+  db.withManyWrites:
+    db.partialBlocks[type(value).toFork].putSZSSZ(
+      value.root.data, isomorphicCast[TrustedSignedPartialBeaconBlock](value))
+    db.executionPayloads[type(value).toFork].putSZSSZ(
+      value.root.data, value.message.body.execution_payload)
+    db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
+
+proc putBlockBellatrixTesting*(
+    db: BeaconChainDB,
+    value: bellatrix.TrustedSignedBeaconBlock) =
+  # For testing only; equivalent to the non-split version
   db.withManyWrites:
     db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
@@ -770,6 +795,10 @@ proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) 
 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.withManyWrites:
+    for kv in db.partialBlocks:
+      if not kv.isNil: kv.del(key.data).expectDb()
+    for kv in db.executionPayloads:
+      if not kv.isNil: kv.del(key.data).expectDb()
     for kv in db.blocks: kv.del(key.data).expectDb()
     db.summaries.del(key.data).expectDb()
 
@@ -830,12 +859,81 @@ proc getBlock*(
   else:
     result.err()
 
+proc getSplitBlock[X: bellatrix.TrustedSignedBeaconBlock](
+    db: BeaconChainDB, key: Eth2Digest, data: var X, T: type X): bool =
+  # Because Snappy is not especially efficient at encoding long runs of zeros,
+  # such as would be found in simply zero-encoded and `ExecutionPayload`-sized
+  # gap in a `TrustedSignedBeaconBlock`, encode using a modified type which is
+  # lacking `ExecutionPayload` entirely:
+  # len(snappy.compress(    256*b"\x00")) =     16
+  # len(snappy.compress(   1024*b"\x00")) =     52
+  # len(snappy.compress(   4096*b"\x00")) =    196
+  # len(snappy.compress(  16384*b"\x00")) =    773
+  # len(snappy.compress(  65536*b"\x00")) =   3077
+  # len(snappy.compress( 262144*b"\x00")) =  12299
+  # len(snappy.compress(1048576*b"\x00")) =  49187
+  # len(snappy.compress(4194304*b"\x00")) = 196740
+  # len(snappy.compress(8388608*b"\x00")) = 393476
+  #
+  # using both Python's snappy library and `nim-snappy`.
+  #
+  # Currently, Prater and mainnet blocks tend to be about 50kB in size, so
+  # this would represent spending multiples of that non-`ExecutionPayload`
+  # size simply to encode zeros. If Snappy encoded these more efficiently,
+  # then a better schema might be to use the existing `blocks` tables, and
+  # additionally write an `ExecutionPayload` elsewhere, because this would
+  # enable two of the three database block reading usecases not to require
+  # round-tripping through fully constructed beacon blocks:
+  #
+  # (1) blockchain_dag, which directly prefers to get full, decoded blocks,
+  #     works about as efficiently regardless of database representation;
+  #
+  # (2) the REST server, which prefers to send an either a JSON or SSZ reply,
+  #     where the JSON case amounts to (1) because it needs the decoded block
+  #     but the SSZ case can otherwise read data directly out of the database
+  #     and only decompress it. This would work better with the described way
+  #     of encoding, but this way needs a round-trip; and
+  #
+  # (3) Snappy-compressed SSZ req/resp replies which would need round-tripping
+  #     regardless. Pre-Bellatrix schemas optimize primarily for this case.
+  #
+  # (1) and (3) don't have much preference, but (2) would be otherwise better
+  # served by this alternate encoding which is unfortunately infeasible. This
+  # therefore represents a tradeoff for REST server SSZ performance, to avoid
+  # bloating by a factor of multiple the stored block sizes.
+  #
+  # This also implies that this functions as the basis of both `getBlockSZ` and
+  # `getBlockSSZ`, because they were partially introduced as short-circuits, to
+  # optimize away some of these encoding/decoding and compression/decompression
+  # rounds which unfortunately reappear.
+  #
+  # Furthermore, even gimmicks such as splitting the beacon block into before,
+  # then `ExecutionPayload`, then the trailing signature, then combining using
+  # concatenated compressed frames, would only help when `ExecutionPayload` is
+  # stored locally whereas one underlying reason to do this at all is allowing
+  # execution clients to handle `ExecutionPayload` storage sans duplication.
+  if GetResult.found != db.partialBlocks[T.toFork].getSZSSZ(
+      key.data, isomorphicCast[TrustedSignedPartialBeaconBlock](data)):
+    return false
+
+  if GetResult.found != db.executionPayloads[T.toFork].getSZSSZ(
+      key.data, data.message.body.execution_payload):
+    return false
+
+  # set root after deserializing (so it doesn't get zeroed)
+  data.root = key
+
+  true
+
 proc getBlock*[
     X: bellatrix.TrustedSignedBeaconBlock](
-    db: BeaconChainDB, key: Eth2Digest,
-    T: type X): Opt[T] =
+    db: BeaconChainDB, key: Eth2Digest, T: type X): Opt[T] =
   # We only store blocks that we trust in the database
   result.ok(default(T))
+
+  if db.getSplitBlock(key, result.get, T):
+    return result
+
   if db.blocks[T.toFork].getSZSSZ(key.data, result.get) == GetResult.found:
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
@@ -888,6 +986,11 @@ proc getBlockSSZ*(
 proc getBlockSSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     T: type bellatrix.TrustedSignedBeaconBlock): bool =
+  var res: T
+  if db.getSplitBlock(key, res, T):
+    data = SSZ.encode(res)
+    return true
+
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
@@ -932,6 +1035,11 @@ proc getBlockSZ*(
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     T: type bellatrix.TrustedSignedBeaconBlock): bool =
+  var res: T
+  if db.getSplitBlock(key, res, T):
+    data = encodeSZSSZ(res)
+    return true
+
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
@@ -1159,14 +1267,25 @@ proc containsBlock*(
     db.v0.containsBlock(key)
 
 proc containsBlock*[
-    X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock](
+    X: altair.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
   db.blocks[X.toFork].contains(key.data).expectDb()
 
+proc containsBlock*[
+    X: bellatrix.TrustedSignedBeaconBlock](
+    db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
+  (db.partialBlocks[X.toFork].contains(key.data).expectDb() and
+      db.executionPayloads[X.toFork].contains(key.data).expectDb()) or
+    db.blocks[X.toFork].contains(key.data).expectDb()
+
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: BeaconBlockFork): bool =
   case fork
-  of BeaconBlockFork.Phase0: containsBlock(db, key, phase0.TrustedSignedBeaconBlock)
-  else: db.blocks[fork].contains(key.data).expectDb()
+  of BeaconBlockFork.Phase0:
+    containsBlock(db, key, phase0.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.Altair:
+    containsBlock(db, key, altair.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.Bellatrix:
+    containsBlock(db, key, bellatrix.TrustedSignedBeaconBlock)
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   db.containsBlock(key, bellatrix.TrustedSignedBeaconBlock) or
