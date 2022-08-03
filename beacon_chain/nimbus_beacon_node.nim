@@ -145,6 +145,9 @@ declareGauge next_action_wait,
 declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
 versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
 
+declareGauge nimVersionGauge, "Nim version info", ["nim_version"], name = "Nim_version"
+nimVersionGauge.set(1, labelValues=[NimVersion])
+
 logScope: topics = "beacnde"
 
 func getPandas(stdoutKind: StdoutLogKind): VanityLogs =
@@ -1658,6 +1661,7 @@ proc start*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
   notice "Starting beacon node",
     version = fullVersionStr,
+    nimVersion = NimVersion,
     enr = node.network.announcedENR.toURI,
     peerId = $node.network.switch.peerInfo.peerId,
     timeSinceFinalization =
