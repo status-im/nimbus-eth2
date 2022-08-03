@@ -177,17 +177,17 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                          err.msg)
       RestApiResponse.jsonResponse((result: true))
 
-    case contentBody.get.contentType
-    of "application/json":
+    let contentType = contentBody.get().contentType
+    if contentType == ApplicationJsonMediaType:
       let graffitiBytes = decodeBody(GraffitiBytes, contentBody.get)
       if graffitiBytes.isErr:
         return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValue,
                                          $graffitiBytes.error)
       node.graffitiBytes = graffitiBytes.get
       return RestApiResponse.jsonResponse((result: true))
-    of "text/plain":
+    elif contentType == TextPlainMediaType:
       return node.setGraffitiAux contentBody.get.strData
-    of "application/x-www-form-urlencoded":
+    elif contentType == UrlEncodedMediaType:
       return node.setGraffitiAux decodeUrl(contentBody.get.strData)
     else:
       return RestApiResponse.jsonError(Http400, "Unsupported content type: " &
