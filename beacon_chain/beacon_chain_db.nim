@@ -716,10 +716,8 @@ proc putBlock*(
     db: BeaconChainDB,
     value: bellatrix.TrustedSignedBeaconBlock) =
   db.withManyWrites:
-    let partialBeaconBlock =
-      isomorphicCast[TrustedSignedPartialBeaconBlock](value)
     db.partialBlocks[type(value).toFork].putSZSSZ(
-      value.root.data, partialBeaconBlock)
+      value.root.data, isomorphicCast[TrustedSignedPartialBeaconBlock](value))
     db.executionPayloads[type(value).toFork].putSZSSZ(
       value.root.data, value.message.body.execution_payload)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
