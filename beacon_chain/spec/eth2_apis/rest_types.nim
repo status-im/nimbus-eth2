@@ -242,7 +242,7 @@ type
     epoch*: Epoch
     active*: bool
 
-  PrepareBeaconProposerBody* = object
+  PrepareBeaconProposer* = object
     validator_index*: ValidatorIndex
     fee_recipient*: Eth1Address
 

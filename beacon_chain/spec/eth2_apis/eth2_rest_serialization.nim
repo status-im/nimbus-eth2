@@ -88,7 +88,7 @@ type
     ImportDistributedKeystoresBody |
     ImportRemoteKeystoresBody |
     KeystoresAndSlashingProtection |
-    PrepareBeaconProposerBody |
+    PrepareBeaconProposer |
     ProposerSlashing |
     SetFeeRecipientRequest |
     SignedBlindedBeaconBlock |
@@ -101,6 +101,7 @@ type
 
   EncodeArrays* =
     seq[Attestation] |
+    seq[PrepareBeaconProposer] |
     seq[RemoteKeystoreInfo] |
     seq[RestCommitteeSubscription] |
     seq[RestSignedContributionAndProof] |
@@ -124,7 +125,7 @@ type
     KeymanagerGenericError |
     KeystoresAndSlashingProtection |
     ListFeeRecipientResponse |
-    PrepareBeaconProposerBody |
+    PrepareBeaconProposer |
     ProduceBlockResponseV2 |
     RestDutyError |
     RestGenericError |
