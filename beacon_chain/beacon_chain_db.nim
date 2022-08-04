@@ -912,8 +912,9 @@ proc getSplitBlock[X: bellatrix.TrustedSignedBeaconBlock](
   # concatenated compressed frames, would only help when `ExecutionPayload` is
   # stored locally whereas one underlying reason to do this at all is allowing
   # execution clients to handle `ExecutionPayload` storage sans duplication.
+  let partialBeaconBlock = addr isomorphicCast[TrustedSignedPartialBeaconBlock](data)
   if GetResult.found != db.partialBlocks[T.toFork].getSZSSZ(
-      key.data, isomorphicCast[TrustedSignedPartialBeaconBlock](data)):
+      key.data, partialBeaconBlock[]):
     return false
 
   if GetResult.found != db.executionPayloads[T.toFork].getSZSSZ(
