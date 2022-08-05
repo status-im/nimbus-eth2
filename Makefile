@@ -383,7 +383,7 @@ define CONNECT_TO_NETWORK_IN_DEV_MODE
 		--network=$(1) $(3) $(GOERLI_TESTNETS_PARAMS) \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		--light-client-enable=on \
+		--light-client=on \
 		--dump $(NODE_PARAMS)
 endef
 
