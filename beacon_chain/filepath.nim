@@ -44,7 +44,8 @@ proc openLockedFile*(keystorePath: string): IoResult[FileLockHandle] =
 
 proc getData*(lockHandle: FileLockHandle,
               maxBufferSize: int): IoResult[string] =
-  let length = min(lockHandle.ioHandle.size, maxBufferSize)
+  let filesize = ? getFileSize(lockHandle.ioHandle.handle)
+  let length = min(filesize, maxBufferSize)
   var buffer = newString(length)
   let bytesRead = ? readFile(lockHandle.ioHandle.handle, buffer)
   if uint64(bytesRead) != uint64(len(buffer)):
