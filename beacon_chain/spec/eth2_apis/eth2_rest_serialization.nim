@@ -68,6 +68,10 @@ const
   AltairVersion =
     [byte('a'), byte('l'), byte('t'), byte('a'), byte('i'), byte('r')]
 
+  ApplicationJsonMediaType* = MediaType.init("application/json")
+  TextPlainMediaType* = MediaType.init("text/plain")
+  UrlEncodedMediaType* = MediaType.init("application/x-www-form-urlencoded")
+
 type
   EmptyBody* = object
 
@@ -2317,7 +2321,7 @@ proc parseRoot(value: string): Result[Eth2Digest, cstring] =
 
 proc decodeBody*[T](t: typedesc[T],
                     body: ContentBody): Result[T, cstring] =
-  if body.contentType != "application/json":
+  if body.contentType != ApplicationJsonMediaType:
     return err("Unsupported content type")
   let data =
     try:

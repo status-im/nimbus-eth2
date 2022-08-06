@@ -169,7 +169,8 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if contentBody.isNone:
       return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
 
-    template setGraffitiAux(node: BeaconNode, graffitiStr: string): RestApiResponse =
+    template setGraffitiAux(node: BeaconNode,
+                            graffitiStr: string): RestApiResponse =
       node.graffitiBytes = try:
         GraffitiBytes.init(graffitiStr)
       except CatchableError as err:
@@ -177,21 +178,21 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                          err.msg)
       RestApiResponse.jsonResponse((result: true))
 
-    case contentBody.get.contentType
-    of "application/json":
-      let graffitiBytes = decodeBody(GraffitiBytes, contentBody.get)
-      if graffitiBytes.isErr:
+    let body = contentBody.get()
+    if body.contentType == ApplicationJsonMediaType:
+      let graffitiBytes = decodeBody(GraffitiBytes, body)
+      if graffitiBytes.isErr():
         return RestApiResponse.jsonError(Http400, InvalidGraffitiBytesValue,
-                                         $graffitiBytes.error)
-      node.graffitiBytes = graffitiBytes.get
+                                         $graffitiBytes.error())
+      node.graffitiBytes = graffitiBytes.get()
       return RestApiResponse.jsonResponse((result: true))
-    of "text/plain":
-      return node.setGraffitiAux contentBody.get.strData
-    of "application/x-www-form-urlencoded":
-      return node.setGraffitiAux decodeUrl(contentBody.get.strData)
+    elif body.contentType == TextPlainMediaType:
+      return node.setGraffitiAux body.strData()
+    elif body.contentType == UrlEncodedMediaType:
+      return node.setGraffitiAux decodeUrl(body.strData())
     else:
       return RestApiResponse.jsonError(Http400, "Unsupported content type: " &
-                                                $contentBody.get.contentType)
+                                                $body.contentType)
 
   router.api(MethodGet, "/nimbus/v1/graffiti") do (
     ) -> RestApiResponse:
