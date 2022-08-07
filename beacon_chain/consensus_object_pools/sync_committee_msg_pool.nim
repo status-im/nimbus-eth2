@@ -176,8 +176,14 @@ func produceContribution*(
   else:
     false
 
+type
+  AddContributionResult* = enum
+    newBest
+    notBestButNotSubsetOfBest
+    strictSubsetOfTheBest
+
 func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
-                     contribution: SyncCommitteeContribution) =
+                     contribution: SyncCommitteeContribution): AddContributionResult =
   let
     currentBestTotalParticipants =
       bestVotes.subnets[contribution.subcommittee_index].totalParticipants
@@ -189,6 +195,12 @@ func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
         totalParticipants: newBestTotalParticipants,
         participationBits: contribution.aggregation_bits,
         signature: contribution.signature.load.get)
+    newBest
+  elif contribution.aggregation_bits.isSubsetOf(
+         bestVotes.subnets[contribution.subcommittee_index].participationBits):
+    strictSubsetOfTheBest
+  else:
+    notBestButNotSubsetOfBest
 
 func isSeen*(
     pool: SyncCommitteeMsgPool,
@@ -200,9 +212,9 @@ func isSeen*(
   seenKey in pool.seenContributionByAuthor
 
 proc addContribution(pool: var SyncCommitteeMsgPool,
-                         aggregator_index: uint64,
-                         contribution: SyncCommitteeContribution,
-                         signature: CookedSig) =
+                     aggregator_index: uint64,
+                     contribution: SyncCommitteeContribution,
+                     signature: CookedSig): AddContributionResult =
   let seenKey = SyncCommitteeMsgKey(
     originator: aggregator_index,
     slot: contribution.slot,
@@ -223,6 +235,7 @@ proc addContribution(pool: var SyncCommitteeMsgPool,
         signature: signature)
 
     pool.bestContributions[blockRoot] = initialBestContributions
+    newBest
   else:
     try:
       addAggregateAux(pool.bestContributions[blockRoot], contribution)
@@ -230,9 +243,9 @@ proc addContribution(pool: var SyncCommitteeMsgPool,
       raiseAssert "We have checked for the key upfront"
 
 proc addContribution*(pool: var SyncCommitteeMsgPool,
-                          scproof: SignedContributionAndProof,
-                          signature: CookedSig) =
-  pool.addContribution(
+                      scproof: SignedContributionAndProof,
+                      signature: CookedSig): AddContributionResult =
+  result = pool.addContribution(
     scproof.message.aggregator_index, scproof.message.contribution, signature)
 
   if not(isNil(pool.onContributionReceived)):

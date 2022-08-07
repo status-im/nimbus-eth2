@@ -245,11 +245,13 @@ suite "Gossip validation - Extra": # Not based on preset config
     let
       contribution = block:
         let contribution = (ref SignedContributionAndProof)()
-        check: syncCommitteeMsgPool[].produceContribution(
-          slot, state[].root, subcommitteeIdx,
-          contribution.message.contribution)
-        syncCommitteeMsgPool[].addContribution(
+        check:
+          syncCommitteeMsgPool[].produceContribution(
+            slot, state[].root, subcommitteeIdx,
+            contribution.message.contribution)
+        let addContributionRes = syncCommitteeMsgPool[].addContribution(
           contribution[], contribution.message.contribution.signature.load.get)
+        check addContributionRes == newBest
         let signRes = waitFor validator.getContributionAndProofSignature(
           state[].data.fork, state[].data.genesis_validators_root,
           contribution[].message)
