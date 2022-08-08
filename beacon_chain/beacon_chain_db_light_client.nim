@@ -20,8 +20,7 @@ import
   eth/db/kvstore_sqlite3,
   # Beacon chain internals
   spec/datatypes/altair,
-  spec/[eth2_ssz_serialization, helpers],
-  ./filepath
+  spec/[eth2_ssz_serialization, helpers]
 
 logScope: topics = "lcdata"
 
