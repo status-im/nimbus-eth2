@@ -651,7 +651,7 @@ when hasDepositRootChecks:
   const
     contractCallTimeout = 60.seconds
 
-  func fetchDepositContractData(p: Web3DataProviderRef, blk: Eth1Block):
+  proc fetchDepositContractData(p: Web3DataProviderRef, blk: Eth1Block):
                                 Future[DepositContractDataStatus] {.async.} =
     let
       depositRoot = p.ns.get_deposit_root.call(blockNumber = blk.number)
@@ -674,8 +674,8 @@ when hasDepositRootChecks:
       result = DepositRootUnavailable
 
     try:
-      let fetchedCount = bytes_to_uint64(array[8, byte](
-        awaitOrRaiseOnTimeout(rawCount, contractCallTimeout)))
+      let fetchedCount = bytes_to_uint64(
+        awaitOrRaiseOnTimeout(rawCount, contractCallTimeout).toArray)
       if blk.voteData.deposit_count == 0:
         blk.voteData.deposit_count = fetchedCount
       elif blk.voteData.deposit_count != fetchedCount:
