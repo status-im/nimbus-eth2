@@ -411,7 +411,7 @@ proc makeSyncAggregate(
         signedContributionAndProof = SignedContributionAndProof(
           message: contributionAndProof,
           signature: contributionSig.toValidatorSig)
-      syncCommitteePool[].addContribution(
+      discard syncCommitteePool[].addContribution(
         signedContributionAndProof, contribution.signature.load.get)
 
   syncCommitteePool[].produceSyncAggregate(latest_block_root)

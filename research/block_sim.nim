@@ -233,7 +233,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
         doAssert res.isOk
 
-        syncCommitteePool[].addContribution(
+        discard syncCommitteePool[].addContribution(
           signedContributionAndProof, res.get()[0])
 
   proc getNewBlock[T](

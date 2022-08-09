@@ -118,8 +118,10 @@ suite "Sync committee pool":
         contribution.aggregation_bits[10] == true
         contribution.signature == expectedSig.toValidatorSig
 
-      pool.addContribution(outContribution, expectedSig)
-      check: pool.isSeen(outContribution.message)
+      let addContributionRes = pool.addContribution(outContribution, expectedSig)
+      check:
+        addContributionRes == newBest
+        pool.isSeen(outContribution.message)
 
     block:
       # Checking a committee with a signle participant:
@@ -140,8 +142,10 @@ suite "Sync committee pool":
         contribution.aggregation_bits[7] == true
         contribution.signature == sig3.toValidatorSig
 
-      pool.addContribution(outContribution, sig3)
-      check: pool.isSeen(outContribution.message)
+      let addContributionRes = pool.addContribution(outContribution, sig3)
+      check:
+        addContributionRes == newBest
+        pool.isSeen(outContribution.message)
 
     block:
       # Checking another committee with a signle participant
@@ -163,8 +167,10 @@ suite "Sync committee pool":
         contribution.aggregation_bits[3] == true
         contribution.signature == sig4.toValidatorSig
 
-      pool.addContribution(outContribution, sig4)
-      check: pool.isSeen(outContribution.message)
+      let addContributionRes = pool.addContribution(outContribution, sig4)
+      check:
+        addContributionRes == newBest
+        pool.isSeen(outContribution.message)
 
     block:
       # Checking a block root nobody voted for

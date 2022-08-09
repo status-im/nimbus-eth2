@@ -982,6 +982,14 @@ proc validateContribution*(
   let participants = dag.syncCommitteeParticipants(
     msg.message.contribution.slot, subcommitteeIdx)
 
+  # The following spec rule:
+  #
+  # _[IGNORE]_ A valid sync committee contribution with equal `slot`, `beacon_block_root`
+  # and `subcommittee_index` whose `aggregation_bits` is non-strict superset has _not_
+  # already been seen.
+  #
+  # is implemented in eth2_processor.nim
+
   let sig = if checkSignature:
     let deferredCrypto = batchCrypto.scheduleContributionChecks(
       fork, genesis_validators_root, msg, subcommitteeIdx, dag)
