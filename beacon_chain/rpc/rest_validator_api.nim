@@ -764,21 +764,22 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/validator/prepare_beacon_proposer") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let
-      proposerData =
+      body =
         block:
           if contentBody.isNone():
             return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-          let dres = decodeBody(PrepareBeaconProposerBody, contentBody.get())
+          let dres = decodeBody(seq[PrepareBeaconProposer], contentBody.get())
           if dres.isErr():
             return RestApiResponse.jsonError(Http400,
                                              InvalidPrepareBeaconProposerError)
           dres.get()
       currentEpoch = node.beaconClock.now.slotOrZero.epoch
 
-    node.dynamicFeeRecipientsStore.addMapping(
-      proposerData.validator_index,
-      proposerData.fee_recipient,
-      currentEpoch)
+    for proposerData in body:
+      node.dynamicFeeRecipientsStore.addMapping(
+        proposerData.validator_index,
+        proposerData.fee_recipient,
+        currentEpoch)
 
     return RestApiResponse.response("", Http200, "text/plain")
 
