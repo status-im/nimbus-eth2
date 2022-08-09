@@ -1168,6 +1168,7 @@ proc syncBlockRange(m: Eth1Monitor,
 
     for i in 0 ..< blocksWithDeposits.len:
       let blk = blocksWithDeposits[i]
+      awaitWithRetries m.dataProvider.fetchTimestamp(blk)
 
       for deposit in blk.deposits:
         merkleizer[].addChunk hash_tree_root(deposit).data
