@@ -1174,6 +1174,7 @@ proc syncBlockRange(m: Eth1Monitor,
 
     for i in 0 ..< blocksWithDeposits.len:
       let blk = blocksWithDeposits[i]
+      awaitWithRetries m.dataProvider.fetchTimestamp(blk)
 
       if blk.number > fullSyncFromBlock:
         let lastBlock = m.depositsChain.blocks.peekLast
