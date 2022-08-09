@@ -1175,12 +1175,6 @@ proc syncBlockRange(m: Eth1Monitor,
     for i in 0 ..< blocksWithDeposits.len:
       let blk = blocksWithDeposits[i]
 
-      for deposit in blk.deposits:
-        m.headMerkleizer.addChunk hash_tree_root(deposit).data
-
-      blk.voteData.deposit_count = m.headMerkleizer.getChunkCount
-      blk.voteData.deposit_root = m.headMerkleizer.getDepositsRoot
-
       if blk.number > fullSyncFromBlock:
         let lastBlock = m.depositsChain.blocks.peekLast
         for n in max(lastBlock.number + 1, fullSyncFromBlock) ..< blk.number:
@@ -1191,6 +1185,11 @@ proc syncBlockRange(m: Eth1Monitor,
           m.depositsChain.addBlock(
             lastBlock.makeSuccessorWithoutDeposits(blockWithoutDeposits))
           eth1_synced_head.set blockWithoutDeposits.number.toGaugeValue
+
+      for deposit in blk.deposits:
+        m.headMerkleizer.addChunk hash_tree_root(deposit).data
+      blk.voteData.deposit_count = m.headMerkleizer.getChunkCount
+      blk.voteData.deposit_root = m.headMerkleizer.getDepositsRoot
 
       m.depositsChain.addBlock blk
       eth1_synced_head.set blk.number.toGaugeValue
