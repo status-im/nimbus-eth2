@@ -987,7 +987,8 @@ proc init*(T: type Eth1Chain, cfg: RuntimeConfig, db: BeaconChainDB): T =
   T(db: db,
     cfg: cfg,
     finalizedBlockHash: finalizedDeposits.eth1Block,
-    finalizedDepositsMerkleizer: m)
+    finalizedDepositsMerkleizer: m,
+    headMerkleizer: copy m)
 
 proc createInitialDepositSnapshot*(
     depositContractAddress: Eth1Address,
@@ -1056,7 +1057,7 @@ proc safeCancel(fut: var Future[void]) =
 func clear(chain: var Eth1Chain) =
   chain.blocks.clear()
   chain.blocksByHash.clear()
-  chain.headMerkleizer.reset()
+  chain.headMerkleizer = copy chain.finalizedDepositsMerkleizer
   chain.hasConsensusViolation = false
 
 proc detectPrimaryProviderComingOnline(m: Eth1Monitor) {.async.} =
@@ -1413,8 +1414,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     let startBlock = awaitWithRetries(
       m.dataProvider.getBlockByHash(
         m.depositsChain.finalizedBlockHash.asBlockHash))
-
-    m.depositsChain.headMerkleizer = copy m.finalizedDepositsMerkleizer
 
     m.depositsChain.addBlock Eth1Block(
       hash: m.depositsChain.finalizedBlockHash,
