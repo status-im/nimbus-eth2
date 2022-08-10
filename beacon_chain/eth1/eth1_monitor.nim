@@ -30,7 +30,7 @@ from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
 
 export
-  web3Types, deques,
+  web3Types, deques, base,
   beacon_chain_db.DepositContractSnapshot
 
 logScope:
@@ -97,7 +97,7 @@ type
       ## the Eth2 validators according to the follow distance and
       ## the ETH1_VOTING_PERIOD
 
-    blocks: Deque[Eth1Block]
+    blocks*: Deque[Eth1Block]
       ## A non-forkable chain of blocks ending at the block with
       ## ETH1_FOLLOW_DISTANCE offset from the head.
 
@@ -774,24 +774,24 @@ func advanceMerkleizer(chain: Eth1Chain,
 
   return merkleizer.getChunkCount == depositIndex
 
-func getDepositsRange(chain: Eth1Chain, first, last: uint64): seq[DepositData] =
+iterator getDepositsRange*(chain: Eth1Chain, first, last: uint64): DepositData =
   # TODO It's possible to make this faster by performing binary search that
   #      will locate the blocks holding the `first` and `last` indices.
   # TODO There is an assumption here that the requested range will be present
-  #      in the Eth1Chain. This should hold true at the single call site right
-  #      now, but we need to guard the pre-conditions better.
+  #      in the Eth1Chain. This should hold true at the call sites right now,
+  #      but we need to guard the pre-conditions better.
   for blk in chain.blocks:
     if blk.depositCount <= first:
       continue
 
     let firstDepositIdxInBlk = blk.depositCount - blk.deposits.lenu64
     if firstDepositIdxInBlk >= last:
-      return
+      break
 
     for i in 0 ..< blk.deposits.lenu64:
       let globalIdx = firstDepositIdxInBlk + i
       if globalIdx >= first and globalIdx < last:
-        result.add blk.deposits[i]
+        yield blk.deposits[i]
 
 func lowerBound(chain: Eth1Chain, depositCount: uint64): Eth1Block =
   # TODO: This can be replaced with a proper binary search in the
@@ -908,8 +908,13 @@ proc getBlockProposalData*(chain: var Eth1Chain,
       let
         totalDepositsInNewBlock = min(MAX_DEPOSITS, pendingDepositsCount)
         postStateDepositIdx = stateDepositIdx + pendingDepositsCount
-        deposits = chain.getDepositsRange(stateDepositIdx, postStateDepositIdx)
-        depositRoots = mapIt(deposits, hash_tree_root(it))
+      var
+        deposits = newSeqOfCap[DepositData](totalDepositsInNewBlock)
+        depositRoots = newSeqOfCap[Eth2Digest](pendingDepositsCount)
+      for data in chain.getDepositsRange(stateDepositIdx, postStateDepositIdx):
+        if deposits.lenu64 < totalDepositsInNewBlock:
+          deposits.add data
+        depositRoots.add hash_tree_root(data)
 
       var scratchMerkleizer = copy chain.finalizedDepositsMerkleizer
       if chain.advanceMerkleizer(scratchMerkleizer, stateDepositIdx):
