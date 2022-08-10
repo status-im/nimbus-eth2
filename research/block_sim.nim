@@ -101,10 +101,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   eth1Chain.addBlock Eth1Block(
     number: Eth1BlockNumber 1,
-    timestamp: Eth1BlockTimestamp genesisTime,
-    voteData: Eth1Data(
-      deposit_root: merkleizer.getDepositsRoot,
-      deposit_count: merkleizer.getChunkCount))
+    timestamp: Eth1BlockTimestamp genesisTime)
 
   let replayState = assignClone(dag.headState)
 
@@ -385,10 +382,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
       inc eth1BlockNum
       var eth1Block = Eth1Block(
+        hash: makeFakeHash(eth1BlockNum),
         number: Eth1BlockNumber eth1BlockNum,
-        timestamp: Eth1BlockTimestamp nextBlockTime,
-        voteData: Eth1Data(
-          block_hash: makeFakeHash(eth1BlockNum)))
+        timestamp: Eth1BlockTimestamp nextBlockTime)
 
       let newDeposits = int clamp(gauss(r, 5.0, 8.0), 0.0, 1000.0)
       for i in 0 ..< newDeposits:
@@ -397,8 +393,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         eth1Block.deposits.add d
         merkleizer.addChunk hash_tree_root(d).data
 
-      eth1Block.voteData.deposit_root = merkleizer.getDepositsRoot
-      eth1Block.voteData.deposit_count = merkleizer.getChunkCount
+      eth1Block.depositRoot = merkleizer.getDepositsRoot
+      eth1Block.depositCount = merkleizer.getChunkCount
 
       eth1Chain.addBlock eth1Block
       lastEth1BlockAt = nextBlockTime
