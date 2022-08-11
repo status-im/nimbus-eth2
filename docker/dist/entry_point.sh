@@ -19,6 +19,14 @@ fi
 PLATFORM="${1}"
 BINARIES="nimbus_beacon_node nimbus_validator_client"
 
+echo "==================STARTING BUILD=================="
+echo "Build Tools = ${BUILD_TOOLS}"
+
+if [[ "${BUILD_TOOLS}" == "1" ]]; then
+  echo "Including tools in distribution"
+  BINARIES="${BINARIES} deposit_contract nimbus_signing_node nimbus_light_client logtrace"
+fi
+
 echo -e "\nPLATFORM=${PLATFORM}"
 
 #- we need to build everything against libraries available inside this container, including the Nim compiler
