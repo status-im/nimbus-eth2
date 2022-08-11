@@ -1,0 +1,354 @@
+# beacon_chain
+# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+# Types specific to capella (ie known to have changed across hard forks) - see
+# `base` for types and guidelines common across forks
+
+# TODO Careful, not nil analysis is broken / incomplete and the semantics will
+#      likely change in future versions of the language:
+#      https://github.com/nim-lang/RFCs/issues/250
+{.experimental: "notnil".}
+
+{.push raises: [Defect].}
+
+import
+  stew/byteutils,
+  json_serialization,
+  ssz_serialization/types as sszTypes,
+  ../digest,
+  "."/[base, phase0, altair]
+
+export base
+
+type
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#executionpayload
+  ExecutionPayload* = object
+    # Execution block header fields
+    parent_hash: Hash32
+    fee_recipient: ExecutionAddress  # 'beneficiary' in the yellow paper
+    state_root: Bytes32
+    receipts_root: Bytes32
+    logs_bloom: ByteVector[BYTES_PER_LOGS_BLOOM]
+    prev_randao: Bytes32  # 'difficulty' in the yellow paper
+    block_number: uint64  # 'number' in the yellow paper
+    gas_limit: uint64
+    gas_used: uint64
+    timestamp: uint64
+    extra_data: ByteList[MAX_EXTRA_DATA_BYTES]
+    base_fee_per_gas: uint256
+    # Extra payload fields
+    block_hash: Hash32  # Hash of execution block
+    transactions: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+    withdrawals: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]  # [New in Capella]
+
+    # Extra payload fields
+    block_hash*: Eth2Digest # Hash of execution block
+    transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#executionpayloadheader
+  ExecutionPayloadHeader* = object
+    # Execution block header fields
+    parent_hash: Hash32
+    fee_recipient: ExecutionAddress
+    state_root: Bytes32
+    receipts_root: Bytes32
+    logs_bloom: ByteVector[BYTES_PER_LOGS_BLOOM]
+    prev_randao: Bytes32
+    block_number: uint64
+    gas_limit: uint64
+    gas_used: uint64
+    timestamp: uint64
+    extra_data: ByteList[MAX_EXTRA_DATA_BYTES]
+    base_fee_per_gas: uint256
+    # Extra payload fields
+    block_hash: Hash32  # Hash of execution block
+    transactions_root: Root
+    withdrawals_root: Root  # [New in Capella]
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconstate
+  BeaconState* = object
+    # Versioning
+    genesis_time: uint64
+    genesis_validators_root: Root
+    slot: Slot
+    fork: Fork
+    # History
+    latest_block_header: BeaconBlockHeader
+    block_roots: Vector[Root, SLOTS_PER_HISTORICAL_ROOT]
+    state_roots: Vector[Root, SLOTS_PER_HISTORICAL_ROOT]
+    historical_roots: List[Root, HISTORICAL_ROOTS_LIMIT]
+    # Eth1
+    eth1_data: Eth1Data
+    eth1_data_votes: List[Eth1Data, EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
+    eth1_deposit_index: uint64
+    # Registry
+    validators: List[Validator, VALIDATOR_REGISTRY_LIMIT]
+    balances: List[Gwei, VALIDATOR_REGISTRY_LIMIT]
+    # Randomness
+    randao_mixes: Vector[Bytes32, EPOCHS_PER_HISTORICAL_VECTOR]
+    # Slashings
+    slashings: Vector[Gwei, EPOCHS_PER_SLASHINGS_VECTOR]  # Per-epoch sums of slashed effective balances
+    # Participation
+    previous_epoch_participation: List[ParticipationFlags, VALIDATOR_REGISTRY_LIMIT]
+    current_epoch_participation: List[ParticipationFlags, VALIDATOR_REGISTRY_LIMIT]
+    # Finality
+    justification_bits: Bitvector[JUSTIFICATION_BITS_LENGTH]  # Bit set for every recent justified epoch
+    previous_justified_checkpoint: Checkpoint
+    current_justified_checkpoint: Checkpoint
+    finalized_checkpoint: Checkpoint
+    # Inactivity
+    inactivity_scores: List[uint64, VALIDATOR_REGISTRY_LIMIT]
+    # Sync
+    current_sync_committee: SyncCommittee
+    next_sync_committee: SyncCommittee
+    # Execution
+    latest_execution_payload_header: ExecutionPayloadHeader
+    # Withdrawals
+    withdrawal_queue: List[Withdrawal, WITHDRAWAL_QUEUE_LIMIT]  # [New in Capella]
+    next_withdrawal_index: WithdrawalIndex  # [New in Capella]
+    next_partial_withdrawal_validator_index: ValidatorIndex  # [New in Capella]
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconstate
+  BeaconState* = object
+    # Versioning
+    genesis_time: uint64
+    genesis_validators_root: Root
+    slot: Slot
+    fork: Fork
+    # History
+    latest_block_header: BeaconBlockHeader
+    block_roots: Vector[Root, SLOTS_PER_HISTORICAL_ROOT]
+    state_roots: Vector[Root, SLOTS_PER_HISTORICAL_ROOT]
+    historical_roots: List[Root, HISTORICAL_ROOTS_LIMIT]
+    # Eth1
+    eth1_data: Eth1Data
+    eth1_data_votes: List[Eth1Data, EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
+    eth1_deposit_index: uint64
+    # Registry
+    validators: List[Validator, VALIDATOR_REGISTRY_LIMIT]
+    balances: List[Gwei, VALIDATOR_REGISTRY_LIMIT]
+    # Randomness
+    randao_mixes: Vector[Bytes32, EPOCHS_PER_HISTORICAL_VECTOR]
+    # Slashings
+    slashings: Vector[Gwei, EPOCHS_PER_SLASHINGS_VECTOR]  # Per-epoch sums of slashed effective balances
+    # Participation
+    previous_epoch_participation: List[ParticipationFlags, VALIDATOR_REGISTRY_LIMIT]
+    current_epoch_participation: List[ParticipationFlags, VALIDATOR_REGISTRY_LIMIT]
+    # Finality
+    justification_bits: Bitvector[JUSTIFICATION_BITS_LENGTH]  # Bit set for every recent justified epoch
+    previous_justified_checkpoint: Checkpoint
+    current_justified_checkpoint: Checkpoint
+    finalized_checkpoint: Checkpoint
+    # Inactivity
+    inactivity_scores: List[uint64, VALIDATOR_REGISTRY_LIMIT]
+    # Sync
+    current_sync_committee: SyncCommittee
+    next_sync_committee: SyncCommittee
+    # Execution
+    latest_execution_payload_header: ExecutionPayloadHeader
+    # Withdrawals
+    withdrawal_queue: List[Withdrawal, WITHDRAWAL_QUEUE_LIMIT]  # [New in Capella]
+    next_withdrawal_index: WithdrawalIndex  # [New in Capella]
+    next_partial_withdrawal_validator_index: ValidatorIndex  # [New in Capella]
+
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconblockbody
+  BeaconBlockBody* = object
+    randao_reveal: BLSSignature
+    eth1_data: Eth1Data  # Eth1 data vote
+    graffiti: Bytes32  # Arbitrary data
+    # Operations
+    proposer_slashings: List[ProposerSlashing, MAX_PROPOSER_SLASHINGS]
+    attester_slashings: List[AttesterSlashing, MAX_ATTESTER_SLASHINGS]
+    attestations: List[Attestation, MAX_ATTESTATIONS]
+    deposits: List[Deposit, MAX_DEPOSITS]
+    voluntary_exits: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
+    sync_aggregate: SyncAggregate
+    # Execution
+    execution_payload: ExecutionPayload
+    # Capella operations
+    bls_to_execution_changes: List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+
+  #
+  # NOTE: Duplicates from bellatrix
+  #
+
+  MsgTrustedSignedBeaconBlock* = object
+    message*: TrustedBeaconBlock
+    signature*: ValidatorSig
+
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+
+  TrustedSignedBeaconBlock* = object
+    message*: TrustedBeaconBlock
+    signature*: TrustedSig
+
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+
+  SomeSignedBeaconBlock* =
+    SignedBeaconBlock |
+    SigVerifiedSignedBeaconBlock |
+    MsgTrustedSignedBeaconBlock |
+    TrustedSignedBeaconBlock
+  SomeBeaconBlock* =
+    BeaconBlock |
+    SigVerifiedBeaconBlock |
+    TrustedBeaconBlock
+  SomeBeaconBlockBody* =
+    BeaconBlockBody |
+    SigVerifiedBeaconBlockBody |
+    TrustedBeaconBlockBody
+
+  BlockParams = object
+    parentHash*: string
+    timestamp*: string
+
+  BoolReturnValidRPC = object
+    valid*: bool
+
+  BoolReturnSuccessRPC = object
+    success*: bool
+
+  SigVerifiedSignedBeaconBlock* = object
+    ## A SignedBeaconBlock with signatures verified
+    ## including:
+    ## - Block signature
+    ## - BeaconBlockBody
+    ##   - Randao reveal
+    ##   - Attestations
+    ##   - ProposerSlashing (SignedBeaconBlockHeader)
+    ##   - AttesterSlashing (IndexedAttestation)
+    ##   - SignedVoluntaryExits
+    ##
+    ##   - ETH1Data (Deposits) can contain invalid BLS signatures
+    ##
+    ## The block state transition has NOT been verified
+    message*: SigVerifiedBeaconBlock
+    signature*: TrustedSig
+
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+
+  SignedBeaconBlock* = object
+    message*: BeaconBlock
+    signature*: ValidatorSig
+
+    root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
+
+  # TODO Careful, not nil analysis is broken / incomplete and the semantics will
+  #      likely change in future versions of the language:
+  #      https://github.com/nim-lang/RFCs/issues/250
+  BeaconStateRef* = ref BeaconState not nil
+  NilableBeaconStateRef* = ref BeaconState
+
+  HashedBeaconState* = object
+    data*: BeaconState
+    root*: Eth2Digest # hash_tree_root(data)
+
+  BeaconBlock* = object
+    ## For each slot, a proposer is chosen from the validator pool to propose
+    ## a new block. Once the block as been proposed, it is transmitted to
+    ## validators that will have a chance to vote on it through attestations.
+    ## Each block collects attestations, or votes, on past blocks, thus a chain
+    ## is formed.
+
+    slot*: Slot
+    proposer_index*: uint64 # `ValidatorIndex` after validation
+
+    parent_root*: Eth2Digest
+      ## Root hash of the previous block
+
+    state_root*: Eth2Digest
+      ## The state root, _after_ this block has been processed
+
+    body*: BeaconBlockBody
+
+  SigVerifiedBeaconBlock* = object
+    ## A BeaconBlock that contains verified signatures
+    ## but that has not been verified for state transition
+    slot*: Slot
+    proposer_index*: uint64 # `ValidatorIndex` after validation
+
+    parent_root*: Eth2Digest
+      ## Root hash of the previous block
+
+    state_root*: Eth2Digest
+      ## The state root, _after_ this block has been processed
+
+    body*: SigVerifiedBeaconBlockBody
+
+  TrustedBeaconBlock* = object
+    ## When we receive blocks from outside sources, they are untrusted and go
+    ## through several layers of validation. Blocks that have gone through
+    ## validations can be trusted to be well-formed, with a correct signature,
+    ## having a parent and applying cleanly to the state that their parent
+    ## left them with.
+    ##
+    ## When loading such blocks from the database, to rewind states for example,
+    ## it is expensive to redo the validations (in particular, the signature
+    ## checks), thus `TrustedBlock` uses a `TrustedSig` type to mark that these
+    ## checks can be skipped.
+    ##
+    ## TODO this could probably be solved with some type trickery, but there
+    ##      too many bugs in nim around generics handling, and we've used up
+    ##      the trickery budget in the serialization library already. Until
+    ##      then, the type must be manually kept compatible with its untrusted
+    ##      cousin.
+    slot*: Slot
+    proposer_index*: uint64 # `ValidatorIndex` after validation
+    parent_root*: Eth2Digest
+    state_root*: Eth2Digest
+    body*: TrustedBeaconBlockBody
+
+  SigVerifiedBeaconBlockBody* = object
+    ## A BeaconBlock body with signatures verified
+    ## including:
+    ## - Randao reveal
+    ## - Attestations
+    ## - ProposerSlashing (SignedBeaconBlockHeader)
+    ## - AttesterSlashing (IndexedAttestation)
+    ## - SignedVoluntaryExits
+    ##
+    ## - ETH1Data (Deposits) can contain invalid BLS signatures
+    ##
+    ## The block state transition has NOT been verified
+    randao_reveal*: ValidatorSig
+    eth1_data*: Eth1Data
+      ## Eth1 data vote
+
+    graffiti*: GraffitiBytes
+      ## Arbitrary data
+
+    # Operations
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    sync_aggregate*: SyncAggregate # TODO TrustedSyncAggregate after batching
+
+    # Execution
+    execution_payload*: ExecutionPayload
+
+  TrustedBeaconBlockBody* = object
+    ## A full verified block
+    randao_reveal*: TrustedSig
+    eth1_data*: Eth1Data
+      ## Eth1 data vote
+
+    graffiti*: GraffitiBytes
+      ## Arbitrary data
+
+    # Operations
+    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    sync_aggregate*: TrustedSyncAggregate
+
+    # Execution
+    execution_payload*: ExecutionPayload
+
