@@ -1429,6 +1429,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
     debug "Starting Eth1 syncing", `from` = shortLog(m.depositsChain.blocks[0])
 
+  var didPollOnce = false
   while true:
     if bnStatus == BeaconNodeStatus.Stopping:
       when hasGenesisDetection:
@@ -1446,7 +1447,9 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       m.startIdx = 0
       return
 
-    let nextBlock = if mustUsePolling or m.latestEth1Block.isNone:
+    let nextBlock = if mustUsePolling or not didPollOnce:
+      didPollOnce = true
+
       let blk = awaitWithRetries(
         m.dataProvider.web3.provider.eth_getBlockByNumber(blockId("latest"), false))
 
