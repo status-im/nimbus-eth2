@@ -1446,7 +1446,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       m.startIdx = 0
       return
 
-    let nextBlock = if mustUsePolling:
+    let nextBlock = if mustUsePolling or m.latestEth1Block.isNone:
       let blk = awaitWithRetries(
         m.dataProvider.web3.provider.eth_getBlockByNumber(blockId("latest"), false))
 
@@ -1465,12 +1465,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
       m.eth1Progress.clear()
 
-      if m.latestEth1Block.isNone:
-        # It should not be possible for `latestEth1Block` to be none here.
-        # Firing the `eth1Progress` event is always done after assinging
-        # a value for it.
-        continue
-
+      doAssert m.latestEth1Block.isSome
       awaitWithRetries m.dataProvider.getBlockByHash(m.latestEth1Block.get.hash)
 
     if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH and m.terminalBlockHash.isNone:
