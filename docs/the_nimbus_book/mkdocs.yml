@@ -35,19 +35,18 @@ markdown_extensions:
 
 nav:
   - About:
-    - 'philosophy.md'
-    - 'hardware.md'
-    - 'preparation.md'
+    - 'index.md'
     - 'merge.md'
+    - 'philosophy.md'
+    - 'preparation.md'
 
-  - Quickstart:
+  - Getting started:
     - 'quick-start.md'
     - 'run-a-validator.md'
-
-  - Downloads:
-    - 'binaries.md'
-    - 'docker.md'
-    - 'checksums.md'
+    - 'migration.md'
+    - 'metrics-pretty-pictures.md'
+    - 'pi-guide.md'
+    - 'el-light-client.md'
 
   - How-to:
     - Beacon node:
@@ -55,7 +54,6 @@ nav:
       - 'build.md'
       - 'start-syncing.md'
       - 'trusted-node-sync.md'
-      - 'networking.md'
       - 'web3-backup.md'
 
     - Validator:
@@ -66,7 +64,6 @@ nav:
       - 'suggested-fee-recipient.md'
       - 'keep-an-eye.md'
       - 'voluntary-exit.md'
-      - 'validator-monitor.md'
       - 'more-keys.md'
       - 'additional-validator.md'
       - 'validator-client.md'
@@ -74,10 +71,8 @@ nav:
     - General:
       - 'keep-updated.md'
       - 'eth1.md'
-      - 'el-light-client.md'
       - 'goerli-eth.md'
       - 'beacon-node-systemd.md'
-      - 'logging.md'
       - 'log-rotate.md'
       - 'database-backup.md'
       - 'email-notifications.md'
@@ -85,20 +80,18 @@ nav:
       - 'health.md'
       - 'prater.md'
 
-  - Guides:
-    - 'migration.md'
-    - 'metrics-pretty-pictures.md'
-    - 'pi-guide.md'
-    - 'attestation-performance.md'
-    - 'infura-guide.md'
-
   - Security:
     - 'security_issues.md'
     - 'audit.md'
     - 'distribution_internals.md'
 
   - Reference:
+    - 'hardware.md'
     - 'options.md'
+    - 'networking.md'
+    - 'logging.md'
+    - 'validator-monitor.md'
+    - 'attestation-performance.md'
     - 'rest-api.md'
     - 'keymanager-api.md'
     - 'data-dir.md'
@@ -106,7 +99,12 @@ nav:
     - 'light-client-data.md'
     - 'troubleshooting.md'
     - 'developers.md'
-    - 'contribute.md'
     - 'resources.md'
     - 'faq.md'
     - 'api.md'
+    - 'contribute.md'
+
+  - Downloads:
+    - 'binaries.md'
+    - 'docker.md'
+    - 'checksums.md'

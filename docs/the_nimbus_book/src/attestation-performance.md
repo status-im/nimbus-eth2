@@ -1,4 +1,4 @@
-# Analyze attestation performance
+# Attestation performance analysis
 
 `ncli_db validatorPerf` is an advanced tool that helps you analyze the performance of your validator over time.
 

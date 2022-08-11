@@ -1,6 +1,6 @@
 # Run the beacon node
 
-This page takes you through the steps of getting a standard setup the Nimbus beacon node up and running.
+This page takes you through the steps of getting a standard installation of the Nimbus beacon node running.
 
 The quickstart setup involves running two nodes: an [execution client](./eth1.md) and a beacon node - both are needed to run a full Ethereum setup.
 
@@ -11,22 +11,24 @@ Running a beacon node is a [worthwhile endeavor](https://vitalik.ca/general/2021
 The guide assumes [Ubuntu Linux](https://ubuntu.com/download/server) is being used, and therefore some familiarity with [the linux command line](https://ubuntu.com/tutorials/command-line-for-beginners) is needed.
 
 !!! note
-    To become a validator, you will first need to be running a beacon node.
+    To become a validator, you first need to set up a beacon node.
 
 !!! tip
     You can practice running the node safely on the [Prater testnet](./prater.md) - throughout, we'll provide instructions for both Prater and Mainnet.
 
-## 1. Prepare
+## Steps
+
+### 1. Prepare
 
 Prepare your machine by installing [Nimbus' dependencies](./install.md).
 
-## 2. Set up an execution client
+### 2. Set up an execution client
 
 To run a beacon node, you need to have access to an execution client exposing the web3 API - throughout, we'll assume an execution client is running on the same machine as the beacon node, but this is not required.
 
 See the [execution client](./eth1.md) guide for instructions on how to pick and install an execution client!
 
-## 3. Install Nimbus
+### 3. Install Nimbus
 
 Next, download the [latest release](./binaries.md) and install it by unpacking the archive. Using a command line terminal:
 
@@ -44,7 +46,7 @@ tar xvf nimbus-eth2_Linux_amd64_22.6.1_2444e994.tar.gz --strip-components 1 -C n
 !!! tip
     Advanced users looking to take advantage of hardware-specific features and optimization may wish to [build from source](./build.md) instead!
 
-## 4. Start the node
+### 4. Start the node
 
 Once you've installed the binaries, you can [start the node](./start-syncing.md) which will initiate the sync process.
 

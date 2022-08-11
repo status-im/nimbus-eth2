@@ -1,4 +1,5 @@
 ---
+# the toc breaks with content tabs
 hide:
   - toc
 ---
@@ -7,32 +8,35 @@ hide:
 
 This guide will take you through the basics of how to migrate to Nimbus from another client. *See [here](./migration-options.md) for advanced options*.
 
-The main pain point involves the exporting and importing of the [slashing protection database](https://eips.ethereum.org/EIPS/eip-3076), since each client takes a slightly different approach here.
+**Please take your time to get this right.** Don't hesitate to reach out to us in the `#helpdesk` channel of [our discord](https://discord.gg/j3nYBUeEad) if you come across a stumbling block. We are more than happy to help guide you through the migration process. Given what's at stake, there is no such thing as a stupid question.
+
+!!! info ""
+    Unlike other clients, Nimbus does not require a separate validator client - instead, validators are by default run inside the beacon node process.
 
 !!! warning
     **The most important takeaway is that you ensure that two clients will never validate with the same keys at the same time.** In other words, you must ensure that your original client is stopped, and no longer validating, before importing your keys into Nimbus.
 
-> **Please take your time to get this right.** Don't hesitate to reach out to us in the `#helpdesk` channel of [our discord](https://discord.gg/j3nYBUeEad) if you come across a stumbling block. We are more than happy to help guide you through the migration process. Given what's at stake, there is no such thing as a stupid question.
+## Steps
 
-## Step 1 - Sync the Nimbus beacon node
+### 1. Sync the Nimbus beacon node
 
 No matter which client you are migrating over from, the first step is to sync the Nimbus beacon node.
 
-The easiest way to do this is to follow the [beacon node quick start guide](./quick-start.md).  Syncing the beacon node might take up to 30 hours depending on your hardware - you should keep validating using your current setup until it completes.
+The easiest way to do this is to follow the [beacon node quick start guide](./quick-start.md).
 
 Once your Nimbus beacon node has synced and you're satisfied that it's working, move to **Step 2**.
 
-> **Tip:** See here for how to [keep track of your syncing progress](keep-an-eye.md#keep-track-of-your-syncing-progress).
->
-> Alternatively, If you run the Nimbus beacon node with the `--rest` option enabled (e.g. `./run-mainnet-beacon-node.sh --rest`), you can obtain your node's syncing status by running:
->
-> ```
-> curl -X GET http://localhost:5052/eth/v1/node/syncing
-> ```
->
-> Look for an `"is_syncing":false` in the response to confirm that your node has synced.
+!!! tip
+    You can keep track of your [syncing progress](keep-an-eye.md#keep-track-of-your-syncing-progress) with the following command:
 
-## Step 2 - Stop your existing client and export your slashing protection history
+    ```
+    curl -X GET http://localhost:5052/eth/v1/node/syncing
+    ```
+    Look for an `"is_syncing":false` in the response to confirm that your node has synced.
+
+### Step 2 - Stop your existing client and export your slashing protection history
+
+As part of the migration process, you need to stop your existing client and export its [slashing protection database](https://eips.ethereum.org/EIPS/eip-3076).
 
 === "Prysm"
 
@@ -157,15 +161,16 @@ Once your Nimbus beacon node has synced and you're satisfied that it's working, 
     > **Tip:** To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check it's recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
 
-## Step 3 - Import your validator key(s) into Nimbus
+### 3. Import your validator key(s) into Nimbus
 To import you validator key(s), follow the instructions [outlined here](./keys.md).
 
-> To check that your key(s) has been successfully imported, look for a file named after your public key in `build/data/shared_mainet_0/secrets/`.
->
-> If you run into an error at this stage, it's probably because the wrong permissions have been set on either a folder or file. See [here](faq.md#folder-permissions) for how to fix this.
+!!! tip
+    To check that your key(s) has been successfully imported, look for a file named after your public key in `build/data/shared_mainet_0/secrets/`.
+
+    If you run into an error at this stage, it's probably because the wrong permissions have been set on either a folder or file. See [here](faq.md#folder-permissions) for how to fix this.
 
 
-## Step 4 - Import your slashing protection history
+### 4. Import your slashing protection history
 
 To import the slashing protection history you exported in **step 2**, from the `nimbus-eth2` directory run:
 
@@ -175,14 +180,13 @@ build/nimbus_beacon_node slashingdb import path/to/export_dir/slashing-protectio
 
 Replacing `/path/to/export_dir` with the file/directory you specified when you exported your slashing protection history.
 
-## Step 5 - Start the Nimbus validator
+### 5. Start the Nimbus validator
 
 Follow the instructions [here](./connect-eth2.md) to start your validator using our pre-built [binaries](./binaries.md).
 
 If you prefer to use Docker, see [here](./docker.md)
 
 For a quick guide on how to set up a systemd service, see [here](./beacon-node-systemd.md)
-
 
 ## Final thoughts
 

@@ -1,14 +1,14 @@
 # Backup web3 provider
 
-It's a good idea to add a backup web3 provider in case your main one goes down. You can do this by simply repeating the `--web3-url` parameter on launch.
+Nimbus supports using multiple web3 providers, in case one breaks or goes down. These web3 providers must share JWT secret and will be used in a fallback manner, meaning that when the first one fails, the second one will be used instead until the first one is back up.
 
-For example, if your primary execution client is a [local Geth](./eth1.md#geth), but you want to use [Infura](./infura-guide.md) as a backup you would run:
+Each beacon node requires at least one dedicated web3 provider.
 
-!!! warning
-    After [the merge](./merge.md), it will no longer be possible to rely on third-party services like Infura to run a beacon node!
+!!! note
+    The backup web3 provider must use the same JWT secret as the main provider, and will not be used until the main provider has failed. This may result in a gap in duties as the backup provider syncs. This gap will be addressed in future releases.
 
 ```sh
 ./run-mainnet-beacon-node.sh \
- --web3-url="ws://127.0.0.1:8546" \
- --web3-url="wss://mainnet.infura.io/ws/v3/..."
+  --web3-url="ws://127.0.0.1:8546" \
+  --web3-url="http://backup:4444"
 ```
