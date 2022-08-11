@@ -1455,11 +1455,11 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       if blk.number.uint64 > m.latestEth1BlockNumber:
         eth1_latest_head.set blk.number.toGaugeValue
         m.latestEth1Block = some FullBlockId.init(blk)
-      elif mustUsePolling or didPollOnce:
+      elif mustUsePolling:
         await sleepAsync(m.cfg.SECONDS_PER_ETH1_BLOCK.int.seconds)
         continue
       else:
-        discard
+        doAssert not didPollOnce
 
       didPollOnce = true
       blk
