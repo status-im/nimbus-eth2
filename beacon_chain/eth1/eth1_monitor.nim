@@ -1451,10 +1451,11 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       let blk = awaitWithRetries(
         m.dataProvider.web3.provider.eth_getBlockByNumber(blockId("latest"), false))
 
+      # Same check as when handling events, minus `m.eth1Progress` round trip
       if blk.number.uint64 > m.latestEth1BlockNumber:
         eth1_latest_head.set blk.number.toGaugeValue
         m.latestEth1Block = some FullBlockId.init(blk)
-      elif didPollOnce:
+      elif mustUsePolling or didPollOnce:
         await sleepAsync(m.cfg.SECONDS_PER_ETH1_BLOCK.int.seconds)
         continue
       else:
