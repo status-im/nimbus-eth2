@@ -16,7 +16,6 @@
 {.push raises: [Defect].}
 
 import
-  stew/byteutils,
   json_serialization,
   ssz_serialization/types as sszTypes,
   ../digest,
@@ -24,153 +23,166 @@ import
 
 export base
 
+const
+  # TODO: @Tersec Should we be using int here?
+  MAX_WITHDRAWALS_PER_PAYLOAD*: uint64 = 16
+
+  MAX_BLS_TO_EXECUTION_CHANGES*: uint64 = 16
+
+  # 2**40
+  WITHDRAWALS_QUEUE_LIMIT*: uint64 = (uint64) 1_099_511_627_776
+
+  DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0A, 0x00, 0x00, 0x00])
+
 type
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#custom-types
+  Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
+
+  Hash32 = array[32, byte]
+
+  ExecutionAddress* = object
+    data*: array[20, byte]  # TODO there's a network_metadata type, but the import hierarchy's inconvenient
+
+  BloomLogs* = object
+    data*: array[BYTES_PER_LOGS_BLOOM, byte]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#custom-types
+  WithdrawalIndex* = uint64
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#withdrawal
+  Withdrawal* = object
+    index*: WithdrawalIndex
+    address*: ExecutionAddress
+    amount*: Gwei
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#blstoexecutionchange
+  BLSToExecutionChange* = object
+    validator_index*: ValidatorIndex
+    from_bls_pubkey*: ValidatorPubKey
+    to_execution_address*: ExecutionAddress
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#signedblstoexecutionchange
+  SignedBLSToExecutionChange* = object
+    message*: BLSToExecutionChange
+    signature*: ValidatorSig
+
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     # Execution block header fields
-    parent_hash: Hash32
-    fee_recipient: ExecutionAddress  # 'beneficiary' in the yellow paper
-    state_root: Bytes32
-    receipts_root: Bytes32
-    logs_bloom: ByteVector[BYTES_PER_LOGS_BLOOM]
-    prev_randao: Bytes32  # 'difficulty' in the yellow paper
-    block_number: uint64  # 'number' in the yellow paper
-    gas_limit: uint64
-    gas_used: uint64
-    timestamp: uint64
-    extra_data: ByteList[MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas: uint256
-    # Extra payload fields
-    block_hash: Hash32  # Hash of execution block
-    transactions: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
-    withdrawals: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]  # [New in Capella]
+    parent_hash*: Eth2Digest
+    fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
+    state_root*: Eth2Digest
+    receipts_root*: Eth2Digest
+    logs_bloom*: BloomLogs
+    prev_randao*: Eth2Digest  # 'difficulty' in the yellow paper
+    block_number*: uint64  # 'number' in the yellow paper
+    gas_limit*: uint64
+    gas_used*: uint64
+    timestamp*: uint64
+    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
+    base_fee_per_gas*: UInt256
 
     # Extra payload fields
-    block_hash*: Eth2Digest # Hash of execution block
+    block_hash*: Hash32  # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
+    withdrawals*: List[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]  # [New in Capella]
 
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
-    parent_hash: Hash32
-    fee_recipient: ExecutionAddress
-    state_root: Bytes32
-    receipts_root: Bytes32
-    logs_bloom: ByteVector[BYTES_PER_LOGS_BLOOM]
-    prev_randao: Bytes32
-    block_number: uint64
-    gas_limit: uint64
-    gas_used: uint64
-    timestamp: uint64
-    extra_data: ByteList[MAX_EXTRA_DATA_BYTES]
-    base_fee_per_gas: uint256
+    parent_hash*: Hash32
+    fee_recipient*: ExecutionAddress
+    state_root*: Eth2Digest
+    receipts_root*: Eth2Digest
+    logs_bloom*: BloomLogs
+    prev_randao*: Eth2Digest
+    block_number*: uint64
+    gas_limit*: uint64
+    gas_used*: uint64
+    timestamp*: uint64
+    extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
+    base_fee_per_gas*: UInt256
+
     # Extra payload fields
-    block_hash: Hash32  # Hash of execution block
-    transactions_root: Root
-    withdrawals_root: Root  # [New in Capella]
+    block_hash*: Hash32  # Hash of execution block
+    transactions_root*: Eth2Digest
+    withdrawals_root*: Eth2Digest  # [New in Capella]
 
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
-    genesis_time: uint64
-    genesis_validators_root: Root
-    slot: Slot
-    fork: Fork
-    # History
-    latest_block_header: BeaconBlockHeader
-    block_roots: Vector[Root, SLOTS_PER_HISTORICAL_ROOT]
-    state_roots: Vector[Root, SLOTS_PER_HISTORICAL_ROOT]
-    historical_roots: List[Root, HISTORICAL_ROOTS_LIMIT]
-    # Eth1
-    eth1_data: Eth1Data
-    eth1_data_votes: List[Eth1Data, EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
-    eth1_deposit_index: uint64
-    # Registry
-    validators: List[Validator, VALIDATOR_REGISTRY_LIMIT]
-    balances: List[Gwei, VALIDATOR_REGISTRY_LIMIT]
-    # Randomness
-    randao_mixes: Vector[Bytes32, EPOCHS_PER_HISTORICAL_VECTOR]
-    # Slashings
-    slashings: Vector[Gwei, EPOCHS_PER_SLASHINGS_VECTOR]  # Per-epoch sums of slashed effective balances
-    # Participation
-    previous_epoch_participation: List[ParticipationFlags, VALIDATOR_REGISTRY_LIMIT]
-    current_epoch_participation: List[ParticipationFlags, VALIDATOR_REGISTRY_LIMIT]
-    # Finality
-    justification_bits: Bitvector[JUSTIFICATION_BITS_LENGTH]  # Bit set for every recent justified epoch
-    previous_justified_checkpoint: Checkpoint
-    current_justified_checkpoint: Checkpoint
-    finalized_checkpoint: Checkpoint
-    # Inactivity
-    inactivity_scores: List[uint64, VALIDATOR_REGISTRY_LIMIT]
-    # Sync
-    current_sync_committee: SyncCommittee
-    next_sync_committee: SyncCommittee
-    # Execution
-    latest_execution_payload_header: ExecutionPayloadHeader
-    # Withdrawals
-    withdrawal_queue: List[Withdrawal, WITHDRAWAL_QUEUE_LIMIT]  # [New in Capella]
-    next_withdrawal_index: WithdrawalIndex  # [New in Capella]
-    next_partial_withdrawal_validator_index: ValidatorIndex  # [New in Capella]
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
+    fork*: Fork
 
-  # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconstate
-  BeaconState* = object
-    # Versioning
-    genesis_time: uint64
-    genesis_validators_root: Root
-    slot: Slot
-    fork: Fork
     # History
-    latest_block_header: BeaconBlockHeader
-    block_roots: Vector[Root, SLOTS_PER_HISTORICAL_ROOT]
-    state_roots: Vector[Root, SLOTS_PER_HISTORICAL_ROOT]
-    historical_roots: List[Root, HISTORICAL_ROOTS_LIMIT]
+    latest_block_header*: BeaconBlockHeader
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      ## Needed to process attestations, older to newer
+
+    state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+
     # Eth1
-    eth1_data: Eth1Data
-    eth1_data_votes: List[Eth1Data, EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
-    eth1_deposit_index: uint64
+    eth1_data*: Eth1Data
+    eth1_data_votes*: List[Eth1Data, Limit EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
+    eth1_deposit_index*: uint64
+
     # Registry
-    validators: List[Validator, VALIDATOR_REGISTRY_LIMIT]
-    balances: List[Gwei, VALIDATOR_REGISTRY_LIMIT]
+    validators*: List[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
+
     # Randomness
-    randao_mixes: Vector[Bytes32, EPOCHS_PER_HISTORICAL_VECTOR]
+    randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+
     # Slashings
-    slashings: Vector[Gwei, EPOCHS_PER_SLASHINGS_VECTOR]  # Per-epoch sums of slashed effective balances
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]  # Per-epoch sums of slashed effective balances
+
     # Participation
-    previous_epoch_participation: List[ParticipationFlags, VALIDATOR_REGISTRY_LIMIT]
-    current_epoch_participation: List[ParticipationFlags, VALIDATOR_REGISTRY_LIMIT]
+    previous_epoch_participation*: List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    current_epoch_participation*: List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+
     # Finality
-    justification_bits: Bitvector[JUSTIFICATION_BITS_LENGTH]  # Bit set for every recent justified epoch
-    previous_justified_checkpoint: Checkpoint
-    current_justified_checkpoint: Checkpoint
-    finalized_checkpoint: Checkpoint
+    justification_bits*: JustificationBits # Bit set for every recent justified epoch
+    previous_justified_checkpoint*: Checkpoint
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
     # Inactivity
-    inactivity_scores: List[uint64, VALIDATOR_REGISTRY_LIMIT]
+    inactivity_scores*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
     # Sync
-    current_sync_committee: SyncCommittee
-    next_sync_committee: SyncCommittee
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
+
     # Execution
-    latest_execution_payload_header: ExecutionPayloadHeader
+    latest_execution_payload_header*: ExecutionPayloadHeader
+
     # Withdrawals
-    withdrawal_queue: List[Withdrawal, WITHDRAWAL_QUEUE_LIMIT]  # [New in Capella]
-    next_withdrawal_index: WithdrawalIndex  # [New in Capella]
-    next_partial_withdrawal_validator_index: ValidatorIndex  # [New in Capella]
+    withdrawal_queue*: List[Withdrawal, Limit WITHDRAWALS_QUEUE_LIMIT]  # [New in Capella]
+    next_withdrawal_index*: WithdrawalIndex  # [New in Capella]
+    next_partial_withdrawal_validator_index*: ValidatorIndex  # [New in Capella]
 
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
-    randao_reveal: BLSSignature
-    eth1_data: Eth1Data  # Eth1 data vote
-    graffiti: Bytes32  # Arbitrary data
+    randao_reveal*: ValidatorSig
+    eth1_data*: Eth1Data  # Eth1 data vote
+    graffiti*: GraffitiBytes  # Arbitrary data
+
     # Operations
-    proposer_slashings: List[ProposerSlashing, MAX_PROPOSER_SLASHINGS]
-    attester_slashings: List[AttesterSlashing, MAX_ATTESTER_SLASHINGS]
-    attestations: List[Attestation, MAX_ATTESTATIONS]
-    deposits: List[Deposit, MAX_DEPOSITS]
-    voluntary_exits: List[SignedVoluntaryExit, MAX_VOLUNTARY_EXITS]
-    sync_aggregate: SyncAggregate
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    sync_aggregate*: SyncAggregate # TODO TrustedSyncAggregate after batching
+
     # Execution
-    execution_payload: ExecutionPayload
+    execution_payload*: ExecutionPayload
+
     # Capella operations
-    bls_to_execution_changes: List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+    bls_to_execution_changes*: List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
 
   #
   # NOTE: Duplicates from bellatrix

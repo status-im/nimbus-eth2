@@ -15,7 +15,7 @@ import
   chronicles,
   ../extras,
   "."/[block_id, eth2_merkleization, eth2_ssz_serialization, presets],
-  ./datatypes/[phase0, altair, bellatrix],
+  ./datatypes/[phase0, altair, bellatrix, capella]
   ./mev/bellatrix_mev
 
 export
@@ -42,7 +42,8 @@ type
   BeaconStateFork* {.pure.} = enum
     Phase0,
     Altair,
-    Bellatrix
+    Bellatrix,
+    Capella
 
   ForkyBeaconState* =
     phase0.BeaconState |
@@ -59,26 +60,31 @@ type
     of BeaconStateFork.Phase0:    phase0Data*:    phase0.HashedBeaconState
     of BeaconStateFork.Altair:    altairData*:    altair.HashedBeaconState
     of BeaconStateFork.Bellatrix: bellatrixData*: bellatrix.HashedBeaconState
+    of BeaconStateFork.Capella:   capellaData*:   capella.HashedBeaconState
 
   BeaconBlockFork* {.pure.} = enum
     Phase0
     Altair
     Bellatrix
+    Capella
 
   ForkyBeaconBlockBody* =
     phase0.BeaconBlockBody |
     altair.BeaconBlockBody |
-    bellatrix.BeaconBlockBody
+    bellatrix.BeaconBlockBody |
+    capella.BeaconBlockBody
 
   ForkySigVerifiedBeaconBlockBody* =
     phase0.SigVerifiedBeaconBlockBody |
     altair.SigVerifiedBeaconBlockBody |
-    bellatrix.SigVerifiedBeaconBlockBody
+    bellatrix.SigVerifiedBeaconBlockBody |
+    capella.SigVerifiedBeaconBlockBody
 
   ForkyTrustedBeaconBlockBody* =
     phase0.TrustedBeaconBlockBody |
     altair.TrustedBeaconBlockBody |
-    bellatrix.TrustedBeaconBlockBody
+    bellatrix.TrustedBeaconBlockBody |
+    capella.TrustedBeaconBlockBody
 
   SomeForkyBeaconBlockBody* =
     ForkyBeaconBlockBody |
@@ -88,17 +94,20 @@ type
   ForkyBeaconBlock* =
     phase0.BeaconBlock |
     altair.BeaconBlock |
-    bellatrix.BeaconBlock
+    bellatrix.BeaconBlock |
+    capella.BeaconBlock
 
   ForkySigVerifiedBeaconBlock* =
     phase0.SigVerifiedBeaconBlock |
     altair.SigVerifiedBeaconBlock |
-    bellatrix.SigVerifiedBeaconBlock
+    bellatrix.SigVerifiedBeaconBlock |
+    capella.SigVerifiedBeaconBlock
 
   ForkyTrustedBeaconBlock* =
     phase0.TrustedBeaconBlock |
     altair.TrustedBeaconBlock |
-    bellatrix.TrustedBeaconBlock
+    bellatrix.TrustedBeaconBlock |
+    capella.TrustedBeaconBlock
 
   SomeForkyBeaconBlock* =
     ForkyBeaconBlock |
@@ -110,6 +119,7 @@ type
     of BeaconBlockFork.Phase0:    phase0Data*:    phase0.BeaconBlock
     of BeaconBlockFork.Altair:    altairData*:    altair.BeaconBlock
     of BeaconBlockFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
+    of BeaconBlockFork.Capella:   capellaData*:   capella.BeaconBlock
 
   Web3SignerForkedBeaconBlock* = object
     case kind*: BeaconBlockFork
@@ -122,44 +132,52 @@ type
     of BeaconBlockFork.Phase0:    phase0Data*:     phase0.TrustedBeaconBlock
     of BeaconBlockFork.Altair:    altairData*:     altair.TrustedBeaconBlock
     of BeaconBlockFork.Bellatrix: bellatrixData*:  bellatrix.TrustedBeaconBlock
+    of BeaconBlockFork.Capella:   capellaData*:    capella.TrustedBeaconBlock
 
   ForkySignedBeaconBlock* =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
-    bellatrix.SignedBeaconBlock
+    bellatrix.SignedBeaconBlock |
+    capella.SignedBeaconBlock
 
   ForkedSignedBeaconBlock* = object
     case kind*: BeaconBlockFork
     of BeaconBlockFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock
     of BeaconBlockFork.Altair:    altairData*:    altair.SignedBeaconBlock
     of BeaconBlockFork.Bellatrix: bellatrixData*: bellatrix.SignedBeaconBlock
+    of BeaconBlockFork.Capella:   capellaData*:   capella.SignedBeaconBlock
 
   ForkySigVerifiedSignedBeaconBlock* =
     phase0.SigVerifiedSignedBeaconBlock |
     altair.SigVerifiedSignedBeaconBlock |
-    bellatrix.SigVerifiedSignedBeaconBlock
+    bellatrix.SigVerifiedSignedBeaconBlock |
+    capella.SigVerifiedSignedBeaconBlock
 
   ForkyMsgTrustedSignedBeaconBlock* =
     phase0.MsgTrustedSignedBeaconBlock |
     altair.MsgTrustedSignedBeaconBlock |
-    bellatrix.MsgTrustedSignedBeaconBlock
+    bellatrix.MsgTrustedSignedBeaconBlock |
+    capella.MsgTrustedSignedBeaconBlock
 
   ForkyTrustedSignedBeaconBlock* =
     phase0.TrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock |
-    bellatrix.TrustedSignedBeaconBlock
+    bellatrix.TrustedSignedBeaconBlock |
+    capella.TrustedSignedBeaconBlock
 
   ForkedMsgTrustedSignedBeaconBlock* = object
     case kind*: BeaconBlockFork
     of BeaconBlockFork.Phase0:    phase0Data*:    phase0.MsgTrustedSignedBeaconBlock
     of BeaconBlockFork.Altair:    altairData*:    altair.MsgTrustedSignedBeaconBlock
     of BeaconBlockFork.Bellatrix: bellatrixData*: bellatrix.MsgTrustedSignedBeaconBlock
+    of BeaconBlockFork.Capella:   capellaData*:   capella.MsgTrustedSignedBeaconBlock
 
   ForkedTrustedSignedBeaconBlock* = object
     case kind*: BeaconBlockFork
     of BeaconBlockFork.Phase0:    phase0Data*:    phase0.TrustedSignedBeaconBlock
     of BeaconBlockFork.Altair:    altairData*:    altair.TrustedSignedBeaconBlock
     of BeaconBlockFork.Bellatrix: bellatrixData*: bellatrix.TrustedSignedBeaconBlock
+    of BeaconBlockFork.Capella:   capellaData*:   capella.TrustedSignedBeaconBlock
 
   SomeForkySignedBeaconBlock* =
     ForkySignedBeaconBlock |
@@ -170,11 +188,17 @@ type
   EpochInfoFork* {.pure.} = enum
     Phase0
     Altair
+    # TODO: Should be here?
+    # Bellatrix
+    # Capella
 
   ForkedEpochInfo* = object
     case kind*: EpochInfoFork
     of EpochInfoFork.Phase0: phase0Data*: phase0.EpochInfo
     of EpochInfoFork.Altair: altairData*: altair.EpochInfo
+    # TODO: Should be here?
+    # Bellatrix
+    # Capella
 
   ForkyEpochInfo* = phase0.EpochInfo | altair.EpochInfo
 
@@ -353,6 +377,8 @@ template withEpochInfo*(
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
   if tgt.kind == src.kind:
     case tgt.kind
+    of BeaconStateFork.Capella:
+      assign(tgt.capellaData, src.capellaData):
     of BeaconStateFork.Bellatrix:
       assign(tgt.bellatrixData, src.bellatrixData):
     of BeaconStateFork.Altair:
@@ -371,6 +397,7 @@ template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   # ```
   # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
   (case x.kind
+  of BeaconStateFork.Capella:   unsafeAddr x.capellaData.data.y
   of BeaconStateFork.Bellatrix: unsafeAddr x.bellatrixData.data.y
   of BeaconStateFork.Altair:    unsafeAddr x.altairData.data.y
   of BeaconStateFork.Phase0:    unsafeAddr x.phase0Data.data.y)[]
