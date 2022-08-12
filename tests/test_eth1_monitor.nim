@@ -60,6 +60,34 @@ suite "Eth1 monitor":
 
       gethWsUrl == "ws://localhost:8545"
 
+  test "Deposits chain":
+    var
+      chain = Eth1Chain()
+      depositIndex = 0.uint64
+    for i in 0 ..< (MAX_DEPOSITS + 1) * 3:
+      var deposits = newSeqOfCap[DepositData](i)
+      for _ in 0 ..< i mod (MAX_DEPOSITS + 1):
+        deposits.add DepositData(amount: depositIndex.Gwei)
+        inc depositIndex
+
+      const interval = defaultRuntimeConfig.SECONDS_PER_ETH1_BLOCK
+      chain.blocks.addLast Eth1Block(
+        number: i.Eth1BlockNumber,
+        timestamp: i.Eth1BlockTimestamp * interval,
+        deposits: deposits,
+        depositCount: depositIndex)
+
+    proc doTest(first, last: uint64) =
+      var idx = first
+      for data in chain.getDepositsRange(first, last):
+        check data.amount == idx.Gwei
+        inc idx
+      check idx == last
+
+    for i in 0 .. depositIndex:
+      for j in i .. depositIndex:
+        doTest(i, j)
+
   test "Roundtrip engine RPC and consensus ExecutionPayload representations":
     # Each Eth2Digest field is chosen randomly. Each uint64 field is random,
     # with boosted probabilities for 0, 1, and high(uint64). There can be 0,

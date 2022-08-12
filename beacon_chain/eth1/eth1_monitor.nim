@@ -30,7 +30,7 @@ from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
 
 export
-  web3Types, deques,
+  web3Types, deques, base,
   beacon_chain_db.DepositContractSnapshot
 
 logScope:
@@ -61,6 +61,8 @@ const
   web3Timeouts = 60.seconds
   hasDepositRootChecks = defined(has_deposit_root_checks)
   hasGenesisDetection* = defined(has_genesis_detection)
+
+  targetBlocksPerLogsRequest = 5000'u64  # This is roughly a day of Eth1 blocks
 
 type
   Eth1BlockNumber* = uint64
@@ -97,7 +99,7 @@ type
       ## the Eth2 validators according to the follow distance and
       ## the ETH1_VOTING_PERIOD
 
-    blocks: Deque[Eth1Block]
+    blocks*: Deque[Eth1Block]
       ## A non-forkable chain of blocks ending at the block with
       ## ETH1_FOLLOW_DISTANCE offset from the head.
 
@@ -125,6 +127,7 @@ type
     depositContractAddress*: Eth1Address
     forcePolling: bool
     jwtSecret: Option[seq[byte]]
+    blocksPerLogsRequest: uint64
 
     dataProvider: Web3DataProviderRef
     latestEth1Block: Option[FullBlockId]
@@ -774,24 +777,24 @@ func advanceMerkleizer(chain: Eth1Chain,
 
   return merkleizer.getChunkCount == depositIndex
 
-func getDepositsRange(chain: Eth1Chain, first, last: uint64): seq[DepositData] =
+iterator getDepositsRange*(chain: Eth1Chain, first, last: uint64): DepositData =
   # TODO It's possible to make this faster by performing binary search that
   #      will locate the blocks holding the `first` and `last` indices.
   # TODO There is an assumption here that the requested range will be present
-  #      in the Eth1Chain. This should hold true at the single call site right
-  #      now, but we need to guard the pre-conditions better.
+  #      in the Eth1Chain. This should hold true at the call sites right now,
+  #      but we need to guard the pre-conditions better.
   for blk in chain.blocks:
     if blk.depositCount <= first:
       continue
 
     let firstDepositIdxInBlk = blk.depositCount - blk.deposits.lenu64
     if firstDepositIdxInBlk >= last:
-      return
+      break
 
     for i in 0 ..< blk.deposits.lenu64:
       let globalIdx = firstDepositIdxInBlk + i
       if globalIdx >= first and globalIdx < last:
-        result.add blk.deposits[i]
+        yield blk.deposits[i]
 
 func lowerBound(chain: Eth1Chain, depositCount: uint64): Eth1Block =
   # TODO: This can be replaced with a proper binary search in the
@@ -908,8 +911,13 @@ proc getBlockProposalData*(chain: var Eth1Chain,
       let
         totalDepositsInNewBlock = min(MAX_DEPOSITS, pendingDepositsCount)
         postStateDepositIdx = stateDepositIdx + pendingDepositsCount
-        deposits = chain.getDepositsRange(stateDepositIdx, postStateDepositIdx)
-        depositRoots = mapIt(deposits, hash_tree_root(it))
+      var
+        deposits = newSeqOfCap[DepositData](totalDepositsInNewBlock)
+        depositRoots = newSeqOfCap[Eth2Digest](pendingDepositsCount)
+      for data in chain.getDepositsRange(stateDepositIdx, postStateDepositIdx):
+        if deposits.lenu64 < totalDepositsInNewBlock:
+          deposits.add data
+        depositRoots.add hash_tree_root(data)
 
       var scratchMerkleizer = copy chain.finalizedDepositsMerkleizer
       if chain.advanceMerkleizer(scratchMerkleizer, stateDepositIdx):
@@ -1047,7 +1055,8 @@ proc init*(T: type Eth1Monitor,
     eth1Network: eth1Network,
     eth1Progress: newAsyncEvent(),
     forcePolling: forcePolling,
-    jwtSecret: jwtSecret)
+    jwtSecret: jwtSecret,
+    blocksPerLogsRequest: targetBlocksPerLogsRequest)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
@@ -1149,18 +1158,12 @@ proc syncBlockRange(m: Eth1Monitor,
   while currentBlock <= toBlock:
     var
       depositLogs: JsonNode = nil
-      blocksPerRequest = 5000'u64 # This is roughly a day of Eth1 blocks
       maxBlockNumberRequested: Eth1BlockNumber
       backoff = 100
 
     while true:
-      maxBlockNumberRequested = min(toBlock, currentBlock + blocksPerRequest - 1)
-
-      template retryOrRaise(err: ref CatchableError) =
-        blocksPerRequest = blocksPerRequest div 2
-        if blocksPerRequest == 0:
-          raise err
-        continue
+      maxBlockNumberRequested =
+        min(toBlock, currentBlock + m.blocksPerLogsRequest - 1)
 
       debug "Obtaining deposit log events",
             fromBlock = currentBlock,
@@ -1177,15 +1180,22 @@ proc syncBlockRange(m: Eth1Monitor,
           toBlock = some blockId(maxBlockNumberRequested))
 
         depositLogs = try:
-          # Downloading large amounts of deposits can be quite slow
+          # Downloading large amounts of deposits may take several minutes
           awaitWithTimeout(jsonLogsFut, web3Timeouts):
-            retryOrRaise newException(DataProviderTimeout,
+            raise newException(DataProviderTimeout,
               "Request time out while obtaining json logs")
         except CatchableError as err:
           debug "Request for deposit logs failed", err = err.msg
           inc failed_web3_requests
           backoff = (backoff * 3) div 2
-          retryOrRaise err
+          m.blocksPerLogsRequest = m.blocksPerLogsRequest div 2
+          if m.blocksPerLogsRequest == 0:
+            m.blocksPerLogsRequest = 1
+            raise err
+          continue
+        m.blocksPerLogsRequest = min(
+          (m.blocksPerLogsRequest * 3 + 1) div 2,
+          targetBlocksPerLogsRequest)
 
       currentBlock = maxBlockNumberRequested + 1
       break
@@ -1410,24 +1420,25 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
   let shouldProcessDeposits = not m.depositContractAddress.isZeroMemory
   var eth1SyncedTo: Eth1BlockNumber
-  if shouldProcessDeposits and m.depositsChain.blocks.len == 0:
-    let startBlock = awaitWithRetries(
-      m.dataProvider.getBlockByHash(
-        m.depositsChain.finalizedBlockHash.asBlockHash))
+  if shouldProcessDeposits:
+    if m.depositsChain.blocks.len == 0:
+      let startBlock = awaitWithRetries(
+        m.dataProvider.getBlockByHash(
+          m.depositsChain.finalizedBlockHash.asBlockHash))
 
-    m.depositsChain.addBlock Eth1Block(
-      hash: m.depositsChain.finalizedBlockHash,
-      number: Eth1BlockNumber startBlock.number,
-      timestamp: Eth1BlockTimestamp startBlock.timestamp)
+      m.depositsChain.addBlock Eth1Block(
+        hash: m.depositsChain.finalizedBlockHash,
+        number: Eth1BlockNumber startBlock.number,
+        timestamp: Eth1BlockTimestamp startBlock.timestamp)
 
-    eth1SyncedTo = Eth1BlockNumber startBlock.number
+    eth1SyncedTo = Eth1BlockNumber m.depositsChain.blocks[^1].number
 
     eth1_synced_head.set eth1SyncedTo.toGaugeValue
     eth1_finalized_head.set eth1SyncedTo.toGaugeValue
     eth1_finalized_deposits.set(
       m.depositsChain.finalizedDepositsMerkleizer.getChunkCount.toGaugeValue)
 
-    debug "Starting Eth1 syncing", `from` = shortLog(m.depositsChain.blocks[0])
+    debug "Starting Eth1 syncing", `from` = shortLog(m.depositsChain.blocks[^1])
 
   var didPollOnce = false
   while true:
