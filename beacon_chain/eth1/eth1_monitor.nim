@@ -1314,6 +1314,9 @@ proc syncBlockRange(m: Eth1Monitor,
 func init(T: type FullBlockId, blk: Eth1BlockHeader|BlockObject): T =
   FullBlockId(number: Eth1BlockNumber blk.number, hash: blk.hash)
 
+func isNewLastBlock(m: Eth1Monitor, blk: Eth1BlockHeader|BlockObject): bool =
+  blk.number.uint64 > m.latestEth1BlockNumber
+
 proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   if m.state == Started:
     return
@@ -1401,7 +1404,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     proc newBlockHeadersHandler(blk: Eth1BlockHeader)
                                {.raises: [Defect], gcsafe.} =
       try:
-        if blk.number.uint64 > m.latestEth1BlockNumber:
+        if m.isNewLastBlock(blk):
           eth1_latest_head.set blk.number.toGaugeValue
           m.latestEth1Block = some FullBlockId.init(blk)
           m.eth1Progress.fire()
@@ -1440,6 +1443,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
     debug "Starting Eth1 syncing", `from` = shortLog(m.depositsChain.blocks[^1])
 
+  var didPollOnce = false
   while true:
     if bnStatus == BeaconNodeStatus.Stopping:
       when hasGenesisDetection:
@@ -1457,18 +1461,21 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       m.startIdx = 0
       return
 
-    let nextBlock = if mustUsePolling:
+    let nextBlock = if mustUsePolling or not didPollOnce:
       let blk = awaitWithRetries(
         m.dataProvider.web3.provider.eth_getBlockByNumber(blockId("latest"), false))
 
-      let fullBlockId = FullBlockId.init(blk)
-
-      if m.latestEth1Block.isSome and
-         m.latestEth1Block.get == fullBlockId:
+      # Same as when handling events, minus `m.eth1Progress` round trip
+      if m.isNewLastBlock(blk):
+        eth1_latest_head.set blk.number.toGaugeValue
+        m.latestEth1Block = some FullBlockId.init(blk)
+      elif mustUsePolling:
         await sleepAsync(m.cfg.SECONDS_PER_ETH1_BLOCK.int.seconds)
         continue
+      else:
+        doAssert not didPollOnce
 
-      m.latestEth1Block = some fullBlockId
+      didPollOnce = true
       blk
     else:
       awaitWithTimeout(m.eth1Progress.wait(), 5.minutes):
@@ -1476,12 +1483,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
       m.eth1Progress.clear()
 
-      if m.latestEth1Block.isNone:
-        # It should not be possible for `latestEth1Block` to be none here.
-        # Firing the `eth1Progress` event is always done after assinging
-        # a value for it.
-        continue
-
+      doAssert m.latestEth1Block.isSome
       awaitWithRetries m.dataProvider.getBlockByHash(m.latestEth1Block.get.hash)
 
     if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH and m.terminalBlockHash.isNone:
