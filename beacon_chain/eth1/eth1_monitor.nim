@@ -1410,24 +1410,25 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
   let shouldProcessDeposits = not m.depositContractAddress.isZeroMemory
   var eth1SyncedTo: Eth1BlockNumber
-  if shouldProcessDeposits and m.depositsChain.blocks.len == 0:
-    let startBlock = awaitWithRetries(
-      m.dataProvider.getBlockByHash(
-        m.depositsChain.finalizedBlockHash.asBlockHash))
+  if shouldProcessDeposits:
+    if m.depositsChain.blocks.len == 0:
+      let startBlock = awaitWithRetries(
+        m.dataProvider.getBlockByHash(
+          m.depositsChain.finalizedBlockHash.asBlockHash))
 
-    m.depositsChain.addBlock Eth1Block(
-      hash: m.depositsChain.finalizedBlockHash,
-      number: Eth1BlockNumber startBlock.number,
-      timestamp: Eth1BlockTimestamp startBlock.timestamp)
+      m.depositsChain.addBlock Eth1Block(
+        hash: m.depositsChain.finalizedBlockHash,
+        number: Eth1BlockNumber startBlock.number,
+        timestamp: Eth1BlockTimestamp startBlock.timestamp)
 
-    eth1SyncedTo = Eth1BlockNumber startBlock.number
+    eth1SyncedTo = Eth1BlockNumber m.depositsChain.blocks[^1].number
 
     eth1_synced_head.set eth1SyncedTo.toGaugeValue
     eth1_finalized_head.set eth1SyncedTo.toGaugeValue
     eth1_finalized_deposits.set(
       m.depositsChain.finalizedDepositsMerkleizer.getChunkCount.toGaugeValue)
 
-    debug "Starting Eth1 syncing", `from` = shortLog(m.depositsChain.blocks[0])
+    debug "Starting Eth1 syncing", `from` = shortLog(m.depositsChain.blocks[^1])
 
   while true:
     if bnStatus == BeaconNodeStatus.Stopping:
