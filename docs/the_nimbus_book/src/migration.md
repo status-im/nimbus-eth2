@@ -5,7 +5,7 @@ This guide will take you through the basics of how to migrate to Nimbus from ano
 **Please take your time to get this right.** Don't hesitate to reach out to us in the `#helpdesk` channel of [our discord](https://discord.gg/j3nYBUeEad) if you come across a stumbling block. We are more than happy to help guide you through the migration process. Given what's at stake, there is no such thing as a stupid question.
 
 !!! info ""
-    Unlike other clients, Nimbus does not require a separate validator client - instead, validators are by default run inside the beacon node process.
+    Unlike other clients, Nimbus does not require a separate validator client - instead, validators run in the beacon node process.
 
 !!! warning
     **The most important takeaway is that you ensure that two clients will never validate with the same keys at the same time.** In other words, you must ensure that your original client is stopped, and no longer validating, before importing your keys into Nimbus.
