@@ -62,6 +62,8 @@ const
   hasDepositRootChecks = defined(has_deposit_root_checks)
   hasGenesisDetection* = defined(has_genesis_detection)
 
+  targetBlocksPerLogsRequest = 5000'u64  # This is roughly a day of Eth1 blocks
+
 type
   Eth1BlockNumber* = uint64
   Eth1BlockTimestamp* = uint64
@@ -125,6 +127,7 @@ type
     depositContractAddress*: Eth1Address
     forcePolling: bool
     jwtSecret: Option[seq[byte]]
+    blocksPerLogsRequest: uint64
 
     dataProvider: Web3DataProviderRef
     latestEth1Block: Option[FullBlockId]
@@ -1047,7 +1050,8 @@ proc init*(T: type Eth1Monitor,
     eth1Network: eth1Network,
     eth1Progress: newAsyncEvent(),
     forcePolling: forcePolling,
-    jwtSecret: jwtSecret)
+    jwtSecret: jwtSecret,
+    blocksPerLogsRequest: targetBlocksPerLogsRequest)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
@@ -1149,18 +1153,12 @@ proc syncBlockRange(m: Eth1Monitor,
   while currentBlock <= toBlock:
     var
       depositLogs: JsonNode = nil
-      blocksPerRequest = 5000'u64 # This is roughly a day of Eth1 blocks
       maxBlockNumberRequested: Eth1BlockNumber
       backoff = 100
 
     while true:
-      maxBlockNumberRequested = min(toBlock, currentBlock + blocksPerRequest - 1)
-
-      template retryOrRaise(err: ref CatchableError) =
-        blocksPerRequest = blocksPerRequest div 2
-        if blocksPerRequest == 0:
-          raise err
-        continue
+      maxBlockNumberRequested =
+        min(toBlock, currentBlock + m.blocksPerLogsRequest - 1)
 
       debug "Obtaining deposit log events",
             fromBlock = currentBlock,
@@ -1177,15 +1175,22 @@ proc syncBlockRange(m: Eth1Monitor,
           toBlock = some blockId(maxBlockNumberRequested))
 
         depositLogs = try:
-          # Downloading large amounts of deposits can be quite slow
+          # Downloading large amounts of deposits may take several minutes
           awaitWithTimeout(jsonLogsFut, web3Timeouts):
-            retryOrRaise newException(DataProviderTimeout,
+            raise newException(DataProviderTimeout,
               "Request time out while obtaining json logs")
         except CatchableError as err:
           debug "Request for deposit logs failed", err = err.msg
           inc failed_web3_requests
           backoff = (backoff * 3) div 2
-          retryOrRaise err
+          m.blocksPerLogsRequest = m.blocksPerLogsRequest div 2
+          if m.blocksPerLogsRequest == 0:
+            m.blocksPerLogsRequest = 1
+            raise err
+          continue
+        m.blocksPerLogsRequest = min(
+          (m.blocksPerLogsRequest * 3 + 1) div 2,
+          targetBlocksPerLogsRequest)
 
       currentBlock = maxBlockNumberRequested + 1
       break
