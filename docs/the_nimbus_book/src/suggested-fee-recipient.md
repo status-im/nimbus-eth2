@@ -1,6 +1,6 @@
 # Set up suggested fee recipient
 
-A suggested fee recipient offers an execution client, in a merged Ethereum network, a coinbase it might use, base on the validator that is proposing the block.
+A suggested fee recipient offers an execution client, in a merged Ethereum network, a coinbase it might use, based on the validator that is proposing the block.
 
 !!! warning
     The execution client is not required to follow the suggestion and may instead send the fees to a different address - only use execution clients you trust!
