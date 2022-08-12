@@ -32,6 +32,8 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - tables
+  - toc:
+      toc_depth: 3
 
 nav:
   - About:

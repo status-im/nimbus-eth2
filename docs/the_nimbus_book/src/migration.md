@@ -1,9 +1,3 @@
----
-# the toc breaks with content tabs
-hide:
-  - toc
----
-
 # Migrate from another client
 
 This guide will take you through the basics of how to migrate to Nimbus from another client. *See [here](./migration-options.md) for advanced options*.
