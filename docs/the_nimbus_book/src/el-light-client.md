@@ -1,11 +1,28 @@
-# Light client based EL sync
+# Run the light client
+
+!!! warning
+    The light client is currently in BETA and details around running it may change.
+
+The Nimbus Light Client is a light-weight alternative to running a full beacon node, when setting up an Ethereum execution client for read-only use cases after the merge.
 
 Execution layer (EL) clients provide the [web3 API](https://ethereum.github.io/execution-apis/api-documentation/) to expose information stored on the Ethereum blockchain. With [the merge 🐼](./merge.md), EL clients can no longer run standalone and require an external component to determine the latest state to sync to.
 
-!!! warning
-    It is recommended to pair the EL client with a consensus layer (CL) full node. To use Nimbus, follow the [installation instructions](./install.md).
+## Comparison
 
-In environments where running a full node is not feasible, a light client may be used instead. Light clients delegate full validation to other network participants and operate under a honest supermajority (> 2/3) assumption among elected participants. Due to this delegation, light clients are typically behind by ~4/3 slots (~15 seconds on Ethereum mainnet). On the other hand, light clients do not require storing a big database and need much less bandwith and compute power to stay in sync with the Ethereum network.
+Compared to a full beacon node, a light client has several advantages and disadvantages.
+
+| Feature | Light Client | Beacon Node |
+| -- | -- | -- |
+| Disk usage | **<1MB** | ~70GB |
+| Bandwidth | **TBD (low)** | *TBD* |
+| Sync time | **Seconds** | Days |
+| Head delay | 4/3 slot (15 s) | **None** |
+| Security | Light | **Full** |
+
+Light clients delegate full validation to other network participants and operate under a honest supermajority (> 2/3) assumption among elected participants. Due to this delegation, light clients are typically behind by ~4/3 slots (~15 seconds on Ethereum mainnet).
+
+!!! note
+    If you are validating, you must run a full beacon node. To use Nimbus, follow the [installation instructions](./install.md).
 
 ## Building from source
 
@@ -48,33 +65,33 @@ The JWT secret must be passed to both the EL client and the light client to comp
 
 In addition to the [regular instructions](./eth1.md) to run an EL client, the JWT secret must be configured. The following sections explain how to do this for certain EL clients.
 
-### Geth
+=== "Geth"
 
-=== "Mainnet"
-    ```sh
-    geth --ws --authrpc.jwtsecret="$HOME/jwtsecret"
-    ```
+    === "Mainnet"
+        ```sh
+        geth --ws --authrpc.jwtsecret="$HOME/jwtsecret"
+        ```
 
-=== "Goerli"
-    ```sh
-    geth --goerli --ws --authrpc.jwtsecret="$HOME/jwtsecret"
-    ```
+    === "Goerli"
+        ```sh
+        geth --goerli --ws --authrpc.jwtsecret="$HOME/jwtsecret"
+        ```
 
-### Nethermind
+=== "Nethermind"
 
-=== "Mainnet"
-    ```sh
-    nethermind --JsonRpc.JwtSecretFile="$HOME/jwtsecret"
-    ```
+    === "Mainnet"
+        ```sh
+        nethermind --JsonRpc.JwtSecretFile="$HOME/jwtsecret"
+        ```
 
-=== "Goerli"
-    ```sh
-    nethermind --config goerli --JsonRpc.JwtSecretFile="$HOME/jwtsecret"
-    ```
+    === "Goerli"
+        ```sh
+        nethermind --config goerli --JsonRpc.JwtSecretFile="$HOME/jwtsecret"
+        ```
 
-### Others
+=== "Others"
 
-Please consult your EL client's documentation for instructions on how to configure the JWT secret and running the EL client.
+    Please consult your EL client's documentation for instructions on how to configure the JWT secret and running the EL client.
 
 ## Running the light client
 
@@ -147,21 +164,21 @@ NOT 2022-07-24 22:09:05.069+02:00 New LC optimistic block                    opt
 !!! note
     The [light client protocol](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data. As this is a new protocol, not all implementations are supporting it yet. Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.
 
-### Geth
+=== "Geth"
 
-```
-WARN [07-24|22:19:16.777] Ignoring payload with missing parent     number=12,658,012 hash=306fad..bdfd44 parent=a22dc7..093bea
-INFO [07-24|22:19:16.778] Forkchoice requested sync to new head    number=12,658,012 hash=306fad..bdfd44
-INFO [07-24|22:19:17.232] Syncing beacon headers                   downloaded=7168 left=12,650,843 eta=13m21.441s
-INFO [07-24|22:19:21.626] Syncing beacon headers                   downloaded=75201 left=0          eta=0s
-INFO [07-24|22:19:21.627] Block synchronisation started
-```
+    ```
+    WARN [07-24|22:19:16.777] Ignoring payload with missing parent     number=12,658,012 hash=306fad..bdfd44 parent=a22dc7..093bea
+    INFO [07-24|22:19:16.778] Forkchoice requested sync to new head    number=12,658,012 hash=306fad..bdfd44
+    INFO [07-24|22:19:17.232] Syncing beacon headers                   downloaded=7168 left=12,650,843 eta=13m21.441s
+    INFO [07-24|22:19:21.626] Syncing beacon headers                   downloaded=75201 left=0          eta=0s
+    INFO [07-24|22:19:21.627] Block synchronisation started
+    ```
 
-### Nethermind
+=== "Nethermind"
 
-```
-2022-07-24 22:09:05.0853|Received a new payload: 12657968 (0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63)
-2022-07-24 22:09:05.1018|Insert block into cache without parent 12657968 (0xa5eedb...4c4b63)
-2022-07-24 22:09:05.1141|Received: ForkchoiceState: (HeadBlockHash: 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63, SafeBlockHash: 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63, FinalizedBlockHash: 0x0000000000000000000000000000000000000000000000000000000000000000) .
-2022-07-24 22:09:05.1141|Syncing... Block 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63 not found.
-```
+    ```
+    2022-07-24 22:09:05.0853|Received a new payload: 12657968 (0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63)
+    2022-07-24 22:09:05.1018|Insert block into cache without parent 12657968 (0xa5eedb...4c4b63)
+    2022-07-24 22:09:05.1141|Received: ForkchoiceState: (HeadBlockHash: 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63, SafeBlockHash: 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63, FinalizedBlockHash: 0x0000000000000000000000000000000000000000000000000000000000000000) .
+    2022-07-24 22:09:05.1141|Syncing... Block 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63 not found.
+    ```

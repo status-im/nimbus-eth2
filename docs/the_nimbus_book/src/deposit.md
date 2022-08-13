@@ -16,7 +16,7 @@ To make a deposit, you will need to generate keys then submit a deposit transact
 Start by downloading and unpacking the [deposit tool](https://github.com/ethereum/staking-deposit-cli/releases/latest) provided by the Ethereum Foundation:
 
 ```sh
-# Enter the nimbus folder we previously created
+# Enter the nimbus folder
 cd nimbus-eth2
 
 # Make sure to get the latest version from the download page

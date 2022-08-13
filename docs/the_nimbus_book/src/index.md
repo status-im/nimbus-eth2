@@ -1,7 +1,9 @@
 # The Nimbus Guide
 
 !!! note ""
-    If you're eager to get started, check out our [quickstart guide](./quick-start.md). Coming from a different client? Check out the [migration guide](./migration.md).
+    If you're eager to get started, check out our [quickstart guide](./quick-start.md).
+
+    Coming from a different client? Check out the [migration guide](./migration.md).
 
 Nimbus is a client for the Ethereum `consensus layer` (eth2) and `execution layer` (eth1) that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and [easy to use](./run-a-validator.md).
 
@@ -30,21 +32,21 @@ This book explains the ways in which you can use Nimbus to either monitor the be
 - [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
 - [Danny Ryan's annotated spec](https://notes.ethereum.org/@djrtwo/Bkn3zpwxB)
 
-### Get in touch
+## Get in touch
 
 Need help with anything? Join us on [Status](https://join.status.im/nimbus-general) and [Discord](https://discord.gg/9dWwPnG).
 
-### Donate
+## Donate
 
 If you'd like to contribute to Nimbus development:
 
 * Our donation address is [`0x70E47C843E0F6ab0991A3189c28F2957eb6d3842`](https://etherscan.io/address/0x70E47C843E0F6ab0991A3189c28F2957eb6d3842)
 * We're also listed on [GitCoin](https://gitcoin.co/grants/137/nimbus-2)
 
-### Stay updated
+## Stay updated
 
 Subscribe to our newsletter [here](https://subscribe.nimbus.guide/).
 
-### Disclaimer
+## Disclaimer
 
 This documentation assumes Nimbus is in its ideal state. The project is still under active development. Please submit a [Github issue](https://github.com/status-im/nimbus-eth2/issues) if you come across a problem.

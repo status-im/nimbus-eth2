@@ -1,6 +1,12 @@
-The books in this folder were produced using [mdBook](https://github.com/rust-lang/mdBook) - see installation guide.
+# Documentation
 
-Some books also use [mdbook-toc](https://github.com/badboy/mdbook-toc) for tables of contents.
+## material for mkdocs
+
+The Nimbus guide is generated using [Material for mkdocs](https://squidfunk.github.io/mkdocs-material/), and installed using a python VENV (see Makefile).
+
+## mdbook
+
+Some books in this folder were produced using [mdBook](https://github.com/rust-lang/mdBook) - see installation guide.
 
 ```bash
 # Install or update tooling (make sure you add "~/.cargo/bin" to PATH):

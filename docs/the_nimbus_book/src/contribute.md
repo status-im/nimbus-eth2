@@ -1,6 +1,4 @@
-# Updating this book
-
-Follow these steps to contribute to this book!
+# Updating this guide
 
 We use [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) to produce our documentation.
 

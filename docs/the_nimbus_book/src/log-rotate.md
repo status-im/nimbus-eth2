@@ -1,4 +1,4 @@
-# Log rotation
+# Set up log rotation
 
 Nimbus logs are written to `stdout`, and can be redirected to a file. Writing to a file for a long-running process may lead to difficulties when the file grows large. This is typically solved with a *log rotator*. A log rotator is responsible for switching the written-to file, as well as compressing and removing old logs.
 
