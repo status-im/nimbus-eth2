@@ -48,12 +48,14 @@ type
   ForkyBeaconState* =
     phase0.BeaconState |
     altair.BeaconState |
-    bellatrix.BeaconState
+    bellatrix.BeaconState |
+    capella.BeaconState
 
   ForkyHashedBeaconState* =
     phase0.HashedBeaconState |
     altair.HashedBeaconState |
-    bellatrix.HashedBeaconState
+    bellatrix.HashedBeaconState |
+    capella.HashedBeaconState
 
   ForkedHashedBeaconState* = object
     case kind*: BeaconStateFork
@@ -229,6 +231,8 @@ template toFork*[T: capella.BeaconState | capella.HashedBeaconState](
 #   T(kind: BeaconStateFork.Altair, altairData: data)
 # template init*(T: type ForkedHashedBeaconState, data: bellatrix.HashedBeaconState): T =
 #   T(kind: BeaconStateFork.Bellatrix, bellatrixData: data)
+# template init*(T: type ForkedHashedBeaconState, data: capella.HashedBeaconState): T =
+#   T(kind: BeaconStateFork.Capella, capellaData: data)
 
 template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
@@ -403,8 +407,10 @@ template withEpochInfo*(
   body
 
 template withEpochInfo*(
-    state: altair.BeaconState | bellatrix.BeaconState, x: var ForkedEpochInfo,
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState, x: var ForkedEpochInfo,
     body: untyped): untyped =
+
+  # TODO: Seems we are missing the fork type here and default to altair?
   x.kind = EpochInfoFork.Altair
   template info: untyped {.inject.} = x.altairData
   body
@@ -446,6 +452,7 @@ func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
 func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
   ## Return the current fork for the given epoch.
   static:
+    doAssert BeaconStateFork.Capella   > BeaconStateFork.Bellatrix
     doAssert BeaconStateFork.Bellatrix > BeaconStateFork.Altair
     doAssert BeaconStateFork.Altair    > BeaconStateFork.Phase0
     doAssert GENESIS_EPOCH == 0
@@ -457,7 +464,8 @@ func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
 
 func blockForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconBlockFork =
   ## Return the current fork for the given epoch.
-  if   epoch >= cfg.BELLATRIX_FORK_EPOCH: BeaconBlockFork.Bellatrix
+  if   epoch >= cfg.CAPELLA_FORK_EPOCH:   BeaconBlockFork.Capella
+  elif epoch >= cfg.BELLATRIX_FORK_EPOCH: BeaconBlockFork.Bellatrix
   elif epoch >= cfg.ALTAIR_FORK_EPOCH:    BeaconBlockFork.Altair
   else:                                   BeaconBlockFork.Phase0
 
@@ -565,7 +573,8 @@ template getForkedBlockField*(
   (case x.kind
   of BeaconBlockFork.Phase0:    unsafeAddr x.phase0Data.message.y
   of BeaconBlockFork.Altair:    unsafeAddr x.altairData.message.y
-  of BeaconBlockFork.Bellatrix: unsafeAddr x.bellatrixData.message.y)[]
+  of BeaconBlockFork.Bellatrix: unsafeAddr x.bellatrixData.message.y
+  of BeaconBlockFork.Capella:   unsafeAddr x.capellaData.message.y)[]
 
 template signature*(x: ForkedSignedBeaconBlock |
                        ForkedMsgTrustedSignedBeaconBlock): ValidatorSig =
@@ -604,6 +613,11 @@ template withStateAndBlck*(
        ForkedTrustedSignedBeaconBlock,
     body: untyped): untyped =
   case s.kind
+  of BeaconStateFork.Capella:
+    const stateFork {.inject.} = BeaconStateFork.Capella
+    template state: untyped {.inject.} = s.capellaData
+    template blck: untyped {.inject.} = b.capellaData
+    body
   of BeaconStateFork.Bellatrix:
     const stateFork {.inject.} = BeaconStateFork.Bellatrix
     template state: untyped {.inject.} = s.bellatrixData
@@ -661,20 +675,32 @@ func bellatrixFork*(cfg: RuntimeConfig): Fork =
     current_version: cfg.BELLATRIX_FORK_VERSION,
     epoch: cfg.BELLATRIX_FORK_EPOCH)
 
+func capellaFork*(cfg: RuntimeConfig): Fork =
+  # TODO in theory, the altair + merge forks could be in same epoch, so the
+  # previous fork version would be the GENESIS_FORK_VERSION
+  Fork(
+    previous_version: cfg.ALTAIR_FORK_VERSION,
+    current_version: cfg.CAPELLA_FORK_VERSION,
+    epoch: cfg.CAPELLA_FORK_EPOCH)
+
 func forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.stateForkAtEpoch(epoch)
+  of BeaconStateFork.Capella:   cfg.capellaFork
   of BeaconStateFork.Bellatrix: cfg.bellatrixFork
   of BeaconStateFork.Altair:    cfg.altairFork
   of BeaconStateFork.Phase0:    cfg.genesisFork
 
 func forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
   case cfg.stateForkAtEpoch(epoch)
+  of BeaconStateFork.Capella:   cfg.CAPELLA_FORK_VERSION
   of BeaconStateFork.Bellatrix: cfg.BELLATRIX_FORK_VERSION
   of BeaconStateFork.Altair:    cfg.ALTAIR_FORK_VERSION
   of BeaconStateFork.Phase0:    cfg.GENESIS_FORK_VERSION
 
 func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   case cfg.stateForkAtEpoch(epoch)
+  # TODO: Is Capella a FAR_FUTURE?
+  of BeaconStateFork.Capella:   FAR_FUTURE_EPOCH
   of BeaconStateFork.Bellatrix: FAR_FUTURE_EPOCH
   of BeaconStateFork.Altair:    cfg.BELLATRIX_FORK_EPOCH
   of BeaconStateFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
@@ -685,7 +711,7 @@ func getForkSchedule*(cfg: RuntimeConfig): array[3, Fork] =
   ## This procedure is used by HTTP REST framework and validator client.
   ##
   ## NOTE: Update this procedure when new fork will be scheduled.
-  [cfg.genesisFork(), cfg.altairFork(), cfg.bellatrixFork()]
+  [cfg.genesisFork(), cfg.altairFork(), cfg.bellatrixFork(), cfg.capellaFork()]
 
 type
   # The first few fields of a state, shared across all forks
@@ -742,6 +768,7 @@ func toBeaconBlockFork*(fork: BeaconStateFork): BeaconBlockFork =
   of BeaconStateFork.Phase0:    BeaconBlockFork.Phase0
   of BeaconStateFork.Altair:    BeaconBlockFork.Altair
   of BeaconStateFork.Bellatrix: BeaconBlockFork.Bellatrix
+  of BeaconStateFork.Capella:   BeaconBlockFork.Capella
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,
