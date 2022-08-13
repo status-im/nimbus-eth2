@@ -218,6 +218,9 @@ template toFork*[T: altair.BeaconState | altair.HashedBeaconState](
 template toFork*[T: bellatrix.BeaconState | bellatrix.HashedBeaconState](
     t: type T): BeaconStateFork =
   BeaconStateFork.Bellatrix
+template toFork*[T: capella.BeaconState | capella.HashedBeaconState](
+    t: type T): BeaconStateFork =
+  BeaconStateFork.Capella
 
 # TODO these cause stack overflows due to large temporaries getting allocated
 # template init*(T: type ForkedHashedBeaconState, data: phase0.HashedBeaconState): T =
@@ -233,6 +236,8 @@ template init*(T: type ForkedBeaconBlock, blck: altair.BeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
 template init*(T: type ForkedBeaconBlock, blck: bellatrix.BeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix, bellatrixData: blck)
+template init*(T: type ForkedBeaconBlock, blck: capella.BeaconBlock): T =
+  T(kind: BeaconBlockFork.Capella, capellaData: blck)
 
 template init*(T: type ForkedTrustedBeaconBlock, blck: phase0.TrustedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
@@ -240,6 +245,8 @@ template init*(T: type ForkedTrustedBeaconBlock, blck: altair.TrustedBeaconBlock
   T(kind: BeaconBlockFork.Altair, altairData: blck)
 template init*(T: type ForkedTrustedBeaconBlock, blck: bellatrix.TrustedBeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix, bellatrixData: blck)
+template init*(T: type ForkedTrustedBeaconBlock, blck: capella.TrustedBeaconBlock): T =
+  T(kind: BeaconBlockFork.Capella, capellaData: blck)
 
 template init*(T: type ForkedSignedBeaconBlock, blck: phase0.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
@@ -247,6 +254,8 @@ template init*(T: type ForkedSignedBeaconBlock, blck: altair.SignedBeaconBlock):
   T(kind: BeaconBlockFork.Altair, altairData: blck)
 template init*(T: type ForkedSignedBeaconBlock, blck: bellatrix.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix, bellatrixData: blck)
+template init*(T: type ForkedSignedBeaconBlock, blck: capella.SignedBeaconBlock): T =
+  T(kind: BeaconBlockFork.Capella, capellaData: blck)
 
 template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
                blockRoot: Eth2Digest, signature: ValidatorSig): T =
@@ -266,20 +275,29 @@ template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
       bellatrixData: bellatrix.SignedBeaconBlock(message: forked.bellatrixData,
                                                  root: blockRoot,
                                                  signature: signature))
+  of BeaconBlockFork.Capella:
+    T(kind: BeaconBlockFork.Capella,
+      capellaData: capella.SignedBeaconBlock(message: forked.capellaData,
+                                                 root: blockRoot,
+                                                 signature: signature))
 
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: phase0.MsgTrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: altair.MsgTrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: bellatrix.MsgTrustedSignedBeaconBlock): T =
-  T(kind: BeaconBlockFork.Bellatrix,  bellatrixData: blck)
+  T(kind: BeaconBlockFork.Bellatrix, bellatrixData: blck)
+template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: capella.MsgTrustedSignedBeaconBlock): T =
+  T(kind: BeaconBlockFork.Capella, capellaData: blck)
 
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: phase0.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: bellatrix.TrustedSignedBeaconBlock): T =
-  T(kind: BeaconBlockFork.Bellatrix,  bellatrixData: blck)
+  T(kind: BeaconBlockFork.Bellatrix, bellatrixData: blck)
+template init*(T: type ForkedTrustedSignedBeaconBlock, blck: capella.TrustedSignedBeaconBlock): T =
+  T(kind: BeaconBlockFork.Capella, capellaData: blck)
 
 template toString*(kind: BeaconBlockFork): string =
   case kind
@@ -289,6 +307,8 @@ template toString*(kind: BeaconBlockFork): string =
     "altair"
   of BeaconBlockFork.Bellatrix:
     "bellatrix"
+  of BeaconBlockFork.Capella:
+    "capella"
 
 template toString*(kind: BeaconStateFork): string =
   case kind
@@ -298,6 +318,8 @@ template toString*(kind: BeaconStateFork): string =
     "altair"
   of BeaconStateFork.Bellatrix:
     "bellatrix"
+  of BeaconStateFork.Capella:
+    "capella"
 
 template toFork*[T:
     phase0.BeaconBlock |
@@ -326,6 +348,15 @@ template toFork*[T:
     bellatrix.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Bellatrix
+template toFork*[T:
+    capella.BeaconBlock |
+    capella.SignedBeaconBlock |
+    capella.TrustedBeaconBlock |
+    capella.SigVerifiedSignedBeaconBlock |
+    capella.MsgTrustedSignedBeaconBlock |
+    capella.TrustedSignedBeaconBlock](
+    t: type T): BeaconBlockFork =
+  BeaconBlockFork.Capella
 
 template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
   T(kind: EpochInfoFork.Phase0, phase0Data: info)
@@ -334,6 +365,10 @@ template init*(T: type ForkedEpochInfo, info: altair.EpochInfo): T =
 
 template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
   case x.kind
+  of BeaconStateFork.Capella:
+    const stateFork {.inject, used.} = BeaconStateFork.Capella
+    template state: untyped {.inject, used.} = x.capellaData
+    body
   of BeaconStateFork.Bellatrix:
     const stateFork {.inject, used.} = BeaconStateFork.Bellatrix
     template forkyState: untyped {.inject, used.} = x.bellatrixData
@@ -415,7 +450,8 @@ func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
     doAssert BeaconStateFork.Altair    > BeaconStateFork.Phase0
     doAssert GENESIS_EPOCH == 0
 
-  if   epoch >= cfg.BELLATRIX_FORK_EPOCH: BeaconStateFork.Bellatrix
+  if   epoch >= cfg.CAPELLA_FORK_EPOCH:   BeaconStateFork.Capella
+  elif epoch >= cfg.BELLATRIX_FORK_EPOCH: BeaconStateFork.Bellatrix
   elif epoch >= cfg.ALTAIR_FORK_EPOCH:    BeaconStateFork.Altair
   else:                                   BeaconStateFork.Phase0
 
@@ -427,7 +463,9 @@ func blockForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconBlockFork =
 
 func stateForkForDigest*(
     forkDigests: ForkDigests, forkDigest: ForkDigest): Opt[BeaconStateFork] =
-  if   forkDigest == forkDigests.bellatrix:
+  if   forkDigest == forkDigests.capella:
+    ok BeaconStateFork.Capella
+  elif forkDigest == forkDigests.bellatrix:
     ok BeaconStateFork.Bellatrix
   elif forkDigest == forkDigests.altair:
     ok BeaconStateFork.Altair
@@ -439,6 +477,8 @@ func stateForkForDigest*(
 func atStateFork*(
     forkDigests: ForkDigests, stateFork: BeaconStateFork): ForkDigest =
   case stateFork
+  of BeaconStateFork.Capella:
+    forkDigests.capella
   of BeaconStateFork.Bellatrix:
     forkDigests.bellatrix
   of BeaconStateFork.Altair:
@@ -503,6 +543,10 @@ template withBlck*(
   of BeaconBlockFork.Bellatrix:
     const stateFork {.inject, used.} = BeaconStateFork.Bellatrix
     template blck: untyped {.inject.} = x.bellatrixData
+    body
+  of BeaconBlockFork.Capella:
+    const stateFork {.inject, used.} = BeaconStateFork.Capella
+    template blck: untyped {.inject.} = x.capellaData
     body
 
 func proposer_index*(x: ForkedBeaconBlock): uint64 =
