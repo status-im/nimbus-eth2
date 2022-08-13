@@ -1,204 +1,2076 @@
-<!DOCTYPE HTML>
-<html lang="en" class="sidebar-visible no-js light">
-    <head>
-        <!-- Book generated using mdBook -->
-        <meta charset="UTF-8">
-        <title>FAQ - The Nimbus Beacon Chain Book</title>
 
-
-        <!-- Custom HTML head -->
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://nimbus.guide/faq.html">
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.3.1, mkdocs-material-8.3.9">
+    
+    
+      
+        <title>Frequently Asked Questions - The Nimbus Guide</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.1d29e8d0.min.css">
+      
         
-        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
-        <meta name="description" content="">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="theme-color" content="#ffffff" />
+        <link rel="stylesheet" href="assets/stylesheets/palette.cbb835fc.min.css">
+        
+          
+          
+          <meta name="theme-color" content="#ffa724">
+        
+      
+      
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL(".",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
 
-        <link rel="icon" href="favicon.svg">
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#frequently-asked-questions" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
 
-        <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="fonts/fonts.css">
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="The Nimbus Guide" class="md-header__button md-logo" aria-label="The Nimbus Guide" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
 
-        <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="highlight.css">
-        <link rel="stylesheet" href="tomorrow-night.css">
-        <link rel="stylesheet" href="ayu-highlight.css">
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            The Nimbus Guide
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Frequently Asked Questions
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/status-im/nimbus-eth2" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
 
-        <!-- Custom theme stylesheets -->
-        <link rel="stylesheet" href="custom.css">
-        <link rel="stylesheet" href="mdbook-admonish.css">
 
-    </head>
-    <body>
-        <!-- Provide site root to javascript -->
-        <script type="text/javascript">
-            var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
-        </script>
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="index.html" class="md-tabs__link">
+        About
+      </a>
+    </li>
+  
 
-        <!-- Work around some values being stored in localStorage wrapped in quotes -->
-        <script type="text/javascript">
-            try {
-                var theme = localStorage.getItem('mdbook-theme');
-                var sidebar = localStorage.getItem('mdbook-sidebar');
+      
+        
+  
+  
 
-                if (theme.startsWith('"') && theme.endsWith('"')) {
-                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
-                }
 
-                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
-                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
-                }
-            } catch (e) { }
-        </script>
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="quick-start.html" class="md-tabs__link">
+        Getting started
+      </a>
+    </li>
+  
 
-        <!-- Set the theme before any content is loaded, prevents flash -->
-        <script type="text/javascript">
-            var theme;
-            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
-            if (theme === null || theme === undefined) { theme = default_theme; }
-            var html = document.querySelector('html');
-            html.classList.remove('no-js')
-            html.classList.remove('light')
-            html.classList.add(theme);
-            html.classList.add('js');
-        </script>
+      
+        
+  
+  
 
-        <!-- Hide / unhide sidebar before it is displayed -->
-        <script type="text/javascript">
-            var html = document.querySelector('html');
-            var sidebar = 'hidden';
-            if (document.body.clientWidth >= 1080) {
-                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
-                sidebar = sidebar || 'visible';
-            }
-            html.classList.remove('sidebar-visible');
-            html.classList.add("sidebar-" + sidebar);
-        </script>
 
-        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="philosophy.html"><strong aria-hidden="true">2.</strong> Design goals</a></li><li class="chapter-item expanded "><a href="hardware.html"><strong aria-hidden="true">3.</strong> System requirements</a></li><li class="chapter-item expanded "><a href="preparation.html"><strong aria-hidden="true">4.</strong> Mainnet checklist</a></li><li class="chapter-item expanded "><a href="merge.html"><strong aria-hidden="true">5.</strong> Merge readiness</a></li><li class="chapter-item expanded affix "><li class="part-title">Quickstart</li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">6.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="run-a-validator.html"><strong aria-hidden="true">7.</strong> Run a validator</a></li><li class="chapter-item expanded affix "><li class="part-title">Downloads</li><li class="chapter-item expanded "><a href="binaries.html"><strong aria-hidden="true">8.</strong> Binaries</a></li><li class="chapter-item expanded "><a href="docker.html"><strong aria-hidden="true">9.</strong> Docker</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">10.</strong> Source code</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (beacon node)</li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">11.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">12.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="start-syncing.html"><strong aria-hidden="true">13.</strong> Sync from scratch</a></li><li class="chapter-item expanded "><a href="trusted-node-sync.html"><strong aria-hidden="true">14.</strong> Sync from a trusted node (checkpoint sync)</a></li><li class="chapter-item expanded "><a href="web3-backup.html"><strong aria-hidden="true">15.</strong> Add a backup web3 provider</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (validator)</li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">16.</strong> Make a deposit</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">17.</strong> Import your validator keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">18.</strong> Start validating</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">19.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><a href="suggested-fee-recipient.html"><strong aria-hidden="true">20.</strong> Set up transaction fee recipient</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">21.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="voluntary-exit.html"><strong aria-hidden="true">22.</strong> Perform a voluntary exit</a></li><li class="chapter-item expanded "><a href="validator-monitor.html"><strong aria-hidden="true">23.</strong> Monitor validator actions</a></li><li class="chapter-item expanded "><a href="more-keys.html"><strong aria-hidden="true">24.</strong> Recover or generate keys</a></li><li class="chapter-item expanded "><a href="additional-validator.html"><strong aria-hidden="true">25.</strong> Add an additional validator</a></li><li class="chapter-item expanded "><a href="validator-client.html"><strong aria-hidden="true">26.</strong> Run a separate validator client</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (misc)</li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">27.</strong> Upgrade / downgrade Nimbus</a></li><li class="chapter-item expanded "><a href="eth1.html"><strong aria-hidden="true">28.</strong> Run an Execution client</a></li><li class="chapter-item expanded "><a href="goerli-eth.html"><strong aria-hidden="true">29.</strong> Obtain Goerli ETH</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">30.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="log-rotate.html"><strong aria-hidden="true">31.</strong> Set up log rotation</a></li><li class="chapter-item expanded "><a href="checksums.html"><strong aria-hidden="true">32.</strong> Verify the integrity of Nimbus</a></li><li class="chapter-item expanded "><a href="database-backup.html"><strong aria-hidden="true">33.</strong> Back up your database</a></li><li class="chapter-item expanded "><a href="logging.html"><strong aria-hidden="true">34.</strong> Set up logging</a></li><li class="chapter-item expanded "><a href="email-notifications.html"><strong aria-hidden="true">35.</strong> Set up email notifications</a></li><li class="chapter-item expanded "><a href="profits.html"><strong aria-hidden="true">36.</strong> Optimise for profitability</a></li><li class="chapter-item expanded "><a href="health.html"><strong aria-hidden="true">37.</strong> Monitor the health of your node</a></li><li class="chapter-item expanded "><a href="networking.html"><strong aria-hidden="true">38.</strong> Networking</a></li><li class="chapter-item expanded "><a href="prater.html"><strong aria-hidden="true">39.</strong> Prater testnet</a></li><li class="chapter-item expanded "><a href="kiln.html"><strong aria-hidden="true">40.</strong> Kiln testnet</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">41.</strong> Grafana and Prometheus</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">42.</strong> Create your own Infura endpoint</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">43.</strong> Migrate from another client</a></li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">44.</strong> Validate with a Raspberry Pi</a></li><li class="chapter-item expanded "><a href="attestation-performance.html"><strong aria-hidden="true">45.</strong> Analyze attestation performance</a></li><li class="chapter-item expanded affix "><li class="part-title">Security</li><li class="chapter-item expanded "><a href="security_issues.html"><strong aria-hidden="true">46.</strong> Security Issues / Responsible Disclosure</a></li><li class="chapter-item expanded "><a href="audit.html"><strong aria-hidden="true">47.</strong> Security Audit</a></li><li class="chapter-item expanded "><a href="distribution_internals.html"><strong aria-hidden="true">48.</strong> Reproducible Builds</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="rest-api.html"><strong aria-hidden="true">49.</strong> REST API</a></li><li class="chapter-item expanded "><a href="keymanager-api.html"><strong aria-hidden="true">50.</strong> Keymanager API</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">51.</strong> Help / Command line options</a></li><li class="chapter-item expanded "><a href="data-dir.html"><strong aria-hidden="true">52.</strong> Data directory</a></li><li class="chapter-item expanded "><a href="migration-options.html"><strong aria-hidden="true">53.</strong> Advanced migration options</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">54.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="developers.html"><strong aria-hidden="true">55.</strong> For developers</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">56.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">57.</strong> Resources</a></li><li class="chapter-item expanded "><a href="faq.html" class="active"><strong aria-hidden="true">58.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">59.</strong> JSON-RPC API (deprecated)</a></li></ol>
-            </div>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
-        </nav>
+  
+  
+  
+    
 
-        <div id="page-wrapper" class="page-wrapper">
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="install.html" class="md-tabs__link">
+        How-to
+      </a>
+    </li>
+  
 
-            <div class="page">
-                                <div id="menu-bar-hover-placeholder"></div>
-                <div id="menu-bar" class="menu-bar sticky bordered">
-                    <div class="left-buttons">
-                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                            <i class="fa fa-bars"></i>
-                        </button>
-                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                            <i class="fa fa-paint-brush"></i>
-                        </button>
-                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
-                        </ul>
-                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
-                            <i class="fa fa-search"></i>
-                        </button>
-                    </div>
+  
 
-                    <h1 class="menu-title">The Nimbus Beacon Chain Book</h1>
+      
+        
+  
+  
 
-                    <div class="right-buttons">
-                        <a href="print.html" title="Print this book" aria-label="Print this book">
-                            <i id="print-button" class="fa fa-print"></i>
-                        </a>
-                        <a href="https://github.com/status-im/nimbus-eth2" title="Git repository" aria-label="Git repository">
-                            <i id="git-repository-button" class="fa fa-github"></i>
-                        </a>
 
-                    </div>
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="security_issues.html" class="md-tabs__link">
+        Security
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="hardware.html" class="md-tabs__link md-tabs__link--active">
+        Reference
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="binaries.html" class="md-tabs__link">
+        Downloads
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="The Nimbus Guide" class="md-nav__button md-logo" aria-label="The Nimbus Guide" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    The Nimbus Guide
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/status-im/nimbus-eth2" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_1" type="checkbox" id="__nav_1" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_1">
+          About
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="About" data-md-level="1">
+        <label class="md-nav__title" for="__nav_1">
+          <span class="md-nav__icon md-icon"></span>
+          About
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html" class="md-nav__link">
+        The Nimbus Guide
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="merge.html" class="md-nav__link">
+        The Merge
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="philosophy.html" class="md-nav__link">
+        Design goals
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="preparation.html" class="md-nav__link">
+        Mainnet checklist
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2">
+          Getting started
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Getting started" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Getting started
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="quick-start.html" class="md-nav__link">
+        Run the beacon node
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="run-a-validator.html" class="md-nav__link">
+        Run a validator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration.html" class="md-nav__link">
+        Migrate from another client
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="metrics-pretty-pictures.html" class="md-nav__link">
+        Grafana and Prometheus
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="pi-guide.html" class="md-nav__link">
+        Running on a Raspberry Pi
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="el-light-client.html" class="md-nav__link">
+        Run the light client
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          How-to
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="How-to" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          How-to
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_1" type="checkbox" id="__nav_3_1" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_1">
+          Beacon node
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Beacon node" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_1">
+          <span class="md-nav__icon md-icon"></span>
+          Beacon node
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="install.html" class="md-nav__link">
+        Prepare your machine
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="build.html" class="md-nav__link">
+        Build from source
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="start-syncing.html" class="md-nav__link">
+        Sync your node
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="trusted-node-sync.html" class="md-nav__link">
+        Sync from a trusted node
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="web3-backup.html" class="md-nav__link">
+        Backup web3 provider
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_2" type="checkbox" id="__nav_3_2" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_2">
+          Validator
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Validator" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_2">
+          <span class="md-nav__icon md-icon"></span>
+          Validator
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="deposit.html" class="md-nav__link">
+        Make a deposit for your validator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keys.html" class="md-nav__link">
+        Import your validator keys
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="connect-eth2.html" class="md-nav__link">
+        Start validating
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="graffiti.html" class="md-nav__link">
+        Set up Graffiti
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="suggested-fee-recipient.html" class="md-nav__link">
+        Set up suggested fee recipient
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keep-an-eye.html" class="md-nav__link">
+        Keep an eye on your validator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="voluntary-exit.html" class="md-nav__link">
+        Perform a voluntary exit
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="more-keys.html" class="md-nav__link">
+        Recover lost keys and generate new ones
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="additional-validator.html" class="md-nav__link">
+        Add an additional validator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="validator-client.html" class="md-nav__link">
+        Run a separate validator client
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_3" type="checkbox" id="__nav_3_3" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_3">
+          General
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="General" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_3">
+          <span class="md-nav__icon md-icon"></span>
+          General
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keep-updated.html" class="md-nav__link">
+        Upgrade / downgrade
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="eth1.html" class="md-nav__link">
+        Run an execution client
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="goerli-eth.html" class="md-nav__link">
+        Obtain Goerli ETH
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="beacon-node-systemd.html" class="md-nav__link">
+        Set up a systemd service
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="log-rotate.html" class="md-nav__link">
+        Set up log rotation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="database-backup.html" class="md-nav__link">
+        Back up your database
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="email-notifications.html" class="md-nav__link">
+        Email notifications
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="profits.html" class="md-nav__link">
+        Optimise for profitability
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="health.html" class="md-nav__link">
+        Monitor the health of your node
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="prater.html" class="md-nav__link">
+        Prater testnet
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4">
+          Security
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Security" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Security
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="security_issues.html" class="md-nav__link">
+        Security issues
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="audit.html" class="md-nav__link">
+        Security Audit
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="distribution_internals.html" class="md-nav__link">
+        Binary distribution internals
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_5" type="checkbox" id="__nav_5" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5">
+          Reference
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Reference" data-md-level="1">
+        <label class="md-nav__title" for="__nav_5">
+          <span class="md-nav__icon md-icon"></span>
+          Reference
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="hardware.html" class="md-nav__link">
+        System requirements
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="options.html" class="md-nav__link">
+        Command line options
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="networking.html" class="md-nav__link">
+        Networking
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="logging.html" class="md-nav__link">
+        Logging options
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="validator-monitor.html" class="md-nav__link">
+        Validator monitoring
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="attestation-performance.html" class="md-nav__link">
+        Attestation performance analysis
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="rest-api.html" class="md-nav__link">
+        REST API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keymanager-api.html" class="md-nav__link">
+        Keymanager API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="data-dir.html" class="md-nav__link">
+        The data directory
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration-options.html" class="md-nav__link">
+        Client migration (advanced)
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="light-client-data.html" class="md-nav__link">
+        Light client data (advanced)
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="troubleshooting.html" class="md-nav__link">
+        Troubleshooting
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="developers.html" class="md-nav__link">
+        For Developers
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="resources.html" class="md-nav__link">
+        Resources
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Frequently Asked Questions
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="faq.html" class="md-nav__link md-nav__link--active">
+        Frequently Asked Questions
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general" class="md-nav__link">
+    General
+  </a>
+  
+    <nav class="md-nav" aria-label="General">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-version-of-nimbus-am-i-running" class="md-nav__link">
+    Which version of Nimbus am I running?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-are-metrics-not-working" class="md-nav__link">
+    Why are metrics not working?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-is-the-rest-server-not-working" class="md-nav__link">
+    Why is the REST server not working?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-my-validator-miss-two-epochs-of-attestations-after-restarting" class="md-nav__link">
+    Why does my validator miss two epochs of attestations after restarting?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whats-the-best-way-to-stress-test-my-execution-consensus-setup-before-committing-with-real-eth" class="md-nav__link">
+    What's the best way to stress test my execution + consensus setup before committing with real ETH?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-add-an-additional-validator" class="md-nav__link">
+    How do I add an additional validator?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#networking" class="md-nav__link">
+    Networking
+  </a>
+  
+    <nav class="md-nav" aria-label="Networking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-can-i-improve-my-peer-count" class="md-nav__link">
+    How can I improve my peer count?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-fix-the-discovered-new-external-address-warning-log" class="md-nav__link">
+    How do I fix the discovered new external address warning log?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#folder-permissions" class="md-nav__link">
+    Folder Permissions
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validating" class="md-nav__link">
+    Validating
+  </a>
+  
+    <nav class="md-nav" aria-label="Validating">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-exactly-is-a-validator" class="md-nav__link">
+    What exactly is a validator?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-the-deposit-contract" class="md-nav__link">
+    What is the deposit contract?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-do-validators-need-to-have-funds-at-stake" class="md-nav__link">
+    Why do validators need to have funds at stake?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-much-eth-does-a-validator-need-to-stake" class="md-nav__link">
+    How much ETH does a validator need to stake?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is-there-any-advantage-to-having-more-than-32-eth-at-stake" class="md-nav__link">
+    Is there any advantage to having more than 32 ETH at stake?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-stop-my-validator-for-a-few-days-and-then-start-it-back-up-again" class="md-nav__link">
+    Can I stop my validator for a few days and then start it back up again?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-want-to-switch-my-validator-keys-to-another-machine-how-long-do-i-need-to-wait-to-avoid-getting-slashed" class="md-nav__link">
+    I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-should-i-top-up-my-validators-balance" class="md-nav__link">
+    When should I top up my validator's balance?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-can-i-withdraw-my-funds-and-whats-the-difference-between-exiting-and-withdrawing" class="md-nav__link">
+    When can I withdraw my funds, and what's the difference between exiting and withdrawing?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-are-validators-incentivized-to-stay-active-and-honest" class="md-nav__link">
+    How are validators incentivized to stay active and honest?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-are-rewardspenalties-issued" class="md-nav__link">
+    How are rewards/penalties issued?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-often-are-rewardspenalties-issued" class="md-nav__link">
+    How often are rewards/penalties issued?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-large-are-the-rewardspenalties" class="md-nav__link">
+    How large are the rewards/penalties?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-do-rewards-depend-on-the-total-number-of-validators-in-the-network" class="md-nav__link">
+    Why do rewards depend on the total number of validators in the network?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-badly-will-a-validator-be-penalized-for-being-offline" class="md-nav__link">
+    How badly will a validator be penalized for being offline?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable" class="md-nav__link">
+    How great does an honest validator's uptime need to be for it to be net profitable?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-much-will-a-validator-be-penalized-for-acting-maliciously" class="md-nav__link">
+    How much will a validator be penalized for acting maliciously?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-exactly-is-slashing" class="md-nav__link">
+    What exactly is slashing?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-i-lose-my-signing-key" class="md-nav__link">
+    What happens I lose my signing key?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-if-i-lose-my-withdrawal-key" class="md-nav__link">
+    What happens if I lose my withdrawal key?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-if-my-withdrawal-key-is-stolen" class="md-nav__link">
+    What happens if my withdrawal key is stolen?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-two-keys-instead-of-one" class="md-nav__link">
+    Why two keys instead of one?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="api.html" class="md-nav__link">
+        JSON-RPC API (deprecated)
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="contribute.html" class="md-nav__link">
+        Updating this guide
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_6" type="checkbox" id="__nav_6" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_6">
+          Downloads
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Downloads" data-md-level="1">
+        <label class="md-nav__title" for="__nav_6">
+          <span class="md-nav__icon md-icon"></span>
+          Downloads
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="binaries.html" class="md-nav__link">
+        Binaries
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="docker.html" class="md-nav__link">
+        Docker images
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="checksums.html" class="md-nav__link">
+        Checksums
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
                 </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
 
-                <div id="search-wrapper" class="hidden">
-                    <form id="searchbar-outer" class="searchbar-outer">
-                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
-                    </form>
-                    <div id="searchresults-outer" class="searchresults-outer hidden">
-                        <div id="searchresults-header" class="searchresults-header"></div>
-                        <ul id="searchresults">
-                        </ul>
-                    </div>
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general" class="md-nav__link">
+    General
+  </a>
+  
+    <nav class="md-nav" aria-label="General">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-version-of-nimbus-am-i-running" class="md-nav__link">
+    Which version of Nimbus am I running?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-are-metrics-not-working" class="md-nav__link">
+    Why are metrics not working?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-is-the-rest-server-not-working" class="md-nav__link">
+    Why is the REST server not working?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-my-validator-miss-two-epochs-of-attestations-after-restarting" class="md-nav__link">
+    Why does my validator miss two epochs of attestations after restarting?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whats-the-best-way-to-stress-test-my-execution-consensus-setup-before-committing-with-real-eth" class="md-nav__link">
+    What's the best way to stress test my execution + consensus setup before committing with real ETH?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-add-an-additional-validator" class="md-nav__link">
+    How do I add an additional validator?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#networking" class="md-nav__link">
+    Networking
+  </a>
+  
+    <nav class="md-nav" aria-label="Networking">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-can-i-improve-my-peer-count" class="md-nav__link">
+    How can I improve my peer count?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-fix-the-discovered-new-external-address-warning-log" class="md-nav__link">
+    How do I fix the discovered new external address warning log?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#folder-permissions" class="md-nav__link">
+    Folder Permissions
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validating" class="md-nav__link">
+    Validating
+  </a>
+  
+    <nav class="md-nav" aria-label="Validating">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-exactly-is-a-validator" class="md-nav__link">
+    What exactly is a validator?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-the-deposit-contract" class="md-nav__link">
+    What is the deposit contract?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-do-validators-need-to-have-funds-at-stake" class="md-nav__link">
+    Why do validators need to have funds at stake?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-much-eth-does-a-validator-need-to-stake" class="md-nav__link">
+    How much ETH does a validator need to stake?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is-there-any-advantage-to-having-more-than-32-eth-at-stake" class="md-nav__link">
+    Is there any advantage to having more than 32 ETH at stake?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-stop-my-validator-for-a-few-days-and-then-start-it-back-up-again" class="md-nav__link">
+    Can I stop my validator for a few days and then start it back up again?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-want-to-switch-my-validator-keys-to-another-machine-how-long-do-i-need-to-wait-to-avoid-getting-slashed" class="md-nav__link">
+    I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-should-i-top-up-my-validators-balance" class="md-nav__link">
+    When should I top up my validator's balance?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-can-i-withdraw-my-funds-and-whats-the-difference-between-exiting-and-withdrawing" class="md-nav__link">
+    When can I withdraw my funds, and what's the difference between exiting and withdrawing?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-are-validators-incentivized-to-stay-active-and-honest" class="md-nav__link">
+    How are validators incentivized to stay active and honest?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-are-rewardspenalties-issued" class="md-nav__link">
+    How are rewards/penalties issued?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-often-are-rewardspenalties-issued" class="md-nav__link">
+    How often are rewards/penalties issued?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-large-are-the-rewardspenalties" class="md-nav__link">
+    How large are the rewards/penalties?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-do-rewards-depend-on-the-total-number-of-validators-in-the-network" class="md-nav__link">
+    Why do rewards depend on the total number of validators in the network?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-badly-will-a-validator-be-penalized-for-being-offline" class="md-nav__link">
+    How badly will a validator be penalized for being offline?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable" class="md-nav__link">
+    How great does an honest validator's uptime need to be for it to be net profitable?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-much-will-a-validator-be-penalized-for-acting-maliciously" class="md-nav__link">
+    How much will a validator be penalized for acting maliciously?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-exactly-is-slashing" class="md-nav__link">
+    What exactly is slashing?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-i-lose-my-signing-key" class="md-nav__link">
+    What happens I lose my signing key?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-if-i-lose-my-withdrawal-key" class="md-nav__link">
+    What happens if I lose my withdrawal key?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-if-my-withdrawal-key-is-stolen" class="md-nav__link">
+    What happens if my withdrawal key is stolen?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-two-keys-instead-of-one" class="md-nav__link">
+    Why two keys instead of one?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
                 </div>
+              </div>
+            
+          
+          <div class="md-content" data-md-component="content">
+            <article class="md-content__inner md-typeset">
+              
+                
+  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/faq.md" title="Edit this page" class="md-content__button md-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
+  </a>
 
-                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
-                <script type="text/javascript">
-                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
-                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
-                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
-                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
-                    });
-                </script>
 
-                <div id="content" class="content">
-                    <main>
-                        <h1 id="frequently-asked-questions"><a class="header" href="#frequently-asked-questions">Frequently Asked Questions</a></h1>
-<h2 id="general"><a class="header" href="#general">General</a></h2>
-<h3 id="which-version-of-nimbus-am-i-running"><a class="header" href="#which-version-of-nimbus-am-i-running">Which version of Nimbus am I running?</a></h3>
+
+<h1 id="frequently-asked-questions">Frequently Asked Questions</h1>
+<h2 id="general">General</h2>
+<h3 id="which-version-of-nimbus-am-i-running">Which version of Nimbus am I running?</h3>
 <p>You can check the version through a number of methods:</p>
-<pre><code class="language-sh"># Run the beacon node with the --version flag:
-build/nimbus_beacon_node --version
-
-# Query the metrics server - requires running with the '--metrics' option
-curl -s http://localhost:8008/metrics | grep version
-
-# Query the REST API - requires running with the '--rest' option
-curl -s http://localhost:9100/eth/v1/node/version
-</code></pre>
-<h3 id="why-are-metrics-not-working"><a class="header" href="#why-are-metrics-not-working">Why are metrics not working?</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Run the beacon node with the --version flag:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>build/nimbus_beacon_node --version
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Query the metrics server - requires running with the &#39;--metrics&#39; option</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>curl -s http://localhost:8008/metrics <span class="p">|</span> grep version
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Query the REST API - requires running with the &#39;--rest&#39; option</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>curl -s http://localhost:9100/eth/v1/node/version
+</code></pre></div>
+<h3 id="why-are-metrics-not-working">Why are metrics not working?</h3>
 <p>The metrics server is disabled by default: enable it by passing <code>--metrics</code> to the run command:</p>
-<pre><code class="language-sh">build/nimbus_beacon_node --metrics ...
-</code></pre>
-<h3 id="why-is-the-rest-server-not-working"><a class="header" href="#why-is-the-rest-server-not-working">Why is the REST server not working?</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_beacon_node --metrics ...
+</code></pre></div>
+<h3 id="why-is-the-rest-server-not-working">Why is the REST server not working?</h3>
 <p>The REST server is disabled by default: enable it by passing <code>--rest</code> to the run command:</p>
-<pre><code class="language-sh">build/nimbus_beacon_node --rest ...
-</code></pre>
-<h3 id="why-does-my-validator-miss-two-epochs-of-attestations-after-restarting"><a class="header" href="#why-does-my-validator-miss-two-epochs-of-attestations-after-restarting">Why does my validator miss two epochs of attestations after restarting?</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>build/nimbus_beacon_node --rest ...
+</code></pre></div>
+<h3 id="why-does-my-validator-miss-two-epochs-of-attestations-after-restarting">Why does my validator miss two epochs of attestations after restarting?</h3>
 <p>When a validator is started (or restarted) it prudently listens for 2 epochs for attestations from a validator with the same index (a doppelganger), before sending an attestation itself.</p>
 <p>In sum, it's a simple way of handling the case where one validator comes online with the same key as another validator that's already online (i.e one device was started without switching the other off).</p>
 <p>While this strategy requires the client to wait two whole epochs on restart before attesting, a couple of missed attestations is a very minor price to pay in exchange for significantly reducing the risk of an accidental slashing.</p>
 <p>You can think of it as a small penalty that you pay only on first launch and restarts. When you take into account the total runtime of your validator, the impact should be minimal.</p>
 <p>While we strongly recommend it, you can disable it with an explicit flag (<code>--doppelganger-detection=false</code>) if you don't plan on moving your setup.</p>
-<h3 id="whats-the-best-way-to-stress-test-my-execution--consensus-setup-before-committing-with-real-eth"><a class="header" href="#whats-the-best-way-to-stress-test-my-execution--consensus-setup-before-committing-with-real-eth">What's the best way to stress test my execution + consensus setup before committing with real ETH?</a></h3>
-<p>We recommend running <a href="./quick-start.html">a Nimbus beacon node</a> on <a href="./prater.html">Prater</a> and a mainnet <a href="./eth1.html">execution client</a> on the same machine - this will simulate the load of running a mainnet validator.</p>
-<p>To stress test it, add <code>--subscribe-all-subnets</code> to the <a href="./options.html">beacon node options</a>. This simulates the maximum load that the consensus layer will put on the machine should you run 64 validators or more on it.</p>
-<h3 id="how-do-i-add-an-additional-validator"><a class="header" href="#how-do-i-add-an-additional-validator">How do I add an additional validator?</a></h3>
-<p>To add an additional validator, follow <a href="./keys.html">the same steps</a> as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.</p>
-<div id="admonition-note" class="admonition note">
-<div class="admonition-title">
-<p>Note</p>
-<p><a class="admonition-anchor-link" href="#admonition-note"></a></p>
-</div>
-<div>
+<h3 id="whats-the-best-way-to-stress-test-my-execution-consensus-setup-before-committing-with-real-eth">What's the best way to stress test my execution + consensus setup before committing with real ETH?</h3>
+<p>We recommend running <a href="quick-start.html">a Nimbus beacon node</a> on <a href="prater.html">Prater</a> and a mainnet <a href="eth1.html">execution client</a> on the same machine - this will simulate the load of running a mainnet validator.</p>
+<p>To stress test it, add <code>--subscribe-all-subnets</code> to the <a href="options.html">beacon node options</a>. This simulates the maximum load that the consensus layer will put on the machine should you run 64 validators or more on it.</p>
+<h3 id="how-do-i-add-an-additional-validator">How do I add an additional validator?</h3>
+<p>To add an additional validator, follow <a href="keys.html">the same steps</a> as you did when you added your first. You'll have to restart the beacon node for the changes to take effect.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
 <p>Note that a single Nimbus instance is able to handle multiple validators.</p>
 </div>
-</div>
-<h2 id="networking"><a class="header" href="#networking">Networking</a></h2>
-<h3 id="how-can-i-improve-my-peer-count"><a class="header" href="#how-can-i-improve-my-peer-count">How can I improve my peer count?</a></h3>
-<p>See <a href="./networking.html">the networking guide</a>.</p>
-<h3 id="how-do-i-fix-the-discovered-new-external-address-warning-log"><a class="header" href="#how-do-i-fix-the-discovered-new-external-address-warning-log">How do I fix the discovered new external address warning log?</a></h3>
-<pre><code>WRN 2021-03-15 02:23:37.569+00:00 Discovered new external address but ENR auto update is off topics=&quot;discv5&quot;...
-</code></pre>
+<h2 id="networking">Networking</h2>
+<h3 id="how-can-i-improve-my-peer-count">How can I improve my peer count?</h3>
+<p>See <a href="networking.html">the networking guide</a>.</p>
+<h3 id="how-do-i-fix-the-discovered-new-external-address-warning-log">How do I fix the discovered new external address warning log?</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>WRN 2021-03-15 02:23:37.569+00:00 Discovered new external address but ENR auto update is off topics=&quot;discv5&quot;...
+</code></pre></div>
 <p>It's possible that your ISP has changed your dynamic IP address without you knowing.</p>
 <p>The first thing to do it to try relaunching the beacon node with <code>--enr-auto-update</code> (pass it as an option in the command line).</p>
 <p>If this doesn't fix the problem, the next thing to do is to check your external (public) IP address and detect open ports on your connection - you can use <a href="https://www.yougetsignal.com/tools/open-ports/">https://www.yougetsignal.com/tools/open-ports/</a>.  Note that Nimbus <code>TCP</code> and <code>UDP</code> ports are both set to <code>9000</code> by default.</p>
-<p>See <a href="./health.html#set-up-port-forwarding">here</a>, for how to set up port forwarding.</p>
-<h2 id="folder-permissions"><a class="header" href="#folder-permissions">Folder Permissions</a></h2>
+<p>See <a href="health.html#set-up-port-forwarding">here</a>, for how to set up port forwarding.</p>
+<h2 id="folder-permissions">Folder Permissions</h2>
 <p>To protect against key loss, Nimbus requires that files and directories be owned by the user running the application. Furthermore, they should not be readable by others.</p>
 <p>It may happen that the wrong permissions are applied, particularly when creating the directories manually.</p>
 <p>The following errors are a sign of this:</p>
@@ -207,40 +2079,40 @@ curl -s http://localhost:9100/eth/v1/node/version
 <li><code>Data directory has insecure permissions</code></li>
 <li><code>File has insecure permissions</code></li>
 </ul>
-<p>See the <a href="./data-dir.html#permissions">data directory</a> page for instructions on how to fix this</p>
-<h2 id="validating"><a class="header" href="#validating">Validating</a></h2>
-<h3 id="what-exactly-is-a-validator"><a class="header" href="#what-exactly-is-a-validator">What exactly is a validator?</a></h3>
+<p>See the <a href="data-dir.html#permissions">data directory</a> page for instructions on how to fix this</p>
+<h2 id="validating">Validating</h2>
+<h3 id="what-exactly-is-a-validator">What exactly is a validator?</h3>
 <p>A validator is an entity that participates in the consensus of the Ethereum protocol, and has staked 32 ETH to do so.</p>
 <p>Or in plain english, a human running a computer process. This process proposes and vouches for new blocks to be added to the blockchain.</p>
 <p>In other words, <strong>you can think of a validator as a voter for new blocks.</strong> The more votes a block gets, the more likely it is to be added to the chain.</p>
 <p>Importantly, a validator's vote is weighted by the amount it has at stake.</p>
-<h3 id="what-is-the-deposit-contract"><a class="header" href="#what-is-the-deposit-contract">What is the deposit contract?</a></h3>
+<h3 id="what-is-the-deposit-contract">What is the deposit contract?</h3>
 <p>You can think of it as a transfer of funds between Ethereum 1.0 accounts and Ethereum 2.0 validators.</p>
 <p>It specifies who is staking, who is validating, how much is being staked, and who can withdraw the funds.</p>
-<h3 id="why-do-validators-need-to-have-funds-at-stake"><a class="header" href="#why-do-validators-need-to-have-funds-at-stake">Why do validators need to have funds at stake?</a></h3>
+<h3 id="why-do-validators-need-to-have-funds-at-stake">Why do validators need to have funds at stake?</h3>
 <p>Validators need to have funds at stake so they can be penalized for behaving dishonestly.</p>
 <p>In other words, to keep them honest, their actions need to have financial consequences.</p>
-<h3 id="how-much-eth-does-a-validator-need-to-stake"><a class="header" href="#how-much-eth-does-a-validator-need-to-stake">How much ETH does a validator need to stake?</a></h3>
+<h3 id="how-much-eth-does-a-validator-need-to-stake">How much ETH does a validator need to stake?</h3>
 <p>Before a validator can start to secure the network, they need to stake <strong>32 ETH</strong>. This forms the validator's initial balance.</p>
-<h3 id="is-there-any-advantage-to-having-more-than-32-eth-at-stake"><a class="header" href="#is-there-any-advantage-to-having-more-than-32-eth-at-stake">Is there any advantage to having more than 32 ETH at stake?</a></h3>
+<h3 id="is-there-any-advantage-to-having-more-than-32-eth-at-stake">Is there any advantage to having more than 32 ETH at stake?</h3>
 <p>No. There is no advantage to having more than 32 ETH staked.</p>
 <p>Limiting the maximum stake to 32 ETH encourages decentralization of power as it prevents any single validator from having an excessively large vote on the state of the chain.</p>
 <blockquote>
 <p>Remember that a validator’s vote is weighted by the amount it has at stake.</p>
 </blockquote>
-<h3 id="can-i-stop-my-validator-for-a-few-days-and-then-start-it-back-up-again"><a class="header" href="#can-i-stop-my-validator-for-a-few-days-and-then-start-it-back-up-again">Can I stop my validator for a few days and then start it back up again?</a></h3>
+<h3 id="can-i-stop-my-validator-for-a-few-days-and-then-start-it-back-up-again">Can I stop my validator for a few days and then start it back up again?</h3>
 <p>Yes but, under normal conditions, you will lose an amount of ETH roughly equivalent to the amount of ETH you would have gained in that period. In other words, if you stood to earn ≈0.01 ETH, you would instead be penalised ≈0.01 ETH.</p>
-<h3 id="i-want-to-switch-my-validator-keys-to-another-machine-how-long-do-i-need-to-wait-to-avoid-getting-slashed"><a class="header" href="#i-want-to-switch-my-validator-keys-to-another-machine-how-long-do-i-need-to-wait-to-avoid-getting-slashed">I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?</a></h3>
+<h3 id="i-want-to-switch-my-validator-keys-to-another-machine-how-long-do-i-need-to-wait-to-avoid-getting-slashed">I want to switch my validator keys to another machine, how long do I need to wait to avoid getting slashed?</h3>
 <p>We recommend waiting 2 epochs (around 15 minutes), before restarting Nimbus on a different machine.</p>
-<h3 id="when-should-i-top-up-my-validators-balance"><a class="header" href="#when-should-i-top-up-my-validators-balance">When should I top up my validator's balance?</a></h3>
+<h3 id="when-should-i-top-up-my-validators-balance">When should I top up my validator's balance?</h3>
 <p>The answer to this question very much depends on how much ETH you have at your disposal.</p>
 <p>You should certainly top up if your balance is close to 16 ETH: this is to ensure you don't get removed from the validator set (which automatically happens if your balance falls below 16 ETH).</p>
 <p>At the other end of the spectrum, if your balance is closer to 31 ETH, it's probably not worth your while adding the extra ETH required to get back to 32.</p>
-<h3 id="when-can-i-withdraw-my-funds-and-whats-the-difference-between-exiting-and-withdrawing"><a class="header" href="#when-can-i-withdraw-my-funds-and-whats-the-difference-between-exiting-and-withdrawing">When can I withdraw my funds, and what's the difference between exiting and withdrawing?</a></h3>
-<p>You can signal your intent to stop validating by signing a <a href="./voluntary-exit.html">voluntary exit</a> message with your validator.</p>
+<h3 id="when-can-i-withdraw-my-funds-and-whats-the-difference-between-exiting-and-withdrawing">When can I withdraw my funds, and what's the difference between exiting and withdrawing?</h3>
+<p>You can signal your intent to stop validating by signing a <a href="voluntary-exit.html">voluntary exit</a> message with your validator.</p>
 <p>However, bear in mind that in Phase 0, once you've exited, there's no going back.</p>
 <p>There's no way for you to activate your validator again, and you won't be able to transfer or withdraw your funds until at least Phase 1.5 (which means your funds will remain inaccessible until then).</p>
-<h3 id="how-are-validators-incentivized-to-stay-active-and-honest"><a class="header" href="#how-are-validators-incentivized-to-stay-active-and-honest">How are validators incentivized to stay active and honest?</a></h3>
+<h3 id="how-are-validators-incentivized-to-stay-active-and-honest">How are validators incentivized to stay active and honest?</h3>
 <p>In addition to being penalized for being offline, validators are penalized for behaving maliciously – for example attesting to invalid or contradicting blocks.</p>
 <p>On the other hand, they are rewarded for proposing / attesting to blocks that are included in the chain.</p>
 <p>The key concept is the following:</p>
@@ -250,26 +2122,26 @@ curl -s http://localhost:9100/eth/v1/node/version
 <li>And major penalities -- or <strong>slashings</strong> -- are given for malicious actions</li>
 </ul>
 <p>In other words, validators that maximize their rewards also provide the greatest benefit to the network as a whole.</p>
-<h3 id="how-are-rewardspenalties-issued"><a class="header" href="#how-are-rewardspenalties-issued">How are rewards/penalties issued?</a></h3>
+<h3 id="how-are-rewardspenalties-issued">How are rewards/penalties issued?</h3>
 <p>Remember that each validator has its own balance -- with the initial balance outlined in the deposit contract.</p>
 <p>This balance is updated periodically by the Ethereum network rules as the validator carries (or fails to carry) out his or her responsibilities.</p>
 <p>Put another way, rewards and penalties are reflected in the validator's balance over time.</p>
-<h3 id="how-often-are-rewardspenalties-issued"><a class="header" href="#how-often-are-rewardspenalties-issued">How often are rewards/penalties issued?</a></h3>
+<h3 id="how-often-are-rewardspenalties-issued">How often are rewards/penalties issued?</h3>
 <p>Approximately every six and a half minutes -- a period of time known as an epoch.</p>
 <p>Every epoch, the network measures the actions of each validator and issues rewards or penalties appropriately.</p>
-<h3 id="how-large-are-the-rewardspenalties"><a class="header" href="#how-large-are-the-rewardspenalties">How large are the rewards/penalties?</a></h3>
+<h3 id="how-large-are-the-rewardspenalties">How large are the rewards/penalties?</h3>
 <p>There is no easy answer to this question as there are many factors that go into this calculation.</p>
 <p>Arguably the most impactful factor on rewards earned for validating transactions is the total amount of stake in the network. In other words, the total amount of validators. Depending on this figure the max annual return rate for a validator can be anywhere between 2 and 20%.</p>
 <p>Given a fixed total number of validators, the rewards/penalties predominantly scale with the balance of the validator -- attesting with a higher balance results in larger rewards/penalties whereas attesting with a lower balance results in lower rewards/penalties.</p>
 <blockquote>
 <p>Note however that this scaling mechanism works in a non-obvious way. To understand the precise details of how it works requires understanding a concept called <strong>effective balance</strong>. If you're not yet familiar with this concept, we recommend you read through this <a href="https://www.attestant.io/posts/understanding-validator-effective-balance/">excellent post</a>.</p>
 </blockquote>
-<h3 id="why-do-rewards-depend-on-the-total-number-of-validators-in-the-network"><a class="header" href="#why-do-rewards-depend-on-the-total-number-of-validators-in-the-network">Why do rewards depend on the total number of validators in the network?</a></h3>
+<h3 id="why-do-rewards-depend-on-the-total-number-of-validators-in-the-network">Why do rewards depend on the total number of validators in the network?</h3>
 <p>Block rewards are calculated using a sliding scale based on the total amount of ETH staked on the network.</p>
 <p>In plain english: if the total amount of ETH staked is low, the reward (interest rate) is high, but as the total stake rises, the reward (interest) paid out to each validator starts to fall.</p>
 <p>Why a sliding scale? While we won't get into the gory details here, the basic intution is that there needs to be a minimum number of validators (and hence a minimum amount of ETH staked) for the network to function properly. So, to incentivize more validators to join, it's important that the interest rate remains high until this minimum number is reached.</p>
 <p>Afterwards, validators are still encouraged to join (the more validators the more decentralized the network), but it's not absolutely essential that they do so (so the interest rate can fall).</p>
-<h3 id="how-badly-will-a-validator-be-penalized-for-being-offline"><a class="header" href="#how-badly-will-a-validator-be-penalized-for-being-offline">How badly will a validator be penalized for being offline?</a></h3>
+<h3 id="how-badly-will-a-validator-be-penalized-for-being-offline">How badly will a validator be penalized for being offline?</h3>
 <p>It depends. In addition to <a href="https://www.attestant.io/posts/understanding-validator-effective-balance/#the-impact-of-effective-balance-on-validating">the impact of effective balance</a> there are two important scenarios to be aware of:</p>
 <ol>
 <li>
@@ -282,17 +2154,17 @@ curl -s http://localhost:9100/eth/v1/node/version
 <blockquote>
 <p>Note that in the second (unlikely) scenario, validators stand to progressively lose up to 50% (16 ETH) of their stake over 21 days. After 21 days they are ejected out of the validator pool. This ensures that blocks start finalizing again at some point.</p>
 </blockquote>
-<h3 id="how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable"><a class="header" href="#how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable">How great does an honest validator's uptime need to be for it to be net profitable?</a></h3>
+<h3 id="how-great-does-an-honest-validators-uptime-need-to-be-for-it-to-be-net-profitable">How great does an honest validator's uptime need to be for it to be net profitable?</h3>
 <p>Overall, validators are expected to be net profitable as long as their uptime is <a href="https://blog.ethereum.org/2020/01/13/validated-staking-on-eth2-1-incentives/">greater than 50%</a>.</p>
 <p>This means that validators need not go to extreme lengths with backup clients or redundant internet connections as the repercussions of being offline are not so severe.</p>
-<h3 id="how-much-will-a-validator-be-penalized-for-acting-maliciously"><a class="header" href="#how-much-will-a-validator-be-penalized-for-acting-maliciously">How much will a validator be penalized for acting maliciously?</a></h3>
+<h3 id="how-much-will-a-validator-be-penalized-for-acting-maliciously">How much will a validator be penalized for acting maliciously?</h3>
 <p>Again, it depends. Behaving maliciously – for example attesting to invalid or contradicting blocks, will lead to a validator's stake being slashed.</p>
 <p>The minimum amount that can be slashed is 1 ETH, but <strong>this number increases if other validators are slashed at the same time.</strong></p>
 <p>The idea behind this is to minimize the losses from honest mistakes, but strongly disincentivize coordinated attacks.</p>
-<h3 id="what-exactly-is-slashing"><a class="header" href="#what-exactly-is-slashing">What exactly is slashing?</a></h3>
+<h3 id="what-exactly-is-slashing">What exactly is slashing?</h3>
 <p>Slashing has two purposes: (1) to make it prohibitively expensive to attack eth2, and (2) to stop validators from being lazy by checking that they actually perform their duties. Slashing a validator is to destroy (a portion of) the validator’s stake if they act in a provably destructive manner.</p>
 <p>Validators that are slashed are prevented from participating in the protocol further and are forcibly exited.</p>
-<h3 id="what-happens-i-lose-my-signing-key"><a class="header" href="#what-happens-i-lose-my-signing-key">What happens I lose my signing key?</a></h3>
+<h3 id="what-happens-i-lose-my-signing-key">What happens I lose my signing key?</h3>
 <p>If the signing key is lost, the validator can no longer propose or attest.</p>
 <p>Over time, the validator's balance will decrease as he or she is punished for not participating in the consensus process. When the validator's balance reaches 16 Eth, he or she will be automatically exited from the validator pool.</p>
 <blockquote>
@@ -302,63 +2174,94 @@ curl -s http://localhost:9100/eth/v1/node/version
 <blockquote>
 <p>Note that this delay can be longer if many others are exiting or being kicked out at the same time.</p>
 </blockquote>
-<h3 id="what-happens-if-i-lose-my-withdrawal-key"><a class="header" href="#what-happens-if-i-lose-my-withdrawal-key">What happens if I lose my withdrawal key?</a></h3>
+<h3 id="what-happens-if-i-lose-my-withdrawal-key">What happens if I lose my withdrawal key?</h3>
 <p>If the withdrawal key is lost, there is no way to obtain access to the funds held by the validator.</p>
 <p>As such, it's a good idea to create your keys from mnemonics which act as another backup. This will be the default for validators who join via this site's onboarding process.</p>
-<h3 id="what-happens-if-my-withdrawal-key-is-stolen"><a class="header" href="#what-happens-if-my-withdrawal-key-is-stolen">What happens if my withdrawal key is stolen?</a></h3>
+<h3 id="what-happens-if-my-withdrawal-key-is-stolen">What happens if my withdrawal key is stolen?</h3>
 <p>If the withdrawal key is stolen, the thief can transfer the validator’s balance, but only once the validator has exited.</p>
 <p>If the signing key is not under the thief’s control, the thief cannot exit the validator.</p>
 <p>The user with the signing key could attempt to quickly exit the validator and then transfer the funds -- with the withdrawal key -- before the thief.</p>
-<h3 id="why-two-keys-instead-of-one"><a class="header" href="#why-two-keys-instead-of-one">Why two keys instead of one?</a></h3>
+<h3 id="why-two-keys-instead-of-one">Why two keys instead of one?</h3>
 <p>In a nutshell, security. The signing key must be available at all times. As such, it will need to be held online. Since anything online is vulnerable to being hacked, it's not a good idea to use the same key for withdrawals.</p>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/faq.md">Edit this file on GitHub.</a></footer>
-                    </main>
 
-                    <nav class="nav-wrapper" aria-label="Page navigation">
-                        <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="resources.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                                <i class="fa fa-angle-left"></i>
-                            </a>
+              
+            </article>
+            
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
 
-                            <a rel="next" href="api.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
-
-                        <div style="clear: both"></div>
-                    </nav>
-                </div>
-            </div>
-
-            <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="resources.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                        <i class="fa fa-angle-left"></i>
-                    </a>
-
-                    <a rel="next" href="api.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
-            </nav>
-
+          </div>
         </div>
-
-
-
-
-        <script type="text/javascript">
-            window.playground_copyable = true;
-        </script>
-
-
-        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
-
-        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
-        <script src="book.js" type="text/javascript" charset="utf-8"></script>
-
-        <!-- Custom JS scripts -->
-
-
-    </body>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+    <nav class="md-footer__inner md-grid" aria-label="Footer" >
+      
+        
+        <a href="resources.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Resources" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Resources
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="api.html" class="md-footer__link md-footer__link--next" aria-label="Next: JSON-RPC API (deprecated)" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              JSON-RPC API (deprecated)
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.expand", "navigation.tabs", "navigation.top", "content.tabs.link"], "search": "assets/javascripts/workers/search.b97dbffb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.6c7ad80a.min.js"></script>
+      
+    
+  </body>
 </html>

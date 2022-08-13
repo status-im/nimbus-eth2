@@ -1,316 +1,1900 @@
-<!DOCTYPE HTML>
-<html lang="en" class="sidebar-visible no-js light">
-    <head>
-        <!-- Book generated using mdBook -->
-        <meta charset="UTF-8">
-        <title>For developers - The Nimbus Beacon Chain Book</title>
 
-
-        <!-- Custom HTML head -->
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://nimbus.guide/developers.html">
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.3.1, mkdocs-material-8.3.9">
+    
+    
+      
+        <title>For Developers - The Nimbus Guide</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.1d29e8d0.min.css">
+      
         
-        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
-        <meta name="description" content="">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="theme-color" content="#ffffff" />
+        <link rel="stylesheet" href="assets/stylesheets/palette.cbb835fc.min.css">
+        
+          
+          
+          <meta name="theme-color" content="#ffa724">
+        
+      
+      
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL(".",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
 
-        <link rel="icon" href="favicon.svg">
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#for-developers" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
 
-        <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="fonts/fonts.css">
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="The Nimbus Guide" class="md-header__button md-logo" aria-label="The Nimbus Guide" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
 
-        <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="highlight.css">
-        <link rel="stylesheet" href="tomorrow-night.css">
-        <link rel="stylesheet" href="ayu-highlight.css">
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            The Nimbus Guide
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              For Developers
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/status-im/nimbus-eth2" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
 
-        <!-- Custom theme stylesheets -->
-        <link rel="stylesheet" href="custom.css">
-        <link rel="stylesheet" href="mdbook-admonish.css">
 
-    </head>
-    <body>
-        <!-- Provide site root to javascript -->
-        <script type="text/javascript">
-            var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
-        </script>
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="index.html" class="md-tabs__link">
+        About
+      </a>
+    </li>
+  
 
-        <!-- Work around some values being stored in localStorage wrapped in quotes -->
-        <script type="text/javascript">
-            try {
-                var theme = localStorage.getItem('mdbook-theme');
-                var sidebar = localStorage.getItem('mdbook-sidebar');
+      
+        
+  
+  
 
-                if (theme.startsWith('"') && theme.endsWith('"')) {
-                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
-                }
 
-                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
-                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
-                }
-            } catch (e) { }
-        </script>
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="quick-start.html" class="md-tabs__link">
+        Getting started
+      </a>
+    </li>
+  
 
-        <!-- Set the theme before any content is loaded, prevents flash -->
-        <script type="text/javascript">
-            var theme;
-            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
-            if (theme === null || theme === undefined) { theme = default_theme; }
-            var html = document.querySelector('html');
-            html.classList.remove('no-js')
-            html.classList.remove('light')
-            html.classList.add(theme);
-            html.classList.add('js');
-        </script>
+      
+        
+  
+  
 
-        <!-- Hide / unhide sidebar before it is displayed -->
-        <script type="text/javascript">
-            var html = document.querySelector('html');
-            var sidebar = 'hidden';
-            if (document.body.clientWidth >= 1080) {
-                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
-                sidebar = sidebar || 'visible';
-            }
-            html.classList.remove('sidebar-visible');
-            html.classList.add("sidebar-" + sidebar);
-        </script>
 
-        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="intro.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="philosophy.html"><strong aria-hidden="true">2.</strong> Design goals</a></li><li class="chapter-item expanded "><a href="hardware.html"><strong aria-hidden="true">3.</strong> System requirements</a></li><li class="chapter-item expanded "><a href="preparation.html"><strong aria-hidden="true">4.</strong> Mainnet checklist</a></li><li class="chapter-item expanded "><a href="merge.html"><strong aria-hidden="true">5.</strong> Merge readiness</a></li><li class="chapter-item expanded affix "><li class="part-title">Quickstart</li><li class="chapter-item expanded "><a href="quick-start.html"><strong aria-hidden="true">6.</strong> Run the beacon node</a></li><li class="chapter-item expanded "><a href="run-a-validator.html"><strong aria-hidden="true">7.</strong> Run a validator</a></li><li class="chapter-item expanded affix "><li class="part-title">Downloads</li><li class="chapter-item expanded "><a href="binaries.html"><strong aria-hidden="true">8.</strong> Binaries</a></li><li class="chapter-item expanded "><a href="docker.html"><strong aria-hidden="true">9.</strong> Docker</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">10.</strong> Source code</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (beacon node)</li><li class="chapter-item expanded "><a href="install.html"><strong aria-hidden="true">11.</strong> Install dependencies</a></li><li class="chapter-item expanded "><a href="build.html"><strong aria-hidden="true">12.</strong> Build the beacon node</a></li><li class="chapter-item expanded "><a href="start-syncing.html"><strong aria-hidden="true">13.</strong> Sync from scratch</a></li><li class="chapter-item expanded "><a href="trusted-node-sync.html"><strong aria-hidden="true">14.</strong> Sync from a trusted node (checkpoint sync)</a></li><li class="chapter-item expanded "><a href="web3-backup.html"><strong aria-hidden="true">15.</strong> Add a backup web3 provider</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (validator)</li><li class="chapter-item expanded "><a href="deposit.html"><strong aria-hidden="true">16.</strong> Make a deposit</a></li><li class="chapter-item expanded "><a href="keys.html"><strong aria-hidden="true">17.</strong> Import your validator keys</a></li><li class="chapter-item expanded "><a href="connect-eth2.html"><strong aria-hidden="true">18.</strong> Start validating</a></li><li class="chapter-item expanded "><a href="graffiti.html"><strong aria-hidden="true">19.</strong> Graffiti the blockchain</a></li><li class="chapter-item expanded "><a href="suggested-fee-recipient.html"><strong aria-hidden="true">20.</strong> Set up transaction fee recipient</a></li><li class="chapter-item expanded "><a href="keep-an-eye.html"><strong aria-hidden="true">21.</strong> Keep an eye on your validator</a></li><li class="chapter-item expanded "><a href="voluntary-exit.html"><strong aria-hidden="true">22.</strong> Perform a voluntary exit</a></li><li class="chapter-item expanded "><a href="validator-monitor.html"><strong aria-hidden="true">23.</strong> Monitor validator actions</a></li><li class="chapter-item expanded "><a href="more-keys.html"><strong aria-hidden="true">24.</strong> Recover or generate keys</a></li><li class="chapter-item expanded "><a href="additional-validator.html"><strong aria-hidden="true">25.</strong> Add an additional validator</a></li><li class="chapter-item expanded "><a href="validator-client.html"><strong aria-hidden="true">26.</strong> Run a separate validator client</a></li><li class="chapter-item expanded affix "><li class="part-title">How-to (misc)</li><li class="chapter-item expanded "><a href="keep-updated.html"><strong aria-hidden="true">27.</strong> Upgrade / downgrade Nimbus</a></li><li class="chapter-item expanded "><a href="eth1.html"><strong aria-hidden="true">28.</strong> Run an Execution client</a></li><li class="chapter-item expanded "><a href="goerli-eth.html"><strong aria-hidden="true">29.</strong> Obtain Goerli ETH</a></li><li class="chapter-item expanded "><a href="beacon-node-systemd.html"><strong aria-hidden="true">30.</strong> Set up a systemd service</a></li><li class="chapter-item expanded "><a href="log-rotate.html"><strong aria-hidden="true">31.</strong> Set up log rotation</a></li><li class="chapter-item expanded "><a href="checksums.html"><strong aria-hidden="true">32.</strong> Verify the integrity of Nimbus</a></li><li class="chapter-item expanded "><a href="database-backup.html"><strong aria-hidden="true">33.</strong> Back up your database</a></li><li class="chapter-item expanded "><a href="logging.html"><strong aria-hidden="true">34.</strong> Set up logging</a></li><li class="chapter-item expanded "><a href="email-notifications.html"><strong aria-hidden="true">35.</strong> Set up email notifications</a></li><li class="chapter-item expanded "><a href="profits.html"><strong aria-hidden="true">36.</strong> Optimise for profitability</a></li><li class="chapter-item expanded "><a href="health.html"><strong aria-hidden="true">37.</strong> Monitor the health of your node</a></li><li class="chapter-item expanded "><a href="networking.html"><strong aria-hidden="true">38.</strong> Networking</a></li><li class="chapter-item expanded "><a href="prater.html"><strong aria-hidden="true">39.</strong> Prater testnet</a></li><li class="chapter-item expanded "><a href="kiln.html"><strong aria-hidden="true">40.</strong> Kiln testnet</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="metrics-pretty-pictures.html"><strong aria-hidden="true">41.</strong> Grafana and Prometheus</a></li><li class="chapter-item expanded "><a href="infura-guide.html"><strong aria-hidden="true">42.</strong> Create your own Infura endpoint</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">43.</strong> Migrate from another client</a></li><li class="chapter-item expanded "><a href="pi-guide.html"><strong aria-hidden="true">44.</strong> Validate with a Raspberry Pi</a></li><li class="chapter-item expanded "><a href="attestation-performance.html"><strong aria-hidden="true">45.</strong> Analyze attestation performance</a></li><li class="chapter-item expanded affix "><li class="part-title">Security</li><li class="chapter-item expanded "><a href="security_issues.html"><strong aria-hidden="true">46.</strong> Security Issues / Responsible Disclosure</a></li><li class="chapter-item expanded "><a href="audit.html"><strong aria-hidden="true">47.</strong> Security Audit</a></li><li class="chapter-item expanded "><a href="distribution_internals.html"><strong aria-hidden="true">48.</strong> Reproducible Builds</a></li><li class="chapter-item expanded affix "><li class="part-title">Reference</li><li class="chapter-item expanded "><a href="rest-api.html"><strong aria-hidden="true">49.</strong> REST API</a></li><li class="chapter-item expanded "><a href="keymanager-api.html"><strong aria-hidden="true">50.</strong> Keymanager API</a></li><li class="chapter-item expanded "><a href="options.html"><strong aria-hidden="true">51.</strong> Help / Command line options</a></li><li class="chapter-item expanded "><a href="data-dir.html"><strong aria-hidden="true">52.</strong> Data directory</a></li><li class="chapter-item expanded "><a href="migration-options.html"><strong aria-hidden="true">53.</strong> Advanced migration options</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">54.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="developers.html" class="active"><strong aria-hidden="true">55.</strong> For developers</a></li><li class="chapter-item expanded "><a href="contribute.html"><strong aria-hidden="true">56.</strong> Contribute</a></li><li class="chapter-item expanded "><a href="resources.html"><strong aria-hidden="true">57.</strong> Resources</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">58.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="api.html"><strong aria-hidden="true">59.</strong> JSON-RPC API (deprecated)</a></li></ol>
-            </div>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
-        </nav>
+  
+  
+  
+    
 
-        <div id="page-wrapper" class="page-wrapper">
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="install.html" class="md-tabs__link">
+        How-to
+      </a>
+    </li>
+  
 
-            <div class="page">
-                                <div id="menu-bar-hover-placeholder"></div>
-                <div id="menu-bar" class="menu-bar sticky bordered">
-                    <div class="left-buttons">
-                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                            <i class="fa fa-bars"></i>
-                        </button>
-                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                            <i class="fa fa-paint-brush"></i>
-                        </button>
-                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
-                        </ul>
-                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
-                            <i class="fa fa-search"></i>
-                        </button>
-                    </div>
+  
 
-                    <h1 class="menu-title">The Nimbus Beacon Chain Book</h1>
+      
+        
+  
+  
 
-                    <div class="right-buttons">
-                        <a href="print.html" title="Print this book" aria-label="Print this book">
-                            <i id="print-button" class="fa fa-print"></i>
-                        </a>
-                        <a href="https://github.com/status-im/nimbus-eth2" title="Git repository" aria-label="Git repository">
-                            <i id="git-repository-button" class="fa fa-github"></i>
-                        </a>
 
-                    </div>
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="security_issues.html" class="md-tabs__link">
+        Security
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="hardware.html" class="md-tabs__link md-tabs__link--active">
+        Reference
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="binaries.html" class="md-tabs__link">
+        Downloads
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="The Nimbus Guide" class="md-nav__button md-logo" aria-label="The Nimbus Guide" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    The Nimbus Guide
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/status-im/nimbus-eth2" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_1" type="checkbox" id="__nav_1" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_1">
+          About
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="About" data-md-level="1">
+        <label class="md-nav__title" for="__nav_1">
+          <span class="md-nav__icon md-icon"></span>
+          About
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html" class="md-nav__link">
+        The Nimbus Guide
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="merge.html" class="md-nav__link">
+        The Merge
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="philosophy.html" class="md-nav__link">
+        Design goals
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="preparation.html" class="md-nav__link">
+        Mainnet checklist
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2">
+          Getting started
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Getting started" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Getting started
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="quick-start.html" class="md-nav__link">
+        Run the beacon node
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="run-a-validator.html" class="md-nav__link">
+        Run a validator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration.html" class="md-nav__link">
+        Migrate from another client
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="metrics-pretty-pictures.html" class="md-nav__link">
+        Grafana and Prometheus
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="pi-guide.html" class="md-nav__link">
+        Running on a Raspberry Pi
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="el-light-client.html" class="md-nav__link">
+        Run the light client
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          How-to
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="How-to" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          How-to
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_1" type="checkbox" id="__nav_3_1" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_1">
+          Beacon node
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Beacon node" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_1">
+          <span class="md-nav__icon md-icon"></span>
+          Beacon node
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="install.html" class="md-nav__link">
+        Prepare your machine
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="build.html" class="md-nav__link">
+        Build from source
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="start-syncing.html" class="md-nav__link">
+        Sync your node
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="trusted-node-sync.html" class="md-nav__link">
+        Sync from a trusted node
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="web3-backup.html" class="md-nav__link">
+        Backup web3 provider
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_2" type="checkbox" id="__nav_3_2" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_2">
+          Validator
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Validator" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_2">
+          <span class="md-nav__icon md-icon"></span>
+          Validator
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="deposit.html" class="md-nav__link">
+        Make a deposit for your validator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keys.html" class="md-nav__link">
+        Import your validator keys
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="connect-eth2.html" class="md-nav__link">
+        Start validating
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="graffiti.html" class="md-nav__link">
+        Set up Graffiti
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="suggested-fee-recipient.html" class="md-nav__link">
+        Set up suggested fee recipient
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keep-an-eye.html" class="md-nav__link">
+        Keep an eye on your validator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="voluntary-exit.html" class="md-nav__link">
+        Perform a voluntary exit
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="more-keys.html" class="md-nav__link">
+        Recover lost keys and generate new ones
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="additional-validator.html" class="md-nav__link">
+        Add an additional validator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="validator-client.html" class="md-nav__link">
+        Run a separate validator client
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_3" type="checkbox" id="__nav_3_3" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_3">
+          General
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="General" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_3">
+          <span class="md-nav__icon md-icon"></span>
+          General
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keep-updated.html" class="md-nav__link">
+        Upgrade / downgrade
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="eth1.html" class="md-nav__link">
+        Run an execution client
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="goerli-eth.html" class="md-nav__link">
+        Obtain Goerli ETH
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="beacon-node-systemd.html" class="md-nav__link">
+        Set up a systemd service
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="log-rotate.html" class="md-nav__link">
+        Set up log rotation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="database-backup.html" class="md-nav__link">
+        Back up your database
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="email-notifications.html" class="md-nav__link">
+        Email notifications
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="profits.html" class="md-nav__link">
+        Optimise for profitability
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="health.html" class="md-nav__link">
+        Monitor the health of your node
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="prater.html" class="md-nav__link">
+        Prater testnet
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4">
+          Security
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Security" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Security
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="security_issues.html" class="md-nav__link">
+        Security issues
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="audit.html" class="md-nav__link">
+        Security Audit
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="distribution_internals.html" class="md-nav__link">
+        Binary distribution internals
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_5" type="checkbox" id="__nav_5" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5">
+          Reference
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Reference" data-md-level="1">
+        <label class="md-nav__title" for="__nav_5">
+          <span class="md-nav__icon md-icon"></span>
+          Reference
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="hardware.html" class="md-nav__link">
+        System requirements
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="options.html" class="md-nav__link">
+        Command line options
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="networking.html" class="md-nav__link">
+        Networking
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="logging.html" class="md-nav__link">
+        Logging options
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="validator-monitor.html" class="md-nav__link">
+        Validator monitoring
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="attestation-performance.html" class="md-nav__link">
+        Attestation performance analysis
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="rest-api.html" class="md-nav__link">
+        REST API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keymanager-api.html" class="md-nav__link">
+        Keymanager API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="data-dir.html" class="md-nav__link">
+        The data directory
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration-options.html" class="md-nav__link">
+        Client migration (advanced)
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="light-client-data.html" class="md-nav__link">
+        Light client data (advanced)
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="troubleshooting.html" class="md-nav__link">
+        Troubleshooting
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          For Developers
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="developers.html" class="md-nav__link md-nav__link--active">
+        For Developers
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#code-style" class="md-nav__link">
+    Code style
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#branch-lifecycle" class="md-nav__link">
+    Branch lifecycle
+  </a>
+  
+    <nav class="md-nav" aria-label="Branch lifecycle">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unstable" class="md-nav__link">
+    Unstable
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    Testing
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stable" class="md-nav__link">
+    Stable
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-system" class="md-nav__link">
+    Build system
+  </a>
+  
+    <nav class="md-nav" aria-label="Build system">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#windows" class="md-nav__link">
+    Windows
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#linux-macos" class="md-nav__link">
+    Linux, macOS
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    Environment
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#makefile-tips-and-tricks-for-developers" class="md-nav__link">
+    Makefile tips and tricks for developers
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-client-interop-scripts" class="md-nav__link">
+    Multi-client interop scripts
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stress-testing-the-client-by-limiting-the-cpu-power" class="md-nav__link">
+    Stress-testing the client by limiting the CPU power
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-and-run-the-local-beacon-chain-simulation" class="md-nav__link">
+    Build and run the local beacon chain simulation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-and-run-the-local-state-transition-simulation" class="md-nav__link">
+    Build and run the local state transition simulation
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="resources.html" class="md-nav__link">
+        Resources
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="faq.html" class="md-nav__link">
+        Frequently Asked Questions
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="api.html" class="md-nav__link">
+        JSON-RPC API (deprecated)
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="contribute.html" class="md-nav__link">
+        Updating this guide
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_6" type="checkbox" id="__nav_6" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_6">
+          Downloads
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Downloads" data-md-level="1">
+        <label class="md-nav__title" for="__nav_6">
+          <span class="md-nav__icon md-icon"></span>
+          Downloads
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="binaries.html" class="md-nav__link">
+        Binaries
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="docker.html" class="md-nav__link">
+        Docker images
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="checksums.html" class="md-nav__link">
+        Checksums
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
                 </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
 
-                <div id="search-wrapper" class="hidden">
-                    <form id="searchbar-outer" class="searchbar-outer">
-                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
-                    </form>
-                    <div id="searchresults-outer" class="searchresults-outer hidden">
-                        <div id="searchresults-header" class="searchresults-header"></div>
-                        <ul id="searchresults">
-                        </ul>
-                    </div>
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#code-style" class="md-nav__link">
+    Code style
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#branch-lifecycle" class="md-nav__link">
+    Branch lifecycle
+  </a>
+  
+    <nav class="md-nav" aria-label="Branch lifecycle">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unstable" class="md-nav__link">
+    Unstable
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    Testing
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stable" class="md-nav__link">
+    Stable
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-system" class="md-nav__link">
+    Build system
+  </a>
+  
+    <nav class="md-nav" aria-label="Build system">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#windows" class="md-nav__link">
+    Windows
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#linux-macos" class="md-nav__link">
+    Linux, macOS
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment" class="md-nav__link">
+    Environment
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#makefile-tips-and-tricks-for-developers" class="md-nav__link">
+    Makefile tips and tricks for developers
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-client-interop-scripts" class="md-nav__link">
+    Multi-client interop scripts
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stress-testing-the-client-by-limiting-the-cpu-power" class="md-nav__link">
+    Stress-testing the client by limiting the CPU power
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-and-run-the-local-beacon-chain-simulation" class="md-nav__link">
+    Build and run the local beacon chain simulation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-and-run-the-local-state-transition-simulation" class="md-nav__link">
+    Build and run the local state transition simulation
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
                 </div>
+              </div>
+            
+          
+          <div class="md-content" data-md-component="content">
+            <article class="md-content__inner md-typeset">
+              
+                
+  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/developers.md" title="Edit this page" class="md-content__button md-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
+  </a>
 
-                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
-                <script type="text/javascript">
-                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
-                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
-                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
-                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
-                    });
-                </script>
 
-                <div id="content" class="content">
-                    <main>
-                        <h1 id="for-developers"><a class="header" href="#for-developers">For Developers</a></h1>
+
+<h1 id="for-developers">For Developers</h1>
 <p>This page contains tips and tricks for developers, further resources, along with information on how to set up your build environment on your platform.</p>
-<p>Before building Nimbus for the first time, make sure to install the <a href="./install.html">prerequisites</a>.</p>
-<h2 id="code-style"><a class="header" href="#code-style">Code style</a></h2>
+<p>Before building Nimbus for the first time, make sure to install the <a href="install.html">prerequisites</a>.</p>
+<h2 id="code-style">Code style</h2>
 <p>The code follows the <a href="https://status-im.github.io/nim-style-guide/">Status Nim Style Guide</a>.</p>
-<h2 id="branch-lifecycle"><a class="header" href="#branch-lifecycle">Branch lifecycle</a></h2>
+<h2 id="branch-lifecycle">Branch lifecycle</h2>
 <p>The git repository has 3 main branches, <code>stable</code>, <code>testing</code> and <code>unstable</code> as well as feature and bugfix branches.</p>
-<h3 id="unstable"><a class="header" href="#unstable">Unstable</a></h3>
+<h3 id="unstable">Unstable</h3>
 <p>The <code>unstable</code> branch contains features and bugfixes that are actively being tested and worked on.</p>
 <ul>
 <li>Features and bugfixes are generally pushed to individual branches, each with their own pull request against the <code>unstable</code> branch.</li>
 <li>Once the branch has been reviewed and passed CI, the developer or reviewer merges the branch to <code>unstable</code>.</li>
 <li>The <code>unstable</code> branch is regularly deployed to the Nimbus Prater fleet where additional testing happens.</li>
 </ul>
-<h3 id="testing"><a class="header" href="#testing">Testing</a></h3>
+<h3 id="testing">Testing</h3>
 <p>The <code>testing</code> branch contains features and bugfixes that have gone through CI and initial testing on the <code>unstable</code> branch and are ready to be included in the next release.</p>
 <ul>
 <li>After testing a bugfix or feature on <code>unstable</code>, the features and fixes that are planned for the next release get merged to the <code>testing</code> branch either by the release manager or team members.</li>
 <li>The <code>testing</code> branch is regularly deployed to the Nimbus prater fleet as well as a smaller mainnet fleet.</li>
 <li>The branch should remain release-ready at most times.</li>
 </ul>
-<h3 id="stable"><a class="header" href="#stable">Stable</a></h3>
+<h3 id="stable">Stable</h3>
 <p>The <code>stable</code> branch tracks the latest released version of Nimbus and is suitable for mainnet staking.</p>
-<h2 id="build-system"><a class="header" href="#build-system">Build system</a></h2>
-<h3 id="windows"><a class="header" href="#windows">Windows</a></h3>
-<pre><code class="language-bash">mingw32-make # this first invocation will update the Git submodules
-</code></pre>
+<h2 id="build-system">Build system</h2>
+<h3 id="windows">Windows</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mingw32-make <span class="c1"># this first invocation will update the Git submodules</span>
+</code></pre></div>
 <p>You can now follow the instructions in this this book by replacing <code>make</code> with <code>mingw32-make</code> (you should run <code>mingw32</code> regardless of whether you're running 32-bit or 64-bit architecture):</p>
-<pre><code class="language-bash">mingw32-make test # run the test suite
-</code></pre>
-<h3 id="linux-macos"><a class="header" href="#linux-macos">Linux, macOS</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mingw32-make <span class="nb">test</span> <span class="c1"># run the test suite</span>
+</code></pre></div>
+<h3 id="linux-macos">Linux, macOS</h3>
 <p>After cloning the repo:</p>
-<pre><code class="language-bash"># Build nimbus_beacon_node and all the tools, using 4 parallel Make jobs
-make -j4
-
-# Run tests
-make test
-
-# Update to latest version
-git pull
-make update
-</code></pre>
-<h2 id="environment"><a class="header" href="#environment">Environment</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Build nimbus_beacon_node and all the tools, using 4 parallel Make jobs</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>make -j4
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Run tests</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>make <span class="nb">test</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Update to latest version</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>git pull
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>make update
+</code></pre></div>
+<h2 id="environment">Environment</h2>
 <p>Nimbus comes with a build environment similar to Python venv - this helps ensure that the correct version of Nim is used and that all dependencies can be found.</p>
-<pre><code class="language-bash">./env.sh bash # start a new interactive shell with the right env vars set
-which nim
-nim --version # Nimbus is tested and supported on 1.2.12 at the moment
-
-# or without starting a new interactive shell:
-./env.sh which nim
-./env.sh nim --version
-
-# Start Visual Studio code with environment
-./env.sh code
-
-</code></pre>
-<h2 id="makefile-tips-and-tricks-for-developers"><a class="header" href="#makefile-tips-and-tricks-for-developers">Makefile tips and tricks for developers</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./env.sh bash <span class="c1"># start a new interactive shell with the right env vars set</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>which nim
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>nim --version <span class="c1"># Nimbus is tested and supported on 1.2.12 at the moment</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># or without starting a new interactive shell:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>./env.sh which nim
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>./env.sh nim --version
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># Start Visual Studio code with environment</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>./env.sh code
+</code></pre></div>
+<h2 id="makefile-tips-and-tricks-for-developers">Makefile tips and tricks for developers</h2>
 <ul>
 <li>build all those tools known to the Makefile:</li>
 </ul>
-<pre><code class="language-bash"># $(nproc) corresponds to the number of cores you have
-make -j $(nproc)
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># $(nproc) corresponds to the number of cores you have</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>make -j <span class="k">$(</span>nproc<span class="k">)</span>
+</code></pre></div>
 <ul>
 <li>build a specific tool:</li>
 </ul>
-<pre><code class="language-bash">make state_sim
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make state_sim
+</code></pre></div>
 <ul>
 <li>you can control the Makefile's verbosity with the V variable (defaults to 0):</li>
 </ul>
-<pre><code class="language-bash">make V=1 # verbose
-make V=2 test # even more verbose
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>make <span class="nv">V</span><span class="o">=</span><span class="m">1</span> <span class="c1"># verbose</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>make <span class="nv">V</span><span class="o">=</span><span class="m">2</span> <span class="nb">test</span> <span class="c1"># even more verbose</span>
+</code></pre></div>
 <ul>
 <li>same for the <a href="https://github.com/status-im/nim-chronicles#chronicles_log_level">Chronicles log level</a>:</li>
 </ul>
-<pre><code class="language-bash">make LOG_LEVEL=DEBUG bench_bls_sig_agggregation # this is the default
-make LOG_LEVEL=TRACE nimbus_beacon_node # log everything
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>make <span class="nv">LOG_LEVEL</span><span class="o">=</span>DEBUG bench_bls_sig_agggregation <span class="c1"># this is the default</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>make <span class="nv">LOG_LEVEL</span><span class="o">=</span>TRACE nimbus_beacon_node <span class="c1"># log everything</span>
+</code></pre></div>
 <ul>
 <li>pass arbitrary parameters to the Nim compiler:</li>
 </ul>
-<pre><code class="language-bash">make NIMFLAGS=&quot;-d:release&quot;
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span>
+</code></pre></div>
 <ul>
 <li>you can freely combine those variables on the <code>make</code> command line:</li>
 </ul>
-<pre><code class="language-bash">make -j$(nproc) NIMFLAGS=&quot;-d:release&quot; USE_MULTITAIL=yes eth2_network_simulation
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>make -j<span class="k">$(</span>nproc<span class="k">)</span> <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span> <span class="nv">USE_MULTITAIL</span><span class="o">=</span>yes eth2_network_simulation
+</code></pre></div>
 <ul>
 <li>don't use the <a href="https://github.com/status-im/nimbus-eth2/pull/745">lightweight stack tracing implementation from nim-libbacktrace</a>:</li>
 </ul>
-<pre><code class="language-bash">make USE_LIBBACKTRACE=0 # expect the resulting binaries to be 2-3 times slower
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>make <span class="nv">USE_LIBBACKTRACE</span><span class="o">=</span><span class="m">0</span> <span class="c1"># expect the resulting binaries to be 2-3 times slower</span>
+</code></pre></div>
 <ul>
 <li>disable <code>-march=native</code> because you want to run the binary on a different machine than the one you're building it on:</li>
 </ul>
-<pre><code class="language-bash">make NIMFLAGS=&quot;-d:disableMarchNative&quot; nimbus_beacon_node
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:disableMarchNative&quot;</span> nimbus_beacon_node
+</code></pre></div>
 <ul>
 <li>disable link-time optimisation (LTO):</li>
 </ul>
-<pre><code class="language-bash">make NIMFLAGS=&quot;-d:disableLTO&quot; nimbus_beacon_node
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:disableLTO&quot;</span> nimbus_beacon_node
+</code></pre></div>
 <ul>
 <li>show C compiler warnings:</li>
 </ul>
-<pre><code class="language-bash">make NIMFLAGS=&quot;-d:cwarnings&quot; nimbus_beacon_node
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:cwarnings&quot;</span> nimbus_beacon_node
+</code></pre></div>
 <ul>
 <li>limit stack usage to 1 MiB per C function (static analysis - see the <a href="https://gcc.gnu.org/onlinedocs/gnat_ugn/Static-Stack-Usage-Analysis.html">GCC docs</a>; if LTO is enabled, it works without <code>-d:cwarnings</code>):</li>
 </ul>
-<pre><code class="language-bash">make NIMFLAGS=&quot;-d:limitStackUsage&quot; nimbus_beacon_node
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:limitStackUsage&quot;</span> nimbus_beacon_node
+</code></pre></div>
 <ul>
 <li>build a static binary:</li>
 </ul>
-<pre><code class="language-bash">make NIMFLAGS=&quot;--passL:-static&quot; nimbus_beacon_node
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;--passL:-static&quot;</span> nimbus_beacon_node
+</code></pre></div>
 <ul>
-<li>publish a book using <a href="https://github.com/rust-lang/mdBook">mdBook</a> from sources in &quot;docs/&quot; to GitHub pages:</li>
+<li>publish a book using <a href="https://github.com/rust-lang/mdBook">mdBook</a> from sources in "docs/" to GitHub pages:</li>
 </ul>
-<pre><code class="language-bash">make publish-book
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>make publish-book
+</code></pre></div>
 <ul>
 <li>create a binary distribution:</li>
 </ul>
-<pre><code class="language-bash">make dist
-</code></pre>
-<h2 id="multi-client-interop-scripts"><a class="header" href="#multi-client-interop-scripts">Multi-client interop scripts</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>make dist
+</code></pre></div>
+<h2 id="multi-client-interop-scripts">Multi-client interop scripts</h2>
 <p><a href="https://github.com/eth2-clients/multinet">This repository</a> contains a set of scripts used by the client implementation teams to test interop between the clients (in certain simplified scenarios). It mostly helps us find and debug issues.</p>
-<h2 id="stress-testing-the-client-by-limiting-the-cpu-power"><a class="header" href="#stress-testing-the-client-by-limiting-the-cpu-power">Stress-testing the client by limiting the CPU power</a></h2>
-<pre><code class="language-bash">make prater CPU_LIMIT=20
-</code></pre>
+<h2 id="stress-testing-the-client-by-limiting-the-cpu-power">Stress-testing the client by limiting the CPU power</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>make prater <span class="nv">CPU_LIMIT</span><span class="o">=</span><span class="m">20</span>
+</code></pre></div>
 <p>The limiting is provided by the cpulimit utility, available on Linux and macOS.
 The specified value is a percentage of a single CPU core. Usually 1 - 100, but can be higher on multi-core CPUs.</p>
-<h2 id="build-and-run-the-local-beacon-chain-simulation"><a class="header" href="#build-and-run-the-local-beacon-chain-simulation">Build and run the local beacon chain simulation</a></h2>
+<h2 id="build-and-run-the-local-beacon-chain-simulation">Build and run the local beacon chain simulation</h2>
 <p>The beacon chain simulation runs several beacon nodes on the local machine, attaches several local validators to each, and builds a beacon chain between them.</p>
 <p>To run the simulation:</p>
-<pre><code class="language-bash">make update
-make eth2_network_simulation
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>make update
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>make eth2_network_simulation
+</code></pre></div>
 <p>To clean the previous run's data:</p>
-<pre><code class="language-bash">make clean_eth2_network_simulation_all
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>make clean_eth2_network_simulation_all
+</code></pre></div>
 <p>To change the number of validators and nodes:</p>
-<pre><code class="language-bash"># Clear data files from your last run and start the simulation with a new genesis block:
-make VALIDATORS=192 NODES=6 USER_NODES=1 eth2_network_simulation
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Clear data files from your last run and start the simulation with a new genesis block:</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>make <span class="nv">VALIDATORS</span><span class="o">=</span><span class="m">192</span> <span class="nv">NODES</span><span class="o">=</span><span class="m">6</span> <span class="nv">USER_NODES</span><span class="o">=</span><span class="m">1</span> eth2_network_simulation
+</code></pre></div>
 <p>If you’d like to see the nodes running on separated sub-terminals inside one big window, install <a href="https://www.vanheusden.com/multitail/index.php">Multitail</a> (if you're on a Mac, follow the instructions <a href="https://brewinstall.org/Install-multitail-on-Mac-with-Brew/">here</a>), then:</p>
-<pre><code>USE_MULTITAIL=&quot;yes&quot; make eth2_network_simulation
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>USE_MULTITAIL=&quot;yes&quot; make eth2_network_simulation
+</code></pre></div>
 <p>You’ll get something like this (click for full size):</p>
-<p><a href="https://i.imgur.com/Pc99VDO.png"><img src="https://i.imgur.com/Pc99VDO.png" alt="" /></a></p>
+<p><a href="https://i.imgur.com/Pc99VDO.png"><img alt="" src="https://i.imgur.com/Pc99VDO.png" /></a></p>
 <p>You can find out more about the beacon node simulation <a href="https://our.status.im/nimbus-development-update-03/#beaconsimulation">here</a>.</p>
-<h2 id="build-and-run-the-local-state-transition-simulation"><a class="header" href="#build-and-run-the-local-state-transition-simulation">Build and run the local state transition simulation</a></h2>
+<h2 id="build-and-run-the-local-state-transition-simulation">Build and run the local state transition simulation</h2>
 <p>This simulation is primarily designed for researchers, but we'll cover it briefly here in case you're curious :)</p>
 <p>The <a href="https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#beacon-chain-state-transition-function">state transition</a> simulation quickly runs the beacon chain state transition function in isolation and outputs JSON snapshots of the state (directly to the <code>nimbus-eth2</code> directory). It runs without networking and blocks are processed without slot time delays.</p>
-<pre><code class="language-bash"># build the state simulator, then display its help (&quot;-d:release&quot; speeds it
-# up substantially, allowing the simulation of longer runs in reasonable time)
-make NIMFLAGS=&quot;-d:release&quot; state_sim
-build/state_sim --help
-</code></pre>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># build the state simulator, then display its help (&quot;-d:release&quot; speeds it</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="c1"># up substantially, allowing the simulation of longer runs in reasonable time)</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>make <span class="nv">NIMFLAGS</span><span class="o">=</span><span class="s2">&quot;-d:release&quot;</span> state_sim
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>build/state_sim --help
+</code></pre></div>
 <p>Use the output of the <code>help</code> command to pass desired values to the simulator - experiment with changing the number of slots, validators, , etc. to get different results.</p>
 <p>The most important options are:</p>
 <ul>
@@ -320,56 +1904,87 @@ build/state_sim --help
 <li><code>json_interval</code>: how often JSON snapshots of the state are outputted (default every 32 slots -- or once per epoch)</li>
 </ul>
 <p>For example, to run the state simulator for 384 slots, with 20,000 validators, and an average of 66% of attesters doing their work every slot, while outputting snapshots of the state twice per epoch, run:</p>
-<pre><code>build/state_sim --slots=384 --validators=20000 --attesterRatio=0.66 --json_interval=16
-</code></pre>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/developers.md">Edit this file on GitHub.</a></footer>
-                    </main>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>build/state_sim --slots=384 --validators=20000 --attesterRatio=0.66 --json_interval=16
+</code></pre></div>
 
-                    <nav class="nav-wrapper" aria-label="Page navigation">
-                        <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="troubleshooting.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                                <i class="fa fa-angle-left"></i>
-                            </a>
+              
+            </article>
+            
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
 
-                            <a rel="next" href="contribute.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
-
-                        <div style="clear: both"></div>
-                    </nav>
-                </div>
-            </div>
-
-            <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="troubleshooting.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
-                        <i class="fa fa-angle-left"></i>
-                    </a>
-
-                    <a rel="next" href="contribute.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
-            </nav>
-
+          </div>
         </div>
-
-
-
-
-        <script type="text/javascript">
-            window.playground_copyable = true;
-        </script>
-
-
-        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
-
-        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
-        <script src="book.js" type="text/javascript" charset="utf-8"></script>
-
-        <!-- Custom JS scripts -->
-
-
-    </body>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+    <nav class="md-footer__inner md-grid" aria-label="Footer" >
+      
+        
+        <a href="troubleshooting.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Troubleshooting" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Troubleshooting
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="resources.html" class="md-footer__link md-footer__link--next" aria-label="Next: Resources" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              Resources
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.expand", "navigation.tabs", "navigation.top", "content.tabs.link"], "search": "assets/javascripts/workers/search.b97dbffb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.6c7ad80a.min.js"></script>
+      
+    
+  </body>
 </html>

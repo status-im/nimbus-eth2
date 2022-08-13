@@ -1,0 +1,1947 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://nimbus.guide/el-light-client.html">
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.3.1, mkdocs-material-8.3.9">
+    
+    
+      
+        <title>Run the light client - The Nimbus Guide</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.1d29e8d0.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.cbb835fc.min.css">
+        
+          
+          
+          <meta name="theme-color" content="#ffa724">
+        
+      
+      
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL(".",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="orange" data-md-color-accent="amber">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#run-the-light-client" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="The Nimbus Guide" class="md-header__button md-logo" aria-label="The Nimbus Guide" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            The Nimbus Guide
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Run the light client
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/status-im/nimbus-eth2" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="index.html" class="md-tabs__link">
+        About
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="quick-start.html" class="md-tabs__link md-tabs__link--active">
+        Getting started
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="install.html" class="md-tabs__link">
+        How-to
+      </a>
+    </li>
+  
+
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="security_issues.html" class="md-tabs__link">
+        Security
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="hardware.html" class="md-tabs__link">
+        Reference
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="binaries.html" class="md-tabs__link">
+        Downloads
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="The Nimbus Guide" class="md-nav__button md-logo" aria-label="The Nimbus Guide" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    The Nimbus Guide
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/status-im/nimbus-eth2" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_1" type="checkbox" id="__nav_1" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_1">
+          About
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="About" data-md-level="1">
+        <label class="md-nav__title" for="__nav_1">
+          <span class="md-nav__icon md-icon"></span>
+          About
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html" class="md-nav__link">
+        The Nimbus Guide
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="merge.html" class="md-nav__link">
+        The Merge
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="philosophy.html" class="md-nav__link">
+        Design goals
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="preparation.html" class="md-nav__link">
+        Mainnet checklist
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_2">
+          Getting started
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Getting started" data-md-level="1">
+        <label class="md-nav__title" for="__nav_2">
+          <span class="md-nav__icon md-icon"></span>
+          Getting started
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="quick-start.html" class="md-nav__link">
+        Run the beacon node
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="run-a-validator.html" class="md-nav__link">
+        Run a validator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration.html" class="md-nav__link">
+        Migrate from another client
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="metrics-pretty-pictures.html" class="md-nav__link">
+        Grafana and Prometheus
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="pi-guide.html" class="md-nav__link">
+        Running on a Raspberry Pi
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Run the light client
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="el-light-client.html" class="md-nav__link md-nav__link--active">
+        Run the light client
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#comparison" class="md-nav__link">
+    Comparison
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-from-source" class="md-nav__link">
+    Building from source
+  </a>
+  
+    <nav class="md-nav" aria-label="Building from source">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-clone-the-nimbus-eth2-repository" class="md-nav__link">
+    1. Clone the nimbus-eth2 repository
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-run-the-build-process" class="md-nav__link">
+    2. Run the build process
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pairing-with-the-el-client" class="md-nav__link">
+    Pairing with the EL client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-el-client" class="md-nav__link">
+    Running the EL client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-light-client" class="md-nav__link">
+    Running the light client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observing-the-sync-process" class="md-nav__link">
+    Observing the sync process
+  </a>
+  
+    <nav class="md-nav" aria-label="Observing the sync process">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nimbus" class="md-nav__link">
+    Nimbus
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          How-to
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="How-to" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          How-to
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_1" type="checkbox" id="__nav_3_1" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_1">
+          Beacon node
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Beacon node" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_1">
+          <span class="md-nav__icon md-icon"></span>
+          Beacon node
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="install.html" class="md-nav__link">
+        Prepare your machine
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="build.html" class="md-nav__link">
+        Build from source
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="start-syncing.html" class="md-nav__link">
+        Sync your node
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="trusted-node-sync.html" class="md-nav__link">
+        Sync from a trusted node
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="web3-backup.html" class="md-nav__link">
+        Backup web3 provider
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_2" type="checkbox" id="__nav_3_2" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_2">
+          Validator
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Validator" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_2">
+          <span class="md-nav__icon md-icon"></span>
+          Validator
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="deposit.html" class="md-nav__link">
+        Make a deposit for your validator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keys.html" class="md-nav__link">
+        Import your validator keys
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="connect-eth2.html" class="md-nav__link">
+        Start validating
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="graffiti.html" class="md-nav__link">
+        Set up Graffiti
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="suggested-fee-recipient.html" class="md-nav__link">
+        Set up suggested fee recipient
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keep-an-eye.html" class="md-nav__link">
+        Keep an eye on your validator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="voluntary-exit.html" class="md-nav__link">
+        Perform a voluntary exit
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="more-keys.html" class="md-nav__link">
+        Recover lost keys and generate new ones
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="additional-validator.html" class="md-nav__link">
+        Add an additional validator
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="validator-client.html" class="md-nav__link">
+        Run a separate validator client
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_3" type="checkbox" id="__nav_3_3" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3_3">
+          General
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="General" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_3">
+          <span class="md-nav__icon md-icon"></span>
+          General
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keep-updated.html" class="md-nav__link">
+        Upgrade / downgrade
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="eth1.html" class="md-nav__link">
+        Run an execution client
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="goerli-eth.html" class="md-nav__link">
+        Obtain Goerli ETH
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="beacon-node-systemd.html" class="md-nav__link">
+        Set up a systemd service
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="log-rotate.html" class="md-nav__link">
+        Set up log rotation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="database-backup.html" class="md-nav__link">
+        Back up your database
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="email-notifications.html" class="md-nav__link">
+        Email notifications
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="profits.html" class="md-nav__link">
+        Optimise for profitability
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="health.html" class="md-nav__link">
+        Monitor the health of your node
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="prater.html" class="md-nav__link">
+        Prater testnet
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4">
+          Security
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Security" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Security
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="security_issues.html" class="md-nav__link">
+        Security issues
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="audit.html" class="md-nav__link">
+        Security Audit
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="distribution_internals.html" class="md-nav__link">
+        Binary distribution internals
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5" type="checkbox" id="__nav_5" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5">
+          Reference
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Reference" data-md-level="1">
+        <label class="md-nav__title" for="__nav_5">
+          <span class="md-nav__icon md-icon"></span>
+          Reference
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="hardware.html" class="md-nav__link">
+        System requirements
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="options.html" class="md-nav__link">
+        Command line options
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="networking.html" class="md-nav__link">
+        Networking
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="logging.html" class="md-nav__link">
+        Logging options
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="validator-monitor.html" class="md-nav__link">
+        Validator monitoring
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="attestation-performance.html" class="md-nav__link">
+        Attestation performance analysis
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="rest-api.html" class="md-nav__link">
+        REST API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="keymanager-api.html" class="md-nav__link">
+        Keymanager API
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="data-dir.html" class="md-nav__link">
+        The data directory
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration-options.html" class="md-nav__link">
+        Client migration (advanced)
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="light-client-data.html" class="md-nav__link">
+        Light client data (advanced)
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="troubleshooting.html" class="md-nav__link">
+        Troubleshooting
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="developers.html" class="md-nav__link">
+        For Developers
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="resources.html" class="md-nav__link">
+        Resources
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="faq.html" class="md-nav__link">
+        Frequently Asked Questions
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="api.html" class="md-nav__link">
+        JSON-RPC API (deprecated)
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="contribute.html" class="md-nav__link">
+        Updating this guide
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_6" type="checkbox" id="__nav_6" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_6">
+          Downloads
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Downloads" data-md-level="1">
+        <label class="md-nav__title" for="__nav_6">
+          <span class="md-nav__icon md-icon"></span>
+          Downloads
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="binaries.html" class="md-nav__link">
+        Binaries
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="docker.html" class="md-nav__link">
+        Docker images
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="checksums.html" class="md-nav__link">
+        Checksums
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#comparison" class="md-nav__link">
+    Comparison
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-from-source" class="md-nav__link">
+    Building from source
+  </a>
+  
+    <nav class="md-nav" aria-label="Building from source">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-clone-the-nimbus-eth2-repository" class="md-nav__link">
+    1. Clone the nimbus-eth2 repository
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-run-the-build-process" class="md-nav__link">
+    2. Run the build process
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pairing-with-the-el-client" class="md-nav__link">
+    Pairing with the EL client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-el-client" class="md-nav__link">
+    Running the EL client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-light-client" class="md-nav__link">
+    Running the light client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observing-the-sync-process" class="md-nav__link">
+    Observing the sync process
+  </a>
+  
+    <nav class="md-nav" aria-label="Observing the sync process">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nimbus" class="md-nav__link">
+    Nimbus
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          <div class="md-content" data-md-component="content">
+            <article class="md-content__inner md-typeset">
+              
+                
+  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/el-light-client.md" title="Edit this page" class="md-content__button md-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
+  </a>
+
+
+
+<h1 id="run-the-light-client">Run the light client</h1>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The light client is currently in BETA and details around running it may change.</p>
+</div>
+<p>The Nimbus Light Client is a light-weight alternative to running a full beacon node, when setting up an Ethereum execution client for read-only use cases after the merge.</p>
+<p>Execution layer (EL) clients provide the <a href="https://ethereum.github.io/execution-apis/api-documentation/">web3 API</a> to expose information stored on the Ethereum blockchain. With <a href="merge.html">the merge 🐼</a>, EL clients can no longer run standalone and require an external component to determine the latest state to sync to.</p>
+<h2 id="comparison">Comparison</h2>
+<p>Compared to a full beacon node, a light client has several advantages and disadvantages.</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Light Client</th>
+<th>Beacon Node</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disk usage</td>
+<td><strong>&lt;1MB</strong></td>
+<td>~70GB</td>
+</tr>
+<tr>
+<td>Bandwidth</td>
+<td><strong>TBD (low)</strong></td>
+<td><em>TBD</em></td>
+</tr>
+<tr>
+<td>Sync time</td>
+<td><strong>Seconds</strong></td>
+<td>Days</td>
+</tr>
+<tr>
+<td>Head delay</td>
+<td>4/3 slot (15 s)</td>
+<td><strong>None</strong></td>
+</tr>
+<tr>
+<td>Security</td>
+<td>Light</td>
+<td><strong>Full</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Light clients delegate full validation to other network participants and operate under a honest supermajority (&gt; 2/3) assumption among elected participants. Due to this delegation, light clients are typically behind by ~4/3 slots (~15 seconds on Ethereum mainnet).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you are validating, you must run a full beacon node. To use Nimbus, follow the <a href="install.html">installation instructions</a>.</p>
+</div>
+<h2 id="building-from-source">Building from source</h2>
+<p>The Nimbus light client is currently not bundled as part of the Docker images and needs to be built from source.</p>
+<h3 id="1-clone-the-nimbus-eth2-repository">1. Clone the <code>nimbus-eth2</code> repository</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git clone https://github.com/status-im/nimbus-eth2
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span> nimbus-eth2
+</code></pre></div>
+<h3 id="2-run-the-build-process">2. Run the build process</h3>
+<p>To build the Nimbus light client and its dependencies, run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make -j4 nimbus_light_client
+</code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Omit <code>-j4</code> on systems with 4GB of memory or less.</p>
+</div>
+<p>This may take a few minutes. When the process finishes, the <code>nimbus_light_client</code> executable can be found in the <code>build</code> subdirectory.</p>
+<h2 id="pairing-with-the-el-client">Pairing with the EL client</h2>
+<p>To ensure that only the light client can control the EL client, a file with random content (JWT secret) must be created. The format is 64 hexadecimal (0-9, a-f) characters. To create one, the following command may be used:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>openssl rand -hex <span class="m">32</span> <span class="p">|</span> tr -d <span class="s2">&quot;\n&quot;</span> &gt; <span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
+</code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>To adjust where the file is created, adjust the <code>$HOME/jwtsecret</code> portion in the command above. Also adjust other commands in this guide accordingly.</p>
+</div>
+<p>The JWT secret must be passed to both the EL client and the light client to complete the pairing.</p>
+<h2 id="running-the-el-client">Running the EL client</h2>
+<p>In addition to the <a href="eth1.html">regular instructions</a> to run an EL client, the JWT secret must be configured. The following sections explain how to do this for certain EL clients.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Geth</label><label for="__tabbed_1_2">Nethermind</label><label for="__tabbed_1_3">Others</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Goerli</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>geth --ws --authrpc.jwtsecret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>geth --goerli --ws --authrpc.jwtsecret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="tabbed-block">
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Goerli</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>nethermind --JsonRpc.JwtSecretFile<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>nethermind --config goerli --JsonRpc.JwtSecretFile<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="tabbed-block">
+<p>Please consult your EL client's documentation for instructions on how to configure the JWT secret and running the EL client.</p>
+</div>
+</div>
+</div>
+<h2 id="running-the-light-client">Running the light client</h2>
+<p>The light client starts syncing from a trusted block. This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
+<ol>
+<li>Obtaining a trusted block root</li>
+</ol>
+<p>A block root may be obtained from another trusted beacon node, or from a trusted provider.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Trusted beacon node</label><label for="__tabbed_4_2">Beaconcha.in</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>The REST interface must be enabled on the trusted beacon node (<code>--rest --rest-port=5052</code> for Nimbus).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>curl -s <span class="s2">&quot;http://localhost:5052/eth/v1/beacon/headers/finalized&quot;</span> <span class="p">|</span> <span class="se">\</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    jq -r <span class="s1">&#39;.data.root&#39;</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>On the <a href="https://beaconcha.in">beaconcha.in</a> website (<a href="https://prater.beaconcha.in">Goerli</a>), navigate to the <code>Epochs</code> section and select a recent <code>Finalized</code> epoch. Then, scroll down to the bottom of the page. If the bottom-most slot has a <code>Proposed</code> status, copy its <code>Root Hash</code>. Otherwise, for example if the bottom-most slot was <code>Missed</code>, go back and pick a different epoch.</p>
+</div>
+</div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Selecting a block root from an untrusted source or using an outdated block root may lead to the light client syncing to an unexpected state. If that happens, stop the light client and restart it with a new trusted block root. Depending on the EL client, its database must be deleted and sync restarted from scratch.</p>
+</div>
+<ol>
+<li>Starting the light client</li>
+</ol>
+<p>To start the light client, run the following commands (inserting your own trusted block root):</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Mainnet</label><label for="__tabbed_5_2">Goerli</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>build/nimbus_light_client <span class="se">\</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    --web3-url<span class="o">=</span>ws://127.0.0.1:8551 --jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span> <span class="se">\</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    --trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">TRUSTED_BLOCK_ROOT</span><span class="o">=</span>0x1234567890123456789012345678901234567890123456789012345678901234
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>build/nimbus_light_client --network<span class="o">=</span>goerli <span class="se">\</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    --web3-url<span class="o">=</span>ws://127.0.0.1:8551 --jwt-secret<span class="o">=</span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span> <span class="se">\</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    --trusted-block-root<span class="o">=</span><span class="nv">$TRUSTED_BLOCK_ROOT</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The light client can be left running in the background. Note that a new trusted block root is required when restarting.</p>
+</div>
+<h2 id="observing-the-sync-process">Observing the sync process</h2>
+<p>After a while, the light client will pick up beacon block headers from the Ethereum network and start informing the EL client about the latest data. You should see logs similar to the following:</p>
+<h3 id="nimbus">Nimbus</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>NOT 2022-07-24 21:57:57.537+02:00 Starting light client                      topics=&quot;lightcl&quot; trusted_block_root=Some(f013a6f35bdfcffbf9cf8919c48bc0afb7720fb9c61f62a3659d7359f52386c4)
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>...
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>INF 2022-07-24 22:07:59.892+02:00 New LC optimistic header                   optimistic_header=&quot;(slot: 396960, proposer_index: 90824, parent_root: \&quot;77d30de6\&quot;, state_root: \&quot;9c7343a0\&quot;)&quot;
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>INF 2022-07-24 22:07:59.892+02:00 New LC finalized header                    finalized_header=&quot;(slot: 396960, proposer_index: 90824, parent_root: \&quot;77d30de6\&quot;, state_root: \&quot;9c7343a0\&quot;)&quot;
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>INF 2022-07-24 22:08:03.962+02:00 New LC optimistic header                   optimistic_header=&quot;(slot: 397539, proposer_index: 97474, parent_root: \&quot;063c998d\&quot;, state_root: \&quot;0f790eaf\&quot;)&quot;
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>WRN 2022-07-24 22:08:09.217+02:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=2 new_peers=@[] current_peers=11 wanted_peers=160
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>INF 2022-07-24 22:08:15.961+02:00 New LC optimistic header                   optimistic_header=&quot;(slot: 397540, proposer_index: 56720, parent_root: \&quot;812d4790\&quot;, state_root: \&quot;b846e95e\&quot;)&quot;
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>INF 2022-07-24 22:08:27.961+02:00 New LC optimistic header                   optimistic_header=&quot;(slot: 397541, proposer_index: 65758, parent_root: \&quot;725e435d\&quot;, state_root: \&quot;559fd631\&quot;)&quot;
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>INF 2022-07-24 22:08:39.960+02:00 New LC optimistic header                   optimistic_header=&quot;(slot: 397542, proposer_index: 90389, parent_root: \&quot;903645d6\&quot;, state_root: \&quot;873c9904\&quot;)&quot;
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>WRN 2022-07-24 22:08:49.503+02:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=1 new_peers=@[] current_peers=11 wanted_peers=160
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>INF 2022-07-24 22:08:51.960+02:00 New LC optimistic header                   optimistic_header=&quot;(slot: 397543, proposer_index: 73061, parent_root: \&quot;1abdfcd1\&quot;, state_root: \&quot;c8ee813c\&quot;)&quot;
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>WRN 2022-07-24 22:08:55.097+02:00 Peer count low, no new peers discovered    topics=&quot;networking&quot; discovered_nodes=0 new_peers=@[] current_peers=11 wanted_peers=160
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>INF 2022-07-24 22:09:03.961+02:00 New LC optimistic header                   optimistic_header=&quot;(slot: 397544, proposer_index: 62086, parent_root: \&quot;4797507d\&quot;, state_root: \&quot;60815f6a\&quot;)&quot;
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>NOT 2022-07-24 22:09:05.069+02:00 New LC optimistic block                    opt=c6cf8526:397409 wallSlot=397545
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <a href="https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md">light client protocol</a> depends on consensus layer (CL) full nodes to serve additional data. As this is a new protocol, not all implementations are supporting it yet. Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.</p>
+</div>
+<div class="tabbed-set tabbed-alternate" data-tabs="6:2"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">Geth</label><label for="__tabbed_6_2">Nethermind</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>WARN [07-24|22:19:16.777] Ignoring payload with missing parent     number=12,658,012 hash=306fad..bdfd44 parent=a22dc7..093bea
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>INFO [07-24|22:19:16.778] Forkchoice requested sync to new head    number=12,658,012 hash=306fad..bdfd44
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>INFO [07-24|22:19:17.232] Syncing beacon headers                   downloaded=7168 left=12,650,843 eta=13m21.441s
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>INFO [07-24|22:19:21.626] Syncing beacon headers                   downloaded=75201 left=0          eta=0s
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>INFO [07-24|22:19:21.627] Block synchronisation started
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>2022-07-24 22:09:05.0853|Received a new payload: 12657968 (0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63)
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>2022-07-24 22:09:05.1018|Insert block into cache without parent 12657968 (0xa5eedb...4c4b63)
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>2022-07-24 22:09:05.1141|Received: ForkchoiceState: (HeadBlockHash: 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63, SafeBlockHash: 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63, FinalizedBlockHash: 0x0000000000000000000000000000000000000000000000000000000000000000) .
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>2022-07-24 22:09:05.1141|Syncing... Block 0xa5eedb4e4e4b0f84238464d563b82d7dddadfc68f21cfa2bfcbbbcdb944c4b63 not found.
+</code></pre></div>
+</div>
+</div>
+</div>
+
+              
+            </article>
+            
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+          </div>
+        </div>
+        
+          <a href="#" class="md-top md-icon" data-md-component="top" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </a>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+    <nav class="md-footer__inner md-grid" aria-label="Footer" >
+      
+        
+        <a href="pi-guide.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Running on a Raspberry Pi" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Running on a Raspberry Pi
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="install.html" class="md-footer__link md-footer__link--next" aria-label="Next: Prepare your machine" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              Prepare your machine
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.expand", "navigation.tabs", "navigation.top", "content.tabs.link"], "search": "assets/javascripts/workers/search.b97dbffb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.6c7ad80a.min.js"></script>
+      
+    
+  </body>
+</html>
