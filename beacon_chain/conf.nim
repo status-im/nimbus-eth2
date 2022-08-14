@@ -29,13 +29,14 @@ import
   ./spec/datatypes/base,
   ./networking/network_metadata,
   ./validators/slashing_protection_common,
+  ./conf/eth2_types_confutils_defs,
   ./filepath
 
 from consensus_object_pools/block_pools_types_light_client
   import LightClientDataImportMode
 
 export
-  uri, nat, enr,
+  uri, nat, enr, eth2_types_confutils_defs,
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
   defs, parseCmdArg, completeCmdArg, network_metadata,
   network, BlockHashOrNumber,
@@ -971,13 +972,6 @@ proc createDumpDirs*(config: BeaconNodeConf) =
       warn "Could not create dump directory",
         path = config.dumpDirOutgoing, err = ioErrorMsg(res.error)
 
-func parseCmdArg*(T: type Eth2Digest, input: string): T
-                 {.raises: [ValueError, Defect].} =
-  Eth2Digest.fromHex(input)
-
-func completeCmdArg*(T: type Eth2Digest, input: string): seq[string] =
-  return @[]
-
 func parseCmdArg*(T: type GraffitiBytes, input: string): T
                  {.raises: [ValueError, Defect].} =
   GraffitiBytes.init(input)
@@ -1002,12 +996,6 @@ func completeCmdArg*(T: type Uri, input: string): seq[string] =
 func parseCmdArg*(T: type PubKey0x, input: string): T
                  {.raises: [ValueError, Defect].} =
   PubKey0x(hexToPaddedByteArray[RawPubKeySize](input))
-
-func parseCmdArg*(T: type ValidatorPubKey, input: string): T
-                 {.raises: [ValueError, Defect].} =
-  let res = ValidatorPubKey.fromHex(input)
-  if res.isErr(): raise (ref ValueError)(msg: $res.error())
-  res.get()
 
 func completeCmdArg*(T: type PubKey0x, input: string): seq[string] =
   return @[]
