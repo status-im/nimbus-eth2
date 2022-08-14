@@ -20,7 +20,7 @@ import
   std/json,
   stew/base10, web3/ethtypes,
   ".."/forks,
-  ".."/datatypes/[phase0, altair, bellatrix],
+  ".."/datatypes/[phase0, altair, bellatrix, capella],
   ".."/mev/bellatrix_mev
 
 export forks, phase0, altair, bellatrix, bellatrix_mev
@@ -252,9 +252,10 @@ type
 
   RestPublishedBeaconBlockBody* = object
     case kind*: BeaconBlockFork
-    of BeaconBlockFork.Phase0:    phase0Body*: phase0.BeaconBlockBody
-    of BeaconBlockFork.Altair:    altairBody*: altair.BeaconBlockBody
+    of BeaconBlockFork.Phase0:    phase0Body*:    phase0.BeaconBlockBody
+    of BeaconBlockFork.Altair:    altairBody*:    altair.BeaconBlockBody
     of BeaconBlockFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
+    of BeaconBlockFork.Capella:   capellaBody*:   capella.BeaconBlockBody
 
   RestSpec* = object
     # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/presets/mainnet/phase0.yaml

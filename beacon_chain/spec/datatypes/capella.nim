@@ -17,6 +17,7 @@
 
 import
   json_serialization,
+  chronicles,
   ssz_serialization/types as sszTypes,
   ../digest,
   "."/[base, phase0, altair]
@@ -35,6 +36,21 @@ const
   DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0A, 0x00, 0x00, 0x00])
 
 type
+
+  #
+  # NOTE: Duplicates from Altair
+  #
+  # TODO: @tavurth Check if fixes current compliation issue
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#custom-types
+  # ParticipationFlags* = uint8
+
+  # EpochParticipationFlags* =
+  #   distinct HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+
+  #
+  # NOTE: End Altair
+  #
+
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
@@ -143,8 +159,8 @@ type
     slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]  # Per-epoch sums of slashed effective balances
 
     # Participation
-    previous_epoch_participation*: List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
-    current_epoch_participation*: List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
 
     # Finality
     justification_bits*: JustificationBits # Bit set for every recent justified epoch
@@ -165,7 +181,11 @@ type
     # Withdrawals
     withdrawal_queue*: List[Withdrawal, Limit WITHDRAWALS_QUEUE_LIMIT]  # [New in Capella]
     next_withdrawal_index*: WithdrawalIndex  # [New in Capella]
-    next_partial_withdrawal_validator_index*: ValidatorIndex  # [New in Capella]
+
+    # TODO: We should probably use ValidatorIndex here
+    #       but I see that in Altair we have a workaround
+    #       by simply putting uint64, which seems to be against the spec
+    next_partial_withdrawal_validator_index*: uint64  # [New in Capella]
 
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
@@ -186,6 +206,7 @@ type
 
     # Capella operations
     bls_to_execution_changes*: List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+
 
   #
   # NOTE: Duplicates from bellatrix
@@ -366,4 +387,3 @@ type
 
     # Execution
     execution_payload*: ExecutionPayload
-

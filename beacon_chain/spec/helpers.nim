@@ -20,7 +20,7 @@ import
   chronicles,
   eth/eip1559, eth/common/eth_types,
   # Internal
-  ./datatypes/[phase0, altair, bellatrix],
+  ./datatypes/[phase0, altair, bellatrix, capella],
   "."/[eth2_merkleization, forks, ssz_codec]
 
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
