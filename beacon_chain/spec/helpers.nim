@@ -309,9 +309,14 @@ template is_better_update*[A, B: SomeLightClientUpdate](
   is_better_data(toMeta(new_update), toMeta(old_update))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
-func is_merge_transition_complete*(state: bellatrix.BeaconState): bool =
-  const defaultExecutionPayloadHeader = default(ExecutionPayloadHeader)
-  state.latest_execution_payload_header != defaultExecutionPayloadHeader
+func is_merge_transition_complete*(state: bellatrix.BeaconState | capella.BeaconState): bool =
+  case state:
+    of BeaconStateFork.Bellatrix:
+      const defaultExecutionPayloadHeader = default(bellatrix.ExecutionPayloadHeader)
+      state.latest_execution_payload_header != defaultExecutionPayloadHeader
+    of BeaconStateFork.Capella:
+      const defaultExecutionPayloadHeader = default(capella.ExecutionPayloadHeader)
+      state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#helpers
 func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
@@ -378,7 +383,15 @@ func build_empty_execution_payload*(state: bellatrix.BeaconState): ExecutionPayl
                                   GasInt.saturate latest.gas_used,
                                   latest.base_fee_per_gas)
 
-  var payload = ExecutionPayload(
+  var payloadKind: bellatrix.ExecutionPayload | capella.ExecutionPayload
+
+  case state:
+    of BeaconStateFork.Bellatrix:
+      payloadKind = bellatrix.ExecutionPayload
+    of BeaconStateFork.Capella:
+      payloadKind = capella.ExecutionPayload
+
+  var payload = payloadKind(
     parent_hash: latest.block_hash,
     state_root: latest.state_root, # no changes to the state
     receipts_root: BLANK_ROOT_HASH,

@@ -36,21 +36,6 @@ const
   DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0A, 0x00, 0x00, 0x00])
 
 type
-
-  #
-  # NOTE: Duplicates from Altair
-  #
-  # TODO: @tavurth Check if fixes current compliation issue
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#custom-types
-  # ParticipationFlags* = uint8
-
-  # EpochParticipationFlags* =
-  #   distinct HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
-
-  #
-  # NOTE: End Altair
-  #
-
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
@@ -149,7 +134,7 @@ type
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*: List[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
+    validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
     balances*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
