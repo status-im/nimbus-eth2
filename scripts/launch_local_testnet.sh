@@ -99,7 +99,8 @@ CLEANUP_DIRS=()
 
 #NIMBUS EL VARS
 RUN_NIMBUS="0"
-NIMBUS_EL_BINARY="../nimbus-eth1/build/nimbus"
+NIMBUS_EL_BINARY="${NIMBUS_EL_BINARY:-../nimbus-eth1/build/nimbus}"
+echo "${NIMBUS_EL_BINARY}"
 
 EL_HTTP_PORTS=()
 EL_RPC_PORTS=()
