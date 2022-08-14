@@ -373,7 +373,7 @@ proc emptyPayloadToBlockHeader*(payload: ExecutionPayload): ExecutionBlockHeader
   )
 
 #
-# TODO: Use a base builder function for the following:
+# TODO: @tavurth Use a base builder function for the following:
 #
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
