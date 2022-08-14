@@ -102,6 +102,9 @@ type
     beacon_block_root*: Eth2Digest
       ## Block root for this signature
 
+    # TODO: This should probably be `ValidatiorIndex`
+    #       as the spec calls for 32 bit.
+    #       This should be reviewed as it could be a bug
     validator_index*: uint64 # `ValidatorIndex` after validation
       ## Index of the validator that produced this signature
 

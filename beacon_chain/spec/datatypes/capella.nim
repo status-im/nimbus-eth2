@@ -57,7 +57,10 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#blstoexecutionchange
   BLSToExecutionChange* = object
-    validator_index*: ValidatorIndex
+    # TODO: We should probably use ValidatorIndex here
+    #       but I see that in Altair we have a workaround
+    #       by simply putting uint64, which seems to be against the spec
+    validator_index*: uint64
     from_bls_pubkey*: ValidatorPubKey
     to_execution_address*: ExecutionAddress
 
