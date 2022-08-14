@@ -16,7 +16,7 @@ import
   json_serialization/std/sets,
   chronicles,
   ../extras,
-  ./datatypes/[phase0, altair, bellatrix],
+  ./datatypes/[phase0, altair, bellatrix, capella],
   "."/[eth2_merkleization, forks, signatures, validator]
 
 export extras, forks, validator
@@ -355,6 +355,19 @@ func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
     # initialized to default values.
   bellatrix.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#testing
+func get_initial_beacon_block*(state: capella.HashedBeaconState):
+    capella.TrustedSignedBeaconBlock =
+  # The genesis block is implicitly trusted
+  let message = capella.TrustedBeaconBlock(
+    slot: state.data.slot,
+    state_root: state.root)
+    # parent_root, randao_reveal, eth1_data, signature, and body automatically
+    # initialized to default values.
+  capella.TrustedSignedBeaconBlock(
+    message: message, root: hash_tree_root(message))
+
 
 func get_initial_beacon_block*(state: ForkedHashedBeaconState):
     ForkedTrustedSignedBeaconBlock =
@@ -934,7 +947,65 @@ func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
     next_sync_committee: pre.next_sync_committee,
 
     # Execution-layer
-    latest_execution_payload_header: ExecutionPayloadHeader()
+    latest_execution_payload_header: bellatrix.ExecutionPayloadHeader()
+  )
+
+# TODO: @tavurth Check this is correct
+# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/fork.md#upgrading-the-state
+func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
+    ref capella.BeaconState =
+  let epoch = get_current_epoch(pre)
+  (ref capella.BeaconState)(
+    # Versioning
+    genesis_time: pre.genesis_time,
+    genesis_validators_root: pre.genesis_validators_root,
+    slot: pre.slot,
+    fork: Fork(
+        previous_version: pre.fork.current_version,
+        current_version: cfg.CAPELLA_FORK_VERSION,
+        epoch: epoch,
+    ),
+
+    # History
+    latest_block_header: pre.latest_block_header,
+    block_roots: pre.block_roots,
+    state_roots: pre.state_roots,
+    historical_roots: pre.historical_roots,
+
+    # Eth1
+    eth1_data: pre.eth1_data,
+    eth1_data_votes: pre.eth1_data_votes,
+    eth1_deposit_index: pre.eth1_deposit_index,
+
+    # Registry
+    validators: pre.validators,
+    balances: pre.balances,
+
+    # Randomness
+    randao_mixes: pre.randao_mixes,
+
+    # Slashings
+    slashings: pre.slashings,
+
+    # Participation
+    previous_epoch_participation: pre.previous_epoch_participation,
+    current_epoch_participation: pre.current_epoch_participation,
+
+    # Finality
+    justification_bits: pre.justification_bits,
+    previous_justified_checkpoint: pre.previous_justified_checkpoint,
+    current_justified_checkpoint: pre.current_justified_checkpoint,
+    finalized_checkpoint: pre.finalized_checkpoint,
+
+    # Inactivity
+    inactivity_scores: pre.inactivity_scores,
+
+    # Sync
+    current_sync_committee: pre.current_sync_committee,
+    next_sync_committee: pre.next_sync_committee,
+
+    # Execution-layer
+    latest_execution_payload_header: capella.ExecutionPayloadHeader()
   )
 
 template isValidInState*(idx: ValidatorIndex, state: ForkyBeaconState): bool =

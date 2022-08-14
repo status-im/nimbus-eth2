@@ -39,8 +39,6 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
-  Hash32 = array[32, byte]
-
   ExecutionAddress* = object
     data*: array[20, byte]  # TODO there's a network_metadata type, but the import hierarchy's inconvenient
 
@@ -87,14 +85,14 @@ type
     base_fee_per_gas*: UInt256
 
     # Extra payload fields
-    block_hash*: Hash32  # Hash of execution block
+    block_hash*: Eth2Digest  # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, Limit MAX_WITHDRAWALS_PER_PAYLOAD]  # [New in Capella]
 
   # https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     # Execution block header fields
-    parent_hash*: Hash32
+    parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
     state_root*: Eth2Digest
     receipts_root*: Eth2Digest
@@ -108,7 +106,7 @@ type
     base_fee_per_gas*: UInt256
 
     # Extra payload fields
-    block_hash*: Hash32  # Hash of execution block
+    block_hash*: Eth2Digest  # Hash of execution block
     transactions_root*: Eth2Digest
     withdrawals_root*: Eth2Digest  # [New in Capella]
 
