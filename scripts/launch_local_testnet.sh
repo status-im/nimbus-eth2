@@ -99,8 +99,8 @@ CLEANUP_DIRS=()
 
 #NIMBUS EL VARS
 RUN_NIMBUS="0"
-NIMBUS_EL_BINARY="${NIMBUS_EL_BINARY:-../nimbus-eth1/build/nimbus}"
-echo "${NIMBUS_EL_BINARY}"
+NIMBUSEL_BINARY="${NIMBUSEL_BINARY:-../nimbus-eth1/build/nimbus}"
+echo "${NIMBUSEL_BINARY}"
 
 EL_HTTP_PORTS=()
 EL_RPC_PORTS=()
@@ -525,7 +525,7 @@ if [[ "${RUN_GETH}" == "1" ]]; then
 fi
 
 if [[ "${RUN_NIMBUS}" == "1" ]]; then
-  if [[ ! -e "${NIMBUS_EL_BINARY}" ]]; then
+  if [[ ! -e "${NIMBUSEL_BINARY}" ]]; then
     echo "Missing nimbus EL executable"
     exit 1
   fi
@@ -533,7 +533,7 @@ if [[ "${RUN_NIMBUS}" == "1" ]]; then
   . "./scripts/start_nimbus_el_nodes.sh"
   EL_HTTP_PORTS+=("${NIMBUSEL_HTTP_PORTS[@]}")
   EL_RPC_PORTS+=("${NIMBUSEL_RPC_PORTS[@]}")
-  PROCS_TO_KILL+=("${NIMBUS_EL_BINARY}")
+  PROCS_TO_KILL+=("${NIMBUSEL_BINARY}")
   CLEANUP_DIRS+=("${NIMBUSEL_DATA_DIRS[@]}")
 fi
 
