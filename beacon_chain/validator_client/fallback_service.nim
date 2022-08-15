@@ -192,7 +192,7 @@ proc checkSync(vc: ValidatorClientRef,
           $syncInfo.is_optimistic.get()
 
       if not(syncInfo.is_syncing) or (syncInfo.sync_distance < SYNC_TOLERANCE):
-        if syncInfo.is_optimistic.isNone() or not(syncInfo.is_optimistic.get()):
+        if not(syncInfo.is_optimistic.get(false)):
           info "Beacon node is in sync", sync_distance = syncInfo.sync_distance,
                head_slot = syncInfo.head_slot, is_opimistic = optimistic
           RestBeaconNodeStatus.Online
