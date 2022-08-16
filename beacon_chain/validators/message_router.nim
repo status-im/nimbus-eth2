@@ -429,7 +429,7 @@ proc routeSignedVoluntaryExit*(
     if not res.isGoodForSending:
       warn "Voluntary exit failed validation",
         exit = shortLog(exit), error = res.error()
-    return err(res.error()[1])
+      return err(res.error()[1])
 
   let res = await router[].network.broadcastVoluntaryExit(exit)
   if res.isOk():
@@ -449,7 +449,7 @@ proc routeAttesterSlashing*(
     if not res.isGoodForSending:
       warn "Attester slashing failed validation",
         slashing = shortLog(slashing), error = res.error()
-    return err(res.error()[1])
+      return err(res.error()[1])
 
   let res = await router[].network.broadcastAttesterSlashing(slashing)
   if res.isOk():
@@ -470,7 +470,7 @@ proc routeProposerSlashing*(
     if not res.isGoodForSending:
       warn "Proposer slashing request failed validation",
         slashing = shortLog(slashing), error = res.error()
-    return err(res.error()[1])
+      return err(res.error()[1])
 
   let res = await router[].network.broadcastProposerSlashing(slashing)
   if res.isOk():
