@@ -311,6 +311,15 @@ type
     BYTES_PER_LOGS_BLOOM*: uint64
     MAX_EXTRA_DATA_BYTES*: uint64
 
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/presets/mainnet/capella.yaml
+    INACTIVITY_PENALTY_QUOTIENT_CAPELLA*: uint64
+    MIN_SLASHING_PENALTY_QUOTIENT_CAPELLA*: uint64
+    PROPORTIONAL_SLASHING_MULTIPLIER_CAPELLA*: uint64
+    MAX_WITHDRAWALS_PER_PAYLOAD*: uint64
+    MAX_BLS_TO_EXECUTION_CHANGES*: uint64
+    WITHDRAWALS_QUEUE_LIMIT*: uint64
+    DOMAIN_BLS_TO_EXECUTION_CHANGE*: DomainType
+
     # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/mainnet.yaml
     PRESET_BASE*: string
     CONFIG_NAME*: string

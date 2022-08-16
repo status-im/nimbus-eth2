@@ -51,6 +51,12 @@ type
     bellatrix.BeaconState |
     capella.BeaconState
 
+  # Beacon state which does not include the base fork
+  ForkyUpgradedBeaconState* =
+    altair.BeaconState |
+    bellatrix.BeaconState |
+    capella.BeaconState
+
   ForkyHashedBeaconState* =
     phase0.HashedBeaconState |
     altair.HashedBeaconState |

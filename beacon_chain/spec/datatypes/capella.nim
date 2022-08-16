@@ -20,7 +20,7 @@ import
   chronicles,
   ssz_serialization/types as sszTypes,
   ../digest,
-  "."/[base, phase0, altair]
+  "."/[base, phase0, altair, bellatrix]
 
 export base
 
