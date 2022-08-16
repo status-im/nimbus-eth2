@@ -15,7 +15,7 @@ import
   chronicles,
   ../extras,
   "."/[block_id, eth2_merkleization, eth2_ssz_serialization, presets],
-  ./datatypes/[phase0, altair, bellatrix, capella]
+  ./datatypes/[phase0, altair, bellatrix, capella],
   ./mev/bellatrix_mev
 
 export
@@ -134,6 +134,7 @@ type
     of BeaconBlockFork.Phase0:    phase0Data*:    phase0.BeaconBlock
     of BeaconBlockFork.Altair:    altairData*:    altair.BeaconBlock
     of BeaconBlockFork.Bellatrix: bellatrixData*: BeaconBlockHeader
+    of BeaconBlockFork.Capella:   capellaData*: BeaconBlockHeader
 
   ForkedTrustedBeaconBlock* = object
     case kind*: BeaconBlockFork
