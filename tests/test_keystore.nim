@@ -26,7 +26,8 @@ func isEqual(a, b: ValidatorPrivKey): bool =
     result = result and pa[i] == pb[i]
 
 const
-  scryptVector = """{
+  scryptVector = """
+  {
     "crypto": {
         "kdf": {
             "function": "scrypt",
@@ -57,9 +58,10 @@ const
     "path": "m/12381/60/3141592653/589793238",
     "uuid": "1d85ae20-35c5-4611-98e8-aa14a633906f",
     "version": 4
-}"""
+  }"""
 
-  scryptVector2 = """{
+  scryptVector2 = """
+  {
     "crypto": {
         "kdf": {
             "function": "scrypt",
@@ -89,9 +91,10 @@ const
     "path": "m/12381/60/3141592653/589793238",
     "uuid": "1d85ae20-35c5-4611-98e8-aa14a633906f",
     "version": 4
-}"""
+  }"""
 
-  pbkdf2Vector = """{
+  pbkdf2Vector = """
+  {
     "crypto": {
         "kdf": {
             "function": "pbkdf2",
@@ -121,9 +124,10 @@ const
     "path": "m/12381/60/0/0",
     "uuid": "64625def-3331-4eea-ab6f-782f3ed16a83",
     "version": 4
-}"""
+  }"""
 
-  pbkdf2Vector2 = """{
+  pbkdf2Vector2 = """
+  {
     "crypto": {
         "kdf": {
             "function": "pbkdf2",
@@ -152,9 +156,10 @@ const
     "path": "m/12381/60/0/0",
     "uuid": "64625def-3331-4eea-ab6f-782f3ed16a83",
     "version": 4
-}"""
+  }"""
 
-  pbkdf2NetVector = """{
+  pbkdf2NetVector = """
+  {
     "crypto":{
       "kdf":{
          "function":"pbkdf2",
@@ -185,9 +190,10 @@ const
     "pubkey":"08021221031873e6f4e1bf837b93493d570653cb219743d4fab0ff468d4e005e1679730b0b",
     "uuid":"7a053160-1cdf-4faf-a2bb-331e1bc2eb5f",
     "version":1
-}"""
+  }"""
 
-  scryptNetVector = """{
+  scryptNetVector = """
+  {
     "crypto":{
       "kdf":{
          "function":"scrypt",
@@ -219,7 +225,42 @@ const
     "pubkey":"08021221031873e6f4e1bf837b93493d570653cb219743d4fab0ff468d4e005e1679730b0b",
     "uuid":"83d77fa3-86cb-466a-af11-eeb338b0e258",
     "version":1
-}"""
+  }"""
+
+  prysmKeystore = """
+  {
+    "crypto": {
+            "checksum": {
+                    "function": "sha256",
+                    "message": "54fc80f6d0676bdae7c968e0d462f90a4e3a028fc7669ef8527e2f74386c9b36",
+                    "params": {}
+            },
+            "cipher": {
+                    "function": "aes-128-ctr",
+                    "message": "3c2540f69cbe7e66c0c4a6e416e99bf0d1056399c21b4c45552561da920871fa",
+                    "params": {
+                            "iv": "98a15bd46d258aceecaeeab25bddf5e2"
+                    }
+            },
+            "kdf": {
+                    "function": "pbkdf2",
+                    "message": "",
+                    "params": {
+                            "c": 262144,
+                            "dklen": 32,
+                            "prf": "hmac-sha256",
+                            "salt": "c0abbbbda36e588824865a71b5b34d5a95335fe1077c286d4e9c844f7193c62b"
+                    }
+            }
+    },
+    "uuid": "39796eb1-2e43-4353-9f13-5211c7ddc58c",
+    "pubkey": "8ed78a5495b54d5b6cc8bf170534ecb633b9694fba121ca680744fa9633f1b67cc77c045f88a6f97be781fe6c2867646",
+    "version": 4,
+    "name": "keystore",
+    "path": ""
+  }
+  """
+
   password = string.fromBytes hexToSeqByte("7465737470617373776f7264f09f9491")
   secretBytes = hexToSeqByte "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
   secretNetBytes = hexToSeqByte "08021220fe442379443d6e2d7d75d3a58f96fbb35f0a9c7217796825fc9040e3b89c5736"
@@ -234,9 +275,13 @@ suite "KeyStorage testing suite":
     let secret = ValidatorPrivKey.fromRaw(secretBytes).get
     let nsecret = init(lcrypto.PrivateKey, secretNetBytes).get
 
+  test "Load Prysm keystore":
+    let keystore = parseKeystore(prysmKeystore)
+    check keystore.uuid == "39796eb1-2e43-4353-9f13-5211c7ddc58c"
+
   test "[PBKDF2] Keystore decryption":
     let
-      keystore = Json.decode(pbkdf2Vector, Keystore)
+      keystore = parseKeystore(pbkdf2Vector)
       decrypt = decryptKeystore(keystore, KeystorePass.init password)
 
     check decrypt.isOk
@@ -244,8 +289,7 @@ suite "KeyStorage testing suite":
 
   test "[PBKDF2] Keystore decryption (requireAllFields, allowUnknownFields)":
     let
-      keystore = Json.decode(pbkdf2Vector2, Keystore, requireAllFields = true,
-                             allowUnknownFields = true)
+      keystore = parseKeystore(pbkdf2Vector2)
       decrypt = decryptKeystore(keystore, KeystorePass.init password)
 
     check decrypt.isOk
@@ -253,7 +297,7 @@ suite "KeyStorage testing suite":
 
   test "[SCRYPT] Keystore decryption":
     let
-      keystore = Json.decode(scryptVector, Keystore)
+      keystore = parseKeystore(scryptVector)
       decrypt = decryptKeystore(keystore, KeystorePass.init password)
 
     check decrypt.isOk
@@ -261,8 +305,7 @@ suite "KeyStorage testing suite":
 
   test "[SCRYPT] Keystore decryption (requireAllFields, allowUnknownFields)":
     let
-      keystore = Json.decode(pbkdf2Vector2, Keystore, requireAllFields = true,
-                             allowUnknownFields = true)
+      keystore = parseKeystore(pbkdf2Vector2)
       decrypt = decryptKeystore(keystore, KeystorePass.init password)
 
     check decrypt.isOk
@@ -270,7 +313,7 @@ suite "KeyStorage testing suite":
 
   test "[PBKDF2] Network Keystore decryption":
     let
-      keystore = Json.decode(pbkdf2NetVector, NetKeystore)
+      keystore = parseNetKeystore(pbkdf2NetVector)
       decrypt = decryptNetKeystore(keystore, KeystorePass.init password)
 
     check decrypt.isOk
@@ -278,7 +321,7 @@ suite "KeyStorage testing suite":
 
   test "[SCRYPT] Network Keystore decryption":
     let
-      keystore = Json.decode(scryptNetVector, NetKeystore)
+      keystore = parseNetKeystore(scryptNetVector)
       decrypt = decryptNetKeystore(keystore, KeystorePass.init password)
 
     check decrypt.isOk

@@ -783,6 +783,21 @@ proc decryptCryptoField*(crypto: Crypto,
 
 func cstringToStr(v: cstring): string = $v
 
+template parseKeystore*(jsonContent: string): Keystore =
+  Json.decode(jsonContent, Keystore,
+              requireAllFields = true,
+              allowUnknownFields = true)
+
+template parseNetKeystore*(jsonContent: string): NetKeystore =
+  Json.decode(jsonContent, NetKeystore,
+              requireAllFields = true,
+              allowUnknownFields = true)
+
+template parseRemoteKeystore*(jsonContent: string): RemoteKeystore =
+  Json.decode(jsonContent, RemoteKeystore,
+              requireAllFields = false,
+              allowUnknownFields = true)
+
 proc decryptKeystore*(keystore: Keystore,
                       password: KeystorePass): KsResult[ValidatorPrivKey] =
   var secret: seq[byte]
@@ -796,7 +811,7 @@ proc decryptKeystore*(keystore: Keystore,
 
 proc decryptKeystore*(keystore: JsonString,
                       password: KeystorePass): KsResult[ValidatorPrivKey] =
-  let keystore = try: Json.decode(keystore.string, Keystore)
+  let keystore = try: parseKeystore(string keystore)
                  except SerializationError as e:
                    return err e.formatMsg("<keystore>")
   decryptKeystore(keystore, password)
@@ -833,7 +848,7 @@ proc decryptNetKeystore*(nkeystore: NetKeystore,
 proc decryptNetKeystore*(nkeystore: JsonString,
                          password: KeystorePass): KsResult[lcrypto.PrivateKey] =
   try:
-    let keystore = Json.decode(string(nkeystore), NetKeystore)
+    let keystore = parseNetKeystore(string nkeystore)
     return decryptNetKeystore(keystore, password)
   except SerializationError as exc:
     return err(exc.formatMsg("<keystore>"))

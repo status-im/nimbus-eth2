@@ -312,6 +312,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## KeyStorage testing suite
 ```diff
++ Load Prysm keystore                                                                        OK
 + Pbkdf2 errors                                                                              OK
 + [PBKDF2] Keystore decryption                                                               OK
 + [PBKDF2] Keystore decryption (requireAllFields, allowUnknownFields)                        OK
@@ -324,7 +325,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SCRYPT] Network Keystore decryption                                                       OK
 + [SCRYPT] Network Keystore encryption                                                       OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Light client [Preset: mainnet]
 ```diff
 + Init from checkpoint                                                                       OK
@@ -654,4 +655,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 363/368 Fail: 0/368 Skip: 5/368
+OK: 364/369 Fail: 0/369 Skip: 5/369

@@ -429,8 +429,7 @@ proc loadRemoteKeystoreImpl(validatorsDir,
       let buffer = gres.get()
       let data =
         try:
-          Json.decode(buffer, RemoteKeystore, requireAllFields = true,
-                      allowUnknownFields = true)
+          parseRemoteKeystore(buffer)
         except SerializationError as e:
           error "Invalid remote keystore file", key_path = keystorePath,
                 error_msg = e.formatMsg(keystorePath)
@@ -475,8 +474,7 @@ proc loadLocalKeystoreImpl(validatorsDir, secretsDir, keyName: string,
         let buffer = gres.get()
         let data =
           try:
-            Json.decode(buffer, Keystore, requireAllFields = true,
-                        allowUnknownFields = true)
+            parseKeystore(buffer)
           except SerializationError as e:
             error "Invalid local keystore file", key_path = keystorePath,
                   error_msg = e.formatMsg(keystorePath)
