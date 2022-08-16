@@ -377,7 +377,8 @@ proc emptyPayloadToBlockHeader*(payload: ExecutionPayload): ExecutionBlockHeader
 #
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
-func build_empty_execution_payload*(state: bellatrix.BeaconState): bellatrix.ExecutionPayload =
+func build_empty_execution_payload*(state: bellatrix.BeaconState | capella.BeaconState):
+     bellatrix.ExecutionPayload | capella.ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.
   let
@@ -388,35 +389,7 @@ func build_empty_execution_payload*(state: bellatrix.BeaconState): bellatrix.Exe
                                   GasInt.saturate latest.gas_used,
                                   latest.base_fee_per_gas)
 
-  var payload = bellatrix.ExecutionPayload(
-    parent_hash: latest.block_hash,
-    state_root: latest.state_root, # no changes to the state
-    receipts_root: static(Eth2Digest.fromHex(
-      "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")),
-    block_number: latest.block_number + 1,
-    prev_randao: randao_mix,
-    gas_limit: latest.gas_limit, # retain same limit
-    gas_used: 0, # empty block, 0 gas
-    timestamp: timestamp,
-    base_fee_per_gas: latest.base_fee_per_gas) # retain same base_fee
-
-  payload.block_hash = withEth2Hash:
-    h.update payload.hash_tree_root().data
-    h.update cast[array[13, uint8]]("FAKE RLP HASH")
-
-  payload
-
-
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
-func build_empty_execution_payload*(state: capella.BeaconState): capella.ExecutionPayload =
-  ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
-  ## without any transactions.
-  let
-    latest = state.latest_execution_payload_header
-    timestamp = compute_timestamp_at_slot(state, state.slot)
-    randao_mix = get_randao_mix(state, get_current_epoch(state))
-
-  var payload = capella.ExecutionPayload(
+  var payload = state.toFork().ExecutionPayload(
     parent_hash: latest.block_hash,
     state_root: latest.state_root, # no changes to the state
     receipts_root: BLANK_ROOT_HASH,
