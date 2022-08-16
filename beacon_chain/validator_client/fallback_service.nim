@@ -184,14 +184,27 @@ proc checkSync(vc: ValidatorClientRef,
       return
   node.syncInfo = some(syncInfo)
   node.status =
-    if not(syncInfo.is_syncing) or (syncInfo.sync_distance < SYNC_TOLERANCE):
-      info "Beacon node is in sync", sync_distance = syncInfo.sync_distance,
-           head_slot = syncInfo.head_slot
-      RestBeaconNodeStatus.Online
-    else:
-      warn "Beacon node not in sync", sync_distance = syncInfo.sync_distance,
-           head_slot = syncInfo.head_slot
-      RestBeaconNodeStatus.NotSynced
+    block:
+      let optimistic =
+        if syncInfo.is_optimistic.isNone():
+          "none"
+        else:
+          $syncInfo.is_optimistic.get()
+
+      if not(syncInfo.is_syncing) or (syncInfo.sync_distance < SYNC_TOLERANCE):
+        if not(syncInfo.is_optimistic.get(false)):
+          info "Beacon node is in sync", sync_distance = syncInfo.sync_distance,
+               head_slot = syncInfo.head_slot, is_opimistic = optimistic
+          RestBeaconNodeStatus.Online
+        else:
+          warn "Beacon node is optimistically synced only",
+               sync_distance = syncInfo.sync_distance,
+               head_slot = syncInfo.head_slot, is_opimistic = optimistic
+          RestBeaconNodeStatus.NotSynced
+      else:
+        warn "Beacon node not in sync", sync_distance = syncInfo.sync_distance,
+             head_slot = syncInfo.head_slot, is_opimistic = optimistic
+        RestBeaconNodeStatus.NotSynced
 
 proc checkOnline(node: BeaconNodeServerRef) {.async.} =
   logScope: endpoint = node
