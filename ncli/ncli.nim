@@ -22,6 +22,11 @@ type
       desc: "The Eth2 network preset to use"
       name: "network" }: Option[string]
 
+    printTimes* {.
+      defaultValue: false # false to avoid polluting minimal output
+      name: "print-times"
+      desc: "Print timing information".}: bool
+
     # TODO confutils argument pragma doesn't seem to do much; also, the cases
     # are largely equivalent, but this helps create command line usage text
     case cmd* {.command}: Cmd
@@ -97,10 +102,18 @@ proc loadFile(filename: string, T: type): T =
     quit 1
 
 proc doTransition(conf: NcliConf) =
+  type
+    Timers = enum
+      tLoadState = "Load state from file"
+      tTransition = "Apply slot"
+      tSaveState = "Save state to file"
+  var timers: array[Timers, RunningStat]
+
   let
     cfg = getRuntimeConfig(conf.eth2Network)
-    stateY = newClone(readSszForkedHashedBeaconState(
-      cfg, readAllBytes(conf.preState).tryGet()))
+    stateY = withTimerRet(timers[tLoadState]):
+      newClone(readSszForkedHashedBeaconState(
+        cfg, readAllBytes(conf.preState).tryGet()))
     blckX = readSszForkedSignedBeaconBlock(
       cfg, readAllBytes(conf.blck).tryGet())
     flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
@@ -108,14 +121,18 @@ proc doTransition(conf: NcliConf) =
   var
     cache = StateCache()
     info = ForkedEpochInfo()
-  let res = withBlck(blckX):
+  let res = withTimerRet(timers[tTransition]): withBlck(blckX):
     state_transition(
       cfg, stateY[], blck, cache, info, flags, noRollback)
   if res.isErr():
     error "State transition failed", error = res.error()
     quit 1
   else:
-    saveSSZFile(conf.postState, stateY[])
+    withTimer(timers[tSaveState]):
+      saveSSZFile(conf.postState, stateY[])
+
+  if conf.printTimes:
+    printTimers(false, timers)
 
 proc doSlots(conf: NcliConf) =
   type
@@ -144,9 +161,15 @@ proc doSlots(conf: NcliConf) =
   withTimer(timers[tSaveState]):
     saveSSZFile(conf.postState2, stateY[])
 
-  printTimers(false, timers)
+  if conf.printTimes:
+    printTimers(false, timers)
 
 proc doSSZ(conf: NcliConf) =
+  type Timers = enum
+    tLoad = "Load file"
+    tCompute = "Compute"
+  var timers: array[Timers, RunningStat]
+
   let (kind, file) =
     case conf.cmd:
     of hashTreeRoot: (conf.htrKind, conf.htrFile)
@@ -155,19 +178,26 @@ proc doSSZ(conf: NcliConf) =
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
   template printit(t: untyped) {.dirty.} =
-    let v = newClone(loadFile(file, t))
+
+    let v = withTimerRet(timers[tLoad]):
+      newClone(loadFile(file, t))
 
     case conf.cmd:
     of hashTreeRoot:
-      when t is ForkySignedBeaconBlock:
-        echo hash_tree_root(v.message).data.toHex()
-      else:
-        echo hash_tree_root(v[]).data.toHex()
+      let root = withTimerRet(timers[tCompute]):
+        when t is ForkySignedBeaconBlock:
+          hash_tree_root(v[].message)
+        else:
+          hash_tree_root(v[])
+
+      echo root.data.toHex()
     of pretty:
       echo RestJson.encode(v[], pretty = true)
     else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
+    if conf.printTimes:
+      printTimers(false, timers)
 
   case kind
   of "attester_slashing": printit(AttesterSlashing)
@@ -186,7 +216,7 @@ proc doSSZ(conf: NcliConf) =
   of "deposit_data": printit(DepositData)
   of "eth1_data": printit(Eth1Data)
   of "phase0_state": printit(phase0.BeaconState)
-  of "altiar_state": printit(altair.BeaconState)
+  of "altair_state": printit(altair.BeaconState)
   of "bellatrix_state": printit(bellatrix.BeaconState)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
