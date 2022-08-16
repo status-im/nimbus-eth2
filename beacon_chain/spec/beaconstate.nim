@@ -897,6 +897,8 @@ func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
 func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
     ref bellatrix.BeaconState =
   let epoch = get_current_epoch(pre)
+  let executionHeader = bellatrix.ExecutionPayloadHeader()
+
   (ref bellatrix.BeaconState)(
     # Versioning
     genesis_time: pre.genesis_time,
@@ -947,7 +949,7 @@ func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
     next_sync_committee: pre.next_sync_committee,
 
     # Execution-layer
-    latest_execution_payload_header: bellatrix.ExecutionPayloadHeader()
+    latest_execution_payload_header: executionHeader
   )
 
 template isValidInState*(idx: ValidatorIndex, state: ForkyBeaconState): bool =
