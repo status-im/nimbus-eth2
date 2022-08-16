@@ -37,9 +37,11 @@ ConsensusSpecPreset-minimal
 + EF - Altair - Rewards - with_slashed_validators [Preset: minimal]                          OK
 + EF - Altair - Rewards - with_slashed_validators_leak [Preset: minimal]                     OK
 + EF - Altair - Transition - normal_transition [Preset: minimal]                             OK
++ EF - Altair - Transition - simple_transition [Preset: minimal]                             OK
 + EF - Altair - Transition - transition_missing_first_post_block [Preset: minimal]           OK
 + EF - Altair - Transition - transition_missing_last_pre_fork_block [Preset: minimal]        OK
 + EF - Altair - Transition - transition_only_blocks_post_fork [Preset: minimal]              OK
++ EF - Altair - Transition - transition_randomized_state [Preset: minimal]                   OK
 + EF - Altair - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]      OK
 + EF - Altair - Transition - transition_with_attester_slashing_right_after_fork [Preset: min OK
 + EF - Altair - Transition - transition_with_attester_slashing_right_before_fork [Preset: mi OK
@@ -94,10 +96,11 @@ ConsensusSpecPreset-minimal
 + EF - Bellatrix - Rewards - with_slashed_validators [Preset: minimal]                       OK
 + EF - Bellatrix - Rewards - with_slashed_validators_leak [Preset: minimal]                  OK
 + EF - Bellatrix - Transition - normal_transition [Preset: minimal]                          OK
-+ EF - Bellatrix - Transition - sample_transition [Preset: minimal]                          OK
++ EF - Bellatrix - Transition - simple_transition [Preset: minimal]                          OK
 + EF - Bellatrix - Transition - transition_missing_first_post_block [Preset: minimal]        OK
 + EF - Bellatrix - Transition - transition_missing_last_pre_fork_block [Preset: minimal]     OK
 + EF - Bellatrix - Transition - transition_only_blocks_post_fork [Preset: minimal]           OK
++ EF - Bellatrix - Transition - transition_randomized_state [Preset: minimal]                OK
 + EF - Bellatrix - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]   OK
 + EF - Bellatrix - Transition - transition_with_attester_slashing_right_after_fork [Preset:  OK
 + EF - Bellatrix - Transition - transition_with_attester_slashing_right_before_fork [Preset: OK
@@ -242,6 +245,20 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_update_justified_ch OK
 + ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
 + ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
++ Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/pyspe OK
++ Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/pyspe OK
++ Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/pyspe OK
++ Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
++ Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
++ Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
++ Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/advance_finality_witho OK
++ Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync      OK
++ Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/supply_sync_committee_ OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/advance_finality_wi OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync   OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/supply_sync_committ OK
++ Light client - Update ranking - minimal/altair/light_client/update_ranking/pyspec_tests/up OK
++ Light client - Update ranking - minimal/bellatrix/light_client/update_ranking/pyspec_tests OK
 + Slots - double_empty_epoch                                                                 OK
 + Slots - empty_epoch                                                                        OK
 + Slots - over_epoch_boundary                                                                OK
@@ -376,6 +393,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition [Preset: minimal]      OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition_large_validator_set [P OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal OK
++ [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition_randomized_payload [Pr OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_epoch_transition [Preset: minimal]      OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_epoch_transition_large_validator_set [P OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset OK
@@ -479,7 +497,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 469/476 Fail: 0/476 Skip: 7/476
+OK: 487/494 Fail: 0/494 Skip: 7/494
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -897,6 +915,9 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    ForkData                                                                      OK
 +   Testing    HistoricalBatch                                                               OK
 +   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    PendingAttestation                                                            OK
 +   Testing    ProposerSlashing                                                              OK
@@ -914,7 +935,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 35/35 Fail: 0/35 Skip: 0/35
+OK: 38/38 Fail: 0/38 Skip: 0/38
 ## EF - Altair - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -1062,6 +1083,9 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    ForkData                                                                      OK
 +   Testing    HistoricalBatch                                                               OK
 +   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    PendingAttestation                                                            OK
 +   Testing    PowBlock                                                                      OK
@@ -1080,7 +1104,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 38/38 Fail: 0/38 Skip: 0/38
+OK: 41/41 Fail: 0/41 Skip: 0/41
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1187,22 +1211,34 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 27/27 Fail: 0/27 Skip: 0/27
 ## Execution Payload
 ```diff
++ [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_everything_first_payload   OK
 + [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_everything_regular_payload OK
 + [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_execution_first_payload    OK
 + [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_execution_regular_payload  OK
 + [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_parent_hash_regular_payloa OK
-+ [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_random_first_payload       OK
-+ [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_random_regular_payload     OK
-+ [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_timestamp_first_payload    OK
-+ [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_timestamp_regular_payload  OK
++ [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_pre_randao_regular_payload OK
++ [Invalid] EF - Bellatrix - Operations - Execution Payload - bad_prev_randao_first_payload  OK
++ [Invalid] EF - Bellatrix - Operations - Execution Payload - future_timestamp_first_payload OK
++ [Invalid] EF - Bellatrix - Operations - Execution Payload - future_timestamp_regular_paylo OK
++ [Invalid] EF - Bellatrix - Operations - Execution Payload - past_timestamp_first_payload   OK
++ [Invalid] EF - Bellatrix - Operations - Execution Payload - past_timestamp_regular_payload OK
++ [Invalid] EF - Bellatrix - Operations - Execution Payload - randomized_non_validated_execu OK
++ [Invalid] EF - Bellatrix - Operations - Execution Payload - randomized_non_validated_execu OK
++ [Valid]   EF - Bellatrix - Operations - Execution Payload - bad_parent_hash_first_payload  OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - non_empty_extra_data_first_pay OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - non_empty_extra_data_regular_p OK
++ [Valid]   EF - Bellatrix - Operations - Execution Payload - non_empty_transactions_first_p OK
++ [Valid]   EF - Bellatrix - Operations - Execution Payload - non_empty_transactions_regular OK
++ [Valid]   EF - Bellatrix - Operations - Execution Payload - randomized_non_validated_execu OK
++ [Valid]   EF - Bellatrix - Operations - Execution Payload - randomized_non_validated_execu OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - success_first_payload          OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - success_first_payload_with_gap OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - success_regular_payload        OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - success_regular_payload_with_g OK
++ [Valid]   EF - Bellatrix - Operations - Execution Payload - zero_length_transaction_first_ OK
++ [Valid]   EF - Bellatrix - Operations - Execution Payload - zero_length_transaction_regula OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
+OK: 26/26 Fail: 0/26 Skip: 0/26
 ## Proposer Slashing
 ```diff
 + [Invalid] EF - Altair - Operations - Proposer Slashing - epochs_are_different              OK
@@ -1340,4 +1376,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 30/30 Fail: 0/30 Skip: 0/30
 
 ---TOTAL---
-OK: 1155/1162 Fail: 0/1162 Skip: 7/1162
+OK: 1191/1198 Fail: 0/1198 Skip: 7/1198
