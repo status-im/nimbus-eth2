@@ -18,13 +18,14 @@ import
   normalize,
   # Status libraries
   stew/[results, bitops2, base10, io2], stew/shims/macros,
-  eth/keyfile/uuid, blscurve, json_serialization,
+  eth/keyfile/uuid, blscurve,
+  json_serialization, json_serialization/std/options,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
   ./datatypes/base,  ./signatures
 
-export base, uri, io2
+export base, uri, io2, options
 
 # We use `ncrutils` for constant-time hexadecimal encoding/decoding procedures.
 import nimcrypto/utils as ncrutils
@@ -121,7 +122,7 @@ type
 
   Keystore* = object
     crypto*: Crypto
-    description*: ref string
+    description*: Option[string]
     pubkey*: ValidatorPubKey
     path*: KeyPath
     uuid*: string
@@ -161,7 +162,7 @@ type
 
   NetKeystore* = object
     crypto*: Crypto
-    description*: ref string
+    description*: Option[string]
     pubkey*: lcrypto.PublicKey
     uuid*: string
     version*: int
@@ -914,7 +915,8 @@ proc createNetKeystore*(kdfKind: KdfKind,
   NetKeystore(
     crypto: cryptoField,
     pubkey: pubkey,
-    description: newClone(description),
+    description: if len(description) > 0: some(description)
+                 else: none[string](),
     uuid: $uuid,
     version: 1
   )
@@ -938,7 +940,8 @@ proc createKeystore*(kdfKind: KdfKind,
     crypto: cryptoField,
     pubkey: pubkey.toPubKey(),
     path: path,
-    description: newClone(description),
+    description: if len(description) > 0: some(description)
+                 else: none[string](),
     uuid: $uuid,
     version: 4)
 

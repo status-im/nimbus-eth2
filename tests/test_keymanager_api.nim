@@ -545,7 +545,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
     proc `==`(a, b: Keystore): bool =
       (a.crypto == b.crypto) and (a.pubkey == b.pubkey) and
         (string(a.path) == string(b.path)) and
-        (a.description[] == b.description[]) and (a.uuid == b.uuid) and
+        (a.description == b.description) and (a.uuid == b.uuid) and
         (a.version == b.version)
 
     test "Deserialization test vectors":
@@ -611,7 +611,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           crypto: Crypto(kdf: kdf1, checksum: checksum1, cipher: cipher1),
           pubkey: ValidatorPubKey.fromHex("0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798").get(),
           path: KeyPath("m/12381/60/0/0"),
-          description: newClone("Test keystore"),
+          description: some "Test keystore",
           uuid: "a3331c0c-a013-4754-a122-9988b3381fec",
           version: 4
         )
@@ -619,7 +619,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           crypto: Crypto(kdf: kdf1, checksum: checksum2, cipher: cipher2),
           pubkey: ValidatorPubKey.fromHex("0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228").get(),
           path: KeyPath("m/12381/60/0/0"),
-          description: newClone("Test keystore"),
+          description: some "Test keystore",
           uuid: "905dd873-48af-416a-8c80-4283d5af84f9",
           version: 4
         )
@@ -627,7 +627,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           crypto: Crypto(kdf: kdf2, checksum: checksum3, cipher: cipher3),
           pubkey: ValidatorPubKey.fromHex("0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798").get(),
           path: KeyPath("m/12381/60/0/0"),
-          description: newClone("Test keystore"),
+          description: some "Test keystore",
           uuid: "ad1bf334-faaa-4257-8e28-81a45722e87b",
           version: 4
         )
@@ -635,7 +635,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           crypto: Crypto(kdf: kdf2, checksum: checksum4, cipher: cipher4),
           pubkey: ValidatorPubKey.fromHex("0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228").get(),
           path: KeyPath("m/12381/60/0/0"),
-          description: newClone("Test keystore"),
+          description: some "Test keystore",
           uuid: "d91bcde8-8bf5-45c6-b04d-c10d99ae9b6b",
           version: 4
         )

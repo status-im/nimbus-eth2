@@ -314,15 +314,17 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ```diff
 + Pbkdf2 errors                                                                              OK
 + [PBKDF2] Keystore decryption                                                               OK
++ [PBKDF2] Keystore decryption (requireAllFields, allowUnknownFields)                        OK
 + [PBKDF2] Keystore encryption                                                               OK
 + [PBKDF2] Network Keystore decryption                                                       OK
 + [PBKDF2] Network Keystore encryption                                                       OK
 + [SCRYPT] Keystore decryption                                                               OK
++ [SCRYPT] Keystore decryption (requireAllFields, allowUnknownFields)                        OK
 + [SCRYPT] Keystore encryption                                                               OK
 + [SCRYPT] Network Keystore decryption                                                       OK
 + [SCRYPT] Network Keystore encryption                                                       OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Light client [Preset: mainnet]
 ```diff
 + Init from checkpoint                                                                       OK
@@ -652,4 +654,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 361/366 Fail: 0/366 Skip: 5/366
+OK: 363/368 Fail: 0/368 Skip: 5/368

@@ -133,8 +133,7 @@ func init*(T: type KeystoreData,
   KeystoreData(
     kind: KeystoreKind.Local,
     privateKey: privateKey,
-    description: if keystore.description == nil: none(string)
-                 else: some(keystore.description[]),
+    description: keystore.description,
     path: keystore.path,
     uuid: keystore.uuid,
     handle: handle,
