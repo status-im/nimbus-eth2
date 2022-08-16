@@ -99,7 +99,7 @@ Nimbus `v22.6.0` brings support for the merge testnets Ropsten and Sepolia (plea
   https://github.com/status-im/nimbus-eth2/pull/3679
   https://github.com/status-im/nimbus-eth2/pull/3780
 
-* The custom error code `1031` will signal a detected doppelganger on the network. This can be handled in the Nimbus's service supervisor to prevent an automatic restart:
+* The custom error code `129` will signal a detected doppelganger on the network. This can be handled in the Nimbus's service supervisor to prevent an automatic restart:
   https://github.com/status-im/nimbus-eth2/pull/3728
 
 * The Nimbus status bar can be configured to display the current version number:
