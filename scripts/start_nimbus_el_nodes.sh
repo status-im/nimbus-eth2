@@ -14,6 +14,15 @@ NIMBUSEL_WS_PORTS=()
 NIMBUSEL_RPC_PORTS=()
 NIMBUSEL_DATA_DIRS=()
 
+wait_for_port() {
+  for EXPONENTIAL_BACKOFF in {1..10}; do
+    nc -w 1 -z $1 $2 && break;
+    DELAY=$((2**$EXPONENTIAL_BACKOFF))
+    echo "Port ${2} not yet available. Waiting ${DELAY} seconds"
+    sleep $DELAY
+  done
+}
+
 log "Using ${NIMBUSEL_BINARY}"
 
 for NUM_NODE in $(seq 0 $(( NIMBUSEL_NUM_NODES - 1 ))); do
@@ -27,7 +36,9 @@ for NUM_NODE in $(seq 0 $(( NIMBUSEL_NUM_NODES - 1 ))); do
     ${NIMBUSEL_BINARY} --data-dir="${NIMBUSEL_DATADIR}" --custom-network="${NIMBUSEL_GENESIS}" "${NIMBUSEL_DISCOVERY}" \
                        --tcp-port="${NIMBUSEL_NET_PORT}"  --engine-api --engine-api-port="${NIMBUSEL_AUTH_RPC_PORT}" \
                        --rpc --rpc-port="${NIMBUSEL_HTTP_PORT}" &> "${DATA_DIR}/nimbusel_log${NUM_NODE}.txt" &
-    sleep 5
+
+    wait_for_port localhost "${NIMBUSEL_HTTP_PORT}"
+
     NODE_ID=$(
       "${CURL_BINARY}" -sS -X POST \
                        -H 'Content-Type: application/json' \
