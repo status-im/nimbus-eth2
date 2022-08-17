@@ -302,7 +302,7 @@ p2pProtocol BeaconSync(version = 1,
 
     if startSlot.epoch >= dag.cfg.ALTAIR_FORK_EPOCH:
       # "Clients MAY limit the number of blocks in the response."
-      # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#beaconblocksbyrange
+      # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#beaconblocksbyrange
       debug "Block range v1 request for post-altair range",
         peer, startSlot, reqCount, reqStep
       return
@@ -392,7 +392,7 @@ p2pProtocol BeaconSync(version = 1,
       if blockRef.slot.epoch >= dag.cfg.ALTAIR_FORK_EPOCH:
         # Skipping this block should be fine because the spec says:
         # "Clients MAY limit the number of blocks in the response."
-        # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#beaconblocksbyroot
+        # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#beaconblocksbyroot
         #
         # Also, our response would be indistinguishable from a node
         # that have been synced exactly to the altair transition slot.

@@ -96,7 +96,7 @@ func check_propagation_slot_range(
   let
     pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#configuration
   # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
   # retransmit attestations on the cusp of being out of spec, and which by
   # the time they reach their destination might be out of spec.
@@ -182,7 +182,7 @@ template validateBeaconBlockBellatrix(
     parent: BlockRef): untyped =
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/bellatrix/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
        signed_beacon_block: bellatrix.SignedBeaconBlock,
        parent: BlockRef): untyped =
@@ -222,7 +222,7 @@ template validateBeaconBlockBellatrix(
       return errReject("BeaconBlock: execution payload would build on optimistic parent")
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_block
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/bellatrix/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
@@ -301,7 +301,7 @@ proc validateBeaconBlock*(
     if signed_beacon_block.message.parent_root in quarantine[].unviable:
       quarantine[].addUnviable(signed_beacon_block.root)
 
-      # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/p2p-interface.md#beacon_block
+      # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/bellatrix/p2p-interface.md#beacon_block
       # `is_execution_enabled(state, block.body)` check, but unlike in
       # validateBeaconBlockBellatrix() don't have parent BlockRef.
       if  signed_beacon_block.message.is_execution_block or
@@ -761,7 +761,7 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
     pool: ExitPool, attester_slashing: AttesterSlashing):
     Result[void, ValidationError] =
@@ -784,7 +784,7 @@ proc validateAttesterSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#proposer_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
     pool: ExitPool, proposer_slashing: ProposerSlashing):
     Result[void, ValidationError] =
@@ -807,7 +807,7 @@ proc validateProposerSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
     pool: ExitPool, signed_voluntary_exit: SignedVoluntaryExit):
     Result[void, ValidationError] =
@@ -837,7 +837,7 @@ proc validateVoluntaryExit*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/p2p-interface.md#sync_committee_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,

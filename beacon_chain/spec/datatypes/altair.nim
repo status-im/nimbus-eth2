@@ -54,7 +54,7 @@ const
   # The first member (`genesis_time`) is 32, subsequent members +1 each.
   # If there are ever more than 32 members in `BeaconState`, indices change!
   # `FINALIZED_ROOT_INDEX` is one layer deeper, i.e., `52 * 2 + 1`.
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/ssz/merkle-proofs.md
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/ssz/merkle-proofs.md
   FINALIZED_ROOT_INDEX* = 105.GeneralizedIndex # `finalized_checkpoint` > `root`
   CURRENT_SYNC_COMMITTEE_INDEX* = 54.GeneralizedIndex # `current_sync_committee`
   NEXT_SYNC_COMMITTEE_INDEX* = 55.GeneralizedIndex # `next_sync_committee`
@@ -333,7 +333,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -439,7 +439,7 @@ type
 
   SyncnetBits* = BitArray[SYNC_COMMITTEE_SUBNET_COUNT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
@@ -461,7 +461,7 @@ type
     # [New in Altair]
     sync_aggregate*: TrustedSyncAggregate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
