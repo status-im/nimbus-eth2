@@ -20,7 +20,7 @@ Leading up to the merge, it is important to [keep Nimbus up to date](./keep-upda
 
 As a node operator, you will need to run both an execution client and a consensus client after the merge. If you were previously using a third-party web3 provider (such as Infura or Pocket), you will need to [set up an execution client](./eth1.md).
 
-If you were running an execution client before, make sure to update its configuration to include an option for JWT secrets and engine API.
+If you were running an execution client before, make sure to update its configuration to include an option for [JWT secrets](./eth1.md#3-pass-the-jwt-secret-to-nimbus) and engine API.
 
 ### Prepare a suggested fee recipient
 

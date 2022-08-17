@@ -4,19 +4,6 @@ In order to run a beacon node, you need to also be running an execution client -
 
 Nimbus has been tested all major execution clients - see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
 
-The `--web3-url` option informs the beacon node how to connect to the execution client - both `http://` and `ws://` URL:s are supported.
-
-Once started, the execution client will create a file containing a JWT secret token. The token file is needed for Nimbus to authenticate itself with the execution client and perform trusted operations. You will need to pass the path to the token file to Nimbus together with the web3 URL.
-
-You can pass one or more `--web3-url` parameters to the node. Any additional web3 url:s will be used for backup, should the first client become unavailable:
-
-```sh
-./run-mainnet-beacon-node.sh \
-  --web3-url=ws://127.0.0.1:8546 \
-  --web3-url=http://other:8545 \
-  --jwt-secret=/tmp/jwtsecret
-```
-
 !!! warning
     You need to run your own execution client after [the merge](./merge.md) - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.
 
@@ -91,8 +78,36 @@ Select an execution client and install it, configuring it such that that WebSock
 
 ### 2. Leave the execution client running
 
-When the execution client starts, it will create a JWT authentication token file - you will need to pass this file to Nimbus to allow it to perform authenticated requrests.
+The execution client will be syncing the chain, up to [the merge](./merge.md). Once it reaches this point, it will wait for the beacon node to provide further sync instructions.
 
-It will then start syncing the chain, up to [the merge](./merge.md). Once it reaches this point, it will wait for the beacon node to provide further sync instructions.
+It is safe to start the beacon node even if the execution client is not yet fully synced and vice versa.
 
-It is safe to start the beacon node even if the execution client is not yet fully synced.
+### 3. Pass the URL and JWT secret to Nimbus
+
+The `--web3-url` option informs the beacon node how to connect to the execution client - both `http://` and `ws://` URL:s are supported.
+
+Once started, the execution client will create a file containing a JWT secret token. The token file is needed for Nimbus to authenticate itself with the execution client and perform trusted operations. You will need to pass the path to the token file to Nimbus together with the web3 URL.
+
+=== "Mainnet"
+    ```sh
+    ./run-mainnet-beacon-node.sh \
+      --web3-url=ws://127.0.0.1:8551 \
+      --jwt-secret=/tmp/jwtsecret
+    ```
+
+=== "Prater"
+    ```sh
+    ./run-prater-beacon-node.sh \
+      --web3-url=ws://127.0.0.1:8551 \
+      --jwt-secret=/tmp/jwtsecret
+    ```
+
+!!! tip
+    You can pass one or more `--web3-url` parameters to the node as long as they share JWT secret. Any additional web3 url:s will be used for backup, should the first one become unavailable:
+
+    ```sh
+    ./run-mainnet-beacon-node.sh \
+      --web3-url=ws://127.0.0.1:8551 \
+      --web3-url=http://other:8551 \
+      --jwt-secret=/tmp/jwtsecret
+    ```
