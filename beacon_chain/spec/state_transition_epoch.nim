@@ -895,6 +895,8 @@ func get_adjusted_total_slashing_balance*(
       PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR
     elif state is bellatrix.BeaconState:
       PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX
+    elif state is capella.BeaconState:
+      PROPORTIONAL_SLASHING_MULTIPLIER_CAPELLA
     else:
       {.fatal: "process_slashings: incorrect BeaconState type".}
   min(sum(state.slashings.data) * multiplier, total_balance)

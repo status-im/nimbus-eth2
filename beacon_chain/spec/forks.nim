@@ -133,17 +133,20 @@ type
     of BeaconBlockFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
     of BeaconBlockFork.Capella:   capellaData*:   capella.BeaconBlock
 
-  ForkedExecutionPayloadHeader* = object
-    case kind*: WithExecutionPayloadHeader
-    of WithExecutionPayloadHeader.Bellatrix: bellatrixData*: bellatrix.ExecutionPayloadHeader
-    of WithExecutionPayloadHeader.Capella:   capellaData*:   capella.ExecutionPayloadHeader
+  ForkyExecutionPayload* = object
+    bellatrix.ExecutionPayload |
+    capella.ExecutionPayload
+
+  ForkyExecutionPayloadHeader* = object
+    bellatrix.ExecutionPayloadHeader |
+    capella.ExecutionPayloadHeader
 
   Web3SignerForkedBeaconBlock* = object
     case kind*: BeaconBlockFork
     of BeaconBlockFork.Phase0:    phase0Data*:    phase0.BeaconBlock
     of BeaconBlockFork.Altair:    altairData*:    altair.BeaconBlock
     of BeaconBlockFork.Bellatrix: bellatrixData*: BeaconBlockHeader
-    of BeaconBlockFork.Capella:   capellaData*: BeaconBlockHeader
+    of BeaconBlockFork.Capella:   capellaData*:   BeaconBlockHeader
 
   ForkedTrustedBeaconBlock* = object
     case kind*: BeaconBlockFork
@@ -788,7 +791,7 @@ func toBeaconBlockFork*(fork: BeaconStateFork): BeaconBlockFork =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#compute_fork_data_root
 func toExecutionPayloadHeader(state: bellatrix.BeaconState | capella.BeaconState):
-     ForkedExecutionPayloadHeader =
+     ForkyExecutionPayloadHeader =
   case state:
   of bellatrix.BeaconState: bellatrix.ExecutionPayloadHeader
   of capella.BeaconState:   capella.ExecutionPayloadHeader
