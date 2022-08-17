@@ -7,28 +7,6 @@
 
 {.used.}
 
-# This implements the pre-release proposal of the libp2p based light client sync
-# protocol. See https://github.com/ethereum/consensus-specs/pull/2802
-
-# These tests are for the pre-release proposal of the libp2p based light
-# client sync protocol. Corresponding test vectors need manual integration.
-# https://github.com/ethereum/consensus-specs/pull/2802
-#
-# To locally integrate the test vectors, clone the pre-release spec repo
-# at latest commit of https://github.com/ethereum/consensus-specs/pull/2802
-# and place it next to the `nimbus-eth2` repo, so that `nimbus-eth2` and
-# `consensus-specs` are in the same directory.
-#
-# To generate the additional test vectors, from `consensus-specs`:
-# $ rm -rf ../consensus-spec-tests && \
-#   doctoc specs && make lint && make gen_light_client
-#
-# To integrate the additional test vectors into `nimbus-eth2`, first run
-# `make test` from `nimbus-eth2` to ensure that the regular test vectors
-# have been downloaded and extracted, then proceed from `nimbus-eth2` with:
-# $ rsync -r ../consensus-spec-tests/tests/ \
-#   ../nimbus-eth2/vendor/nim-eth2-scenarios/tests-v1.2.0-rc.1/
-
 import
   # Standard library
   std/[algorithm, os, streams],

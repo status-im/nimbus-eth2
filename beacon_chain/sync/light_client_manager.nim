@@ -10,9 +10,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-# This implements the pre-release proposal of the libp2p based light client sync
-# protocol. See https://github.com/ethereum/consensus-specs/pull/2802
-
 import chronos, chronicles, stew/base10
 import
   eth/p2p/discoveryv5/random2,
