@@ -841,7 +841,7 @@ type
 
     metricsPort* {.
       desc: "Listening HTTP port of the metrics server"
-      defaultValue: 8008
+      defaultValue: 8108
       name: "metrics-port" .}: Port
 
     graffiti* {.

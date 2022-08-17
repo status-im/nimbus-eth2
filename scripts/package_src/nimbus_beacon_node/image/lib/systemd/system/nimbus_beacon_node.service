@@ -4,9 +4,11 @@
 # Environment="WEB3_URL=wss://provider/"
 #
 # To completely override the start command (to add custom parameters such as
-# graffiti), override the `ExecStart` value instead:
+# graffiti), override the `ExecStart` value instead by first emptying it, then
+# specifying a new one:
 #
 # [Service]
+# ExecStart=
 # ExecStart=/usr/bin/nimbus_beacon_node --network=${NETWORK} \
 #  --data-dir="${DATA_DIR_PREFIX}/shared_${NETWORK}_${NODE_ID}" \
 #  --graffiti=123
@@ -27,8 +29,10 @@ Environment=NETWORK=mainnet
 
 # You need to have have access to an execution client - by default, we assume
 # a compatible execution client is running on the same machine on the default
-# websocket port.
+# websocket port. Make sure to supply the right path to the JWT secret.
+
 Environment=WEB3_URL=ws://127.0.0.1:8546
+Environment=JWT_SECRET=/tmp/jwtsecret
 
 # Where to store chain data
 Environment=DATA_DIR_PREFIX=/var/lib/nimbus
@@ -60,4 +64,5 @@ ExecStart=/usr/bin/nimbus_beacon_node \
   --udp-port=${UDP_PORT} \
   --rest=${REST_ENABLED} --rest-port=${REST_PORT} \
   --metrics=${METRICS_ENABLED} --metrics-port=${METRICS_PORT} \
-  --web3-url=${WEB3_URL}
+  --web3-url=${WEB3_URL} \
+  --jwt-secret=${JWT_SECRET}
