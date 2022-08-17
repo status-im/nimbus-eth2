@@ -144,8 +144,8 @@ Here is an example config file illustrating all of the above:
 
 ## Exit Codes
 
-| Exit code | Description |
-|-----------|---------|
-| 0 |  Successful exit |
-| 1 | Generic failure or unspecified error |
-| 1031 | Doppelganger detection; one might prefer not to restart automatically |
+| Exit code | Description                                                           |
+|-----------|-----------------------------------------------------------------------|
+| 0         | Successful exit                                                       |
+| 1         | Generic failure or unspecified error                                  |
+| 129       | Doppelganger detection; one might prefer not to restart automatically |

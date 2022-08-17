@@ -287,7 +287,7 @@ proc checkForPotentialDoppelganger(
 
         # Avoid colliding with
         # https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Process%20Exit%20Codes
-        const QuitDoppelganger = 1031
+        const QuitDoppelganger = 129
         quit QuitDoppelganger
 
 proc processAttestation*(
