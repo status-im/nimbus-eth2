@@ -61,7 +61,9 @@ jobs:
         with:
           ruby-version: '3.1' # Not needed with a .ruby-version file
       - name: Create RPM/DEB
-        run: scripts/make_packages.sh -t dist/*.tar.gz --install-fpm
+        run: |
+          scripts/make_packages.sh -b nimbus_beacon_node -t dist/*.tar.gz --install-fpm
+          scripts/make_packages.sh -b nimbus_validator_client -t dist/*.tar.gz --install-fpm
       - name: Upload DEB
         uses: actions/upload-artifact@v3
         with:
@@ -133,7 +135,9 @@ jobs:
         with:
           ruby-version: '3.1' # Not needed with a .ruby-version file
       - name: Create RPM/DEB
-        run: scripts/make_packages.sh -t dist/*.tar.gz --install-fpm
+        run: |
+          scripts/make_packages.sh -b nimbus_beacon_node -t dist/*.tar.gz --install-fpm
+          scripts/make_packages.sh -b nimbus_validator_client -t dist/*.tar.gz --install-fpm
       - name: Upload DEB
         uses: actions/upload-artifact@v3
         with:
@@ -205,7 +209,9 @@ jobs:
         with:
           ruby-version: '3.1' # Not needed with a .ruby-version file
       - name: Create RPM/DEB
-        run: scripts/make_packages.sh -t dist/*.tar.gz --install-fpm
+        run: |
+          scripts/make_packages.sh -b nimbus_beacon_node -t dist/*.tar.gz --install-fpm
+          scripts/make_packages.sh -b nimbus_validator_client -t dist/*.tar.gz --install-fpm
       - name: Upload DEB
         uses: actions/upload-artifact@v3
         with:

@@ -1,0 +1,54 @@
+# To configure the service, use `systemctl edit nimbus_beacon_node.service`
+# and override the environment variables in this file:
+# [Service]
+# Environment="BEACON_NODE=http://backup-beacon:8551"
+#
+# To completely override the start command (to add custom parameters such as
+# graffiti), override the `ExecStart` value instead by first emptying it, then
+# specifying a new one:
+#
+# [Service]
+# ExecStart=
+# ExecStart=/usr/bin/nimbus_validator_client --network=${NETWORK} \
+#  --data-dir="${DATA_DIR_PREFIX}/vc \
+#  --graffiti=123
+#
+# See https://nimbus.guide/ for more information
+
+[Unit]
+Description=Nimbus Validator Client
+Wants=network-online.target
+After=network-online.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+# You need to have have access to a beacon node exposing the beacon API - by
+# default, we assume a compatible beacon node is running on the same machine.
+# You can add more beacon nodes by editing `ExecStart` instead.
+Environment=BEACON_NODE=http://127.0.0.1:5052
+
+# Where to store chain data
+Environment=DATA_DIR_PREFIX=/var/lib/nimbus
+
+# Default ports - if you want to run multiple instances of nimbus, for example
+# to run both prater and mainnet, separate ports must be used
+Environment=METRICS_PORT=8108
+
+# Interaction and monitoring
+Environment=METRICS_ENABLED=Yes
+
+# Default group = nimbus
+User=nimbus
+WorkingDirectory=/var/lib/nimbus
+TimeoutSec=1200
+Restart=always
+
+# Don't restart when Doppelganger detection has been activated
+RestartPreventExitStatus=129
+
+ExecStart=/usr/bin/nimbus_validator_client \
+  --data-dir="${DATA_DIR_PREFIX}/vc" \
+  --metrics=${METRICS_ENABLED} --metrics-port=${METRICS_PORT} \
+  --beacon-node=${BEACON_NODE}
