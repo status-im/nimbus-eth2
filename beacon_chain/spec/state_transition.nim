@@ -47,7 +47,7 @@ import
   chronicles,
   stew/results,
   ../extras,
-  ./datatypes/[phase0, altair, bellatrix],
+  ./datatypes/[phase0, altair, bellatrix, capella],
   "."/[
     beaconstate, eth2_merkleization, forks, helpers, signatures,
     state_transition_block, state_transition_epoch, validator]

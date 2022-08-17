@@ -76,6 +76,10 @@ type
     Bellatrix
     Capella
 
+  WithExecutionPayloadHeader* {.pure.} = enum
+    Bellatrix
+    Capella
+
   ForkyBeaconBlockBody* =
     phase0.BeaconBlockBody |
     altair.BeaconBlockBody |
@@ -128,6 +132,11 @@ type
     of BeaconBlockFork.Altair:    altairData*:    altair.BeaconBlock
     of BeaconBlockFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
     of BeaconBlockFork.Capella:   capellaData*:   capella.BeaconBlock
+
+  ForkedExecutionPayloadHeader* = object
+    case kind*: WithExecutionPayloadHeader
+    of WithExecutionPayloadHeader.Bellatrix: bellatrixData*: bellatrix.ExecutionPayloadHeader
+    of WithExecutionPayloadHeader.Capella:   capellaData*:   capella.ExecutionPayloadHeader
 
   Web3SignerForkedBeaconBlock* = object
     case kind*: BeaconBlockFork
@@ -778,6 +787,13 @@ func toBeaconBlockFork*(fork: BeaconStateFork): BeaconBlockFork =
   of BeaconStateFork.Capella:   BeaconBlockFork.Capella
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#compute_fork_data_root
+func toExecutionPayloadHeader(state: bellatrix.BeaconState | capella.BeaconState):
+     ForkedExecutionPayloadHeader =
+  case state:
+  of bellatrix.BeaconState: bellatrix.ExecutionPayloadHeader
+  of capella.BeaconState:   capella.ExecutionPayloadHeader
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: Eth2Digest): Eth2Digest =
   ## Return the 32-byte fork data root for the ``current_version`` and

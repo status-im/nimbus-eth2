@@ -308,15 +308,11 @@ template is_better_update*[A, B: SomeLightClientUpdate](
     new_update: A, old_update: B): bool =
   is_better_data(toMeta(new_update), toMeta(old_update))
 
+
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(state: bellatrix.BeaconState | capella.BeaconState): bool =
-  case state:
-    of BeaconStateFork.Bellatrix:
-      const defaultExecutionPayloadHeader = default(bellatrix.ExecutionPayloadHeader)
-      state.latest_execution_payload_header != defaultExecutionPayloadHeader
-    of BeaconStateFork.Capella:
-      const defaultExecutionPayloadHeader = default(capella.ExecutionPayloadHeader)
-      state.latest_execution_payload_header != defaultExecutionPayloadHeader
+  const defaultExecutionPayloadHeader = default(state.toExecutionPayloadHeader())
+  state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#helpers
 func is_execution_block*(blck: SomeForkyBeaconBlock): bool =

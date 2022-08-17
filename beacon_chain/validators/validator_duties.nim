@@ -28,7 +28,7 @@ import
   web3/ethtypes,
 
   # Local modules
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   ../spec/[
     eth2_merkleization, forks, helpers, network, signatures, state_transition,
     validator],

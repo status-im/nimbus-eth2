@@ -9,7 +9,7 @@ import
   # Beacon chain internals
   ../../beacon_chain/spec/
     [forks, helpers, signatures, state_transition, validator],
-  ../../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
+  ../../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, capella],
   # Test utilities
   ../testblockutil
 

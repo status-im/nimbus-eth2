@@ -15,7 +15,7 @@ import
   chronicles, chronos, metrics,
   stew/results,
   # Internals
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[

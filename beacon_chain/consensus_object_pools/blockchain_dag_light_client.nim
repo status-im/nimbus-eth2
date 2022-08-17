@@ -14,7 +14,7 @@ import
   # Status libraries
   stew/[bitops2, objects],
   # Beacon chain internals
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   ../beacon_chain_db_light_client,
   "."/[block_pools_types, blockchain_dag]
 

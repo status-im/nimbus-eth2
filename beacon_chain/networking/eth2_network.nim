@@ -29,7 +29,7 @@ import
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
   ".."/[version, conf, beacon_clock, conf_light_client],
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
   "."/[eth2_discovery, libp2p_json_serialization, peer_pool, peer_scores]

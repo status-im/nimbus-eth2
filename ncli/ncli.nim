@@ -5,7 +5,7 @@ import
   snappy,
   ../research/simutils,
   ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, capella],
   ../beacon_chain/spec/[
     eth2_ssz_serialization, forks, helpers, state_transition],
   ../beacon_chain/networking/network_metadata

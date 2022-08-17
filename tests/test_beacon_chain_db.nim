@@ -12,7 +12,7 @@ import
   unittest2, snappy,
   ../beacon_chain/[beacon_chain_db, interop],
   ../beacon_chain/spec/[beaconstate, forks, state_transition],
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, capella],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/kvstore,
   # test utilies

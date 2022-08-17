@@ -2,7 +2,7 @@ import
   unittest2,
   stew/byteutils,
   ../beacon_chain/spec/[forks, helpers],
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix]
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, capella]
 
 {.used.}
 

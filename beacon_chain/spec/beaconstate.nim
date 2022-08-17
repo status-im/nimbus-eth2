@@ -899,7 +899,12 @@ func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
 proc upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
     ref bellatrix.BeaconState =
   let epoch = get_current_epoch(pre)
-  let executionHeader = bellatrix.ExecutionPayloadHeader()
+
+  # TODO: @tavurth why does this not work when calling the type directly?
+  type
+    HeaderType = bellatrix.ExecutionPayloadHeader
+
+  let executionHeader = HeaderType()
 
   (ref bellatrix.BeaconState)(
     # Versioning
@@ -953,6 +958,7 @@ proc upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
     # Execution-layer
     latest_execution_payload_header: executionHeader
   )
+
 
 template isValidInState*(idx: ValidatorIndex, state: ForkyBeaconState): bool =
   idx.uint64 < state.validators.lenu64

@@ -9,7 +9,7 @@ import
   # Standard library
   std/[os, strutils, typetraits],
   # Internals
-  ../../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
+  ../../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, capella],
   ../../beacon_chain/spec/[
     eth2_merkleization, eth2_ssz_serialization, forks],
   # Status libs,

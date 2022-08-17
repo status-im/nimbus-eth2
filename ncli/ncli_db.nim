@@ -12,7 +12,7 @@ import
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/[beacon_chain_db, era_db],
   ../beacon_chain/consensus_object_pools/[blockchain_dag],
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, capella],
   ../beacon_chain/spec/[
     beaconstate, state_transition, state_transition_epoch, validator,
     ssz_codec],

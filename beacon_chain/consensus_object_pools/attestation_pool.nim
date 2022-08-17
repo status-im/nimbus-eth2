@@ -20,7 +20,7 @@ import
   ../spec/[
     beaconstate, eth2_merkleization, forks, helpers,
     state_transition_epoch, validator],
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   "."/[spec_cache, blockchain_dag, block_quarantine],
   ../fork_choice/fork_choice,
   ../beacon_clock

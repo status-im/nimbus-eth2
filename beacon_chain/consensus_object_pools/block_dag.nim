@@ -12,7 +12,7 @@ else:
 
 import
   chronicles,
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   ../spec/forks
 
 export chronicles, forks

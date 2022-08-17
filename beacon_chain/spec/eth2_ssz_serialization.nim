@@ -16,7 +16,7 @@ else:
 import
   ssz_serialization,
   ./ssz_codec,
-  ./datatypes/[phase0, altair, bellatrix],
+  ./datatypes/[phase0, altair, bellatrix, capella],
   ./eth2_merkleization
 
 export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization

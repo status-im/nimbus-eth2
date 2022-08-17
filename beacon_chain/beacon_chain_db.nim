@@ -17,7 +17,7 @@ import
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
   ./spec/[eth2_ssz_serialization, eth2_merkleization, forks, state_transition],
-  ./spec/datatypes/[phase0, altair, bellatrix],
+  ./spec/datatypes/[phase0, altair, bellatrix, capella],
   "."/[beacon_chain_db_light_client, filepath]
 
 export

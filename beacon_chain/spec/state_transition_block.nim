@@ -26,7 +26,7 @@ import
   std/[algorithm, sequtils, sets, tables],
   chronicles, metrics,
   ../extras,
-  ./datatypes/[phase0, altair, bellatrix],
+  ./datatypes/[phase0, altair, bellatrix, capella],
   "."/[beaconstate, eth2_merkleization, helpers, validator, signatures]
 
 export extras, phase0, altair
@@ -483,9 +483,10 @@ proc process_sync_aggregate*(
 
   ok()
 
+
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var bellatrix.BeaconState, payload: ExecutionPayload,
+    state: var bellatrix.BeaconState | capella.BeaconState, payload: ForkedExecutionPayloadHeader,
     notify_new_payload: ExecutePayload): Result[void, cstring] =
   ## Verify consistency of the parent hash with respect to the previous
   ## execution payload header

@@ -20,7 +20,7 @@ else:
 ## functions.
 
 import
-  ./datatypes/[phase0, altair, bellatrix], ./mev/bellatrix_mev, ./helpers,
+  ./datatypes/[phase0, altair, bellatrix, capella], ./mev/bellatrix_mev, ./helpers,
   ./eth2_merkleization
 
 export phase0, altair

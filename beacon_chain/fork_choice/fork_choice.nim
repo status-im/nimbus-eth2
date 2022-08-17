@@ -17,7 +17,7 @@ import
   stew/[objects, results], chronicles,
   # Internal
   ../spec/[beaconstate, helpers, state_transition_block],
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   # Fork choice
   ./fork_choice_types, ./proto_array,
   ../consensus_object_pools/[spec_cache, blockchain_dag]

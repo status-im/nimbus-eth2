@@ -12,7 +12,7 @@ import stew/[assign2, results, base10, byteutils], presto/common,
        chronicles
 import ".."/[eth2_ssz_serialization, forks, keystore],
        ".."/../consensus_object_pools/block_pools_types,
-       ".."/datatypes/[phase0, altair, bellatrix],
+       ".."/datatypes/[phase0, altair, bellatrix, capella],
        ".."/mev/bellatrix_mev,
        ".."/../validators/slashing_protection_common,
        "."/[rest_types, rest_keymanager_types]

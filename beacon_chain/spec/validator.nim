@@ -13,7 +13,7 @@ else:
 
 import
   std/[options, math, tables],
-  ./datatypes/[phase0, altair, bellatrix],
+  ./datatypes/[phase0, altair, bellatrix, capella],
   ./helpers
 
 export helpers

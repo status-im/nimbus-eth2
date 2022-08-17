@@ -17,7 +17,7 @@ import
   chronicles,
   # Internals
   ../spec/[signatures_batch, forks, helpers],
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   ".."/[beacon_chain_db, era_db],
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client

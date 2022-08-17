@@ -12,7 +12,7 @@ else:
 import
   chronos, presto/client, chronicles,
   ".."/".."/validators/slashing_protection_common,
-  ".."/datatypes/[phase0, altair, bellatrix],
+  ".."/datatypes/[phase0, altair, bellatrix, capella],
   ".."/[helpers, forks, keystore, eth2_ssz_serialization],
   "."/[rest_types, rest_common, eth2_rest_serialization]
 

@@ -8,7 +8,7 @@
 import
   std/sets,
   metrics, chronicles,
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   ../spec/eth2_apis/rest_types,
   ../validators/activity_metrics,
   "."/[common, api, block_service]
