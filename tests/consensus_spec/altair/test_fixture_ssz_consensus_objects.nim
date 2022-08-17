@@ -117,7 +117,7 @@ suite "EF - Altair - SSZ consensus objects " & preset():
           of "LightClientBootstrap":
             checkSSZ(LightClientBootstrap, path, hash)
           of "LightClientUpdate":
-            discard # Modified - checkSSZ(LightClientUpdate, path, hash)
+            checkSSZ(LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
             checkSSZ(LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
