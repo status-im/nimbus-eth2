@@ -56,7 +56,7 @@ type
 
   DeleteKeystoresResponse* = object
     data*: seq[RequestItemStatus]
-    slashing_protection*: SPDIR
+    slashing_protection*: string
 
   RemoteKeystoreStatus* = object
     status*: KeystoreStatus

@@ -3352,35 +3352,9 @@
           "status": "",
           "message": ""
         }],
-        "slashing_protection":
-        {
-          "metadata": {
-            "interchange_format_version": "",
-            "genesis_validators_root": ""
-            },
-          "data":[{
-            "pubkey": "",
-            "signed_blocks": [
-            {
-              "slot": "",
-              "signing_root": ""},
-            {
-              "slot": ""
-            }],
-            "signed_attestations": [
-              {
-                "source_epoch": "",
-                "target_epoch": "",
-                "signing_root": ""
-              },
-              {
-                "source_epoch": "",
-                "target_epoch": ""
-              }
-            ]
-          }
-        ]
-      }}}]
+        "slashing_protection": ""
+        }}
+      ]
     }
   }
 ]

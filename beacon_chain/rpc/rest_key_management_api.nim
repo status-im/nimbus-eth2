@@ -217,8 +217,9 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
       nodeSPDIR = toSPDIR(host.validatorPool[].slashingProtection)
       # Hash table to keep the removal status of all keys form request
       keysAndDeleteStatus = initTable[PubKeyBytes, RequestItemStatus]()
+      responseSPDIR: SPDIR
 
-    response.slashing_protection.metadata = nodeSPDIR.metadata
+    responseSPDIR.metadata = nodeSPDIR.metadata
 
     for index, key in keys:
       let
@@ -249,13 +250,15 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     for validator in nodeSPDIR.data:
       keysAndDeleteStatus.withValue(validator.pubkey.PubKeyBytes,
                                     foundKeystore) do:
-        response.slashing_protection.data.add(validator)
+        responseSPDIR.data.add(validator)
 
         if foundKeystore.status == $KeystoreStatus.notFound:
           foundKeystore.status = $KeystoreStatus.notActive
 
     for index, key in keys:
       response.data.add(keysAndDeleteStatus[key.blob.PubKey0x.PubKeyBytes])
+
+    response.slashing_protection = RestJson.encode(responseSPDIR)
 
     return RestApiResponse.jsonResponsePlain(response)
 
