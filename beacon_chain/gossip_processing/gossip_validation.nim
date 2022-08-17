@@ -10,10 +10,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-# References to `vFuture` refer to the pre-release proposal of the libp2p based
-# light client sync protocol. Conflicting release versions are not in use.
-# https://github.com/ethereum/consensus-specs/pull/2802
-
 import
   # Status
   chronicles, chronos, metrics,
@@ -1042,7 +1038,7 @@ proc validateContribution*(
 
   return ok((sig, participants))
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 proc validateLightClientFinalityUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     finality_update: altair.LightClientFinalityUpdate,
@@ -1070,7 +1066,7 @@ proc validateLightClientFinalityUpdate*(
   pool.latestForwardedFinalitySlot = finalized_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
 proc validateLightClientOptimisticUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     optimistic_update: altair.LightClientOptimisticUpdate,

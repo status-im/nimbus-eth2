@@ -10,10 +10,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-# References to `vFuture` refer to the pre-release proposal of the libp2p based
-# light client sync protocol. Conflicting release versions are not in use.
-# https://github.com/ethereum/consensus-specs/pull/2802
-
 import
   "."/[helpers, forks],
   "."/datatypes/base
@@ -100,12 +96,12 @@ func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string 
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
   eth2Prefix(forkDigest) & "light_client_finality_update/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
 func getLightClientOptimisticUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientOptimisticUpdate`.
   eth2Prefix(forkDigest) & "light_client_optimistic_update/ssz_snappy"

@@ -22,11 +22,7 @@ import
   # Test utilities
   ../../testutil, ../../testblockutil
 
-# References to `vFuture` refer to the pre-release proposal of the libp2p based
-# light client sync protocol. Conflicting release versions are not in use.
-# https://github.com/ethereum/consensus-specs/pull/2802
-
-# https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L63-L93
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
 proc compute_aggregate_sync_committee_signature(
     cfg: RuntimeConfig,
     forked: ForkedHashedBeaconState,
@@ -57,7 +53,7 @@ proc compute_aggregate_sync_committee_signature(
       aggregateSig.aggregate(signature)
   aggregateSig.finish.toValidatorSig
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L63-L93
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L32-L62
 proc get_sync_aggregate(
     cfg: RuntimeConfig,
     forked: ForkedHashedBeaconState,
@@ -161,7 +157,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
       res
     genesisState = newClone(initGenesisState(cfg = cfg))
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L25-L67
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L23-L60
   test "test_process_light_client_update_not_timeout":
     let forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
@@ -207,7 +203,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
       store.optimistic_header == update.attested_header
       store.current_max_active_participants > 0
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L70-L116
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L63-L104
   test "test_process_light_client_update_at_period_boundary":
     var forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
@@ -260,7 +256,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
       store.optimistic_header == update.attested_header
       store.current_max_active_participants > 0
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L119-L166
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L107-L149
   test "process_light_client_update_timeout":
     let forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
@@ -316,7 +312,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
       store.optimistic_header == update.attested_header
       store.current_max_active_participants > 0
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L169-L223
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L152-L201
   test "process_light_client_update_finality_updated":
     let forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data

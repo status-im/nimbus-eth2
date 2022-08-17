@@ -14,10 +14,6 @@ else:
 # that are running directly in the beacon node and not in a separate validator
 # client process
 
-# References to `vFuture` refer to the pre-release proposal of the libp2p based
-# light client sync protocol. Conflicting release versions are not in use.
-# https://github.com/ethereum/consensus-specs/pull/2802
-
 import
   # Standard library
   std/[os, tables],

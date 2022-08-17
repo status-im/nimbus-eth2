@@ -18,10 +18,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-# References to `vFuture` refer to the pre-release proposal of the libp2p based
-# light client sync protocol. Conflicting release versions are not in use.
-# https://github.com/ethereum/consensus-specs/pull/2802
-
 import
   std/[typetraits, sets, hashes],
   chronicles,
@@ -49,7 +45,7 @@ const
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/sync-protocol.md#constants
   # All of these indices are rooted in `BeaconState`.
   # The first member (`genesis_time`) is 32, subsequent members +1 each.
   # If there are ever more than 32 members in `BeaconState`, indices change!
@@ -161,7 +157,7 @@ type
   NextSyncCommitteeBranch* =
     array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientbootstrap
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
     header*: BeaconBlockHeader
       ## The requested beacon block header
@@ -170,7 +166,7 @@ type
       ## Current sync committee corresponding to `header`
     current_sync_committee_branch*: CurrentSyncCommitteeBranch
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
     attested_header*: BeaconBlockHeader
       ## The beacon block header that is attested to by the sync committee
@@ -188,7 +184,7 @@ type
     signature_slot*: Slot
       ## Slot at which the aggregate signature was created (untrusted)
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientfinalityupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
   LightClientFinalityUpdate* = object
     # The beacon block header that is attested to by the sync committee
     attested_header*: BeaconBlockHeader
@@ -202,7 +198,7 @@ type
     # Slot at which the aggregate signature was created (untrusted)
     signature_slot*: Slot
 
-  # https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#lightclientoptimisticupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
   LightClientOptimisticUpdate* = object
     # The beacon block header that is attested to by the sync committee
     attested_header*: BeaconBlockHeader
@@ -228,7 +224,7 @@ type
     LightClientBootstrap |
     SomeLightClientUpdate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/sync-protocol.md#lightclientstore
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/sync-protocol.md#lightclientstore
   LightClientStore* = object
     finalized_header*: BeaconBlockHeader
       ## Beacon block header that is finalized
