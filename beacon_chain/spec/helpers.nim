@@ -344,7 +344,10 @@ func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   let slots_since_genesis = slot - GENESIS_SLOT
   state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT
 
-proc toBlockHeader*(payload: ExecutionPayload): ExecutionBlockHeader =
+proc emptyPayloadToBlockHeader*(payload: ExecutionPayload): ExecutionBlockHeader =
+  ## This function assumes that the payload is empty!
+  doAssert payload.transactions.len == 0
+
   ExecutionBlockHeader(
     parentHash    : payload.parent_hash,
     ommersHash    : EMPTY_UNCLE_HASH,
@@ -386,6 +389,6 @@ func build_empty_execution_payload*(state: bellatrix.BeaconState): ExecutionPayl
     timestamp: timestamp,
     base_fee_per_gas: base_fee)
 
-  payload.block_hash = payload.toBlockHeader.blockHash
+  payload.block_hash = rlpHash emptyPayloadToBlockHeader(payload)
 
   payload
