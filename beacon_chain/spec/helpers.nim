@@ -16,9 +16,9 @@ import
   # Standard lib
   std/[algorithm, math, sets, tables, times],
   # Status libraries
-  stew/[bitops2, byteutils, endians2, objects],
+  stew/[bitops2, byteutils, endians2, objects, saturation_arith],
   chronicles,
-  eth/common/eth_types,
+  eth/eip1559, eth/common/eth_types,
   # Internal
   ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, ssz_codec]
@@ -357,14 +357,13 @@ proc toBlockHeader*(payload: ExecutionPayload): ExecutionBlockHeader =
     blockNumber   : payload.block_number.u256,
     gasLimit      : GasInt payload.gas_limit,
     gasUsed       : GasInt payload.gas_used,
-    timestamp     : fromUnix(int64 payload.timestamp),
+    timestamp     : fromUnix(int64.saturate payload.timestamp),
     extraData     : payload.extra_data.asSeq,
     mixDigest     : payload.prev_randao, # EIP-4399 redefine `mixDigest` -> `prevRandao`
     nonce         : default(BlockNonce),
     fee           : some payload.base_fee_per_gas
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
 func build_empty_execution_payload*(state: bellatrix.BeaconState): ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.
@@ -372,6 +371,9 @@ func build_empty_execution_payload*(state: bellatrix.BeaconState): ExecutionPayl
     latest = state.latest_execution_payload_header
     timestamp = compute_timestamp_at_slot(state, state.slot)
     randao_mix = get_randao_mix(state, get_current_epoch(state))
+    base_fee = calcEip1599BaseFee(GasInt.saturate latest.gas_limit,
+                                  GasInt.saturate latest.gas_used,
+                                  latest.base_fee_per_gas)
 
   var payload = ExecutionPayload(
     parent_hash: latest.block_hash,
@@ -382,7 +384,7 @@ func build_empty_execution_payload*(state: bellatrix.BeaconState): ExecutionPayl
     gas_limit: latest.gas_limit, # retain same limit
     gas_used: 0, # empty block, 0 gas
     timestamp: timestamp,
-    base_fee_per_gas: latest.base_fee_per_gas) # retain same base_fee
+    base_fee_per_gas: base_fee)
 
   payload.block_hash = payload.toBlockHeader.blockHash
 
