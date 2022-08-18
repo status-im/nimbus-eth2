@@ -486,7 +486,7 @@ proc process_sync_aggregate*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var bellatrix.BeaconState | capella.BeaconState, payload: ForkyExecutionPayloadHeader,
+    state: var bellatrix.BeaconState | capella.BeaconState, payload: ForkyExecutionPayload,
     notify_new_payload: ExecutePayload): Result[void, cstring] =
   ## Verify consistency of the parent hash with respect to the previous
   ## execution payload header

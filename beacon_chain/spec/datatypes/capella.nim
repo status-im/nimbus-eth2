@@ -165,7 +165,7 @@ type
     withdrawal_queue*: List[Withdrawal, Limit WITHDRAWALS_QUEUE_LIMIT]  # [New in Capella]
     next_withdrawal_index*: WithdrawalIndex  # [New in Capella]
 
-    # TODO: We should probably use ValidatorIndex here
+    # TODO: @tavurth We should probably use ValidatorIndex here
     #       but I see that in Altair we have a workaround
     #       by simply putting uint64, which seems to be against the spec
     next_partial_withdrawal_validator_index*: uint64  # [New in Capella]
@@ -370,3 +370,6 @@ type
 
     # Execution
     execution_payload*: ExecutionPayload
+
+  ExecutePayload* = proc(
+    execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}

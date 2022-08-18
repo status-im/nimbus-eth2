@@ -901,8 +901,7 @@ proc upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
   let epoch = get_current_epoch(pre)
 
   # TODO: @tavurth why does this not work when calling the type directly?
-  type
-    HeaderType = bellatrix.ExecutionPayloadHeader
+  type HeaderType = bellatrix.ExecutionPayloadHeader
 
   let executionHeader = HeaderType()
 

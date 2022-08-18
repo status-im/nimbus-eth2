@@ -310,8 +310,12 @@ template is_better_update*[A, B: SomeLightClientUpdate](
 
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
-func is_merge_transition_complete*(state: bellatrix.BeaconState | capella.BeaconState): bool =
-  const defaultExecutionPayloadHeader = default(state.toExecutionPayloadHeader())
+func is_merge_transition_complete*(state: bellatrix.BeaconState): bool =
+  const defaultExecutionPayloadHeader = default(bellatrix.ExecutionPayloadHeader)
+  state.latest_execution_payload_header != defaultExecutionPayloadHeader
+
+func is_merge_transition_complete*(state: capella.BeaconState): bool =
+  const defaultExecutionPayloadHeader = default(capella.ExecutionPayloadHeader)
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#helpers
@@ -369,7 +373,7 @@ proc emptyPayloadToBlockHeader*(payload: ExecutionPayload): ExecutionBlockHeader
   )
 
 #
-# TODO: @tavurth Use a base builder function for the following:
+# TODO: @tavurth Perhaps use a base builder function for the following:
 #
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31

@@ -133,13 +133,17 @@ type
     of BeaconBlockFork.Bellatrix: bellatrixData*: bellatrix.BeaconBlock
     of BeaconBlockFork.Capella:   capellaData*:   capella.BeaconBlock
 
-  ForkyExecutionPayload* = object
+  ForkyExecutionPayload* =
     bellatrix.ExecutionPayload |
     capella.ExecutionPayload
 
-  ForkyExecutionPayloadHeader* = object
+  ForkyExecutionPayloadHeader* =
     bellatrix.ExecutionPayloadHeader |
     capella.ExecutionPayloadHeader
+
+  ForkyExecutePayload* =
+    bellatrix.ExecutePayload |
+    capella.ExecutePayload
 
   Web3SignerForkedBeaconBlock* = object
     case kind*: BeaconBlockFork
