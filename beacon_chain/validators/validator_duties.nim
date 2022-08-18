@@ -157,9 +157,8 @@ proc getAttachedValidator(node: BeaconNode,
     nil
 
 proc getAttachedValidator(node: BeaconNode,
-                          epochRef: EpochRef,
                           idx: ValidatorIndex): AttachedValidator =
-  let key = epochRef.validatorKey(idx)
+  let key = node.dag.validatorKey(idx)
   if key.isSome():
     let validator = node.getAttachedValidator(key.get().toPubKey())
     if validator != nil and validator.index != some(idx):
@@ -169,7 +168,7 @@ proc getAttachedValidator(node: BeaconNode,
     validator
   else:
     warn "Validator key not found",
-      idx, epoch = epochRef.epoch
+      idx, head = shortLog(node.dag.head)
     nil
 
 proc isSynced*(node: BeaconNode, head: BlockRef): bool =
@@ -875,15 +874,16 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
         warn "Cannot construct EpochRef for attestation head, report bug",
           attestationHead = shortLog(attestationHead), slot
         return
-    committees_per_slot = get_committee_count_per_slot(epochRef)
+    committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
 
   for committee_index in get_committee_indices(committees_per_slot):
-    let committee = get_beacon_committee(epochRef, slot, committee_index)
+    let committee = get_beacon_committee(
+      epochRef.shufflingRef, slot, committee_index)
 
     for index_in_committee, validator_index in committee:
-      let validator = node.getAttachedValidator(epochRef, validator_index)
+      let validator = node.getAttachedValidator(validator_index)
       if validator == nil:
         continue
 
@@ -947,16 +947,12 @@ proc createAndSendSyncCommitteeMessage(node: BeaconNode,
 
 proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
   # TODO Use a view type to avoid the copy
-  var
+  let
     syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
-    epochRef = node.dag.getEpochRef(head, slot.epoch, false).valueOr:
-      warn "Cannot construct EpochRef for head, report bug",
-        attestationHead = shortLog(head), slot
-      return
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
-      let validator = node.getAttachedValidator(epochRef, valIdx)
+      let validator = node.getAttachedValidator(valIdx)
       if isNil(validator) or validator.index.isNone():
         continue
       asyncSpawn createAndSendSyncCommitteeMessage(node, validator, slot,
@@ -1021,14 +1017,10 @@ proc handleSyncCommitteeContributions(
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
     syncCommittee = node.dag.syncCommitteeParticipants(slot + 1)
-    epochRef = node.dag.getEpochRef(head, slot.epoch, false).valueOr:
-      warn "Cannot construct EpochRef for head, report bug",
-        attestationHead = shortLog(head), slot
-      return
 
   for subcommitteeIdx in SyncSubCommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
-      let validator = node.getAttachedValidator(epochRef, valIdx)
+      let validator = node.getAttachedValidator(valIdx)
       if validator == nil:
         continue
 
@@ -1062,7 +1054,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
       await proposeBlock(node, validator, proposer.get(), head, slot)
 
 proc signAndSendAggregate(
-    node: BeaconNode, validator: AttachedValidator, epochRef: EpochRef,
+    node: BeaconNode, validator: AttachedValidator, shufflingRef: ShufflingRef,
     slot: Slot, committee_index: CommitteeIndex) {.async.} =
   try:
     let
@@ -1080,7 +1072,8 @@ proc signAndSendAggregate(
         res.get()
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregation-selection
-    if not is_aggregator(epochRef, slot, committee_index, selectionProof):
+    if not is_aggregator(
+        shufflingRef, slot, committee_index, selectionProof):
       return
 
     # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#construct-aggregate
@@ -1119,19 +1112,19 @@ proc sendAggregatedAttestations(
   # the given slot, for which `is_aggregator` returns `true.
 
   let
-    epochRef = node.dag.getEpochRef(head, slot.epoch, false).valueOr:
+    shufflingRef = node.dag.getShufflingRef(head, slot.epoch, false).valueOr:
       warn "Cannot construct EpochRef for head, report bug",
         head = shortLog(head), slot
       return
-    committees_per_slot = get_committee_count_per_slot(epochRef)
+    committees_per_slot = get_committee_count_per_slot(shufflingRef)
 
   for committee_index in get_committee_indices(committees_per_slot):
     for _, validator_index in
-        get_beacon_committee(epochRef, slot, committee_index):
-      let validator = node.getAttachedValidator(epochRef, validator_index)
+        get_beacon_committee(shufflingRef, slot, committee_index):
+      let validator = node.getAttachedValidator(validator_index)
       if validator != nil:
         asyncSpawn signAndSendAggregate(
-          node, validator, epochRef, slot, committee_index)
+          node, validator, shufflingRef, slot, committee_index)
 
 proc updateValidatorMetrics*(node: BeaconNode) =
   # Technically, this only needs to be done on epoch transitions and if there's
@@ -1406,19 +1399,19 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
   # be getting the duties one slot at a time
   for slot in wallSlot ..< wallSlot + SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS:
     let
-      epochRef = node.dag.getEpochRef(head, slot.epoch, false).valueOr:
+      shufflingRef = node.dag.getShufflingRef(head, slot.epoch, false).valueOr:
         warn "Cannot construct EpochRef for duties - report bug",
           head = shortLog(head), slot
         return
     let
       fork = node.dag.forkAtEpoch(slot.epoch)
-      committees_per_slot = get_committee_count_per_slot(epochRef)
+      committees_per_slot = get_committee_count_per_slot(shufflingRef)
 
     for committee_index in get_committee_indices(committees_per_slot):
-      let committee = get_beacon_committee(epochRef, slot, committee_index)
+      let committee = get_beacon_committee(shufflingRef, slot, committee_index)
 
       for index_in_committee, validator_index in committee:
-        let validator = node.getAttachedValidator(epochRef, validator_index)
+        let validator = node.getAttachedValidator(validator_index)
         if validator != nil:
           let
             subnet_id = compute_subnet_for_attestation(

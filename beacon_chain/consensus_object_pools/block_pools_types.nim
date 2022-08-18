@@ -189,6 +189,8 @@ type
 
     cfg*: RuntimeConfig
 
+    shufflingRefs*: array[16, ShufflingRef]
+
     epochRefs*: array[32, EpochRef]
       ## Cached information about a particular epoch ending with the given
       ## block - we limit the number of held EpochRefs to put a cap on
@@ -243,8 +245,18 @@ type
     epoch*: Epoch
     bid*: BlockId
 
+  ShufflingRef* = ref object
+    ## Attestation committee shuffling that determines when validators have
+    ## duties - determined with one epoch of look-ahead - the dependent root is
+    ## the block root that is the last to affect the shuffling outcome.
+    epoch*: Epoch
+    attester_dependent_root*: Eth2Digest
+      ## Root of the block that determined the shuffling - this is the last
+      ## block that was applied in (epoch - 2).
+
+    shuffled_active_validator_indices*: seq[ValidatorIndex]
+
   EpochRef* = ref object
-    dag*: ChainDAGRef
     key*: EpochKey
 
     eth1_data*: Eth1Data
@@ -255,8 +267,7 @@ type
     beacon_proposers*: array[SLOTS_PER_EPOCH, Option[ValidatorIndex]]
     proposer_dependent_root*: Eth2Digest
 
-    shuffled_active_validator_indices*: seq[ValidatorIndex]
-    attester_dependent_root*: Eth2Digest
+    shufflingRef*: ShufflingRef
 
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]

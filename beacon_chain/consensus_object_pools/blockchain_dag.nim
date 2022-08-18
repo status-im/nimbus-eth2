@@ -139,14 +139,6 @@ func validatorKey*(
   ## non-head branch)!
   dag.db.immutableValidators.load(index)
 
-func validatorKey*(
-    epochRef: EpochRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
-  ## Returns the validator pubkey for the index, assuming it's been observed
-  ## at any point in time - this function may return pubkeys for indicies that
-  ## are not (yet) part of the head state (if the key has been observed on a
-  ## non-head branch)!
-  validatorKey(epochRef.dag, index)
-
 template is_merge_transition_complete(
     stateParam: ForkedHashedBeaconState): bool =
   withState(stateParam):
@@ -154,57 +146,6 @@ template is_merge_transition_complete(
       is_merge_transition_complete(state.data)
     else:
       false
-
-func init*(
-    T: type EpochRef, dag: ChainDAGRef, state: ForkedHashedBeaconState,
-    cache: var StateCache): T =
-  let
-    epoch = state.get_current_epoch()
-    proposer_dependent_root = withState(state): state.proposer_dependent_root
-    attester_dependent_root = withState(state): state.attester_dependent_root
-    epochRef = EpochRef(
-      dag: dag, # This gives access to the validator pubkeys through an EpochRef
-      key: dag.epochAncestor(state.latest_block_id, epoch),
-
-      eth1_data:
-        getStateField(state, eth1_data),
-      eth1_deposit_index:
-        getStateField(state, eth1_deposit_index),
-
-      checkpoints:
-        FinalityCheckpoints(
-          justified: getStateField(state, current_justified_checkpoint),
-          finalized: getStateField(state, finalized_checkpoint)),
-
-      # beacon_proposers: Separately filled below
-      proposer_dependent_root: proposer_dependent_root,
-
-      shuffled_active_validator_indices:
-        cache.get_shuffled_active_validator_indices(state, epoch),
-      attester_dependent_root: attester_dependent_root,
-    )
-    epochStart = epoch.start_slot()
-
-  for i in 0'u64..<SLOTS_PER_EPOCH:
-    epochRef.beacon_proposers[i] =
-      get_beacon_proposer_index(state, cache, epochStart + i)
-
-  # When fork choice runs, it will need the effective balance of the justified
-  # checkpoint - we pre-load the balances here to avoid rewinding the justified
-  # state later and compress them because not all checkpoints end up being used
-  # for fork choice - specially during long periods of non-finalization
-  proc snappyEncode(inp: openArray[byte]): seq[byte] =
-    try:
-      snappy.encode(inp)
-    except CatchableError as err:
-      raiseAssert err.msg
-
-  epochRef.effective_balances_bytes =
-    snappyEncode(SSZ.encode(
-      List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT](
-        get_effective_balances(getStateField(state, validators).asSeq, epoch))))
-
-  epochRef
 
 func effective_balances*(epochRef: EpochRef): seq[Gwei] =
   try:
@@ -346,17 +287,146 @@ func epochAncestor*(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): EpochKey =
 
   EpochKey(epoch: epoch, bid: bsi.bid)
 
+func findShufflingRef*(
+    dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[ShufflingRef] =
+  ## Lookup a shuffling in the cache, returning `none` if it's not present - see
+  ## `getShufflingRef` for a version that creates a new instance if it's missing
+  let
+    dependent_slot = if epoch > 2: (epoch - 1).start_slot() - 1 else: Slot(0)
+    dependent_bsi = dag.atSlot(bid, dependent_slot).valueOr:
+      return Opt.none(ShufflingRef)
+
+  for s in dag.shufflingRefs:
+    if s == nil: continue
+    if s.epoch == epoch and dependent_bsi.bid.root == s.attester_dependent_root:
+      return Opt.some s
+  Opt.none(ShufflingRef)
+
+func putShufflingRef*(dag: ChainDAGRef, shufflingRef: ShufflingRef) =
+  ## Store shuffling in the cache
+  if shufflingRef.epoch < dag.finalizedHead.slot.epoch():
+    # Only cache epoch information for unfinalized blocks - earlier states
+    # are seldomly used (ie RPC), so no need to cache
+    return
+
+  # Because we put a cap on the number of shufflingRef we store, we want to
+  # prune the least useful state - for now, we'll assume that to be the
+  # oldest shufflingRef we know about.
+  var
+    oldest = 0
+  for x in 0..<dag.shufflingRefs.len:
+    let candidate = dag.shufflingRefs[x]
+    if candidate == nil:
+      oldest = x
+      break
+    if candidate.epoch < dag.shufflingRefs[oldest].epoch:
+      oldest = x
+
+  dag.shufflingRefs[oldest] = shufflingRef
+
 func findEpochRef*(
     dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochRef] =
-  ## Look for an existing cached EpochRef, but unlike `getEpochRef`, don't
-  ## try to create one by recreating the epoch state
+  ## Lookup an EpochRef in the cache, returning `none` if it's not present - see
+  ## `getEpochRef` for a version that creates a new instance if it's missing
   let ancestor = dag.epochAncestor(bid, epoch)
 
-  for i in 0..<dag.epochRefs.len:
-    if dag.epochRefs[i] != nil and dag.epochRefs[i].key == ancestor:
-      return ok(dag.epochRefs[i])
+  for e in dag.epochRefs:
+    if e == nil: continue
+    if e.key == ancestor:
+      return Opt.some e
 
-  err()
+  Opt.none(EpochRef)
+
+func putEpochRef(dag: ChainDAGRef, epochRef: EpochRef) =
+  if epochRef.epoch < dag.finalizedHead.slot.epoch():
+    # Only cache epoch information for unfinalized blocks - earlier states
+    # are seldomly used (ie RPC), so no need to cache
+    return
+
+  # Because we put a cap on the number of epochRefs we store, we want to
+  # prune the least useful state - for now, we'll assume that to be the
+  # oldest epochRef we know about.
+
+  var
+    oldest = 0
+  for x in 0..<dag.epochRefs.len:
+    let candidate = dag.epochRefs[x]
+    if candidate == nil:
+      oldest = x
+      break
+    if candidate.key.epoch < dag.epochRefs[oldest].epoch:
+      oldest = x
+
+  dag.epochRefs[oldest] = epochRef
+
+func init*(
+    T: type ShufflingRef, state: ForkedHashedBeaconState,
+    cache: var StateCache, epoch: Epoch): T =
+  let
+    dependent_epoch =
+      if epoch < 1: Epoch(0) else: epoch - 1
+    attester_dependent_root =
+      withState(state): state.dependent_root(dependent_epoch)
+
+  ShufflingRef(
+    epoch: epoch,
+    attester_dependent_root: attester_dependent_root,
+    shuffled_active_validator_indices:
+      cache.get_shuffled_active_validator_indices(state, epoch),
+  )
+
+func init*(
+    T: type EpochRef, dag: ChainDAGRef, state: ForkedHashedBeaconState,
+    cache: var StateCache): T =
+  let
+    epoch = state.get_current_epoch()
+    proposer_dependent_root = withState(state): state.proposer_dependent_root
+    shufflingRef = dag.findShufflingRef(state.latest_block_id, epoch).valueOr:
+      let tmp = ShufflingRef.init(state, cache, epoch)
+      dag.putShufflingRef(tmp)
+      tmp
+
+    attester_dependent_root = withState(state): state.attester_dependent_root
+    epochRef = EpochRef(
+      key: dag.epochAncestor(state.latest_block_id, epoch),
+
+      eth1_data:
+        getStateField(state, eth1_data),
+      eth1_deposit_index:
+        getStateField(state, eth1_deposit_index),
+
+      checkpoints:
+        FinalityCheckpoints(
+          justified: getStateField(state, current_justified_checkpoint),
+          finalized: getStateField(state, finalized_checkpoint)),
+
+      # beacon_proposers: Separately filled below
+      proposer_dependent_root: proposer_dependent_root,
+
+      shufflingRef: shufflingRef
+    )
+    epochStart = epoch.start_slot()
+
+  for i in 0'u64..<SLOTS_PER_EPOCH:
+    epochRef.beacon_proposers[i] =
+      get_beacon_proposer_index(state, cache, epochStart + i)
+
+  # When fork choice runs, it will need the effective balance of the justified
+  # checkpoint - we pre-load the balances here to avoid rewinding the justified
+  # state later and compress them because not all checkpoints end up being used
+  # for fork choice - specially during long periods of non-finalization
+  proc snappyEncode(inp: openArray[byte]): seq[byte] =
+    try:
+      snappy.encode(inp)
+    except CatchableError as err:
+      raiseAssert err.msg
+
+  epochRef.effective_balances_bytes =
+    snappyEncode(SSZ.encode(
+      List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT](
+        get_effective_balances(getStateField(state, validators).asSeq, epoch))))
+
+  epochRef
 
 func loadStateCache(
     dag: ChainDAGRef, cache: var StateCache, bid: BlockId, epoch: Epoch) =
@@ -368,12 +438,14 @@ func loadStateCache(
     block:
       let epoch = e
       if epoch notin cache.shuffled_active_validator_indices:
+        let shufflingRef = dag.findShufflingRef(bid, epoch)
+        if shufflingRef.isSome():
+          cache.shuffled_active_validator_indices[epoch] =
+            shufflingRef[][].shuffled_active_validator_indices
         let epochRef = dag.findEpochRef(bid, epoch)
         if epochRef.isSome():
-          cache.shuffled_active_validator_indices[epoch] =
-            epochRef[].shuffled_active_validator_indices
           let start_slot = epoch.start_slot()
-          for i, idx in epochRef[].beacon_proposers:
+          for i, idx in epochRef[][].beacon_proposers:
             cache.beacon_proposer_indices[start_slot + i] = idx
 
   load(epoch)
@@ -992,25 +1064,7 @@ func getEpochRef*(
   var epochRef = dag.findEpochRef(bid, epoch)
   if epochRef.isErr:
     let res = EpochRef.init(dag, state, cache)
-    if epoch >= dag.finalizedHead.slot.epoch():
-      # Only cache epoch information for unfinalized blocks - earlier states
-      # are seldomly used (ie RPC), so no need to cache
-
-      # Because we put a cap on the number of epochRefs we store, we want to
-      # prune the least useful state - for now, we'll assume that to be the
-      # oldest epochRef we know about.
-
-      var
-        oldest = 0
-      for x in 0..<dag.epochRefs.len:
-        let candidate = dag.epochRefs[x]
-        if candidate == nil:
-          oldest = x
-          break
-        if candidate.key.epoch < dag.epochRefs[oldest].epoch:
-          oldest = x
-
-      dag.epochRefs[oldest] = res
+    dag.putEpochRef(res)
     res
   else:
     epochRef.get()
@@ -1070,6 +1124,24 @@ proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
   dag.getEpochRef(
     dag.finalizedHead.blck, dag.finalizedHead.slot.epoch, false).expect(
       "getEpochRef for finalized head should always succeed")
+
+proc getShufflingRef*(
+    dag: ChainDAGRef, blck: BlockRef, epoch: Epoch,
+    preFinalized: bool): Opt[ShufflingRef] =
+  ## Return the shuffling in the given history and epoch - this potentially is
+  ## faster than returning a full EpochRef because the shuffling is determined
+  ## an epoch in advance and therefore is less sensitive to reorgs
+  let shufflingRef = dag.findShufflingRef(blck.bid, epoch)
+  if shufflingRef.isNone:
+    # TODO here, we could check the existing cached states and see if any one
+    # has the right dependent root - unlike EpochRef, we don't need an _exact_
+    # epoch match
+    let epochRef = dag.getEpochRef(blck, epoch, preFinalized).valueOr:
+      return Opt.none ShufflingRef
+    dag.putShufflingRef(epochRef.shufflingRef)
+    Opt.some epochRef.shufflingRef
+  else:
+    shufflingRef
 
 func stateCheckpoint*(dag: ChainDAGRef, bsi: BlockSlotId): BlockSlotId =
   ## The first ancestor BlockSlot that is a state checkpoint
@@ -1601,6 +1673,11 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
       if dag.epochRefs[i] != nil and
           dag.epochRefs[i].epoch < dag.finalizedHead.slot.epoch:
         dag.epochRefs[i] = nil
+    for i in 0..<dag.shufflingRefs.len:
+      if dag.shufflingRefs[i] != nil and
+          dag.shufflingRefs[i].epoch < dag.finalizedHead.slot.epoch:
+        dag.shufflingRefs[i] = nil
+
   let epochRefPruneTick = Moment.now()
 
   dag.lastPrunePoint = dag.finalizedHead.toBlockSlotId().expect("not nil")

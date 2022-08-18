@@ -68,7 +68,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
-    let epochRef = node.dag.getEpochRef(qhead, qepoch, true).valueOr:
+    let shufflingRef = node.dag.getShufflingRef(qhead, qepoch, true).valueOr:
       return RestApiResponse.jsonError(Http400, PrunedStateError)
 
     let duties =
@@ -76,13 +76,15 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         var res: seq[RestAttesterDuty]
 
         let
-          committees_per_slot = get_committee_count_per_slot(epochRef)
+          committees_per_slot = get_committee_count_per_slot(shufflingRef)
         for committee_index in get_committee_indices(committees_per_slot):
           for slot in qepoch.slots():
-            let committee = get_beacon_committee(epochRef, slot, committee_index)
+            let
+              committee =
+                get_beacon_committee(shufflingRef, slot, committee_index)
             for index_in_committee, validator_index in committee:
               if validator_index in indexList:
-                let validator_key = epochRef.validatorKey(validator_index)
+                let validator_key = node.dag.validatorKey(validator_index)
                 if validator_key.isSome():
                   res.add(
                     RestAttesterDuty(
@@ -105,7 +107,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         none[bool]()
 
     return RestApiResponse.jsonResponseWRoot(
-      duties, epochRef.attester_dependent_root, optimistic)
+      duties, shufflingRef.attester_dependent_root, optimistic)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties
   router.api(MethodGet, "/eth/v1/validator/duties/proposer/{epoch}") do (
@@ -144,7 +146,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if bp.isSome():
             res.add(
               RestProposerDuty(
-                pubkey: epochRef.validatorKey(bp.get()).get().toPubKey(),
+                pubkey: node.dag.validatorKey(bp.get()).get().toPubKey(),
                 validator_index: bp.get(),
                 slot: qepoch.start_slot() + i
               )
@@ -566,17 +568,16 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       wallEpoch = wallSlot.epoch
       head = node.dag.head
 
-    var currentEpoch, nextEpoch: Option[EpochRef]
-    template getAndCacheEpochRef(epochRefVar: var Option[EpochRef],
-                                 epoch: Epoch): EpochRef =
-      if epochRefVar.isNone:
-        epochRefVar = block:
-          let epochRef = node.dag.getEpochRef(head, epoch, true)
-          if isErr(epochRef):
+    var currentEpoch, nextEpoch: Opt[ShufflingRef]
+    template getAndCacheShufflingRef(shufflingRefVar: var Opt[ShufflingRef],
+                                     epoch: Epoch): ShufflingRef =
+      if shufflingRefVar.isNone:
+        shufflingRefVar = block:
+          let tmp = node.dag.getShufflingRef(head, epoch, true).valueOr:
             return RestApiResponse.jsonError(Http400, PrunedStateError)
-          some epochRef.get()
+          Opt.some tmp
 
-      epochRefVar.get
+      shufflingRefVar.get
 
     for request in requests:
       if uint64(request.committee_index) >= uint64(MAX_COMMITTEES_PER_SLOT):
@@ -589,17 +590,19 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       if wallSlot > request.slot + 1:
         return RestApiResponse.jsonError(Http400, SlotFromThePastError)
 
-      let epoch = request.slot.epoch
-      let epochRef = if epoch == wallEpoch:
-        currentEpoch.getAndCacheEpochRef(wallEpoch)
-      elif epoch == wallEpoch + 1:
-        nextEpoch.getAndCacheEpochRef(wallEpoch + 1)
-      else:
-        return RestApiResponse.jsonError(Http400,
-                                         SlotNotInNextWallSlotEpochError)
+      let
+        epoch = request.slot.epoch
+        shufflingRef =
+          if epoch == wallEpoch:
+            currentEpoch.getAndCacheShufflingRef(wallEpoch)
+          elif epoch == wallEpoch + 1:
+            nextEpoch.getAndCacheShufflingRef(wallEpoch + 1)
+          else:
+            return RestApiResponse.jsonError(Http400,
+                                             SlotNotInNextWallSlotEpochError)
 
       let subnet_id = compute_subnet_for_attestation(
-        get_committee_count_per_slot(epochRef), request.slot,
+        get_committee_count_per_slot(shufflingRef), request.slot,
         request.committee_index)
 
       node.actionTracker.registerDuty(

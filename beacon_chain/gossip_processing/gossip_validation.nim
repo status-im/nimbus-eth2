@@ -142,11 +142,11 @@ func check_aggregation_count(
   ok()
 
 func check_attestation_subnet(
-    epochRef: EpochRef, slot: Slot, committee_index: CommitteeIndex,
+    shufflingRef: ShufflingRef, slot: Slot, committee_index: CommitteeIndex,
     subnet_id: SubnetId): Result[void, ValidationError] =
   let
     expectedSubnet = compute_subnet_for_attestation(
-      get_committee_count_per_slot(epochRef), slot, committee_index)
+      get_committee_count_per_slot(shufflingRef), slot, committee_index)
 
   if expectedSubnet != subnet_id:
     return errReject("Attestation not on the correct subnet")
@@ -447,18 +447,17 @@ proc validateAttestation*(
   # compute_start_slot_at_epoch(store.finalized_checkpoint.epoch)) ==
   # store.finalized_checkpoint.root
   let
-    epochRef = block:
-      let tmp = pool.dag.getEpochRef(target.blck, target.slot.epoch, false)
-      if isErr(tmp): # shouldn't happen since we verified target
-        warn "No EpochRef for attestation",
+    shufflingRef =
+      pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+        # Target is verified - shouldn't happen
+        warn "No shuffling for attestation - report bug",
           attestation = shortLog(attestation), target = shortLog(target)
-        return errIgnore("Attestation:  no EpochRef")
-      tmp.get()
+        return errIgnore("Attestation: no shuffling")
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   let committee_index = block:
-    let idx = epochRef.get_committee_index(attestation.data.index)
+    let idx = shufflingRef.get_committee_index(attestation.data.index)
     if idx.isErr():
       return checkedReject("Attestation: committee index not within expected range")
     idx.get()
@@ -471,7 +470,7 @@ proc validateAttestation*(
   # committee information for the signature check.
   block:
     let v = check_attestation_subnet(
-      epochRef, attestation.data.slot, committee_index, subnet_id) # [REJECT]
+      shufflingRef, attestation.data.slot, committee_index, subnet_id) # [REJECT]
     if v.isErr():
       return err(v.error)
 
@@ -483,7 +482,7 @@ proc validateAttestation*(
   # epoch matches its target and attestation.data.target.root is an ancestor of
   # attestation.data.beacon_block_root.
   if not (attestation.aggregation_bits.lenu64 == get_beacon_committee_len(
-      epochRef, attestation.data.slot, committee_index)):
+      shufflingRef, attestation.data.slot, committee_index)):
     return checkedReject(
       "Attestation: number of aggregation bits and committee size mismatch")
 
@@ -492,7 +491,7 @@ proc validateAttestation*(
     genesis_validators_root =
       getStateField(pool.dag.headState, genesis_validators_root)
     attesting_index = get_attesting_indices_one(
-      epochRef, slot, committee_index, attestation.aggregation_bits)
+      shufflingRef, slot, committee_index, attestation.aggregation_bits)
 
   # The number of aggregation bits matches the committee size, which ensures
   # this condition holds.
@@ -509,7 +508,7 @@ proc validateAttestation*(
         attestation.data.target.epoch:
     return errIgnore("Attestation: Validator has already voted in epoch")
 
-  let pubkey = epochRef.validatorKey(validator_index)
+  let pubkey = pool.dag.validatorKey(validator_index)
   if pubkey.isNone():
     # can't happen, in theory, because we checked the aggregator index above
     return errIgnore("Attestation: cannot find validator pubkey")
@@ -635,18 +634,17 @@ proc validateAggregate*(
     return errIgnore("Aggregate already covered")
 
   let
-    epochRef = block:
-      let tmp = pool.dag.getEpochRef(target.blck, target.slot.epoch, false)
-      if tmp.isErr: # shouldn't happen since we verified target
-        warn "No EpochRef for attestation - report bug",
+    shufflingRef =
+      pool.dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
+        # Target is verified - shouldn't happen
+        warn "No shuffling for attestation - report bug",
           aggregate = shortLog(aggregate), target = shortLog(target)
-        return errIgnore("Aggregate: no EpochRef")
-      tmp.get()
+        return errIgnore("Aggregate: no shuffling")
 
   # [REJECT] The committee index is within the expected range -- i.e.
   # data.index < get_committee_count_per_slot(state, data.target.epoch).
   let committee_index = block:
-    let idx = epochRef.get_committee_index(aggregate.data.index)
+    let idx = shufflingRef.get_committee_index(aggregate.data.index)
     if idx.isErr():
       return checkedReject("Attestation: committee index not within expected range")
     idx.get()
@@ -655,7 +653,7 @@ proc validateAggregate*(
   # aggregator for the slot -- i.e. is_aggregator(state, aggregate.data.slot,
   # aggregate.data.index, aggregate_and_proof.selection_proof) returns True.
   if not is_aggregator(
-      epochRef, slot, committee_index, aggregate_and_proof.selection_proof):
+      shufflingRef, slot, committee_index, aggregate_and_proof.selection_proof):
     return checkedReject("Aggregate: incorrect aggregator")
 
   # [REJECT] The aggregator's validator index is within the committee -- i.e.
@@ -667,7 +665,7 @@ proc validateAggregate*(
       return checkedReject("Aggregate: invalid aggregator index")
 
   if aggregator_index notin
-      get_beacon_committee(epochRef, slot, committee_index):
+      get_beacon_committee(shufflingRef, slot, committee_index):
     return checkedReject("Aggregate: aggregator's validator index not in committee")
 
   # 1. [REJECT] The aggregate_and_proof.selection_proof is a valid signature of the
@@ -682,14 +680,14 @@ proc validateAggregate*(
     genesis_validators_root =
       getStateField(pool.dag.headState, genesis_validators_root)
     attesting_indices = get_attesting_indices(
-      epochRef, slot, committee_index, aggregate.aggregation_bits)
+      shufflingRef, slot, committee_index, aggregate.aggregation_bits)
 
   let
     sig = if checkSignature:
       let deferredCrypto = batchCrypto
                     .scheduleAggregateChecks(
                       fork, genesis_validators_root,
-                      signedAggregateAndProof, epochRef, attesting_indices
+                      signedAggregateAndProof, pool.dag, attesting_indices
                     )
       if deferredCrypto.isErr():
         return checkedReject(deferredCrypto.error)
