@@ -524,7 +524,7 @@ const
   DOMAIN_AGGREGATE_AND_PROOF* = DomainType([byte 0x06, 0x00, 0x00, 0x00])
   DOMAIN_APPLICATION_MASK* = DomainType([byte 0x00, 0x00, 0x00, 0x01])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/beacon-chain.md#domain-types
   DOMAIN_SYNC_COMMITTEE* = DomainType([byte 0x07, 0x00, 0x00, 0x00])
   DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF* = DomainType([byte 0x08, 0x00, 0x00, 0x00])
   DOMAIN_CONTRIBUTION_AND_PROOF* = DomainType([byte 0x09, 0x00, 0x00, 0x00])

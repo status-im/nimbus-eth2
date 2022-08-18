@@ -361,7 +361,7 @@ type
     DOMAIN_SELECTION_PROOF*: DomainType
     DOMAIN_AGGREGATE_AND_PROOF*: DomainType
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/beacon-chain.md#constants
     TIMELY_SOURCE_FLAG_INDEX*: byte
     TIMELY_TARGET_FLAG_INDEX*: byte
     TIMELY_HEAD_FLAG_INDEX*: byte
