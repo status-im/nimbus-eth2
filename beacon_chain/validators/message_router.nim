@@ -209,19 +209,19 @@ proc routeAttestation*(
       return err(
         "Attempt to send attestation for unknown target")
 
-    epochRef = router[].dag.getEpochRef(
+    shufflingRef = router[].dag.getShufflingRef(
         target, attestation.data.target.epoch, false).valueOr:
       warn "Cannot construct EpochRef for attestation, skipping send - report bug",
         target = shortLog(target),
         attestation = shortLog(attestation)
       return
     committee_index =
-      epochRef.get_committee_index(attestation.data.index).valueOr:
+      shufflingRef.get_committee_index(attestation.data.index).valueOr:
         notice "Invalid committee index in attestation",
           attestation = shortLog(attestation)
         return err("Invalid committee index in attestation")
     subnet_id = compute_subnet_for_attestation(
-      get_committee_count_per_slot(epochRef), attestation.data.slot,
+      get_committee_count_per_slot(shufflingRef), attestation.data.slot,
       committee_index)
 
   return await router.routeAttestation(

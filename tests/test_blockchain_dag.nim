@@ -74,6 +74,7 @@ suite "Block pool processing" & preset():
     let
       b2Add = dag.addHeadBlock(verifier, b2, nilPhase0Callback)
       b2Get = dag.getForkedBlock(b2.root)
+      sr = dag.findShufflingRef(b1Add[].bid, b1Add[].slot.epoch)
       er = dag.findEpochRef(b1Add[].bid, b1Add[].slot.epoch)
       validators = getStateField(dag.headState, validators).lenu64()
 
@@ -89,15 +90,20 @@ suite "Block pool processing" & preset():
       dag.getBlockIdAtSlot(b2Add[].slot).get() ==
         BlockSlotId.init(dag.genesis, b2Add[].slot)
 
-      not er.isErr()
+      sr.isSome()
+      er.isSome()
+      # er reuses shuffling ref instance
+      er[].shufflingRef == sr[]
       # Same epoch - same epochRef
       er[] == dag.findEpochRef(b2Add[].bid, b2Add[].slot.epoch)[]
       # Different epoch that was never processed
-      dag.findEpochRef(b1Add[].bid, b1Add[].slot.epoch + 1).isErr()
+      dag.findEpochRef(b1Add[].bid, b1Add[].slot.epoch + 1).isNone()
+      # ... but we know the shuffling already!
+      dag.findShufflingRef(b1Add[].bid, b1Add[].slot.epoch + 1).isSome()
 
-      er[].validatorKey(0'u64).isSome()
-      er[].validatorKey(validators - 1).isSome()
-      er[].validatorKey(validators).isNone()
+      dag.validatorKey(0'u64).isSome()
+      dag.validatorKey(validators - 1).isSome()
+      dag.validatorKey(validators).isNone()
 
     # Skip one slot to get a gap
     check:
@@ -172,6 +178,9 @@ suite "Block pool processing" & preset():
     check:
       parentBsi.bid == dag.head.parent.bid
       parentBsi.slot == nextEpochSlot
+      # Pre-heated caches
+      dag.findShufflingRef(dag.head.parent.bid, dag.head.slot.epoch).isOk()
+      dag.findShufflingRef(dag.head.parent.bid, nextEpoch).isOk()
       dag.getEpochRef(dag.head.parent, nextEpoch, true).isOk()
 
       # Getting an EpochRef should not result in states being stored

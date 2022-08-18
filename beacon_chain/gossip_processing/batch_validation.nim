@@ -339,7 +339,7 @@ proc scheduleAggregateChecks*(
       batchCrypto: ref BatchCrypto,
       fork: Fork, genesis_validators_root: Eth2Digest,
       signedAggregateAndProof: SignedAggregateAndProof,
-      epochRef: EpochRef,
+      dag: ChainDAGRef,
       attesting_indices: openArray[ValidatorIndex]
      ): Result[tuple[
         aggregatorFut, slotFut, aggregateFut: Future[BatchResult],
@@ -364,13 +364,13 @@ proc scheduleAggregateChecks*(
   # Do the eager steps first to avoid polluting batches with needlessly
   let
     aggregatorKey =
-      epochRef.validatorKey(aggregate_and_proof.aggregator_index).orReturnErr(
+      dag.validatorKey(aggregate_and_proof.aggregator_index).orReturnErr(
         "SignedAggregateAndProof: invalid aggregator index")
     aggregatorSig = signedAggregateAndProof.signature.load().orReturnErr(
       "aggregateAndProof: invalid proof signature")
     slotSig = aggregate_and_proof.selection_proof.load().orReturnErr(
       "aggregateAndProof: invalid selection signature")
-    aggregateKey = ? aggregateAll(epochRef.dag, attesting_indices)
+    aggregateKey = ? aggregateAll(dag, attesting_indices)
     aggregateSig = aggregate.signature.load().orReturnErr(
       "aggregateAndProof: invalid aggregate signature")
 
