@@ -213,7 +213,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           DOMAIN_AGGREGATE_AND_PROOF:
             to0xHex(DOMAIN_AGGREGATE_AND_PROOF.data),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/beacon-chain.md#constants
           TIMELY_SOURCE_FLAG_INDEX:
             to0xHex([byte(TIMELY_SOURCE_FLAG_INDEX)]),
           TIMELY_TARGET_FLAG_INDEX:
