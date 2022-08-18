@@ -1343,13 +1343,13 @@ func syncStatus(node: BeaconNode): string =
   let optimistic_head = node.dag.is_optimistic(node.dag.head.root)
   if node.syncManager.inProgress:
     if optimistic_head:
-      node.syncManager.syncStatus & ": opt"
+      node.syncManager.syncStatus & "/opt"
     else:
       node.syncManager.syncStatus
   elif node.backfiller.inProgress:
     "backfill: " & node.backfiller.syncStatus
   elif optimistic_head:
-    "opt synced"
+    "synced/opt"
   else:
     "synced"
 
