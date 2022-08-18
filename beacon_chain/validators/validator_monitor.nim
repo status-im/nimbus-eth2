@@ -244,6 +244,9 @@ proc addAutoMonitor*(
   if not self.autoRegister:
     return
 
+  if pubkey in self.monitors:
+    return
+
   # automatic monitors must be registered with index - we don't look for them in
   # the state
   self.addMonitor(pubkey, some(index))
