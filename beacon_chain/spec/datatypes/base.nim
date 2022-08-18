@@ -924,10 +924,20 @@ func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
 ## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
 template isomorphicCast*[T, U](x: U): T =
   # Each of these pairs of types has ABI-compatible memory representations.
-  static:
-    doAssert sizeof(T) == sizeof(U)
-    doAssert getSizeofSig(T()) == getSizeofSig(U())
-  cast[ptr T](unsafeAddr x)[]
+  static: doAssert (T is ref) == (U is ref)
+  when T is ref:
+    type
+      TT = typeof default(typeof T)[]
+      UU = typeof default(typeof U)[]
+    static:
+      doAssert sizeof(TT) == sizeof(UU)
+      doAssert getSizeofSig(TT()) == getSizeofSig(UU())
+    cast[T](x)
+  else:
+    static:
+      doAssert sizeof(T) == sizeof(U)
+      doAssert getSizeofSig(T()) == getSizeofSig(U())
+    cast[ptr T](unsafeAddr x)[]
 
 func prune*(cache: var StateCache, epoch: Epoch) =
   # Prune all cache information that is no longer relevant in order to process

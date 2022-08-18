@@ -16,6 +16,24 @@ import
 
 logScope: topics = "beacnde"
 
+func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
+  # Check whether light client is used
+  let optimisticHeader = node.lightClient.optimisticHeader.valueOr:
+    return false
+
+  # Check whether light client is sufficiently ahead of DAG
+  const minProgress = 8 * SLOTS_PER_EPOCH  # Set arbitrarily
+  let dagSlot = getStateField(node.dag.headState, slot)
+  if dagSlot + minProgress > optimisticHeader.slot:
+    return false
+
+  # Check whether light client has synced sufficiently close to wall slot
+  const maxAge = 2 * SLOTS_PER_EPOCH
+  if optimisticHeader.slot < max(wallSlot, maxAge.Slot) - maxAge:
+    return false
+
+  true
+
 proc initLightClient*(
     node: BeaconNode,
     rng: ref HmacDrbgContext,
@@ -30,52 +48,28 @@ proc initLightClient*(
   # for broadcasting light client data as a server.
 
   let
-    optimisticProcessor = proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock):
+    optimisticHandler = proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock):
         Future[void] {.async.} =
       debug "New LC optimistic block",
         opt = signedBlock.toBlockId(),
         dag = node.dag.head.bid,
         wallSlot = node.currentSlot
       return
-    optSync = initLCOptimisticSync(
-      node.network, getBeaconTime, optimisticProcessor,
-      config.safeSlotsToImportOptimistically)
+    optimisticProcessor = initOptimisticProcessor(
+      getBeaconTime, optimisticHandler)
 
     lightClient = createLightClient(
       node.network, rng, config, cfg, forkDigests, getBeaconTime,
       genesis_validators_root, LightClientFinalizationMode.Strict)
 
   if config.lightClientEnable:
-    proc shouldSyncOptimistically(slot: Slot): bool =
-      const
-        # Minimum number of slots to be ahead of DAG to use optimistic sync
-        minProgress = 8 * SLOTS_PER_EPOCH
-        # Maximum age of light client optimistic header to use optimistic sync
-        maxAge = 2 * SLOTS_PER_EPOCH
+    proc onFinalizedHeader(
+        lightClient: LightClient, finalizedHeader: BeaconBlockHeader) =
+      optimisticProcessor.setFinalizedHeader(finalizedHeader)
 
-      if slot < getStateField(node.dag.headState, slot) + minProgress:
-        false
-      elif getBeaconTime().slotOrZero > slot + maxAge:
-        false
-      else:
-        true
-
-    proc onFinalizedHeader(lightClient: LightClient) =
-      let optimisticHeader = lightClient.optimisticHeader.valueOr:
-        return
-      if not shouldSyncOptimistically(optimisticHeader.slot):
-        return
-      let finalizedHeader = lightClient.finalizedHeader.valueOr:
-        return
-      optSync.setOptimisticHeader(optimisticHeader)
-      optSync.setFinalizedHeader(finalizedHeader)
-
-    proc onOptimisticHeader(lightClient: LightClient) =
-      let optimisticHeader = lightClient.optimisticHeader.valueOr:
-        return
-      if not shouldSyncOptimistically(optimisticHeader.slot):
-        return
-      optSync.setOptimisticHeader(optimisticHeader)
+    proc onOptimisticHeader(
+        lightClient: LightClient, optimisticHeader: BeaconBlockHeader) =
+      optimisticProcessor.setOptimisticHeader(optimisticHeader)
 
     lightClient.onFinalizedHeader = onFinalizedHeader
     lightClient.onOptimisticHeader = onOptimisticHeader
@@ -86,14 +80,13 @@ proc initLightClient*(
       lightClientEnable = config.lightClientEnable,
       lightClientTrustedBlockRoot = config.lightClientTrustedBlockRoot
 
-  node.lcOptSync = optSync
+  node.optimisticProcessor = optimisticProcessor
   node.lightClient = lightClient
 
 proc startLightClient*(node: BeaconNode) =
   if not node.config.lightClientEnable:
     return
 
-  node.lcOptSync.start()
   node.lightClient.start()
 
 proc installLightClientMessageValidators*(node: BeaconNode) =
