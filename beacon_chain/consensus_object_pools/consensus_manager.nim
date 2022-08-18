@@ -123,7 +123,7 @@ proc runForkchoiceUpdated*(
 
     return fcuR.payloadStatus.status
   except CatchableError as err:
-    debug "runForkchoiceUpdated: forkchoiceUpdated failed",
+    error "runForkchoiceUpdated: forkchoiceUpdated failed",
       err = err.msg
     return PayloadExecutionStatus.syncing
 
