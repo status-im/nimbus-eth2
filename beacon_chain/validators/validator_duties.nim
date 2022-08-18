@@ -1212,16 +1212,29 @@ proc registerValidators(node: BeaconNode) {.async.} =
 
     let restBuilderStatus = await node.payloadBuilderRestClient.checkBuilderStatus
     if restBuilderStatus.status != HttpOk:
-      warn "registerValidators: specified builder not available",
+      warn "registerValidators: specified builder or relay not available",
         builderUrl = node.config.payloadBuilderUrl,
         builderStatus = restBuilderStatus
       return
 
-    # TODO split this across slots of epoch to support larger numbers of
-    # validators
+    # TODO cache the generated registrations and keep resending the previous ones
     # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#validator-registration
     var validatorRegistrations: seq[SignedValidatorRegistrationV1]
     for validator in node.attachedValidators[].validators.values:
+      if validator.index.isNone:
+        continue
+
+      # https://ethereum.github.io/builder-specs/#/Builder/registerValidator
+      # Builders should verify that `pubkey` corresponds to an active or
+      # pending validator
+      withState(node.dag.headState):
+        if distinctBase(validator.index.get) >= state.data.validators.lenu64:
+          continue
+
+        if node.currentSlot().epoch >=
+            state.data.validators.item(validator.index.get).exit_epoch:
+          continue
+
       let validatorRegistration =
         await node.getValidatorRegistration(validator)
       if validatorRegistration.isErr:
