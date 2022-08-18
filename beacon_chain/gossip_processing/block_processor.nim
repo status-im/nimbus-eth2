@@ -436,7 +436,7 @@ proc newExecutionPayload*(
 
     return payloadStatus
   except CatchableError as err:
-    debug "newPayload failed", msg = err.msg
+    error "newPayload failed", msg = err.msg
     return PayloadExecutionStatus.syncing
 
 from ../consensus_object_pools/blockchain_dag import
@@ -513,9 +513,9 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
              await newExecutionPayload(
                self.consensusManager.eth1Monitor, executionPayload)
            except CatchableError as err:
-             info "runQueueProcessingLoop: newPayload failed",
+             error "runQueueProcessingLoop: newPayload failed",
                err = err.msg
-             # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#execution-engine-errors
+             # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/sync/optimistic.md#execution-engine-errors
              if not blck.resfut.isNil:
                blck.resfut.complete(
                  Result[void, BlockError].err(BlockError.MissingParent))
