@@ -417,10 +417,12 @@ proc doTrustedNodeSync*(
     checkpointRoot
 
 when isMainModule:
-  import std/[os]
+  import
+    std/[os],
+    networking/network_metadata
 
-  let backfill = os.paramCount() > 3 and os.paramStr(4) == "true"
+  let backfill = os.paramCount() > 4 and os.paramStr(5) == "true"
 
   waitFor doTrustedNodeSync(
-    defaultRuntimeConfig, os.paramStr(1), os.paramStr(2), os.paramStr(3),
+    getRuntimeConfig(some os.paramStr(1)), os.paramStr(2), os.paramStr(3), os.paramStr(4),
     backfill)
