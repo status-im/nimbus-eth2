@@ -1285,8 +1285,9 @@ proc delayedTests {.async.} =
 
   await sleepAsync(2.seconds)
 
-  await runTests(beaconNodeKeymanager)
-  
+  let deadline = sleepAsync(10.minutes)
+  await runTests(beaconNodeKeymanager) or deadline
+
   # TODO
   # This tests showed flaky behavior on a single Windows CI host
   # Re-enable it in a follow-up PR
