@@ -754,6 +754,9 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_under_max                       OK
 + [Valid]   EF - Altair - Operations - Deposit - success_top_up                              OK
 + [Valid]   EF - Altair - Operations - Deposit - valid_sig_but_forked_state                  OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - deposit_with_bad_fork_version__valid_ine OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - deposit_with_genesis_fork_version__valid OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - deposit_with_previous_fork_version__vali OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - invalid_sig_new_deposit                  OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - invalid_sig_other_version                OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - invalid_sig_top_up                       OK
@@ -777,7 +780,7 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up                             OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - valid_sig_but_forked_state                 OK
 ```
-OK: 39/39 Fail: 0/39 Skip: 0/39
+OK: 42/42 Fail: 0/42 Skip: 0/42
 ## EF - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1354,6 +1357,10 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 + [Invalid] EF - Bellatrix - Operations - Voluntary Exit - validator_invalid_validator_index OK
 + [Invalid] EF - Bellatrix - Operations - Voluntary Exit - validator_not_active              OK
 + [Invalid] EF - Bellatrix - Operations - Voluntary Exit - validator_not_active_long_enough  OK
++ [Invalid] EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ OK
++ [Invalid] EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_genesis_fork_ OK
++ [Invalid] EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_genesis_fork_ OK
++ [Invalid] EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_previous_fork OK
 + [Invalid] EF - Phase 0 - Operations - Voluntary Exit - invalid_signature                   OK
 + [Invalid] EF - Phase 0 - Operations - Voluntary Exit - validator_already_exited            OK
 + [Invalid] EF - Phase 0 - Operations - Voluntary Exit - validator_exit_in_future            OK
@@ -1368,12 +1375,14 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - success                           OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - success_exit_queue__min_churn     OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - success_exit_queue__scaled_churn  OK
++ [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ OK
++ [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_previous_fork OK
 + [Valid]   EF - Phase 0 - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit  OK
 + [Valid]   EF - Phase 0 - Operations - Voluntary Exit - success                             OK
 + [Valid]   EF - Phase 0 - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
 + [Valid]   EF - Phase 0 - Operations - Voluntary Exit - success_exit_queue__scaled_churn    OK
 ```
-OK: 30/30 Fail: 0/30 Skip: 0/30
+OK: 36/36 Fail: 0/36 Skip: 0/36
 
 ---TOTAL---
-OK: 1191/1198 Fail: 0/1198 Skip: 7/1198
+OK: 1200/1207 Fail: 0/1207 Skip: 7/1207
