@@ -81,7 +81,7 @@ func extend[T](s: var seq[T], minLen: int) =
   if s.len < minLen:
     s.setLen(minLen)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/fork-choice.md#should_update_justified_checkpoint
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/fork-choice.md#should_update_justified_checkpoint
 func should_update_justified_checkpoint(
     self: var Checkpoints, dag: ChainDAGRef,
     new_justified_checkpoint: Checkpoint): FcResult[bool] =
@@ -135,7 +135,7 @@ proc update_justified(
   self.update_justified(dag, blck, justified.epoch)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/fork-choice.md#on_block
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/fork-choice.md#on_block
 proc update_checkpoints(
     self: var Checkpoints, dag: ChainDAGRef,
     checkpoints: FinalityCheckpoints): FcResult[void] =
@@ -158,7 +158,7 @@ proc update_checkpoints(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/fork-choice.md#on_tick
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/fork-choice.md#on_tick
 proc on_tick(
     self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime): FcResult[void] =
   ## Must be called at least once per slot.
@@ -287,7 +287,7 @@ proc on_attestation*(
       block_root: beacon_block_root))
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/fork-choice.md#on_attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/fork-choice.md#on_attester_slashing
 func process_equivocation*(
        self: var ForkChoice,
        validator_index: ValidatorIndex
@@ -303,7 +303,7 @@ func process_equivocation*(
     trace "Integrating equivocation in fork choice",
       validator_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/fork-choice.md#on_block
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/fork-choice.md#on_block
 func process_block*(self: var ForkChoiceBackend,
                     block_root: Eth2Digest,
                     parent_root: Eth2Digest,
