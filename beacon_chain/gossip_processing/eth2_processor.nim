@@ -248,11 +248,19 @@ proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # and one should gauge the likelihood of this simultaneous launch to tune
   # the epoch delay to one's perceived risk.
 
-  if self.validatorPool[].count() > 0:
-    const duplicateValidatorEpochs = 2
+  const duplicateValidatorEpochs = 2
 
-    self.doppelgangerDetection.broadcastStartEpoch =
-      slot.epoch + duplicateValidatorEpochs
+  # TODO:
+  # We should switch to a model where this value is set for each validator
+  # as it gets added to the validator pool.
+  # Currently, we set it here because otherwise if the client is started
+  # without any validators, it will remain set to FAR_FUTURE_EPOCH and
+  # any new validators added through the Keymanager API will never get
+  # activated.
+  self.doppelgangerDetection.broadcastStartEpoch =
+    slot.epoch + duplicateValidatorEpochs
+
+  if self.validatorPool[].count() > 0:
     if self.doppelgangerDetectionEnabled:
       notice "Setting up doppelganger detection",
         epoch = slot.epoch,

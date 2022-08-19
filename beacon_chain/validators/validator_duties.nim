@@ -1283,10 +1283,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       notice "Doppelganger detection active - skipping validator duties while observing activity on the network",
         slot, epoch = slot.epoch,
         broadcastStartEpoch = doppelgangerDetection.broadcastStartEpoch
-    else:
-      debug "Doppelganger detection active - skipping validator duties while observing activity on the network",
-        slot, epoch = slot.epoch,
-        broadcastStartEpoch = doppelgangerDetection.broadcastStartEpoch
 
     return
 

@@ -478,7 +478,6 @@ proc doppelgangerCheck*(vc: ValidatorClientRef,
       let
         vindex = validator.index.get()
         default = DoppelgangerState(status: DoppelgangerStatus.None)
-        currentEpoch = vc.currentSlot().epoch()
         state = vc.doppelgangerDetection.validators.getOrDefault(vindex,
                                                                  default)
       state.status == DoppelgangerStatus.Passed

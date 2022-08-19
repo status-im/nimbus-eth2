@@ -59,7 +59,7 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
                     validator_index = vindex
             else:
               inc(value.epochsCount)
-              notice "Validator's activity was not seen",
+              debug "Validator's activity was not seen",
                      validator_index = vindex, epoch = epoch,
                      epochs_count = value.epochsCount
 
