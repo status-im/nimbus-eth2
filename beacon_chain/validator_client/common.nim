@@ -5,30 +5,24 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/[tables, os, sets, sequtils]
-import chronos, presto, presto/client as presto_client, chronicles, confutils,
-       json_serialization/std/[options, net],
-       stew/[base10, results, byteutils]
-import metrics, metrics/chronos_httpserver
-
-# Local modules
 import
-  ../spec/datatypes/[phase0, altair],
-  ../spec/[eth2_merkleization, helpers, signatures,
-    validator],
-  ../spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client],
-  ../validators/[keystore_management, validator_pool, slashing_protection],
-  ".."/[conf, beacon_clock, version, nimbus_binary_common],
-   ../spec/eth2_apis/eth2_rest_serialization
+  std/[tables, os, sets, sequtils],
+  stew/[base10, results, byteutils],
+  bearssl/rand, chronos, presto, presto/client as presto_client,
+  chronicles, confutils, json_serialization/std/[options, net],
+  metrics, metrics/chronos_httpserver,
+  ".."/spec/datatypes/[phase0, altair],
+  ".."/spec/[eth2_merkleization, helpers, signatures, validator],
+  ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client],
+  ".."/validators/[keystore_management, validator_pool, slashing_protection],
+  ".."/[conf, beacon_clock, version, nimbus_binary_common]
 
-export os, sets, sequtils, sequtils, chronos, presto, chronicles, confutils,
-       nimbus_binary_common, version, conf, options, tables, results, base10,
-       byteutils, presto_client
-
-export eth2_rest_serialization, rest_beacon_client,
-       phase0, altair, helpers, signatures, validator, eth2_merkleization,
-       beacon_clock,
-       keystore_management, slashing_protection, validator_pool
+export
+  os, sets, sequtils, chronos, presto, chronicles, confutils,
+  nimbus_binary_common, version, conf, options, tables, results, base10,
+  byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
+  phase0, altair, helpers, signatures, validator, eth2_merkleization,
+  beacon_clock, keystore_management, slashing_protection, validator_pool
 
 const
   SYNC_TOLERANCE* = 4'u64
@@ -154,9 +148,11 @@ type
     runSlotLoopFut*: Future[void]
     sigintHandleFut*: Future[void]
     sigtermHandleFut*: Future[void]
+    keymanagerHost*: ref KeymanagerHost
+    keymanagerServer*: RestServerRef
     beaconClock*: BeaconClock
-    attachedValidators*: ValidatorPool
     doppelgangerDetection*: DoppelgangerDetection
+    attachedValidators*: ref ValidatorPool
     forks*: seq[Fork]
     forksAvailable*: AsyncEvent
     nodesAvailable*: AsyncEvent
@@ -166,6 +162,7 @@ type
     syncCommitteeDuties*: SyncCommitteeDutiesMap
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
+    rng*: ref HmacDrbgContext
 
   ValidatorClientRef* = ref ValidatorClient
 
@@ -306,7 +303,7 @@ proc getDurationToNextBlock*(vc: ValidatorClientRef, slot: Slot): string =
     let data = vc.proposers.getOrDefault(epoch)
     if not(data.isDefault()):
       for item in data.duties:
-        if item.duty.pubkey in vc.attachedValidators:
+        if item.duty.pubkey in vc.attachedValidators[]:
           if (item.duty.slot < minSlot) and (item.duty.slot >= slot):
             minSlot = item.duty.slot
     if minSlot != FAR_FUTURE_SLOT:
@@ -348,7 +345,7 @@ proc getDelay*(vc: ValidatorClientRef, deadline: BeaconTime): TimeDiff =
 
 proc getValidator*(vc: ValidatorClientRef,
                    key: ValidatorPubKey): Option[AttachedValidator] =
-  let validator = vc.attachedValidators.getValidator(key)
+  let validator = vc.attachedValidators[].getValidator(key)
   if isNil(validator):
     warn "Validator not in pool anymore", validator = shortLog(validator)
     none[AttachedValidator]()
@@ -419,8 +416,8 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
   let slot = vc.currentSlot()
   case keystore.kind
   of KeystoreKind.Local:
-    vc.attachedValidators.addLocalValidator(keystore, none[ValidatorIndex](),
-                                            slot)
+    vc.attachedValidators[].addLocalValidator(keystore, none[ValidatorIndex](),
+                                              slot)
   of KeystoreKind.Remote:
     let
       httpFlags =
@@ -444,15 +441,15 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
               res.add((client.get(), remote))
           res
     if len(clients) > 0:
-      vc.attachedValidators.addRemoteValidator(keystore, clients,
-                                               none[ValidatorIndex](), slot)
+      vc.attachedValidators[].addRemoteValidator(keystore, clients,
+                                                 none[ValidatorIndex](), slot)
     else:
       warn "Unable to initialize remote validator",
            validator = $keystore.pubkey
 
 proc removeValidator*(vc: ValidatorClientRef,
                       pubkey: ValidatorPubKey) {.async.} =
-  let validator = vc.attachedValidators.getValidator(pubkey)
+  let validator = vc.attachedValidators[].getValidator(pubkey)
   if not(isNil(validator)):
     if vc.config.doppelgangerDetection:
       if validator.index.isSome():
@@ -470,7 +467,7 @@ proc removeValidator*(vc: ValidatorClientRef,
           res
       await allFutures(pending)
     # Remove validator from ValidatorPool.
-    vc.attachedValidators.removeValidator(pubkey)
+    vc.attachedValidators[].removeValidator(pubkey)
 
 proc doppelgangerCheck*(vc: ValidatorClientRef,
                         validator: AttachedValidator): bool =

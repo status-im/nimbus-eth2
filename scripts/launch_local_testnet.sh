@@ -71,6 +71,7 @@ BASE_PORT="9000"
 BASE_REMOTE_SIGNER_PORT="6000"
 BASE_METRICS_PORT="8008"
 BASE_REST_PORT="7500"
+BASE_VC_KEYMANAGER_PORT="8500"
 BASE_EL_NET_PORT="30303"
 BASE_EL_HTTP_PORT="8545"
 BASE_EL_WS_PORT="8546"
@@ -340,6 +341,7 @@ if [[ "${LIGHTHOUSE_VC_NODES}" != "0" && "${CONST_PRESET}" != "mainnet" ]]; then
 fi
 
 scripts/makedir.sh "${DATA_DIR}"
+echo x > "${DATA_DIR}/keymanager-token"
 
 VALIDATORS_DIR="${DATA_DIR}/validators"
 scripts/makedir.sh "${VALIDATORS_DIR}"
@@ -975,6 +977,8 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     ${WEB3_ARG} \
     ${STOP_AT_EPOCH_FLAG} \
     --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
+    --keymanager \
+    --keymanager-token-file="${DATA_DIR}/keymanager-token" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
     --light-client=on \
     ${EXTRA_ARGS} \
@@ -1008,6 +1012,9 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
         --log-level="${LOG_LEVEL}" \
         ${STOP_AT_EPOCH_FLAG} \
         --data-dir="${VALIDATOR_DATA_DIR}" \
+        --keymanager \
+        --keymanager-port=$((BASE_VC_KEYMANAGER_PORT + NUM_NODE)) \
+        --keymanager-token-file="${DATA_DIR}/keymanager-token" \
         --beacon-node="http://127.0.0.1:$((BASE_REST_PORT + NUM_NODE))" \
         &> "${DATA_DIR}/log_val${NUM_NODE}.txt" &
       PIDS="${PIDS},$!"

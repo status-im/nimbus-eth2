@@ -98,37 +98,7 @@ type
 template init(T: type RpcHttpServer, ip: ValidIpAddress, port: Port): T =
   newRpcHttpServer([initTAddress(ip, port)])
 
-template init(T: type RestServerRef,
-              ip: ValidIpAddress, port: Port,
-              allowedOrigin: Option[string],
-              config: BeaconNodeConf): T =
-  let address = initTAddress(ip, port)
-  let serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
-                     HttpServerFlags.NotifyDisconnect}
-  let
-    headersTimeout =
-      if config.restRequestTimeout == 0:
-        chronos.InfiniteDuration
-      else:
-        seconds(int64(config.restRequestTimeout))
-    maxHeadersSize = config.restMaxRequestHeadersSize * 1024
-    maxRequestBodySize = config.restMaxRequestBodySize * 1024
-  let res = RestServerRef.new(getRouter(allowedOrigin),
-                              address, serverFlags = serverFlags,
-                              httpHeadersTimeout = headersTimeout,
-                              maxHeadersSize = maxHeadersSize,
-                              maxRequestBodySize = maxRequestBodySize)
-  if res.isErr():
-    notice "Rest server could not be started", address = $address,
-           reason = res.error()
-    nil
-  else:
-    notice "Starting REST HTTP server",
-      url = "http://" & $ip & ":" & $port & "/"
-
-    res.get()
-
-# https://github.com/ethereum/beacon-metrics/blob/master/metrics.md#interop-metrics
+# https://github.com/ethereum/eth2.0-metrics/blob/master/metrics.md#interop-metrics
 declareGauge beacon_slot, "Latest slot of the beacon chain state"
 declareGauge beacon_current_epoch, "Current epoch"
 
@@ -675,51 +645,10 @@ proc init*(T: type BeaconNode,
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
 
   let restServer = if config.restEnabled:
-    RestServerRef.init(
-      config.restAddress,
-      config.restPort,
-      config.restAllowedOrigin,
-      config)
-  else:
-    nil
-
-  var keymanagerToken: Option[string]
-  let keymanagerServer = if config.keymanagerEnabled:
-    if config.keymanagerTokenFile.isNone:
-      echo "To enable the Keymanager API, you must also specify " &
-           "the --keymanager-token-file option."
-      quit 1
-
-    let
-      tokenFilePath = config.keymanagerTokenFile.get.string
-      tokenFileReadRes = readAllChars(tokenFilePath)
-
-    if tokenFileReadRes.isErr:
-      fatal "Failed to read the keymanager token file",
-            error = $tokenFileReadRes.error
-      quit 1
-
-    keymanagerToken = some tokenFileReadRes.value.strip
-    if keymanagerToken.get.len == 0:
-      fatal "The keymanager token should not be empty", tokenFilePath
-      quit 1
-
-    if restServer != nil and
-       config.restAddress == config.keymanagerAddress and
-       config.restPort == config.keymanagerPort:
-      if config.keymanagerAllowedOrigin.isSome and
-         config.restAllowedOrigin != config.keymanagerAllowedOrigin:
-        fatal "Please specify a separate port for the Keymanager API " &
-              "if you want to restrict the origin in a different way " &
-              "from the Beacon API"
-        quit 1
-      restServer
-    else:
-      RestServerRef.init(
-        config.keymanagerAddress,
-        config.keymanagerPort,
-        config.keymanagerAllowedOrigin,
-        config)
+    RestServerRef.init(config.restAddress, config.restPort,
+                       config.keymanagerAllowedOrigin,
+                       validateBeaconApiQueries,
+                       config)
   else:
     nil
 
@@ -743,12 +672,29 @@ proc init*(T: type BeaconNode,
   info "Loading slashing protection database (v2)",
     path = config.validatorsDir()
 
+  proc getValidatorIdx(pubkey: ValidatorPubKey): Option[ValidatorIndex] =
+    withState(dag.headState):
+      findValidator(state().data.validators.asSeq(), pubkey)
+
   let
     slashingProtectionDB =
       SlashingProtectionDB.init(
           getStateField(dag.headState, genesis_validators_root),
           config.validatorsDir(), SlashingDbName)
     validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
+
+    keymanagerInitResult = initKeymanagerServer(config, restServer)
+    keymanagerHost = if keymanagerInitResult.server != nil:
+      newClone KeymanagerHost.init(
+        validatorPool,
+        rng,
+        keymanagerInitResult.token,
+        config.validatorsDir,
+        config.secretsDir,
+        config.defaultFeeRecipient,
+        getValidatorIdx,
+        getBeaconTime)
+    else: nil
 
     stateTtlCache =
       if config.restCacheSize > 0:
@@ -796,8 +742,8 @@ proc init*(T: type BeaconNode,
     eth1Monitor: eth1Monitor,
     payloadBuilderRestClient: payloadBuilderRestClient,
     restServer: restServer,
-    keymanagerServer: keymanagerServer,
-    keymanagerToken: keymanagerToken,
+    keymanagerHost: keymanagerHost,
+    keymanagerServer: keymanagerInitResult.server,
     eventBus: eventBus,
     actionTracker: ActionTracker.init(rng, config.subscribeAllSubnets),
     gossipState: {},
@@ -968,7 +914,7 @@ func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
     (func(pubkey: ValidatorPubKey): bool =
        node.syncCommitteeMsgPool.syncCommitteeSubscriptions.getOrDefault(
            pubkey, GENESIS_EPOCH) >= epoch or
-         pubkey in node.attachedValidators.validators)
+         pubkey in node.attachedValidators[].validators)
 
 func getCurrentSyncCommiteeSubnets(node: BeaconNode, slot: Slot): SyncnetBits =
   let syncCommittee = withState(node.dag.headState):
@@ -1218,8 +1164,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # next slot
 
   if node.dag.needStateCachesAndForkChoicePruning():
-    if node.attachedValidators.validators.len > 0:
-      node.attachedValidators
+    if node.attachedValidators[].validators.len > 0:
+      node.attachedValidators[]
           .slashingProtection
           # pruning is only done if the DB is set to pruning mode.
           .pruneAfterFinalization(
@@ -1568,7 +1514,7 @@ proc stop(node: BeaconNode) =
   except CatchableError as exc:
     warn "Couldn't stop network", msg = exc.msg
 
-  node.attachedValidators.slashingProtection.close()
+  node.attachedValidators[].slashingProtection.close()
   node.attachedValidators[].close()
   node.db.close()
   notice "Databases closed"
@@ -1588,12 +1534,13 @@ proc startBackfillTask(node: BeaconNode) {.async.} =
 proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   bnStatus = BeaconNodeStatus.Running
 
-  if not(isNil(node.restServer)):
+  if not isNil(node.restServer):
     node.restServer.installRestHandlers(node)
     node.restServer.start()
 
-  if not(isNil(node.keymanagerServer)):
-    node.keymanagerServer.router.installKeymanagerHandlers(node)
+  if not isNil(node.keymanagerServer):
+    doAssert not isNil(node.keymanagerHost)
+    node.keymanagerServer.router.installKeymanagerHandlers(node.keymanagerHost[])
     if node.keymanagerServer != node.restServer:
       node.keymanagerServer.start()
 

@@ -2036,8 +2036,8 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: Keystore) {.
      raises: [IOError, Defect].} =
   writer.beginRecord()
   writer.writeField("crypto", value.crypto)
-  if not(isNil(value.description)):
-    writer.writeField("description", value.description[])
+  if value.description.isSome:
+    writer.writeField("description", value.description.get)
   writer.writeField("pubkey", value.pubkey)
   writer.writeField("path", string(value.path))
   writer.writeField("uuid", value.uuid)
@@ -2113,7 +2113,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Keystore) {.
     pubkey: pubkey.get(),
     path: path.get(),
     uuid: uuid.get(),
-    description: if description.isNone(): nil else: newClone(description.get()),
+    description: description,
     version: version.get(),
   )
 

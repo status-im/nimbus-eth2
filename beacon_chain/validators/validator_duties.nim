@@ -70,7 +70,7 @@ logScope: topics = "beacval"
 type
   ForkedBlockResult* = Result[ForkedBeaconBlock, string]
 
-proc findValidator(validators: auto, pubkey: ValidatorPubKey):
+proc findValidator*(validators: auto, pubkey: ValidatorPubKey):
     Option[ValidatorIndex] =
   let idx = validators.findIt(it.pubkey == pubkey)
   if idx == -1:
@@ -88,8 +88,11 @@ proc addLocalValidator(node: BeaconNode, validators: auto,
     index = findValidator(validators, pubkey)
   node.attachedValidators[].addLocalValidator(item, index, slot)
 
-proc addRemoteValidator(pool: var ValidatorPool, validators: auto,
-                        item: KeystoreData, slot: Slot) =
+# TODO: This should probably be moved to the validator_pool module
+proc addRemoteValidator*(pool: var ValidatorPool,
+                         index: Option[ValidatorIndex],
+                         item: KeystoreData,
+                         slot: Slot) =
   var clients: seq[(RestClientRef, RemoteSignerInfo)]
   let httpFlags =
     block:
@@ -105,7 +108,6 @@ proc addRemoteValidator(pool: var ValidatorPool, validators: auto,
       warn "Unable to resolve distributed signer address",
           remote_url = $remote.url, validator = $remote.pubkey
     clients.add((client.get(), remote))
-  let index = findValidator(validators, item.pubkey)
   pool.addRemoteValidator(item, clients, index, slot)
 
 proc addLocalValidators*(node: BeaconNode,
@@ -120,8 +122,8 @@ proc addRemoteValidators*(node: BeaconNode,
   let slot = node.currentSlot()
   withState(node.dag.headState):
     for item in validators:
-      node.attachedValidators[].addRemoteValidator(
-        state.data.validators.asSeq(), item, slot)
+      let index = findValidator(state.data.validators.asSeq(), item.pubkey)
+      node.attachedValidators[].addRemoteValidator(index, item, slot)
 
 proc addValidators*(node: BeaconNode) =
   let (localValidators, remoteValidators) =
@@ -149,7 +151,7 @@ proc getAttachedValidator(node: BeaconNode,
     if validator != nil and validator.index != some(idx):
       # Update index, in case the validator was activated!
       notice "Validator activated", pubkey = validator.pubkey, index = idx
-      validator.index  = some(idx)
+      validator.index = some(idx)
     validator
   else:
     warn "Validator index out of bounds",
@@ -382,7 +384,7 @@ proc getExecutionPayload(
       dynamicFeeRecipient = node.dynamicFeeRecipientsStore.getDynamicFeeRecipient(
         validator_index, epoch)
       feeRecipient = dynamicFeeRecipient.valueOr:
-        node.config.getSuggestedFeeRecipient(pubkey).valueOr:
+        node.keymanagerHost[].getSuggestedFeeRecipient(pubkey).valueOr:
           node.config.defaultFeeRecipient
       payload_id = (await forkchoice_updated(
         proposalState.bellatrixData.data, latestHead, latestFinalized,
@@ -1169,7 +1171,7 @@ proc getValidatorRegistration(
   const gasLimit = 30000000
 
   let feeRecipient =
-    node.config.getSuggestedFeeRecipient(validator.pubkey).valueOr:
+    node.keymanagerHost[].getSuggestedFeeRecipient(validator.pubkey).valueOr:
       node.config.defaultFeeRecipient
   var validatorRegistration = SignedValidatorRegistrationV1(
     message: ValidatorRegistrationV1(

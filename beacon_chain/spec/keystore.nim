@@ -18,13 +18,14 @@ import
   normalize,
   # Status libraries
   stew/[results, bitops2, base10, io2], stew/shims/macros,
-  eth/keyfile/uuid, blscurve, json_serialization,
+  eth/keyfile/uuid, blscurve,
+  json_serialization, json_serialization/std/options,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
   ./datatypes/base,  ./signatures
 
-export base, uri, io2
+export base, uri, io2, options
 
 # We use `ncrutils` for constant-time hexadecimal encoding/decoding procedures.
 import nimcrypto/utils as ncrutils
@@ -121,7 +122,7 @@ type
 
   Keystore* = object
     crypto*: Crypto
-    description*: ref string
+    description*: Option[string]
     pubkey*: ValidatorPubKey
     path*: KeyPath
     uuid*: string
@@ -161,7 +162,7 @@ type
 
   NetKeystore* = object
     crypto*: Crypto
-    description*: ref string
+    description*: Option[string]
     pubkey*: lcrypto.PublicKey
     uuid*: string
     version*: int
@@ -782,6 +783,21 @@ proc decryptCryptoField*(crypto: Crypto,
 
 func cstringToStr(v: cstring): string = $v
 
+template parseKeystore*(jsonContent: string): Keystore =
+  Json.decode(jsonContent, Keystore,
+              requireAllFields = true,
+              allowUnknownFields = true)
+
+template parseNetKeystore*(jsonContent: string): NetKeystore =
+  Json.decode(jsonContent, NetKeystore,
+              requireAllFields = true,
+              allowUnknownFields = true)
+
+template parseRemoteKeystore*(jsonContent: string): RemoteKeystore =
+  Json.decode(jsonContent, RemoteKeystore,
+              requireAllFields = false,
+              allowUnknownFields = true)
+
 proc decryptKeystore*(keystore: Keystore,
                       password: KeystorePass): KsResult[ValidatorPrivKey] =
   var secret: seq[byte]
@@ -795,7 +811,7 @@ proc decryptKeystore*(keystore: Keystore,
 
 proc decryptKeystore*(keystore: JsonString,
                       password: KeystorePass): KsResult[ValidatorPrivKey] =
-  let keystore = try: Json.decode(keystore.string, Keystore)
+  let keystore = try: parseKeystore(string keystore)
                  except SerializationError as e:
                    return err e.formatMsg("<keystore>")
   decryptKeystore(keystore, password)
@@ -832,7 +848,7 @@ proc decryptNetKeystore*(nkeystore: NetKeystore,
 proc decryptNetKeystore*(nkeystore: JsonString,
                          password: KeystorePass): KsResult[lcrypto.PrivateKey] =
   try:
-    let keystore = Json.decode(string(nkeystore), NetKeystore)
+    let keystore = parseNetKeystore(string nkeystore)
     return decryptNetKeystore(keystore, password)
   except SerializationError as exc:
     return err(exc.formatMsg("<keystore>"))
@@ -914,7 +930,8 @@ proc createNetKeystore*(kdfKind: KdfKind,
   NetKeystore(
     crypto: cryptoField,
     pubkey: pubkey,
-    description: newClone(description),
+    description: if len(description) > 0: some(description)
+                 else: none[string](),
     uuid: $uuid,
     version: 1
   )
@@ -938,7 +955,8 @@ proc createKeystore*(kdfKind: KdfKind,
     crypto: cryptoField,
     pubkey: pubkey.toPubKey(),
     path: path,
-    description: newClone(description),
+    description: if len(description) > 0: some(description)
+                 else: none[string](),
     uuid: $uuid,
     version: 4)
 

@@ -11,7 +11,7 @@ import
   std/osproc,
 
   # Nimble packages
-  chronos, json_rpc/servers/httpserver, presto,
+  chronos, json_rpc/servers/httpserver, presto, bearssl/rand,
 
   # Local modules
   "."/[beacon_clock, beacon_chain_db, conf, light_client],
@@ -25,7 +25,8 @@ import
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./sync/[optimistic_sync_light_client, sync_manager, request_manager],
   ./validators/[
-    action_tracker, message_router, validator_monitor, validator_pool],
+    action_tracker, message_router, validator_monitor, validator_pool,
+    keystore_management],
   ./rpc/state_ttl_cache
 
 export
@@ -68,8 +69,8 @@ type
     eth1Monitor*: Eth1Monitor
     payloadBuilderRestClient*: RestClientRef
     restServer*: RestServerRef
+    keymanagerHost*: ref KeymanagerHost
     keymanagerServer*: RestServerRef
-    keymanagerToken*: Option[string]
     eventBus*: EventBus
     vcProcess*: Process
     requestManager*: RequestManager
@@ -101,6 +102,9 @@ template findIt*(s: openArray, predicate: untyped): int =
       res = i
       break
   res
+
+template rng*(node: BeaconNode): ref HmacDrbgContext =
+  node.network.rng
 
 proc currentSlot*(node: BeaconNode): Slot =
   node.beaconClock.now.slotOrZero
