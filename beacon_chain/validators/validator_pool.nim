@@ -12,7 +12,7 @@ else:
 
 import
   std/[options, tables, json, streams, sequtils, uri],
-  chronos, chronicles, metrics,
+  chronos, chronicles, metrics, eth/async_utils,
   json_serialization/std/net,
   presto, presto/client,
 
@@ -27,6 +27,9 @@ export
   streams, options, keystore, phase0, altair, tables, uri, crypto,
   rest_types, eth2_rest_serialization, rest_remote_signer_calls,
   slashing_protection
+
+const
+  WEB3_SIGNER_DELAY_TOLERANCE = 3.seconds
 
 declareGauge validators,
   "Number of validators attached to the beacon node"
@@ -51,7 +54,7 @@ type
     # it does not change as long as there are no reorgs on eth1 - however, the
     # index might not be valid in all eth2 histories, so it should not be
     # assumed that a valid index is stored here!
-    index*: Option[ValidatorIndex]
+    index*: Opt[ValidatorIndex]
 
     # Cache the latest slot signature - the slot signature is used to determine
     # if the validator will be aggregating (in the near future)
@@ -87,7 +90,7 @@ template count*(pool: ValidatorPool): int =
   len(pool.validators)
 
 proc addLocalValidator*(pool: var ValidatorPool, item: KeystoreData,
-                        index: Option[ValidatorIndex], slot: Slot) =
+                        index: Opt[ValidatorIndex], slot: Slot) =
   doAssert item.kind == KeystoreKind.Local
   let pubkey = item.pubkey
   let v = AttachedValidator(kind: ValidatorKind.Local, pubkey: pubkey,
@@ -99,11 +102,11 @@ proc addLocalValidator*(pool: var ValidatorPool, item: KeystoreData,
 
 proc addLocalValidator*(pool: var ValidatorPool, item: KeystoreData,
                         slot: Slot) =
-  addLocalValidator(pool, item, none[ValidatorIndex](), slot)
+  addLocalValidator(pool, item, Opt.none ValidatorIndex, slot)
 
 proc addRemoteValidator*(pool: var ValidatorPool, item: KeystoreData,
                          clients: seq[(RestClientRef, RemoteSignerInfo)],
-                         index: Option[ValidatorIndex], slot: Slot) =
+                         index: Opt[ValidatorIndex], slot: Slot) =
   doAssert item.kind == KeystoreKind.Remote
   let pubkey = item.pubkey
   let v = AttachedValidator(kind: ValidatorKind.Remote, pubkey: pubkey,
@@ -144,7 +147,7 @@ proc updateValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey,
   ## not present in the pool.
   var v: AttachedValidator
   if pool.validators.pop(pubkey, v):
-    v.index = some(index)
+    v.index = Opt.some(index)
     pool.validators[pubkey] = v
 
 proc close*(pool: var ValidatorPool) =
@@ -173,8 +176,11 @@ proc signWithDistributedKey(v: AttachedValidator,
                            {.async.} =
   doAssert v.data.threshold <= uint32(v.clients.len)
 
-  let signatureReqs = mapIt(v.clients, it[0].signData(it[1].pubkey, request))
-  await allFutures(signatureReqs)
+  let
+    signatureReqs = mapIt(v.clients, it[0].signData(it[1].pubkey, request))
+    deadline = sleepAsync(WEB3_SIGNER_DELAY_TOLERANCE)
+
+  await allFutures(signatureReqs) or deadline
 
   var shares: seq[SignatureShare]
   var neededShares = v.data.threshold
@@ -200,7 +206,9 @@ proc signWithSingleKey(v: AttachedValidator,
                       {.async.} =
   doAssert v.clients.len == 1
   let (client, info) = v.clients[0]
-  let res = await client.signData(info.pubkey, request)
+  let res = awaitWithTimeout(client.signData(info.pubkey, request),
+                             WEB3_SIGNER_DELAY_TOLERANCE):
+    return SignatureResult.err "Timeout"
   if res.isErr:
     return SignatureResult.err res.error
   else:
