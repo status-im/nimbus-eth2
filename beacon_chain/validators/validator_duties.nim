@@ -398,9 +398,9 @@ proc getExecutionPayload(
           node.consensusManager.eth1Monitor.newExecutionPayload(payload),
           NEWPAYLOAD_TIMEOUT):
             info "getExecutionPayload: newPayload timed out"
-            PayloadExecutionStatus.syncing
+            Opt.none PayloadExecutionStatus
 
-    if executionPayloadStatus in [
+    if executionPayloadStatus.isNone or executionPayloadStatus.get in [
         PayloadExecutionStatus.invalid,
         PayloadExecutionStatus.invalid_block_hash]:
       info "getExecutionPayload: newExecutionPayload invalid",
