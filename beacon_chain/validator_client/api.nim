@@ -17,13 +17,280 @@ type
   ApiOperation = enum
     Success, Timeout, Failure, Interrupt
 
+  ApiStrategyKind* {.pure.} = enum
+    Priority, Best, First
+
   ApiNodeResponse*[T] = object
     node*: BeaconNodeServerRef
     data*: ApiResponse[T]
 
+  ApiScoreFunction*[T] = proc(vc: ValidatorClientRef,
+                              data: openArray[ApiNodeResponse[T]]): int {.
+                           raises: [Defect], gcsafe.}
+
   ApiResponseSeq*[T] = object
     status*: ApiOperation
     data*: seq[ApiNodeResponse[T]]
+
+proc lazyWait(futures: seq[FutureBase], timerFut: Future[void]) {.async.} =
+  if not(isNil(timerFut)):
+    await allFutures(futures) or timerFut
+    if timerFut.finished():
+      var pending: seq[Future[void]]
+      for future in futures:
+        if not(future.finished()):
+          pending.add(future.cancelAndWait())
+      await allFutures(pending)
+    else:
+      await cancelAndWait(timerFut)
+  else:
+    await allFutures(futures)
+
+template firstSuccessParallel*(vc: ValidatorClientRef, responseType: typedesc,
+                               timeout: Duration, body1,
+                               body2: untyped): ApiResponse[responseType] =
+  var it {.inject.}: RestClientRef
+
+  var timerFut =
+    if timeout != InfiniteDuration:
+      sleepAsync(timeout)
+    else:
+      nil
+
+  let onlineNodes =
+    try:
+      if not isNil(timerFut):
+        await vc.waitOnlineNodes(timerFut)
+      vc.onlineNodes()
+    except CancelledError as exc:
+      var default: seq[BeaconNodeServerRef]
+      if not(isNil(timerFut)) and not(timerFut.finished()):
+        await timerFut.cancelAndWait()
+      raise exc
+    except CatchableError as exc:
+      # This case could not be happened.
+      error "Unexpected exception while waiting for beacon nodes",
+            err_name = $exc.name, err_msg = $exc.msg
+      var default: seq[BeaconNodeServerRef]
+      default
+
+  if len(onlineNodes) == 0:
+    ApiResponse[responseType].err("Operation timeout exceeded")
+  else:
+    var (pendingRequests, pendingNodes) =
+      block:
+        var requests: seq[FutureBase]
+        var nodes: seq[BeaconNodeServerRef]
+        for node {.inject.} in onlineNodes:
+          it = node.client
+          let fut = FutureBase(body1)
+          requests.add(fut)
+          nodes.add(node)
+        (requests, nodes)
+
+    var retRes: ApiResponse[responseType]
+    var raceFut: Future[FutureBase]
+    while true:
+      try:
+        if len(pendingRequests) == 0:
+          if not(isNil(timerFut)) and not(timerFut.finished()):
+            await timerFut.cancelAndWait()
+          retRes = ApiResponse[responseType].err(
+            "Beacon node(s) unable to satisfy request")
+          break
+        else:
+          raceFut = race(pendingRequests)
+
+          if isNil(timerFut):
+            await raceFut or timerFut
+          else:
+            await allFutures(raceFut)
+
+          if raceFut.finished():
+            # One of the requests in the race completed.
+            let index = pendingRequests.find(raceFut.read())
+            doAssert(index >= 0)
+
+            let
+              requestFut = pendingRequests[index]
+              beaconNode = pendingNodes[index]
+
+            # Remove completed future from pending list.
+            pendingRequests.del(index)
+            pendingNodes.del(index)
+
+            if requestFut.failed():
+              let exc = Future[responseType](requestFut).readError()
+              debug "One of operation requests has been failed",
+                    node = beaconNode, err_name = $exc.name, err_msg = $exc.msg
+              beaconNode.status = RestBeaconNodeStatus.Offline
+            elif requestFut.cancelled():
+              debug "One of operation requests has been interrupted",
+                    node = beaconNode
+            else:
+              let
+                apiNode {.inject.} = beaconNode
+                apiResponse {.inject.} = Future[responseType](requestFut).read()
+                res = body2
+              if res.isOk():
+                asyncSpawn lazyWait(pendingRequests, timerFut)
+                retRes = res
+                break
+          else:
+            # Timeout exceeded first.
+            var pendingCancel: seq[Future[void]]
+            pendingCancel.add(raceFut.cancelAndWait())
+            for index, future in pendingRequests.pairs():
+              if not(future.finished()):
+                pendingNodes[index].status = RestBeaconNodeStatus.Offline
+                pendingCancel.add(future.cancelAndWait())
+            await allFutures(pendingCancel)
+            retRes = ApiResponse[responseType].err(
+              "Beacon nodes unable to satisfy request in time")
+            break
+      except CancelledError as exc:
+        var pendingCancel: seq[Future[void]]
+        if not(isNil(raceFut)) and not(raceFut.finished()):
+          pendingCancel.add(raceFut.cancelAndWait())
+        if not(isNil(timerFut)) and not(timerFut.finished()):
+          pendingCancel.add(timerFut.cancelAndWait())
+        for index, future in pendingRequests.pairs():
+          if not(future.finished()):
+            pendingNodes[index].status = RestBeaconNodeStatus.Offline
+            pendingCancel.add(future.cancelAndWait())
+        await allFutures(pendingCancel)
+        raise exc
+      except CatchableError as exc:
+        # This should not be happened, because allFutures() and race() did not
+        # raise any exceptions.
+        error "Unexpected exception while processing request",
+              err_name = $exc.name, err_msg = $exc.msg
+        retRes = ApiResponse[responseType].err("Unexpected error")
+        break
+    retRes
+
+template bestSuccess*(vc: ValidatorClientRef, responseType: typedesc,
+                      timeout: Duration, bodyRequest,
+                      bodyScore: untyped): ApiResponse[responseType] =
+  var it {.inject.}: RestClientRef
+  type BodyType = typeof(bodyRequest)
+
+  var timerFut =
+    if timeout != InfiniteDuration:
+      sleepAsync(timeout)
+    else:
+      nil
+
+  let onlineNodes =
+    try:
+      if not isNil(timerFut):
+        await vc.waitOnlineNodes(timerFut)
+      vc.onlineNodes()
+    except CancelledError as exc:
+      var default: seq[BeaconNodeServerRef]
+      if not(isNil(timerFut)) and not(timerFut.finished()):
+        await timerFut.cancelAndWait()
+      raise exc
+    except CatchableError as exc:
+      # This case could not be happened.
+      error "Unexpected exception while waiting for beacon nodes",
+            err_name = $exc.name, err_msg = $exc.msg
+      var default: seq[BeaconNodeServerRef]
+      default
+
+  if len(onlineNodes) == 0:
+    ApiResponse[responseType].err("No beacon nodes available")
+  else:
+    let
+      (pendingRequests, pendingNodes) =
+        block:
+          var requests: seq[BodyType]
+          var nodes: seq[BeaconNodeServerRef]
+          for node {.inject.} in onlineNodes:
+            it = node.client
+            let fut = bodyRequest
+            requests.add(fut)
+            nodes.add(node)
+          (requests, nodes)
+
+      status =
+        try:
+          if isNil(timerFut):
+            await allFutures(pendingRequests)
+            ApiOperation.Success
+          else:
+            let waitFut = allFutures(pendingRequests)
+            discard await race(waitFut, timerFut)
+            if not(waitFut.finished()):
+              await waitFut.cancelAndWait()
+              ApiOperation.Timeout
+            else:
+              if not(timerFut.finished()):
+                await timerFut.cancelAndWait()
+              ApiOperation.Success
+        except CancelledError as exc:
+          # We should cancel all the pending requests and timer before we return
+          # result.
+          var pendingCancel: seq[Future[void]]
+          for future in pendingRequests:
+            if not(fut.finished()):
+              pendingCancel.add(fut.cancelAndWait())
+          if not(isNil(timerFut)) and not(timerFut.finished()):
+            pendingCancel.add(timerFut.cancelAndWait())
+          await allFutures(pendingCancel)
+          raise exc
+        except CatchableError:
+          # This should not be happened, because allFutures() and race() did not
+          # raise any exceptions.
+          ApiOperation.Failure
+
+      apiResponses {.inject.} =
+        block:
+          var res: seq[ApiNodeResponse[responseType]]
+          for requestFut, pnode in pendingRequests.pairs():
+            let beaconNode = pendingNodes[index]
+            if requestFut.finished():
+              if requestFut.failed():
+                let exc = requestFut.readError()
+                debug "One of operation requests has been failed",
+                      node = beaconNode, err_name = $exc.name,
+                      err_msg = $exc.msg
+                beaconNode.status = RestBeaconNodeStatus.Offline
+              elif future.cancelled():
+                debug "One of operation requests has been interrupted",
+                      node = beaconNode
+              else:
+                res.add(
+                  ApiNodeResponse(
+                    node: beaconNode
+                    data: ApiResponse[responseType].ok(future.read()))
+                  )
+              )
+            else:
+              case status
+              of ApiOperation.Timeout:
+                debug "One of operation requests has been timed out",
+                      node = beaconNode
+                pendingNodes[index].status = RestBeaconNodeStatus.Offline
+              of ApiOperation.Success, ApiOperation.Failure,
+                 ApiOperation.Interrupt:
+                 # This should not be happened, because all Futures should be
+                 # finished.
+                debug "One of operation requests failed unexpectedly",
+                      node = beaconNode
+                pendingNodes[index].status = RestBeaconNodeStatus.Offline
+          res
+
+    if len(apiResponses) == 0:
+      ApiResponse[responseType].err("No successful responses available")
+    else:
+      let index = bestScore
+      if index >= 0:
+        debug "Operation request result was selected",
+              node = apiResponses[index].node
+        apiResponses[index].data
+      else:
+        ApiResponse[responseType].err("Unable to get best response")
 
 template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
                     timeout: Duration,
@@ -123,7 +390,6 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
               else:
                 case status
                 of ApiOperation.Interrupt:
-                  pendingNodes[idx].status = RestBeaconNodeStatus.Offline
                   ApiNodeResponse[responseType](
                     node: pnode,
                     data: ApiResponse[responseType].err("Operation interrupted")
@@ -147,9 +413,9 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
 
     ApiResponseSeq[responseType](status: status, data: responses)
 
-template firstSuccessTimeout*(vc: ValidatorClientRef, respType: typedesc,
-                              timeout: Duration, body: untyped,
-                              handlers: untyped): untyped =
+template firstSuccessSequential*(vc: ValidatorClientRef, respType: typedesc,
+                                 timeout: Duration, body: untyped,
+                                 handlers: untyped): untyped =
   doAssert(timeout != ZeroDuration)
   var it {.inject.}: RestClientRef
 
@@ -293,8 +559,8 @@ proc getProposerDuties*(
        epoch: Epoch
      ): Future[GetProposerDutiesResponse] {.async.} =
   logScope: request = "getProposerDuties"
-  vc.firstSuccessTimeout(RestResponse[GetProposerDutiesResponse], SlotDuration,
-                         getProposerDuties(it, epoch)):
+  vc.firstSuccessSequential(RestResponse[GetProposerDutiesResponse],
+                            SlotDuration, getProposerDuties(it, epoch)):
     if apiResponse.isErr():
       debug "Unable to retrieve proposer duties", endpoint = node,
             error = apiResponse.error()
@@ -330,8 +596,9 @@ proc getAttesterDuties*(
        validators: seq[ValidatorIndex]
      ): Future[GetAttesterDutiesResponse] {.async.} =
   logScope: request = "getAttesterDuties"
-  vc.firstSuccessTimeout(RestResponse[GetAttesterDutiesResponse], SlotDuration,
-                         getAttesterDuties(it, epoch, validators)):
+  vc.firstSuccessSequential(RestResponse[GetAttesterDutiesResponse],
+                            SlotDuration,
+                            getAttesterDuties(it, epoch, validators)):
     if apiResponse.isErr():
       debug "Unable to retrieve attester duties", endpoint = node,
             error = apiResponse.error()
@@ -367,9 +634,9 @@ proc getSyncCommitteeDuties*(
        validators: seq[ValidatorIndex]
      ): Future[GetSyncCommitteeDutiesResponse] {.async.} =
   logScope: request = "getSyncCommitteeDuties"
-  vc.firstSuccessTimeout(RestResponse[GetSyncCommitteeDutiesResponse],
-                         SlotDuration,
-                         getSyncCommitteeDuties(it, epoch, validators)):
+  vc.firstSuccessSequential(RestResponse[GetSyncCommitteeDutiesResponse],
+                            SlotDuration,
+                            getSyncCommitteeDuties(it, epoch, validators)):
     if apiResponse.isErr():
       debug "Unable to retrieve sync committee duties", endpoint = node,
             error = apiResponse.error()
@@ -404,35 +671,33 @@ proc getForkSchedule*(
        vc: ValidatorClientRef
      ): Future[seq[Fork]] {.async.} =
   logScope: request = "getForkSchedule"
-  vc.firstSuccessTimeout(RestResponse[GetForkScheduleResponse], SlotDuration,
-                         getForkSchedule(it)):
-    if apiResponse.isErr():
-      debug "Unable to retrieve head state's fork", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
+  let res = vc.firstParallelSuccess(RestResponse[GetForkScheduleResponse],
+                                    SlotDuration, getForkSchedule(it)):
+    case apiResponse.status
+    of 200:
+      trace "Received successful response", endpoint = apiNode
+      ApiResponse[RestResponse[GetForkScheduleResponse]].ok(apiResponse)
+    of 500:
+      debug "Received internal error response",
+            response_code = apiResponse.status, endpoint = apiNode
+      ApiResponse[RestResponse[GetForkScheduleResponse]].err("")
     else:
-      let response = apiResponse.get()
-      case response.status
-      of 200:
-        debug "Received successful response", endpoint = node
-        return response.data.data
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
-      else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
-  raise newException(ValidatorApiError, "Unable to retrieve fork schedule")
+      const error = "Received unexpected error response"
+      debug error, response_code = apiResponse.status, endpoint = apiNode
+      ApiResponse[RestResponse[GetForkScheduleResponse]].err(error)
+
+  if res.isOk():
+    return res.get().data.data
+  else:
+    raise newException(ValidatorApiError, res.error())
 
 proc getHeadStateFork*(
        vc: ValidatorClientRef
      ): Future[Fork] {.async.} =
   logScope: request = "getHeadStateFork"
   let stateIdent = StateIdent.init(StateIdentType.Head)
-  vc.firstSuccessTimeout(RestResponse[GetStateForkResponse], SlotDuration,
-                         getStateFork(it, stateIdent)):
+  vc.firstSuccessSequential(RestResponse[GetStateForkResponse], SlotDuration,
+                            getStateFork(it, stateIdent)):
     if apiResponse.isErr():
       debug "Unable to retrieve head state's fork", endpoint = node,
             error = apiResponse.error()
@@ -463,8 +728,8 @@ proc getHeadBlockRoot*(
      ): Future[RestRoot] {.async.} =
   logScope: request = "getHeadBlockRoot"
   let blockIdent = BlockIdent.init(BlockIdentType.Head)
-  vc.firstSuccessTimeout(RestResponse[GetBlockRootResponse], SlotDuration,
-                         getBlockRoot(it, blockIdent)):
+  vc.firstSuccessSequential(RestResponse[GetBlockRootResponse], SlotDuration,
+                            getBlockRoot(it, blockIdent)):
     if apiResponse.isErr():
       debug "Unable to retrieve head block's root", endpoint = node,
             error = apiResponse.error()
@@ -496,8 +761,9 @@ proc getValidators*(
      ): Future[seq[RestValidator]] {.async.} =
   logScope: request = "getStateValidators"
   let stateIdent = StateIdent.init(StateIdentType.Head)
-  vc.firstSuccessTimeout(RestResponse[GetStateValidatorsResponse], SlotDuration,
-                         getStateValidators(it, stateIdent, id)):
+  vc.firstSuccessSequential(RestResponse[GetStateValidatorsResponse],
+                            SlotDuration,
+                            getStateValidators(it, stateIdent, id)):
     if apiResponse.isErr():
       debug "Unable to retrieve head state's validator information",
             endpoint = node, error = apiResponse.error()
@@ -530,9 +796,9 @@ proc produceAttestationData*(
        committee_index: CommitteeIndex
      ): Future[AttestationData] {.async.} =
   logScope: request = "produceAttestationData"
-  vc.firstSuccessTimeout(RestResponse[ProduceAttestationDataResponse],
-                         OneThirdDuration,
-                         produceAttestationData(it, slot, committee_index)):
+  vc.firstSuccessSequential(RestResponse[ProduceAttestationDataResponse],
+                            OneThirdDuration,
+                            produceAttestationData(it, slot, committee_index)):
     if apiResponse.isErr():
       debug "Unable to retrieve attestation data", endpoint = node,
             error = apiResponse.error()
@@ -567,8 +833,8 @@ proc submitPoolAttestations*(
        data: seq[Attestation]
      ): Future[bool] {.async.} =
   logScope: request = "submitPoolAttestations"
-  vc.firstSuccessTimeout(RestPlainResponse, SlotDuration,
-                         submitPoolAttestations(it, data)):
+  vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+                            submitPoolAttestations(it, data)):
     if apiResponse.isErr():
       debug "Unable to submit attestation", endpoint = node,
             error = apiResponse.error()
@@ -608,8 +874,8 @@ proc submitPoolSyncCommitteeSignature*(
     data.validator_index,
     data.signature
   )
-  vc.firstSuccessTimeout(RestPlainResponse, SlotDuration,
-                         submitPoolSyncCommitteeSignatures(it, @[restData])):
+  vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+                            submitPoolSyncCommitteeSignatures(it, @[restData])):
     if apiResponse.isErr():
       debug "Unable to submit sync committee message", endpoint = node,
             error = apiResponse.error()
@@ -646,9 +912,9 @@ proc getAggregatedAttestation*(
        root: Eth2Digest
      ): Future[Attestation] {.async.} =
   logScope: request = "getAggregatedAttestation"
-  vc.firstSuccessTimeout(RestResponse[GetAggregatedAttestationResponse],
-                         OneThirdDuration,
-                         getAggregatedAttestation(it, root, slot)):
+  vc.firstSuccessSequential(RestResponse[GetAggregatedAttestationResponse],
+                            OneThirdDuration,
+                            getAggregatedAttestation(it, root, slot)):
     if apiResponse.isErr():
       debug "Unable to retrieve aggregated attestation data", endpoint = node,
             error = apiResponse.error()
@@ -682,12 +948,9 @@ proc produceSyncCommitteeContribution*(
        root: Eth2Digest
      ): Future[SyncCommitteeContribution] {.async.} =
   logScope: request = "produceSyncCommitteeContribution"
-  vc.firstSuccessTimeout(RestResponse[ProduceSyncCommitteeContributionResponse],
-                         OneThirdDuration,
-                         produceSyncCommitteeContribution(it,
-                                                          slot,
-                                                          subcommitteeIndex,
-                                                          root)):
+  vc.firstSuccessSequential(
+    RestResponse[ProduceSyncCommitteeContributionResponse], OneThirdDuration,
+    produceSyncCommitteeContribution(it, slot, subcommitteeIndex, root)):
     if apiResponse.isErr():
       debug "Unable to retrieve sync committee contribution data",
             endpoint = node,
@@ -720,8 +983,8 @@ proc publishAggregateAndProofs*(
        data: seq[SignedAggregateAndProof]
      ): Future[bool] {.async.} =
   logScope: request = "publishAggregateAndProofs"
-  vc.firstSuccessTimeout(RestPlainResponse, SlotDuration,
-                         publishAggregateAndProofs(it, data)):
+  vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+                            publishAggregateAndProofs(it, data)):
     if apiResponse.isErr():
       debug "Unable to publish aggregate and proofs", endpoint = node,
             error = apiResponse.error()
@@ -756,8 +1019,8 @@ proc publishContributionAndProofs*(
        data: seq[RestSignedContributionAndProof]
      ): Future[bool] {.async.} =
   logScope: request = "publishContributionAndProofs"
-  vc.firstSuccessTimeout(RestPlainResponse, SlotDuration,
-                         publishContributionAndProofs(it, data)):
+  vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+                            publishContributionAndProofs(it, data)):
     if apiResponse.isErr():
       debug "Unable to publish contribution and proofs", endpoint = node,
             error = apiResponse.error()
@@ -795,9 +1058,9 @@ proc produceBlockV2*(
        graffiti: GraffitiBytes
      ): Future[ProduceBlockResponseV2] {.async.} =
   logScope: request = "produceBlockV2"
-  vc.firstSuccessTimeout(RestResponse[ProduceBlockResponseV2],
-                         SlotDuration,
-                         produceBlockV2(it, slot, randao_reveal, graffiti)):
+  vc.firstSuccessSequential(RestResponse[ProduceBlockResponseV2],
+                            SlotDuration,
+                            produceBlockV2(it, slot, randao_reveal, graffiti)):
     if apiResponse.isErr():
       debug "Unable to retrieve block data", endpoint = node,
             error = apiResponse.error()
@@ -832,7 +1095,7 @@ proc publishBlock*(
        data: ForkedSignedBeaconBlock
      ): Future[bool] {.async.} =
   logScope: request = "publishBlock"
-  vc.firstSuccessTimeout(RestPlainResponse, SlotDuration):
+  vc.firstSuccessSequential(RestPlainResponse, SlotDuration):
     case data.kind
     of BeaconBlockFork.Phase0:
       publishBlock(it, data.phase0Data)
@@ -883,8 +1146,8 @@ proc prepareBeaconCommitteeSubnet*(
        data: seq[RestCommitteeSubscription]
      ): Future[bool] {.async.} =
   logScope: request = "prepareBeaconCommitteeSubnet"
-  vc.firstSuccessTimeout(RestPlainResponse, OneThirdDuration,
-                         prepareBeaconCommitteeSubnet(it, data)):
+  vc.firstSuccessSequential(RestPlainResponse, OneThirdDuration,
+                            prepareBeaconCommitteeSubnet(it, data)):
     if apiResponse.isErr():
       debug "Unable to prepare committee subnet", endpoint = node,
             error = apiResponse.error()
@@ -923,8 +1186,8 @@ proc prepareSyncCommitteeSubnets*(
        data: seq[RestSyncCommitteeSubscription]
      ): Future[bool] {.async.} =
   logScope: request = "prepareSyncCommitteeSubnet"
-  vc.firstSuccessTimeout(RestPlainResponse, OneThirdDuration,
-                         prepareSyncCommitteeSubnets(it, data)):
+  vc.firstSuccessSequential(RestPlainResponse, OneThirdDuration,
+                            prepareSyncCommitteeSubnets(it, data)):
     if apiResponse.isErr():
       debug "Unable to prepare sync committee subnet", endpoint = node,
             error = apiResponse.error()

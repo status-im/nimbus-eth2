@@ -20,11 +20,21 @@ type
     incompatible*: int
     nosync*: int
 
-proc onlineNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
-  vc.beaconNodes.filterIt(it.status == RestBeaconNodeStatus.Online)
+proc onlineNodes*(vc: ValidatorClientRef,
+                  indices: openArray[int] = []): seq[BeaconNodeServerRef] =
+  if len(indices) == 0:
+    vc.beaconNodes.filterIt(it.status == RestBeaconNodeStatus.Online)
+  else:
+    vc.beaconNodes.filterIt((it.index in indices) and
+                            (it.status == RestBeaconNodeStatus.Online))
 
-proc onlineNodesCount*(vc: ValidatorClientRef): int =
-  vc.beaconNodes.countIt(it.status == RestBeaconNodeStatus.Online)
+proc onlineNodesCount*(vc: ValidatorClientRef,
+                       indices: openArray[int] = []): int =
+  if len(indices) == 0:
+    vc.beaconNodes.countIt(it.status == RestBeaconNodeStatus.Online)
+  else:
+    vc.beaconNodes.countIt((it.index in indices) and
+                           (it.status == RestBeaconNodeStatus.Online))
 
 proc unusableNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
   vc.beaconNodes.filterIt(it.status != RestBeaconNodeStatus.Online)

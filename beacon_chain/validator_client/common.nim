@@ -101,6 +101,8 @@ type
     genesis*: Option[RestGenesis]
     syncInfo*: Option[RestSyncInfo]
     status*: RestBeaconNodeStatus
+    logIdent*: string
+    index*: int
 
   EpochDuties* = object
     duties*: Table[Epoch, DutyAndProof]
@@ -178,11 +180,9 @@ const
 
 proc `$`*(bn: BeaconNodeServerRef): string =
   if bn.ident.isSome():
-    bn.client.address.hostname & ":" &
-      Base10.toString(bn.client.address.port) & " [" & bn.ident.get() & "]"
+    bn.logIdent & "[" & bn.ident.get() & "]"
   else:
-    bn.client.address.hostname & ":" &
-      Base10.toString(bn.client.address.port)
+    bn.logIdent
 
 chronicles.formatIt BeaconNodeServerRef:
   $it
@@ -213,6 +213,17 @@ proc isDefault*(sdap: SyncDutyAndProof): bool =
 
 proc isDefault*(prd: ProposedData): bool =
   prd.epoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64)
+
+proc init*(t: typedesc[BeaconNodeServerRef], client: RestClientRef,
+           endpoint: string, index: int): BeaconNodeServerRef =
+  BeaconNodeServerRef(
+    client: client,
+    endpoint: endpoint,
+    index: index,
+    logIdent: client.address.hostname & ":" &
+              Base10.toString(client.address.port) &
+              "#" & Base10.toString(index)
+  )
 
 proc init*(t: typedesc[DutyAndProof], epoch: Epoch, dependentRoot: Eth2Digest,
            duty: RestAttesterDuty,
