@@ -313,17 +313,26 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
                         fee_recipient: ethtypes.Address,
                         execution_engine: Eth1Monitor):
                         Future[Option[bellatrix.PayloadID]] {.async.} =
+  logScope:
+    head_block_hash
+    finalized_block_hash
+
   let
     timestamp = compute_timestamp_at_slot(state, state.slot)
     random = get_randao_mix(state, get_current_epoch(state))
     forkchoiceResponse =
-      awaitWithTimeout(
-        execution_engine.forkchoiceUpdated(
-          head_block_hash, finalized_block_hash, timestamp, random.data,
-          fee_recipient),
-        FORKCHOICEUPDATED_TIMEOUT):
-          info "forkchoice_updated: forkchoiceUpdated timed out"
-          default(ForkchoiceUpdatedResponse)
+      try:
+        awaitWithTimeout(
+          execution_engine.forkchoiceUpdated(
+            head_block_hash, finalized_block_hash, timestamp, random.data,
+            fee_recipient),
+          FORKCHOICEUPDATED_TIMEOUT):
+            error "Engine API fork-choice update timed out"
+            default(ForkchoiceUpdatedResponse)
+      except CatchableError as err:
+        error "Engine API fork-choice update failed", err = err.msg
+        default(ForkchoiceUpdatedResponse)
+
     payloadId = forkchoiceResponse.payloadId
 
   return if payloadId.isSome:
@@ -390,11 +399,17 @@ proc getExecutionPayload(
         proposalState.bellatrixData.data, latestHead, latestFinalized,
         feeRecipient,
         node.consensusManager.eth1Monitor))
-      payload = awaitWithTimeout(
-        get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
-        GETPAYLOAD_TIMEOUT):
-          info "getExecutionPayload: getPayload timed out; using empty execution payload"
+      payload = try:
+          awaitWithTimeout(
+            get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
+            GETPAYLOAD_TIMEOUT):
+              warn "Getting execution payload from Engine API timed out", payload_id
+              empty_execution_payload
+        except CatchableError as err:
+          warn "Getting execution payload from Engine API failed",
+                payload_id, err = err.msg
           empty_execution_payload
+
       executionPayloadStatus =
         awaitWithTimeout(
           node.consensusManager.eth1Monitor.newExecutionPayload(payload),
