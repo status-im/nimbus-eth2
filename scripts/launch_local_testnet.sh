@@ -966,6 +966,12 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     WEB3_ARG="--web3-url=http://127.0.0.1:${EL_RPC_PORTS[${NUM_NODE}]}"
   fi
 
+  # We enabled the keymanager on half of the nodes
+  KEYMANAGER_FLAG=""
+  if [ $((NUM_NODE % 2)) -eq 0 ]; then
+    KEYMANAGER_FLAG="--keymanager"
+  fi
+
   # TODO re-add --jwt-secret
   ${BEACON_NODE_COMMAND} \
     --config-file="${CLI_CONF_FILE}" \
@@ -976,9 +982,9 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     ${BOOTSTRAP_ARG} \
     ${WEB3_ARG} \
     ${STOP_AT_EPOCH_FLAG} \
-    --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
-    --keymanager \
+    ${KEYMANAGER_FLAG} \
     --keymanager-token-file="${DATA_DIR}/keymanager-token" \
+    --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
     --light-client=on \
     ${EXTRA_ARGS} \
@@ -1012,7 +1018,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
         --log-level="${LOG_LEVEL}" \
         ${STOP_AT_EPOCH_FLAG} \
         --data-dir="${VALIDATOR_DATA_DIR}" \
-        --keymanager \
+        ${KEYMANAGER_FLAG} \
         --keymanager-port=$((BASE_VC_KEYMANAGER_PORT + NUM_NODE)) \
         --keymanager-token-file="${DATA_DIR}/keymanager-token" \
         --beacon-node="http://127.0.0.1:$((BASE_REST_PORT + NUM_NODE))" \

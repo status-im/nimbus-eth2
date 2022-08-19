@@ -222,7 +222,7 @@ suite "Gossip validation - Extra": # Not based on preset config
       keystoreData = KeystoreData(kind: KeystoreKind.Local,
                                   privateKey: MockPrivKeys[index])
       validator = AttachedValidator(pubkey: pubkey,
-        kind: ValidatorKind.Local, data: keystoreData, index: some(index))
+        kind: ValidatorKind.Local, data: keystoreData, index: Opt.some index)
       resMsg = waitFor getSyncCommitteeMessage(
         validator, state[].data.fork, state[].data.genesis_validators_root, slot,
         state[].root)

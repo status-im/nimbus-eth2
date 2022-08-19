@@ -32,12 +32,12 @@ template findIt*(s: openArray, predicate: untyped): int =
   res
 
 proc findValidator(validators: seq[Validator], pubKey: ValidatorPubKey):
-    Option[ValidatorIndex] =
+    Opt[ValidatorIndex] =
   let idx = validators.findIt(it.pubkey == pubKey)
   if idx == -1:
-    none(ValidatorIndex)
+    Opt.none ValidatorIndex
   else:
-    some(idx.ValidatorIndex)
+    Opt.some idx.ValidatorIndex
 
 cli do(validatorsDir: string, secretsDir: string,
        startState: string, network: string):

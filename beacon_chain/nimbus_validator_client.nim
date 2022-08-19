@@ -266,8 +266,8 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
     vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
     vc.keymanagerServer = keymanagerInitResult.server
     if vc.keymanagerServer != nil:
-      func getValidatorIdx(pubkey: ValidatorPubKey): Option[ValidatorIndex] =
-        none ValidatorIndex
+      func getValidatorIdx(pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
+        Opt.none ValidatorIndex
 
       vc.keymanagerHost = newClone KeymanagerHost.init(
         validatorPool,

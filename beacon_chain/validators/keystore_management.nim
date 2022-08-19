@@ -68,7 +68,7 @@ type
   ImportResult*[T] = Result[T, AddValidatorFailure]
 
   ValidatorPubKeyToIdxFn* =
-    proc (pubkey: ValidatorPubKey): Option[ValidatorIndex]
+    proc (pubkey: ValidatorPubKey): Opt[ValidatorIndex]
          {.raises: [Defect], gcsafe.}
 
   KeymanagerHost* = object
@@ -109,11 +109,11 @@ func init*(T: type KeymanagerHost,
     getBeaconTimeFn: getBeaconTimeFn)
 
 proc getValidatorIdx*(host: KeymanagerHost,
-                      pubkey: ValidatorPubKey): Option[ValidatorIndex] =
+                      pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
   if host.getValidatorIdxFn != nil:
     host.getValidatorIdxFn(pubkey)
   else:
-    none ValidatorIndex
+    Opt.none ValidatorIndex
 
 proc addLocalValidator*(host: KeymanagerHost, keystore: KeystoreData) =
   let
