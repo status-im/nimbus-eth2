@@ -14,10 +14,11 @@ else:
 
 import
   # Standard lib
-  std/[algorithm, math, sets, tables],
+  std/[algorithm, math, sets, tables, times],
   # Status libraries
-  stew/[bitops2, byteutils, endians2, objects],
+  stew/[bitops2, byteutils, endians2, objects, saturation_arith],
   chronicles,
+  eth/eip1559, eth/common/eth_types,
   # Internal
   ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, ssz_codec]
@@ -27,9 +28,12 @@ import
 export
   forks, eth2_merkleization, ssz_codec
 
-type FinalityCheckpoints* = object
-  justified*: Checkpoint
-  finalized*: Checkpoint
+type
+  ExecutionBlockHeader = eth_types.BlockHeader
+
+  FinalityCheckpoints* = object
+    justified*: Checkpoint
+    finalized*: Checkpoint
 
 func shortLog*(v: FinalityCheckpoints): auto =
   (
@@ -340,7 +344,29 @@ func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   let slots_since_genesis = slot - GENESIS_SLOT
   state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
+proc emptyPayloadToBlockHeader*(payload: ExecutionPayload): ExecutionBlockHeader =
+  ## This function assumes that the payload is empty!
+  doAssert payload.transactions.len == 0
+
+  ExecutionBlockHeader(
+    parentHash    : payload.parent_hash,
+    ommersHash    : EMPTY_UNCLE_HASH,
+    coinbase      : EthAddress payload.fee_recipient.data,
+    stateRoot     : payload.state_root,
+    txRoot        : BLANK_ROOT_HASH,
+    receiptRoot   : payload.receipts_root,
+    bloom         : payload.logs_bloom.data,
+    difficulty    : default(DifficultyInt),
+    blockNumber   : payload.block_number.u256,
+    gasLimit      : GasInt payload.gas_limit,
+    gasUsed       : GasInt payload.gas_used,
+    timestamp     : fromUnix(int64.saturate payload.timestamp),
+    extraData     : payload.extra_data.asSeq,
+    mixDigest     : payload.prev_randao, # EIP-4399 redefine `mixDigest` -> `prevRandao`
+    nonce         : default(BlockNonce),
+    fee           : some payload.base_fee_per_gas
+  )
+
 func build_empty_execution_payload*(state: bellatrix.BeaconState): ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.
@@ -348,21 +374,21 @@ func build_empty_execution_payload*(state: bellatrix.BeaconState): ExecutionPayl
     latest = state.latest_execution_payload_header
     timestamp = compute_timestamp_at_slot(state, state.slot)
     randao_mix = get_randao_mix(state, get_current_epoch(state))
+    base_fee = calcEip1599BaseFee(GasInt.saturate latest.gas_limit,
+                                  GasInt.saturate latest.gas_used,
+                                  latest.base_fee_per_gas)
 
   var payload = ExecutionPayload(
     parent_hash: latest.block_hash,
     state_root: latest.state_root, # no changes to the state
-    receipts_root: static(Eth2Digest.fromHex(
-      "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")),
+    receipts_root: BLANK_ROOT_HASH,
     block_number: latest.block_number + 1,
     prev_randao: randao_mix,
     gas_limit: latest.gas_limit, # retain same limit
     gas_used: 0, # empty block, 0 gas
     timestamp: timestamp,
-    base_fee_per_gas: latest.base_fee_per_gas) # retain same base_fee
+    base_fee_per_gas: base_fee)
 
-  payload.block_hash = withEth2Hash:
-    h.update payload.hash_tree_root().data
-    h.update cast[array[13, uint8]]("FAKE RLP HASH")
+  payload.block_hash = rlpHash emptyPayloadToBlockHeader(payload)
 
   payload
