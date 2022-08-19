@@ -182,13 +182,13 @@ proc new*(T: type ValidatorClientRef,
     block:
       var servers: seq[BeaconNodeServerRef]
       let flags = {RestClientFlag.CommaSeparatedArray}
-      for url in config.beaconNodes:
+      for index, url in config.beaconNodes.pairs():
         let res = RestClientRef.new(url, flags = flags)
         if res.isErr():
           warn "Unable to resolve remote beacon node server's hostname",
                 url = url
         else:
-          servers.add(BeaconNodeServerRef(client: res.get(), endpoint: url))
+        servers.add(BeaconNodeServerRef.init(res.get(), url, index))
       servers
 
   if len(beaconNodes) == 0:
