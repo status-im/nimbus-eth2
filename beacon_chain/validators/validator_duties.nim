@@ -346,7 +346,7 @@ proc getExecutionPayload(
     epoch: Epoch,
     validator_index: ValidatorIndex,
     pubkey: ValidatorPubKey):
-    Future[ExecutionPayload] {.async.} =
+    Future[Opt[ExecutionPayload]] {.async.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
 
   # Only current hardfork with execution payloads is Bellatrix
@@ -356,7 +356,7 @@ proc getExecutionPayload(
 
   if node.eth1Monitor.isNil:
     warn "getExecutionPayload: eth1Monitor not initialized; using empty execution payload"
-    return empty_execution_payload
+    return Opt.some empty_execution_payload
 
   try:
     # Minimize window for Eth1 monitor to shut down connection
@@ -400,16 +400,18 @@ proc getExecutionPayload(
             info "getExecutionPayload: newPayload timed out"
             PayloadExecutionStatus.syncing
 
-    if executionPayloadStatus != PayloadExecutionStatus.valid:
-      info "getExecutionPayload: newExecutionPayload not valid; using empty execution payload",
+    if executionPayloadStatus in [
+        PayloadExecutionStatus.invalid,
+        PayloadExecutionStatus.invalid_block_hash]:
+      info "getExecutionPayload: newExecutionPayload invalid",
         executionPayloadStatus
-      return empty_execution_payload
+      return Opt.none ExecutionPayload
 
-    return payload
+    return Opt.some payload
   except CatchableError as err:
     error "Error creating non-empty execution payload; using empty execution payload",
       msg = err.msg
-    return empty_execution_payload
+    return Opt.some empty_execution_payload
 
 proc makeBeaconBlockForHeadAndSlot*(
     node: BeaconNode, randao_reveal: ValidatorSig,
@@ -445,8 +447,33 @@ proc makeBeaconBlockForHeadAndSlot*(
     # Only current hardfork with execution payloads is Bellatrix
     static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
 
-    let exits = withState(state):
-      node.exitPool[].getBeaconBlockExits(state.data)
+    let
+      exits = withState(state):
+        node.exitPool[].getBeaconBlockExits(state.data)
+      effectiveExecutionPayload =
+        if executionPayload.isSome:
+          executionPayload.get
+        elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
+             not (
+               is_merge_transition_complete(proposalState.bellatrixData.data) or
+               ((not node.eth1Monitor.isNil) and
+                node.eth1Monitor.terminalBlockHash.isSome)):
+          # https://github.com/nim-lang/Nim/issues/19802
+          (static(default(bellatrix.ExecutionPayload)))
+        else:
+          let
+            pubkey = node.dag.validatorKey(validator_index)
+            maybeExecutionPayload = (await getExecutionPayload(
+              node, proposalState,
+              slot.epoch, validator_index,
+              # TODO https://github.com/nim-lang/Nim/issues/19802
+              if pubkey.isSome: pubkey.get.toPubKey else: default(ValidatorPubKey)))
+          if maybeExecutionPayload.isNone:
+            warn "Unable to get execution payload. Skipping block proposal",
+              slot, validator_index
+            return ForkedBlockResult.err("Unable to get execution payload")
+          maybeExecutionPayload.get
+
     let res = makeBeaconBlock(
       node.dag.cfg,
       state,
@@ -461,22 +488,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         SyncAggregate.init()
       else:
         node.syncCommitteeMsgPool[].produceSyncAggregate(head.root),
-      if executionPayload.isSome:
-        executionPayload.get
-      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
-           not (
-             is_merge_transition_complete(proposalState.bellatrixData.data) or
-             ((not node.eth1Monitor.isNil) and
-              node.eth1Monitor.terminalBlockHash.isSome)):
-        # https://github.com/nim-lang/Nim/issues/19802
-        (static(default(bellatrix.ExecutionPayload)))
-      else:
-        let pubkey = node.dag.validatorKey(validator_index)
-        (await getExecutionPayload(
-          node, proposalState,
-          slot.epoch, validator_index,
-          # TODO https://github.com/nim-lang/Nim/issues/19802
-          if pubkey.isSome: pubkey.get.toPubKey else: default(ValidatorPubKey))),
+      effectiveExecutionPayload,
       noRollback, # Temporary state - no need for rollback
       cache,
       transactions_root =
