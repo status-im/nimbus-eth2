@@ -190,6 +190,7 @@ from ../consensus_object_pools/blockchain_dag import
   is_optimistic, loadExecutionBlockRoot, markBlockVerified
 from ../consensus_object_pools/block_dag import shortLog
 from ../consensus_object_pools/spec_cache import get_attesting_indices
+from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
 
 proc storeBlock*(
     self: var BlockProcessor,
@@ -233,7 +234,7 @@ proc storeBlock*(
 
     withState(dag[].clearanceState):
       when stateFork >= BeaconStateFork.Altair and
-          Trusted.toFork >= BeaconBlockFork.Altair:
+          Trusted isnot phase0.TrustedSignedBeaconBlock: # altair+
         for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():
           vm[].registerSyncAggregateInBlock(
             trustedBlock.message.slot, trustedBlock.root,
