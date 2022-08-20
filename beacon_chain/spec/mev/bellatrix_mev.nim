@@ -69,3 +69,17 @@ const
   # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#constants
   EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION* = 1
   BUILDER_PROPOSAL_DELAY_TOLERANCE* = 1.seconds
+
+func shortLog*(v: BlindedBeaconBlock): auto =
+  (
+    slot: shortLog(v.slot),
+    proposer_index: v.proposer_index,
+    parent_root: shortLog(v.parent_root),
+    state_root: shortLog(v.state_root),
+  )
+
+func shortLog*(v: SignedBlindedBeaconBlock): auto =
+  (
+    blck: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )

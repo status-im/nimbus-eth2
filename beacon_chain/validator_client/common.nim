@@ -416,7 +416,7 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
   let slot = vc.currentSlot()
   case keystore.kind
   of KeystoreKind.Local:
-    vc.attachedValidators[].addLocalValidator(keystore, none[ValidatorIndex](),
+    vc.attachedValidators[].addLocalValidator(keystore, Opt.none ValidatorIndex,
                                               slot)
   of KeystoreKind.Remote:
     let
@@ -442,7 +442,7 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
           res
     if len(clients) > 0:
       vc.attachedValidators[].addRemoteValidator(keystore, clients,
-                                                 none[ValidatorIndex](), slot)
+                                                 Opt.none ValidatorIndex, slot)
     else:
       warn "Unable to initialize remote validator",
            validator = $keystore.pubkey

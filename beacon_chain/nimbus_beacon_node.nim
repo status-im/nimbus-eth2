@@ -611,7 +611,7 @@ proc init*(T: type BeaconNode,
       config.validatorMonitorAuto, config.validatorMonitorTotals))
 
   for key in config.validatorMonitorPubkeys:
-    validatorMonitor[].addMonitor(key, none(ValidatorIndex))
+    validatorMonitor[].addMonitor(key, Opt.none(ValidatorIndex))
 
   let
     networkGenesisValidatorsRoot: Option[Eth2Digest] =
@@ -673,7 +673,7 @@ proc init*(T: type BeaconNode,
   info "Loading slashing protection database (v2)",
     path = config.validatorsDir()
 
-  proc getValidatorIdx(pubkey: ValidatorPubKey): Option[ValidatorIndex] =
+  proc getValidatorIdx(pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
     withState(dag.headState):
       findValidator(state().data.validators.asSeq(), pubkey)
 

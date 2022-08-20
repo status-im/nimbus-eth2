@@ -45,10 +45,15 @@ import
 
 from eth/async_utils import awaitWithTimeout
 
-# Metrics for tracking attestation and beacon block loss
-const delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
-                      0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
+const
+  delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
+                  0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
 
+  BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 1.seconds
+  BUILDER_STATUS_DELAY_TOLERANCE = 3.seconds
+  BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 3.seconds
+
+# Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
   "Number of LC finality updates sent by this peer"
 
@@ -70,16 +75,15 @@ logScope: topics = "beacval"
 type
   ForkedBlockResult* = Result[ForkedBeaconBlock, string]
 
-proc findValidator*(validators: auto, pubkey: ValidatorPubKey):
-    Option[ValidatorIndex] =
+proc findValidator*(validators: auto, pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
   let idx = validators.findIt(it.pubkey == pubkey)
   if idx == -1:
     # We allow adding a validator even if its key is not in the state registry:
     # it might be that the deposit for this validator has not yet been processed
     notice "Validator deposit not yet processed, monitoring", pubkey
-    none(ValidatorIndex)
+    Opt.none ValidatorIndex
   else:
-    some(idx.ValidatorIndex)
+    Opt.some idx.ValidatorIndex
 
 proc addLocalValidator(node: BeaconNode, validators: auto,
                        item: KeystoreData, slot: Slot) =
@@ -90,7 +94,7 @@ proc addLocalValidator(node: BeaconNode, validators: auto,
 
 # TODO: This should probably be moved to the validator_pool module
 proc addRemoteValidator*(pool: var ValidatorPool,
-                         index: Option[ValidatorIndex],
+                         index: Opt[ValidatorIndex],
                          item: KeystoreData,
                          slot: Slot) =
   var clients: seq[(RestClientRef, RemoteSignerInfo)]
@@ -151,7 +155,7 @@ proc getAttachedValidator(node: BeaconNode,
     if validator != nil and validator.index != some(idx):
       # Update index, in case the validator was activated!
       notice "Validator activated", pubkey = validator.pubkey, index = idx
-      validator.index = some(idx)
+      validator.index = Opt.some(idx)
     validator
   else:
     warn "Validator index out of bounds",
@@ -163,10 +167,10 @@ proc getAttachedValidator(node: BeaconNode,
   let key = node.dag.validatorKey(idx)
   if key.isSome():
     let validator = node.getAttachedValidator(key.get().toPubKey())
-    if validator != nil and validator.index != some(idx):
+    if validator != nil and validator.index != Opt.some(idx):
       # Update index, in case the validator was activated!
       notice "Validator activated", pubkey = validator.pubkey, index = idx
-      validator.index = some(idx)
+      validator.index = Opt.some(idx)
     validator
   else:
     warn "Validator key not found",
@@ -313,17 +317,26 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
                         fee_recipient: ethtypes.Address,
                         execution_engine: Eth1Monitor):
                         Future[Option[bellatrix.PayloadID]] {.async.} =
+  logScope:
+    head_block_hash
+    finalized_block_hash
+
   let
     timestamp = compute_timestamp_at_slot(state, state.slot)
     random = get_randao_mix(state, get_current_epoch(state))
     forkchoiceResponse =
-      awaitWithTimeout(
-        execution_engine.forkchoiceUpdated(
-          head_block_hash, finalized_block_hash, timestamp, random.data,
-          fee_recipient),
-        FORKCHOICEUPDATED_TIMEOUT):
-          info "forkchoice_updated: forkchoiceUpdated timed out"
-          default(ForkchoiceUpdatedResponse)
+      try:
+        awaitWithTimeout(
+          execution_engine.forkchoiceUpdated(
+            head_block_hash, finalized_block_hash, timestamp, random.data,
+            fee_recipient),
+          FORKCHOICEUPDATED_TIMEOUT):
+            error "Engine API fork-choice update timed out"
+            default(ForkchoiceUpdatedResponse)
+      except CatchableError as err:
+        error "Engine API fork-choice update failed", err = err.msg
+        default(ForkchoiceUpdatedResponse)
+
     payloadId = forkchoiceResponse.payloadId
 
   return if payloadId.isSome:
@@ -341,6 +354,17 @@ proc get_execution_payload(
     asConsensusExecutionPayload(
       await execution_engine.getPayload(payload_id.get))
 
+proc getFeeRecipient(node: BeaconNode,
+                     pubkey: ValidatorPubKey,
+                     validatorIdx: ValidatorIndex,
+                     epoch: Epoch): Eth1Address =
+  node.dynamicFeeRecipientsStore.getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
+    if node.keymanagerHost != nil:
+      node.keymanagerHost[].getSuggestedFeeRecipient(pubkey).valueOr:
+        node.config.defaultFeeRecipient
+    else:
+      node.config.defaultFeeRecipient
+
 from web3/engine_api_types import PayloadExecutionStatus
 
 proc getExecutionPayload(
@@ -348,7 +372,7 @@ proc getExecutionPayload(
     epoch: Epoch,
     validator_index: ValidatorIndex,
     pubkey: ValidatorPubKey):
-    Future[ExecutionPayload] {.async.} =
+    Future[Opt[ExecutionPayload]] {.async.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
 
   # Only current hardfork with execution payloads is Bellatrix
@@ -358,7 +382,7 @@ proc getExecutionPayload(
 
   if node.eth1Monitor.isNil:
     warn "getExecutionPayload: eth1Monitor not initialized; using empty execution payload"
-    return empty_execution_payload
+    return Opt.some empty_execution_payload
 
   try:
     # Minimize window for Eth1 monitor to shut down connection
@@ -381,37 +405,41 @@ proc getExecutionPayload(
           terminalBlockHash
       latestFinalized =
         node.dag.loadExecutionBlockRoot(node.dag.finalizedHead.blck)
-      dynamicFeeRecipient = node.dynamicFeeRecipientsStore.getDynamicFeeRecipient(
-        validator_index, epoch)
-      feeRecipient = dynamicFeeRecipient.valueOr:
-        node.keymanagerHost[].getSuggestedFeeRecipient(pubkey).valueOr:
-          node.config.defaultFeeRecipient
+      feeRecipient = node.getFeeRecipient(pubkey, validator_index, epoch)
       payload_id = (await forkchoice_updated(
         proposalState.bellatrixData.data, latestHead, latestFinalized,
         feeRecipient,
         node.consensusManager.eth1Monitor))
-      payload = awaitWithTimeout(
-        get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
-        GETPAYLOAD_TIMEOUT):
-          info "getExecutionPayload: getPayload timed out; using empty execution payload"
+      payload = try:
+          awaitWithTimeout(
+            get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
+            GETPAYLOAD_TIMEOUT):
+              warn "Getting execution payload from Engine API timed out", payload_id
+              empty_execution_payload
+        except CatchableError as err:
+          warn "Getting execution payload from Engine API failed",
+                payload_id, err = err.msg
           empty_execution_payload
+
       executionPayloadStatus =
         awaitWithTimeout(
           node.consensusManager.eth1Monitor.newExecutionPayload(payload),
           NEWPAYLOAD_TIMEOUT):
             info "getExecutionPayload: newPayload timed out"
-            PayloadExecutionStatus.syncing
+            Opt.none PayloadExecutionStatus
 
-    if executionPayloadStatus != PayloadExecutionStatus.valid:
-      info "getExecutionPayload: newExecutionPayload not valid; using empty execution payload",
+    if executionPayloadStatus.isNone or executionPayloadStatus.get in [
+        PayloadExecutionStatus.invalid,
+        PayloadExecutionStatus.invalid_block_hash]:
+      info "getExecutionPayload: newExecutionPayload invalid",
         executionPayloadStatus
-      return empty_execution_payload
+      return Opt.none ExecutionPayload
 
-    return payload
+    return Opt.some payload
   except CatchableError as err:
     error "Error creating non-empty execution payload; using empty execution payload",
       msg = err.msg
-    return empty_execution_payload
+    return Opt.some empty_execution_payload
 
 proc makeBeaconBlockForHeadAndSlot*(
     node: BeaconNode, randao_reveal: ValidatorSig,
@@ -447,8 +475,33 @@ proc makeBeaconBlockForHeadAndSlot*(
     # Only current hardfork with execution payloads is Bellatrix
     static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
 
-    let exits = withState(state):
-      node.exitPool[].getBeaconBlockExits(state.data)
+    let
+      exits = withState(state):
+        node.exitPool[].getBeaconBlockExits(state.data)
+      effectiveExecutionPayload =
+        if executionPayload.isSome:
+          executionPayload.get
+        elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
+             not (
+               is_merge_transition_complete(proposalState.bellatrixData.data) or
+               ((not node.eth1Monitor.isNil) and
+                node.eth1Monitor.terminalBlockHash.isSome)):
+          # https://github.com/nim-lang/Nim/issues/19802
+          (static(default(bellatrix.ExecutionPayload)))
+        else:
+          let
+            pubkey = node.dag.validatorKey(validator_index)
+            maybeExecutionPayload = (await getExecutionPayload(
+              node, proposalState,
+              slot.epoch, validator_index,
+              # TODO https://github.com/nim-lang/Nim/issues/19802
+              if pubkey.isSome: pubkey.get.toPubKey else: default(ValidatorPubKey)))
+          if maybeExecutionPayload.isNone:
+            warn "Unable to get execution payload. Skipping block proposal",
+              slot, validator_index
+            return ForkedBlockResult.err("Unable to get execution payload")
+          maybeExecutionPayload.get
+
     let res = makeBeaconBlock(
       node.dag.cfg,
       state,
@@ -463,22 +516,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         SyncAggregate.init()
       else:
         node.syncCommitteeMsgPool[].produceSyncAggregate(head.root),
-      if executionPayload.isSome:
-        executionPayload.get
-      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
-           not (
-             is_merge_transition_complete(proposalState.bellatrixData.data) or
-             ((not node.eth1Monitor.isNil) and
-              node.eth1Monitor.terminalBlockHash.isSome)):
-        # https://github.com/nim-lang/Nim/issues/19802
-        (static(default(bellatrix.ExecutionPayload)))
-      else:
-        let pubkey = node.dag.validatorKey(validator_index)
-        (await getExecutionPayload(
-          node, proposalState,
-          slot.epoch, validator_index,
-          # TODO https://github.com/nim-lang/Nim/issues/19802
-          if pubkey.isSome: pubkey.get.toPubKey else: default(ValidatorPubKey))),
+      effectiveExecutionPayload,
       noRollback, # Temporary state - no need for rollback
       cache,
       transactions_root =
@@ -511,8 +549,10 @@ proc getBlindedExecutionPayload(
   if node.payloadBuilderRestClient.isNil:
     return err "getBlindedBeaconBlock: nil REST client"
 
-  let blindedHeader = await node.payloadBuilderRestClient.getHeader(
-    slot, executionBlockRoot, pubkey)
+  let blindedHeader = awaitWithTimeout(
+    node.payloadBuilderRestClient.getHeader(slot, executionBlockRoot, pubkey),
+    BUILDER_PROPOSAL_DELAY_TOLERANCE):
+      return err "Timeout when obtaining blinded header from builder"
 
   const httpOk = 200
   if blindedHeader.status != httpOk:
@@ -647,17 +687,21 @@ proc proposeBlockMEV(
     # protection check
     let unblindedPayload =
       try:
-        await node.payloadBuilderRestClient.submitBlindedBlock(
-          blindedBlock.get)
+        awaitWithTimeout(
+          node.payloadBuilderRestClient.submitBlindedBlock(blindedBlock.get),
+          BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE):
+            error "Submitting blinded block timed out",
+                  blk = shortLog(blindedBlock.get)
+            return Opt.some head
         # From here on, including error paths, disallow local EL production by
         # returning Opt.some, regardless of whether on head or newBlock.
       except RestDecodingError as exc:
-        info "proposeBlockMEV: REST recoding error",
+        error "proposeBlockMEV: REST recoding error",
           slot, head = shortLog(head), validator_index, blindedBlock,
           error = exc.msg
         return Opt.some head
       except CatchableError as exc:
-        info "proposeBlockMEV: exception in submitBlindedBlock",
+        error "proposeBlockMEV: exception in submitBlindedBlock",
           slot, head = shortLog(head), validator_index, blindedBlock,
           error = exc.msg
         return Opt.some head
@@ -1165,14 +1209,17 @@ proc updateValidatorMetrics*(node: BeaconNode) =
 from std/times import epochTime
 
 proc getValidatorRegistration(
-    node: BeaconNode, validator: AttachedValidator):
+    node: BeaconNode, validator: AttachedValidator, epoch: Epoch):
     Future[Result[SignedValidatorRegistrationV1, string]] {.async.} =
   # Stand-in, reasonable default
   const gasLimit = 30000000
 
-  let feeRecipient =
-    node.keymanagerHost[].getSuggestedFeeRecipient(validator.pubkey).valueOr:
-      node.config.defaultFeeRecipient
+  let validatorIdx = validator.index.valueOr:
+    # The validator index will be missing when the validator was not
+    # activated for duties yet. We can safely skip the registration then.
+    return
+
+  let feeRecipient = node.getFeeRecipient(validator.pubkey, validatorIdx, epoch)
   var validatorRegistration = SignedValidatorRegistrationV1(
     message: ValidatorRegistrationV1(
       fee_recipient: ExecutionAddress(data: distinctBase(feeRecipient)),
@@ -1193,7 +1240,7 @@ proc getValidatorRegistration(
 
   return ok validatorRegistration
 
-proc registerValidators(node: BeaconNode) {.async.} =
+proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
   try:
     if  (not node.config.payloadBuilderEnable) or
         node.currentSlot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -1205,7 +1252,11 @@ proc registerValidators(node: BeaconNode) {.async.} =
 
     const HttpOk = 200
 
-    let restBuilderStatus = await node.payloadBuilderRestClient.checkBuilderStatus
+    let restBuilderStatus = awaitWithTimeout(node.payloadBuilderRestClient.checkBuilderStatus(),
+                                             BUILDER_STATUS_DELAY_TOLERANCE):
+      debug "Timeout when obtaining builder status"
+      return
+
     if restBuilderStatus.status != HttpOk:
       warn "registerValidators: specified builder or relay not available",
         builderUrl = node.config.payloadBuilderUrl,
@@ -1231,17 +1282,19 @@ proc registerValidators(node: BeaconNode) {.async.} =
           continue
 
       let validatorRegistration =
-        await node.getValidatorRegistration(validator)
+        await node.getValidatorRegistration(validator, epoch)
       if validatorRegistration.isErr:
-        debug "registerValidators: validatorRegistration failed",
-          validatorRegistration
+        error "registerValidators: validatorRegistration failed",
+               validatorRegistration
         continue
 
       validatorRegistrations.add validatorRegistration.get
 
     let registerValidatorResult =
-      await node.payloadBuilderRestClient.registerValidator(
-        validatorRegistrations)
+      awaitWithTimeout(node.payloadBuilderRestClient.registerValidator(validatorRegistrations),
+                       BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE):
+        error "Timeout when registering validator with builder"
+        return
     if HttpOk != registerValidatorResult.status:
       warn "registerValidators: Couldn't register validator with MEV builder",
         registerValidatorResult
@@ -1312,7 +1365,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # `EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION` epochs.
   if  slot.is_epoch and
       slot.epoch mod EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION == 0:
-    asyncSpawn node.registerValidators()
+    asyncSpawn node.registerValidators(slot.epoch)
 
   let
     newHead = await handleProposal(node, head, slot)

@@ -85,7 +85,7 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
       debug "Local validator updated with index",
             pubkey = item.validator.pubkey, index = item.index
       vc.attachedValidators[].updateValidator(item.validator.pubkey,
-                                            item.index)
+                                              item.index)
       # Adding validator for doppelganger detection.
       vc.addDoppelganger(
         vc.attachedValidators[].getValidator(item.validator.pubkey))
