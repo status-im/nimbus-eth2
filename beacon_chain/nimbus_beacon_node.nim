@@ -538,7 +538,8 @@ proc init*(T: type BeaconNode,
           getDepositContractSnapshot(),
           eth1Network,
           config.web3ForcePolling,
-          optJwtSecret)
+          optJwtSecret,
+          config.requireEngineAPI)
 
         eth1Monitor.loadPersistedDeposits()
 
@@ -639,7 +640,8 @@ proc init*(T: type BeaconNode,
       getDepositContractSnapshot(),
       eth1Network,
       config.web3ForcePolling,
-      optJwtSecret)
+      optJwtSecret,
+      config.requireEngineAPI)
 
   if config.rpcEnabled:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
