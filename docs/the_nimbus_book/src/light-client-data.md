@@ -13,7 +13,7 @@ The following [configuration options](./options.md) adjust the import and servin
 |------------------------------------------------|-------------|
 | <nobr>`--light-client-data-serve`</nobr>       | <ul><li>`false`: Disable light client data serving</li><li>`true` (default): Provide imported light client data to others</li></ul> |
 | <nobr>`--light-client-data-import-mode`</nobr> | <ul><li>`none`: Do not import new light client data</li><li>`only-new` (default): Incrementally import new light client data</li><li>`full`: Import historic light client data (slow startup)</li><li>`on-demand`: Like `full`, but import on demand instead of on start</li></ul> |
-| <nobr>`--light-client-data-max-periods`</nobr> | <ul><li>Controls the maximum number of sync committee periods to retain light client data</li><li>When unspecified (default), light client data is retained based on [`MIN_EPOCHS_FOR_BLOCK_REQUESTS`](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#configuration) (129 sync committee periods, ~5 months on Ethereum mainnet)</li></ul> |
+| <nobr>`--light-client-data-max-periods`</nobr> | <ul><li>Controls the maximum number of sync committee periods to retain light client data</li><li>When unspecified (default), light client data is never pruned</li></ul> |
 
 !!! warning
     Setting `--light-client-data-import-mode` to `full` or `on-demand` imports historic light client data which is computationally expensive. While importing historic light client data, validator duties may be missed.
