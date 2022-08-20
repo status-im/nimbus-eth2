@@ -1,10 +1,16 @@
+# beacon_chain
+# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 {.used.}
 
 import
   testutils/unittests,
   chronos, stew/shims/net, eth/keys, eth/p2p/discoveryv5/enr,
-  ../beacon_chain/spec/datatypes/base,
-  ../beacon_chain/spec/network,
+  ../beacon_chain/spec/[forks, network],
   ../beacon_chain/networking/[eth2_network, eth2_discovery],
   ./testutil
 
@@ -201,3 +207,80 @@ suite "Fork id compatibility test":
         fork_digest: ForkDigest([byte 0, 1, 2, 3]),
         next_fork_version: Version([byte 0, 0, 0, 0]),
         next_fork_epoch: Epoch(2)))
+
+suite "Discovery fork ID":
+  test "Expected fork IDs":
+    let genesis_validators_root = ZERO_HASH
+    var cfg = defaultRuntimeConfig
+    cfg.ALTAIR_FORK_EPOCH = 5.Epoch
+    cfg.BELLATRIX_FORK_EPOCH = 10.Epoch
+
+    # Phase 0
+    for epoch in GENESIS_EPOCH ..< cfg.ALTAIR_FORK_EPOCH - 1:
+      let
+        current_fork_version = cfg.GENESIS_FORK_VERSION
+        next_fork_version = current_fork_version
+        fork_digest = compute_fork_digest(
+          current_fork_version, genesis_validators_root)
+
+      check cfg.getDiscoveryForkID(epoch, genesis_validators_root) ==
+        ENRForkID(
+          fork_digest: fork_digest,
+          next_fork_version: next_fork_version,
+          next_fork_epoch: FAR_FUTURE_EPOCH)
+
+    # Altair should become visible 1 epoch before the fork
+    for epoch in cfg.ALTAIR_FORK_EPOCH - 1 ..< cfg.ALTAIR_FORK_EPOCH:
+      let
+        current_fork_version = cfg.GENESIS_FORK_VERSION
+        next_fork_version = cfg.ALTAIR_FORK_VERSION
+        fork_digest = compute_fork_digest(
+          current_fork_version, genesis_validators_root)
+
+      check cfg.getDiscoveryForkID(epoch, genesis_validators_root) ==
+        ENRForkID(
+          fork_digest: fork_digest,
+          next_fork_version: next_fork_version,
+          next_fork_epoch: cfg.ALTAIR_FORK_EPOCH)
+
+    # Altair
+    for epoch in cfg.ALTAIR_FORK_EPOCH ..< cfg.BELLATRIX_FORK_EPOCH - 1:
+      let
+        current_fork_version = cfg.ALTAIR_FORK_VERSION
+        next_fork_version = current_fork_version
+        fork_digest = compute_fork_digest(
+          current_fork_version, genesis_validators_root)
+
+      check cfg.getDiscoveryForkID(epoch, genesis_validators_root) ==
+        ENRForkID(
+          fork_digest: fork_digest,
+          next_fork_version: next_fork_version,
+          next_fork_epoch: FAR_FUTURE_EPOCH)
+
+    # Bellatrix should become visible 1 epoch before the fork
+    for epoch in cfg.BELLATRIX_FORK_EPOCH - 1 ..< cfg.BELLATRIX_FORK_EPOCH:
+      let
+        current_fork_version = cfg.ALTAIR_FORK_VERSION
+        next_fork_version = cfg.BELLATRIX_FORK_VERSION
+        fork_digest = compute_fork_digest(
+          current_fork_version, genesis_validators_root)
+
+      check cfg.getDiscoveryForkID(epoch, genesis_validators_root) ==
+        ENRForkID(
+          fork_digest: fork_digest,
+          next_fork_version: next_fork_version,
+          next_fork_epoch: cfg.BELLATRIX_FORK_EPOCH)
+
+    # Bellatrix
+    for epoch in cfg.BELLATRIX_FORK_EPOCH ..< cfg.BELLATRIX_FORK_EPOCH + 5:
+      let
+        current_fork_version = cfg.BELLATRIX_FORK_VERSION
+        next_fork_version = current_fork_version
+        fork_digest = compute_fork_digest(
+          current_fork_version, genesis_validators_root)
+
+      check cfg.getDiscoveryForkID(epoch, genesis_validators_root) ==
+        ENRForkID(
+          fork_digest: fork_digest,
+          next_fork_version: next_fork_version,
+          next_fork_epoch: FAR_FUTURE_EPOCH)
