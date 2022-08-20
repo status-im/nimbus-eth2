@@ -494,7 +494,7 @@ proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV1):
   p.dataProvider.web3.provider.engine_newPayloadV1(payload)
 
 proc forkchoiceUpdated*(p: Eth1Monitor,
-                        headBlock, finalizedBlock: Eth2Digest):
+                        headBlock, safeBlock, finalizedBlock: Eth2Digest):
                         Future[engine_api.ForkchoiceUpdatedResponse] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
@@ -507,17 +507,12 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
   p.dataProvider.web3.provider.engine_forkchoiceUpdatedV1(
     ForkchoiceStateV1(
       headBlockHash: headBlock.asBlockHash,
-
-      # https://hackmd.io/@n0ble/kintsugi-spec#Engine-API
-      # "CL client software MUST use headBlockHash value as a stub for the
-      # safeBlockHash parameter"
-      safeBlockHash: headBlock.asBlockHash,
-
+      safeBlockHash: safeBlock.asBlockHash,
       finalizedBlockHash: finalizedBlock.asBlockHash),
     none(engine_api.PayloadAttributesV1))
 
 proc forkchoiceUpdated*(p: Eth1Monitor,
-                        headBlock, finalizedBlock: Eth2Digest,
+                        headBlock, safeBlock, finalizedBlock: Eth2Digest,
                         timestamp: uint64,
                         randomData: array[32, byte],
                         suggestedFeeRecipient: Eth1Address):
@@ -533,12 +528,7 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
   p.dataProvider.web3.provider.engine_forkchoiceUpdatedV1(
     ForkchoiceStateV1(
       headBlockHash: headBlock.asBlockHash,
-
-      # https://hackmd.io/@n0ble/kintsugi-spec#Engine-API
-      # "CL client software MUST use headBlockHash value as a stub for the
-      # safeBlockHash parameter"
-      safeBlockHash: headBlock.asBlockHash,
-
+      safeBlockHash: safeBlock.asBlockHash,
       finalizedBlockHash: finalizedBlock.asBlockHash),
     some(engine_api.PayloadAttributesV1(
       timestamp: Quantity timestamp,

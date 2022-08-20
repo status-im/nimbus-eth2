@@ -88,7 +88,8 @@ from web3/engine_api_types import
 func `$`(h: BlockHash): string = $h.asEth2Digest
 
 proc runForkchoiceUpdated*(
-    eth1Monitor: Eth1Monitor, headBlockRoot, finalizedBlockRoot: Eth2Digest):
+    eth1Monitor: Eth1Monitor,
+    headBlockRoot, safeBlockRoot, finalizedBlockRoot: Eth2Digest):
     Future[PayloadExecutionStatus] {.async.} =
   # Allow finalizedBlockRoot to be 0 to avoid sync deadlocks.
   #
@@ -108,15 +109,15 @@ proc runForkchoiceUpdated*(
 
     let fcuR = awaitWithTimeout(
       forkchoiceUpdated(
-        eth1Monitor, headBlockRoot, finalizedBlockRoot),
+        eth1Monitor, headBlockRoot, safeBlockRoot, finalizedBlockRoot),
       FORKCHOICEUPDATED_TIMEOUT):
         debug "runForkchoiceUpdated: forkchoiceUpdated timed out"
         ForkchoiceUpdatedResponse(
-          payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing))
+          payloadStatus: PayloadStatusV1(
+            status: PayloadExecutionStatus.syncing))
 
     debug "runForkchoiceUpdated: ran forkchoiceUpdated",
-      headBlockRoot,
-      finalizedBlockRoot,
+      headBlockRoot, safeBlockRoot, finalizedBlockRoot,
       payloadStatus = $fcuR.payloadStatus.status,
       latestValidHash = $fcuR.payloadStatus.latestValidHash,
       validationError = $fcuR.payloadStatus.validationError
@@ -127,31 +128,32 @@ proc runForkchoiceUpdated*(
       err = err.msg
     return PayloadExecutionStatus.syncing
 
-proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BlockRef)
+proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BeaconHead)
     {.async.} =
   if self.eth1Monitor.isNil:
     return
 
-  let executionHeadRoot = self.dag.loadExecutionBlockRoot(newHead)
+  let headExecutionPayloadHash = self.dag.loadExecutionBlockRoot(newHead.blck)
 
-  if executionHeadRoot.isZero:
+  if headExecutionPayloadHash.isZero:
     # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(self.quarantine[], newHead.root)
+    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
     return
 
   # Can't use dag.head here because it hasn't been updated yet
   let payloadExecutionStatus = await self.eth1Monitor.runForkchoiceUpdated(
-    executionHeadRoot,
-    self.dag.loadExecutionBlockRoot(self.dag.finalizedHead.blck))
+    headExecutionPayloadHash,
+    newHead.safeExecutionPayloadHash,
+    newHead.finalizedExecutionPayloadHash)
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
-    self.dag.markBlockVerified(self.quarantine[], newHead.root)
+    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
-    self.dag.markBlockInvalid(newHead.root)
-    self.quarantine[].addUnviable(newHead.root)
+    self.dag.markBlockInvalid(newHead.blck.root)
+    self.quarantine[].addUnviable(newHead.blck.root)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
-    self.dag.optimisticRoots.incl newHead.root
+    self.dag.optimisticRoots.incl newHead.blck.root
 
 proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
   ## Trigger fork choice and update the DAG with the new head block
@@ -176,13 +178,13 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
       head = shortLog(self.dag.head), wallSlot
     return
 
-  if self.dag.loadExecutionBlockRoot(newHead).isZero:
+  if self.dag.loadExecutionBlockRoot(newHead.blck).isZero:
     # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(self.quarantine[], newHead.root)
+    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
 
-  self.updateHead(newHead)
+  self.updateHead(newHead.blck)
 
-proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BlockRef)
+proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BeaconHead)
     {.async.} =
   ## Trigger fork choice and update the DAG with the new head block
   ## This does not automatically prune the DAG after finalization
@@ -195,7 +197,7 @@ proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BlockRef)
 
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized
-    self.dag.updateHead(newHead, self.quarantine[])
+    self.dag.updateHead(newHead.blck, self.quarantine[])
 
     self[].checkExpectedBlock()
   except CatchableError as exc:

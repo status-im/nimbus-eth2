@@ -733,26 +733,55 @@ func getAggregatedAttestation*(pool: var AttestationPool,
 
   res
 
+type BeaconHead* = object
+  blck*: BlockRef
+  safeExecutionPayloadHash*, finalizedExecutionPayloadHash*: Eth2Digest
+
+proc getBeaconHead*(
+    pool: var AttestationPool, headBlock: BlockRef): BeaconHead =
+  let
+    finalizedExecutionPayloadHash =
+      pool.dag.loadExecutionBlockRoot(pool.dag.finalizedHead.blck)
+
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/fork_choice/safe-block.md#get_safe_execution_payload_hash
+    safeBlockRoot = pool.forkChoice.get_safe_beacon_block_root()
+    safeBlock = pool.dag.getBlockRef(safeBlockRoot)
+    safeExecutionPayloadHash =
+      if safeBlock.isErr:
+        # Safe block is currently the justified block determined by fork choice.
+        # If finality already advanced beyond the current justified checkpoint,
+        # e.g., because we have selected a head that did not yet realize the cp,
+        # the justified block may end up not having a `BlockRef` anymore.
+        # Because we know that a different fork already finalized a later point,
+        # let's just report the finalized execution payload hash instead.
+        finalizedExecutionPayloadHash
+      else:
+        pool.dag.loadExecutionBlockRoot(safeBlock.get)
+
+  BeaconHead(
+    blck: headBlock,
+    safeExecutionPayloadHash: safeExecutionPayloadHash,
+    finalizedExecutionPayloadHash: finalizedExecutionPayloadHash)
+
 proc selectOptimisticHead*(
-    pool: var AttestationPool, wallTime: BeaconTime): Opt[BlockRef] =
+    pool: var AttestationPool, wallTime: BeaconTime): Opt[BeaconHead] =
   ## Trigger fork choice and returns the new head block.
-  ## Can return `nil`
   # TODO rename this to get_optimistic_head
-  let newHead = pool.forkChoice.get_head(pool.dag, wallTime)
+  let newHeadRoot = pool.forkChoice.get_head(pool.dag, wallTime)
+  if newHeadRoot.isErr:
+    error "Couldn't select head", err = newHeadRoot.error
+    return err()
 
-  if newHead.isErr:
-    error "Couldn't select head", err = newHead.error
-    err()
-  else:
-    let ret = pool.dag.getBlockRef(newHead.get())
-    if ret.isErr():
-      # This should normally not happen, but if the chain dag and fork choice
-      # get out of sync, we'll need to try to download the selected head - in
-      # the meantime, return nil to indicate that no new head was chosen
-      warn "Fork choice selected unknown head, trying to sync", root = newHead.get()
-      pool.quarantine[].addMissing(newHead.get())
+  let headBlock = pool.dag.getBlockRef(newHeadRoot.get()).valueOr:
+    # This should normally not happen, but if the chain dag and fork choice
+    # get out of sync, we'll need to try to download the selected head - in
+    # the meantime, return nil to indicate that no new head was chosen
+    warn "Fork choice selected unknown head, trying to sync",
+      root = newHeadRoot.get()
+    pool.quarantine[].addMissing(newHeadRoot.get())
+    return err()
 
-    ret
+  ok pool.getBeaconHead(headBlock)
 
 proc prune*(pool: var AttestationPool) =
   if (let v = pool.forkChoice.prune(); v.isErr):

@@ -172,25 +172,24 @@ from ../eth1/eth1_monitor import
   Eth1Monitor, asEngineExecutionPayload, ensureDataProvider, newPayload
 
 proc expectValidForkchoiceUpdated(
-    eth1Monitor: Eth1Monitor, headBlockRoot, finalizedBlockRoot: Eth2Digest):
-    Future[void] {.async.} =
+    eth1Monitor: Eth1Monitor,
+    headBlockRoot, safeBlockRoot, finalizedBlockRoot: Eth2Digest
+): Future[void] {.async.} =
   let payloadExecutionStatus =
-    await eth1Monitor.runForkchoiceUpdated(headBlockRoot, finalizedBlockRoot)
+    await eth1Monitor.runForkchoiceUpdated(
+      headBlockRoot, safeBlockRoot, finalizedBlockRoot)
   if payloadExecutionStatus != PayloadExecutionStatus.valid:
     # Only called when expecting this to be valid because `newPayload` or some
     # previous `forkchoiceUpdated` had already marked it as valid.
     warn "expectValidForkchoiceUpdate: forkChoiceUpdated not `VALID`",
-      payloadExecutionStatus,
-      headBlockRoot,
-      finalizedBlockRoot
+      payloadExecutionStatus, headBlockRoot, safeBlockRoot, finalizedBlockRoot
 
 from ../consensus_object_pools/attestation_pool import
-  addForkChoice, selectOptimisticHead
+  addForkChoice, selectOptimisticHead, BeaconHead
 from ../consensus_object_pools/blockchain_dag import
   is_optimistic, loadExecutionBlockRoot, markBlockVerified
 from ../consensus_object_pools/block_dag import shortLog
 from ../consensus_object_pools/spec_cache import get_attesting_indices
-from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
 
 proc storeBlock*(
     self: var BlockProcessor,
@@ -234,7 +233,7 @@ proc storeBlock*(
 
     withState(dag[].clearanceState):
       when stateFork >= BeaconStateFork.Altair and
-          Trusted isnot phase0.TrustedSignedBeaconBlock: # altair+
+          Trusted.toFork >= BeaconBlockFork.Altair:
         for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():
           vm[].registerSyncAggregateInBlock(
             trustedBlock.message.slot, trustedBlock.root,
@@ -293,20 +292,20 @@ proc storeBlock*(
         wallSlot.start_beacon_time)
 
   if newHead.isOk:
-    let executionHeadRoot =
-      self.consensusManager.dag.loadExecutionBlockRoot(newHead.get)
-    if executionHeadRoot.isZero:
+    let headExecutionPayloadHash =
+      self.consensusManager.dag.loadExecutionBlockRoot(newHead.get.blck)
+    if headExecutionPayloadHash.isZero:
       # Blocks without execution payloads can't be optimistic.
-      self.consensusManager[].updateHead(newHead.get)
-    elif not self.consensusManager.dag.is_optimistic newHead.get.root:
+      self.consensusManager[].updateHead(newHead.get.blck)
+    elif not self.consensusManager.dag.is_optimistic newHead.get.blck.root:
       # Not `NOT_VALID`; either `VALID` or `INVALIDATED`, but latter wouldn't
       # be selected as head, so `VALID`. `forkchoiceUpdated` necessary for EL
       # client only.
-      self.consensusManager[].updateHead(newHead.get)
+      self.consensusManager[].updateHead(newHead.get.blck)
       asyncSpawn self.consensusManager.eth1Monitor.expectValidForkchoiceUpdated(
-        executionHeadRoot,
-        self.consensusManager.dag.loadExecutionBlockRoot(
-          self.consensusManager.dag.finalizedHead.blck))
+        headExecutionPayloadHash,
+        newHead.get.safeExecutionPayloadHash,
+        newHead.get.finalizedExecutionPayloadHash)
     else:
       asyncSpawn self.consensusManager.updateHeadWithExecution(newHead.get)
   else:

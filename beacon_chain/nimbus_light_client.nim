@@ -86,6 +86,7 @@ programMain:
               # engine_forkchoiceUpdatedV1
               discard await eth1Monitor.runForkchoiceUpdated(
                 headBlockRoot = payload.block_hash,
+                safeBlockRoot = ZERO_HASH,
                 finalizedBlockRoot = ZERO_HASH)
         else: discard
       return
