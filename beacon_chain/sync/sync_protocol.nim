@@ -30,7 +30,7 @@ const
   blockResponseCost = allowedOpsPerSecondCost(100)
   blockByRangeLookupCost = allowedOpsPerSecondCost(20)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/p2p-interface.md#configuration
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
   lightClientEmptyResponseCost = allowedOpsPerSecondCost(50)
   lightClientBootstrapLookupCost = allowedOpsPerSecondCost(5)
@@ -544,7 +544,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
   proc lightClientBootstrap(
       peer: Peer,
       blockRoot: Eth2Digest,
@@ -572,7 +572,7 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "LC bootstrap request done", peer, blockRoot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
   proc lightClientUpdatesByRange(
       peer: Peer,
       startPeriod: SyncCommitteePeriod,
@@ -614,7 +614,7 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "LC updates by range request done", peer, startPeriod, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
   proc lightClientFinalityUpdate(
       peer: Peer,
       response: SingleChunkResponse[altair.LightClientFinalityUpdate])
@@ -640,7 +640,7 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "LC finality update request done", peer
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
   proc lightClientOptimisticUpdate(
       peer: Peer,
       response: SingleChunkResponse[altair.LightClientOptimisticUpdate])

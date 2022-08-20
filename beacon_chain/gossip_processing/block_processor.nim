@@ -474,7 +474,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
                self.consensusManager.eth1Monitor, executionPayload)
 
              if executionPayloadStatus.isNone:
-               # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/sync/optimistic.md#execution-engine-errors
+               # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#execution-engine-errors
                if not blck.resfut.isNil:
                  blck.resfut.complete(
                    Result[void, BlockError].err(BlockError.MissingParent))
@@ -484,7 +484,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
            except CatchableError as err:
              error "runQueueProcessingLoop: newPayload failed",
                err = err.msg
-             # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/sync/optimistic.md#execution-engine-errors
+             # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#execution-engine-errors
              if not blck.resfut.isNil:
                blck.resfut.complete(
                  Result[void, BlockError].err(BlockError.MissingParent))
