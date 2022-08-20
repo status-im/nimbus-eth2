@@ -17,7 +17,7 @@ import
 logScope: topics = "beacnde"
 
 func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
-  # Check whether light client is used
+  # Check whether light client is used for syncing
   let optimisticHeader = node.lightClient.optimisticHeader.valueOr:
     return false
 
