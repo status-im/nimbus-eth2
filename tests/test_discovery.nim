@@ -294,18 +294,30 @@ suite "Discovery fork ID":
     check:  # isCompatibleForkId(ourForkId, peerForkId)
       isCompatibleForkId(phase0ForkId, phase0ForkId)
       isCompatibleForkId(phase0ForkId, phase0AltairForkId)
-      not isCompatibleForkId(phase0AltairForkId, phase0ForkId)  # fork -1 epoch
       not isCompatibleForkId(phase0ForkId, altairForkId)
-      not isCompatibleForkId(altairForkId, phase0ForkId)
       not isCompatibleForkId(phase0ForkId, altairBellatrixForkId)
-      not isCompatibleForkId(altairBellatrixForkId, phase0ForkId)
       not isCompatibleForkId(phase0ForkId, bellatrixForkId)
-      not isCompatibleForkId(bellatrixForkId, phase0ForkId)
 
+      not isCompatibleForkId(phase0AltairForkId, phase0ForkId)  # fork -1 epoch
+      isCompatibleForkId(phase0AltairForkId, phase0AltairForkId)
+      not isCompatibleForkId(phase0AltairForkId, altairForkId)
+      not isCompatibleForkId(phase0AltairForkId, altairBellatrixForkId)
+      not isCompatibleForkId(phase0AltairForkId, bellatrixForkId)
+
+      not isCompatibleForkId(altairForkId, phase0ForkId)
+      not isCompatibleForkId(altairForkId, phase0AltairForkId)
       isCompatibleForkId(altairForkId, altairForkId)
       isCompatibleForkId(altairForkId, altairBellatrixForkId)
-      not isCompatibleForkId(altairBellatrixForkId, altairForkId)  # fork -1 ep
       not isCompatibleForkId(altairForkId, bellatrixForkId)
-      not isCompatibleForkId(bellatrixForkId, altairForkId)
 
+      not isCompatibleForkId(altairBellatrixForkId, phase0ForkId)
+      not isCompatibleForkId(altairBellatrixForkId, phase0AltairForkId)
+      not isCompatibleForkId(altairBellatrixForkId, altairForkId)  # fork -1 ep
+      isCompatibleForkId(altairBellatrixForkId, altairBellatrixForkId)
+      not isCompatibleForkId(altairBellatrixForkId, bellatrixForkId)
+
+      not isCompatibleForkId(bellatrixForkId, phase0ForkId)
+      not isCompatibleForkId(bellatrixForkId, phase0AltairForkId)
+      not isCompatibleForkId(bellatrixForkId, altairForkId)
+      not isCompatibleForkId(bellatrixForkId, altairBellatrixForkId)
       isCompatibleForkId(bellatrixForkId, bellatrixForkId)
