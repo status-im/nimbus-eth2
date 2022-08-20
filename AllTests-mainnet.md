@@ -126,6 +126,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Missing Authorization header [Preset: mainnet]                                             OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## Discovery fork ID
+```diff
++ Expected fork IDs                                                                          OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Diverging hardforks
 ```diff
 + Non-tail block in common                                                                   OK
@@ -587,4 +592,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 328/333 Fail: 0/333 Skip: 5/333
+OK: 329/334 Fail: 0/334 Skip: 5/334

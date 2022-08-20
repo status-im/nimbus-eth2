@@ -215,72 +215,97 @@ suite "Discovery fork ID":
     cfg.ALTAIR_FORK_EPOCH = 5.Epoch
     cfg.BELLATRIX_FORK_EPOCH = 10.Epoch
 
-    # Phase 0
-    for epoch in GENESIS_EPOCH ..< cfg.ALTAIR_FORK_EPOCH - 1:
-      let
-        current_fork_version = cfg.GENESIS_FORK_VERSION
-        next_fork_version = current_fork_version
-        fork_digest = compute_fork_digest(
-          current_fork_version, genesis_validators_root)
+    let
+      # Phase 0
+      phase0ForkId = block:
+        let
+          current_fork_version = cfg.GENESIS_FORK_VERSION
+          next_fork_version = current_fork_version
+          fork_digest = compute_fork_digest(
+            current_fork_version, genesis_validators_root)
+          forkId = ENRForkID(
+            fork_digest: fork_digest,
+            next_fork_version: next_fork_version,
+            next_fork_epoch: FAR_FUTURE_EPOCH)
+        for epoch in GENESIS_EPOCH ..< cfg.ALTAIR_FORK_EPOCH - 1:
+          check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
+        forkId
 
-      check cfg.getDiscoveryForkID(epoch, genesis_validators_root) ==
-        ENRForkID(
-          fork_digest: fork_digest,
-          next_fork_version: next_fork_version,
-          next_fork_epoch: FAR_FUTURE_EPOCH)
+      # Altair should become visible 1 epoch before the fork
+      phase0AltairForkId = block:
+        let
+          current_fork_version = cfg.GENESIS_FORK_VERSION
+          next_fork_version = cfg.ALTAIR_FORK_VERSION
+          fork_digest = compute_fork_digest(
+            current_fork_version, genesis_validators_root)
+          forkId = ENRForkID(
+            fork_digest: fork_digest,
+            next_fork_version: next_fork_version,
+            next_fork_epoch: cfg.ALTAIR_FORK_EPOCH)
+        for epoch in cfg.ALTAIR_FORK_EPOCH - 1 ..< cfg.ALTAIR_FORK_EPOCH:
+          check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
+        forkId
 
-    # Altair should become visible 1 epoch before the fork
-    for epoch in cfg.ALTAIR_FORK_EPOCH - 1 ..< cfg.ALTAIR_FORK_EPOCH:
-      let
-        current_fork_version = cfg.GENESIS_FORK_VERSION
-        next_fork_version = cfg.ALTAIR_FORK_VERSION
-        fork_digest = compute_fork_digest(
-          current_fork_version, genesis_validators_root)
+      # Altair
+      altairForkId = block:
+        let
+          current_fork_version = cfg.ALTAIR_FORK_VERSION
+          next_fork_version = current_fork_version
+          fork_digest = compute_fork_digest(
+            current_fork_version, genesis_validators_root)
+          forkId = ENRForkID(
+            fork_digest: fork_digest,
+            next_fork_version: next_fork_version,
+            next_fork_epoch: FAR_FUTURE_EPOCH)
+        for epoch in cfg.ALTAIR_FORK_EPOCH ..< cfg.BELLATRIX_FORK_EPOCH - 1:
+          check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
+        forkId
 
-      check cfg.getDiscoveryForkID(epoch, genesis_validators_root) ==
-        ENRForkID(
-          fork_digest: fork_digest,
-          next_fork_version: next_fork_version,
-          next_fork_epoch: cfg.ALTAIR_FORK_EPOCH)
+      # Bellatrix should become visible 1 epoch before the fork
+      altairBellatrixForkId = block:
+        let
+          current_fork_version = cfg.ALTAIR_FORK_VERSION
+          next_fork_version = cfg.BELLATRIX_FORK_VERSION
+          fork_digest = compute_fork_digest(
+            current_fork_version, genesis_validators_root)
+          forkId = ENRForkID(
+            fork_digest: fork_digest,
+            next_fork_version: next_fork_version,
+            next_fork_epoch: cfg.BELLATRIX_FORK_EPOCH)
+        for epoch in cfg.BELLATRIX_FORK_EPOCH - 1 ..< cfg.BELLATRIX_FORK_EPOCH:
+          check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
+        forkId
 
-    # Altair
-    for epoch in cfg.ALTAIR_FORK_EPOCH ..< cfg.BELLATRIX_FORK_EPOCH - 1:
-      let
-        current_fork_version = cfg.ALTAIR_FORK_VERSION
-        next_fork_version = current_fork_version
-        fork_digest = compute_fork_digest(
-          current_fork_version, genesis_validators_root)
+      # Bellatrix
+      bellatrixForkId = block:
+        let
+          current_fork_version = cfg.BELLATRIX_FORK_VERSION
+          next_fork_version = current_fork_version
+          fork_digest = compute_fork_digest(
+            current_fork_version, genesis_validators_root)
+          forkId = ENRForkID(
+            fork_digest: fork_digest,
+            next_fork_version: next_fork_version,
+            next_fork_epoch: FAR_FUTURE_EPOCH)
+        for epoch in cfg.BELLATRIX_FORK_EPOCH ..< cfg.BELLATRIX_FORK_EPOCH + 5:
+          check cfg.getDiscoveryForkID(epoch, genesis_validators_root) == forkId
+        forkId
 
-      check cfg.getDiscoveryForkID(epoch, genesis_validators_root) ==
-        ENRForkID(
-          fork_digest: fork_digest,
-          next_fork_version: next_fork_version,
-          next_fork_epoch: FAR_FUTURE_EPOCH)
+    check:  # isCompatibleForkId(ourForkId, peerForkId)
+      isCompatibleForkId(phase0ForkId, phase0ForkId)
+      isCompatibleForkId(phase0ForkId, phase0AltairForkId)
+      not isCompatibleForkId(phase0AltairForkId, phase0ForkId)  # fork -1 epoch
+      not isCompatibleForkId(phase0ForkId, altairForkId)
+      not isCompatibleForkId(altairForkId, phase0ForkId)
+      not isCompatibleForkId(phase0ForkId, altairBellatrixForkId)
+      not isCompatibleForkId(altairBellatrixForkId, phase0ForkId)
+      not isCompatibleForkId(phase0ForkId, bellatrixForkId)
+      not isCompatibleForkId(bellatrixForkId, phase0ForkId)
 
-    # Bellatrix should become visible 1 epoch before the fork
-    for epoch in cfg.BELLATRIX_FORK_EPOCH - 1 ..< cfg.BELLATRIX_FORK_EPOCH:
-      let
-        current_fork_version = cfg.ALTAIR_FORK_VERSION
-        next_fork_version = cfg.BELLATRIX_FORK_VERSION
-        fork_digest = compute_fork_digest(
-          current_fork_version, genesis_validators_root)
+      isCompatibleForkId(altairForkId, altairForkId)
+      isCompatibleForkId(altairForkId, altairBellatrixForkId)
+      not isCompatibleForkId(altairBellatrixForkId, altairForkId)  # fork -1 ep
+      not isCompatibleForkId(altairForkId, bellatrixForkId)
+      not isCompatibleForkId(bellatrixForkId, altairForkId)
 
-      check cfg.getDiscoveryForkID(epoch, genesis_validators_root) ==
-        ENRForkID(
-          fork_digest: fork_digest,
-          next_fork_version: next_fork_version,
-          next_fork_epoch: cfg.BELLATRIX_FORK_EPOCH)
-
-    # Bellatrix
-    for epoch in cfg.BELLATRIX_FORK_EPOCH ..< cfg.BELLATRIX_FORK_EPOCH + 5:
-      let
-        current_fork_version = cfg.BELLATRIX_FORK_VERSION
-        next_fork_version = current_fork_version
-        fork_digest = compute_fork_digest(
-          current_fork_version, genesis_validators_root)
-
-      check cfg.getDiscoveryForkID(epoch, genesis_validators_root) ==
-        ENRForkID(
-          fork_digest: fork_digest,
-          next_fork_version: next_fork_version,
-          next_fork_epoch: FAR_FUTURE_EPOCH)
+      isCompatibleForkId(bellatrixForkId, bellatrixForkId)
