@@ -166,10 +166,14 @@ proc updateExecutionClientHead(
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
     self.dag.optimisticRoots.incl newHead.root
 
-proc updateHead*(self: ref ConsensusManager, wallSlot: Slot) {.async.} =
+proc updateHeadAsync*(
+    self: ref ConsensusManager, wallSlot: Slot,
+    didCompleteSynchronously: ref bool = nil) {.async.} =
   ## Trigger fork choice and update the DAG with the new head block.
   ## This does not automatically prune the DAG after finalization
   ## `pruneFinalized` must be called for pruning.
+  if didCompleteSynchronously != nil:
+    doAssert didCompleteSynchronously[], "Set to true on call"
 
   # Grab the new head according to our latest attestation data; determines how
   # async this needs to be.
@@ -199,12 +203,25 @@ proc updateHead*(self: ref ConsensusManager, wallSlot: Slot) {.async.} =
       debug "updateExecutionClientHead error", error = exc.msg
   else:
     try:
+      if didCompleteSynchronously != nil:
+        didCompleteSynchronously[] = false
       await self.updateExecutionClientHead(newHead, wasValidBefore = false)
       self.dag.updateHead(newHead, self.quarantine[])  # Depends on EL info
     except CatchableError as exc:
       debug "updateExecutionClientHead error", error = exc.msg
 
   self[].checkExpectedBlock()
+
+proc updateHead*(self: ref ConsensusManager, wallSlot: Slot) =
+  # If a known to be valid block is imported, `doUpdateHead` is expected
+  # to return synchronously without inducing unnecessary delays in the caller.
+  # This wrapper checks that a `async` method only leads to scheduling delays
+  # if it actually reaches a suspension point.
+  let didCompleteSynchronously = new bool
+  didCompleteSynchronously[] = true
+  let fut = self.updateHeadAsync(wallSlot, didCompleteSynchronously)
+  doAssert fut.finished or not didCompleteSynchronously[]
+  asyncSpawn fut
 
 proc pruneStateCachesAndForkChoice*(self: var ConsensusManager) =
   ## Prune unneeded and invalidated data after finalization

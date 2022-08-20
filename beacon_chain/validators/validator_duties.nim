@@ -1415,7 +1415,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
         await sleepAsync(afterBlockCutoff.offset)
 
     # Time passed - we might need to select a new head in that case
-    asyncSpawn node.consensusManager.updateHead(slot)
+    node.consensusManager.updateHead(slot)
     head = node.dag.head
 
   static: doAssert attestationSlotOffset == syncCommitteeMessageSlotOffset

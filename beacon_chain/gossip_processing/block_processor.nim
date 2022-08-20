@@ -267,7 +267,7 @@ proc storeBlock*(
     self.consensusManager.dag.markBlockVerified(
       self.consensusManager.quarantine[], signedBlock.root)
 
-  asyncSpawn self.consensusManager.updateHead(wallTime.slotOrZero)
+  self.consensusManager.updateHead(wallTime.slotOrZero)
 
   let
     updateHeadTick = Moment.now()
