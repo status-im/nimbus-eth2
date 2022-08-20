@@ -1343,7 +1343,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   if node.config.strictVerification:
     verifyFinalization(node, wallSlot)
 
-  node.consensusManager[].updateHead(wallSlot)
+  asyncSpawn node.consensusManager.updateHead(wallSlot)
 
   await node.handleValidatorDuties(lastSlot, wallSlot)
 

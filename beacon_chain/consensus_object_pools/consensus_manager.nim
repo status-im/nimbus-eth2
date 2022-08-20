@@ -127,22 +127,35 @@ proc runForkchoiceUpdated*(
       err = err.msg
     return PayloadExecutionStatus.syncing
 
-proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BlockRef)
-    {.async.} =
+proc updateExecutionClientHead(
+    self: ref ConsensusManager,
+    newHead: BlockRef,
+    wasValidBefore: bool) {.async.} =
   if self.eth1Monitor.isNil:
     return
 
-  let executionHeadRoot = self.dag.loadExecutionBlockRoot(newHead)
+  let
+    # Can't use dag.head here because it hasn't necessarily been updated yet
+    executionHeadRoot =
+      self.dag.loadExecutionBlockRoot(newHead)
+    finalizedBlockRoot =
+      self.dag.loadExecutionBlockRoot(self.dag.finalizedHead.blck)
 
-  if executionHeadRoot.isZero:
-    # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(self.quarantine[], newHead.root)
+    payloadExecutionStatus =
+      if executionHeadRoot.isZero:
+        # Blocks without execution payloads can't be optimistic.
+        PayloadExecutionStatus.valid
+      else:
+        await self.eth1Monitor.runForkchoiceUpdated(
+          executionHeadRoot, finalizedBlockRoot)
+
+  if wasValidBefore:
+    # Already marked as valid (`newPayload` / earlier `forkchoiceUpdated`)
+    if payloadExecutionStatus != PayloadExecutionStatus.valid:
+      warn "updateExecutionClientHead: forkChoiceUpdated not `VALID`",
+        payloadExecutionStatus, executionHeadRoot, finalizedBlockRoot
+      doAssert strictVerification notin self.dag.updateFlags
     return
-
-  # Can't use dag.head here because it hasn't been updated yet
-  let payloadExecutionStatus = await self.eth1Monitor.runForkchoiceUpdated(
-    executionHeadRoot,
-    self.dag.loadExecutionBlockRoot(self.dag.finalizedHead.blck))
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
@@ -153,54 +166,45 @@ proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BlockRef)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
     self.dag.optimisticRoots.incl newHead.root
 
-proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
-  ## Trigger fork choice and update the DAG with the new head block
+proc updateHead*(self: ref ConsensusManager, wallSlot: Slot) {.async.} =
+  ## Trigger fork choice and update the DAG with the new head block.
   ## This does not automatically prune the DAG after finalization
   ## `pruneFinalized` must be called for pruning.
 
-  # Store the new head in the chain DAG - this may cause epochs to be
-  # justified and finalized
-  self.dag.updateHead(newHead, self.quarantine[])
-
-  self.checkExpectedBlock()
-
-proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
-  ## Trigger fork choice and update the DAG with the new head block
-  ## This does not automatically prune the DAG after finalization
-  ## `pruneFinalized` must be called for pruning.
-
-  # Grab the new head according to our latest attestation data
+  # Grab the new head according to our latest attestation data; determines how
+  # async this needs to be.
   let newHead = self.attestationPool[].selectOptimisticHead(
       wallSlot.start_beacon_time).valueOr:
     warn "Head selection failed, using previous head",
       head = shortLog(self.dag.head), wallSlot
     return
 
+  # Store the new head in the chain DAG - this may cause epochs to be
+  # justified and finalized.
+  # Three general scenarios: (1) pre-merge; (2) merge, already `VALID` by way
+  # of `newPayload`; (3) optimistically imported, need to call fcU before DAG
+  # updateHead. Handle each with as little async latency as feasible.
   if self.dag.loadExecutionBlockRoot(newHead).isZero:
     # Blocks without execution payloads can't be optimistic.
     self.dag.markBlockVerified(self.quarantine[], newHead.root)
-
-  self.updateHead(newHead)
-
-proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BlockRef)
-    {.async.} =
-  ## Trigger fork choice and update the DAG with the new head block
-  ## This does not automatically prune the DAG after finalization
-  ## `pruneFinalized` must be called for pruning.
-
-  # Grab the new head according to our latest attestation data
-  try:
-    # Ensure dag.updateHead has most current information
-    await self.updateExecutionClientHead(newHead)
-
-    # Store the new head in the chain DAG - this may cause epochs to be
-    # justified and finalized
     self.dag.updateHead(newHead, self.quarantine[])
+  elif not self.dag.is_optimistic newHead.root:
+    # Not `NOT_VALID`; either `VALID` or `INVALIDATED`, but latter wouldn't
+    # be selected as head, so `VALID`. `forkchoiceUpdated` necessary for EL
+    # client only.
+    self.dag.updateHead(newHead, self.quarantine[])  # EL already verified
+    try:
+      asyncSpawn self.updateExecutionClientHead(newHead, wasValidBefore = true)
+    except CatchableError as exc:
+      debug "updateExecutionClientHead error", error = exc.msg
+  else:
+    try:
+      await self.updateExecutionClientHead(newHead, wasValidBefore = false)
+      self.dag.updateHead(newHead, self.quarantine[])  # Depends on EL info
+    except CatchableError as exc:
+      debug "updateExecutionClientHead error", error = exc.msg
 
-    self[].checkExpectedBlock()
-  except CatchableError as exc:
-    debug "updateHeadWithExecution error",
-      error = exc.msg
+  self[].checkExpectedBlock()
 
 proc pruneStateCachesAndForkChoice*(self: var ConsensusManager) =
   ## Prune unneeded and invalidated data after finalization

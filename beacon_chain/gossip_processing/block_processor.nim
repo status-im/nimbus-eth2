@@ -17,7 +17,7 @@ import
   ../sszdump
 
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, runForkchoiceUpdated, updateHead, updateHeadWithExecution
+  ConsensusManager, updateHead
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, slot
 from ../consensus_object_pools/block_pools_types import BlockError, EpochRef
@@ -170,20 +170,6 @@ proc storeBackfillBlock(
 from web3/engine_api_types import PayloadExecutionStatus, PayloadStatusV1
 from ../eth1/eth1_monitor import
   Eth1Monitor, asEngineExecutionPayload, ensureDataProvider, newPayload
-
-proc expectValidForkchoiceUpdated(
-    eth1Monitor: Eth1Monitor, headBlockRoot, finalizedBlockRoot: Eth2Digest):
-    Future[void] {.async.} =
-  let payloadExecutionStatus =
-    await eth1Monitor.runForkchoiceUpdated(headBlockRoot, finalizedBlockRoot)
-  if payloadExecutionStatus != PayloadExecutionStatus.valid:
-    # Only called when expecting this to be valid because `newPayload` or some
-    # previous `forkchoiceUpdated` had already marked it as valid.
-    warn "expectValidForkchoiceUpdate: forkChoiceUpdated not `VALID`",
-      payloadExecutionStatus,
-      headBlockRoot,
-      finalizedBlockRoot
-
 from ../consensus_object_pools/attestation_pool import
   addForkChoice, selectOptimisticHead
 from ../consensus_object_pools/blockchain_dag import
@@ -276,42 +262,12 @@ proc storeBlock*(
   # storeBlock gets called from validator_duties, which depends on its not
   # blocking progress any longer than necessary, and processBlock here, in
   # which case it's fine to await for a while on engine API results.
-  #
-  # Three general scenarios: (1) pre-merge; (2) merge, already `VALID` by way
-  # of `newPayload`; (3) optimistically imported, need to call fcU before DAG
-  # updateHead. Handle each with as little async latency as feasible.
 
   if payloadValid:
     self.consensusManager.dag.markBlockVerified(
       self.consensusManager.quarantine[], signedBlock.root)
 
-  # Grab the new head according to our latest attestation data; determines how
-  # async this needs to be.
-  let
-    wallSlot = wallTime.slotOrZero
-    newHead = attestationPool[].selectOptimisticHead(
-        wallSlot.start_beacon_time)
-
-  if newHead.isOk:
-    let executionHeadRoot =
-      self.consensusManager.dag.loadExecutionBlockRoot(newHead.get)
-    if executionHeadRoot.isZero:
-      # Blocks without execution payloads can't be optimistic.
-      self.consensusManager[].updateHead(newHead.get)
-    elif not self.consensusManager.dag.is_optimistic newHead.get.root:
-      # Not `NOT_VALID`; either `VALID` or `INVALIDATED`, but latter wouldn't
-      # be selected as head, so `VALID`. `forkchoiceUpdated` necessary for EL
-      # client only.
-      self.consensusManager[].updateHead(newHead.get)
-      asyncSpawn self.consensusManager.eth1Monitor.expectValidForkchoiceUpdated(
-        executionHeadRoot,
-        self.consensusManager.dag.loadExecutionBlockRoot(
-          self.consensusManager.dag.finalizedHead.blck))
-    else:
-      asyncSpawn self.consensusManager.updateHeadWithExecution(newHead.get)
-  else:
-    warn "Head selection failed, using previous head",
-      head = shortLog(self.consensusManager.dag.head), wallSlot
+  asyncSpawn self.consensusManager.updateHead(wallTime.slotOrZero)
 
   let
     updateHeadTick = Moment.now()
