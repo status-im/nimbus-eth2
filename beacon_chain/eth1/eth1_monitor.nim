@@ -94,7 +94,6 @@ type
     cfg: RuntimeConfig
     finalizedBlockHash: Eth2Digest
     finalizedDepositsMerkleizer: DepositsMerkleizer
-
       ## The latest block that reached a 50% majority vote from
       ## the Eth2 validators according to the follow distance and
       ## the ETH1_VOTING_PERIOD
