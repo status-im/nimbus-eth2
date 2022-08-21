@@ -123,10 +123,10 @@ func getENRForkID*(cfg: RuntimeConfig,
     next_fork_epoch: cfg.nextForkEpochAtEpoch(epoch))
 
 func getDiscoveryForkID*(cfg: RuntimeConfig,
-                   epoch: Epoch,
-                   genesis_validators_root: Eth2Digest): ENRForkID =
-  # Until 1 epoch from fork, returns pre-fork value
-  if epoch + 1 >= cfg.ALTAIR_FORK_EPOCH:
+                         epoch: Epoch,
+                         genesis_validators_root: Eth2Digest): ENRForkID =
+  # Until 1 epoch from fork, return pre-fork value.
+  if cfg.nextForkEpochAtEpoch(epoch) - epoch <= 1:
     getENRForkID(cfg, epoch, genesis_validators_root)
   else:
     let
