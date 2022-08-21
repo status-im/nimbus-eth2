@@ -22,7 +22,7 @@ suite "Remove keystore testing suite":
       "remote": "http://127.0.0.1:6000",
       "type": "web3signer"
     }"""
-    let keystore = Json.decode(remoteKeyStores, RemoteKeystore)
+    let keystore = parseRemoteKeystore(remoteKeyStores)
     check keystore.pubkey.toHex == "8b9c875fbe539c6429c4fc304675062579ce47fb6b2ac6b6a1ba1188ca123a80affbfe381dbbc8e7f2437709a4c3325c"
     check keystore.remotes.len == 1
     check $keystore.remotes[0].url == "http://127.0.0.1:6000"
@@ -41,7 +41,7 @@ suite "Remove keystore testing suite":
       ],
       "type": "web3signer"
     }"""
-    let keystore = Json.decode(remoteKeyStores, RemoteKeystore)
+    let keystore = parseRemoteKeystore(remoteKeyStores)
     check keystore.pubkey.toHex == "8b9c875fbe539c6429c4fc304675062579ce47fb6b2ac6b6a1ba1188ca123a80affbfe381dbbc8e7f2437709a4c3325c"
     check keystore.remotes.len == 1
     check $keystore.remotes[0].url == "http://127.0.0.1:6000"

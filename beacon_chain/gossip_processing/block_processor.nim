@@ -398,10 +398,10 @@ from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
 
 proc newExecutionPayload*(
     eth1Monitor: Eth1Monitor, executionPayload: bellatrix.ExecutionPayload):
-    Future[PayloadExecutionStatus] {.async.} =
+    Future[Opt[PayloadExecutionStatus]] {.async.} =
   if eth1Monitor.isNil:
     warn "newPayload: attempting to process execution payload without Eth1Monitor. Ensure --web3-url setting is correct and JWT is configured."
-    return PayloadExecutionStatus.syncing
+    return Opt.none PayloadExecutionStatus
 
   debug "newPayload: inserting block into execution engine",
     parentHash = executionPayload.parent_hash,
@@ -425,7 +425,11 @@ proc newExecutionPayload*(
               executionPayload.asEngineExecutionPayload),
             NEWPAYLOAD_TIMEOUT):
           info "newPayload: newPayload timed out"
+          return Opt.none PayloadExecutionStatus
+
+          # Placeholder for type system
           PayloadStatusV1(status: PayloadExecutionStatus.syncing)
+
       payloadStatus = payloadResponse.status
 
     debug "newPayload: succeeded",
@@ -434,10 +438,10 @@ proc newExecutionPayload*(
       blockNumber = executionPayload.block_number,
       payloadStatus
 
-    return payloadStatus
+    return Opt.some payloadStatus
   except CatchableError as err:
-    debug "newPayload failed", msg = err.msg
-    return PayloadExecutionStatus.syncing
+    error "newPayload failed", msg = err.msg
+    return Opt.none PayloadExecutionStatus
 
 from ../consensus_object_pools/blockchain_dag import
   getBlockRef, loadExecutionBlockRoot, markBlockInvalid
@@ -510,12 +514,21 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
                    doAssert false
                    default(bellatrix.ExecutionPayload) # satisfy Nim
 
-             await newExecutionPayload(
+             let executionPayloadStatus = await newExecutionPayload(
                self.consensusManager.eth1Monitor, executionPayload)
+
+             if executionPayloadStatus.isNone:
+               # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#execution-engine-errors
+               if not blck.resfut.isNil:
+                 blck.resfut.complete(
+                   Result[void, BlockError].err(BlockError.MissingParent))
+               continue
+
+             executionPayloadStatus.get
            except CatchableError as err:
-             info "runQueueProcessingLoop: newPayload failed",
+             error "runQueueProcessingLoop: newPayload failed",
                err = err.msg
-             # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#execution-engine-errors
+             # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#execution-engine-errors
              if not blck.resfut.isNil:
                blck.resfut.complete(
                  Result[void, BlockError].err(BlockError.MissingParent))

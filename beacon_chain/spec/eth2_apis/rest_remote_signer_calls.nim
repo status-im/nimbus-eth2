@@ -53,11 +53,9 @@ declareCounter nbc_remote_signer_unknown_responses,
 declareCounter nbc_remote_signer_communication_errors,
   "Number of communication errors"
 
-const delayBuckets = [0.050, 0.100, 0.500, 1.0, 5.0, 10.0]
-
 declareHistogram nbc_remote_signer_time,
   "Time(s) used to generate signature usign remote signer",
-   buckets = delayBuckets
+   buckets = [0.050, 0.100, 0.500, 1.0, 5.0, 10.0]
 
 proc getUpcheck*(): RestResponse[Web3SignerStatusResponse] {.
      rest, endpoint: "/upcheck",

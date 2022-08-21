@@ -77,7 +77,7 @@ export
   tables, results, json_serialization, timer, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.2.0-rc.2"
+const SPEC_VERSION* = "1.2.0-rc.3"
 ## Spec version we're aiming to be compatible with, right now
 
 const
@@ -136,7 +136,7 @@ type
   # ---------------------------------------------------------------
   DomainType* = distinct array[4, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
 
   ValidatorIndex* = distinct uint32
@@ -183,7 +183,7 @@ type
   # SSZ / hashing purposes
   JustificationBits* = distinct uint8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#proposerslashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
@@ -195,7 +195,7 @@ type
     signed_header_1*: TrustedSignedBeaconBlockHeader
     signed_header_2*: TrustedSignedBeaconBlockHeader
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation
     attestation_2*: IndexedAttestation
@@ -207,7 +207,7 @@ type
     attestation_1*: TrustedIndexedAttestation
     attestation_2*: TrustedIndexedAttestation
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#indexedattestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#indexedattestation
   IndexedAttestation* = object
     attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
@@ -223,7 +223,7 @@ type
 
   CommitteeValidatorsBits* = BitList[Limit MAX_VALIDATORS_PER_COMMITTEE]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#attestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -239,17 +239,17 @@ type
 
   ForkDigest* = distinct array[4, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#forkdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#forkdata
   ForkData* = object
     current_version*: Version
     genesis_validators_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#checkpoint
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#checkpoint
   Checkpoint* = object
     epoch*: Epoch
     root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#AttestationData
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#AttestationData
   AttestationData* = object
     slot*: Slot
 
@@ -262,20 +262,20 @@ type
     source*: Checkpoint
     target*: Checkpoint
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#deposit
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#deposit
   Deposit* = object
     proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH + 1, Eth2Digest]
       ## Merkle path to deposit root
 
     data*: DepositData
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#depositmessage
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#depositmessage
   DepositMessage* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#depositdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -284,7 +284,7 @@ type
     # if the deposit should be added or not during processing
     signature*: ValidatorSig  # Signing over DepositMessage
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch
       ## Earliest epoch when voluntary exit can be processed
@@ -312,7 +312,7 @@ type
     pubkey*: CookedPubKey
     withdrawal_credentials*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey
 
@@ -334,7 +334,7 @@ type
     withdrawable_epoch*: Epoch
       ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -343,12 +343,12 @@ type
 
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#fork
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#fork
   Fork* = object
     previous_version*: Version
     current_version*: Version
@@ -356,13 +356,13 @@ type
     epoch*: Epoch
       ## Epoch of latest fork
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#eth1data
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#signedvoluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
     message*: VoluntaryExit
     signature*: ValidatorSig
@@ -371,7 +371,7 @@ type
     message*: VoluntaryExit
     signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
@@ -379,14 +379,14 @@ type
     state_root*: Eth2Digest
     body_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#signingdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#signingdata
   SigningData* = object
     object_root*: Eth2Digest
     domain*: Eth2Domain
 
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#signedbeaconblockheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader
     signature*: ValidatorSig
@@ -418,12 +418,12 @@ type
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
     # This is a validator without the expensive, immutable, append-only parts
     # serialized. They're represented in memory to allow in-place SSZ reading
@@ -514,7 +514,7 @@ type
     flags*: set[RewardFlags]
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#domain-types
   DOMAIN_BEACON_PROPOSER* = DomainType([byte 0x00, 0x00, 0x00, 0x00])
   DOMAIN_BEACON_ATTESTER* = DomainType([byte 0x01, 0x00, 0x00, 0x00])
   DOMAIN_RANDAO* = DomainType([byte 0x02, 0x00, 0x00, 0x00])
@@ -524,7 +524,7 @@ const
   DOMAIN_AGGREGATE_AND_PROOF* = DomainType([byte 0x06, 0x00, 0x00, 0x00])
   DOMAIN_APPLICATION_MASK* = DomainType([byte 0x00, 0x00, 0x00, 0x01])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#domain-types
   DOMAIN_SYNC_COMMITTEE* = DomainType([byte 0x07, 0x00, 0x00, 0x00])
   DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF* = DomainType([byte 0x08, 0x00, 0x00, 0x00])
   DOMAIN_CONTRIBUTION_AND_PROOF* = DomainType([byte 0x09, 0x00, 0x00, 0x00])

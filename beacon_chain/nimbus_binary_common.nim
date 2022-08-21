@@ -17,9 +17,10 @@ import
   std/[tables, strutils, terminal, typetraits],
 
   # Nimble packages
-  chronos, confutils, toml_serialization,
+  chronos, confutils, presto, toml_serialization,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2,
+  presto,
 
   # Local modules
   ./spec/[helpers],
@@ -313,3 +314,95 @@ proc runSlotLoop*[T](node: T, startTime: BeaconTime,
     curSlot = wallSlot
     nextSlot = wallSlot + 1
     timeToNextSlot = nextSlot.start_beacon_time() - node.beaconClock.now()
+
+proc init*(T: type RestServerRef,
+           ip: ValidIpAddress,
+           port: Port,
+           allowedOrigin: Option[string],
+           validateFn: PatternCallback,
+           config: AnyConf): T =
+  let address = initTAddress(ip, port)
+  let serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
+                     HttpServerFlags.NotifyDisconnect}
+  # We increase default timeout to help validator clients who poll our server
+  # at least once per slot (12.seconds).
+  let
+    headersTimeout =
+      if config.restRequestTimeout == 0:
+        chronos.InfiniteDuration
+      else:
+        seconds(int64(config.restRequestTimeout))
+    maxHeadersSize = config.restMaxRequestHeadersSize * 1024
+    maxRequestBodySize = config.restMaxRequestBodySize * 1024
+
+  let res = try:
+    RestServerRef.new(RestRouter.init(validateFn),
+                      address, serverFlags = serverFlags,
+                      httpHeadersTimeout = headersTimeout,
+                      maxHeadersSize = maxHeadersSize,
+                      maxRequestBodySize = maxRequestBodySize)
+  except CatchableError as err:
+    notice "Rest server could not be started", address = $address,
+           reason = err.msg
+    return nil
+
+  if res.isErr():
+    notice "Rest server could not be started", address = $address,
+           reason = res.error()
+    nil
+  else:
+    notice "Starting REST HTTP server",
+      url = "http://" & $ip & ":" & $port & "/"
+
+    res.get()
+
+type
+  KeymanagerInitResult* = object
+    server*: RestServerRef
+    token*: string
+
+proc initKeymanagerServer*(
+    config: AnyConf,
+    existingRestServer: RestServerRef = nil): KeymanagerInitResult
+    {.raises: [Defect].} =
+
+  var token: string
+  let keymanagerServer = if config.keymanagerEnabled:
+    if config.keymanagerTokenFile.isNone:
+      echo "To enable the Keymanager API, you must also specify " &
+           "the --keymanager-token-file option."
+      quit 1
+
+    let
+      tokenFilePath = config.keymanagerTokenFile.get.string
+      tokenFileReadRes = readAllChars(tokenFilePath)
+
+    if tokenFileReadRes.isErr:
+      fatal "Failed to read the keymanager token file",
+            error = $tokenFileReadRes.error
+      quit 1
+
+    token = tokenFileReadRes.value.strip
+    if token.len == 0:
+      fatal "The keymanager token should not be empty", tokenFilePath
+      quit 1
+
+    when config is BeaconNodeConf:
+      if existingRestServer != nil and
+         config.restAddress == config.keymanagerAddress and
+        config.restPort == config.keymanagerPort:
+        existingRestServer
+      else:
+        RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
+                           config.keymanagerAllowedOrigin,
+                           validateKeymanagerApiQueries,
+                           config)
+    else:
+      RestServerRef.init(config.keymanagerAddress, config.keymanagerPort,
+                         config.keymanagerAllowedOrigin,
+                         validateKeymanagerApiQueries,
+                         config)
+  else:
+    nil
+
+  KeymanagerInitResult(server: keymanagerServer, token: token)

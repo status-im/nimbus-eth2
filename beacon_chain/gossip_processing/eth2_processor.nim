@@ -10,10 +10,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-# References to `vFuture` refer to the pre-release proposal of the libp2p based
-# light client sync protocol. Conflicting release versions are not in use.
-# https://github.com/ethereum/consensus-specs/pull/2802
-
 import
   std/tables,
   stew/results,
@@ -252,11 +248,19 @@ proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # and one should gauge the likelihood of this simultaneous launch to tune
   # the epoch delay to one's perceived risk.
 
-  if self.validatorPool[].count() > 0:
-    const duplicateValidatorEpochs = 2
+  const duplicateValidatorEpochs = 2
 
-    self.doppelgangerDetection.broadcastStartEpoch =
-      slot.epoch + duplicateValidatorEpochs
+  # TODO:
+  # We should switch to a model where this value is set for each validator
+  # as it gets added to the validator pool.
+  # Currently, we set it here because otherwise if the client is started
+  # without any validators, it will remain set to FAR_FUTURE_EPOCH and
+  # any new validators added through the Keymanager API will never get
+  # activated.
+  self.doppelgangerDetection.broadcastStartEpoch =
+    slot.epoch + duplicateValidatorEpochs
+
+  if self.validatorPool[].count() > 0:
     if self.doppelgangerDetectionEnabled:
       notice "Setting up doppelganger detection",
         epoch = slot.epoch,
@@ -562,7 +566,7 @@ proc processSignedContributionAndProof*(
 
     err(v.error())
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var Eth2Processor, src: MsgSource,
     finality_update: altair.LightClientFinalityUpdate
@@ -573,7 +577,7 @@ proc processLightClientFinalityUpdate*(
       self.lightClientPool[], self.dag, finality_update, wallTime)
   v
 
-# https://github.com/ethereum/consensus-specs/blob/vFuture/specs/altair/sync-protocol.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
 proc processLightClientOptimisticUpdate*(
     self: var Eth2Processor, src: MsgSource,
     optimistic_update: altair.LightClientOptimisticUpdate

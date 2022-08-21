@@ -15,7 +15,7 @@ import
   stew/[byteutils], stint, web3/[ethtypes]
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0
   ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 

@@ -188,7 +188,7 @@ type
   MonitoredValidator = object
     id: string # A short id is used above all for metrics
     pubkey: ValidatorPubKey
-    index: Option[ValidatorIndex]
+    index: Opt[ValidatorIndex]
     summaries: array[2, EpochSummary] # We monitor the current and previous epochs
 
   ValidatorMonitor* = object
@@ -222,7 +222,7 @@ proc update_if_lt[T](current: var Option[T], val: T) =
 
 proc addMonitor*(
     self: var ValidatorMonitor, pubkey: ValidatorPubKey,
-    index: Option[ValidatorIndex]) =
+    index: Opt[ValidatorIndex]) =
   if pubkey in self.monitors:
     return
 
@@ -244,9 +244,12 @@ proc addAutoMonitor*(
   if not self.autoRegister:
     return
 
+  if pubkey in self.monitors:
+    return
+
   # automatic monitors must be registered with index - we don't look for them in
   # the state
-  self.addMonitor(pubkey, some(index))
+  self.addMonitor(pubkey, Opt.some(index))
 
   info "Started monitoring validator",
     validator = shortLog(pubkey), pubkey, index
@@ -304,7 +307,6 @@ proc updateEpoch(self: var ValidatorMonitor, epoch: Epoch) =
         metric.observe(
           monitor.summaries[summaryIdx].name.get.toGaugeValue(),
           [if self.totals: total else: monitor.id])
-
 
   setAll(
     validator_monitor_prev_epoch_attestations_total,
@@ -539,7 +541,7 @@ proc registerState*(self: var ValidatorMonitor, state: ForkyBeaconState) =
   # Update indices for the validators we're monitoring
   for v in self.knownValidators..<state.validators.len:
     self.monitors.withValue(state.validators[v].pubkey, monitor):
-      monitor[][].index = some(ValidatorIndex(v))
+      monitor[][].index = Opt.some(ValidatorIndex(v))
       self.indices[uint64(v)] = monitor[]
 
       info "Started monitoring validator",

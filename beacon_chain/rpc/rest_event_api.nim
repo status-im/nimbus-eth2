@@ -102,6 +102,7 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
 
     let res = preferredContentType(textEventStreamMediaType)
+
     if res.isErr():
       return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
     if res.get() != textEventStreamMediaType:

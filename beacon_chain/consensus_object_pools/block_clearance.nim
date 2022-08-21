@@ -88,6 +88,13 @@ proc addResolvedHeadBlock(
   # Update light client data
   dag.processNewBlockForLightClient(state, trustedBlock, parent.bid)
 
+  # Pre-heat the shuffling cache with the shuffling caused by this block - this
+  # is useful for attestation duty lookahead, REST API queries and attestation
+  # validation of untaken forks (in case of instability / multiple heads)
+  if dag.findShufflingRef(blockRef.bid, blockRef.slot.epoch + 1).isNone:
+    dag.putShufflingRef(
+      ShufflingRef.init(state, cache, blockRef.slot.epoch + 1))
+
   if not blockVerified:
     dag.optimisticRoots.incl blockRoot
 

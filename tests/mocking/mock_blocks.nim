@@ -16,7 +16,7 @@ import
 # Routines for mocking blocks
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/tests/core/pyspec/eth2spec/test/helpers/block.py#L26-L35
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/tests/core/pyspec/eth2spec/test/helpers/block.py#L26-L35
 func apply_randao_reveal(state: ForkyBeaconState, blck: var ForkySignedBeaconBlock) =
   doAssert state.slot <= blck.message.slot
   let
@@ -29,7 +29,7 @@ func apply_randao_reveal(state: ForkyBeaconState, blck: var ForkySignedBeaconBlo
     blck.message.slot.epoch,
     privkey).toValidatorSig()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/tests/core/pyspec/eth2spec/test/helpers/block.py#L38-L54
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/tests/core/pyspec/eth2spec/test/helpers/block.py#L38-L54
 func sign_block(state: ForkyBeaconState, blck: var ForkySignedBeaconBlock) =
   let
     proposer_index = blck.message.proposer_index.ValidatorIndex
@@ -43,7 +43,7 @@ func sign_block(state: ForkyBeaconState, blck: var ForkySignedBeaconBlock) =
     blck.root,
     privkey).toValidatorSig()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/tests/core/pyspec/eth2spec/test/helpers/block.py#L75-L104
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/tests/core/pyspec/eth2spec/test/helpers/block.py#L75-L104
 proc mockBlock*(
     state: ForkedHashedBeaconState,
     slot: Slot,
@@ -83,7 +83,7 @@ proc mockBlock*(
 
     sign_block(state.data, blck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/tests/core/pyspec/eth2spec/test/helpers/block.py#L107-L108
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/tests/core/pyspec/eth2spec/test/helpers/block.py#L107-L108
 proc mockBlockForNextSlot*(
     state: ForkedHashedBeaconState): ForkedSignedBeaconBlock =
   ## Mock a BeaconBlock for the next slot

@@ -59,7 +59,7 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
                     validator_index = vindex
             else:
               inc(value.epochsCount)
-              notice "Validator's activity was not seen",
+              debug "Validator's activity was not seen",
                      validator_index = vindex, epoch = epoch,
                      epochs_count = value.epochsCount
 
@@ -104,7 +104,7 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
     if breakLoop:
       break
 
-proc init*(t: typedesc[DoppelgangerServiceRef],
+proc init*(t: type DoppelgangerServiceRef,
            vc: ValidatorClientRef): Future[DoppelgangerServiceRef] {.async.} =
   logScope: service = ServiceName
   let res = DoppelgangerServiceRef(name: ServiceName,

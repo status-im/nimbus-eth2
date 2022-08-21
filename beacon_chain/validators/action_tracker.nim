@@ -225,7 +225,7 @@ func updateActions*(
   let
     epoch = epochRef.epoch
 
-  tracker.attesterDepRoot = epochRef.attester_dependent_root
+  tracker.attesterDepRoot = epochRef.shufflingRef.attester_dependent_root
   tracker.lastCalculatedEpoch = epoch
 
   let validatorIndices = toHashSet(toSeq(tracker.knownValidators.keys()))
@@ -243,7 +243,7 @@ func updateActions*(
   static: doAssert SLOTS_PER_EPOCH <= 32
 
   for (committeeIndex, subnet_id, slot) in
-      get_committee_assignments(epochRef, validatorIndices):
+      get_committee_assignments(epochRef.shufflingRef, validatorIndices):
 
     doAssert epoch(slot) == epoch
 

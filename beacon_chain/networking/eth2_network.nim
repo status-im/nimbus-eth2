@@ -296,11 +296,9 @@ declareGauge nbc_gossipsub_good_fanout,
 declareGauge nbc_gossipsub_healthy_fanout,
   "numbers of topics with dHigh fanout"
 
-const delayBuckets = [1.0, 5.0, 10.0, 20.0, 40.0, 60.0]
-
 declareHistogram nbc_resolve_time,
   "Time(s) used while resolving peer information",
-   buckets = delayBuckets
+   buckets = [1.0, 5.0, 10.0, 20.0, 40.0, 60.0]
 
 const
   libp2p_pki_schemes {.strdefine.} = ""
@@ -2129,7 +2127,7 @@ proc getPersistentNetKeys*(
 func gossipId(
     data: openArray[byte], altairPrefix, topic: string): seq[byte] =
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/p2p-interface.md#topics-and-messages
   const
     MESSAGE_DOMAIN_INVALID_SNAPPY = [0x00'u8, 0x00, 0x00, 0x00]
     MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
@@ -2495,7 +2493,7 @@ proc broadcastAttestation*(
     node: Eth2Node, subnet_id: SubnetId, attestation: Attestation):
     Future[SendResult] =
   # Regardless of the contents of the attestation,
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/p2p-interface.md#transitioning-the-gossip
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/p2p-interface.md#transitioning-the-gossip
   # implies that pre-fork, messages using post-fork digests might be
   # ignored, whilst post-fork, there is effectively a seen_ttl-based
   # timer unsubscription point that means no new pre-fork-forkdigest

@@ -20,7 +20,7 @@ import
   ".."/spec/datatypes/base,
   stew/io2, libp2p/crypto/crypto as lcrypto,
   nimcrypto/utils as ncrutils,
-  ".."/[conf, filepath],
+  ".."/[conf, filepath, beacon_clock],
   ".."/networking/network_metadata,
   ./validator_pool
 
@@ -49,8 +49,6 @@ type
     walletPath*: WalletPathPair
     seed*: KeySeed
 
-  AnyConf* = BeaconNodeConf | ValidatorClientConf | SigningNodeConf
-
   KmResult*[T] = Result[T, cstring]
 
   AnyKeystore* = RemoteKeystore | Keystore
@@ -69,6 +67,20 @@ type
 
   ImportResult*[T] = Result[T, AddValidatorFailure]
 
+  ValidatorPubKeyToIdxFn* =
+    proc (pubkey: ValidatorPubKey): Opt[ValidatorIndex]
+         {.raises: [Defect], gcsafe.}
+
+  KeymanagerHost* = object
+    validatorPool*: ref ValidatorPool
+    rng*: ref HmacDrbgContext
+    keymanagerToken*: string
+    validatorsDir*: string
+    secretsDir*: string
+    defaultFeeRecipient*: Eth1Address
+    getValidatorIdxFn*: ValidatorPubKeyToIdxFn
+    getBeaconTimeFn*: GetBeaconTimeFn
+
 const
   minPasswordLen = 12
   minPasswordEntropy = 60.0
@@ -77,6 +89,38 @@ const
     nimbusSecurityResourcesPath /
       "passwords" / "10-million-password-list-top-100000.txt",
     minWordLen = minPasswordLen)
+
+func init*(T: type KeymanagerHost,
+           validatorPool: ref ValidatorPool,
+           rng: ref HmacDrbgContext,
+           keymanagerToken: string,
+           validatorsDir: string,
+           secretsDir: string,
+           defaultFeeRecipient: Eth1Address,
+           getValidatorIdxFn: ValidatorPubKeyToIdxFn,
+           getBeaconTimeFn: GetBeaconTimeFn): T =
+  T(validatorPool: validatorPool,
+    rng: rng,
+    keymanagerToken: keymanagerToken,
+    validatorsDir: validatorsDir,
+    secretsDir: secretsDir,
+    defaultFeeRecipient: defaultFeeRecipient,
+    getValidatorIdxFn: getValidatorIdxFn,
+    getBeaconTimeFn: getBeaconTimeFn)
+
+proc getValidatorIdx*(host: KeymanagerHost,
+                      pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
+  if host.getValidatorIdxFn != nil:
+    host.getValidatorIdxFn(pubkey)
+  else:
+    Opt.none ValidatorIndex
+
+proc addLocalValidator*(host: KeymanagerHost, keystore: KeystoreData) =
+  let
+    slot = host.getBeaconTimeFn().slotOrZero
+    validatorIdx = host.getValidatorIdx(keystore.pubkey)
+
+  host.validatorPool[].addLocalValidator(keystore, validatorIdx, slot)
 
 proc echoP*(msg: string) =
   ## Prints a paragraph aligned to 80 columns
@@ -89,8 +133,7 @@ func init*(T: type KeystoreData,
   KeystoreData(
     kind: KeystoreKind.Local,
     privateKey: privateKey,
-    description: if keystore.description == nil: none(string)
-                 else: some(keystore.description[]),
+    description: keystore.description,
     path: keystore.path,
     uuid: keystore.uuid,
     handle: handle,
@@ -386,8 +429,7 @@ proc loadRemoteKeystoreImpl(validatorsDir,
       let buffer = gres.get()
       let data =
         try:
-          Json.decode(buffer, RemoteKeystore, requireAllFields = true,
-                      allowUnknownFields = true)
+          parseRemoteKeystore(buffer)
         except SerializationError as e:
           error "Invalid remote keystore file", key_path = keystorePath,
                 error_msg = e.formatMsg(keystorePath)
@@ -432,8 +474,7 @@ proc loadLocalKeystoreImpl(validatorsDir, secretsDir, keyName: string,
         let buffer = gres.get()
         let data =
           try:
-            Json.decode(buffer, Keystore, requireAllFields = true,
-                        allowUnknownFields = true)
+            parseKeystore(buffer)
           except SerializationError as e:
             error "Invalid local keystore file", key_path = keystorePath,
                   error_msg = e.formatMsg(keystorePath)
@@ -552,13 +593,8 @@ proc removeValidatorFiles*(validatorsDir, secretsDir, keyName: string,
 func fsName(pubkey: ValidatorPubKey|CookedPubKey): string =
   "0x" & pubkey.toHex()
 
-proc removeValidatorFiles*(
-       conf: AnyConf, keyName: string,
-       kind: KeystoreKind
-     ): KmResult[RemoveValidatorStatus] {.raises: [Defect].} =
-  removeValidatorFiles(conf.validatorsDir(), conf.secretsDir(), keyName, kind)
-
-proc removeValidator*(pool: var ValidatorPool, conf: AnyConf,
+proc removeValidator*(pool: var ValidatorPool,
+                      validatorsDir, secretsDir: string,
                       publicKey: ValidatorPubKey,
                       kind: KeystoreKind): KmResult[RemoveValidatorStatus] {.
      raises: [Defect].} =
@@ -570,7 +606,7 @@ proc removeValidator*(pool: var ValidatorPool, conf: AnyConf,
   let cres = validator.data.handle.closeLockedFile()
   if cres.isErr():
     return err("Could not unlock validator keystore file")
-  let res = removeValidatorFiles(conf, publicKey.fsName, kind)
+  let res = removeValidatorFiles(validatorsDir, secretsDir, publicKey.fsName, kind)
   if res.isErr():
     return err(res.error())
   pool.removeValidator(publicKey)
@@ -1111,37 +1147,13 @@ proc saveLockedKeystore*(
   let remoteInfo = RemoteSignerInfo(url: url, id: 0)
   saveLockedKeystore(validatorsDir, publicKey, @[remoteInfo], 1)
 
-proc saveKeystore*(
-       conf: AnyConf,
-       publicKey: ValidatorPubKey,
-       remotes: seq[RemoteSignerInfo],
-       threshold: uint32,
-       flags: set[RemoteKeystoreFlag] = {},
-       remoteType = RemoteSignerType.Web3Signer,
-       desc = ""
-     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
-  saveKeystore(conf.validatorsDir(),
-    publicKey, remotes, threshold, flags, remoteType, desc)
-
-proc saveLockedKeystore*(
-       conf: AnyConf,
-       publicKey: ValidatorPubKey,
-       remotes: seq[RemoteSignerInfo],
-       threshold: uint32,
-       flags: set[RemoteKeystoreFlag] = {},
-       remoteType = RemoteSignerType.Web3Signer,
-       desc = ""
-     ): Result[FileLockHandle, KeystoreGenerationError] {.raises: [Defect].} =
-  saveLockedKeystore(conf.validatorsDir(),
-    publicKey, remotes, threshold, flags, remoteType, desc)
-
-proc importKeystore*(pool: var ValidatorPool, conf: AnyConf,
+proc importKeystore*(pool: var ValidatorPool,
+                     validatorsDir: string,
                      keystore: RemoteKeystore): ImportResult[KeystoreData]
                     {.raises: [Defect].} =
   let
     publicKey = keystore.pubkey
     keyName = publicKey.fsName
-    validatorsDir = conf.validatorsDir()
     keystoreDir = validatorsDir / keyName
     keystoreFile = keystoreDir / RemoteKeystoreFileName
 
@@ -1163,7 +1175,7 @@ proc importKeystore*(pool: var ValidatorPool, conf: AnyConf,
   if existsKeystore(keystoreDir, {KeystoreKind.Local, KeystoreKind.Remote}):
     return err(AddValidatorFailure.init(AddValidatorStatus.existingArtifacts))
 
-  let res = saveLockedKeystore(conf, publicKey, keystore.remotes,
+  let res = saveLockedKeystore(validatorsDir, publicKey, keystore.remotes,
                                keystore.threshold)
   if res.isErr():
     return err(AddValidatorFailure.init(AddValidatorStatus.failed,
@@ -1173,7 +1185,8 @@ proc importKeystore*(pool: var ValidatorPool, conf: AnyConf,
 
 proc importKeystore*(pool: var ValidatorPool,
                      rng: var HmacDrbgContext,
-                     conf: AnyConf, keystore: Keystore,
+                     validatorsDir, secretsDir: string,
+                     keystore: Keystore,
                      password: string): ImportResult[KeystoreData] {.
      raises: [Defect].} =
   let keypass = KeystorePass.init(password)
@@ -1188,8 +1201,6 @@ proc importKeystore*(pool: var ValidatorPool,
   let
     publicKey = privateKey.toPubKey()
     keyName = publicKey.fsName
-    validatorsDir = conf.validatorsDir()
-    secretsDir = conf.secretsDir()
     secretFile = secretsDir / keyName
     keystoreDir = validatorsDir / keyName
     keystoreFile = keystoreDir / KeystoreFileName
@@ -1241,14 +1252,17 @@ proc generateDistirbutedStore*(rng: var HmacDrbgContext,
   # actual validator
   saveKeystore(remoteValidatorDir, pubKey, signers, threshold)
 
-func validatorKeystoreDir(conf: AnyConf, pubkey: ValidatorPubKey): string =
-  conf.validatorsDir / pubkey.fsName
+func validatorKeystoreDir(host: KeymanagerHost,
+                          pubkey: ValidatorPubKey): string =
+  host.validatorsDir / pubkey.fsName
 
-func feeRecipientPath*(conf: AnyConf, pubkey: ValidatorPubKey): string =
-  conf.validatorKeystoreDir(pubkey) / FeeRecipientFilename
+func feeRecipientPath*(host: KeymanagerHost,
+                       pubkey: ValidatorPubKey): string =
+  host.validatorKeystoreDir(pubkey) / FeeRecipientFilename
 
-proc removeFeeRecipientFile*(conf: AnyConf, pubkey: ValidatorPubKey): Result[void, string] =
-  let path = conf.feeRecipientPath(pubkey)
+proc removeFeeRecipientFile*(host: KeymanagerHost,
+                             pubkey: ValidatorPubKey): Result[void, string] =
+  let path = host.feeRecipientPath(pubkey)
   if fileExists(path):
     let res = io2.removeFile(path)
     if res.isErr:
@@ -1256,8 +1270,8 @@ proc removeFeeRecipientFile*(conf: AnyConf, pubkey: ValidatorPubKey): Result[voi
 
   return ok()
 
-proc setFeeRecipient*(conf: AnyConf, pubkey: ValidatorPubKey, feeRecipient: Eth1Address): Result[void, string] =
-  let validatorKeystoreDir = conf.validatorKeystoreDir(pubkey)
+proc setFeeRecipient*(host: KeymanagerHost, pubkey: ValidatorPubKey, feeRecipient: Eth1Address): Result[void, string] =
+  let validatorKeystoreDir = host.validatorKeystoreDir(pubkey)
 
   ? secureCreatePath(validatorKeystoreDir).mapErr(proc(e: auto): string =
     "Could not create wallet directory [" & validatorKeystoreDir & "]: " & $e)
@@ -1265,22 +1279,15 @@ proc setFeeRecipient*(conf: AnyConf, pubkey: ValidatorPubKey, feeRecipient: Eth1
   io2.writeFile(validatorKeystoreDir / FeeRecipientFilename, $feeRecipient)
     .mapErr(proc(e: auto): string = "Failed to write fee recipient file: " & $e)
 
-func defaultFeeRecipient*(conf: AnyConf): Eth1Address =
-  if conf.suggestedFeeRecipient.isSome:
-    conf.suggestedFeeRecipient.get
-  else:
-    # https://github.com/nim-lang/Nim/issues/19802
-    (static(default(Eth1Address)))
-
 type
   FeeRecipientStatus* = enum
     noSuchValidator
     invalidFeeRecipientFile
 
 proc getSuggestedFeeRecipient*(
-    conf: AnyConf,
+    host: KeymanagerHost,
     pubkey: ValidatorPubKey): Result[Eth1Address, FeeRecipientStatus] =
-  let validatorDir = conf.validatorKeystoreDir(pubkey)
+  let validatorDir = host.validatorKeystoreDir(pubkey)
 
   # In this particular case, an error might be by design. If the file exists,
   # but doesn't load or parse that's a more urgent matter to fix. Many people
@@ -1291,7 +1298,7 @@ proc getSuggestedFeeRecipient*(
 
   let feeRecipientPath = validatorDir / FeeRecipientFilename
   if not fileExists(feeRecipientPath):
-    return ok conf.defaultFeeRecipient
+    return ok host.defaultFeeRecipient
 
   try:
     # Avoid being overly flexible initially. Trailing whitespace is common

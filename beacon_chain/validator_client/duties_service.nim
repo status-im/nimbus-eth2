@@ -38,7 +38,7 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
   let validatorIdents =
     block:
       var res: seq[ValidatorIdent]
-      for validator in vc.attachedValidators.items():
+      for validator in vc.attachedValidators[].items():
         if validator.index.isNone():
           res.add(ValidatorIdent.init(validator.pubkey))
       res
@@ -78,24 +78,24 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
     offset += arraySize
 
   for item in validators:
-    if item.validator.pubkey notin vc.attachedValidators:
+    if item.validator.pubkey notin vc.attachedValidators[]:
       warn "Beacon node returned missing validator",
            pubkey = item.validator.pubkey, index = item.index
     else:
       debug "Local validator updated with index",
             pubkey = item.validator.pubkey, index = item.index
-      vc.attachedValidators.updateValidator(item.validator.pubkey,
-                                            item.index)
+      vc.attachedValidators[].updateValidator(item.validator.pubkey,
+                                              item.index)
       # Adding validator for doppelganger detection.
       vc.addDoppelganger(
-        vc.attachedValidators.getValidator(item.validator.pubkey))
+        vc.attachedValidators[].getValidator(item.validator.pubkey))
 
 proc pollForAttesterDuties*(vc: ValidatorClientRef,
                             epoch: Epoch): Future[int] {.async.} =
   let validatorIndices =
     block:
       var res: seq[ValidatorIndex]
-      for index in vc.attachedValidators.indices():
+      for index in vc.attachedValidators[].indices():
         res.add(index)
       res
 
@@ -151,7 +151,7 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
 
   let
     relevantDuties = duties.filterIt(
-      checkDuty(it) and (it.pubkey in vc.attachedValidators)
+      checkDuty(it) and (it.pubkey in vc.attachedValidators[])
     )
     genesisRoot = vc.beaconGenesis.genesis_validators_root
 
@@ -180,7 +180,7 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
     var pendingRequests: seq[Future[SignatureResult]]
     var validators: seq[AttachedValidator]
     for item in addOrReplaceItems:
-      let validator = vc.attachedValidators.getValidator(item.duty.pubkey)
+      let validator = vc.attachedValidators[].getValidator(item.duty.pubkey)
       let fork = vc.forkAtEpoch(item.duty.slot.epoch)
       let future = validator.getSlotSignature(
         fork, genesisRoot, item.duty.slot)
@@ -223,7 +223,7 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
 
 proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
                                  epoch: Epoch): Future[int] {.async.} =
-  let validatorIndices = toSeq(vc.attachedValidators.indices())
+  let validatorIndices = toSeq(vc.attachedValidators[].indices())
   var
     filteredDuties: seq[RestSyncCommitteeDuty]
     offset = 0
@@ -249,7 +249,7 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
           return 0
 
     for item in res.data:
-      if checkSyncDuty(item) and (item.pubkey in vc.attachedValidators):
+      if checkSyncDuty(item) and (item.pubkey in vc.attachedValidators[]):
         filteredDuties.add(item)
 
     offset += arraySize
@@ -287,7 +287,7 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
     let sres = vc.getCurrentSlot()
     if sres.isSome():
       for item in addOrReplaceItems:
-        let validator = vc.attachedValidators.getValidator(item.duty.pubkey)
+        let validator = vc.attachedValidators[].getValidator(item.duty.pubkey)
         let future = validator.getSyncCommitteeSelectionProof(
           fork,
           genesisRoot,
@@ -358,7 +358,7 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef) {.async.} =
       currentEpoch = currentSlot.epoch()
       nextEpoch = currentEpoch + 1'u64
 
-    if vc.attachedValidators.count() != 0:
+    if vc.attachedValidators[].count() != 0:
       var counts: array[2, tuple[epoch: Epoch, count: int]]
       counts[0] = (currentEpoch, await vc.pollForAttesterDuties(currentEpoch))
       counts[1] = (nextEpoch, await vc.pollForAttesterDuties(nextEpoch))
@@ -404,7 +404,7 @@ proc pollForSyncCommitteeDuties* (vc: ValidatorClientRef) {.async.} =
       currentEpoch = currentSlot.epoch()
       nextEpoch = currentEpoch + 1'u64
 
-    if vc.attachedValidators.count() != 0:
+    if vc.attachedValidators[].count() != 0:
       var counts: array[2, tuple[epoch: Epoch, count: int]]
       counts[0] =
         (currentEpoch, await vc.pollForSyncCommitteeDuties(currentEpoch))
@@ -455,13 +455,13 @@ proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
       currentSlot = sres.get()
       currentEpoch = currentSlot.epoch()
 
-    if vc.attachedValidators.count() != 0:
+    if vc.attachedValidators[].count() != 0:
       try:
         let res = await vc.getProposerDuties(currentEpoch)
         let
           dependentRoot = res.dependent_root
           duties = res.data
-          relevantDuties = duties.filterIt(it.pubkey in vc.attachedValidators)
+          relevantDuties = duties.filterIt(it.pubkey in vc.attachedValidators[])
 
         if len(relevantDuties) > 0:
           vc.addOrReplaceProposers(currentEpoch, dependentRoot, relevantDuties)

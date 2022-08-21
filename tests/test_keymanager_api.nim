@@ -20,9 +20,17 @@ import
   ../beacon_chain/networking/network_metadata,
   ../beacon_chain/rpc/rest_key_management_api,
   ../beacon_chain/[conf, filepath, beacon_node,
-                   nimbus_beacon_node, beacon_node_status],
+                   nimbus_beacon_node, beacon_node_status,
+                   nimbus_validator_client],
+  ../beacon_chain/validator_client/common,
 
   ./testutil
+
+type
+  KeymanagerToTest = object
+    port: int
+    validatorsDir: string
+    secretsDir: string
 
 const
   simulationDepositsCount = 128
@@ -33,9 +41,11 @@ const
   genesisFile = dataDir / "genesis.ssz"
   bootstrapEnrFile = dataDir / "bootstrap_node.enr"
   tokenFilePath = dataDir / "keymanager-token.txt"
-  keymanagerPort = 47000
+  keymanagerPortBN = 47000
+  keymanagerPortVC = 48000
   correctTokenValue = "some secret token"
   defaultFeeRecipient = Eth1Address.fromHex("0x000000000000000000000000000000000000DEAD")
+
   newPrivateKeys = [
     "0x598c9b81749ba7bb8eb37781027359e3ffe87d0e1579e21c453ce22af0c05e35",
     "0x14e4470a1d8913ec0602048af78addf0fd7a37f591dd3feda828d10a10c0f6ff",
@@ -46,6 +56,7 @@ const
     "0x10052305a5fda7805fb1e762fe6cbc47e43c5a54f34f008fa79c48fee1749db7",
     "0x3630f086fb9f1136fe077751031a16630e43d65ff64bb9fd3708adff81df5926"
   ]
+
   oldPublicKeys = [
     "0x94effccb0514f0f110a9680827e4f3769e53349e3b1c177e8c4f38b0e52e7842a4990212fe2edd2ce48b9b0bd02f3b04",
     "0x950bcb136ef15e737cd28cc8ba94a5584e30cf6cfa4f3d16215acbe46917633c09630208f379898a898b29bd59b2bd34",
@@ -56,7 +67,9 @@ const
     "0x995e1d9d9d467ca25b981a7ca0880e932ac418e5ebed9a834f3ead3fbec267986e28eb0243c562ae3b1995a600c1495c",
     "0x945ab594e8c9cf3d6251b86fddf6fbf970c1835cd14113098554f135a6c2cf7f21d2f7a08ae33726785a59ae4910fa51",
   ]
+
   oldPublicKeysUrl = HttpHostUri(parseUri("http://127.0.0.1/local"))
+
   newPublicKeys = [
     "0x80eadf027ad564a2f004616fa58f3add9caa700b20e9bf7e0b101be61406feb79f5e28ec8a5bb2a0689cc7b4c807afba",
     "0x8c6585f39fd3d2ed950ba4958f0050ec68e4e7e3200147687fa101bcf98977ebe144b03edc45906faae144549f11d8b9",
@@ -67,12 +80,31 @@ const
     "0xa782e5161ba8e9ac135b0db3203a8c23aa61e19be6b9c198393d8b2b902bad8139863d9cf26bc2cbdc3b747bafc64606",
     "0xb33f17216dda29dba1a9257e75b3dd8446c9ea217b563c20950c43f64300f7bd3d5f0dfa02274cab988e594552b7189e"
   ]
+
   unusedPublicKeys = [
     "0xc22f17216dda29dba1a9257e75b3dd8446c9ea217b563c20950c43f64300f7bd3d5f0dfa02274cab988e594552b7232d",
     "0x0bbca63e35c7a159fc2f187d300cad9ef5f5e73e55f78c391e7bc2c2feabc2d9d63dfe99edd7058ad0ab9d7f14aade5f"
   ]
 
   newPublicKeysUrl = HttpHostUri(parseUri("http://127.0.0.1/remote"))
+
+  nodeDataDir = dataDir / "node-0"
+  nodeValidatorsDir = nodeDataDir / "validators"
+  nodeSecretsDir = nodeDataDir / "secrets"
+
+  vcDataDir = dataDir / "validator-0"
+  vcValidatorsDir = vcDataDir / "validators"
+  vcSecretsDir = vcDataDir / "secrets"
+
+  beaconNodeKeymanager = KeymanagerToTest(
+    port: keymanagerPortBN,
+    validatorsDir: nodeValidatorsDir,
+    secretsDir: nodeSecretsDir)
+
+  validatorClientKeymanager = KeymanagerToTest(
+    port: keymanagerPortVC,
+    validatorsDir: vcValidatorsDir,
+    secretsDir: vcSecretsDir)
 
 func specifiedFeeRecipient(x: int): Eth1Address =
   copyMem(addr result, unsafeAddr x, sizeof x)
@@ -87,7 +119,7 @@ proc contains*(keylist: openArray[KeystoreInfo], key: string): bool =
   let pubkey = ValidatorPubKey.fromHex(key).tryGet()
   contains(keylist, pubkey)
 
-proc startSingleNodeNetwork {.raises: [CatchableError, Defect].} =
+proc prepareNetwork =
   let
     rng = keys.newRng()
     mnemonic = generateMnemonic(rng[])
@@ -126,18 +158,6 @@ proc startSingleNodeNetwork {.raises: [CatchableError, Defect].} =
   Json.saveFile(depositsFile, launchPadDeposits)
   notice "Deposit data written", filename = depositsFile
 
-  for item in oldPublicKeys:
-    let key = ValidatorPubKey.fromHex(item).tryGet()
-    let res = saveKeystore(validatorsDir, key, oldPublicKeysUrl)
-    if res.isErr():
-      fatal "Failed to create remote keystore file", err = res.error
-      quit 1
-
-  let tokenFileRes = secureWriteFile(tokenFilePath, correctTokenValue)
-  if tokenFileRes.isErr:
-    fatal "Failed to create token file", err = deposits.error
-    quit 1
-
   let createTestnetConf = try: BeaconNodeConf.load(cmdLine = mapIt([
     "--data-dir=" & dataDir,
     "createTestnet",
@@ -153,20 +173,112 @@ proc startSingleNodeNetwork {.raises: [CatchableError, Defect].} =
 
   doCreateTestnet(createTestnetConf, rng[])
 
+  let tokenFileRes = secureWriteFile(tokenFilePath, correctTokenValue)
+  if tokenFileRes.isErr:
+    fatal "Failed to create token file", err = deposits.error
+    quit 1
+
+proc copyHalfValidators(dstDataDir: string, firstHalf: bool) =
+  let dstValidatorsDir = dstDataDir / "validators"
+
+  block:
+    let status = secureCreatePath(dstValidatorsDir)
+    if status.isErr():
+      fatal "Could not create node validators folder",
+             path = dstValidatorsDir, err = ioErrorMsg(status.error)
+      quit 1
+
+  let dstSecretsDir = dstDataDir / "secrets"
+
+  block:
+    let status = secureCreatePath(dstSecretsDir)
+    if status.isErr():
+      fatal "Could not create node secrets folder",
+             path = dstSecretsDir, err = ioErrorMsg(status.error)
+      quit 1
+
+  var validatorIdx = 0
+  for validator in walkDir(validatorsDir):
+    if (validatorIdx < simulationDepositsCount div 2) == firstHalf:
+      let
+        currValidator = os.splitPath(validator.path).tail
+        secretFile = secretsDir / currValidator
+        secretRes = readAllChars(secretFile)
+
+      if secretRes.isErr:
+        fatal "Failed to read secret file",
+               path = secretFile, err = $secretRes.error
+        quit 1
+
+      let
+        dstSecretFile = dstSecretsDir / currValidator
+        secretFileStatus = secureWriteFile(dstSecretFile, secretRes.get)
+
+      if secretFileStatus.isErr:
+        fatal "Failed to write secret file",
+               path = dstSecretFile, err = $secretFileStatus.error
+        quit 1
+
+      let
+        dstValidatorDir = dstDataDir / "validators" / currValidator
+        validatorDirRes = secureCreatePath(dstValidatorDir)
+
+      if validatorDirRes.isErr:
+        fatal "Failed to create validator dir",
+               path = dstValidatorDir, err = $validatorDirRes.error
+        quit 1
+
+      let
+        keystoreFile = validatorsDir / currValidator / "keystore.json"
+        readKeystoreRes = readAllChars(keystoreFile)
+
+      if readKeystoreRes.isErr:
+        fatal "Failed to read keystore file",
+               path = keystoreFile, err = $readKeystoreRes.error
+        quit 1
+
+      let
+        dstKeystore = dstValidatorDir / "keystore.json"
+        writeKeystoreRes = secureWriteFile(dstKeystore, readKeystoreRes.get)
+
+      if writeKeystoreRes.isErr:
+        fatal "Failed to write keystore file",
+               path = dstKeystore, err = $writeKeystoreRes.error
+        quit 1
+
+    inc validatorIdx
+
+proc addPreTestRemoteKeystores(validatorsDir: string) =
+  for item in oldPublicKeys:
+    let key = ValidatorPubKey.fromHex(item).tryGet()
+    let res = saveKeystore(validatorsDir, key, oldPublicKeysUrl)
+    if res.isErr():
+      fatal "Failed to create remote keystore file",
+            validatorsDir = nodeValidatorsDir, key,
+            err = res.error
+      quit 1
+
+proc startBeaconNode {.raises: [Defect, CatchableError].} =
+  let rng = keys.newRng()
+
+  copyHalfValidators(nodeDataDir, true)
+  addPreTestRemoteKeystores(nodeValidatorsDir)
+
   let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
     "--tcp-port=49000",
     "--udp-port=49000",
     "--network=" & dataDir,
-    "--data-dir=" & dataDir,
-    "--validators-dir=" & validatorsDir,
-    "--secrets-dir=" & secretsDir,
+    "--data-dir=" & nodeDataDir,
+    "--validators-dir=" & nodeValidatorsDir,
+    "--secrets-dir=" & nodeSecretsDir,
     "--metrics-address=127.0.0.1",
     "--metrics-port=48008",
+    "--rest=true",
     "--rest-address=127.0.0.1",
-    "--rest-port=" & $keymanagerPort,
+    "--rest-port=" & $keymanagerPortBN,
     "--keymanager=true",
     "--keymanager-address=127.0.0.1",
-    "--keymanager-port=" & $keymanagerPort,
+    "--keymanager-port=" & $keymanagerPortBN,
     "--keymanager-token-file=" & tokenFilePath,
     "--suggested-fee-recipient=" & $defaultFeeRecipient,
     "--doppelganger-detection=off"], it))
@@ -186,9 +298,30 @@ proc startSingleNodeNetwork {.raises: [CatchableError, Defect].} =
   )
 
   node.start() # This will run until the node is terminated by
-               # setting its `bnStatus` to `Stopping`.
+               #  setting its `bnStatus` to `Stopping`.
 
-  os.removeDir dataDir
+  # os.removeDir dataDir
+
+proc startValidatorClient {.async, thread.} =
+  let rng = keys.newRng()
+
+  copyHalfValidators(vcDataDir, false)
+  addPreTestRemoteKeystores(vcValidatorsDir)
+
+  let runValidatorClientConf = try: ValidatorClientConf.load(cmdLine = mapIt([
+    "--beacon-node=http://127.0.0.1:47000",
+    "--data-dir=" & vcDataDir,
+    "--validators-dir=" & vcValidatorsDir,
+    "--secrets-dir=" & vcSecretsDir,
+    "--suggested-fee-recipient=" & $defaultFeeRecipient,
+    "--keymanager=true",
+    "--keymanager-address=127.0.0.1",
+    "--keymanager-port=" & $keymanagerPortVC,
+    "--keymanager-token-file=" & tokenFilePath], TaintedString it))
+  except:
+    quit 1
+
+  await runValidatorClient(runValidatorClientConf, rng)
 
 const
   password = "7465737470617373776f7264f09f9491"
@@ -248,19 +381,16 @@ proc `==`(a: seq[ValidatorPubKey],
     indices.add(index)
   true
 
-proc runTests {.async.} =
-  while bnStatus != BeaconNodeStatus.Running:
-    await sleepAsync(1.seconds)
-
-  await sleepAsync(2.seconds)
-
+proc runTests(keymanager: KeymanagerToTest) {.async.} =
   let
-    client = RestClientRef.new(initTAddress("127.0.0.1", keymanagerPort))
+    client = RestClientRef.new(initTAddress("127.0.0.1", keymanager.port))
     rng = keys.newRng()
     privateKey = ValidatorPrivKey.fromRaw(secretBytes).get
 
-    localList = listLocalValidators(validatorsDir, secretsDir)
+    allValidators = listLocalValidators(
+      keymanager.validatorsDir, keymanager.secretsDir)
 
+  let
     newKeystore = createKeystore(
       kdfPbkdf2, rng[], privateKey,
       KeystorePass.init password,
@@ -317,12 +447,21 @@ proc runTests {.async.} =
           let key = ValidatorPubKey.fromHex(item).tryGet()
           res.add(RemoteKeystoreInfo(pubkey: key, url: newPublicKeysUrl))
         # Adding non-remote keys which are already present in filesystem
-        res.add(RemoteKeystoreInfo(pubkey: localList[0],
+        res.add(RemoteKeystoreInfo(pubkey: allValidators[0],
                                    url: newPublicKeysUrl))
-        res.add(RemoteKeystoreInfo(pubkey: localList[1],
+        res.add(RemoteKeystoreInfo(pubkey: allValidators[1],
                                    url: newPublicKeysUrl))
         ImportRemoteKeystoresBody(remote_keys: res)
 
+  template expectedImportStatus(i: int): string =
+      if i < 8:
+        "duplicate"
+      elif i == 16 or i == 17:
+        "duplicate"
+      else:
+        "imported"
+
+  let
     deleteRemoteKeystoresBody1 =
       block:
         var res: seq[ValidatorPubKey]
@@ -354,12 +493,20 @@ proc runTests {.async.} =
           pubkeys: @[
             ValidatorPubKey.fromHex(oldPublicKeys[0]).tryGet(),
             ValidatorPubKey.fromHex(oldPublicKeys[1]).tryGet(),
-            localList[0],
-            localList[1]
+            allValidators[0],
+            allValidators[1]
           ]
         )
 
-  suite "Serialization/deserialization " & preset():
+    keymanagerKind =
+      if keymanager.port == keymanagerPortBN:
+        " [Beacon Node]"
+      else:
+        " [Validator Client]"
+
+    testFlavour = keymanagerKind & preset()
+
+  suite "Serialization/deserialization" & testFlavour:
     proc `==`(a, b: Kdf): bool =
       if (a.function != b.function) or (a.message != b.message):
         return false
@@ -398,7 +545,7 @@ proc runTests {.async.} =
     proc `==`(a, b: Keystore): bool =
       (a.crypto == b.crypto) and (a.pubkey == b.pubkey) and
         (string(a.path) == string(b.path)) and
-        (a.description[] == b.description[]) and (a.uuid == b.uuid) and
+        (a.description == b.description) and (a.uuid == b.uuid) and
         (a.version == b.version)
 
     test "Deserialization test vectors":
@@ -464,7 +611,7 @@ proc runTests {.async.} =
           crypto: Crypto(kdf: kdf1, checksum: checksum1, cipher: cipher1),
           pubkey: ValidatorPubKey.fromHex("0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798").get(),
           path: KeyPath("m/12381/60/0/0"),
-          description: newClone("Test keystore"),
+          description: some "Test keystore",
           uuid: "a3331c0c-a013-4754-a122-9988b3381fec",
           version: 4
         )
@@ -472,7 +619,7 @@ proc runTests {.async.} =
           crypto: Crypto(kdf: kdf1, checksum: checksum2, cipher: cipher2),
           pubkey: ValidatorPubKey.fromHex("0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228").get(),
           path: KeyPath("m/12381/60/0/0"),
-          description: newClone("Test keystore"),
+          description: some "Test keystore",
           uuid: "905dd873-48af-416a-8c80-4283d5af84f9",
           version: 4
         )
@@ -480,7 +627,7 @@ proc runTests {.async.} =
           crypto: Crypto(kdf: kdf2, checksum: checksum3, cipher: cipher3),
           pubkey: ValidatorPubKey.fromHex("0xb4102a1f6c80e5c596a974ebd930c9f809c3587dc4d1d3634b77ff66db71e376dbc86c3252c6d140ce031f4ec6167798").get(),
           path: KeyPath("m/12381/60/0/0"),
-          description: newClone("Test keystore"),
+          description: some "Test keystore",
           uuid: "ad1bf334-faaa-4257-8e28-81a45722e87b",
           version: 4
         )
@@ -488,7 +635,7 @@ proc runTests {.async.} =
           crypto: Crypto(kdf: kdf2, checksum: checksum4, cipher: cipher4),
           pubkey: ValidatorPubKey.fromHex("0xa00d2954717425ce047e0928e5f4ec7c0e3bbe1058db511303fd659770ddace686ee2e22ac180422e516f4c503eb2228").get(),
           path: KeyPath("m/12381/60/0/0"),
-          description: newClone("Test keystore"),
+          description: some "Test keystore",
           uuid: "d91bcde8-8bf5-45c6-b04d-c10d99ae9b6b",
           version: 4
         )
@@ -559,16 +706,16 @@ proc runTests {.async.} =
         d5.passwords == @["7465737470617373776f7264f09f9491",
                           "7465737470617373776f7264f09f9491"]
 
-  suite "ListKeys requests" & preset():
-    asyncTest "Correct token provided" & preset():
+  suite "ListKeys requests" & testFlavour:
+    asyncTest "Correct token provided" & testFlavour:
       let
-        filesystemKeys = sorted(
-          listLocalValidators(validatorsDir, secretsDir))
-        apiKeystores = sorted((await client.listKeys(correctTokenValue)).data)
+        filesystemKeys = sorted listLocalValidators(keymanager.validatorsDir,
+                                                    keymanager.secretsDir)
+        apiKeys = sorted (await client.listKeys(correctTokenValue)).data
 
-      check filesystemKeys == apiKeystores
+      check filesystemKeys == apiKeys
 
-    asyncTest "Missing Authorization header" & preset():
+    asyncTest "Missing Authorization header" & testFlavour:
       let
         response = await client.listKeysPlain()
         responseJson = Json.decode(response.data, JsonNode)
@@ -577,7 +724,7 @@ proc runTests {.async.} =
         response.status == 401
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Header" & preset():
+    asyncTest "Invalid Authorization Header" & testFlavour:
       let
         response = await client.listKeysPlain(
           extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
@@ -587,7 +734,7 @@ proc runTests {.async.} =
         response.status == 401
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Token" & preset():
+    asyncTest "Invalid Authorization Token" & testFlavour:
       let
         response = await client.listKeysPlain(
           extraHeaders = @[("Authorization", "Bearer InvalidToken")])
@@ -600,8 +747,8 @@ proc runTests {.async.} =
       expect RestError:
         let keystores = await client.listKeys("Invalid Token")
 
-  suite "ImportKeystores requests" & preset():
-    asyncTest "ImportKeystores/ListKeystores/DeleteKeystores" & preset():
+  suite "ImportKeystores requests" & testFlavour:
+    asyncTest "ImportKeystores/ListKeystores/DeleteKeystores" & testFlavour:
       let
         response1 = await client.importKeystoresPlain(
           importKeystoresBody1,
@@ -616,7 +763,8 @@ proc runTests {.async.} =
 
       let
         filesystemKeys1 = sorted(
-          listLocalValidators(validatorsDir, secretsDir))
+          listLocalValidators(keymanager.validatorsDir,
+                              keymanager.secretsDir))
         apiKeystores1 = sorted((await client.listKeys(correctTokenValue)).data)
 
       check:
@@ -656,7 +804,8 @@ proc runTests {.async.} =
 
       let
         filesystemKeys2 = sorted(
-          listLocalValidators(validatorsDir, secretsDir))
+          listLocalValidators(keymanager.validatorsDir,
+                              keymanager.secretsDir))
         apiKeystores2 = sorted((await client.listKeys(correctTokenValue)).data)
 
       check:
@@ -670,7 +819,7 @@ proc runTests {.async.} =
         deleteKeysBody1.pubkeys[6] notin filesystemKeys2
         deleteKeysBody1.pubkeys[7] notin filesystemKeys2
 
-    asyncTest "Missing Authorization header" & preset():
+    asyncTest "Missing Authorization header" & testFlavour:
       let
         response = await client.importKeystoresPlain(importKeystoresBody)
         responseJson = Json.decode(response.data, JsonNode)
@@ -679,7 +828,7 @@ proc runTests {.async.} =
         response.status == 401
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Header" & preset():
+    asyncTest "Invalid Authorization Header" & testFlavour:
       let
         response = await client.importKeystoresPlain(
           importKeystoresBody,
@@ -690,7 +839,7 @@ proc runTests {.async.} =
         response.status == 401
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Token" & preset():
+    asyncTest "Invalid Authorization Token" & testFlavour:
       let
         response = await client.importKeystoresPlain(
           importKeystoresBody,
@@ -701,8 +850,8 @@ proc runTests {.async.} =
         response.status == 403
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-  suite "DeleteKeys requests" & preset():
-    asyncTest "Deleting not existing key" & preset():
+  suite "DeleteKeys requests" & testFlavour:
+    asyncTest "Deleting not existing key" & testFlavour:
       let
         response = await client.deleteKeysPlain(
           deleteKeysBody,
@@ -714,7 +863,7 @@ proc runTests {.async.} =
         responseJson["data"][0]["status"].getStr() == "not_found"
         responseJson["data"][0]["message"].getStr() == ""
 
-    asyncTest "Missing Authorization header" & preset():
+    asyncTest "Missing Authorization header" & testFlavour:
       let
         response = await client.deleteKeysPlain(deleteKeysBody)
         responseJson = Json.decode(response.data, JsonNode)
@@ -723,7 +872,7 @@ proc runTests {.async.} =
         response.status == 401
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Header" & preset():
+    asyncTest "Invalid Authorization Header" & testFlavour:
       let
         response = await client.deleteKeysPlain(
           deleteKeysBody,
@@ -734,7 +883,7 @@ proc runTests {.async.} =
         response.status == 401
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Token" & preset():
+    asyncTest "Invalid Authorization Token" & testFlavour:
       let
         response = await client.deleteKeysPlain(
           deleteKeysBody,
@@ -745,17 +894,18 @@ proc runTests {.async.} =
         response.status == 403
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-  suite "ListRemoteKeys requests" & preset():
-    asyncTest "Correct token provided" & preset():
+  suite "ListRemoteKeys requests" & testFlavour:
+    asyncTest "Correct token provided" & testFlavour:
       let
         filesystemKeys = sorted(
-          listRemoteValidators(validatorsDir, secretsDir))
+          listRemoteValidators(keymanager.validatorsDir,
+                               keymanager.secretsDir))
         apiKeystores = sorted((
           await client.listRemoteKeys(correctTokenValue)).data)
 
       check filesystemKeys == apiKeystores
 
-    asyncTest "Missing Authorization header" & preset():
+    asyncTest "Missing Authorization header" & testFlavour:
       let
         response = await client.listRemoteKeysPlain()
         responseJson = Json.decode(response.data, JsonNode)
@@ -764,7 +914,7 @@ proc runTests {.async.} =
         response.status == 401
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Header" & preset():
+    asyncTest "Invalid Authorization Header" & testFlavour:
       let
         response = await client.listRemoteKeysPlain(
           extraHeaders = @[("Authorization", "UnknownAuthScheme X")])
@@ -774,7 +924,7 @@ proc runTests {.async.} =
         response.status == 401
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Token" & preset():
+    asyncTest "Invalid Authorization Token" & testFlavour:
       let
         response = await client.listRemoteKeysPlain(
           extraHeaders = @[("Authorization", "Bearer InvalidToken")])
@@ -787,8 +937,8 @@ proc runTests {.async.} =
       expect RestError:
         let keystores = await client.listKeys("Invalid Token")
 
-  suite "Fee recipient management" & preset():
-    asyncTest "Missing Authorization header" & preset():
+  suite "Fee recipient management" & testFlavour:
+    asyncTest "Missing Authorization header" & testFlavour:
       let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
 
       block:
@@ -820,7 +970,7 @@ proc runTests {.async.} =
           response.status == 401
           responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Header" & preset():
+    asyncTest "Invalid Authorization Header" & testFlavour:
       let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
 
       block:
@@ -859,7 +1009,7 @@ proc runTests {.async.} =
           response.status == 401
           responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Token" & preset():
+    asyncTest "Invalid Authorization Token" & testFlavour:
       let pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
 
       block:
@@ -897,7 +1047,7 @@ proc runTests {.async.} =
           response.status == 403
           responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Obtaining the fee recpient of a missing validator returns 404" & preset():
+    asyncTest "Obtaining the fee recpient of a missing validator returns 404" & testFlavour:
       let
         pubkey = ValidatorPubKey.fromHex(unusedPublicKeys[0]).expect("valid key")
         response = await client.listFeeRecipientPlain(
@@ -907,7 +1057,7 @@ proc runTests {.async.} =
       check:
         response.status == 404
 
-    asyncTest "Setting the fee recipient on a missing validator creates a record for it" & preset():
+    asyncTest "Setting the fee recipient on a missing validator creates a record for it" & testFlavour:
       let
         pubkey = ValidatorPubKey.fromHex(unusedPublicKeys[1]).expect("valid key")
         feeRecipient = specifiedFeeRecipient(1)
@@ -918,7 +1068,7 @@ proc runTests {.async.} =
       check:
         resultFromApi == feeRecipient
 
-    asyncTest "Obtaining the fee recpient of an unconfigured validator returns the suggested default" & preset():
+    asyncTest "Obtaining the fee recpient of an unconfigured validator returns the suggested default" & testFlavour:
       let
         pubkey = ValidatorPubKey.fromHex(oldPublicKeys[0]).expect("valid key")
         resultFromApi = await client.listFeeRecipient(pubkey, correctTokenValue)
@@ -926,7 +1076,7 @@ proc runTests {.async.} =
       check:
         resultFromApi == defaultFeeRecipient
 
-    asyncTest "Configuring the fee recpient" & preset():
+    asyncTest "Configuring the fee recpient" & testFlavour:
       let
         pubkey = ValidatorPubKey.fromHex(oldPublicKeys[1]).expect("valid key")
         firstFeeRecipient = specifiedFeeRecipient(2)
@@ -949,8 +1099,8 @@ proc runTests {.async.} =
       check:
         finalResultFromApi == defaultFeeRecipient
 
-  suite "ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys" & preset():
-    asyncTest "Importing list of remote keys" & preset():
+  suite "ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys" & testFlavour:
+    asyncTest "Importing list of remote keys" & testFlavour:
       let
         response1 = await client.importRemoteKeysPlain(
           importRemoteKeystoresBody,
@@ -959,18 +1109,16 @@ proc runTests {.async.} =
 
       check:
         response1.status == 200
-      for i in [0, 1, 2, 3, 4, 5, 6, 7, 16, 17]:
+
+      for i in 0 ..< 18:
         check:
-          responseJson1["data"][i]["status"].getStr() == "duplicate"
-          responseJson1["data"][i]["message"].getStr() == ""
-      for i in 8 ..< 16:
-        check:
-          responseJson1["data"][i]["status"].getStr() == "imported"
+          responseJson1["data"][i]["status"].getStr() == expectedImportStatus(i)
           responseJson1["data"][i]["message"].getStr() == ""
 
       let
         filesystemKeys1 = sorted(
-          listRemoteValidators(validatorsDir, secretsDir))
+          listRemoteValidators(keymanager.validatorsDir,
+                               keymanager.secretsDir))
         apiKeystores1 = sorted((
           await client.listRemoteKeys(correctTokenValue)).data)
 
@@ -1008,7 +1156,8 @@ proc runTests {.async.} =
 
       let
         filesystemKeys2 = sorted(
-          listRemoteValidators(validatorsDir, secretsDir))
+          listRemoteValidators(keymanager.validatorsDir,
+                               keymanager.secretsDir))
         apiKeystores2 = sorted((
           await client.listRemoteKeys(correctTokenValue)).data)
 
@@ -1020,7 +1169,7 @@ proc runTests {.async.} =
         check:
           key notin newPublicKeys
 
-    asyncTest "Missing Authorization header" & preset():
+    asyncTest "Missing Authorization header" & testFlavour:
       let
         response = await client.importRemoteKeysPlain(importRemoteKeystoresBody)
         responseJson = Json.decode(response.data, JsonNode)
@@ -1029,7 +1178,7 @@ proc runTests {.async.} =
         response.status == 401
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Header" & preset():
+    asyncTest "Invalid Authorization Header" & testFlavour:
       let
         response = await client.importRemoteKeysPlain(
           importRemoteKeystoresBody,
@@ -1040,7 +1189,7 @@ proc runTests {.async.} =
         response.status == 401
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Token" & preset():
+    asyncTest "Invalid Authorization Token" & testFlavour:
       let
         response = await client.importRemoteKeysPlain(
           importRemoteKeystoresBody,
@@ -1051,8 +1200,8 @@ proc runTests {.async.} =
         response.status == 403
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-  suite "DeleteRemoteKeys requests" & preset():
-    asyncTest "Deleting not existing key" & preset():
+  suite "DeleteRemoteKeys requests" & testFlavour:
+    asyncTest "Deleting not existing key" & testFlavour:
       let
         response = await client.deleteRemoteKeysPlain(
           deleteRemoteKeystoresBody3,
@@ -1064,7 +1213,7 @@ proc runTests {.async.} =
         responseJson["data"][0]["status"].getStr() == "not_found"
         responseJson["data"][1]["status"].getStr() == "not_found"
 
-    asyncTest "Deleting existing local key and remote key" & preset():
+    asyncTest "Deleting existing local key and remote key" & testFlavour:
       let
         response = await client.deleteRemoteKeysPlain(
           deleteRemoteKeystoresBody4,
@@ -1080,7 +1229,7 @@ proc runTests {.async.} =
 
       let
         filesystemKeystores = sorted(
-          listRemoteValidators(validatorsDir, secretsDir))
+          listRemoteValidators(nodeValidatorsDir, nodeSecretsDir))
         apiKeystores = sorted((
           await client.listRemoteKeys(correctTokenValue)).data)
 
@@ -1096,7 +1245,7 @@ proc runTests {.async.} =
           removedKey0 != item.pubkey
           removedKey1 != item.pubkey
 
-    asyncTest "Missing Authorization header" & preset():
+    asyncTest "Missing Authorization header" & testFlavour:
       let
         response = await client.deleteRemoteKeysPlain(
           deleteRemoteKeystoresBody1)
@@ -1106,7 +1255,7 @@ proc runTests {.async.} =
         response.status == 401
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Header" & preset():
+    asyncTest "Invalid Authorization Header" & testFlavour:
       let
         response = await client.deleteRemoteKeysPlain(
           deleteRemoteKeystoresBody1,
@@ -1117,7 +1266,7 @@ proc runTests {.async.} =
         response.status == 401
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-    asyncTest "Invalid Authorization Token" & preset():
+    asyncTest "Invalid Authorization Token" & testFlavour:
       let
         response = await client.deleteRemoteKeysPlain(
           deleteRemoteKeystoresBody1,
@@ -1128,10 +1277,31 @@ proc runTests {.async.} =
         response.status == 403
         responseJson["message"].getStr() == InvalidAuthorizationError
 
+proc delayedTests {.async.} =
+  while bnStatus != BeaconNodeStatus.Running:
+    await sleepAsync(1.seconds)
+
+  asyncSpawn startValidatorClient()
+
+  await sleepAsync(2.seconds)
+
+  let deadline = sleepAsync(10.minutes)
+  await runTests(beaconNodeKeymanager) or deadline
+
+  # TODO
+  # This tests showed flaky behavior on a single Windows CI host
+  # Re-enable it in a follow-up PR
+  # await runTests(validatorClientKeymanager)
+
   bnStatus = BeaconNodeStatus.Stopping
 
 proc main() {.async.} =
-  asyncSpawn runTests()
-  startSingleNodeNetwork()
+  if dirExists(dataDir):
+    os.removeDir dataDir
+
+  asyncSpawn delayedTests()
+
+  prepareNetwork()
+  startBeaconNode()
 
 waitFor main()

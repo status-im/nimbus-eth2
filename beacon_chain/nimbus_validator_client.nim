@@ -4,13 +4,13 @@
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
-import metrics, metrics/chronos_httpserver
-import validator_client/[common, fallback_service, duties_service,
-                         attestation_service, fork_service,
-                         sync_committee_service, doppelganger_service]
-
-type
-  ValidatorClientError* = object of CatchableError
+import
+  stew/io2, presto, metrics, metrics/chronos_httpserver,
+  libp2p/crypto/crypto,
+  ./rpc/rest_key_management_api,
+  ./validator_client/[
+    common, fallback_service, duties_service, fork_service,
+    doppelganger_service, attestation_service, sync_committee_service]
 
 proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
   info "Initializing genesis", nodes_count = len(vc.beaconNodes)
@@ -89,10 +89,7 @@ proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
   for keystore in listLoadableKeystores(vc.config):
     let pubkey = keystore.pubkey
     if pubkey in duplicates:
-      error "Duplicate validator's key found", validator_pubkey = pubkey
-      return false
-    elif keystore.kind == KeystoreKind.Remote:
-      info "Remote validator client was skipped", validator_pubkey = pubkey
+      warn "Duplicate validator key found", validator_pubkey = pubkey
       continue
     else:
       duplicates.add(pubkey)
@@ -146,7 +143,7 @@ proc shutdownMetrics(vc: ValidatorClientRef) {.async.} =
 
 proc shutdownSlashingProtection(vc: ValidatorClientRef) =
   info "Closing slashing protection", path = vc.config.validatorsDir()
-  vc.attachedValidators.slashingProtection.close()
+  vc.attachedValidators[].slashingProtection.close()
 
 proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
                  lastSlot: Slot): Future[bool] {.async.} =
@@ -178,7 +175,58 @@ proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
 
   return false
 
-proc asyncInit(vc: ValidatorClientRef) {.async.} =
+proc new*(T: type ValidatorClientRef,
+          config: ValidatorClientConf,
+          rng: ref HmacDrbgContext): ValidatorClientRef =
+  let beaconNodes =
+    block:
+      var servers: seq[BeaconNodeServerRef]
+      let flags = {RestClientFlag.CommaSeparatedArray}
+      for url in config.beaconNodes:
+        let res = RestClientRef.new(url, flags = flags)
+        if res.isErr():
+          warn "Unable to resolve remote beacon node server's hostname",
+                url = url
+        else:
+          servers.add(BeaconNodeServerRef(client: res.get(), endpoint: url))
+      servers
+
+  if len(beaconNodes) == 0:
+    # This should not happen, thanks to defaults in `conf.nim`
+    fatal "Not enough beacon nodes in command line"
+    quit 1
+
+  when declared(waitSignal):
+    ValidatorClientRef(
+      rng: rng,
+      config: config,
+      beaconNodes: beaconNodes,
+      graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
+      nodesAvailable: newAsyncEvent(),
+      forksAvailable: newAsyncEvent(),
+      gracefulExit: newAsyncEvent(),
+      sigintHandleFut: waitSignal(SIGINT),
+      sigtermHandleFut: waitSignal(SIGTERM)
+    )
+  else:
+    ValidatorClientRef(
+      rng: rng,
+      config: config,
+      beaconNodes: beaconNodes,
+      graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
+      nodesAvailable: newAsyncEvent(),
+      forksAvailable: newAsyncEvent(),
+      gracefulExit: newAsyncEvent(),
+      sigintHandleFut: newFuture[void]("sigint_placeholder"),
+      sigtermHandleFut: newFuture[void]("sigterm_placeholder")
+    )
+
+proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
+  notice "Launching validator client", version = fullVersionStr,
+                                       cmdParams = commandLineParams(),
+                                       config = vc.config,
+                                       beacon_nodes_count = len(vc.beaconNodes)
+
   vc.beaconGenesis = await vc.initGenesis()
   info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,
     genesis_fork_version = vc.beaconGenesis.genesis_fork_version,
@@ -190,22 +238,24 @@ proc asyncInit(vc: ValidatorClientRef) {.async.} =
     raise newException(ValidatorClientError,
                        "Could not initialize metrics server")
 
-  try:
-    if not(await initValidators(vc)):
-      await vc.shutdownMetrics()
-      raise newException(ValidatorClientError,
-                         "Could not initialize local validators")
-  except CancelledError:
-    debug "Initialization process interrupted"
-    await vc.shutdownMetrics()
-    return
-
   info "Initializing slashing protection", path = vc.config.validatorsDir()
-  vc.attachedValidators.slashingProtection =
-    SlashingProtectionDB.init(
-      vc.beaconGenesis.genesis_validators_root,
-      vc.config.validatorsDir(), "slashing_protection"
-    )
+
+  let
+    slashingProtectionDB =
+      SlashingProtectionDB.init(
+        vc.beaconGenesis.genesis_validators_root,
+        vc.config.validatorsDir(), "slashing_protection")
+    validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
+
+  vc.attachedValidators = validatorPool
+
+  if not(await initValidators(vc)):
+    await vc.shutdownMetrics()
+    raise newException(ValidatorClientError,
+                       "Could not initialize local validators")
+
+  let
+    keymanagerInitResult = initKeymanagerServer(vc.config, nil)
 
   try:
     vc.fallbackService = await FallbackServiceRef.init(vc)
@@ -214,6 +264,21 @@ proc asyncInit(vc: ValidatorClientRef) {.async.} =
     vc.doppelgangerService = await DoppelgangerServiceRef.init(vc)
     vc.attestationService = await AttestationServiceRef.init(vc)
     vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
+    vc.keymanagerServer = keymanagerInitResult.server
+    if vc.keymanagerServer != nil:
+      func getValidatorIdx(pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
+        Opt.none ValidatorIndex
+
+      vc.keymanagerHost = newClone KeymanagerHost.init(
+        validatorPool,
+        vc.rng,
+        keymanagerInitResult.token,
+        vc.config.validatorsDir,
+        vc.config.secretsDir,
+        vc.config.defaultFeeRecipient,
+        getValidatorIdx,
+        vc.beaconClock.getBeaconTimeFn)
+
   except CatchableError as exc:
     warn "Unexpected error encountered while initializing",
           error_name = exc.name, error_msg = exc.msg
@@ -225,13 +290,20 @@ proc asyncInit(vc: ValidatorClientRef) {.async.} =
     vc.shutdownSlashingProtection()
     return
 
-proc asyncRun(vc: ValidatorClientRef) {.async.} =
+  return vc
+
+proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   vc.fallbackService.start()
   vc.forkService.start()
   vc.dutiesService.start()
   vc.doppelgangerService.start()
   vc.attestationService.start()
   vc.syncCommitteeService.start()
+
+  if not isNil(vc.keymanagerServer):
+    doAssert vc.keymanagerHost != nil
+    vc.keymanagerServer.router.installKeymanagerHandlers(vc.keymanagerHost[])
+    vc.keymanagerServer.start()
 
   var exitEventFut = vc.gracefulExit.wait()
   try:
@@ -260,6 +332,9 @@ proc asyncRun(vc: ValidatorClientRef) {.async.} =
   pending.add(vc.doppelgangerService.stop())
   pending.add(vc.attestationService.stop())
   pending.add(vc.syncCommitteeService.stop())
+  if not isNil(vc.keymanagerServer):
+    pending.add(vc.keymanagerServer.stop())
+
   await allFutures(pending)
 
 template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
@@ -290,64 +365,22 @@ template runWithSignals(vc: ValidatorClientRef, body: untyped): bool =
     await allFutures(pending)
     false
 
-proc asyncLoop*(vc: ValidatorClientRef) {.async.} =
-  if not(vc.runWithSignals(asyncInit(vc))):
+proc runValidatorClient*(config: ValidatorClientConf,
+                         rng: ref HmacDrbgContext) {.async.} =
+  let vc = ValidatorClientRef.new(config, rng)
+  if not vc.runWithSignals(asyncInit vc):
     return
-  if not(vc.runWithSignals(asyncRun(vc))):
+  if not vc.runWithSignals(asyncRun vc):
     return
 
 programMain:
-  let config = makeBannerAndConfig("Nimbus validator client " & fullVersionStr,
-                                   ValidatorClientConf)
+  let
+    config = makeBannerAndConfig("Nimbus validator client " & fullVersionStr,
+                                 ValidatorClientConf)
+
+    # Single RNG instance for the application - will be seeded on construction
+    # and avoid using system resources (such as urandom) after that
+    rng = crypto.newRng()
 
   setupLogging(config.logLevel, config.logStdout, config.logFile)
-
-  let beaconNodes =
-    block:
-      var servers: seq[BeaconNodeServerRef]
-      let flags = {RestClientFlag.CommaSeparatedArray}
-      for url in config.beaconNodes:
-        let res = RestClientRef.new(url, flags = flags)
-        if res.isErr():
-          warn "Unable to resolve remote beacon node server's hostname",
-               url = url
-        else:
-          servers.add(BeaconNodeServerRef(client: res.get(), endpoint: url))
-      servers
-
-  if len(beaconNodes) == 0:
-    # This should not happen, thanks to defaults in `conf.nim`
-    fatal "Not enough beacon nodes in command line"
-    quit 1
-
-  notice "Launching validator client", version = fullVersionStr,
-                                       cmdParams = commandLineParams(),
-                                       config,
-                                       beacon_nodes_count = len(beaconNodes)
-
-  var vc =
-    when declared(waitSignal):
-      ValidatorClientRef(
-        config: config,
-        beaconNodes: beaconNodes,
-        graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
-        nodesAvailable: newAsyncEvent(),
-        forksAvailable: newAsyncEvent(),
-        gracefulExit: newAsyncEvent(),
-        sigintHandleFut: waitSignal(SIGINT),
-        sigtermHandleFut: waitSignal(SIGTERM)
-      )
-    else:
-      ValidatorClientRef(
-        config: config,
-        beaconNodes: beaconNodes,
-        graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
-        nodesAvailable: newAsyncEvent(),
-        forksAvailable: newAsyncEvent(),
-        gracefulExit: newAsyncEvent(),
-        sigintHandleFut: newFuture[void]("sigint_placeholder"),
-        sigtermHandleFut: newFuture[void]("sigterm_placeholder")
-      )
-
-  waitFor asyncLoop(vc)
-  info "Validator client stopped"
+  waitFor runValidatorClient(config, rng)
