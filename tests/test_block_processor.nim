@@ -40,11 +40,10 @@ suite "Block processor" & preset():
       quarantine = newClone(Quarantine.init())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       eth1Monitor = new Eth1Monitor
-      dynamicFeeRecipientsStore = DynamicFeeRecipientsStore.init()
       keymanagerHost: ref KeymanagerHost
       consensusManager = ConsensusManager.new(
         dag, attestationPool, quarantine, eth1Monitor,
-        newClone(dynamicFeeRecipientsStore), keymanagerHost)
+        newClone(DynamicFeeRecipientsStore.init()), keymanagerHost)
       state = newClone(dag.headState)
       cache = StateCache()
       b1 = addTestBlock(state[], cache).phase0Data

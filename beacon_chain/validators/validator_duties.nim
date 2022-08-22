@@ -359,7 +359,7 @@ proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
                      validatorIdx: ValidatorIndex,
                      epoch: Epoch): Eth1Address =
-  node.dynamicFeeRecipientsStore.getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
+  node.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
     if node.keymanagerHost != nil:
       node.keymanagerHost[].getSuggestedFeeRecipient(pubkey).valueOr:
         node.config.defaultFeeRecipient
