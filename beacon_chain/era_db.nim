@@ -8,7 +8,7 @@ import
   std/os,
   stew/results, snappy, taskpools,
   ../ncli/e2store, eth/keys,
-  ./spec/datatypes/[altair, bellatrix, phase0],
+  ./spec/datatypes/[altair, bellatrix, phase0, capella],
   ./spec/[beaconstate, forks, signatures_batch],
   ./consensus_object_pools/block_dag # TODO move to somewhere else to avoid circular deps
 
@@ -361,7 +361,7 @@ iterator getBlockIds*(
     # `case` ensures we're on a fork for which the `PartialBeaconState`
     # definition is consistent
     case db.cfg.stateForkAtEpoch(slot.epoch)
-    of BeaconStateFork.Phase0, BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
+    of BeaconStateFork.Phase0, BeaconStateFork.Altair, BeaconStateFork.Bellatrix, BeaconStateFork.Capella:
       let stateSlot = (slot.era() + 1).start_slot()
       if not getPartialState(db, historical_roots, stateSlot, state[]):
         state = nil # No `return` in iterators

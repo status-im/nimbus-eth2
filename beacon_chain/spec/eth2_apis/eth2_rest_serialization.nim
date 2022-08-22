@@ -749,8 +749,10 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: Eth2Digest) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(value.data))
 
+type ForkyBloomLogs = bellatrix.BloomLogs | capella.BloomLogs
+
 ## BloomLogs
-proc readValue*(reader: var JsonReader[RestJson], value: var BloomLogs) {.
+proc readValue*(reader: var JsonReader[RestJson], value: var ForkyBloomLogs) {.
      raises: [IOError, SerializationError, Defect].} =
   try:
     hexToByteArray(reader.readValue(string), value.data)
@@ -758,7 +760,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var BloomLogs) {.
     raiseUnexpectedValue(reader,
                          "BloomLogs value should be a valid hex string")
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: BloomLogs) {.
+proc writeValue*(writer: var JsonWriter[RestJson], value: ForkyBloomLogs) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(value.data))
 
@@ -981,8 +983,8 @@ proc writeValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
 
 ## RestPublishedBeaconBlockBody
 proc readValue*(reader: var JsonReader[RestJson],
-                value: var RestPublishedBeaconBlockBody) {.
-     raises: [IOError, SerializationError, Defect].} =
+                value: var RestPublishedBeaconBlockBody)
+    {.raises: [IOError, SerializationError, Defect].} =
   var
     randao_reveal: Option[ValidatorSig]
     eth1_data: Option[Eth1Data]
@@ -996,7 +998,10 @@ proc readValue*(reader: var JsonReader[RestJson],
     voluntary_exits: Option[
       List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]]
     sync_aggregate: Option[SyncAggregate]
-    execution_payload: Option[ExecutionPayload]
+    execution_payload: (Option[bellatrix.ExecutionPayload | capella.ExecutionPayload])
+    bls_to_execution_changes: Option[
+      List[SignedBLSToExecutionChange, Limit capella.MAX_BLS_TO_EXECUTION_CHANGES]
+    ]
 
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -1051,6 +1056,11 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedField("Multiple `sync_aggregate` fields found",
                                     "RestPublishedBeaconBlockBody")
       sync_aggregate = some(reader.readValue(SyncAggregate))
+    of "bls_to_execution_changes":
+      if bls_to_execution_changes.isSome():
+        reader.raiseUnexpectedField("Multiple `bls_to_execution_changes` fields found",
+                                    "RestPublishedBeaconBlockBody")
+      bls_to_execution_changes = some(reader.readValue(List[SignedBLSToExecutionChange, Limit capella.MAX_BLS_TO_EXECUTION_CHANGES]))
     of "execution_payload":
       if execution_payload.isSome():
         reader.raiseUnexpectedField("Multiple `execution_payload` fields found",
@@ -1075,9 +1085,13 @@ proc readValue*(reader: var JsonReader[RestJson],
     reader.raiseUnexpectedValue("Field `deposits` is missing")
   if voluntary_exits.isNone():
     reader.raiseUnexpectedValue("Field `voluntary_exits` is missing")
+  if bls_to_execution_changes.isNone():
+    reader.raiseUnexpectedValue("Field `bls_to_execution_changes` is missing")
 
   let bodyKind =
-    if execution_payload.isSome() and sync_aggregate.isSome():
+    if execution_payload.isSome() and bls_to_execution_changes.isSome():
+      BeaconBlockFork.Capella
+    elif execution_payload.isSome() and sync_aggregate.isSome():
       BeaconBlockFork.Bellatrix
     elif execution_payload.isNone() and sync_aggregate.isSome():
       BeaconBlockFork.Altair
@@ -1118,6 +1132,22 @@ proc readValue*(reader: var JsonReader[RestJson],
     value = RestPublishedBeaconBlockBody(
       kind: BeaconBlockFork.Bellatrix,
       bellatrixBody: bellatrix.BeaconBlockBody(
+        randao_reveal: randao_reveal.get(),
+        eth1_data: eth1_data.get(),
+        graffiti: graffiti.get(),
+        proposer_slashings: proposer_slashings.get(),
+        attester_slashings: attester_slashings.get(),
+        attestations: attestations.get(),
+        deposits: deposits.get(),
+        voluntary_exits: voluntary_exits.get(),
+        sync_aggregate: sync_aggregate.get(),
+        execution_payload: execution_payload.get()
+      )
+    )
+  of BeaconBlockFork.Capella:
+    value = RestPublishedBeaconBlockBody(
+      kind: BeaconBlockFork.Capella,
+      capellaBody: capella.BeaconBlockBody(
         randao_reveal: randao_reveal.get(),
         eth1_data: eth1_data.get(),
         graffiti: graffiti.get(),

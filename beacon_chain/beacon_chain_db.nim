@@ -889,6 +889,16 @@ proc getBlockSSZ*(
 
 proc getBlockSSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
+    T: type capella.TrustedSignedBeaconBlock): bool =
+  let dataPtr = addr data # Short-lived
+  var success = true
+  func decode(data: openArray[byte]) =
+    try: dataPtr[] = decodeFramed(data)
+    except CatchableError: success = false
+  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
+
+proc getBlockSSZ*(
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     fork: BeaconBlockFork): bool =
   case fork
   of BeaconBlockFork.Phase0:
@@ -926,6 +936,15 @@ proc getBlockSZ*(
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     T: type bellatrix.TrustedSignedBeaconBlock): bool =
+  let dataPtr = addr data # Short-lived
+  var success = true
+  func decode(data: openArray[byte]) =
+    assign(dataPtr[], data)
+  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
+
+proc getBlockSZ*(
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
+    T: type capella.TrustedSignedBeaconBlock): bool =
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
