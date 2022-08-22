@@ -1,3 +1,86 @@
+2022-08-23 v22.8.0
+==================
+
+Nimbus `v22.8.0` is a `medium` urgency release, featuring full support for the upcoming mainnet merge! All users should upgrade at their earliest convenient, but no later than 5th of September.
+
+> Since the network will go through the Bellatrix hard-fork on Sept 6, 2022, 11:34:47am UTC, failure to upgrade in time will result in inactivity penalties.
+
+Please note that once the network reaches the terminal total difficulty (currently estimated to happen between 13th and 15th of September), it will no longer be possible to operate a beacon node without pairing it with a single non-shared merge-ready execution client. Nimbus is fully compatible will all execution clients and the required configuration steps for all of them are the same. Please refer to our merge guide for more details:
+
+https://nimbus.guide/merge.html
+
+To raise awareness of the required configuration changes, once the Bellatrix fork is activated on 6th of September, Nimbus will refuse to start unless a properly configured and authenticated Engine API end-point is provided through the command-line options `--web3-url` and `--jwt-secret`. If you need more time to complete the transition, you can temporarily run the beacon node with the command-line option `--require-engine-api-in-bellatrix=no`, but please note that such a setup will stop working once the network TTD is reached!
+
+We would like to say a huge THANK YOU to all of our users who provided immensely valuable feedback in the many months of hard work leading to the merge and to all the fellow research and implementation teams who made this historic release possible!
+
+Onwards and happy merging!
+
+### Breaking changes
+
+* Nimbus will refuse to start unless connected to a properly configured execution client in Bellatrix-enabled networks:
+  https://github.com/status-im/nimbus-eth2/pull/4006
+
+* The custom error code returned by Nimbus when a validator doppelganger is detected has been changed from 1031 to 129 to improve compatibility with `systemd`:
+  https://github.com/status-im/nimbus-eth2/pull/3977
+
+### Improvements
+
+* Support for external block builders (a.k.a. MEV):
+  https://github.com/status-im/nimbus-eth2/pull/3883
+
+* Beta release for the Nimbus stand-alone light client, which can be used to drive any execution client without requiring a full-blown beacon node:
+  https://nimbus.guide/light-client-data.html
+
+* The first spec-compliant implementation of the LibP2P protocols for serving light client data:
+  https://nimbus.guide/light-client-data.html
+
+* Keystore locking prevents accidentally loading the same validator keys in multiple instances of the Nimbus beacon node and the Nimbus validator client, thus eliminating a potential slashing risk:
+  https://github.com/status-im/nimbus-eth2/pull/3907
+
+* Debian and RPM packages for the Nimbus beacon node and the Nimbus validator client are now available as part of the release. In the near future, Status will also provide a package repository, offering a more convenient installation:
+  https://github.com/status-im/nimbus-eth2/pull/3974
+  https://github.com/status-im/infra-nimbus/issues/79
+
+* Improved performance on networks with heavy forking activity through a reduction of the required state replays:
+  https://github.com/status-im/nimbus-eth2/pull/3990
+
+* The Nimbus validator client now supports validator activity metrics such as `beacon_attestations_sent`, `beacon_aggregates_sent`, `beacon_attestation_sent_delay`, `beacon_blocks_sent`, `beacon_blocks_sent_delay`, `beacon_sync_committee_messages_sent`, `beacon_sync_committee_message_sent_delay`, `beacon_sync_committee_contributions_sent`:
+  https://github.com/status-im/nimbus-eth2/pull/3915
+
+* The sync status displayed in the Nimbus status bar and certain log messages now describes the state of the client more accurately (optimistically synced vs fully synced):
+  https://github.com/status-im/nimbus-eth2/pull/3987
+
+### Fixes
+
+* Spec violation in the expected payload of the `/eth/v1/validator/prepare_beacon_proposer` Beacon API end-point:
+  https://github.com/status-im/nimbus-eth2/pull/3938
+
+* Invalid empty execution payloads being produced when the execution client is not responding:
+  https://github.com/status-im/nimbus-eth2/pull/3991
+
+* Potentially incorrect Eth1 block votes, disagreeing with the forming majority:
+  https://github.com/status-im/nimbus-eth2/pull/3944
+
+* More resilient deposit synchronization when Nimbus is paired with a highly loaded execution client:
+  https://github.com/status-im/nimbus-eth2/pull/3943
+  https://github.com/status-im/nimbus-eth2/pull/3957
+
+* A potential delay in detecting the terminal total difficulty block:
+  https://github.com/status-im/nimbus-eth2/pull/3956
+
+* Missing Gossip filtering rule for sync committee contributions resulting in unnecessary traffic:
+  https://github.com/status-im/nimbus-eth2/pull/3941
+
+* Compatibility issue preventing trusted node sync from Lodestar nodes:
+  https://github.com/status-im/nimbus-eth2/pull/3934
+
+* A potential crash while processing rare gossip messages such as slashings and exits:
+  https://github.com/status-im/nimbus-eth2/issues/3965
+
+* Inappropriate attestations sent by the validator client when the connected beacon node is only optimistically synced:
+  https://github.com/status-im/nimbus-eth2/pull/3968
+
+
 2022-07-26 v22.7.0
 ==================
 
@@ -366,10 +449,10 @@ Of particular note: the [Keymanager API](https://nimbus.guide/keymanager-api.htm
 
 * Faster beacon node startup-times:
   https://github.com/status-im/nimbus-eth2/pull/3320
-                                                                                      
+
 * The REST API is now compatible with CORS-enabled clients (e.g. browsers):
   https://github.com/status-im/nimbus-eth2/pull/3378
-  
+
 * Use the `--rest-allow-origin` and/or `--keymanager-allow-origin` parameters to specify the allowed origin.
 
 * A new `--rest-url` parameter for the `deposits exit` command: https://github.com/status-im/nimbus-eth2/pull/3344, https://github.com/status-im/nimbus-eth2/pull/3318
@@ -377,7 +460,7 @@ Of particular note: the [Keymanager API](https://nimbus.guide/keymanager-api.htm
 * You can now issue exits uing any beacon node which provides the [official REST API](https://nimbus.guide/rest-api.html). The Nimbus-specific [JSON-RPC API](https://nimbus.guide/api.html) will be deprecated in our next release, with a view to completely phasing it out over the next few months.
 
 * The REST API will now returns JSON data by default which simplifies testing the API with `curl`.
-  
+
 * The notable exception here is when the client requests SSZ data by supplying an `Accept: application/octet-stream` header.
 
 * Fairer request capping strategy for block sync requests and reduced CPU usage when serving them:
