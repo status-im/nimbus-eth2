@@ -172,6 +172,11 @@ type
       desc: "Force the use of polling when determining the head block of Eth1"
       name: "web3-force-polling" .}: bool
 
+    requireEngineAPI* {.
+      defaultValue: true
+      desc: "Require Nimbus to be configured with an Engine API end-point after the Bellatrix fork epoch"
+      name: "require-engine-api-in-bellatrix" .}: bool
+
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool
