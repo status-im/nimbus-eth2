@@ -23,7 +23,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[algorithm, options, sequtils, sets, tables, sugar],
+  std/[algorithm, options, sequtils, sets, tables],
   chronicles, metrics,
   ../extras,
   ./datatypes/[phase0, altair, bellatrix, capella],
@@ -429,7 +429,7 @@ func get_proposer_reward*(participant_reward: Gwei): Gwei =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
-    state: var (altair.BeaconState | bellatrix.BeaconState),
+    state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
     cache: var StateCache):
     Result[void, cstring]  =
@@ -484,14 +484,12 @@ proc process_sync_aggregate*(
   ok()
 
 
-type
-  PayloadNotifier = (bellatrix.ExecutionPayload | capella.ExecutionPayload) -> bool
-
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var (bellatrix.BeaconState | capella.BeaconState),
-    payload: bellatrix.ExecutionPayload | capella.ExecutionPayload,
-    notify_new_payload: PayloadNotifier): Result[void, cstring] =
+    state: var bellatrix.BeaconState,
+    payload: bellatrix.ExecutionPayload,
+    notify_new_payload: bellatrix.ExecutePayload): Result[void, cstring] =
+
   ## Verify consistency of the parent hash with respect to the previous
   ## execution payload header
   if is_merge_transition_complete(state):
@@ -507,12 +505,57 @@ proc process_execution_payload*(
   if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
     return err("process_execution_payload: invalid timestamp")
 
+  # TODO: @tavurth
   # Verify the execution payload is valid
   if not notify_new_payload(payload):
     return err("process_execution_payload: execution payload invalid")
 
   # Cache execution payload header
-  state.latest_execution_payload_header = ExecutionPayloadHeader(
+  state.latest_execution_payload_header = bellatrix.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions))
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#process_execution_payload
+proc process_execution_payload*(
+    state: var capella.BeaconState,
+    payload: capella.ExecutionPayload,
+    notify_new_payload: capella.ExecutePayload): Result[void, cstring] =
+  ## Verify consistency of the parent hash with respect to the previous
+  ## execution payload header
+  if is_merge_transition_complete(state):
+    if not (payload.parent_hash ==
+        state.latest_execution_payload_header.block_hash):
+      return err("process_execution_payload: payload and state parent hash mismatch")
+
+  # Verify prev_randao
+  if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
+    return err("process_execution_payload: payload and state randomness mismatch")
+
+  # Verify timestamp
+  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+    return err("process_execution_payload: invalid timestamp")
+
+  # TODO: @tavurth
+  # Verify the execution payload is valid
+  if not notify_new_payload(payload):
+    return err("process_execution_payload: execution payload invalid")
+
+  # Cache execution payload header
+  state.latest_execution_payload_header = capella.ExecutionPayloadHeader(
     parent_hash: payload.parent_hash,
     fee_recipient: payload.fee_recipient,
     state_root: payload.state_root,
@@ -585,8 +628,11 @@ type SomeBellatrixOrLaterBlock =
   capella.BeaconBlock | capella.SigVerifiedBeaconBlock | capella.TrustedBeaconBlock
 
 
-proc default_notifier(_: bellatrix.ExecutionPayload | capella.ExecutionPayload): bool
-    {.raises: [Defect].} =
+proc default_notifier(_: bellatrix.ExecutionPayload): bool =
+  # TODO this is enough to pass consensus spec tests
+  true
+
+proc default_notifier(_: capella.ExecutionPayload): bool =
   # TODO this is enough to pass consensus spec tests
   true
 

@@ -343,6 +343,23 @@ func is_execution_enabled*(
           bellatrix.SigVerifiedBeaconBlockBody): bool =
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#is_merge_transition_block
+func is_merge_transition_block(
+    state: capella.BeaconState,
+    body: capella.BeaconBlockBody | capella.TrustedBeaconBlockBody |
+          capella.SigVerifiedBeaconBlockBody): bool =
+  const defaultCapellaExecutionPayload = default(capella.ExecutionPayload)
+  not is_merge_transition_complete(state) and
+    body.execution_payload != defaultCapellaExecutionPayload
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#is_execution_enabled
+func is_execution_enabled*(
+    state: capella.BeaconState,
+    body: capella.BeaconBlockBody | capella.TrustedBeaconBlockBody |
+          capella.SigVerifiedBeaconBlockBody): bool =
+  is_merge_transition_block(state, body) or is_merge_transition_complete(state)
+
+
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
 func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   # Note: This function is unsafe with respect to overflows and underflows.

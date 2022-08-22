@@ -11,7 +11,7 @@ else:
   {.push raises: [].}
 
 import
-  ./spec/datatypes/[base, altair, bellatrix],
+  ./spec/datatypes/[base, altair, bellatrix, capella],
   ./spec/[eth2_ssz_serialization, eth2_merkleization]
 
 type
@@ -181,4 +181,68 @@ type
     next_sync_committee*: SyncCommittee
 
     # Execution
-    latest_execution_payload_header*: ExecutionPayloadHeader  # [New in Bellatrix]
+    latest_execution_payload_header*: bellatrix.ExecutionPayloadHeader  # [New in Bellatrix]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#beaconstate
+  # Memory-representation-equivalent to a Capella BeaconState for in-place SSZ
+  # reading and writing
+  CapellaBeaconStateNoImmutableValidators* = object
+    # Versioning
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
+    fork*: Fork
+
+    # History
+    latest_block_header*: BeaconBlockHeader ##\
+    ## `latest_block_header.state_root == ZERO_HASH` temporarily
+
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
+    ## Needed to process attestations, older to newer
+
+    state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+
+    # Eth1
+    eth1_data*: Eth1Data
+    eth1_data_votes*:
+      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+    eth1_deposit_index*: uint64
+
+    # Registry
+    validators*: HashList[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Randomness
+    randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+
+    # Slashings
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
+    ## Per-epoch sums of slashed effective balances
+
+    # Participation
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
+
+    # Finality
+    justification_bits*: JustificationBits
+
+    previous_justified_checkpoint*: Checkpoint ##\
+    ## Previous epoch snapshot
+
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
+    # Inactivity
+    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Sync
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
+
+    # Execution
+    latest_execution_payload_header*: capella.ExecutionPayloadHeader
+
+    # Withdrawals
+    withdrawal_queue*: List[Withdrawal, Limit capella.WITHDRAWALS_QUEUE_LIMIT]  # [New in Capella]
+    next_withdrawal_index*: WithdrawalIndex  # [New in Capella]

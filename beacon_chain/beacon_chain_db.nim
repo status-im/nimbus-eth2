@@ -719,6 +719,10 @@ template toBeaconStateNoImmutableValidators(state: bellatrix.BeaconState):
     BellatrixBeaconStateNoImmutableValidators =
   isomorphicCast[BellatrixBeaconStateNoImmutableValidators](state)
 
+template toBeaconStateNoImmutableValidators(state: capella.BeaconState):
+    CapellaBeaconStateNoImmutableValidators =
+  isomorphicCast[CapellaBeaconStateNoImmutableValidators](state)
+
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
     value: phase0.BeaconState | altair.BeaconState) =
@@ -893,6 +897,8 @@ proc getBlockSSZ*(
     getBlockSSZ(db, key, data, altair.TrustedSignedBeaconBlock)
   of BeaconBlockFork.Bellatrix:
     getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.Capella:
+    getBlockSSZ(db, key, data, capella.TrustedSignedBeaconBlock)
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
@@ -936,6 +942,8 @@ proc getBlockSZ*(
     getBlockSZ(db, key, data, altair.TrustedSignedBeaconBlock)
   of BeaconBlockFork.Bellatrix:
     getBlockSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.Capella:
+    getBlockSZ(db, key, data, capella.TrustedSignedBeaconBlock)
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
@@ -1168,6 +1176,7 @@ proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
     db.backend.contains(subkey(phase0.BeaconState, key)).expectDb()
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bool =
+  db.statesNoVal[BeaconStateFork.Capella].contains(key.data).expectDb or
   db.statesNoVal[BeaconStateFork.Bellatrix].contains(key.data).expectDb or
   db.statesNoVal[BeaconStateFork.Altair].contains(key.data).expectDb or
   db.statesNoVal[BeaconStateFork.Phase0].contains(key.data).expectDb or

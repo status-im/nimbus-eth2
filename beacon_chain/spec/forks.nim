@@ -442,7 +442,7 @@ func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
   if tgt.kind == src.kind:
     case tgt.kind
     of BeaconStateFork.Capella:
-      assign(tgt.capellaData, src.capellaData):
+      assign(tgt.capellaData,   src.capellaData):
     of BeaconStateFork.Bellatrix:
       assign(tgt.bellatrixData, src.bellatrixData):
     of BeaconStateFork.Altair:
@@ -471,6 +471,11 @@ func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
 
 func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
   withState(x): forkyState.root = root
+
+template ExecutionPayloadHeader(state: bellatrix.BeaconState): typedesc[bellatrix.ExecutionPayloadHeader] =
+  bellatrix.ExecutionPayloadHeader
+template getExecutionPayloadHeader(state: capella.BeaconState): typedesc[capella.ExecutionPayloadHeader] =
+  capella.ExecutionPayloadHeader
 
 func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
   ## Return the current fork for the given epoch.
