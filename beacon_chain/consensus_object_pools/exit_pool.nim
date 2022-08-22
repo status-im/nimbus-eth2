@@ -165,16 +165,16 @@ proc getExitMessagesForBlock(
     if not validateExitMessage(cfg, state, exit_message):
       continue
 
+    var skip = false
     for slashed_index in getValidatorIndices(exit_message):
-      if state.validators.lenu64 <= slashed_index:
-        continue
-      if state.validators[slashed_index].exit_epoch != FAR_FUTURE_EPOCH:
-        continue
       if seen.containsOrIncl(slashed_index):
-        continue
-
-      if not output.add exit_message:
+        skip = true
         break
+    if skip:
+      continue
+
+    if not output.add exit_message:
+      break
 
   subpool.clear()
 
