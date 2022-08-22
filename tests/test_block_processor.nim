@@ -44,7 +44,7 @@ suite "Block processor" & preset():
       keymanagerHost: ref KeymanagerHost
       consensusManager = ConsensusManager.new(
         dag, attestationPool, quarantine, eth1Monitor,
-        dynamicFeeRecipientsStore, keymanagerHost)
+        newClone(dynamicFeeRecipientsStore), keymanagerHost)
       state = newClone(dag.headState)
       cache = StateCache()
       b1 = addTestBlock(state[], cache).phase0Data

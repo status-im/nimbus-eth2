@@ -49,7 +49,7 @@ type
 
     # Allow determination of preferred fee recipient during proposals
     # ----------------------------------------------------------------
-    dynamicFeeRecipientsStore: DynamicFeeRecipientsStore
+    dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore
     keymanagerHost: ref KeymanagerHost
 
     # Tracking last proposal forkchoiceUpdated payload information
@@ -64,7 +64,7 @@ func new*(T: type ConsensusManager,
           attestationPool: ref AttestationPool,
           quarantine: ref Quarantine,
           eth1Monitor: Eth1Monitor,
-          dynamicFeeRecipientsStore: DynamicFeeRecipientsStore,
+          dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
           keymanagerHost: ref KeymanagerHost
          ): ref ConsensusManager =
   (ref ConsensusManager)(
@@ -219,7 +219,7 @@ proc checkNextProposer(dag: ChainDAGRef, slot: Slot):
 proc getFeeRecipient*(
     self: ref ConsensusManager, pubkey: ValidatorPubKey, validatorIdx: ValidatorIndex,
     epoch: Epoch): Eth1Address =
-  self.dynamicFeeRecipientsStore.getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
+  self.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
     if self.keymanagerHost != nil:
       self.keymanagerHost[].getSuggestedFeeRecipient(pubkey).valueOr:
         self.keymanagerHost[].defaultFeeRecipient
