@@ -17,7 +17,8 @@ import
   ../sszdump
 
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, runForkchoiceUpdated, updateHead, updateHeadWithExecution
+  ConsensusManager, runForkchoiceUpdated, runProposalForkchoiceUpdated,
+  updateHead, updateHeadWithExecution
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, slot
 from ../consensus_object_pools/block_pools_types import BlockError, EpochRef
@@ -307,6 +308,9 @@ proc storeBlock*(
         executionHeadRoot,
         self.consensusManager.dag.loadExecutionBlockRoot(
           self.consensusManager.dag.finalizedHead.blck))
+
+      # TODO remove redundant fcU in case of proposal
+      asyncSpawn self.consensusManager.runProposalForkchoiceUpdated()
     else:
       asyncSpawn self.consensusManager.updateHeadWithExecution(newHead.get)
   else:

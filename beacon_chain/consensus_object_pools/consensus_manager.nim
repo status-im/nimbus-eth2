@@ -228,7 +228,7 @@ proc getFeeRecipient*(
 
 from ../spec/datatypes/bellatrix import PayloadID
 
-proc runProposalForkchoiceUpdated(self: ref ConsensusManager) {.async.} =
+proc runProposalForkchoiceUpdated*(self: ref ConsensusManager) {.async.} =
   withState(self.dag.headState):
     let
       nextSlot = state.data.slot + 1
@@ -247,6 +247,9 @@ proc runProposalForkchoiceUpdated(self: ref ConsensusManager) {.async.} =
       headBlockRoot = self.dag.loadExecutionBlockRoot(self.dag.head)
       finalizedBlockRoot =
         self.dag.loadExecutionBlockRoot(self.dag.finalizedHead.blck)
+
+    if headBlockRoot.isZero:
+      return
 
     try:
       let fcResult = awaitWithTimeout(
