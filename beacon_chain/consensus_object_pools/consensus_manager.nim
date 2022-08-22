@@ -51,6 +51,7 @@ type
     # ----------------------------------------------------------------
     dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore
     keymanagerHost: ref KeymanagerHost
+    defaultFeeRecipient: Eth1Address
 
     # Tracking last proposal forkchoiceUpdated payload information
     # ----------------------------------------------------------------
@@ -65,7 +66,8 @@ func new*(T: type ConsensusManager,
           quarantine: ref Quarantine,
           eth1Monitor: Eth1Monitor,
           dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
-          keymanagerHost: ref KeymanagerHost
+          keymanagerHost: ref KeymanagerHost,
+          defaultFeeRecipient: Eth1Address
          ): ref ConsensusManager =
   (ref ConsensusManager)(
     dag: dag,
@@ -74,7 +76,8 @@ func new*(T: type ConsensusManager,
     eth1Monitor: eth1Monitor,
     dynamicFeeRecipientsStore: dynamicFeeRecipientsStore,
     keymanagerHost: keymanagerHost,
-    forkchoiceUpdatedInfo: Opt.none ForkchoiceUpdatedInformation
+    forkchoiceUpdatedInfo: Opt.none ForkchoiceUpdatedInformation,
+    defaultFeeRecipient: defaultFeeRecipient
   )
 
 # Consensus Management
@@ -222,9 +225,9 @@ proc getFeeRecipient*(
   self.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
     if self.keymanagerHost != nil:
       self.keymanagerHost[].getSuggestedFeeRecipient(pubkey).valueOr:
-        self.keymanagerHost[].defaultFeeRecipient
+        self.defaultFeeRecipient
     else:
-      self.keymanagerHost[].defaultFeeRecipient
+      self.defaultFeeRecipient
 
 from ../spec/datatypes/bellatrix import PayloadID
 

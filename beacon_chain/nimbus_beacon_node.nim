@@ -291,7 +291,8 @@ proc initFullNode(
       ExitPool.init(dag, attestationPool, onVoluntaryExitAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.eth1Monitor,
-      node.dynamicFeeRecipientsStore, node.keymanagerHost)
+      node.dynamicFeeRecipientsStore, node.keymanagerHost,
+      config.defaultFeeRecipient)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime,
