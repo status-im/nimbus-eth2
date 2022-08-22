@@ -354,17 +354,6 @@ proc get_execution_payload(
     asConsensusExecutionPayload(
       await execution_engine.getPayload(payload_id.get))
 
-proc getFeeRecipient(node: BeaconNode,
-                     pubkey: ValidatorPubKey,
-                     validatorIdx: ValidatorIndex,
-                     epoch: Epoch): Eth1Address =
-  node.dynamicFeeRecipientsStore.getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
-    if node.keymanagerHost != nil:
-      node.keymanagerHost[].getSuggestedFeeRecipient(pubkey).valueOr:
-        node.config.defaultFeeRecipient
-    else:
-      node.config.defaultFeeRecipient
-
 from web3/engine_api_types import PayloadExecutionStatus
 
 proc getExecutionPayload(
@@ -405,11 +394,25 @@ proc getExecutionPayload(
           terminalBlockHash
       latestFinalized =
         node.dag.loadExecutionBlockRoot(node.dag.finalizedHead.blck)
-      feeRecipient = node.getFeeRecipient(pubkey, validator_index, epoch)
-      payload_id = (await forkchoice_updated(
-        proposalState.bellatrixData.data, latestHead, latestFinalized,
-        feeRecipient,
-        node.consensusManager.eth1Monitor))
+      feeRecipient = node.consensusManager.getFeeRecipient(pubkey, validator_index, epoch)
+      lastFcU = node.consensusManager.forkchoiceUpdatedInfo
+      payload_id =
+        if  lastFcU.headBlockRoot == latestHead and
+            lastFcU.finalizedBlockRoot == latestFinalized and
+            lastFcU.feeRecipient == feeRecipient:
+          some bellatrix.PayloadID(lastFcU.payloadId)
+        else:
+          debug "getExecutionPayload: didn't find payloadId, re-querying",
+            latestHead,
+            latestFinalized,
+            feeRecipient,
+            cachedHeadBlockRoot = lastFcU.headBlockRoot,
+            cachedFinalizedBlockRoot = lastFcU.finalizedBlockRoot,
+            cachedFeeRecipient = lastFcU.feeRecipient
+
+          (await forkchoice_updated(
+           proposalState.bellatrixData.data, latestHead, latestFinalized,
+           feeRecipient, node.consensusManager.eth1Monitor))
       payload = try:
           awaitWithTimeout(
             get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
@@ -1219,7 +1222,8 @@ proc getValidatorRegistration(
     # activated for duties yet. We can safely skip the registration then.
     return
 
-  let feeRecipient = node.getFeeRecipient(validator.pubkey, validatorIdx, epoch)
+  let feeRecipient = node.consensusManager.getFeeRecipient(
+    validator.pubkey, validatorIdx, epoch)
   var validatorRegistration = SignedValidatorRegistrationV1(
     message: ValidatorRegistrationV1(
       fee_recipient: ExecutionAddress(data: distinctBase(feeRecipient)),
