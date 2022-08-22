@@ -27,6 +27,7 @@ type
     headBlockRoot*: Eth2Digest
     safeBlockRoot*: Eth2Digest
     finalizedBlockRoot*: Eth2Digest
+    timestamp*: uint64
     feeRecipient*: Eth1Address
 
   ConsensusManager* = object
@@ -53,7 +54,7 @@ type
 
     # Tracking last proposal forkchoiceUpdated payload information
     # ----------------------------------------------------------------
-    forkchoiceUpdatedInfo*: ForkchoiceUpdatedInformation
+    forkchoiceUpdatedInfo*: Opt[ForkchoiceUpdatedInformation]
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -72,7 +73,8 @@ func new*(T: type ConsensusManager,
     quarantine: quarantine,
     eth1Monitor: eth1Monitor,
     dynamicFeeRecipientsStore: dynamicFeeRecipientsStore,
-    keymanagerHost: keymanagerHost
+    keymanagerHost: keymanagerHost,
+    forkchoiceUpdatedInfo: Opt.none ForkchoiceUpdatedInformation
   )
 
 # Consensus Management
@@ -260,10 +262,11 @@ proc runProposalForkchoiceUpdated(self: ref ConsensusManager) {.async.} =
           fcResult.payloadId.isNone:
         return
 
-      self.forkchoiceUpdatedInfo = ForkchoiceUpdatedInformation(
+      self.forkchoiceUpdatedInfo = Opt.some ForkchoiceUpdatedInformation(
         payloadId: bellatrix.PayloadID(fcResult.payloadId.get),
         headBlockRoot: headBlockRoot,
         finalizedBlockRoot: finalizedBlockRoot,
+        timestamp: timestamp,
         feeRecipient: feeRecipient)
     except CatchableError as err:
       error "Engine API fork-choice update failed", err = err.msg
