@@ -477,7 +477,7 @@ proc makeBeaconBlockForHeadAndSlot*(
 
     let
       exits = withState(state):
-        node.exitPool[].getBeaconBlockExits(state.data)
+        node.exitPool[].getBeaconBlockExits(node.dag.cfg, state.data)
       effectiveExecutionPayload =
         if executionPayload.isSome:
           executionPayload.get
