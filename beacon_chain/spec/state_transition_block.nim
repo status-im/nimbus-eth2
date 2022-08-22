@@ -23,7 +23,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[algorithm, sequtils, sets, tables],
+  std/[algorithm, options, sequtils, sets, tables, sugar],
   chronicles, metrics,
   ../extras,
   ./datatypes/[phase0, altair, bellatrix, capella],
@@ -484,10 +484,14 @@ proc process_sync_aggregate*(
   ok()
 
 
+type
+  PayloadNotifier = (bellatrix.ExecutionPayload | capella.ExecutionPayload) -> bool
+
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var bellatrix.BeaconState | capella.BeaconState, payload: ForkyExecutionPayload,
-    notify_new_payload: ExecutePayload): Result[void, cstring] =
+    state: var (bellatrix.BeaconState | capella.BeaconState),
+    payload: bellatrix.ExecutionPayload | capella.ExecutionPayload,
+    notify_new_payload: PayloadNotifier): Result[void, cstring] =
   ## Verify consistency of the parent hash with respect to the previous
   ## execution payload header
   if is_merge_transition_complete(state):
@@ -576,11 +580,19 @@ proc process_block*(
   ok()
 
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-type SomeBellatrixBlock =
-  bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock
+type SomeBellatrixOrLaterBlock =
+  bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock |
+  capella.BeaconBlock | capella.SigVerifiedBeaconBlock | capella.TrustedBeaconBlock
+
+
+proc default_notifier(_: bellatrix.ExecutionPayload | capella.ExecutionPayload): bool
+    {.raises: [Defect].} =
+  # TODO this is enough to pass consensus spec tests
+  true
+
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var bellatrix.BeaconState, blck: SomeBellatrixBlock,
+    state: var (bellatrix.BeaconState | capella.BeaconState), blck: SomeBellatrixOrLaterBlock,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -588,10 +600,8 @@ proc process_block*(
 
   ? process_block_header(state, blck, flags, cache)
   if is_execution_enabled(state, blck.body):
-    ? process_execution_payload(
-        state, blck.body.execution_payload,
-        # TODO this is enough to pass consensus spec tests
-        func(_: ExecutionPayload): bool = true)
+    ? process_execution_payload(state, blck.body.execution_payload, default_notifier)
+
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
 
