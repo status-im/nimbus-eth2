@@ -172,8 +172,9 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + addExitMessage/getAttesterSlashingMessage                                                  OK
 + addExitMessage/getProposerSlashingMessage                                                  OK
 + addExitMessage/getVoluntaryExitMessage                                                     OK
++ pre-pre-fork voluntary exit                                                                OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the fee recpient [Beacon Node] [Preset: mainnet]                               OK
@@ -595,4 +596,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 332/337 Fail: 0/337 Skip: 5/337
+OK: 333/338 Fail: 0/338 Skip: 5/338
