@@ -89,7 +89,7 @@ type
     stateTtlCache*: StateTtlCache
     nextExchangeTransitionConfTime*: Moment
     router*: ref MessageRouter
-    dynamicFeeRecipientsStore*: DynamicFeeRecipientsStore
+    dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

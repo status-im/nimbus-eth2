@@ -779,7 +779,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       currentEpoch = node.beaconClock.now.slotOrZero.epoch
 
     for proposerData in body:
-      node.dynamicFeeRecipientsStore.addMapping(
+      node.dynamicFeeRecipientsStore[].addMapping(
         proposerData.validator_index,
         proposerData.fee_recipient,
         currentEpoch)
