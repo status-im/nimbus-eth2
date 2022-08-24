@@ -376,22 +376,23 @@ proc getFeeRecipient(node: BeaconNode,
 from web3/engine_api_types import PayloadExecutionStatus
 
 proc getExecutionPayload(
-    node: BeaconNode, proposalState: auto,
+    node: BeaconNode, proposalState: ref ForkedHashedBeaconState,
     epoch: Epoch,
     validator_index: ValidatorIndex,
     pubkey: ValidatorPubKey):
     Future[Opt[ExecutionPayload]] {.async.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
-
-  # Only current hardfork with execution payloads is Bellatrix
-  static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
-  template empty_execution_payload(): auto =
-    build_empty_execution_payload(proposalState.bellatrixData.data)
+  func empty_execution_payload(): ExecutionPayload =
+    withState(proposalState[]):
+      when stateFork >= BeaconStateFork.Bellatrix:
+        build_empty_execution_payload(state.data)
+      else:
+        default(ExecutionPayload)
 
   if node.eth1Monitor.isNil:
     beacon_block_payload_errors.inc()
     warn "getExecutionPayload: eth1Monitor not initialized; using empty execution payload"
-    return Opt.some empty_execution_payload
+    return Opt.some empty_execution_payload()
 
   try:
     # Minimize window for Eth1 monitor to shut down connection
@@ -399,6 +400,8 @@ proc getExecutionPayload(
 
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#request-2
     const GETPAYLOAD_TIMEOUT = 1.seconds
+
+    static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
 
     let
       terminalBlockHash =
@@ -448,12 +451,12 @@ proc getExecutionPayload(
             GETPAYLOAD_TIMEOUT):
               beacon_block_payload_errors.inc()
               warn "Getting execution payload from Engine API timed out", payload_id
-              empty_execution_payload
+              empty_execution_payload()
         except CatchableError as err:
           beacon_block_payload_errors.inc()
           warn "Getting execution payload from Engine API failed",
                 payload_id, err = err.msg
-          empty_execution_payload
+          empty_execution_payload()
 
       executionPayloadStatus =
         awaitWithTimeout(
@@ -474,7 +477,7 @@ proc getExecutionPayload(
     beacon_block_payload_errors.inc()
     error "Error creating non-empty execution payload; using empty execution payload",
       msg = err.msg
-    return Opt.some empty_execution_payload
+    return Opt.some empty_execution_payload()
 
 proc makeBeaconBlockForHeadAndSlot*(
     node: BeaconNode, randao_reveal: ValidatorSig,

@@ -547,12 +547,11 @@ proc makeBeaconBlock*(
     # Override for MEV
     if transactions_root.isSome and execution_payload_root.isSome:
       withState(state):
-        static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
-        when stateFork == BeaconStateFork.Bellatrix:
+        when stateFork >= BeaconStateFork.Bellatrix:
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#beaconblockbody
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/bellatrix/beacon-chain.md#beaconblockbody
           # Effectively hash_tree_root(ExecutionPayload) with the beacon block
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.
