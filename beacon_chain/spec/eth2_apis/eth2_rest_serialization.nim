@@ -1027,7 +1027,7 @@ proc extractBodyKind(reader: JsonReader[RestJson]): BeaconBlockFork =
     of "bls_to_execution_changes":
       result = BeaconBlockFork.Capella
     of "execution_payload":
-      result = max(result, BeaconBlockFork.Capella)
+      result = max(result, BeaconBlockFork.Bellatrix)
     of "sync_aggregate":
       result = max(result, BeaconBlockFork.Altair)
 
