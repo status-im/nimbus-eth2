@@ -423,6 +423,50 @@ proc processBlock(
 
 from eth/async_utils import awaitWithTimeout
 from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
+from ../spec/datatypes/capella import ExecutionPayload, SignedBeaconBlock
+
+proc newExecutionPayload*(
+    eth1Monitor: Eth1Monitor, executionPayload: capella.ExecutionPayload):
+    Future[PayloadExecutionStatus] {.async.} =
+  if eth1Monitor.isNil:
+    warn "newPayload: attempting to process execution payload without Eth1Monitor. Ensure --web3-url setting is correct and JWT is configured."
+    return PayloadExecutionStatus.syncing
+
+  debug "newPayload: inserting block into execution engine",
+    parentHash = executionPayload.parent_hash,
+    blockHash = executionPayload.block_hash,
+    stateRoot = shortLog(executionPayload.state_root),
+    receiptsRoot = shortLog(executionPayload.receipts_root),
+    prevRandao = shortLog(executionPayload.prev_randao),
+    blockNumber = executionPayload.block_number,
+    gasLimit = executionPayload.gas_limit,
+    gasUsed = executionPayload.gas_used,
+    timestamp = executionPayload.timestamp,
+    extraDataLen = executionPayload.extra_data.len,
+    baseFeePerGas = $executionPayload.base_fee_per_gas,
+    numTransactions = executionPayload.transactions.len
+
+  try:
+    let
+      payloadResponse =
+        awaitWithTimeout(
+            eth1Monitor.newPayload(
+              executionPayload.asEngineExecutionPayload),
+            NEWPAYLOAD_TIMEOUT):
+          info "newPayload: newPayload timed out"
+          PayloadStatusV1(status: PayloadExecutionStatus.syncing)
+      payloadStatus = payloadResponse.status
+
+    debug "newPayload: succeeded",
+      parentHash = executionPayload.parent_hash,
+      blockHash = executionPayload.block_hash,
+      blockNumber = executionPayload.block_number,
+      payloadStatus
+
+    return payloadStatus
+  except CatchableError as err:
+    debug "newPayload failed", msg = err.msg
+    return PayloadExecutionStatus.syncing
 
 proc newExecutionPayload*(
     eth1Monitor: Eth1Monitor, executionPayload: bellatrix.ExecutionPayload):

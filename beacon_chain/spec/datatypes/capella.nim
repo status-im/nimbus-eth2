@@ -129,7 +129,7 @@ type
 
     # Eth1
     eth1_data*: Eth1Data
-    eth1_data_votes*: List[Eth1Data, Limit EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
+    eth1_data_votes*: HashList[Eth1Data, Limit EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
     eth1_deposit_index*: uint64
 
     # Registry
@@ -153,7 +153,7 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Sync
     current_sync_committee*: SyncCommittee
@@ -206,20 +206,6 @@ type
     signature*: TrustedSig
 
     root* {.dontSerialize.}: Eth2Digest # cached root of signed beacon block
-
-  SomeSignedBeaconBlock* =
-    SignedBeaconBlock |
-    SigVerifiedSignedBeaconBlock |
-    MsgTrustedSignedBeaconBlock |
-    TrustedSignedBeaconBlock
-  SomeBeaconBlock* =
-    BeaconBlock |
-    SigVerifiedBeaconBlock |
-    TrustedBeaconBlock
-  SomeBeaconBlockBody* =
-    BeaconBlockBody |
-    SigVerifiedBeaconBlockBody |
-    TrustedBeaconBlockBody
 
   BlockParams = object
     parentHash*: string
@@ -376,6 +362,20 @@ type
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
+
+  SomeSignedBeaconBlock* =
+    SignedBeaconBlock |
+    SigVerifiedSignedBeaconBlock |
+    MsgTrustedSignedBeaconBlock |
+    TrustedSignedBeaconBlock
+  SomeBeaconBlock* =
+    BeaconBlock |
+    SigVerifiedBeaconBlock |
+    TrustedBeaconBlock
+  SomeBeaconBlockBody* =
+    BeaconBlockBody |
+    SigVerifiedBeaconBlockBody |
+    TrustedBeaconBlockBody
 
 func encodeQuantityHex*(x: auto): string =
   "0x" & x.toHex

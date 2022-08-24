@@ -203,7 +203,7 @@ type
 
     # Eth1
     eth1_data*: Eth1Data
-    eth1_data_votes*: List[Eth1Data, Limit EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
+    eth1_data_votes*: HashList[Eth1Data, Limit EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
     eth1_deposit_index*: uint64
 
     # Registry
@@ -227,7 +227,7 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Sync
     current_sync_committee*: SyncCommittee

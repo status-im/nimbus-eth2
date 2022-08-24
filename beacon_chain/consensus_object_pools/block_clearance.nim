@@ -36,7 +36,7 @@ proc addResolvedHeadBlock(
        trustedBlock: ForkyTrustedSignedBeaconBlock,
        blockVerified: bool,
        parent: BlockRef, cache: var StateCache,
-       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded,
+       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded | OnCapellaBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
      ): BlockRef =
   doAssert state.matches_block_slot(
@@ -162,7 +162,7 @@ proc addHeadBlock*(
     signedBlock: ForkySignedBeaconBlock,
     blockVerified: bool,
     onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
-                  OnBellatrixBlockAdded
+                  OnBellatrixBlockAdded | OnCapellaBlockAdded
     ): Result[BlockRef, BlockError] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
@@ -292,7 +292,7 @@ proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
     onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
-                  OnBellatrixBlockAdded
+                  OnBellatrixBlockAdded | OnCapellaBlockAdded
     ): Result[BlockRef, BlockError] =
   addHeadBlock(
     dag, verifier, signedBlock, blockVerified = true, onBlockAdded)

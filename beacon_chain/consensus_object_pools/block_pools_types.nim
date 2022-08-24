@@ -298,6 +298,12 @@ type
     epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
+  OnCapellaBlockAdded* = proc(
+    blckRef: BlockRef,
+    blck: capella.TrustedSignedBeaconBlock,
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
+
   HeadChangeInfoObject* = object
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
