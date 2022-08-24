@@ -390,7 +390,8 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef) {.async.} =
           res
 
       if len(subscriptions) > 0:
-        let res = await vc.prepareBeaconCommitteeSubnet(subscriptions)
+        let res = await vc.prepareBeaconCommitteeSubnet(subscriptions,
+                                                        ApiStrategyKind.First)
         if not(res):
           error "Failed to subscribe validators"
 
@@ -434,7 +435,8 @@ proc pollForSyncCommitteeDuties* (vc: ValidatorClientRef) {.async.} =
                 res.add(sub)
           res
       if len(subscriptions) > 0:
-        let res = await vc.prepareSyncCommitteeSubnets(subscriptions)
+        let res = await vc.prepareSyncCommitteeSubnets(subscriptions,
+                                                       ApiStrategyKind.First)
         if not(res):
           error "Failed to subscribe validators"
 

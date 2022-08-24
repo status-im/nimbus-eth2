@@ -1650,7 +1650,7 @@ proc publishBlock*(
 
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
-    let res =
+    let res = block:
       vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
                               {BeaconNodeRole.BlockProposalPublish}):
         case data.kind
