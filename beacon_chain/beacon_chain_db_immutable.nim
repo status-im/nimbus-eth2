@@ -194,47 +194,40 @@ type
     fork*: Fork
 
     # History
-    latest_block_header*: BeaconBlockHeader ##\
-    ## `latest_block_header.state_root == ZERO_HASH` temporarily
-
-    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## Needed to process attestations, older to newer
+    latest_block_header*: BeaconBlockHeader
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      ## Needed to process attestations, older to newer
 
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
 
     # Eth1
     eth1_data*: Eth1Data
-    eth1_data_votes*:
-      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+    eth1_data_votes*: List[Eth1Data, Limit EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH]
     eth1_deposit_index*: uint64
 
     # Registry
-    validators*: HashList[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
-    balances*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Randomness
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
-    ## Per-epoch sums of slashed effective balances
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]  # Per-epoch sums of slashed effective balances
 
     # Participation
     previous_epoch_participation*: EpochParticipationFlags
     current_epoch_participation*: EpochParticipationFlags
 
     # Finality
-    justification_bits*: JustificationBits
-
-    previous_justified_checkpoint*: Checkpoint ##\
-    ## Previous epoch snapshot
-
+    justification_bits*: JustificationBits # Bit set for every recent justified epoch
+    previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    inactivity_scores*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Sync
     current_sync_committee*: SyncCommittee

@@ -451,14 +451,18 @@ proc new*(T: type BeaconChainDB,
     blocks = [
       kvStore db.openKvStore("blocks").expectDb(),
       kvStore db.openKvStore("altair_blocks").expectDb(),
-      kvStore db.openKvStore("bellatrix_blocks").expectDb()]
+      kvStore db.openKvStore("bellatrix_blocks").expectDb(),
+      kvStore db.openKvStore("capella_blocks").expectDb()
+    ]
 
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
     statesNoVal = [
       kvStore db.openKvStore("state_no_validators2").expectDb(),
       kvStore db.openKvStore("altair_state_no_validators").expectDb(),
-      kvStore db.openKvStore("bellatrix_state_no_validators").expectDb()]
+      kvStore db.openKvStore("bellatrix_state_no_validators").expectDb(),
+      kvStore db.openKvStore("capella_state_no_validators").expectDb()
+    ]
 
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
@@ -467,7 +471,8 @@ proc new*(T: type BeaconChainDB,
     lcData = db.initLightClientDataDB(LightClientDataDBNames(
       altairCurrentBranches: "lc_altair_current_branches",
       altairBestUpdates: "lc_altair_best_updates",
-      sealedPeriods: "lc_sealed_periods")).expectDb()
+      sealedPeriods: "lc_sealed_periods")
+    ).expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
@@ -481,6 +486,7 @@ proc new*(T: type BeaconChainDB,
   if immutableValidatorsDb.len() < immutableValidatorsDb1.len():
     notice "Migrating validator keys, this may take a minute",
       len = immutableValidatorsDb1.len()
+
     while immutableValidatorsDb.len() < immutableValidatorsDb1.len():
       let val = immutableValidatorsDb1.get(immutableValidatorsDb.len())
       immutableValidatorsDb.add(ImmutableValidatorDataDb2(
@@ -693,6 +699,13 @@ proc putBlock*(
     db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
+proc putBlock*(
+    db: BeaconChainDB,
+    value: capella.TrustedSignedBeaconBlock) =
+  db.withManyWrites:
+    db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
+    db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
+
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
   # Must be called before storing a state that references the new validators
@@ -824,6 +837,18 @@ proc getBlock*(
 
 proc getBlock*[
     X: bellatrix.TrustedSignedBeaconBlock](
+    db: BeaconChainDB, key: Eth2Digest,
+    T: type X): Opt[T] =
+  # We only store blocks that we trust in the database
+  result.ok(default(T))
+  if db.blocks[T.toFork].getSZSSZ(key.data, result.get) == GetResult.found:
+    # set root after deserializing (so it doesn't get zeroed)
+    result.get().root = key
+  else:
+    result.err()
+
+proc getBlock*[
+    X: capella.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,
     T: type X): Opt[T] =
   # We only store blocks that we trust in the database
@@ -1008,7 +1033,51 @@ proc getStateOnlyMutableValidators(
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
+    # TODO: @tavurth check
     store: KvStoreRef, key: openArray[byte], output: var bellatrix.BeaconState,
+    rollback: RollbackProc): bool =
+  ## Load state into `output` - BeaconState is large so we want to avoid
+  ## re-allocating it if possible
+  ## Return `true` iff the entry was found in the database and `output` was
+  ## overwritten.
+  ## Rollback will be called only if output was partially written - if it was
+  ## not found at all, rollback will not be called
+  # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
+  #      https://github.com/nim-lang/Nim/issues/14126
+  # TODO RVO is inefficient for large objects:
+  #      https://github.com/nim-lang/Nim/issues/13879
+
+  case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
+  of GetResult.found:
+    let numValidators = output.validators.len
+    doAssert immutableValidators.len >= numValidators
+
+    for i in 0 ..< numValidators:
+      let
+        # Bypass hash cache invalidation
+        dstValidator = addr output.validators.data[i]
+
+      assign(
+        dstValidator.pubkey,
+        immutableValidators[i].pubkey.toPubKey())
+      assign(
+        dstValidator.withdrawal_credentials,
+        immutableValidators[i].withdrawal_credentials)
+
+    output.validators.resetCache()
+
+    true
+  of GetResult.notFound:
+    false
+  of GetResult.corrupted:
+    rollback()
+    false
+
+# TODO: Could be split into generic
+proc getStateOnlyMutableValidators(
+    immutableValidators: openArray[ImmutableValidatorData2],
+    # TODO: @tavurth check
+    store: KvStoreRef, key: openArray[byte], output: var capella.BeaconState,
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -1099,7 +1168,7 @@ proc getState*(
 
 proc getState*(
     db: BeaconChainDB, key: Eth2Digest,
-    output: var (altair.BeaconState | bellatrix.BeaconState),
+    output: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -1174,7 +1243,7 @@ proc containsBlock*(
     db.v0.containsBlock(key)
 
 proc containsBlock*[
-    X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock](
+    X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
   db.blocks[X.toFork].contains(key.data).expectDb()
 
@@ -1184,7 +1253,8 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: BeaconBlockFork): 
   else: db.blocks[fork].contains(key.data).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.containsBlock(key, bellatrix.TrustedSignedBeaconBlock) or
+  db.containsBlock(key, capella.TrustedSignedBeaconBlock) or
+    db.containsBlock(key, bellatrix.TrustedSignedBeaconBlock) or
     db.containsBlock(key, altair.TrustedSignedBeaconBlock) or
     db.containsBlock(key, phase0.TrustedSignedBeaconBlock)
 
@@ -1317,6 +1387,8 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     elif (let blck = db.getBlock(res.root, altair.TrustedSignedBeaconBlock); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
     elif (let blck = db.getBlock(res.root, bellatrix.TrustedSignedBeaconBlock); blck.isSome()):
+      res.summary = blck.get().message.toBeaconBlockSummary()
+    elif (let blck = db.getBlock(res.root, capella.TrustedSignedBeaconBlock); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
     else:
       break

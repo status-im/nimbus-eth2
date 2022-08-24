@@ -101,6 +101,7 @@ type
     Web3SignerRequest |
     altair.SignedBeaconBlock |
     bellatrix.SignedBeaconBlock |
+    capella.SignedBeaconBlock |
     phase0.SignedBeaconBlock
 
   EncodeArrays* =
@@ -287,6 +288,8 @@ proc jsonResponseState*(t: typedesc[RestApiResponse],
           # TODO (cheatfate): Unable to use `forks.withState()` template here
           # because of compiler issues and some kind of generic sandwich.
           case forkedState.kind
+          of BeaconStateFork.Capella:
+            writer.writeField("data", forkedState.capellaData.data)
           of BeaconStateFork.Bellatrix:
             writer.writeField("data", forkedState.bellatrixData.data)
           of BeaconStateFork.Altair:
@@ -843,6 +846,8 @@ template prepareForkedBlockReading(
         version = some(BeaconBlockFork.Altair)
       of "BELLATRIX", "bellatrix":
         version = some(BeaconBlockFork.Bellatrix)
+      of "CAPELLA", "capella":
+        version = some(BeaconBlockFork.Capella)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "block", "block_header", "data":
@@ -904,6 +909,18 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect bellatrix block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
+  of BeaconBlockFork.Capella:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             capella.BeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[capella.BeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect capella block format")
+    value = ForkedBeaconBlock.init(res.get()).BlockType
 
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
@@ -957,6 +974,20 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     value = Web3SignerForkedBeaconBlock(
       kind: BeaconBlockFork.Bellatrix,
       bellatrixData: res.get())
+  of BeaconBlockFork.Capella:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             BeaconBlockHeader,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[BeaconBlockHeader]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect capella block format")
+    value = Web3SignerForkedBeaconBlock(
+      kind: BeaconBlockFork.Capella,
+      capellaData: res.get())
 
 proc writeValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
     writer: var JsonWriter[RestJson],
@@ -979,7 +1010,26 @@ proc writeValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
   of BeaconBlockFork.Bellatrix:
     writer.writeField("version", forkIdentifier "bellatrix")
     writer.writeField("data", value.bellatrixData)
+  of BeaconBlockFork.Capella:
+    writer.writeField("version", forkIdentifier "capella")
+    writer.writeField("data", value.capellaData)
   writer.endRecord()
+
+proc extractBodyKind(reader: JsonReader[RestJson]): BeaconBlockFork =
+  ## Check known keys added to each block type in a fork
+  ## We run a first pass so we can understand which types we
+  ## should be dealing with to route code typing as needed
+
+  let result: BeaconBlockFork = BeaconBlockFork.Phase0
+
+  for fieldName in readObjectFields(reader):
+    case fieldName:
+    of "bls_to_execution_changes":
+      result = BeaconBlockFork.Capella
+    of "execution_payload":
+      result = max(result, BeaconBlockFork.Capella)
+    of "sync_aggregate":
+      result = max(result, BeaconBlockFork.Altair)
 
 ## RestPublishedBeaconBlockBody
 proc readValue*(reader: var JsonReader[RestJson],
@@ -998,10 +1048,14 @@ proc readValue*(reader: var JsonReader[RestJson],
     voluntary_exits: Option[
       List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]]
     sync_aggregate: Option[SyncAggregate]
-    execution_payload: (Option[bellatrix.ExecutionPayload | capella.ExecutionPayload])
+    execution_payload: Option[bellatrix.ExecutionPayload]
     bls_to_execution_changes: Option[
       List[SignedBLSToExecutionChange, Limit capella.MAX_BLS_TO_EXECUTION_CHANGES]
     ]
+
+  # TODO: @tavurth: investigate more here
+  # NOTE: Now we perform a first pass to understand which block type
+  let bodyKind: BeaconBlockFork = extractBodyKind(reader)
 
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -1056,16 +1110,21 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedField("Multiple `sync_aggregate` fields found",
                                     "RestPublishedBeaconBlockBody")
       sync_aggregate = some(reader.readValue(SyncAggregate))
+    of "execution_payload":
+      if execution_payload.isSome():
+        reader.raiseUnexpectedField("Multiple `execution_payload` fields found",
+                                    "RestPublishedBeaconBlockBody")
+      case bodyKind:
+      of BeaconBlockFork.Capella:
+        execution_payload = some(reader.readValue(capella.ExecutionPayload))
+      of BeaconBlockFork.Bellatrix:
+        execution_payload = some(reader.readValue(bellatrix.ExecutionPayload))
     of "bls_to_execution_changes":
       if bls_to_execution_changes.isSome():
         reader.raiseUnexpectedField("Multiple `bls_to_execution_changes` fields found",
                                     "RestPublishedBeaconBlockBody")
       bls_to_execution_changes = some(reader.readValue(List[SignedBLSToExecutionChange, Limit capella.MAX_BLS_TO_EXECUTION_CHANGES]))
-    of "execution_payload":
-      if execution_payload.isSome():
-        reader.raiseUnexpectedField("Multiple `execution_payload` fields found",
-                                    "RestPublishedBeaconBlockBody")
-      execution_payload = some(reader.readValue(ExecutionPayload))
+
     else:
       unrecognizedFieldWarning()
 
@@ -1085,18 +1144,6 @@ proc readValue*(reader: var JsonReader[RestJson],
     reader.raiseUnexpectedValue("Field `deposits` is missing")
   if voluntary_exits.isNone():
     reader.raiseUnexpectedValue("Field `voluntary_exits` is missing")
-  if bls_to_execution_changes.isNone():
-    reader.raiseUnexpectedValue("Field `bls_to_execution_changes` is missing")
-
-  let bodyKind =
-    if execution_payload.isSome() and bls_to_execution_changes.isSome():
-      BeaconBlockFork.Capella
-    elif execution_payload.isSome() and sync_aggregate.isSome():
-      BeaconBlockFork.Bellatrix
-    elif execution_payload.isNone() and sync_aggregate.isSome():
-      BeaconBlockFork.Altair
-    else:
-      BeaconBlockFork.Phase0
 
   case bodyKind
   of BeaconBlockFork.Phase0:
@@ -1246,6 +1293,16 @@ proc readValue*(reader: var JsonReader[RestJson],
           body: body.bellatrixBody
         )
       )
+    of BeaconBlockFork.Capella:
+      ForkedBeaconBlock.init(
+        capella.BeaconBlock(
+          slot: slot.get(),
+          proposer_index: proposer_index.get(),
+          parent_root: parent_root.get(),
+          state_root: state_root.get(),
+          body: body.capellaBody
+        )
+      )
   )
 
 ## RestPublishedSignedBeaconBlock
@@ -1295,6 +1352,13 @@ proc readValue*(reader: var JsonReader[RestJson],
       ForkedSignedBeaconBlock.init(
         bellatrix.SignedBeaconBlock(
           message: blck.bellatrixData,
+          signature: signature.get()
+        )
+      )
+    of BeaconBlockFork.Capella:
+      ForkedSignedBeaconBlock.init(
+        capella.SignedBeaconBlock(
+          message: blck.capellaData,
           signature: signature.get()
         )
       )
@@ -1374,6 +1438,18 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect bellatrix block format")
     value = ForkedSignedBeaconBlock.init(res.get())
+  of BeaconBlockFork.Capella:
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             capella.SignedBeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[capella.SignedBeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect capella block format")
+    value = ForkedSignedBeaconBlock.init(res.get())
   withBlck(value):
     blck.root = hash_tree_root(blck.message)
 
@@ -1391,6 +1467,9 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   of BeaconBlockFork.Bellatrix:
     writer.writeField("version", "bellatrix")
     writer.writeField("data", value.bellatrixData)
+  of BeaconBlockFork.Capella:
+    writer.writeField("version", "capella")
+    writer.writeField("data", value.capellaData)
   writer.endRecord()
 
 # ForkedHashedBeaconState is used where a `ForkedBeaconState` normally would
@@ -1470,8 +1549,18 @@ proc readValue*(reader: var JsonReader[RestJson],
         requireAllFields = true,
         allowUnknownFields = true)
     except SerializationError:
-      reader.raiseUnexpectedValue("Incorrect altair beacon state format")
+      reader.raiseUnexpectedValue("Incorrect bellatrix beacon state format")
     toValue(bellatrixData)
+  of BeaconStateFork.Capella:
+    try:
+      tmp[].capellaData.data = RestJson.decode(
+        string(data.get()),
+        capella.BeaconState,
+        requireAllFields = true,
+        allowUnknownFields = true)
+    except SerializationError:
+      reader.raiseUnexpectedValue("Incorrect capella beacon state format")
+    toValue(capellaData)
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState)
                 {.raises: [IOError, Defect].} =
@@ -1486,6 +1575,9 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
   of BeaconStateFork.Bellatrix:
     writer.writeField("version", "bellatrix")
     writer.writeField("data", value.bellatrixData.data)
+  of BeaconStateFork.Capella:
+    writer.writeField("version", "capella")
+    writer.writeField("data", value.capellaData.data)
   writer.endRecord()
 
 # Web3SignerRequest

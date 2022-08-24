@@ -13,6 +13,7 @@ import
     datatypes/phase0,
     datatypes/altair,
     datatypes/bellatrix,
+    datatypes/capella,
     beaconstate,
     state_transition_epoch,
     state_transition_block,
@@ -212,7 +213,7 @@ proc collectEpochRewardsAndPenalties*(
 
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
-    state: var (altair.BeaconState | bellatrix.BeaconState),
+    state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
     cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return
