@@ -765,6 +765,12 @@ proc applyBlock(
     state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
+  of BeaconBlockFork.Capella:
+    let data = getBlock(dag, bid, capella.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    state_transition(
+      dag.cfg, state, data, cache, info,
+      dag.updateFlags + {slotProcessed}, noRollback)
 
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
@@ -897,6 +903,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of BeaconStateFork.Phase0: genesisFork(cfg)
       of BeaconStateFork.Altair: altairFork(cfg)
       of BeaconStateFork.Bellatrix: bellatrixFork(cfg)
+      of BeaconStateFork.Capella:   capellaFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   if stateFork != configFork:

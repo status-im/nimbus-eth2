@@ -42,6 +42,13 @@ proc getBellatrixStateRef(db: BeaconChainDB, root: Eth2Digest):
   if db.getState(root, res[], noRollback):
     return res
 
+proc getCapellaStateRef(db: BeaconChainDB, root: Eth2Digest):
+    capella.NilableBeaconStateRef =
+  # load beaconstate the way the block pool does it - into an existing instance
+  let res = (capella.BeaconStateRef)()
+  if db.getState(root, res[], noRollback):
+    return res
+
 func withDigest(blck: phase0.TrustedBeaconBlock):
     phase0.TrustedSignedBeaconBlock =
   phase0.TrustedSignedBeaconBlock(
@@ -59,6 +66,13 @@ func withDigest(blck: altair.TrustedBeaconBlock):
 func withDigest(blck: bellatrix.TrustedBeaconBlock):
     bellatrix.TrustedSignedBeaconBlock =
   bellatrix.TrustedSignedBeaconBlock(
+    message: blck,
+    root: hash_tree_root(blck)
+  )
+
+func withDigest(blck: capella.TrustedBeaconBlock):
+    capella.TrustedSignedBeaconBlock =
+  capella.TrustedSignedBeaconBlock(
     message: blck,
     root: hash_tree_root(blck)
   )
@@ -82,6 +96,7 @@ let
   testStatesPhase0    = getTestStates(BeaconStateFork.Phase0)
   testStatesAltair    = getTestStates(BeaconStateFork.Altair)
   testStatesBellatrix = getTestStates(BeaconStateFork.Bellatrix)
+  testStatesCapella   = getTestStates(BeaconStateFork.Capella)
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
@@ -119,6 +134,7 @@ suite "Beacon chain DB" & preset():
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
       not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, capella.TrustedSignedBeaconBlock)
       db.getBlock(root, phase0.TrustedSignedBeaconBlock).isErr()
       not db.getBlockSSZ(root, tmp, phase0.TrustedSignedBeaconBlock)
       not db.getBlockSZ(root, tmp2, phase0.TrustedSignedBeaconBlock)

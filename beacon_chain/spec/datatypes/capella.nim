@@ -16,6 +16,7 @@
 {.push raises: [Defect].}
 
 import
+  stew/byteutils,
   json_serialization,
   chronicles,
   ssz_serialization/types as sszTypes,
@@ -189,7 +190,6 @@ type
 
     # Capella operations
     bls_to_execution_changes*: List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
-
 
   #
   # NOTE: Duplicates from bellatrix
@@ -371,5 +371,77 @@ type
     # Execution
     execution_payload*: ExecutionPayload
 
+    # Capella operations
+    bls_to_execution_changes*: List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
+
+func encodeQuantityHex*(x: auto): string =
+  "0x" & x.toHex
+
+func fromHex*(T: typedesc[BloomLogs], s: string): T {.
+     raises: [Defect, ValueError].} =
+  hexToByteArray(s, result.data)
+
+func fromHex*(T: typedesc[ExecutionAddress], s: string): T {.
+     raises: [Defect, ValueError].} =
+  hexToByteArray(s, result.data)
+
+proc writeValue*(writer: var JsonWriter, value: ExecutionAddress) {.
+     raises: [Defect, IOError].} =
+  writer.writeValue to0xHex(value.data)
+
+proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
+     raises: [Defect, IOError, SerializationError].} =
+  try:
+    hexToByteArray(reader.readValue(string), value.data)
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                         "ExecutionAddress value should be a valid hex string")
+
+func shortLog*(v: SomeBeaconBlock): auto =
+  (
+    slot: shortLog(v.slot),
+    proposer_index: v.proposer_index,
+    parent_root: shortLog(v.parent_root),
+    state_root: shortLog(v.state_root),
+    eth1data: v.body.eth1_data,
+    graffiti: $v.body.graffiti,
+    proposer_slashings_len: v.body.proposer_slashings.len(),
+    attester_slashings_len: v.body.attester_slashings.len(),
+    attestations_len: v.body.attestations.len(),
+    deposits_len: v.body.deposits.len(),
+    voluntary_exits_len: v.body.voluntary_exits.len(),
+    sync_committee_participants: countOnes(v.body.sync_aggregate.sync_committee_bits)
+  )
+
+func shortLog*(v: SomeSignedBeaconBlock): auto =
+  (
+    blck: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
+
+template asSigned*(
+    x: SigVerifiedSignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SignedBeaconBlock =
+  isomorphicCast[SignedBeaconBlock](x)
+
+template asSigVerified*(
+    x: SignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
+  isomorphicCast[SigVerifiedSignedBeaconBlock](x)
+
+template asMsgTrusted*(
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock |
+       TrustedSignedBeaconBlock): MsgTrustedSignedBeaconBlock =
+  isomorphicCast[MsgTrustedSignedBeaconBlock](x)
+
+template asTrusted*(
+    x: SignedBeaconBlock |
+       SigVerifiedSignedBeaconBlock |
+       MsgTrustedSignedBeaconBlock): TrustedSignedBeaconBlock =
+  isomorphicCast[TrustedSignedBeaconBlock](x)

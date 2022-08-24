@@ -1015,7 +1015,9 @@ proc writeValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
     writer.writeField("data", value.capellaData)
   writer.endRecord()
 
-proc extractBodyKind(reader: var JsonReader[RestJson]): BeaconBlockFork =
+# TODO: @tavurth, is there a faster way to do this?
+proc extractBodyKind(reader: var JsonReader[RestJson]): BeaconBlockFork
+  {.raises: [IOError, SerializationError, Defect].} =
   ## Check known keys added to each block type in a fork
   ## We run a first pass so we can understand which types we
   ## should be dealing with to route code typing as needed
@@ -1048,7 +1050,11 @@ proc readValue*(reader: var JsonReader[RestJson],
     voluntary_exits: Option[
       List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]]
     sync_aggregate: Option[SyncAggregate]
-    execution_payload: Option[bellatrix.ExecutionPayload]
+
+    # TODO: @tavurth cleanup
+    execution_payload_bellatrix: Option[bellatrix.ExecutionPayload]
+    execution_payload_capella: Option[capella.ExecutionPayload]
+
     bls_to_execution_changes: Option[
       List[SignedBLSToExecutionChange, Limit capella.MAX_BLS_TO_EXECUTION_CHANGES]
     ]
@@ -1111,14 +1117,15 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "RestPublishedBeaconBlockBody")
       sync_aggregate = some(reader.readValue(SyncAggregate))
     of "execution_payload":
-      if execution_payload.isSome():
+      if execution_payload_bellatrix.isSome() or execution_payload_capella.isSome():
         reader.raiseUnexpectedField("Multiple `execution_payload` fields found",
                                     "RestPublishedBeaconBlockBody")
-      case bodyKind:
-      of BeaconBlockFork.Capella:
-        execution_payload = some(reader.readValue(capella.ExecutionPayload))
-      of BeaconBlockFork.Bellatrix:
-        execution_payload = some(reader.readValue(bellatrix.ExecutionPayload))
+
+      if bodyKind == BeaconBlockFork.Capella:
+        execution_payload_capella = some(reader.readValue(capella.ExecutionPayload))
+      else:
+        execution_payload_bellatrix = some(reader.readValue(bellatrix.ExecutionPayload))
+
     of "bls_to_execution_changes":
       if bls_to_execution_changes.isSome():
         reader.raiseUnexpectedField("Multiple `bls_to_execution_changes` fields found",
@@ -1188,7 +1195,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         deposits: deposits.get(),
         voluntary_exits: voluntary_exits.get(),
         sync_aggregate: sync_aggregate.get(),
-        execution_payload: execution_payload.get()
+        execution_payload: execution_payload_bellatrix.get()
       )
     )
   of BeaconBlockFork.Capella:
@@ -1204,7 +1211,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         deposits: deposits.get(),
         voluntary_exits: voluntary_exits.get(),
         sync_aggregate: sync_aggregate.get(),
-        execution_payload: execution_payload.get()
+        execution_payload: execution_payload_capella.get()
       )
     )
 

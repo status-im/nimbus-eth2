@@ -22,10 +22,12 @@ logScope: topics = "chaindag_lc"
 
 type
   HashedBeaconStateWithSyncCommittee =
+    capella.HashedBeaconState |
     bellatrix.HashedBeaconState |
     altair.HashedBeaconState
 
   TrustedSignedBeaconBlockWithSyncAggregate =
+    capella.TrustedSignedBeaconBlock |
     bellatrix.TrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock
 
@@ -709,7 +711,10 @@ proc processNewBlockForLightClient*(
   if signedBlock.message.slot < dag.lcDataStore.cache.tailSlot:
     return
 
-  when signedBlock is bellatrix.TrustedSignedBeaconBlock:
+  when signedBlock is capella.TrustedSignedBeaconBlock:
+    dag.cacheLightClientData(state.capellaData, signedBlock.toBlockId())
+    dag.createLightClientUpdates(state.capellaData, signedBlock, parentBid)
+  elif signedBlock is bellatrix.TrustedSignedBeaconBlock:
     dag.cacheLightClientData(state.bellatrixData, signedBlock.toBlockId())
     dag.createLightClientUpdates(state.bellatrixData, signedBlock, parentBid)
   elif signedBlock is altair.TrustedSignedBeaconBlock:
