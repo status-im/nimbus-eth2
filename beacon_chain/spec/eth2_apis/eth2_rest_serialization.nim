@@ -1015,12 +1015,12 @@ proc writeValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
     writer.writeField("data", value.capellaData)
   writer.endRecord()
 
-proc extractBodyKind(reader: JsonReader[RestJson]): BeaconBlockFork =
+proc extractBodyKind(reader: var JsonReader[RestJson]): BeaconBlockFork =
   ## Check known keys added to each block type in a fork
   ## We run a first pass so we can understand which types we
   ## should be dealing with to route code typing as needed
 
-  let result: BeaconBlockFork = BeaconBlockFork.Phase0
+  result = BeaconBlockFork.Phase0
 
   for fieldName in readObjectFields(reader):
     case fieldName:

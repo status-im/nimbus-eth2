@@ -167,7 +167,7 @@ type
     # Finality
     justification_bits*: JustificationBits
 
-    previous_justified_checkpoint*: Checkpoint ##\
+    previous_justified_checkpoint*: Checkpoint
     ## Previous epoch snapshot
 
     current_justified_checkpoint*: Checkpoint
@@ -239,3 +239,8 @@ type
     # Withdrawals
     withdrawal_queue*: List[Withdrawal, Limit capella.WITHDRAWALS_QUEUE_LIMIT]  # [New in Capella]
     next_withdrawal_index*: WithdrawalIndex  # [New in Capella]
+
+    # TODO: @tavurth We should probably use ValidatorIndex here
+    #       but I see that in Altair we have a workaround
+    #       by simply putting uint64, which seems to be against the spec
+    next_partial_withdrawal_validator_index*: uint64  # [New in Capella]

@@ -743,7 +743,7 @@ proc putState*(
   db.statesNoVal[type(value).toFork()].putSnappySSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
 
-proc putState*(db: BeaconChainDB, key: Eth2Digest, value: bellatrix.BeaconState) =
+proc putState*(db: BeaconChainDB, key: Eth2Digest, value: bellatrix.BeaconState | capella.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
   db.statesNoVal[type(value).toFork()].putSZSSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
@@ -1033,7 +1033,6 @@ proc getStateOnlyMutableValidators(
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
-    # TODO: @tavurth check
     store: KvStoreRef, key: openArray[byte], output: var bellatrix.BeaconState,
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
