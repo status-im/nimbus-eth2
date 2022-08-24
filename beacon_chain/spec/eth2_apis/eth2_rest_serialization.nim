@@ -1021,17 +1021,21 @@ proc extractBodyKind(reader: var JsonReader[RestJson]): BeaconBlockFork
   ## Check known keys added to each block type in a fork
   ## We run a first pass so we can understand which types we
   ## should be dealing with to route code typing as needed
-
-  result = BeaconBlockFork.Phase0
-
   for fieldName in readObjectFields(reader):
-    case fieldName:
-    of "bls_to_execution_changes":
-      result = BeaconBlockFork.Capella
-    of "execution_payload":
-      result = max(result, BeaconBlockFork.Bellatrix)
-    of "sync_aggregate":
-      result = max(result, BeaconBlockFork.Altair)
+    case fieldName
+    of "version":
+      let version = reader.readValue(string)
+      case version
+      of "phase0":
+        return BeaconBlockFork.Phase0
+      of "altair":
+        return BeaconBlockFork.Altair
+      of "bellatrix":
+        return BeaconBlockFork.Bellatrix
+      of "capella":
+        return BeaconBlockFork.Capella
+      else:
+        reader.raiseUnexpectedValue("Incorrect version field value")
 
 ## RestPublishedBeaconBlockBody
 proc readValue*(reader: var JsonReader[RestJson],
@@ -1393,6 +1397,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = some(BeaconBlockFork.Altair)
       of "bellatrix":
         version = some(BeaconBlockFork.Bellatrix)
+      of "capella":
+        version = some(BeaconBlockFork.Capella)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -1499,6 +1505,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       of "phase0": some(BeaconStateFork.Phase0)
       of "altair": some(BeaconStateFork.Altair)
       of "bellatrix": some(BeaconStateFork.Bellatrix)
+      of "capella": some(BeaconStateFork.Capella)
       else: reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
