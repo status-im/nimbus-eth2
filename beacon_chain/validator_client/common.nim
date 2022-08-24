@@ -93,6 +93,14 @@ type
     dependentRoot*: Eth2Digest
     duties*: seq[ProposerTask]
 
+  BeaconNodeRole* {.pure.} = enum
+    Duty,
+    AttestationData, AttestationPublish,
+    AggrAttestationData, AggrAttestationPublish,
+    BlockProposalData, BlockProposalPublish,
+    SyncCommitteeData, SyncContributionPublish,
+    SyncSignaturePublish
+
   BeaconNodeServer* = object
     client*: RestClientRef
     endpoint*: string
@@ -101,6 +109,7 @@ type
     genesis*: Option[RestGenesis]
     syncInfo*: Option[RestSyncInfo]
     status*: RestBeaconNodeStatus
+    roles*: set[BeaconNodeRole]
     logIdent*: string
     index*: int
 
@@ -177,6 +186,48 @@ const
     SyncDutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
   SlotDuration* = int64(SECONDS_PER_SLOT).seconds
   OneThirdDuration* = int64(SECONDS_PER_SLOT).seconds div INTERVALS_PER_SLOT
+  AllBeaconNodeRoles* = {
+    BeaconNodeRole.Duty,
+    BeaconNodeRole.AttestationData,
+    BeaconNodeRole.AttestationPublish,
+    BeaconNodeRole.AggrAttestationData,
+    BeaconNodeRole.AggrAttestationPublish,
+    BeaconNodeRole.BlockProposalData,
+    BeaconNodeRole.BlockProposalPublish,
+    BeaconNodeRole.SyncCommitteeData,
+    BeaconNodeRole.SyncContributionPublish,
+    BeaconNodeRole.SyncSignaturePublish
+  }
+
+proc `$`*(roles: set[BeaconNodeRole]): string =
+  if card(roles) > 0:
+    if roles != AllBeaconNodeRoles:
+      var res: seq[string]
+      if BeaconNodeRole.Duty in roles:
+        res.add("DuD")
+      if BeaconNodeRole.AttestationData in roles:
+        res.add("AtD")
+      if BeaconNodeRole.AttestationPublish in roles:
+        res.add("AtP")
+      if BeaconNodeRole.AggrAttestationData in roles:
+        res.add("AaD")
+      if BeaconNodeRole.AggrAttestationPublish in roles:
+        res.add("AaP")
+      if BeaconNodeRole.BlockProposalData in roles:
+        res.add("BpD")
+      if BeaconNodeRole.BlockProposalPublish in roles:
+        res.add("BpP")
+      if BeaconNodeRole.SyncCommitteeData in roles:
+        res.add("ScD")
+      if BeaconNodeRole.SyncContributionPublish in roles:
+        res.add("ScP")
+      if BeaconNodeRole.SyncSignaturePublish in roles:
+        res.add("SsP")
+      res.join(",")
+    else:
+      "{all}"
+  else:
+    "{}"
 
 proc `$`*(bn: BeaconNodeServerRef): string =
   if bn.ident.isSome():
@@ -215,14 +266,16 @@ proc isDefault*(prd: ProposedData): bool =
   prd.epoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64)
 
 proc init*(t: typedesc[BeaconNodeServerRef], client: RestClientRef,
-           endpoint: string, index: int): BeaconNodeServerRef =
+           endpoint: string, index: int,
+           roles = AllBeaconNodeRoles): BeaconNodeServerRef =
   BeaconNodeServerRef(
     client: client,
     endpoint: endpoint,
     index: index,
+    roles: roles,
     logIdent: client.address.hostname & ":" &
               Base10.toString(client.address.port) &
-              "#" & Base10.toString(index)
+              "#" & Base10.toString(uint64(index))
   )
 
 proc init*(t: typedesc[DutyAndProof], epoch: Epoch, dependentRoot: Eth2Digest,

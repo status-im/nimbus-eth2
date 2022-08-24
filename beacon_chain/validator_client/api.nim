@@ -12,6 +12,14 @@ import common, fallback_service
 
 export eth2_rest_serialization, common
 
+const
+  ResponseSuccess = "Received successful response"
+  ResponseInvalidError = "Received invalid request response"
+  ResponseInternalError = "Received internal error response"
+  ResponseUnexpectedError = "Received unexpected error response"
+  ResponseNotFoundError = "Received resource missing error response"
+  ResponseNoSyncError = "Received nosync error response"
+
 type
   ApiResponse*[T] = Result[T, string]
   ApiOperation = enum
@@ -24,13 +32,18 @@ type
     node*: BeaconNodeServerRef
     data*: ApiResponse[T]
 
-  ApiScoreFunction*[T] = proc(vc: ValidatorClientRef,
-                              data: openArray[ApiNodeResponse[T]]): int {.
-                           raises: [Defect], gcsafe.}
-
   ApiResponseSeq*[T] = object
     status*: ApiOperation
     data*: seq[ApiNodeResponse[T]]
+
+proc `$`*(strategy: ApiStrategyKind): string =
+  case strategy
+  of ApiStrategyKind.First:
+    "first"
+  of ApiStrategyKind.Best:
+    "best"
+  of ApiStrategyKind.Priority:
+    "priority"
 
 proc lazyWait(futures: seq[FutureBase], timerFut: Future[void]) {.async.} =
   if not(isNil(timerFut)):
@@ -46,9 +59,13 @@ proc lazyWait(futures: seq[FutureBase], timerFut: Future[void]) {.async.} =
   else:
     await allFutures(futures)
 
-template firstSuccessParallel*(vc: ValidatorClientRef, responseType: typedesc,
-                               timeout: Duration, body1,
-                               body2: untyped): ApiResponse[responseType] =
+template firstSuccessParallel*(
+           vc: ValidatorClientRef,
+           responseType: typedesc,
+           timeout: Duration,
+           roles: set[BeaconNodeRole],
+           body1, body2: untyped
+         ): ApiResponse[responseType] =
   var it {.inject.}: RestClientRef
 
   var timerFut =
@@ -60,8 +77,8 @@ template firstSuccessParallel*(vc: ValidatorClientRef, responseType: typedesc,
   let onlineNodes =
     try:
       if not isNil(timerFut):
-        await vc.waitOnlineNodes(timerFut)
-      vc.onlineNodes()
+        await vc.waitOnlineNodes(timerFut, roles)
+      vc.onlineNodes(roles)
     except CancelledError as exc:
       var default: seq[BeaconNodeServerRef]
       if not(isNil(timerFut)) and not(timerFut.finished()):
@@ -119,23 +136,26 @@ template firstSuccessParallel*(vc: ValidatorClientRef, responseType: typedesc,
             pendingRequests.del(index)
             pendingNodes.del(index)
 
-            if requestFut.failed():
-              let exc = Future[responseType](requestFut).readError()
-              debug "One of operation requests has been failed",
-                    node = beaconNode, err_name = $exc.name, err_msg = $exc.msg
-              beaconNode.status = RestBeaconNodeStatus.Offline
-            elif requestFut.cancelled():
-              debug "One of operation requests has been interrupted",
-                    node = beaconNode
-            else:
-              let
-                apiNode {.inject.} = beaconNode
-                apiResponse {.inject.} = Future[responseType](requestFut).read()
-                res = body2
-              if res.isOk():
-                asyncSpawn lazyWait(pendingRequests, timerFut)
-                retRes = res
-                break
+            let
+              node {.inject.} = beaconNode
+              apiResponse {.inject.} =
+                if requestFut.failed():
+                  let exc = Future[responseType](requestFut).readError()
+                  ApiResponse[responseType].err("[" & $exc.name & "] " &
+                                                $exc.msg)
+                else:
+                  ApiResponse[responseType].ok(
+                    Future[responseType](requestFut).read())
+              status =
+                try:
+                  body2
+                except CatchableError:
+                  raiseAssert("Response handler must not raise exceptions")
+
+            node.status = status
+            if apiResponse.isOk() and (status == RestBeaconNodeStatus.Online):
+              retRes = apiResponse
+              break
           else:
             # Timeout exceeded first.
             var pendingCancel: seq[Future[void]]
@@ -262,10 +282,10 @@ template bestSuccess*(vc: ValidatorClientRef, responseType: typedesc,
               else:
                 res.add(
                   ApiNodeResponse(
-                    node: beaconNode
-                    data: ApiResponse[responseType].ok(future.read()))
+                    node: beaconNode,
+                    data: ApiResponse[responseType].ok(future.read())
                   )
-              )
+                )
             else:
               case status
               of ApiOperation.Timeout:
@@ -293,7 +313,7 @@ template bestSuccess*(vc: ValidatorClientRef, responseType: typedesc,
         ApiResponse[responseType].err("Unable to get best response")
 
 template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
-                    timeout: Duration,
+                    timeout: Duration, roles: set[BeaconNodeRole],
                     body: untyped): ApiResponseSeq[responseType] =
   var it {.inject.}: RestClientRef
   type BodyType = typeof(body)
@@ -307,8 +327,8 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
   let onlineNodes =
     try:
       if not isNil(timerFut):
-        await vc.waitOnlineNodes(timerFut)
-      vc.onlineNodes()
+        await vc.waitOnlineNodes(timerFut, roles)
+      vc.onlineNodes(roles)
     except CancelledError as exc:
       var default: seq[BeaconNodeServerRef]
       if not(isNil(timerFut)) and not(timerFut.finished()):
@@ -414,7 +434,8 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
     ApiResponseSeq[responseType](status: status, data: responses)
 
 template firstSuccessSequential*(vc: ValidatorClientRef, respType: typedesc,
-                                 timeout: Duration, body: untyped,
+                                 timeout: Duration,
+                                 roles: set[BeaconNodeRole], body: untyped,
                                  handlers: untyped): untyped =
   doAssert(timeout != ZeroDuration)
   var it {.inject.}: RestClientRef
@@ -430,8 +451,8 @@ template firstSuccessSequential*(vc: ValidatorClientRef, respType: typedesc,
   while true:
     let onlineNodes =
       try:
-        await vc.waitOnlineNodes(timerFut)
-        vc.onlineNodes()
+        await vc.waitOnlineNodes(timerFut, roles)
+        vc.onlineNodes(roles)
       except CancelledError as exc:
         # waitOnlineNodes do not cancel `timoutFuture`.
         if not(isNil(timerFut)) and not(timerFut.finished()):
@@ -556,672 +577,1349 @@ proc getGenericErrorMessage(response: RestPlainResponse): string =
 
 proc getProposerDuties*(
        vc: ValidatorClientRef,
-       epoch: Epoch
+       epoch: Epoch,
+       strategy: ApiStrategyKind
      ): Future[GetProposerDutiesResponse] {.async.} =
-  logScope: request = "getProposerDuties"
-  vc.firstSuccessSequential(RestResponse[GetProposerDutiesResponse],
-                            SlotDuration, getProposerDuties(it, epoch)):
-    if apiResponse.isErr():
-      debug "Unable to retrieve proposer duties", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status
-      of 200:
-        debug "Received successful response", endpoint = node
-        return response.data
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
-      of 503:
-        debug "Received not synced error response",
-              response_code = 503, endpoint = node
-        RestBeaconNodeStatus.NotSynced
-      else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+  logScope:
+    request = "getProposerDuties"
+    strategy = $strategy
 
-  raise newException(ValidatorApiError, "Unable to retrieve proposer duties")
+  const ErrorMessage = "Unable to retrieve proposer duties"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(RestResponse[GetProposerDutiesResponse],
+                                      SlotDuration, {BeaconNodeRole.Duty},
+                                      getProposerDuties(it, epoch)):
+      if apiResponse.isErr():
+        trace ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return res.get().data
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestResponse[GetProposerDutiesResponse],
+                              SlotDuration, {BeaconNodeRole.Duty},
+                              getProposerDuties(it, epoch)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node,  error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          return response.data
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc getAttesterDuties*(
        vc: ValidatorClientRef,
        epoch: Epoch,
-       validators: seq[ValidatorIndex]
+       validators: seq[ValidatorIndex],
+       strategy: ApiStrategyKind
      ): Future[GetAttesterDutiesResponse] {.async.} =
-  logScope: request = "getAttesterDuties"
-  vc.firstSuccessSequential(RestResponse[GetAttesterDutiesResponse],
-                            SlotDuration,
-                            getAttesterDuties(it, epoch, validators)):
-    if apiResponse.isErr():
-      debug "Unable to retrieve attester duties", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status
-      of 200:
-        debug "Received successful response", endpoint = node
-        return response.data
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
-      of 503:
-        debug "Received not synced error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.NotSynced
-      else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+  logScope:
+    request = "getAttesterDuties"
+    strategy = $strategy
 
-  raise newException(ValidatorApiError, "Unable to retrieve attester duties")
+  const ErrorMessage = "Unable to retrieve attester duties"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(RestResponse[GetAttesterDutiesResponse],
+                                      SlotDuration, {BeaconNodeRole.Duty},
+                                      getAttesterDuties(it, epoch, validators)):
+      if apiResponse.isErr():
+        trace ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return res.get().data
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestResponse[GetAttesterDutiesResponse],
+                              SlotDuration, {BeaconNodeRole.Duty},
+                              getAttesterDuties(it, epoch, validators)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node,
+              error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          return response.data
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc getSyncCommitteeDuties*(
        vc: ValidatorClientRef,
        epoch: Epoch,
-       validators: seq[ValidatorIndex]
+       validators: seq[ValidatorIndex],
+       strategy: ApiStrategyKind
      ): Future[GetSyncCommitteeDutiesResponse] {.async.} =
-  logScope: request = "getSyncCommitteeDuties"
-  vc.firstSuccessSequential(RestResponse[GetSyncCommitteeDutiesResponse],
-                            SlotDuration,
-                            getSyncCommitteeDuties(it, epoch, validators)):
-    if apiResponse.isErr():
-      debug "Unable to retrieve sync committee duties", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status
-      of 200:
-        debug "Received successful response", endpoint = node
-        return response.data
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
-      of 503:
-        debug "Received not synced error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.NotSynced
-      else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+  logScope:
+    request = "getSyncCommitteeDuties"
+    strategy = $strategy
 
-  raise newException(ValidatorApiError,
-                     "Unable to retrieve sync committee duties")
+  const ErrorMessage = "Unable to retrieve sync committee duties"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(
+      RestResponse[GetSyncCommitteeDutiesResponse], SlotDuration,
+      {BeaconNodeRole.Duty}, getSyncCommitteeDuties(it, epoch, validators)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return res.get().data
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestResponse[GetSyncCommitteeDutiesResponse],
+                              SlotDuration, {BeaconNodeRole.Duty},
+                              getSyncCommitteeDuties(it, epoch, validators)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          return response.data
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc getForkSchedule*(
-       vc: ValidatorClientRef
+       vc: ValidatorClientRef,
+       strategy: ApiStrategyKind
      ): Future[seq[Fork]] {.async.} =
-  logScope: request = "getForkSchedule"
-  let res = vc.firstParallelSuccess(RestResponse[GetForkScheduleResponse],
-                                    SlotDuration, getForkSchedule(it)):
-    case apiResponse.status
-    of 200:
-      trace "Received successful response", endpoint = apiNode
-      ApiResponse[RestResponse[GetForkScheduleResponse]].ok(apiResponse)
-    of 500:
-      debug "Received internal error response",
-            response_code = apiResponse.status, endpoint = apiNode
-      ApiResponse[RestResponse[GetForkScheduleResponse]].err("")
-    else:
-      const error = "Received unexpected error response"
-      debug error, response_code = apiResponse.status, endpoint = apiNode
-      ApiResponse[RestResponse[GetForkScheduleResponse]].err(error)
+  logScope:
+    request = "getForkSchedule"
+    strategy = $strategy
 
-  if res.isOk():
-    return res.get().data.data
-  else:
-    raise newException(ValidatorApiError, res.error())
+  const ErrorMessage = "Unable to retrieve fork schedule"
 
-proc getHeadStateFork*(
-       vc: ValidatorClientRef
-     ): Future[Fork] {.async.} =
-  logScope: request = "getHeadStateFork"
-  let stateIdent = StateIdent.init(StateIdentType.Head)
-  vc.firstSuccessSequential(RestResponse[GetStateForkResponse], SlotDuration,
-                            getStateFork(it, stateIdent)):
-    if apiResponse.isErr():
-      debug "Unable to retrieve head state's fork", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status
-      of 200:
-        debug "Received successful response", endpoint = node
-        return response.data.data
-      of 400, 404:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(RestResponse[GetForkScheduleResponse],
+                                      SlotDuration, {BeaconNodeRole.Duty},
+                                      getForkSchedule(it)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
         RestBeaconNodeStatus.Offline
       else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return res.get().data.data
 
-  raise newException(ValidatorApiError, "Unable to retrieve head state's fork")
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestResponse[GetForkScheduleResponse],
+                              SlotDuration, {BeaconNodeRole.Duty},
+                              getForkSchedule(it)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          return response.data.data
+        of 500:
+          debug ResponseInternalError,
+                response_code = response.status, endpoint = node
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError,
+                response_code = response.status, endpoint = node
+          RestBeaconNodeStatus.Offline
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc getHeadBlockRoot*(
-       vc: ValidatorClientRef
+       vc: ValidatorClientRef,
+       strategy: ApiStrategyKind
      ): Future[RestRoot] {.async.} =
-  logScope: request = "getHeadBlockRoot"
+  logScope:
+    request = "getHeadBlockRoot"
+    strategy = $strategy
+
   let blockIdent = BlockIdent.init(BlockIdentType.Head)
-  vc.firstSuccessSequential(RestResponse[GetBlockRootResponse], SlotDuration,
-                            getBlockRoot(it, blockIdent)):
-    if apiResponse.isErr():
-      debug "Unable to retrieve head block's root", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status
-      of 200:
-        debug "Received successful response", endpoint = node
-        return response.data.data
-      of 400, 404:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node
+
+  const ErrorMessage = "Unable to retrieve head block's root"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(RestResponse[GetBlockRootResponse],
+                                      SlotDuration,
+                                      {BeaconNodeRole.SyncCommitteeData},
+                                      getBlockRoot(it, blockIdent)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
         RestBeaconNodeStatus.Offline
       else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 404:
+          debug ResponseNotFoundError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return res.get().data.data
 
-  raise newException(ValidatorApiError, "Unable to retrieve head block's root")
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestResponse[GetBlockRootResponse], SlotDuration,
+                              {BeaconNodeRole.SyncCommitteeData},
+                              getBlockRoot(it, blockIdent)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          return response.data.data
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 404:
+          debug ResponseNotFoundError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc getValidators*(
        vc: ValidatorClientRef,
-       id: seq[ValidatorIdent]
+       id: seq[ValidatorIdent],
+       strategy: ApiStrategyKind
      ): Future[seq[RestValidator]] {.async.} =
-  logScope: request = "getStateValidators"
+  logScope:
+    request = "getStateValidators"
+    strategy = $strategy
+
   let stateIdent = StateIdent.init(StateIdentType.Head)
-  vc.firstSuccessSequential(RestResponse[GetStateValidatorsResponse],
-                            SlotDuration,
-                            getStateValidators(it, stateIdent, id)):
-    if apiResponse.isErr():
-      debug "Unable to retrieve head state's validator information",
-            endpoint = node, error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status
-      of 200:
-        debug "Received successful response", endpoint = node
-        return response.data.data
-      of 400, 404:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node
+
+  const ErrorMessage = "Unable to retrieve head state's validator information"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(RestResponse[GetStateValidatorsResponse],
+                                      SlotDuration, {BeaconNodeRole.Duty},
+                                      getStateValidators(it, stateIdent, id)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
         RestBeaconNodeStatus.Offline
       else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 404:
+          debug ResponseNotFoundError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return res.get().data.data
 
-  raise newException(ValidatorApiError,
-                     "Unable to retrieve head state's validator information")
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestResponse[GetStateValidatorsResponse],
+                              SlotDuration, {BeaconNodeRole.Duty},
+                              getStateValidators(it, stateIdent, id)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          return response.data.data
+        of 400:
+          debug ResponseInvalidError,
+                response_code = response.status, endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 404:
+          debug ResponseNotFoundError,
+                response_code = response.status, endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError,
+                response_code = response.status, endpoint = node
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError,
+                response_code = response.status, endpoint = node
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc produceAttestationData*(
        vc: ValidatorClientRef,
        slot: Slot,
-       committee_index: CommitteeIndex
+       committee_index: CommitteeIndex,
+       strategy: ApiStrategyKind
      ): Future[AttestationData] {.async.} =
-  logScope: request = "produceAttestationData"
-  vc.firstSuccessSequential(RestResponse[ProduceAttestationDataResponse],
-                            OneThirdDuration,
-                            produceAttestationData(it, slot, committee_index)):
-    if apiResponse.isErr():
-      debug "Unable to retrieve attestation data", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status
-      of 200:
-        debug "Received successful response", endpoint = node
-        return response.data.data
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
-      of 503:
-        debug "Received not synced error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.NotSynced
-      else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+  logScope:
+    request = "produceAttestationData"
+    strategy = $strategy
 
-  raise newException(ValidatorApiError, "Unable to retrieve attestation data")
+  const ErrorMessage = "Unable to retrieve attestation data"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(
+      RestResponse[ProduceAttestationDataResponse],
+      OneThirdDuration, {BeaconNodeRole.AttestationData},
+      produceAttestationData(it, slot, committee_index)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return res.get().data.data
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(
+      RestResponse[ProduceAttestationDataResponse],
+      OneThirdDuration, {BeaconNodeRole.AttestationData},
+      produceAttestationData(it, slot, committee_index)):
+
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          return response.data.data
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc submitPoolAttestations*(
        vc: ValidatorClientRef,
-       data: seq[Attestation]
+       data: seq[Attestation],
+       strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope: request = "submitPoolAttestations"
-  vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
-                            submitPoolAttestations(it, data)):
-    if apiResponse.isErr():
-      debug "Unable to submit attestation", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status
-      of 200:
-        debug "Attestation was sucessfully published", endpoint = node
-        return true
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getDutyErrorMessage()
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getDutyErrorMessage()
+  logScope:
+    request = "submitPoolAttestations"
+    strategy = $strategy
+
+  const
+    ErrorMessage = "Unable to submit attestation"
+    NoErrorMessage = "Attestation was sucessfully published"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
+                                      {BeaconNodeRole.AttestationPublish},
+                                      submitPoolAttestations(it, data)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
         RestBeaconNodeStatus.Offline
       else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getDutyErrorMessage()
-        RestBeaconNodeStatus.Offline
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace NoErrorMessage, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node, response_error = response.getDutyErrorMessage()
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node, response_error = response.getDutyErrorMessage()
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node, response_error = response.getDutyErrorMessage()
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return true
 
-  raise newException(ValidatorApiError, "Unable to submit attestation")
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+                              {BeaconNodeRole.AttestationPublish},
+                              submitPoolAttestations(it, data)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace NoErrorMessage, endpoint = node
+          return true
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node, response_error = response.getDutyErrorMessage()
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node, response_error = response.getDutyErrorMessage()
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node, response_error = response.getDutyErrorMessage()
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc submitPoolSyncCommitteeSignature*(
        vc: ValidatorClientRef,
-       data: SyncCommitteeMessage
+       data: SyncCommitteeMessage,
+       strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope: request = "submitPoolSyncCommitteeSignatures"
+  logScope:
+    request = "submitPoolSyncCommitteeSignatures"
+    strategy = $strategy
+
   let restData = RestSyncCommitteeMessage.init(
     data.slot,
     data.beacon_block_root,
     data.validator_index,
     data.signature
   )
-  vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
-                            submitPoolSyncCommitteeSignatures(it, @[restData])):
-    if apiResponse.isErr():
-      debug "Unable to submit sync committee message", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status
-      of 200:
-        debug "Sync committee message was successfully published",
-              endpoint = node
-        return true
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getDutyErrorMessage()
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getDutyErrorMessage()
+
+  const
+    ErrorMessage = "Unable to submit sync committee message"
+    NoErrorMessage = "Sync committee message was successfully published"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res =  vc.firstSuccessParallel(
+      RestPlainResponse, SlotDuration, {BeaconNodeRole.SyncSignaturePublish},
+      submitPoolSyncCommitteeSignatures(it, @[restData])):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
         RestBeaconNodeStatus.Offline
       else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getDutyErrorMessage()
-        RestBeaconNodeStatus.Offline
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace NoErrorMessage, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node, response_error = response.getDutyErrorMessage()
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node, response_error = response.getDutyErrorMessage()
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node, response_error = response.getDutyErrorMessage()
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return true
 
-  raise newException(ValidatorApiError,
-                     "Unable to submit sync committee message")
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(
+      RestPlainResponse, SlotDuration, {BeaconNodeRole.SyncSignaturePublish},
+      submitPoolSyncCommitteeSignatures(it, @[restData])):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace NoErrorMessage, endpoint = node
+          return true
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node, response_error = response.getDutyErrorMessage()
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node, response_error = response.getDutyErrorMessage()
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node, response_error = response.getDutyErrorMessage()
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc getAggregatedAttestation*(
        vc: ValidatorClientRef,
        slot: Slot,
-       root: Eth2Digest
+       root: Eth2Digest,
+       strategy: ApiStrategyKind
      ): Future[Attestation] {.async.} =
-  logScope: request = "getAggregatedAttestation"
-  vc.firstSuccessSequential(RestResponse[GetAggregatedAttestationResponse],
-                            OneThirdDuration,
-                            getAggregatedAttestation(it, root, slot)):
-    if apiResponse.isErr():
-      debug "Unable to retrieve aggregated attestation data", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status:
-      of 200:
-        debug "Received successful response", endpoint = node
-        return response.data.data
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node
+  logScope:
+    request = "getAggregatedAttestation"
+    strategy = $strategy
+
+  const ErrorMessage = "Unable to retrieve aggregated attestation data"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(
+      RestResponse[GetAggregatedAttestationResponse],
+      OneThirdDuration, {BeaconNodeRole.AggrAttestationData},
+      getAggregatedAttestation(it, root, slot)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
         RestBeaconNodeStatus.Offline
       else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return res.get().data.data
 
-  raise newException(ValidatorApiError,
-                     "Unable to retrieve aggregated attestation data")
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(
+      RestResponse[GetAggregatedAttestationResponse],
+      OneThirdDuration, {BeaconNodeRole.AggrAttestationData},
+      getAggregatedAttestation(it, root, slot)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          return response.data.data
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc produceSyncCommitteeContribution*(
        vc: ValidatorClientRef,
        slot: Slot,
        subcommitteeIndex: SyncSubcommitteeIndex,
-       root: Eth2Digest
+       root: Eth2Digest,
+       strategy: ApiStrategyKind
      ): Future[SyncCommitteeContribution] {.async.} =
-  logScope: request = "produceSyncCommitteeContribution"
-  vc.firstSuccessSequential(
-    RestResponse[ProduceSyncCommitteeContributionResponse], OneThirdDuration,
-    produceSyncCommitteeContribution(it, slot, subcommitteeIndex, root)):
-    if apiResponse.isErr():
-      debug "Unable to retrieve sync committee contribution data",
-            endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status:
-      of 200:
-        debug "Received successful response", endpoint = node
-        return response.data.data
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node
+  logScope:
+    request = "produceSyncCommitteeContribution"
+    strategy = $strategy
+
+  const ErrorMessage = "Unable to retrieve sync committee contribution data"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(
+      RestResponse[ProduceSyncCommitteeContributionResponse], OneThirdDuration,
+      {BeaconNodeRole.SyncCommitteeData},
+      produceSyncCommitteeContribution(it, slot, subcommitteeIndex, root)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
         RestBeaconNodeStatus.Offline
       else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return res.get().data.data
 
-  raise newException(ValidatorApiError,
-                     "Unable to retrieve sync committee contribution data")
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(
+      RestResponse[ProduceSyncCommitteeContributionResponse], OneThirdDuration,
+      {BeaconNodeRole.SyncCommitteeData},
+      produceSyncCommitteeContribution(it, slot, subcommitteeIndex, root)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          return response.data.data
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc publishAggregateAndProofs*(
        vc: ValidatorClientRef,
-       data: seq[SignedAggregateAndProof]
+       data: seq[SignedAggregateAndProof],
+       strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope: request = "publishAggregateAndProofs"
-  vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
-                            publishAggregateAndProofs(it, data)):
-    if apiResponse.isErr():
-      debug "Unable to publish aggregate and proofs", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status:
-      of 200:
-        debug "Aggregate and proofs was sucessfully published", endpoint = node
-        return true
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
+  logScope:
+    request = "publishAggregateAndProofs"
+    strategy = $strategy
+
+  const
+    ErrorMessage = "Unable to publish aggregate and proofs"
+    NoErrorMessage = "Aggregate and proofs was sucessfully published"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
+                                      {BeaconNodeRole.AggrAttestationPublish},
+                                      publishAggregateAndProofs(it, data)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
         RestBeaconNodeStatus.Offline
       else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Offline
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace NoErrorMessage, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return true
 
-  raise newException(ValidatorApiError,
-                     "Unable to publish aggregate and proofs")
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+                              {BeaconNodeRole.AggrAttestationPublish},
+                              publishAggregateAndProofs(it, data)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace NoErrorMessage, endpoint = node
+          return true
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc publishContributionAndProofs*(
        vc: ValidatorClientRef,
-       data: seq[RestSignedContributionAndProof]
+       data: seq[RestSignedContributionAndProof],
+       strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope: request = "publishContributionAndProofs"
-  vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
-                            publishContributionAndProofs(it, data)):
-    if apiResponse.isErr():
-      debug "Unable to publish contribution and proofs", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status:
-      of 200:
-        debug "Contribution and proofs were successfully published",
-              endpoint = node
-        return true
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
+  logScope:
+    request = "publishContributionAndProofs"
+    strategy = $strategy
+
+  const
+    ErrorMessage = "Unable to publish contribution and proofs"
+    NoErrorMessage = "Contribution and proofs were successfully published"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
+                                      {BeaconNodeRole.SyncContributionPublish},
+                                      publishContributionAndProofs(it, data)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
         RestBeaconNodeStatus.Offline
       else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Offline
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace NoErrorMessage, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
 
-  raise newException(ValidatorApiError,
-                     "Unable to publish contribution and proofs")
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return true
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+                              {BeaconNodeRole.SyncContributionPublish},
+                              publishContributionAndProofs(it, data)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace NoErrorMessage, endpoint = node
+          return true
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc produceBlockV2*(
        vc: ValidatorClientRef,
        slot: Slot,
        randao_reveal: ValidatorSig,
-       graffiti: GraffitiBytes
+       graffiti: GraffitiBytes,
+       strategy: ApiStrategyKind
      ): Future[ProduceBlockResponseV2] {.async.} =
-  logScope: request = "produceBlockV2"
-  vc.firstSuccessSequential(RestResponse[ProduceBlockResponseV2],
-                            SlotDuration,
-                            produceBlockV2(it, slot, randao_reveal, graffiti)):
-    if apiResponse.isErr():
-      debug "Unable to retrieve block data", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status:
-      of 200:
-        debug "Received successful response", endpoint = node
-        return response.data
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
-      of 503:
-        debug "Received not synced error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.NotSynced
-      else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node
-        RestBeaconNodeStatus.Offline
+  logScope:
+    request = "produceBlockV2"
+    strategy = $strategy
 
-  raise newException(ValidatorApiError, "Unable to retrieve block data")
+  const ErrorMessage = "Unable to retrieve block data"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(
+      RestResponse[ProduceBlockResponseV2],
+      SlotDuration, {BeaconNodeRole.BlockProposalData},
+      produceBlockV2(it, slot, randao_reveal, graffiti)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return res.get().data
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(
+      RestResponse[ProduceBlockResponseV2],
+      SlotDuration, {BeaconNodeRole.BlockProposalData},
+      produceBlockV2(it, slot, randao_reveal, graffiti)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          return response.data
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc publishBlock*(
        vc: ValidatorClientRef,
-       data: ForkedSignedBeaconBlock
+       data: ForkedSignedBeaconBlock,
+       strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope: request = "publishBlock"
-  vc.firstSuccessSequential(RestPlainResponse, SlotDuration):
-    case data.kind
-    of BeaconBlockFork.Phase0:
-      publishBlock(it, data.phase0Data)
-    of BeaconBlockFork.Altair:
-      publishBlock(it, data.altairData)
-    of BeaconBlockFork.Bellatrix:
-      publishBlock(it, data.bellatrixData)
-  do:
-    if apiResponse.isErr():
-      debug "Unable to publish block", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status:
-      of 200:
-        debug "Block was successfully published", endpoint = node
-        return true
-      of 202:
-        debug "Block not passed validation, but still published",
-              endpoint = node
-        return true
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Incompatible
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Offline
-      of 503:
-        debug "Received not synced error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.NotSynced
-      else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Offline
+  logScope:
+    request = "publishBlock"
+    strategy = $strategy
 
-  raise newException(ValidatorApiError, "Unable to publish block")
+  const
+    BlockPublished = "Block was successfully published"
+    BlockBroadcasted = "Block not passed validation, but still published"
+    ErrorMessage = "Unable to publish block"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res =
+      vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
+                              {BeaconNodeRole.BlockProposalPublish}):
+        case data.kind
+        of BeaconBlockFork.Phase0:
+          publishBlock(it, data.phase0Data)
+        of BeaconBlockFork.Altair:
+          publishBlock(it, data.altairData)
+        of BeaconBlockFork.Bellatrix:
+          publishBlock(it, data.bellatrixData)
+      do:
+        if apiResponse.isErr():
+          debug ErrorMessage, endpoint = node, error = apiResponse.error()
+          RestBeaconNodeStatus.Offline
+        else:
+          let response = apiResponse.get()
+          case response.status:
+          of 200:
+            trace BlockPublished, endpoint = node
+            RestBeaconNodeStatus.Online
+          of 202:
+            debug BlockBroadcasted, endpoint = node
+            RestBeaconNodeStatus.Online
+          of 400:
+            debug ResponseInvalidError, response_code = response.status,
+                  endpoint = node,
+                  response_error = response.getGenericErrorMessage()
+            RestBeaconNodeStatus.Incompatible
+          of 500:
+            debug ResponseInternalError, response_code = response.status,
+                  endpoint = node,
+                  response_error = response.getGenericErrorMessage()
+            RestBeaconNodeStatus.Offline
+          of 503:
+            debug ResponseNoSyncError, response_code = response.status,
+                  endpoint = node,
+                  response_error = response.getGenericErrorMessage()
+            RestBeaconNodeStatus.NotSynced
+          else:
+            debug ResponseUnexpectedError, response_code = response.status,
+                  endpoint = node,
+                  response_error = response.getGenericErrorMessage()
+            RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return true
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+                              {BeaconNodeRole.BlockProposalPublish}):
+      case data.kind
+      of BeaconBlockFork.Phase0:
+        publishBlock(it, data.phase0Data)
+      of BeaconBlockFork.Altair:
+        publishBlock(it, data.altairData)
+      of BeaconBlockFork.Bellatrix:
+        publishBlock(it, data.bellatrixData)
+    do:
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace BlockPublished, endpoint = node
+          return true
+        of 202:
+          debug BlockBroadcasted, endpoint = node
+          return true
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc prepareBeaconCommitteeSubnet*(
        vc: ValidatorClientRef,
-       data: seq[RestCommitteeSubscription]
+       data: seq[RestCommitteeSubscription],
+       strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope: request = "prepareBeaconCommitteeSubnet"
-  vc.firstSuccessSequential(RestPlainResponse, OneThirdDuration,
-                            prepareBeaconCommitteeSubnet(it, data)):
-    if apiResponse.isErr():
-      debug "Unable to prepare committee subnet", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status
-      of 200:
-        debug "Commitee subnet was successfully prepared", endpoint = node
-        return true
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        return false
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Offline
-      of 503:
-        debug "Received not synced error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.NotSynced
-      else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Offline
+  logScope:
+    request = "prepareBeaconCommitteeSubnet"
+    strategy = $strategy
 
-  raise newException(ValidatorApiError, "Unable to prepare committee subnet")
+  const
+    ErrorMessage = "Unable to prepare committee subnet"
+    NoErrorMessage = "Commitee subnet was successfully prepared"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    var status = false
+    let res = vc.firstSuccessParallel(RestPlainResponse, OneThirdDuration,
+                                      {BeaconNodeRole.Duty},
+                                      prepareBeaconCommitteeSubnet(it, data)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace NoErrorMessage, endpoint = node
+          status = true
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Online
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return status
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse, OneThirdDuration,
+                              {BeaconNodeRole.Duty},
+                              prepareBeaconCommitteeSubnet(it, data)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace NoErrorMessage, endpoint = node
+          return true
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          return false
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc prepareSyncCommitteeSubnets*(
        vc: ValidatorClientRef,
-       data: seq[RestSyncCommitteeSubscription]
+       data: seq[RestSyncCommitteeSubscription],
+       strategy: ApiStrategyKind
      ): Future[bool] {.async.} =
-  logScope: request = "prepareSyncCommitteeSubnet"
-  vc.firstSuccessSequential(RestPlainResponse, OneThirdDuration,
-                            prepareSyncCommitteeSubnets(it, data)):
-    if apiResponse.isErr():
-      debug "Unable to prepare sync committee subnet", endpoint = node,
-            error = apiResponse.error()
-      RestBeaconNodeStatus.Offline
-    else:
-      let response = apiResponse.get()
-      case response.status
-      of 200:
-        debug "Sync committee subnet was successfully prepared",
-              endpoint = node
-        return true
-      of 400:
-        debug "Received invalid request response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        return false
-      of 500:
-        debug "Received internal error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Offline
-      of 503:
-        debug "Received not synced error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.NotSynced
-      else:
-        debug "Received unexpected error response",
-              response_code = response.status, endpoint = node,
-              response_error = response.getGenericErrorMessage()
-        RestBeaconNodeStatus.Offline
+  logScope:
+    request = "prepareSyncCommitteeSubnet"
+    strategy = $strategy
 
-  raise newException(ValidatorApiError,
-                     "Unable to prepare sync committee subnet")
+  const
+    ErrorMessage = "Unable to prepare sync committee subnet"
+    NoErrorMessage = "Commitee subnet was successfully prepared"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    var status = false
+    let res = vc.firstSuccessParallel(RestPlainResponse, OneThirdDuration,
+                                      {BeaconNodeRole.Duty},
+                                      prepareSyncCommitteeSubnets(it, data)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace NoErrorMessage, endpoint = node
+          status = true
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Online
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return status
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse, OneThirdDuration,
+                              {BeaconNodeRole.Duty},
+                              prepareSyncCommitteeSubnets(it, data)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status
+        of 200:
+          trace NoErrorMessage, endpoint = node
+          return true
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          return false
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getGenericErrorMessage()
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
 
 proc getValidatorsActivity*(
        vc: ValidatorClientRef, epoch: Epoch,
@@ -1229,6 +1927,7 @@ proc getValidatorsActivity*(
      ): Future[GetValidatorsActivityResponse] {.async.} =
   logScope: request = "getValidatorsActivity"
   let resp = vc.onceToAll(RestPlainResponse, SlotDuration,
+                          {BeaconNodeRole.Duty},
                           getValidatorsActivity(it, epoch, validators))
   case resp.status
   of ApiOperation.Timeout:

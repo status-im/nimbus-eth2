@@ -21,19 +21,19 @@ type
     nosync*: int
 
 proc onlineNodes*(vc: ValidatorClientRef,
-                  indices: openArray[int] = []): seq[BeaconNodeServerRef] =
-  if len(indices) == 0:
+                  roles: set[BeaconNodeRole] = {}): seq[BeaconNodeServerRef] =
+  if len(roles) == 0:
     vc.beaconNodes.filterIt(it.status == RestBeaconNodeStatus.Online)
   else:
-    vc.beaconNodes.filterIt((it.index in indices) and
+    vc.beaconNodes.filterIt((it.roles * roles != {}) and
                             (it.status == RestBeaconNodeStatus.Online))
 
 proc onlineNodesCount*(vc: ValidatorClientRef,
-                       indices: openArray[int] = []): int =
-  if len(indices) == 0:
+                       roles: set[BeaconNodeRole] = {}): int =
+  if len(roles) == 0:
     vc.beaconNodes.countIt(it.status == RestBeaconNodeStatus.Online)
   else:
-    vc.beaconNodes.countIt((it.index in indices) and
+    vc.beaconNodes.countIt((it.roles * roles != {}) and
                            (it.status == RestBeaconNodeStatus.Online))
 
 proc unusableNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
@@ -58,11 +58,11 @@ proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
       inc(res.online)
   res
 
-proc waitOnlineNodes*(vc: ValidatorClientRef,
-                      timeoutFut: Future[void] = nil) {.async.} =
+proc waitOnlineNodes*(vc: ValidatorClientRef, timeoutFut: Future[void] = nil,
+                      roles: set[BeaconNodeRole] = {}) {.async.} =
   doAssert(not(isNil(vc.fallbackService)))
   while true:
-    if vc.onlineNodesCount() != 0:
+    if vc.onlineNodesCount(roles) != 0:
       break
     else:
       if vc.fallbackService.onlineEvent.isSet():
