@@ -59,7 +59,7 @@ proc run() {.async.} =
     eth1Monitor = Eth1Monitor.init(
       defaultRuntimeConfig, db = nil, nil, @[paramStr(1)],
       none(DepositContractSnapshot), none(Eth1Network), false,
-      some readJwtSecret(paramStr(2)).get)
+      some readJwtSecret(paramStr(2)).get, true)
 
   await eth1Monitor.ensureDataProvider()
   try:

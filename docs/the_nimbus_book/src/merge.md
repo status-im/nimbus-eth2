@@ -22,6 +22,8 @@ As a node operator, you will need to run both an execution client and a consensu
 
 If you were running an execution client before, make sure to update its configuration to include an option for [JWT secrets](./eth1.md#3-pass-the-jwt-secret-to-nimbus) and engine API.
 
+Please note that once the Bellatrix fork epoch is reached on 6th of September 2022, Nimbus will refuse to start unless connected to a properly configured execution client. If you need more time to complete the transition, you can temporarily run the beacon node with the command-line option `--require-engine-api-in-bellatrix=no`, but please note that such a setup will stop working once the network TTD is reached (currently estimated to happen on 13th of September, see https://wenmerge.com/ for more up-to-date information).
+
 ### Prepare a suggested fee recipient
 
 After the merge, validators that propose blocks are eligible to recieve transaction fees - read more about fee recipients [here](https://launchpad.ethereum.org/en/merge-readiness#fee-recipient).

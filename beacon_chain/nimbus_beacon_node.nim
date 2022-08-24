@@ -291,7 +291,9 @@ proc initFullNode(
     exitPool = newClone(
       ExitPool.init(dag, attestationPool, onVoluntaryExitAdded))
     consensusManager = ConsensusManager.new(
-      dag, attestationPool, quarantine, node.eth1Monitor)
+      dag, attestationPool, quarantine, node.eth1Monitor,
+      node.dynamicFeeRecipientsStore, node.keymanagerHost,
+      config.defaultFeeRecipient)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime,
@@ -539,7 +541,8 @@ proc init*(T: type BeaconNode,
           getDepositContractSnapshot(),
           eth1Network,
           config.web3ForcePolling,
-          optJwtSecret)
+          optJwtSecret,
+          config.requireEngineAPI)
 
         eth1Monitor.loadPersistedDeposits()
 
@@ -640,7 +643,8 @@ proc init*(T: type BeaconNode,
       getDepositContractSnapshot(),
       eth1Network,
       config.web3ForcePolling,
-      optJwtSecret)
+      optJwtSecret,
+      config.requireEngineAPI)
 
   if config.rpcEnabled:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
@@ -753,7 +757,7 @@ proc init*(T: type BeaconNode,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache,
     nextExchangeTransitionConfTime: nextExchangeTransitionConfTime,
-    dynamicFeeRecipientsStore: DynamicFeeRecipientsStore.init())
+    dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()))
 
   node.initLightClient(
     rng, cfg, dag.forkDigests, getBeaconTime, dag.genesis_validators_root)
@@ -1197,7 +1201,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.syncCommitteeMsgPool[].pruneData(slot)
   if slot.is_epoch:
     node.trackNextSyncCommitteeTopics(slot)
-    node.dynamicFeeRecipientsStore.pruneOldMappings(slot.epoch)
+    node.dynamicFeeRecipientsStore[].pruneOldMappings(slot.epoch)
 
   # Update upcoming actions - we do this every slot in case a reorg happens
   let head = node.dag.head

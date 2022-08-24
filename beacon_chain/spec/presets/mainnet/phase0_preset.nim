@@ -1,5 +1,5 @@
 # Mainnet preset - Phase0
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/presets/mainnet/phase0.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/presets/mainnet/phase0.yaml
 
 const
   #

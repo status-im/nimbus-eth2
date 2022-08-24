@@ -64,7 +64,8 @@ programMain:
           cfg, db = nil, getBeaconTime, config.web3Urls,
           none(DepositContractSnapshot), metadata.eth1Network,
           forcePolling = false,
-          rng[].loadJwtSecret(config, allowCreate = false))
+          rng[].loadJwtSecret(config, allowCreate = false),
+          true)
         waitFor res.ensureDataProvider()
         res
       else:

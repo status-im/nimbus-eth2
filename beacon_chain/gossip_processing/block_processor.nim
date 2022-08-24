@@ -17,7 +17,8 @@ import
   ../sszdump
 
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, runForkchoiceUpdated, updateHead, updateHeadWithExecution
+  ConsensusManager, runForkchoiceUpdated, runProposalForkchoiceUpdated,
+  updateHead, updateHeadWithExecution
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, slot
 from ../consensus_object_pools/block_pools_types import BlockError, EpochRef
@@ -307,6 +308,9 @@ proc storeBlock*(
         executionHeadRoot,
         self.consensusManager.dag.loadExecutionBlockRoot(
           self.consensusManager.dag.finalizedHead.blck))
+
+      # TODO remove redundant fcU in case of proposal
+      asyncSpawn self.consensusManager.runProposalForkchoiceUpdated()
     else:
       asyncSpawn self.consensusManager.updateHeadWithExecution(newHead.get)
   else:
@@ -502,6 +506,17 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
          # TODO detect have-TTD-but-not-is_execution_block case, and where
          # execution payload was non-zero when TTD detection more reliable
          when true:
+           # When an execution engine returns an error or fails to respond to a
+           # payload validity request for some block, a consensus engine:
+           # - MUST NOT optimistically import the block.
+           # - MUST NOT apply the block to the fork choice store.
+           # - MAY queue the block for later processing.
+           # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#execution-engine-errors
+           template reEnqueueBlock: untyped =
+             await sleepAsync(chronos.seconds(1))
+             self[].addBlock(
+               blck.src, blck.blck, blck.resfut, blck.validationDur)
+
            try:
              # Minimize window for Eth1 monitor to shut down connection
              await self.consensusManager.eth1Monitor.ensureDataProvider()
@@ -516,22 +531,14 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
 
              let executionPayloadStatus = await newExecutionPayload(
                self.consensusManager.eth1Monitor, executionPayload)
-
              if executionPayloadStatus.isNone:
-               # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/sync/optimistic.md#execution-engine-errors
-               if not blck.resfut.isNil:
-                 blck.resfut.complete(
-                   Result[void, BlockError].err(BlockError.MissingParent))
+               reEnqueueBlock()
                continue
 
              executionPayloadStatus.get
            except CatchableError as err:
-             error "runQueueProcessingLoop: newPayload failed",
-               err = err.msg
-             # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/sync/optimistic.md#execution-engine-errors
-             if not blck.resfut.isNil:
-               blck.resfut.complete(
-                 Result[void, BlockError].err(BlockError.MissingParent))
+             error "runQueueProcessingLoop: newPayload failed", err = err.msg
+             reEnqueueBlock()
              continue
          else:
            debug "runQueueProcessingLoop: got execution payload before TTD"

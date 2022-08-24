@@ -30,7 +30,7 @@ const
   TTFB_TIMEOUT* = 5.seconds
   RESP_TIMEOUT* = 10.seconds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/bellatrix/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/bellatrix/p2p-interface.md#configuration
   GOSSIP_MAX_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
   MAX_CHUNK_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
 
@@ -85,23 +85,23 @@ func getAttestationTopic*(forkDigest: ForkDigest,
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "beacon_attestation_" & $(subnetId) & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeTopic*(forkDigest: ForkDigest,
                             subcommitteeIdx: SyncSubcommitteeIndex): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_" & $subcommitteeIdx & "/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/p2p-interface.md#topics-and-messages
 func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string =
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
   eth2Prefix(forkDigest) & "light_client_finality_update/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
 func getLightClientOptimisticUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientOptimisticUpdate`.
   eth2Prefix(forkDigest) & "light_client_optimistic_update/ssz_snappy"
@@ -123,10 +123,10 @@ func getENRForkID*(cfg: RuntimeConfig,
     next_fork_epoch: cfg.nextForkEpochAtEpoch(epoch))
 
 func getDiscoveryForkID*(cfg: RuntimeConfig,
-                   epoch: Epoch,
-                   genesis_validators_root: Eth2Digest): ENRForkID =
-  # Until 1 epoch from fork, returns pre-fork value
-  if epoch + 1 >= cfg.ALTAIR_FORK_EPOCH:
+                         epoch: Epoch,
+                         genesis_validators_root: Eth2Digest): ENRForkID =
+  # Until 1 epoch from fork, return pre-fork value.
+  if cfg.nextForkEpochAtEpoch(epoch) - epoch <= 1:
     getENRForkID(cfg, epoch, genesis_validators_root)
   else:
     let
@@ -138,7 +138,7 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
       next_fork_version: current_fork_version,
       next_fork_epoch: FAR_FUTURE_EPOCH)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/altair/p2p-interface.md#transitioning-the-gossip
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/p2p-interface.md#transitioning-the-gossip
 type GossipState* = set[BeaconStateFork]
 func getTargetGossipState*(
     epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH: Epoch, isBehind: bool):

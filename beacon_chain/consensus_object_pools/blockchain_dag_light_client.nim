@@ -18,7 +18,7 @@ import
   ../beacon_chain_db_light_client,
   "."/[block_pools_types, blockchain_dag]
 
-logScope: topics = "chaindag"
+logScope: topics = "chaindag_lc"
 
 type
   HashedBeaconStateWithSyncCommittee =
@@ -128,11 +128,19 @@ proc initLightClientDataStore*(
     cfg: RuntimeConfig,
     db: LightClientDataDB): LightClientDataStore =
   ## Initialize light client data store.
+  let
+    defaultMaxPeriods = cfg.defaultLightClientDataMaxPeriods
+    maxPeriods = config.maxPeriods.get(distinctBase(SyncCommitteePeriod.high))
+  if maxPeriods < defaultMaxPeriods:
+    warn "Retaining fewer periods than recommended",
+      lightClientDataMaxPeriods = config.maxPeriods,
+      specRecommendation = defaultMaxPeriods
+
   LightClientDataStore(
     db: db,
     serve: config.serve,
     importMode: config.importMode,
-    maxPeriods: config.maxPeriods.get(cfg.defaultLightClientDataMaxPeriods),
+    maxPeriods: maxPeriods,
     onLightClientFinalityUpdate: config.onLightClientFinalityUpdate,
     onLightClientOptimisticUpdate: config.onLightClientOptimisticUpdate)
 

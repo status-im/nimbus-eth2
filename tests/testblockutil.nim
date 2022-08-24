@@ -22,15 +22,15 @@ const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/tests/core/pyspec/eth2spec/test/helpers/keys.py
-func `[]`*(_: MockPrivKeysT, index: ValidatorIndex): ValidatorPrivKey =
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/tests/core/pyspec/eth2spec/test/helpers/keys.py
+func `[]`*(_: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
   # lighthouse. EF tests use 1 instead of 1000.
   var bytes = (index.uint64 + 1000'u64).toBytesLE()
   static: doAssert sizeof(bytes) <= sizeof(result)
   copyMem(addr result, addr bytes, sizeof(bytes))
 
-func `[]`*(_: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
+func `[]`*(_: MockPubKeysT, index: ValidatorIndex|uint64): ValidatorPubKey =
   MockPrivKeys[index].toPubKey().toPubKey()
 
 func makeFakeHash*(i: int): Eth2Digest =
