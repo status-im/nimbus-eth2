@@ -60,7 +60,7 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
 
     let res =
       try:
-        await vc.getValidators(idents)
+        await vc.getValidators(idents, ApiStrategyKind.First)
       except ValidatorApiError:
         error "Unable to get head state's validator information"
         return
@@ -119,7 +119,7 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
 
     let res =
       try:
-        await vc.getAttesterDuties(epoch, indices)
+        await vc.getAttesterDuties(epoch, indices, ApiStrategyKind.First)
       except ValidatorApiError:
         error "Unable to get attester duties", epoch = epoch
         return 0
@@ -236,7 +236,7 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
 
       res =
         try:
-          await vc.getSyncCommitteeDuties(epoch, indices)
+          await vc.getSyncCommitteeDuties(epoch, indices, ApiStrategyKind.First)
         except ValidatorApiError:
           error "Unable to get sync committee duties", epoch = epoch
           return 0
@@ -457,7 +457,8 @@ proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
 
     if vc.attachedValidators[].count() != 0:
       try:
-        let res = await vc.getProposerDuties(currentEpoch)
+        let res = await vc.getProposerDuties(currentEpoch,
+                                             ApiStrategyKind.First)
         let
           dependentRoot = res.dependent_root
           duties = res.data

@@ -322,7 +322,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
   let beaconBlockRoot =
     block:
       try:
-        let res = await vc.getHeadBlockRoot()
+        let res = await vc.getHeadBlockRoot(ApiStrategyKind.First)
         res.root
       except ValidatorApiError as exc:
         error "Unable to retrieve head block's root to sign", reason = exc.msg

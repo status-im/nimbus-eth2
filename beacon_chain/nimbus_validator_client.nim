@@ -188,7 +188,7 @@ proc new*(T: type ValidatorClientRef,
           warn "Unable to resolve remote beacon node server's hostname",
                 url = url
         else:
-        servers.add(BeaconNodeServerRef.init(res.get(), url, index))
+          servers.add(BeaconNodeServerRef.init(res.get(), url, index))
       servers
 
   if len(beaconNodes) == 0:
