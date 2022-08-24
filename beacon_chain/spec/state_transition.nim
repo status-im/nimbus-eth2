@@ -197,14 +197,15 @@ proc process_slots*(
   # Update the state so its slot matches that of the block
   while getStateField(state, slot) < slot:
     withState(state):
-      withEpochInfo(state.data, info):
-        ? advance_slot(cfg, state.data, state.root, flags, cache, info)
+      withEpochInfo(forkyState.data, info):
+        ? advance_slot(
+          cfg, forkyState.data, forkyState.root, flags, cache, info)
 
       if skipLastStateRootCalculation notin flags or
-          state.data.slot < slot:
+          forkyState.data.slot < slot:
         # Don't update state root for the slot of the block if going to process
         # block after
-        state.root = hash_tree_root(state.data)
+        forkyState.root = hash_tree_root(forkyState.data)
 
     maybeUpgradeState(cfg, state)
 
@@ -257,7 +258,7 @@ proc state_transition_block*(
 
   let res = withState(state):
     when stateFork.toBeaconBlockFork() == type(signedBlock).toFork:
-      state_transition_block_aux(cfg, state, signedBlock, cache, flags)
+      state_transition_block_aux(cfg, forkyState, signedBlock, cache, flags)
     else:
       err("State/block fork mismatch")
 
@@ -548,14 +549,14 @@ proc makeBeaconBlock*(
       withState(state):
         static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
         when stateFork == BeaconStateFork.Bellatrix:
-          state.data.latest_execution_payload_header.transactions_root =
+          forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
           # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#beaconblockbody
           # Effectively hash_tree_root(ExecutionPayload) with the beacon block
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.
-          state.data.latest_block_header.body_root = hash_tree_root(
+          forkyState.data.latest_block_header.body_root = hash_tree_root(
             [hash_tree_root(randao_reveal),
              hash_tree_root(eth1_data),
              hash_tree_root(graffiti),

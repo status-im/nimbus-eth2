@@ -312,14 +312,17 @@ template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
   case x.kind
   of BeaconStateFork.Bellatrix:
     const stateFork {.inject, used.} = BeaconStateFork.Bellatrix
+    template forkyState: untyped {.inject, used.} = x.bellatrixData
     template state: untyped {.inject, used.} = x.bellatrixData
     body
   of BeaconStateFork.Altair:
     const stateFork {.inject, used.} = BeaconStateFork.Altair
+    template forkyState: untyped {.inject, used.} = x.altairData
     template state: untyped {.inject, used.} = x.altairData
     body
   of BeaconStateFork.Phase0:
     const stateFork {.inject, used.} = BeaconStateFork.Phase0
+    template forkyState: untyped {.inject, used.} = x.phase0Data
     template state: untyped {.inject, used.} = x.phase0Data
     body
 
@@ -373,10 +376,10 @@ template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   of BeaconStateFork.Phase0:    unsafeAddr x.phase0Data.data.y)[]
 
 func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
-  withState(x): state.root
+  withState(x): forkyState.root
 
 func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
-  withState(x): state.root = root
+  withState(x): forkyState.root = root
 
 func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
   ## Return the current fork for the given epoch.
@@ -615,8 +618,8 @@ func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
     kind: cfg.stateForkAtEpoch(header.slot.epoch()))
 
   withState(result):
-    readSszBytes(data, state.data)
-    state.root = hash_tree_root(state.data)
+    readSszBytes(data, forkyState.data)
+    forkyState.root = hash_tree_root(forkyState.data)
 
 type
   ForkedBeaconBlockHeader = object

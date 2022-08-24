@@ -359,7 +359,7 @@ func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
 func get_initial_beacon_block*(state: ForkedHashedBeaconState):
     ForkedTrustedSignedBeaconBlock =
   withState(state):
-    ForkedTrustedSignedBeaconBlock.init(get_initial_beacon_block(state))
+    ForkedTrustedSignedBeaconBlock.init(get_initial_beacon_block(forkyState))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: ForkyBeaconState, slot: Slot): Eth2Digest =
@@ -377,7 +377,7 @@ func get_block_root_at_slot*(
     state: ForkedHashedBeaconState, slot: Slot): Eth2Digest =
   ## Return the block root at a recent ``slot``.
   withState(state):
-    get_block_root_at_slot(state.data, slot)
+    get_block_root_at_slot(forkyState.data, slot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_block_root
 func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
@@ -387,7 +387,7 @@ func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
 func get_block_root*(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the block root at the start of a recent ``epoch``.
   withState(state):
-    get_block_root(state.data, epoch)
+    get_block_root(forkyState.data, epoch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_total_balance
 template get_total_balance(
@@ -485,7 +485,7 @@ func get_attesting_indices*(state: ForkedHashedBeaconState;
 
   var idxBuf: seq[ValidatorIndex]
   withState(state):
-    for vidx in state.data.get_attesting_indices(data, bits, cache):
+    for vidx in forkyState.data.get_attesting_indices(data, bits, cache):
       idxBuf.add vidx
   idxBuf
 

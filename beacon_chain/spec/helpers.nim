@@ -92,7 +92,7 @@ func get_active_validator_indices_len*(state: ForkyBeaconState, epoch: Epoch):
 func get_active_validator_indices_len*(
     state: ForkedHashedBeaconState; epoch: Epoch): uint64 =
   withState(state):
-    get_active_validator_indices_len(state.data, epoch)
+    get_active_validator_indices_len(forkyState.data, epoch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkyBeaconState): Epoch =
@@ -102,7 +102,7 @@ func get_current_epoch*(state: ForkyBeaconState): Epoch =
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkedHashedBeaconState): Epoch =
   ## Return the current epoch.
-  withState(state): get_current_epoch(state.data)
+  withState(state): get_current_epoch(forkyState.data)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(
