@@ -319,7 +319,7 @@ template asBlockHash*(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
 # NOTE: First param here added to distinguish between forks
-func asConsensusExecutionPayload*(_: Option[bellatrix.PayloadID], rpcExecutionPayload: ExecutionPayloadV1):
+func asConsensusExecutionPayload*(payload_id: bellatrix.PayloadID, rpcExecutionPayload: ExecutionPayloadV1):
     bellatrix.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
@@ -346,7 +346,7 @@ func asConsensusExecutionPayload*(_: Option[bellatrix.PayloadID], rpcExecutionPa
 
 # NOTE: First param here added to distinguish between forks
 # TODO: @tavurth is there a nicer way to write this?
-func asConsensusExecutionPayload*(_: Option[capella.PayloadID], rpcExecutionPayload: ExecutionPayloadV1):
+func asConsensusExecutionPayload*(payload_id: capella.PayloadID, rpcExecutionPayload: ExecutionPayloadV1):
     capella.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): capella.Transaction =
     capella.Transaction.init(tt.distinctBase)

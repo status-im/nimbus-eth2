@@ -100,3 +100,10 @@ them from some other file.
 
 Search ~export {previous_fork_name}~ and be sure that all of them are
 updated with your new fork name.
+
+** Ambiguous calls
+I found that some places the spec has new features from the bellatrix
+upgrade which need to be modified or in some way made non-ambiguous.
+
+So far in the slow process of migration type ambiguity has been the single
+largest slowdown to progress.

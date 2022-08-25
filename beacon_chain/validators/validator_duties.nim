@@ -383,7 +383,7 @@ proc get_execution_payload(
     default(bellatrix.ExecutionPayload)
   else:
     asConsensusExecutionPayload(
-      payload_id,
+      payload_id.get(),
       await execution_engine.getPayload(payload_id.get))
 
 proc get_execution_payload(
@@ -394,7 +394,7 @@ proc get_execution_payload(
     default(capella.ExecutionPayload)
   else:
     asConsensusExecutionPayload(
-      payload_id,
+      payload_id.get(),
       await execution_engine.getPayload(payload_id.get))
 
 # TODO remove in favor of consensusManager copy
