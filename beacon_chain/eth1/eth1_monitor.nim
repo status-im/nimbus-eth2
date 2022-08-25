@@ -141,6 +141,8 @@ type
     stopFut: Future[void]
     getBeaconTime: GetBeaconTimeFn
 
+    requireEngineAPI: bool
+
     when hasGenesisDetection:
       genesisValidators: seq[ImmutableValidatorData]
       genesisValidatorKeyToIndex: Table[ValidatorPubKey, ValidatorIndex]
@@ -476,7 +478,7 @@ proc getPayload*(p: Eth1Monitor,
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil or p.dataProvider.isNil:
-    var epr: Future[engine_api.ExecutionPayloadV1]
+    let epr = newFuture[engine_api.ExecutionPayloadV1]("getPayload")
     epr.complete(default(engine_api.ExecutionPayloadV1))
     return epr
 
@@ -487,7 +489,7 @@ proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV1):
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.dataProvider.isNil:
-    var epr: Future[PayloadStatusV1]
+    let epr = newFuture[PayloadStatusV1]("newPayload")
     epr.complete(PayloadStatusV1(status: PayloadExecutionStatus.syncing))
     return epr
 
@@ -499,7 +501,8 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil or p.dataProvider.isNil:
-    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
+    let fcuR =
+      newFuture[engine_api.ForkchoiceUpdatedResponse]("forkchoiceUpdated")
     fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
       payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
     return fcuR
@@ -520,7 +523,8 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil or p.dataProvider.isNil:
-    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
+    let fcuR =
+      newFuture[engine_api.ForkchoiceUpdatedResponse]("forkchoiceUpdated")
     fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
       payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
     return fcuR
@@ -538,53 +542,67 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
 # TODO can't be defined within exchangeTransitionConfiguration
 proc `==`(x, y: Quantity): bool {.borrow, noSideEffect.}
 
-proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[void] {.async.} =
+type
+  EtcStatus {.pure.} = enum
+    exchangeError
+    mismatch
+    localConfigurationUpdated
+    match
+
+proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async.} =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil:
     debug "exchangeTransitionConfiguration: nil Eth1Monitor"
 
   if p.isNil or p.dataProvider.isNil:
-    return
+    return EtcStatus.exchangeError
 
-  let ccTransitionConfiguration = TransitionConfigurationV1(
+  let consensusCfg = TransitionConfigurationV1(
     terminalTotalDifficulty: p.depositsChain.cfg.TERMINAL_TOTAL_DIFFICULTY,
     terminalBlockHash:
       if p.terminalBlockHash.isSome:
         p.terminalBlockHash.get
       else:
-        # https://github.com/nim-lang/Nim/issues/19802
-        (static(default(BlockHash))),
+        (static default BlockHash),
     terminalBlockNumber:
       if p.terminalBlockNumber.isSome:
         p.terminalBlockNumber.get
       else:
-        # https://github.com/nim-lang/Nim/issues/19802
-        (static(default(Quantity))))
-  let ecTransitionConfiguration =
+        (static default Quantity))
+  let executionCfg =
     try:
       awaitWithRetries(
         p.dataProvider.web3.provider.engine_exchangeTransitionConfigurationV1(
-          ccTransitionConfiguration),
+          consensusCfg),
         timeout = 1.seconds)
     except CatchableError as err:
-      debug "Failed to exchange transition configuration", err = err.msg
-      return
+      error "Failed to exchange transition configuration", err = err.msg
+      return EtcStatus.exchangeError
 
-  if ccTransitionConfiguration != ecTransitionConfiguration:
-    warn "exchangeTransitionConfiguration: Configuration mismatch detected",
-      consensusTerminalTotalDifficulty =
-        $ccTransitionConfiguration.terminalTotalDifficulty,
-      consensusTerminalBlockHash =
-        ccTransitionConfiguration.terminalBlockHash,
-      consensusTerminalBlockNumber =
-        ccTransitionConfiguration.terminalBlockNumber.uint64,
-      executionTerminalTotalDifficulty =
-        $ecTransitionConfiguration.terminalTotalDifficulty,
-      executionTerminalBlockHash =
-        ecTransitionConfiguration.terminalBlockHash,
-      executionTerminalBlockNumber =
-        ecTransitionConfiguration.terminalBlockNumber.uint64
+  if consensusCfg.terminalTotalDifficulty != executionCfg.terminalTotalDifficulty:
+    warn "Engine API configured with different terminal total difficulty",
+         engineAPI_value = executionCfg.terminalTotalDifficulty,
+         localValue = consensusCfg.terminalTotalDifficulty
+    return EtcStatus.mismatch
+
+  if p.terminalBlockNumber.isSome and p.terminalBlockHash.isSome:
+    var res = EtcStatus.match
+    if consensusCfg.terminalBlockNumber != executionCfg.terminalBlockNumber:
+      warn "Engine API reporting different terminal block number",
+            engineAPI_value = executionCfg.terminalBlockNumber.uint64,
+            localValue = consensusCfg.terminalBlockNumber.uint64
+      res = EtcStatus.mismatch
+    if consensusCfg.terminalBlockHash != executionCfg.terminalBlockHash:
+      warn "Engine API reporting different terminal block hash",
+            engineAPI_value = executionCfg.terminalBlockHash,
+            localValue = consensusCfg.terminalBlockHash
+      res = EtcStatus.mismatch
+    return res
+  else:
+    p.terminalBlockNumber = some executionCfg.terminalBlockNumber
+    p.terminalBlockHash = some executionCfg.terminalBlockHash
+    return EtcStatus.localConfigurationUpdated
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType
@@ -1027,7 +1045,8 @@ proc init*(T: type Eth1Monitor,
            depositContractSnapshot: Option[DepositContractSnapshot],
            eth1Network: Option[Eth1Network],
            forcePolling: bool,
-           jwtSecret: Option[seq[byte]]): T =
+           jwtSecret: Option[seq[byte]],
+           requireEngineAPI: bool): T =
   doAssert web3Urls.len > 0
   var web3Urls = web3Urls
   for url in mitems(web3Urls):
@@ -1045,7 +1064,8 @@ proc init*(T: type Eth1Monitor,
     eth1Progress: newAsyncEvent(),
     forcePolling: forcePolling,
     jwtSecret: jwtSecret,
-    blocksPerLogsRequest: targetBlocksPerLogsRequest)
+    blocksPerLogsRequest: targetBlocksPerLogsRequest,
+    requireEngineAPI: requireEngineAPI)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
@@ -1329,6 +1349,20 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     await provider.close()
 
   await m.ensureDataProvider()
+
+  if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH:
+    let status = await m.exchangeTransitionConfiguration()
+    if status == EtcStatus.localConfigurationUpdated:
+      info "Obtained terminal block from Engine API",
+           terminalBlockNumber = m.terminalBlockNumber.get.uint64,
+           terminalBlockHash = m.terminalBlockHash.get
+    elif status != EtcStatus.match and isFirstRun and m.requireEngineAPI:
+      fatal "The Bellatrix hard fork requires the beacon node to be connected to a properly configured Engine API end-point. " &
+            "See https://nimbus.guide/merge.html for more details. " &
+            "If you want to temporarily continue operating Nimbus without configuring an Engine API end-point, " &
+            "please specify the command-line option --require-engine-api-in-bellatrix=no when launching it. " &
+            "Please note that you MUST complete the migration before the network TTD is reached (estimated to happen near 13th of September)"
+      quit 1
 
   # We might need to reset the chain if the new provider disagrees
   # with the previous one regarding the history of the chain or if

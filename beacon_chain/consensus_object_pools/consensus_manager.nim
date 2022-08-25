@@ -16,7 +16,20 @@ import
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
   ../eth1/eth1_monitor
 
+from ../spec/eth2_apis/dynamic_fee_recipients import
+  DynamicFeeRecipientsStore, getDynamicFeeRecipient
+from ../validators/keystore_management import
+  KeymanagerHost, getSuggestedFeeRecipient
+
 type
+  ForkChoiceUpdatedInformation* = object
+    payloadId*: PayloadID
+    headBlockRoot*: Eth2Digest
+    safeBlockRoot*: Eth2Digest
+    finalizedBlockRoot*: Eth2Digest
+    timestamp*: uint64
+    feeRecipient*: Eth1Address
+
   ConsensusManager* = object
     expectedSlot: Slot
     expectedBlockReceived: Future[bool]
@@ -34,6 +47,16 @@ type
     # ----------------------------------------------------------------
     eth1Monitor*: Eth1Monitor
 
+    # Allow determination of preferred fee recipient during proposals
+    # ----------------------------------------------------------------
+    dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore
+    keymanagerHost: ref KeymanagerHost
+    defaultFeeRecipient: Eth1Address
+
+    # Tracking last proposal forkchoiceUpdated payload information
+    # ----------------------------------------------------------------
+    forkchoiceUpdatedInfo*: Opt[ForkchoiceUpdatedInformation]
+
 # Initialization
 # ------------------------------------------------------------------------------
 
@@ -41,13 +64,20 @@ func new*(T: type ConsensusManager,
           dag: ChainDAGRef,
           attestationPool: ref AttestationPool,
           quarantine: ref Quarantine,
-          eth1Monitor: Eth1Monitor
+          eth1Monitor: Eth1Monitor,
+          dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
+          keymanagerHost: ref KeymanagerHost,
+          defaultFeeRecipient: Eth1Address
          ): ref ConsensusManager =
   (ref ConsensusManager)(
     dag: dag,
     attestationPool: attestationPool,
     quarantine: quarantine,
-    eth1Monitor: eth1Monitor
+    eth1Monitor: eth1Monitor,
+    dynamicFeeRecipientsStore: dynamicFeeRecipientsStore,
+    keymanagerHost: keymanagerHost,
+    forkchoiceUpdatedInfo: Opt.none ForkchoiceUpdatedInformation,
+    defaultFeeRecipient: defaultFeeRecipient
   )
 
 # Consensus Management
@@ -184,6 +214,74 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   self.updateHead(newHead.blck)
 
+proc checkNextProposer(dag: ChainDAGRef, slot: Slot):
+    Opt[(ValidatorIndex, ValidatorPubKey)] =
+  let proposer = dag.getProposer(dag.head, slot + 1)
+  if proposer.isNone():
+    return Opt.none((ValidatorIndex, ValidatorPubKey))
+  Opt.some((proposer.get, dag.validatorKey(proposer.get).get().toPubKey))
+
+proc getFeeRecipient*(
+    self: ref ConsensusManager, pubkey: ValidatorPubKey, validatorIdx: ValidatorIndex,
+    epoch: Epoch): Eth1Address =
+  self.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
+    if self.keymanagerHost != nil:
+      self.keymanagerHost[].getSuggestedFeeRecipient(pubkey).valueOr:
+        self.defaultFeeRecipient
+    else:
+      self.defaultFeeRecipient
+
+from ../spec/datatypes/bellatrix import PayloadID
+
+proc runProposalForkchoiceUpdated*(self: ref ConsensusManager) {.async.} =
+  withState(self.dag.headState):
+    let
+      nextSlot = state.data.slot + 1
+      (validatorIndex, nextProposer) =
+        self.dag.checkNextProposer(nextSlot).valueOr:
+          return
+
+    # Approximately lines up with validator_duties version. Used optimistcally/
+    # opportunistically, so mismatches are fine if not too frequent.
+    let
+      timestamp = compute_timestamp_at_slot(state.data, nextSlot)
+      randomData =
+        get_randao_mix(state.data, get_current_epoch(state.data)).data
+      feeRecipient = self.getFeeRecipient(
+        nextProposer, validatorIndex, nextSlot.epoch)
+      beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
+      headBlockRoot = self.dag.loadExecutionBlockRoot(beaconHead.blck)
+
+    if headBlockRoot.isZero:
+      return
+
+    try:
+      let fcResult = awaitWithTimeout(
+        forkchoiceUpdated(
+          self.eth1Monitor,
+          headBlockRoot,
+          beaconHead.safeExecutionPayloadHash,
+          beaconHead.finalizedExecutionPayloadHash,
+          timestamp, randomData, feeRecipient),
+        FORKCHOICEUPDATED_TIMEOUT):
+          debug "runProposalForkchoiceUpdated: forkchoiceUpdated timed out"
+          ForkchoiceUpdatedResponse(
+            payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing))
+
+      if  fcResult.payloadStatus.status != PayloadExecutionStatus.valid or
+          fcResult.payloadId.isNone:
+        return
+
+      self.forkchoiceUpdatedInfo = Opt.some ForkchoiceUpdatedInformation(
+        payloadId: bellatrix.PayloadID(fcResult.payloadId.get),
+        headBlockRoot: headBlockRoot,
+        safeBlockRoot: beaconHead.safeExecutionPayloadHash
+        finalizedBlockRoot: beaconHead.finalizedExecutionPayloadHash,
+        timestamp: timestamp,
+        feeRecipient: feeRecipient)
+    except CatchableError as err:
+      error "Engine API fork-choice update failed", err = err.msg
+
 proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BeaconHead)
     {.async.} =
   ## Trigger fork choice and update the DAG with the new head block
@@ -198,6 +296,10 @@ proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BeaconHead)
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized
     self.dag.updateHead(newHead.blck, self.quarantine[])
+
+    # TODO after things stabilize with this, check for upcoming proposal and
+    # don't bother sending first fcU, but initially, keep both in place
+    asyncSpawn self.runProposalForkchoiceUpdated()
 
     self[].checkExpectedBlock()
   except CatchableError as exc:

@@ -422,18 +422,39 @@ template atEpoch*(
 
 template asSigned*(
     x: ForkedMsgTrustedSignedBeaconBlock |
-       ForkedTrustedSignedBeaconBlock): ForkedSignedBeaconBlock =
+       ForkedTrustedSignedBeaconBlock
+): ForkedSignedBeaconBlock =
   isomorphicCast[ForkedSignedBeaconBlock](x)
+
+template asSigned*(
+    x: ref ForkedMsgTrustedSignedBeaconBlock |
+       ref ForkedTrustedSignedBeaconBlock
+): ref ForkedSignedBeaconBlock =
+  isomorphicCast[ref ForkedSignedBeaconBlock](x)
 
 template asMsgTrusted*(
     x: ForkedSignedBeaconBlock |
-       ForkedTrustedSignedBeaconBlock): ForkedMsgTrustedSignedBeaconBlock =
+       ForkedTrustedSignedBeaconBlock
+): ForkedMsgTrustedSignedBeaconBlock =
   isomorphicCast[ForkedMsgTrustedSignedBeaconBlock](x)
+
+template asMsgTrusted*(
+    x: ref ForkedSignedBeaconBlock |
+       ref ForkedTrustedSignedBeaconBlock
+): ref ForkedMsgTrustedSignedBeaconBlock =
+  isomorphicCast[ref ForkedMsgTrustedSignedBeaconBlock](x)
 
 template asTrusted*(
     x: ForkedSignedBeaconBlock |
-       ForkedMsgTrustedSignedBeaconBlock): ForkedTrustedSignedBeaconBlock =
+       ForkedMsgTrustedSignedBeaconBlock
+): ForkedTrustedSignedBeaconBlock =
   isomorphicCast[ForkedTrustedSignedBeaconBlock](x)
+
+template asTrusted*(
+    x: ref ForkedSignedBeaconBlock |
+       ref ForkedMsgTrustedSignedBeaconBlock
+): ref ForkedTrustedSignedBeaconBlock =
+  isomorphicCast[ref ForkedTrustedSignedBeaconBlock](x)
 
 template withBlck*(
     x: ForkedBeaconBlock | Web3SignerForkedBeaconBlock |

@@ -16,11 +16,11 @@ import
   # Status libraries
   chronicles,
   # Internal
-  ../spec/helpers,
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/base,
+  ../spec/[helpers, state_transition_block],
   "."/[attestation_pool, blockchain_dag]
 
-export phase0, altair, merge, deques, sets, blockchain_dag
+export base, deques, sets, blockchain_dag
 
 logScope: topics = "exitpool"
 
@@ -125,8 +125,20 @@ func addMessage*(pool: var ExitPool, msg: SignedVoluntaryExit) =
     msg.message.validator_index)
   pool.voluntary_exits.addExitMessage(msg, VOLUNTARY_EXITS_BOUND)
 
-func getExitMessagesForBlock(
-    subpool: var Deque, validators: auto, seen: var HashSet, output: var List) =
+proc validateExitMessage(
+    cfg: RuntimeConfig, state: ForkyBeaconState, msg: ProposerSlashing): bool =
+  check_proposer_slashing(state, msg, {}).isOk
+proc validateExitMessage(
+    cfg: RuntimeConfig, state: ForkyBeaconState, msg: AttesterSlashing): bool =
+  check_attester_slashing(state, msg, {}).isOk
+proc validateExitMessage(
+    cfg: RuntimeConfig, state: ForkyBeaconState, msg: SignedVoluntaryExit):
+    bool =
+  check_voluntary_exit(cfg, state, msg, {}).isOk
+
+proc getExitMessagesForBlock(
+    subpool: var Deque, cfg: RuntimeConfig, state: ForkyBeaconState,
+    seen: var HashSet, output: var List) =
   # Approach taken here is to simply collect messages, effectively, a circular
   # buffer and only re-validate that they haven't already found themselves out
   # of the network eventually via some exit message at block construction time
@@ -136,10 +148,9 @@ func getExitMessagesForBlock(
   # it's a different type, REJECT. Neither is worth packaging into BeaconBlock
   # messages we broadcast.
   #
-  # Beyond that, no other criterion of the exit messages' validity changes from
-  # when they were created, so given that we validated them to start with, they
-  # otherwise remain as valid as when we received them. There's no need to thus
-  # re-validate them on their way out.
+  # Beyond that, it may happen that messages were signed in an epoch pre-dating
+  # the current state by two or more forks - such messages can no longer be
+  # validated in the context of the given state and are therefore dropped.
   #
   # This overall approach handles a scenario wherein we receive an exit message
   # over gossip and put it in the pool; receive a block X, with that message in
@@ -150,33 +161,35 @@ func getExitMessagesForBlock(
   while subpool.len > 0 and output.len < output.maxLen:
     # Prefer recent messages
     let exit_message = subpool.popLast()
+    # Re-check that message is still valid in the state that we're proposing
+    if not validateExitMessage(cfg, state, exit_message):
+      continue
 
+    var skip = false
     for slashed_index in getValidatorIndices(exit_message):
-      if validators.lenu64 <= slashed_index:
-        continue
-      if validators[slashed_index].exit_epoch != FAR_FUTURE_EPOCH:
-        continue
       if seen.containsOrIncl(slashed_index):
-        continue
-
-      if not output.add exit_message:
+        skip = true
         break
+    if skip:
+      continue
+
+    if not output.add exit_message:
+      break
 
   subpool.clear()
 
-func getBeaconBlockExits*(pool: var ExitPool, state: ForkyBeaconState): BeaconBlockExits =
+proc getBeaconBlockExits*(
+    pool: var ExitPool, cfg: RuntimeConfig, state: ForkyBeaconState):
+    BeaconBlockExits =
   var
     indices: HashSet[uint64]
     res: BeaconBlockExits
 
   getExitMessagesForBlock(
-    pool.attester_slashings, state.validators, indices,
-    res.attester_slashings)
+    pool.attester_slashings, cfg, state, indices, res.attester_slashings)
   getExitMessagesForBlock(
-    pool.proposer_slashings, state.validators, indices,
-    res.proposer_slashings)
+    pool.proposer_slashings, cfg, state, indices, res.proposer_slashings)
   getExitMessagesForBlock(
-    pool.voluntary_exits, state.validators, indices,
-    res.voluntary_exits)
+    pool.voluntary_exits, cfg, state, indices, res.voluntary_exits)
 
   res

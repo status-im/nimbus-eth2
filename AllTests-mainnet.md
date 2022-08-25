@@ -56,17 +56,6 @@ OK: 6/6 Fail: 0/6 Skip: 0/6
 + basics                                                                                     OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Block clearance (light client) [Preset: mainnet]
-```diff
-+ Delayed finality update                                                                    OK
-+ Error conditions                                                                           OK
-+ Incremental sync                                                                           OK
-+ Initial sync                                                                               OK
-+ Low slot numbers                                                                           OK
-+ Reorg                                                                                      OK
-+ Reverse incremental sync                                                                   OK
-```
-OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Block pool altair processing [Preset: mainnet]
 ```diff
 + Invalid signatures [Preset: mainnet]                                                       OK
@@ -126,6 +115,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## Discovery fork ID
+```diff
++ Expected fork IDs                                                                          OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Diverging hardforks
 ```diff
 + Non-tail block in common                                                                   OK
@@ -167,8 +161,9 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + addExitMessage/getAttesterSlashingMessage                                                  OK
 + addExitMessage/getProposerSlashingMessage                                                  OK
 + addExitMessage/getVoluntaryExitMessage                                                     OK
++ pre-pre-fork voluntary exit                                                                OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the fee recpient [Beacon Node] [Preset: mainnet]                               OK
@@ -590,4 +585,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 331/336 Fail: 0/336 Skip: 5/336
+OK: 326/331 Fail: 0/331 Skip: 5/331

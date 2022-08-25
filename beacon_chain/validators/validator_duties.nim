@@ -355,11 +355,12 @@ proc get_execution_payload(
     asConsensusExecutionPayload(
       await execution_engine.getPayload(payload_id.get))
 
+# TODO remove in favor of consensusManager copy
 proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
                      validatorIdx: ValidatorIndex,
                      epoch: Epoch): Eth1Address =
-  node.dynamicFeeRecipientsStore.getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
+  node.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
     if node.keymanagerHost != nil:
       node.keymanagerHost[].getSuggestedFeeRecipient(pubkey).valueOr:
         node.config.defaultFeeRecipient
@@ -408,11 +409,32 @@ proc getExecutionPayload(
       latestSafe = beaconHead.safeExecutionPayloadHash
       latestFinalized = beaconHead.finalizedExecutionPayloadHash
       feeRecipient = node.getFeeRecipient(pubkey, validator_index, epoch)
-      payload_id = (await forkchoice_updated(
+      lastFcU = node.consensusManager.forkchoiceUpdatedInfo
+      timestamp = compute_timestamp_at_slot(
         proposalState.bellatrixData.data,
-        latestHead, latestSafe, latestFinalized,
-        feeRecipient,
-        node.consensusManager.eth1Monitor))
+        proposalState.bellatrixData.data.slot)
+      payload_id =
+        if  lastFcU.isSome and
+            lastFcU.get.headBlockRoot == latestHead and
+            lastFcU.get.safeBlockRoot == latestSafe and
+            lastFcU.get.finalizedBlockRoot == latestFinalized and
+            lastFcU.get.timestamp == timestamp and
+            lastFcU.get.feeRecipient == feeRecipient:
+          some bellatrix.PayloadID(lastFcU.get.payloadId)
+        else:
+          debug "getExecutionPayload: didn't find payloadId, re-querying",
+            latestHead, latestSafe, latestFinalized,
+            timestamp,
+            feeRecipient,
+            cachedHeadBlockRoot = lastFcU.get.headBlockRoot,
+            cachedFinalizedBlockRoot = lastFcU.get.finalizedBlockRoot,
+            cachedTimestamp = lastFcU.get.timestamp,
+            cachedFeeRecipient = lastFcU.get.feeRecipient
+
+          (await forkchoice_updated(
+           proposalState.bellatrixData.data,
+           latestHead, latestSafe, latestFinalized,
+           feeRecipient, node.consensusManager.eth1Monitor))
       payload = try:
           awaitWithTimeout(
             get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
@@ -480,7 +502,7 @@ proc makeBeaconBlockForHeadAndSlot*(
 
     let
       exits = withState(state):
-        node.exitPool[].getBeaconBlockExits(state.data)
+        node.exitPool[].getBeaconBlockExits(node.dag.cfg, state.data)
       effectiveExecutionPayload =
         if executionPayload.isSome:
           executionPayload.get
