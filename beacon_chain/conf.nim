@@ -55,6 +55,9 @@ const
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
   defaultBeaconNodeDesc* = $defaultBeaconNode
 
+  nimbusWalletAddressDesc* ="0x70E47C843E0F6ab0991A3189c28F2957eb6d3842"
+  nimbusWalletAddress* = (static Address.fromHex(nimbusWalletAddressDesc))
+
 when defined(windows):
   {.pragma: windowsOnly.}
   {.pragma: posixOnly, hidden.}
@@ -558,6 +561,22 @@ type
         desc: "Payload builder URL"
         defaultValue: ""
         name: "payload-builder-url" .}: string
+
+      nimbusFund* {.
+        desc: "Use Nimbus developer fund wallet address as suggested fee recipient for a given percentage of all blocks produced by this node"
+        defaultValue: false
+        name: "nimbus-fund" .}: bool
+
+      nimbusFundPercent* {.
+        desc: "Percentage of blocks that should use the Nimbus developement fund wallet as suggested fee recipient"
+        defaultValue: 4.0
+        name: "nimbus-fund-percent" .}: float
+
+      nimbusWallet* {.
+        desc: "Wallet to use for the Nimbus fund"
+        defaultValue: nimbusWalletAddress
+        defaultValueDesc: $nimbusWalletAddressDesc
+        name: "nimbus-fund-recipient" .}: Address
 
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.
@@ -1268,3 +1287,9 @@ template loadJwtSecret*(
     config: BeaconNodeConf,
     allowCreate: bool): Option[seq[byte]] =
   rng.loadJwtSecret(string(config.dataDir), config.jwtSecret, allowCreate)
+
+template nimbusFundFraction*(config: BeaconNodeConf): float =
+  if config.nimbusFund:
+    config.nimbusFundPercent / 100.0
+  else:
+    0.0

@@ -359,6 +359,11 @@ proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
                      validatorIdx: ValidatorIndex,
                      epoch: Epoch): Eth1Address =
+  if node.config.nimbusFund and
+      node.rng[].generate(uint64).float <
+        node.config.nimbusFundFraction * uint64.high().float:
+    return node.config.nimbusWallet
+
   node.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
     if node.keymanagerHost != nil:
       node.keymanagerHost[].getSuggestedFeeRecipient(pubkey).valueOr:
