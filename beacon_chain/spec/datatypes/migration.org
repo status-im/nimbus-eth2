@@ -48,8 +48,10 @@ quick-search and replace (in selected region) was very
 helpful here.
 
 Tried to generalise some functionality but was unable to
-easily because of typing errors. \*Duplication should be
-preferred here because it prevents errors with previous forks.
+easily because of typing errors.
+
+*** Duplication should be preferred
+As it prevents errors with previous forks.
 
 Compiler errors tracked me to more duplicates, however these
 errors are not always helpful at telling you where the issue
@@ -91,3 +93,10 @@ More typing problems, this time with ~shortLog~ who's asking
 for a BeaconBlock and getting one, but does not seem happy.
 Found some more missed areas from the first code sweep and fixed
 them up.
+
+** Polymorphic errors
+Sometimes we don't import the spec files directly, but rather export
+them from some other file.
+
+Search ~export {previous_fork_name}~ and be sure that all of them are
+updated with your new fork name.

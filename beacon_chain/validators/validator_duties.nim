@@ -351,6 +351,30 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
   else:
     none(bellatrix.PayloadID)
 
+proc forkchoice_updated(state: capella.BeaconState,
+                        head_block_hash: Eth2Digest,
+                        finalized_block_hash: Eth2Digest,
+                        fee_recipient: ethtypes.Address,
+                        execution_engine: Eth1Monitor):
+                        Future[Option[capella.PayloadID]] {.async.} =
+  let
+    timestamp = compute_timestamp_at_slot(state, state.slot)
+    random = get_randao_mix(state, get_current_epoch(state))
+    forkchoiceResponse =
+      awaitWithTimeout(
+        execution_engine.forkchoiceUpdated(
+          head_block_hash, finalized_block_hash, timestamp, random.data,
+          fee_recipient),
+        FORKCHOICEUPDATED_TIMEOUT):
+          info "forkchoice_updated: forkchoiceUpdated timed out"
+          default(ForkchoiceUpdatedResponse)
+    payloadId = forkchoiceResponse.payloadId
+
+  return if payloadId.isSome:
+    some(capella.PayloadID(payloadId.get))
+  else:
+    none(capella.PayloadID)
+
 proc get_execution_payload(
     payload_id: Option[bellatrix.PayloadID], execution_engine: Eth1Monitor):
     Future[bellatrix.ExecutionPayload] {.async.} =
@@ -359,6 +383,18 @@ proc get_execution_payload(
     default(bellatrix.ExecutionPayload)
   else:
     asConsensusExecutionPayload(
+      payload_id,
+      await execution_engine.getPayload(payload_id.get))
+
+proc get_execution_payload(
+    payload_id: Option[capella.PayloadID], execution_engine: Eth1Monitor):
+    Future[capella.ExecutionPayload] {.async.} =
+  return if payload_id.isNone():
+    # Pre-merge, empty payload
+    default(capella.ExecutionPayload)
+  else:
+    asConsensusExecutionPayload(
+      payload_id,
       await execution_engine.getPayload(payload_id.get))
 
 # TODO remove in favor of consensusManager copy
@@ -375,6 +411,15 @@ proc getFeeRecipient(node: BeaconNode,
 
 from web3/engine_api_types import PayloadExecutionStatus
 
+
+template get_fork_data(epoch: Epoch): auto {.inline.} =
+  if epoch == BeaconStateFork.Capella:
+    proposalState.capellaData.data
+
+  else:
+    proposalState.bellatrixData.data
+
+
 proc getExecutionPayload(
     node: BeaconNode, proposalState: auto,
     epoch: Epoch,
@@ -383,10 +428,13 @@ proc getExecutionPayload(
     Future[Opt[ExecutionPayload]] {.async.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
 
-  # Only current hardfork with execution payloads is Bellatrix
-  static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
+  # Only current hardfork with execution payloads is Bellatrix & Capella
+  static: doAssert high(BeaconStateFork) == BeaconStateFork.Capella
   template empty_execution_payload(): auto =
-    build_empty_execution_payload(proposalState.bellatrixData.data)
+    if Epoch == BeaconStateFork.Capella:
+      build_empty_execution_payload(proposalState.capellaData.data)
+    else:
+      build_empty_execution_payload(proposalState.bellatrixData.data)
 
   if node.eth1Monitor.isNil:
     beacon_block_payload_errors.inc()
@@ -450,6 +498,7 @@ proc getExecutionPayload(
           beacon_block_payload_errors.inc()
           warn "Getting execution payload from Engine API failed",
                 payload_id, err = err.msg
+
           empty_execution_payload
 
       executionPayloadStatus =
@@ -505,8 +554,8 @@ proc makeBeaconBlockForHeadAndSlot*(
       warn "Eth1 deposits not available. Skipping block proposal", slot
       return ForkedBlockResult.err("Eth1 deposits not available")
 
-    # Only current hardfork with execution payloads is Bellatrix
-    static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
+    # Only current hardforks with execution payloads are Bellatrix & Capella
+    static: doAssert high(BeaconStateFork) == BeaconStateFork.Capella
 
     let
       exits = withState(state):
@@ -551,6 +600,33 @@ proc makeBeaconBlockForHeadAndSlot*(
       else:
         node.syncCommitteeMsgPool[].produceSyncAggregate(head.root),
       effectiveExecutionPayload,
+      if executionPayload.isSome:
+        executionPayload.get
+      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
+           not (
+             is_merge_transition_complete(proposalState.bellatrixData.data) or
+             ((not node.eth1Monitor.isNil) and
+              node.eth1Monitor.terminalBlockHash.isSome)):
+        # https://github.com/nim-lang/Nim/issues/19802
+        (static(default(bellatrix.ExecutionPayload)))
+
+      # TODO: @tavurth needs to be reviewed carefully
+      #       as this code will probably require changes
+      elif slot.epoch < node.dag.cfg.CAPELLA_FORK_EPOCH or
+           not (
+             is_merge_transition_complete(proposalState.capellaData.data) or
+             ((not node.eth1Monitor.isNil) and
+              node.eth1Monitor.terminalBlockHash.isSome)):
+        # https://github.com/nim-lang/Nim/issues/19802
+        (static(default(capella.ExecutionPayload)))
+      else:
+        let pubkey = node.dag.validatorKey(validator_index)
+        (await getExecutionPayload(
+          node, proposalState,
+          slot.epoch, validator_index,
+          # TODO https://github.com/nim-lang/Nim/issues/19802
+          if pubkey.isSome: pubkey.get.toPubKey else: default(ValidatorPubKey))),
+>>>>>>> b97c30aa (Try to fix ambiguous calls)
       noRollback, # Temporary state - no need for rollback
       cache,
       transactions_root =

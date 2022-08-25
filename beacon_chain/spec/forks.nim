@@ -19,7 +19,7 @@ import
   ./mev/bellatrix_mev
 
 export
-  extras, block_id, phase0, altair, bellatrix, eth2_merkleization,
+  extras, block_id, phase0, altair, bellatrix, capella, eth2_merkleization,
   eth2_ssz_serialization, presets
 
 # This file contains helpers for dealing with forks - we have two ways we can

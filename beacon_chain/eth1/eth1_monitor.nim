@@ -20,7 +20,7 @@ import
   eth/async_utils, stew/[byteutils, objects, shims/hashes],
   # Local modules:
   ../spec/[eth2_merkleization, forks, helpers],
-  ../spec/datatypes/[base, phase0, bellatrix],
+  ../spec/datatypes/[base, phase0, bellatrix, capella],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_chain_db, beacon_node_status, beacon_clock],
@@ -318,7 +318,8 @@ func asEth2Digest*(x: BlockHash): Eth2Digest =
 template asBlockHash*(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
-func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
+# NOTE: First param here added to distinguish between forks
+func asConsensusExecutionPayload*(_: Option[bellatrix.PayloadID], rpcExecutionPayload: ExecutionPayloadV1):
     bellatrix.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
@@ -326,10 +327,10 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
   bellatrix.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
     feeRecipient:
-      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+      bellatrix.ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
     state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
     receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
-    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+    logs_bloom: bellatrix.BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
     prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
     block_number: rpcExecutionPayload.blockNumber.uint64,
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
@@ -340,12 +341,62 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
         rpcExecutionPayload.extraData.distinctBase),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
-    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+    transactions: List[bellatrix.Transaction, bellatrix.MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
+
+# NOTE: First param here added to distinguish between forks
+# TODO: @tavurth is there a nicer way to write this?
+func asConsensusExecutionPayload*(_: Option[capella.PayloadID], rpcExecutionPayload: ExecutionPayloadV1):
+    capella.ExecutionPayload =
+  template getTransaction(tt: TypedTransaction): capella.Transaction =
+    capella.Transaction.init(tt.distinctBase)
+
+  capella.ExecutionPayload(
+    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
+    feeRecipient:
+      capella.ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
+    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
+    logs_bloom: capella.BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
+    block_number: rpcExecutionPayload.blockNumber.uint64,
+    gas_limit: rpcExecutionPayload.gasLimit.uint64,
+    gas_used: rpcExecutionPayload.gasUsed.uint64,
+    timestamp: rpcExecutionPayload.timestamp.uint64,
+    extra_data:
+      List[byte, MAX_EXTRA_DATA_BYTES].init(
+        rpcExecutionPayload.extraData.distinctBase),
+    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
+    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
+    transactions: List[capella.Transaction, capella.MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
 
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
+
+  engine_api.ExecutionPayloadV1(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: Address(executionPayload.fee_recipient.data),
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom:
+      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    prevRandao: executionPayload.prev_randao.asBlockHash,
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData:
+      DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    baseFeePerGas: executionPayload.base_fee_per_gas,
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
+
+func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
+    ExecutionPayloadV1 =
+  template getTypedTransaction(tt: capella.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
   engine_api.ExecutionPayloadV1(
@@ -479,6 +530,17 @@ proc getPayload*(p: Eth1Monitor,
   # don't crash.
   if p.isNil or p.dataProvider.isNil:
     let epr = newFuture[engine_api.ExecutionPayloadV1]("getPayload")
+    epr.complete(default(engine_api.ExecutionPayloadV1))
+    return epr
+
+  p.dataProvider.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId)
+
+proc getPayload*(p: Eth1Monitor,
+                 payloadId: capella.PayloadID): Future[engine_api.ExecutionPayloadV1] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil or p.dataProvider.isNil:
+    var epr: Future[engine_api.ExecutionPayloadV1]
     epr.complete(default(engine_api.ExecutionPayloadV1))
     return epr
 
