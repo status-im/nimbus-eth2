@@ -478,7 +478,7 @@ proc getPayload*(p: Eth1Monitor,
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil or p.dataProvider.isNil:
-    var epr: Future[engine_api.ExecutionPayloadV1]
+    let epr = newFuture[engine_api.ExecutionPayloadV1]("getPayload")
     epr.complete(default(engine_api.ExecutionPayloadV1))
     return epr
 
@@ -489,7 +489,7 @@ proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV1):
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.dataProvider.isNil:
-    var epr: Future[PayloadStatusV1]
+    let epr = newFuture[PayloadStatusV1]("newPayload")
     epr.complete(PayloadStatusV1(status: PayloadExecutionStatus.syncing))
     return epr
 
@@ -501,7 +501,8 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil or p.dataProvider.isNil:
-    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
+    let fcuR =
+      newFuture[engine_api.ForkchoiceUpdatedResponse]("forkchoiceUpdated")
     fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
       payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
     return fcuR
@@ -527,7 +528,8 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil or p.dataProvider.isNil:
-    var fcuR: Future[engine_api.ForkchoiceUpdatedResponse]
+    let fcuR =
+      newFuture[engine_api.ForkchoiceUpdatedResponse]("forkchoiceUpdated")
     fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
       payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
     return fcuR
