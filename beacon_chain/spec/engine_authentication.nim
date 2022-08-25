@@ -57,12 +57,11 @@ proc getSignedIatToken*(key: openArray[byte], time: int64): string =
 proc checkJwtSecret*(
     rng: var HmacDrbgContext, dataDir: string, jwtSecret: Option[string]):
     Result[seq[byte], cstring] =
-
   # If such a parameter is given, but the file cannot be read, or does not
-  # contain a hex-encoded key of at least 256 bits, the client should treat
-  # this as an error: either abort the startup, or show error and continue
-  # without exposing the authenticated port.
-  const MIN_SECRET_LEN = 32
+  # contain a hex-encoded key of 256 bits, the client should treat this as an
+  # error: either abort the startup, or show error and continue without
+  # exposing the authenticated port.
+  const SECRET_LEN = 32
 
   if jwtSecret.isNone:
     # If such a parameter is not given, the client SHOULD generate such a
@@ -74,7 +73,7 @@ proc checkJwtSecret*(
     const jwtSecretFilename = "jwt.hex"
     let jwtSecretPath = dataDir / jwtSecretFilename
 
-    let newSecret = rng.generateBytes(MIN_SECRET_LEN)
+    let newSecret = rng.generateBytes(SECRET_LEN)
     try:
       writeFile(jwtSecretPath, newSecret.to0xHex())
     except IOError as exc:
@@ -92,10 +91,10 @@ proc checkJwtSecret*(
       # Secret JWT key is parsed in constant time using nimcrypto:
       # https://github.com/cheatfate/nimcrypto/pull/44
       let secret = utils.fromHex(lines[0])
-      if secret.len >= MIN_SECRET_LEN:
+      if secret.len == SECRET_LEN:
         ok(secret)
       else:
-        err("JWT secret not at least 256 bits")
+        err("JWT secret not 256 bits")
     else:
       err("no hex string found")
   except IOError:
