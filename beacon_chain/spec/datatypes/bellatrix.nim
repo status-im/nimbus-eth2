@@ -341,6 +341,9 @@ type
     BeaconBlockBody |
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
+  # NOTE: for nicer errors
+  SomeBellatrixBeaconBlock =
+    SomeBeaconBlock
 
   BlockParams = object
     parentHash*: string
@@ -375,7 +378,7 @@ proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
     raiseUnexpectedValue(reader,
                          "ExecutionAddress value should be a valid hex string")
 
-func shortLog*(v: SomeBeaconBlock): auto =
+func shortLog*(v: SomeBellatrixBeaconBlock): auto =
   (
     slot: shortLog(v.slot),
     proposer_index: v.proposer_index,

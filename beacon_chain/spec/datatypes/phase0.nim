@@ -273,6 +273,9 @@ type
     BeaconBlockBody |
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
+  # NOTE: for nicer errors
+  SomePhase0BeaconBlock* =
+    SomeBeaconBlock
 
   EpochInfo* = object
     ## Information about the outcome of epoch processing
@@ -285,7 +288,7 @@ func clear*(info: var EpochInfo) =
   info.validators.setLen(0)
   info.balances = TotalBalances()
 
-func shortLog*(v: SomeBeaconBlock): auto =
+func shortLog*(v: SomePhase0BeaconBlock): auto =
   (
     slot: shortLog(v.slot),
     proposer_index: v.proposer_index,
