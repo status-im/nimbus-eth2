@@ -313,6 +313,7 @@ from web3/engine_api import ForkchoiceUpdatedResponse
 # TODO: This copies the entire BeaconState on each call
 proc forkchoice_updated(state: bellatrix.BeaconState,
                         head_block_hash: Eth2Digest,
+                        safe_block_hash: Eth2Digest,
                         finalized_block_hash: Eth2Digest,
                         fee_recipient: ethtypes.Address,
                         execution_engine: Eth1Monitor):
@@ -328,8 +329,8 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
       try:
         awaitWithTimeout(
           execution_engine.forkchoiceUpdated(
-            head_block_hash, finalized_block_hash, timestamp, random.data,
-            fee_recipient),
+            head_block_hash, safe_block_hash, finalized_block_hash,
+            timestamp, random.data, fee_recipient),
           FORKCHOICEUPDATED_TIMEOUT):
             error "Engine API fork-choice update timed out"
             default(ForkchoiceUpdatedResponse)
@@ -398,14 +399,15 @@ proc getExecutionPayload(
           node.eth1Monitor.terminalBlockHash.get.asEth2Digest
         else:
           default(Eth2Digest)
-      executionBlockRoot = node.dag.loadExecutionBlockRoot(node.dag.head)
+      beaconHead = node.attestationPool[].getBeaconHead(node.dag.head)
+      executionBlockRoot = node.dag.loadExecutionBlockRoot(beaconHead.blck)
       latestHead =
         if not executionBlockRoot.isZero:
           executionBlockRoot
         else:
           terminalBlockHash
-      latestFinalized =
-        node.dag.loadExecutionBlockRoot(node.dag.finalizedHead.blck)
+      latestSafe = beaconHead.safeExecutionPayloadHash
+      latestFinalized = beaconHead.finalizedExecutionPayloadHash
       feeRecipient = node.getFeeRecipient(pubkey, validator_index, epoch)
       lastFcU = node.consensusManager.forkchoiceUpdatedInfo
       timestamp = compute_timestamp_at_slot(
@@ -414,14 +416,14 @@ proc getExecutionPayload(
       payload_id =
         if  lastFcU.isSome and
             lastFcU.get.headBlockRoot == latestHead and
+            lastFcU.get.safeBlockRoot == latestSafe and
             lastFcU.get.finalizedBlockRoot == latestFinalized and
             lastFcU.get.timestamp == timestamp and
             lastFcU.get.feeRecipient == feeRecipient:
           some bellatrix.PayloadID(lastFcU.get.payloadId)
         else:
           debug "getExecutionPayload: didn't find payloadId, re-querying",
-            latestHead,
-            latestFinalized,
+            latestHead, latestSafe, latestFinalized,
             timestamp,
             feeRecipient,
             cachedHeadBlockRoot = lastFcU.get.headBlockRoot,
@@ -430,7 +432,8 @@ proc getExecutionPayload(
             cachedFeeRecipient = lastFcU.get.feeRecipient
 
           (await forkchoice_updated(
-           proposalState.bellatrixData.data, latestHead, latestFinalized,
+           proposalState.bellatrixData.data,
+           latestHead, latestSafe, latestFinalized,
            feeRecipient, node.consensusManager.eth1Monitor))
       payload = try:
           awaitWithTimeout(
