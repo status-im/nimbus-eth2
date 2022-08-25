@@ -133,12 +133,6 @@ type LightClientConf* = object
     desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating JWT tokens"
     name: "jwt-secret" .}: Option[string]
 
-  safeSlotsToImportOptimistically* {.
-    hidden
-    desc: "Modify SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY"
-    defaultValue: 128
-    name: "safe-slots-to-import-optimistically" .}: uint16
-
   # Testing
   stopAtEpoch* {.
     hidden

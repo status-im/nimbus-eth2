@@ -14,7 +14,7 @@ import
   chronicles,
   eth/keys,
   ./gossip_processing/light_client_processor,
-  ./networking/eth2_network,
+  ./networking/[eth2_network, topic_params],
   ./spec/datatypes/altair,
   ./spec/helpers,
   ./sync/light_client_manager,
@@ -25,8 +25,9 @@ export LightClientFinalizationMode, eth2_network, conf_light_client
 logScope: topics = "lightcl"
 
 type
-  LightClientCallback* =
-    proc(lightClient: LightClient) {.gcsafe, raises: [Defect].}
+  LightClientHeaderCallback* =
+    proc(lightClient: LightClient, header: BeaconBlockHeader) {.
+      gcsafe, raises: [Defect].}
 
   LightClient* = ref object
     network: Eth2Node
@@ -37,7 +38,7 @@ type
     processor: ref LightClientProcessor
     manager: LightClientManager
     gossipState: GossipState
-    onFinalizedHeader*, onOptimisticHeader*: LightClientCallback
+    onFinalizedHeader*, onOptimisticHeader*: LightClientHeaderCallback
     trustedBlockRoot*: Option[Eth2Digest]
 
 func finalizedHeader*(lightClient: LightClient): Opt[BeaconBlockHeader] =
@@ -78,11 +79,13 @@ proc createLightClient(
 
   proc onFinalizedHeader() =
     if lightClient.onFinalizedHeader != nil:
-      lightClient.onFinalizedHeader(lightClient)
+      lightClient.onFinalizedHeader(
+        lightClient, lightClient.finalizedHeader.get)
 
   proc onOptimisticHeader() =
     if lightClient.onOptimisticHeader != nil:
-      lightClient.onOptimisticHeader(lightClient)
+      lightClient.onOptimisticHeader(
+        lightClient, lightClient.optimisticHeader.get)
 
   lightClient.processor = LightClientProcessor.new(
     dumpEnabled, dumpDirInvalid, dumpDirIncoming,
@@ -177,11 +180,6 @@ proc resetToFinalizedHeader*(
   lightClient.processor[].resetToFinalizedHeader(header, current_sync_committee)
 
 import metrics
-
-from
-  libp2p/protocols/pubsub/gossipsub
-import
-  TopicParams, validateParameters, init
 
 from
   ./gossip_processing/eth2_processor
@@ -297,9 +295,6 @@ proc installMessageValidators*(
       proc(msg: altair.LightClientOptimisticUpdate): ValidationResult =
         validate(msg, processLightClientOptimisticUpdate))
 
-const lightClientTopicParams = TopicParams.init()
-static: lightClientTopicParams.validateParameters().tryGet()
-
 proc updateGossipStatus*(
     lightClient: LightClient, slot: Slot, dagIsBehind = default(Option[bool])) =
   template cfg(): auto = lightClient.cfg
@@ -362,9 +357,9 @@ proc updateGossipStatus*(
       let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
       lightClient.network.subscribe(
         getLightClientFinalityUpdateTopic(forkDigest),
-        lightClientTopicParams)
+        basicParams)
       lightClient.network.subscribe(
         getLightClientOptimisticUpdateTopic(forkDigest),
-        lightClientTopicParams)
+        basicParams)
 
   lightClient.gossipState = targetGossipState

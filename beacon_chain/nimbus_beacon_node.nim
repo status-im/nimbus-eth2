@@ -18,6 +18,7 @@ import
   eth/p2p/discoveryv5/[enr, random2],
   eth/keys,
   ./consensus_object_pools/vanity_logs/pandas,
+  ./networking/topic_params,
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[engine_authentication, weak_subjectivity],
@@ -751,6 +752,7 @@ proc init*(T: type BeaconNode,
     eventBus: eventBus,
     actionTracker: ActionTracker.init(rng, config.subscribeAllSubnets),
     gossipState: {},
+    blocksGossipState: {},
     beaconClock: beaconClock,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache,
@@ -835,60 +837,54 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     unsubscribeSubnets = subnetLog(unsubscribeSubnets),
     gossipState = node.gossipState
 
-# inspired by lighthouse research here
-# https://gist.github.com/blacktemplar/5c1862cb3f0e32a1a7fb0b25e79e6e2c#file-generate-scoring-params-py
-const
-  blocksTopicParams = TopicParams(
-    topicWeight: 0.5,
-    timeInMeshWeight: 0.03333333333333333,
-    timeInMeshQuantum: chronos.seconds(12),
-    timeInMeshCap: 300,
-    firstMessageDeliveriesWeight: 1.1471603557060206,
-    firstMessageDeliveriesDecay: 0.9928302477768374,
-    firstMessageDeliveriesCap: 34.86870846001471,
-    meshMessageDeliveriesWeight: -458.31054878249114,
-    meshMessageDeliveriesDecay: 0.9716279515771061,
-    meshMessageDeliveriesThreshold: 0.6849191409056553,
-    meshMessageDeliveriesCap: 2.054757422716966,
-    meshMessageDeliveriesActivation: chronos.seconds(384),
-    meshMessageDeliveriesWindow: chronos.seconds(2),
-    meshFailurePenaltyWeight: -458.31054878249114 ,
-    meshFailurePenaltyDecay: 0.9716279515771061,
-    invalidMessageDeliveriesWeight: -214.99999999999994,
-    invalidMessageDeliveriesDecay: 0.9971259067705325
-  )
-  aggregateTopicParams = TopicParams(
-    topicWeight: 0.5,
-    timeInMeshWeight: 0.03333333333333333,
-    timeInMeshQuantum: chronos.seconds(12),
-    timeInMeshCap: 300,
-    firstMessageDeliveriesWeight: 0.10764904539552399,
-    firstMessageDeliveriesDecay: 0.8659643233600653,
-    firstMessageDeliveriesCap: 371.5778421725158,
-    meshMessageDeliveriesWeight: -0.07538533073670682,
-    meshMessageDeliveriesDecay: 0.930572040929699,
-    meshMessageDeliveriesThreshold: 53.404248450179836,
-    meshMessageDeliveriesCap: 213.61699380071934,
-    meshMessageDeliveriesActivation: chronos.seconds(384),
-    meshMessageDeliveriesWindow: chronos.seconds(2),
-    meshFailurePenaltyWeight: -0.07538533073670682 ,
-    meshFailurePenaltyDecay: 0.930572040929699,
-    invalidMessageDeliveriesWeight: -214.99999999999994,
-    invalidMessageDeliveriesDecay: 0.9971259067705325
-  )
-  basicParams = TopicParams.init()
+proc updateBlocksGossipStatus*(
+    node: BeaconNode, slot: Slot, dagIsBehind: bool) =
+  template cfg(): auto = node.dag.cfg
 
-static:
-  # compile time validation
-  blocksTopicParams.validateParameters().tryGet()
-  aggregateTopicParams.validateParameters().tryGet()
-  basicParams.validateParameters.tryGet()
+  let
+    isBehind =
+      if node.shouldSyncOptimistically(slot):
+        # If optimistic sync is active, always subscribe to blocks gossip
+        false
+      else:
+        # Use DAG status to determine whether to subscribe for blocks gossip
+        dagIsBehind
+
+    targetGossipState = getTargetGossipState(
+      slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH, isBehind)
+
+  template currentGossipState(): auto = node.blocksGossipState
+  if currentGossipState == targetGossipState:
+    return
+
+  if currentGossipState.card == 0 and targetGossipState.card > 0:
+    debug "Enabling blocks topic subscriptions",
+      wallSlot = slot, targetGossipState
+  elif currentGossipState.card > 0 and targetGossipState.card == 0:
+    debug "Disabling blocks topic subscriptions",
+      wallSlot = slot
+  else:
+    # Individual forks added / removed
+    discard
+
+  let
+    newGossipForks = targetGossipState - currentGossipState
+    oldGossipForks = currentGossipState - targetGossipState
+
+  for gossipFork in oldGossipForks:
+    let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
+    node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
+
+  for gossipFork in newGossipForks:
+    let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
+    node.network.subscribe(
+      getBeaconBlocksTopic(forkDigest), blocksTopicParams,
+      enableTopicMetrics = true)
+
+  node.blocksGossipState = targetGossipState
 
 proc addPhase0MessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.network.subscribe(
-    getBeaconBlocksTopic(forkDigest), blocksTopicParams,
-    enableTopicMetrics = true)
   node.network.subscribe(getAttesterSlashingsTopic(forkDigest), basicParams)
   node.network.subscribe(getProposerSlashingsTopic(forkDigest), basicParams)
   node.network.subscribe(getVoluntaryExitsTopic(forkDigest), basicParams)
@@ -899,7 +895,6 @@ proc addPhase0MessageHandlers(
   # updateAttestationSubnetHandlers subscribes attestation subnets
 
 proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
   node.network.unsubscribe(getVoluntaryExitsTopic(forkDigest))
   node.network.unsubscribe(getProposerSlashingsTopic(forkDigest))
   node.network.unsubscribe(getAttesterSlashingsTopic(forkDigest))
@@ -1161,6 +1156,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
   node.gossipState = targetGossipState
   node.updateAttestationSubnetHandlers(slot)
+  node.updateBlocksGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)
 
 proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
@@ -1418,8 +1414,12 @@ proc installMessageValidators(node: BeaconNode) =
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.phase0),
     proc (signedBlock: phase0.SignedBeaconBlock): ValidationResult =
-      toValidationResult(node.processor[].processSignedBeaconBlock(
-        MsgSource.gossip, signedBlock)))
+      if node.shouldSyncOptimistically(node.currentSlot):
+        toValidationResult(
+          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
+      else:
+        toValidationResult(node.processor[].processSignedBeaconBlock(
+          MsgSource.gossip, signedBlock)))
 
   template installPhase0Validators(digest: auto) =
     for it in SubnetId:
@@ -1472,14 +1472,22 @@ proc installMessageValidators(node: BeaconNode) =
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.altair),
     proc (signedBlock: altair.SignedBeaconBlock): ValidationResult =
-      toValidationResult(node.processor[].processSignedBeaconBlock(
-        MsgSource.gossip, signedBlock)))
+      if node.shouldSyncOptimistically(node.currentSlot):
+        toValidationResult(
+          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
+      else:
+        toValidationResult(node.processor[].processSignedBeaconBlock(
+          MsgSource.gossip, signedBlock)))
 
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.bellatrix),
     proc (signedBlock: bellatrix.SignedBeaconBlock): ValidationResult =
-      toValidationResult(node.processor[].processSignedBeaconBlock(
-        MsgSource.gossip, signedBlock)))
+      if node.shouldSyncOptimistically(node.currentSlot):
+        toValidationResult(
+          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
+      else:
+        toValidationResult(node.processor[].processSignedBeaconBlock(
+          MsgSource.gossip, signedBlock)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:
