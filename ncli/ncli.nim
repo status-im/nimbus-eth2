@@ -84,6 +84,7 @@ template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
   of BeaconStateFork.Phase0:    SSZ.saveFile(filename, value.phase0Data.data)
   of BeaconStateFork.Altair:    SSZ.saveFile(filename, value.altairData.data)
   of BeaconStateFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
+  of BeaconStateFork.Capella:   SSZ.saveFile(filename, value.capellaData.data)
 
 proc loadFile(filename: string, T: type): T =
   let
@@ -205,12 +206,15 @@ proc doSSZ(conf: NcliConf) =
   of "phase0_signed_block": printit(phase0.SignedBeaconBlock)
   of "altair_signed_block": printit(altair.SignedBeaconBlock)
   of "bellatrix_signed_block": printit(bellatrix.SignedBeaconBlock)
+  of "capella_signed_block": printit(capella.SignedBeaconBlock)
   of "phase0_block": printit(phase0.BeaconBlock)
   of "altair_block": printit(altair.BeaconBlock)
   of "bellatrix_block": printit(bellatrix.BeaconBlock)
+  of "capella_block": printit(capella.BeaconBlock)
   of "phase0_block_body": printit(phase0.BeaconBlockBody)
   of "altair_block_body": printit(altair.BeaconBlockBody)
   of "bellatrix_block_body": printit(bellatrix.BeaconBlockBody)
+  of "capella_block_body": printit(capella.BeaconBlockBody)
   of "block_header": printit(BeaconBlockHeader)
   of "deposit": printit(Deposit)
   of "deposit_data": printit(DepositData)
@@ -218,6 +222,7 @@ proc doSSZ(conf: NcliConf) =
   of "phase0_state": printit(phase0.BeaconState)
   of "altair_state": printit(altair.BeaconState)
   of "bellatrix_state": printit(bellatrix.BeaconState)
+  of "capella_state": printit(capella.BeaconState)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
 

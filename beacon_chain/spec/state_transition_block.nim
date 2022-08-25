@@ -303,7 +303,7 @@ proc process_deposit*(cfg: RuntimeConfig,
         static: doAssert state.balances.maxLen == state.validators.maxLen
         raiseAssert "adding validator succeeded, so should balances"
 
-      when state is altair.BeaconState or state is bellatrix.BeaconState:
+      when state is altair.BeaconState or state is bellatrix.BeaconState or state is capella.BeaconState:
         if not state.previous_epoch_participation.add(ParticipationFlags(0)):
           return err("process_deposit: too many validators (previous_epoch_participation)")
         if not state.current_epoch_participation.add(ParticipationFlags(0)):

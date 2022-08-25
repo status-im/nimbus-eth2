@@ -234,7 +234,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     blocks: (
       seq[phase0.TrustedSignedBeaconBlock],
       seq[altair.TrustedSignedBeaconBlock],
-      seq[bellatrix.TrustedSignedBeaconBlock])
+      seq[bellatrix.TrustedSignedBeaconBlock],
+      seq[capella.TrustedSignedBeaconBlock]
+    )
 
   echo &"Loaded head slot {dag.head.slot}, selected {blockRefs.len} blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
@@ -252,6 +254,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of BeaconBlockFork.Bellatrix:
         blocks[2].add dag.db.getBlock(
           blck.root, bellatrix.TrustedSignedBeaconBlock).get()
+      of BeaconBlockFork.Capella:
+        blocks[2].add dag.db.getBlock(
+          blck.root, capella.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 
@@ -261,7 +266,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     loadedState = (
       (ref phase0.HashedBeaconState)(),
       (ref altair.HashedBeaconState)(),
-      (ref bellatrix.HashedBeaconState)())
+      (ref bellatrix.HashedBeaconState)()
+      (ref capella.HashedBeaconState)()
+    )
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
@@ -316,12 +323,16 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of BeaconStateFork.Bellatrix:
                 doAssert dbBenchmark.getState(
                   state.root, loadedState[2][].data, noRollback)
+              of BeaconStateFork.Capella:
+                doAssert dbBenchmark.getState(
+                  state.root, loadedState[3][].data, noRollback)
 
             if state.data.slot.epoch mod 16 == 0:
               let loadedRoot = case stateFork
                 of BeaconStateFork.Phase0:    hash_tree_root(loadedState[0][].data)
                 of BeaconStateFork.Altair:    hash_tree_root(loadedState[1][].data)
                 of BeaconStateFork.Bellatrix: hash_tree_root(loadedState[2][].data)
+                of BeaconStateFork.Capella:   hash_tree_root(loadedState[3][].data)
               doAssert hash_tree_root(state.data) == loadedRoot
 
   processBlocks(blocks[0])
@@ -338,6 +349,7 @@ proc cmdDumpState(conf: DbConf) =
     phase0State    = (ref phase0.HashedBeaconState)()
     altairState    = (ref altair.HashedBeaconState)()
     bellatrixState = (ref bellatrix.HashedBeaconState)()
+    capellaState   = (ref capella.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
     if shouldShutDown: quit QuitSuccess
@@ -354,6 +366,7 @@ proc cmdDumpState(conf: DbConf) =
     doit(phase0State[])
     doit(altairState[])
     doit(bellatrixState[])
+    doit(capellaState[])
 
     echo "Couldn't load ", stateRoot
 
@@ -383,6 +396,8 @@ proc cmdDumpBlock(conf: DbConf) =
           root, altair.TrustedSignedBeaconBlock); blck.isSome):
         dump("./", blck.get())
       elif (let blck = db.getBlock(root, bellatrix.TrustedSignedBeaconBlock); blck.isSome):
+        dump("./", blck.get())
+      elif (let blck = db.getBlock(root, capella.TrustedSignedBeaconBlock); blck.isSome):
         dump("./", blck.get())
       else:
         echo "Couldn't load ", blockRoot
