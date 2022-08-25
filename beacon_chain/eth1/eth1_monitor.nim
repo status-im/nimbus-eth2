@@ -1110,8 +1110,8 @@ proc detectPrimaryProviderComingOnline(m: Eth1Monitor) {.async.} =
     var tempProvider = tempProviderRes.get
 
     # Use one of the get/request-type methods from
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/specification.md#underlying-protocol
-    # which does nit take parameters and returns a small structure, to ensure
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#underlying-protocol
+    # which doesn't take parameters and returns a small structure, to ensure
     # this works with engine API endpoints.
     let testRequest = tempProvider.web3.provider.eth_syncing()
 

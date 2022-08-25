@@ -25,9 +25,9 @@ proc base64urlEncode(x: auto): string =
   base64.encode(x, safe = true).replace("=", "")
 
 func getIatToken*(time: int64): JsonNode =
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/authentication.md#jwt-claims
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/authentication.md#jwt-claims
   # "Required: iat (issued-at) claim. The EL SHOULD only accept iat timestamps
-  # which are within +-5 seconds from the current time."
+  # which are within +-60 seconds from the current time."
   #
   # https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.6 describes iat
   # claims.
@@ -37,7 +37,7 @@ func getIatToken*(time: int64): JsonNode =
   %* {"iat": time}
 
 proc getSignedToken*(key: openArray[byte], payload: string): string =
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/authentication.md#jwt-specifications
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/authentication.md#jwt-specifications
   # "The EL MUST support at least the following alg: HMAC + SHA256 (HS256)"
 
   # https://datatracker.ietf.org/doc/html/rfc7515#appendix-A.1.1
@@ -70,7 +70,7 @@ proc checkJwtSecret*(
     # hex-encoded secret as a jwt.hex file on the filesystem. This file can
     # then be used to provision the counterpart client.
     #
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-alpha.9/src/engine/authentication.md#key-distribution
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/authentication.md#key-distribution
     const jwtSecretFilename = "jwt.hex"
     let jwtSecretPath = dataDir / jwtSecretFilename
 
