@@ -63,6 +63,12 @@ declareCounter beacon_light_client_optimistic_updates_sent,
 declareCounter beacon_blocks_proposed,
   "Number of beacon chain blocks sent by this peer"
 
+declareCounter beacon_block_production_errors,
+  "Number of times we failed to produce a block"
+
+declareCounter beacon_block_payload_errors,
+  "Number of times execution client failed to produce block payload"
+
 declareGauge(attached_validator_balance,
   "Validator balance at slot end of the first 64 validators, in Gwei",
   labels = ["pubkey"])
@@ -383,6 +389,7 @@ proc getExecutionPayload(
     build_empty_execution_payload(proposalState.bellatrixData.data)
 
   if node.eth1Monitor.isNil:
+    beacon_block_payload_errors.inc()
     warn "getExecutionPayload: eth1Monitor not initialized; using empty execution payload"
     return Opt.some empty_execution_payload
 
@@ -439,9 +446,11 @@ proc getExecutionPayload(
           awaitWithTimeout(
             get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
             GETPAYLOAD_TIMEOUT):
+              beacon_block_payload_errors.inc()
               warn "Getting execution payload from Engine API timed out", payload_id
               empty_execution_payload
         except CatchableError as err:
+          beacon_block_payload_errors.inc()
           warn "Getting execution payload from Engine API failed",
                 payload_id, err = err.msg
           empty_execution_payload
@@ -462,6 +471,7 @@ proc getExecutionPayload(
 
     return Opt.some payload
   except CatchableError as err:
+    beacon_block_payload_errors.inc()
     error "Error creating non-empty execution payload; using empty execution payload",
       msg = err.msg
     return Opt.some empty_execution_payload
@@ -494,6 +504,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       eth1Proposal = node.getBlockProposalEth1Data(state)
 
     if eth1Proposal.hasMissingDeposits:
+      beacon_block_production_errors.inc()
       warn "Eth1 deposits not available. Skipping block proposal", slot
       return ForkedBlockResult.err("Eth1 deposits not available")
 
@@ -522,6 +533,7 @@ proc makeBeaconBlockForHeadAndSlot*(
               # TODO https://github.com/nim-lang/Nim/issues/19802
               if pubkey.isSome: pubkey.get.toPubKey else: default(ValidatorPubKey)))
           if maybeExecutionPayload.isNone:
+            beacon_block_production_errors.inc()
             warn "Unable to get execution payload. Skipping block proposal",
               slot, validator_index
             return ForkedBlockResult.err("Unable to get execution payload")
@@ -558,14 +570,17 @@ proc makeBeaconBlockForHeadAndSlot*(
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
       # log instead of asserting
+      beacon_block_production_errors.inc()
       error "Cannot create block for proposal",
         slot, head = shortLog(head), error = res.error()
       return err($res.error)
     return ok(res.get())
   do:
+    beacon_block_production_errors.inc()
     error "Cannot get proposal state - skipping block production, database corrupt?",
       head = shortLog(head),
       slot
+    return err("Cannot create proposal state")
 
 proc getBlindedExecutionPayload(
     node: BeaconNode, slot: Slot, executionBlockRoot: Eth2Digest,
