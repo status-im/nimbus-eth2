@@ -25,11 +25,11 @@ sudo useradd -g nimbus nimbus -m -d /var/lib/nimbus
 
 `systemd` services are created by placing a [service](https://www.freedesktop.org/software/systemd/man/systemd.service.html) file in `/etc/systemd/system`, or, if Nimbus was installed by a package manager, `/usr/lib/systemd/system`.
 
-A good starting point is the [example service file](https://github.com/status-im/nimbus-eth2/blob/unstable/scripts/package_image/usr/lib/systemd/system/nimbus_beacon_node.service) in the Nimbus repository.
+A good starting point is the [example service file](https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/package_src/nimbus_beacon_node/image/lib/systemd/system/nimbus_beacon_node.service) in the Nimbus repository.
 
 ```sh
 # Download example service file and save it to `/etc/systemd/system/nimbus_beacon_node.service`
-curl -s https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/package_image/usr/lib/systemd/system/nimbus_beacon_node.service | sudo tee /etc/systemd/system/nimbus_beacon_node.service > /dev/null
+curl -s https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/package_src/nimbus_beacon_node/image/lib/systemd/system/nimbus_beacon_node.service | sudo tee /etc/systemd/system/nimbus_beacon_node.service > /dev/null
 ```
 
 The format of service files is documented in the [systemd manual](https://www.freedesktop.org/software/systemd/man/systemd.service.html).
