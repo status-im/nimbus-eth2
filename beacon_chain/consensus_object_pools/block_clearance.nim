@@ -143,7 +143,7 @@ proc advanceClearanceState*(dag: ChainDAGRef) =
   # Notably, we use the clearance state here because that's where the block will
   # first be seen - later, this state will be copied to the head state!
   let advanced = withState(dag.clearanceState):
-    state.data.slot > state.data.latest_block_header.slot
+    forkyState.data.slot > forkyState.data.latest_block_header.slot
   if not advanced:
     let next = getStateField(dag.clearanceState, slot) + 1
 

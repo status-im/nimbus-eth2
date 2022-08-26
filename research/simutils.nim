@@ -82,11 +82,11 @@ proc loadGenesis*(validators: Natural, validate: bool):
       cfg, readAllBytes(genesisFn).tryGet()))
 
     withState(res[]):
-      if state.data.slot != GENESIS_SLOT:
+      if forkyState.data.slot != GENESIS_SLOT:
         echo "Can only start from genesis state"
         quit 1
 
-      if state.data.validators.len != validators:
+      if forkyState.data.validators.len != validators:
         echo &"Supplied genesis file has {state.data.validators.len} validators, while {validators} where requested, running anyway"
 
       echo &"Loaded {genesisFn}..."

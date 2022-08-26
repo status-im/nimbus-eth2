@@ -236,7 +236,7 @@ proc check_attester_slashing*(
     state: var ForkedHashedBeaconState; attester_slashing: SomeAttesterSlashing;
     flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
   withState(state):
-    check_attester_slashing(state.data, attester_slashing, flags)
+    check_attester_slashing(forkyState.data, attester_slashing, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
