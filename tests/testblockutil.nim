@@ -215,7 +215,8 @@ func makeAttestationData*(
   ## `state` is the state corresponding to the `beacon_block_root` advanced to
   ## the slot we're attesting to.
   withState(state):
-    makeAttestationData(state.data, slot, committee_index, beacon_block_root)
+    makeAttestationData(
+      forkyState.data, slot, committee_index, beacon_block_root)
 
 func makeAttestation*(
     state: ForkedHashedBeaconState, beacon_block_root: Eth2Digest,
@@ -310,10 +311,10 @@ proc makeSyncAggregate(
     syncCommittee =
       withState(state):
         when stateFork >= BeaconStateFork.Altair:
-          if (state.data.slot + 1).is_sync_committee_period():
-            state.data.next_sync_committee
+          if (forkyState.data.slot + 1).is_sync_committee_period():
+            forkyState.data.next_sync_committee
           else:
-            state.data.current_sync_committee
+            forkyState.data.current_sync_committee
         else:
           return SyncAggregate.init()
     fork =
@@ -427,7 +428,7 @@ iterator makeTestBlocks*(
     state = assignClone(state)
   for _ in 0..<blocks:
     let
-      parent_root = withState(state[]): state.latest_block_root
+      parent_root = withState(state[]): forkyState.latest_block_root
       attestations =
         if attested:
           makeFullAttestations(

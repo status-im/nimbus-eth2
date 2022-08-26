@@ -203,9 +203,9 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
         let
           proposer = getForkedBlockField(blck[], proposer_index)
           key = withState(state[]):
-            if proposer >= state.data.validators.lenu64:
+            if proposer >= forkyState.data.validators.lenu64:
               return err("Invalid proposer in block")
-            state.data.validators.item(proposer).pubkey
+            forkyState.data.validators.item(proposer).pubkey
           cooked = key.load()
           sig = blck[].signature.load()
 

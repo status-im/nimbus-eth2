@@ -487,10 +487,10 @@ proc getState(
     state = (ref ForkedHashedBeaconState)(kind: fork)[]
 
   withState(state):
-    if not db.getState(state_root, state.data, rollback):
+    if not db.getState(state_root, forkyState.data, rollback):
       return false
 
-    state.root = state_root
+    forkyState.root = state_root
 
   true
 
@@ -608,7 +608,7 @@ proc currentSyncCommitteeForPeriod*(
   dag.withUpdatedState(tmpState, bsi) do:
     withState(state):
       when stateFork >= BeaconStateFork.Altair:
-        ok state.data.current_sync_committee
+        ok forkyState.data.current_sync_committee
       else: err()
   do: err()
 
@@ -638,26 +638,26 @@ proc updateBeaconMetrics(
 
   withState(state):
     beacon_pending_deposits.set(
-      (state.data.eth1_data.deposit_count -
-        state.data.eth1_deposit_index).toGaugeValue)
+      (forkyState.data.eth1_data.deposit_count -
+        forkyState.data.eth1_deposit_index).toGaugeValue)
     beacon_processed_deposits_total.set(
-      state.data.eth1_deposit_index.toGaugeValue)
+      forkyState.data.eth1_deposit_index.toGaugeValue)
 
     beacon_current_justified_epoch.set(
-      state.data.current_justified_checkpoint.epoch.toGaugeValue)
+      forkyState.data.current_justified_checkpoint.epoch.toGaugeValue)
     beacon_current_justified_root.set(
-      state.data.current_justified_checkpoint.root.toGaugeValue)
+      forkyState.data.current_justified_checkpoint.root.toGaugeValue)
     beacon_previous_justified_epoch.set(
-      state.data.previous_justified_checkpoint.epoch.toGaugeValue)
+      forkyState.data.previous_justified_checkpoint.epoch.toGaugeValue)
     beacon_previous_justified_root.set(
-      state.data.previous_justified_checkpoint.root.toGaugeValue)
+      forkyState.data.previous_justified_checkpoint.root.toGaugeValue)
     beacon_finalized_epoch.set(
-      state.data.finalized_checkpoint.epoch.toGaugeValue)
+      forkyState.data.finalized_checkpoint.epoch.toGaugeValue)
     beacon_finalized_root.set(
-      state.data.finalized_checkpoint.root.toGaugeValue)
+      forkyState.data.finalized_checkpoint.root.toGaugeValue)
 
     let active_validators = count_active_validators(
-      state.data, state.data.slot.epoch, cache).toGaugeValue
+      forkyState.data, forkyState.data.slot.epoch, cache).toGaugeValue
     beacon_active_validators.set(active_validators)
     beacon_current_active_validators.set(active_validators)
 

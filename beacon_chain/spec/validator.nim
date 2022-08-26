@@ -154,7 +154,7 @@ func get_shuffled_active_validator_indices*(
     cache: var StateCache, state: ForkedHashedBeaconState, epoch: Epoch):
     seq[ValidatorIndex] =
   withState(state):
-    cache.get_shuffled_active_validator_indices(state.data, epoch)
+    cache.get_shuffled_active_validator_indices(forkyState.data, epoch)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_active_validator_indices
 func count_active_validators*(state: ForkyBeaconState,
@@ -180,7 +180,7 @@ func get_committee_count_per_slot*(state: ForkedHashedBeaconState,
                                    epoch: Epoch,
                                    cache: var StateCache): uint64 =
   withState(state):
-    get_committee_count_per_slot(state.data, epoch, cache)
+    get_committee_count_per_slot(forkyState.data, epoch, cache)
 
 iterator get_committee_indices*(committee_count_per_slot: uint64): CommitteeIndex =
   for idx in 0'u64..<min(committee_count_per_slot, MAX_COMMITTEES_PER_SLOT):
@@ -271,7 +271,7 @@ func get_beacon_committee*(
   # wrapper approach (e.g., toSeq). This is a perf tradeoff for test
   # correctness/consistency.
   withState(state):
-    get_beacon_committee(state.data, slot, index, cache)
+    get_beacon_committee(forkyState.data, slot, index, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
@@ -294,7 +294,7 @@ func get_beacon_committee_len*(
     cache: var StateCache): uint64 =
   # This one is used by tests
   withState(state):
-    get_beacon_committee_len(state.data, slot, index, cache)
+    get_beacon_committee_len(forkyState.data, slot, index, cache)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#compute_shuffled_index
 func compute_shuffled_index*(
@@ -405,7 +405,7 @@ func get_beacon_proposer_index*(state: ForkedHashedBeaconState,
                                 cache: var StateCache, slot: Slot):
                                 Option[ValidatorIndex] =
   withState(state):
-    get_beacon_proposer_index(state.data, cache, slot)
+    get_beacon_proposer_index(forkyState.data, cache, slot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
