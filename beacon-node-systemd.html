@@ -1658,14 +1658,14 @@
 </code></pre></div>
 <h3 id="2-create-the-service-file">2. Create the service file</h3>
 <p><code>systemd</code> services are created by placing a <a href="https://www.freedesktop.org/software/systemd/man/systemd.service.html">service</a> file in <code>/etc/systemd/system</code>, or, if Nimbus was installed by a package manager, <code>/usr/lib/systemd/system</code>.</p>
-<p>A good starting point is the <a href="https://github.com/status-im/nimbus-eth2/blob/unstable/scripts/package_image/usr/lib/systemd/system/nimbus_beacon_node.service">example service file</a> in the Nimbus repository.</p>
+<p>A good starting point is the <a href="https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/package_src/nimbus_beacon_node/image/lib/systemd/system/nimbus_beacon_node.service">example service file</a> in the Nimbus repository.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Download example service file and save it to `/etc/systemd/system/nimbus_beacon_node.service`</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>curl -s https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/package_image/usr/lib/systemd/system/nimbus_beacon_node.service <span class="p">|</span> sudo tee /etc/systemd/system/nimbus_beacon_node.service &gt; /dev/null
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>curl -s https://raw.githubusercontent.com/status-im/nimbus-eth2/stable/scripts/package_src/nimbus_beacon_node/image/lib/systemd/system/nimbus_beacon_node.service <span class="p">|</span> sudo tee /etc/systemd/system/nimbus_beacon_node.service &gt; /dev/null
 </code></pre></div>
 <p>The format of service files is documented in the <a href="https://www.freedesktop.org/software/systemd/man/systemd.service.html">systemd manual</a>.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>Automatic restarts increase the risk that the doppelganger detection fails - set <code>RestartPreventExitStatus=1031</code> to prevent this from happening</p>
+<p>Automatic restarts increase the risk that the doppelganger detection fails - set <code>RestartPreventExitStatus=129</code> to prevent this from happening</p>
 </div>
 <h3 id="3-configure-your-service">3. Configure your service</h3>
 <p>Services are configured either by editing the service file directly or using <code>systemctl edit</code> to create an override.</p>

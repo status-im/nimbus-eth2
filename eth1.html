@@ -934,6 +934,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#3-pass-the-url-and-jwt-secret-to-nimbus" class="md-nav__link">
+    3. Pass the URL and JWT secret to Nimbus
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1545,6 +1552,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#3-pass-the-url-and-jwt-secret-to-nimbus" class="md-nav__link">
+    3. Pass the URL and JWT secret to Nimbus
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1571,14 +1585,6 @@
 <h1 id="run-an-execution-client">Run an execution client</h1>
 <p>In order to run a beacon node, you need to also be running an execution client - one for each beacon node.</p>
 <p>Nimbus has been tested all major execution clients - see the <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients">execution client comparison</a> for more information.</p>
-<p>The <code>--web3-url</code> option informs the beacon node how to connect to the execution client - both <code>http://</code> and <code>ws://</code> URL:s are supported.</p>
-<p>Once started, the execution client will create a file containing a JWT secret token. The token file is needed for Nimbus to authenticate itself with the execution client and perform trusted operations. You will need to pass the path to the token file to Nimbus together with the web3 URL.</p>
-<p>You can pass one or more <code>--web3-url</code> parameters to the node. Any additional web3 url:s will be used for backup, should the first client become unavailable:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-mainnet-beacon-node.sh <span class="se">\</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  --web3-url<span class="o">=</span>ws://127.0.0.1:8546 <span class="se">\</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  --web3-url<span class="o">=</span>http://other:8545 <span class="se">\</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  --jwt-secret<span class="o">=</span>/tmp/jwtsecret
-</code></pre></div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>You need to run your own execution client after <a href="merge.html">the merge</a> - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.</p>
@@ -1603,11 +1609,11 @@
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Mainnet</label><label for="__tabbed_2_2">Goerli</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>geth --ws --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>geth --ws --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>geth --goerli --ws --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>geth --goerli --ws --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
 </code></pre></div>
 </div>
 </div>
@@ -1619,10 +1625,10 @@
 <h4 id="3-leave-geth-running">3. Leave Geth running</h4>
 <p>Let it syns - it may take anywhere between a few hours and a couple of days.</p>
 <p>You'll know Geth has finished syncing, when you start seeing logs that look like the following:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>INFO [05-29|01:16:05] Imported new chain segment               blocks=1 txs=3   mgas=0.065  elapsed=5.885ms   mgasps=11.038  number=3785445 hash=553d9e…fc4547
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=0   mgas=0.000  elapsed=5.447ms   mgasps=0.000   number=3785446 hash=5e3e7d…bd4afd
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=1   mgas=0.021  elapsed=7.382ms   mgasps=2.845   number=3785447 hash=39986c…dd2a01
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>INFO [05-29|01:16:14] Imported new chain segment               blocks=1 txs=11  mgas=1.135  elapsed=22.281ms  mgasps=50.943  number=3785444 hash=277bb9…623d8c
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>INFO [05-29|01:16:05] Imported new chain segment               blocks=1 txs=3   mgas=0.065  elapsed=5.885ms   mgasps=11.038  number=3785445 hash=553d9e…fc4547
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=0   mgas=0.000  elapsed=5.447ms   mgasps=0.000   number=3785446 hash=5e3e7d…bd4afd
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=1   mgas=0.021  elapsed=7.382ms   mgasps=2.845   number=3785447 hash=39986c…dd2a01
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>INFO [05-29|01:16:14] Imported new chain segment               blocks=1 txs=11  mgas=1.135  elapsed=22.281ms  mgasps=50.943  number=3785444 hash=277bb9…623d8c
 </code></pre></div>
 <p>Geth accepts connections from the localhost interface (<code>127.0.0.1</code>), with default authenticated RPC port <code>8551</code>. This means that your default Web3 provider URL should be: <code>ws://127.0.0.1:8551</code></p>
 </div>
@@ -1641,9 +1647,36 @@
 </div>
 </div>
 <h3 id="2-leave-the-execution-client-running">2. Leave the execution client running</h3>
-<p>When the execution client starts, it will create a JWT authentication token file - you will need to pass this file to Nimbus to allow it to perform authenticated requrests.</p>
-<p>It will then start syncing the chain, up to <a href="merge.html">the merge</a>. Once it reaches this point, it will wait for the beacon node to provide further sync instructions.</p>
-<p>It is safe to start the beacon node even if the execution client is not yet fully synced.</p>
+<p>The execution client will be syncing the chain, up to <a href="merge.html">the merge</a>. Once it reaches this point, it will wait for the beacon node to provide further sync instructions.</p>
+<p>It is safe to start the beacon node even if the execution client is not yet fully synced and vice versa.</p>
+<h3 id="3-pass-the-url-and-jwt-secret-to-nimbus">3. Pass the URL and JWT secret to Nimbus</h3>
+<p>The <code>--web3-url</code> option informs the beacon node how to connect to the execution client - both <code>http://</code> and <code>ws://</code> URL:s are supported.</p>
+<p>Once started, the execution client will create a file containing a JWT secret token. The token file is needed for Nimbus to authenticate itself with the execution client and perform trusted operations. You will need to pass the path to the token file to Nimbus together with the web3 URL.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Prater</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>./run-mainnet-beacon-node.sh <span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  --web3-url<span class="o">=</span>ws://127.0.0.1:8551 <span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  --jwt-secret<span class="o">=</span>/tmp/jwtsecret
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>./run-prater-beacon-node.sh <span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>  --web3-url<span class="o">=</span>ws://127.0.0.1:8551 <span class="se">\</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  --jwt-secret<span class="o">=</span>/tmp/jwtsecret
+</code></pre></div>
+</div>
+</div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>You can pass one or more <code>--web3-url</code> parameters to the node as long as they share JWT secret. Any additional web3 url:s will be used for backup, should the first one become unavailable:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./run-mainnet-beacon-node.sh <span class="se">\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  --web3-url<span class="o">=</span>ws://127.0.0.1:8551 <span class="se">\</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  --web3-url<span class="o">=</span>http://other:8551 <span class="se">\</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  --jwt-secret<span class="o">=</span>/tmp/jwtsecret
+</code></pre></div>
+</div>
 
               
             </article>

@@ -1605,7 +1605,8 @@
 <p>Leading up to the merge, it is important to <a href="keep-updated.html">keep Nimbus up to date</a>. Before the merge, the exact version of Nimbus required to participate will be announced, but stakers should be prepared to upgrade their nodes on short notice.</p>
 <h3 id="set-up-your-execution-client">Set up your Execution Client</h3>
 <p>As a node operator, you will need to run both an execution client and a consensus client after the merge. If you were previously using a third-party web3 provider (such as Infura or Pocket), you will need to <a href="eth1.html">set up an execution client</a>.</p>
-<p>If you were running an execution client before, make sure to update its configuration to include an option for JWT secrets and engine API.</p>
+<p>If you were running an execution client before, make sure to update its configuration to include an option for <a href="eth1.html#3-pass-the-jwt-secret-to-nimbus">JWT secrets</a> and engine API.</p>
+<p>Please note that once the Bellatrix fork epoch is reached on 6th of September 2022, Nimbus will refuse to start unless connected to a properly configured execution client. If you need more time to complete the transition, you can temporarily run the beacon node with the command-line option <code>--require-engine-api-in-bellatrix=no</code>, but please note that such a setup will stop working once the network TTD is reached (currently estimated to happen on 13th of September, see https://wenmerge.com/ for more up-to-date information).</p>
 <h3 id="prepare-a-suggested-fee-recipient">Prepare a suggested fee recipient</h3>
 <p>After the merge, validators that propose blocks are eligible to recieve transaction fees - read more about fee recipients <a href="https://launchpad.ethereum.org/en/merge-readiness#fee-recipient">here</a>.</p>
 <p>See the <a href="suggested-fee-recipient.html">suggested fee recipent page</a> for information about the changes needed to Nimbus.</p>
