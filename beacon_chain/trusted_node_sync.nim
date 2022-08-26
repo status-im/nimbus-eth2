@@ -95,7 +95,9 @@ proc doTrustedNodeSync*(
       # When we don't have a head, we'll use the given checkpoint as head
       FAR_FUTURE_SLOT
 
-  var client = RestClientRef.new(restUrl).get()
+  var client = RestClientRef.new(restUrl).valueOr:
+    error "Cannot connect to server", url = restUrl, error = error
+    quit 1
 
   proc downloadBlock(slot: Slot):
       Future[Option[ref ForkedSignedBeaconBlock]] {.async.} =
@@ -107,7 +109,9 @@ proc doTrustedNodeSync*(
       except CatchableError as exc:
         lastError = exc
         warn "Retrying download of block", slot, err = exc.msg
-        client = RestClientRef.new(restUrl).get()
+        client = RestClientRef.new(restUrl).valueOr:
+          error "Cannot connect to server", url = restUrl, error = error
+          quit 1
 
     error "Unable to download block - backfill incomplete, but will resume when you start the beacon node",
       slot, error = lastError.msg, url = client.address
@@ -115,27 +119,25 @@ proc doTrustedNodeSync*(
     quit 1
 
   let
-    dbGenesis = db.getGenesisBlock()
-    localGenesisRoot = if dbGenesis.isSome():
-      dbGenesis.get()
-    else:
-      let genesisState = if genesisState != nil:
-        genesisState
-      else:
-        notice "Downloading genesis state", restUrl
-        let state = try:
-          await client.getStateV2(
-            StateIdent.init(StateIdentType.Genesis), cfg)
-        except CatchableError as exc:
-          error "Unable to download genesis state",
-            error = exc.msg, restUrl
-          quit 1
+    localGenesisRoot = db.getGenesisBlock().valueOr:
+      let genesisState =
+        if genesisState != nil:
+          genesisState
+        else:
+          notice "Downloading genesis state", restUrl
+          let state = try:
+            await client.getStateV2(
+              StateIdent.init(StateIdentType.Genesis), cfg)
+          except CatchableError as exc:
+            error "Unable to download genesis state",
+              error = exc.msg, restUrl
+            quit 1
 
-        if isNil(state):
-          error "Server is missing genesis state",
-            restUrl
-          quit 1
-        state
+          if isNil(state):
+            error "Server is missing genesis state",
+              restUrl
+            quit 1
+          state
 
       withState(genesisState[]):
         info "Writing genesis state",
