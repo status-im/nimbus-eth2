@@ -772,8 +772,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            lcDataConfig = default(LightClientDataConfig)): ChainDAGRef =
   cfg.checkForkConsistency()
 
-  doAssert updateFlags - {strictVerification, enableTestFeatures} == {},
-    "Other flags not supported in ChainDAG"
+  doAssert updateFlags - {
+      strictVerification, enableTestFeatures, lowParticipation
+    } == {}, "Other flags not supported in ChainDAG"
 
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
@@ -800,7 +801,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       # The only allowed flag right now is strictVerification, as the others all
       # allow skipping some validation.
-      updateFlags: {strictVerification, enableTestFeatures} * updateFlags,
+      updateFlags: updateFlags * {
+        strictVerification, enableTestFeatures, lowParticipation
+      },
       cfg: cfg,
 
       vanityLogs: vanityLogs,

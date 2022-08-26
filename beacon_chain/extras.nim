@@ -41,5 +41,7 @@ type
     ## should skip calculating that last state root.
     enableTestFeatures ##\
     ## Whether to enable extra features for testing.
+    lowParticipation ##\
+    ## Whether the network is prone to low participation.
 
   UpdateFlags* = set[UpdateFlag]

@@ -65,6 +65,7 @@ func apply(ctx: var ForkChoiceBackend, id: int, op: Operation) =
   case op.kind
   of FindHead, InvalidFindHead:
     let r = ctx.find_head(
+      GENESIS_EPOCH,
       op.checkpoints,
       op.justified_state_balances,
       # Don't use proposer boosting

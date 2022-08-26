@@ -154,7 +154,7 @@ proc loadChainDag(
 
   let
     extraFlags =
-      if shouldEnableTestFeatures: {enableTestFeatures}
+      if shouldEnableTestFeatures: {enableTestFeatures, lowParticipation}
       else: {enableTestFeatures}
     chainDagFlags =
       if config.strictVerification: {strictVerification}
