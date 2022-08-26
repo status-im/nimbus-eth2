@@ -548,13 +548,11 @@ type
         name: "suggested-fee-recipient" .}: Option[Address]
 
       payloadBuilderEnable* {.
-        hidden
         desc: "Enable external payload builder"
         defaultValue: false
         name: "payload-builder" .}: bool
 
       payloadBuilderUrl* {.
-        hidden
         desc: "Payload builder URL"
         defaultValue: ""
         name: "payload-builder-url" .}: string
