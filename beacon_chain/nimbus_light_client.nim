@@ -81,7 +81,7 @@ programMain:
           if blck.message.is_execution_block:
             template payload(): auto = blck.message.body.execution_payload
 
-            if eth1Monitor != nil:
+            if eth1Monitor != nil and not payload.block_hash.isZero:
               await eth1Monitor.ensureDataProvider()
 
               # engine_newPayloadV1
@@ -93,7 +93,6 @@ programMain:
                 safeBlockRoot = payload.block_hash,  # stub value
                 finalizedBlockRoot = ZERO_HASH)
         else: discard
-      return
     optimisticProcessor = initOptimisticProcessor(
       getBeaconTime, optimisticHandler)
 
@@ -139,7 +138,8 @@ programMain:
   lightClient.trustedBlockRoot = some config.trustedBlockRoot
 
   # Full blocks gossip is required to portably drive an EL client:
-  # - EL clients may not sync when only driven with `forkChoiceUpdated`
+  # - EL clients may not sync when only driven with `forkChoiceUpdated`,
+  #   e.g., Geth: "Forkchoice requested unknown head"
   # - `newPayload` requires the full `ExecutionPayload` (most of block content)
   # - `ExecutionPayload` block root is not available in `BeaconBlockHeader`,
   #   so won't be exchanged via light client gossip

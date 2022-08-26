@@ -17,22 +17,15 @@ import
 logScope: topics = "beacnde"
 
 func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
-  # Check whether light client is used for syncing
+  if node.eth1Monitor == nil:
+    return false
   let optimisticHeader = node.lightClient.optimisticHeader.valueOr:
     return false
 
-  # Check whether light client is sufficiently ahead of DAG
-  const minProgress = 8 * SLOTS_PER_EPOCH  # Set arbitrarily
-  let dagSlot = getStateField(node.dag.headState, slot)
-  if dagSlot + minProgress > optimisticHeader.slot:
-    return false
-
-  # Check whether light client has synced sufficiently close to wall slot
-  const maxAge = 2 * SLOTS_PER_EPOCH
-  if optimisticHeader.slot < max(wallSlot, maxAge.Slot) - maxAge:
-    return false
-
-  true
+  shouldSyncOptimistically(
+    optimisticSlot = optimisticHeader.slot,
+    dagSlot = getStateField(node.dag.headState, slot),
+    wallSlot = wallSlot)
 
 proc initLightClient*(
     node: BeaconNode,
@@ -43,18 +36,44 @@ proc initLightClient*(
     genesis_validators_root: Eth2Digest) =
   template config(): auto = node.config
 
-  # Creating a light client is not dependent on `lightClientEnable`
+  # Creating a light client is not dependent on `syncLightClient`
   # because the light client module also handles gossip subscriptions
   # for broadcasting light client data as a server.
 
   let
     optimisticHandler = proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock):
         Future[void] {.async.} =
-      debug "New LC optimistic block",
+      info "New LC optimistic block",
         opt = signedBlock.toBlockId(),
         dag = node.dag.head.bid,
         wallSlot = node.currentSlot
-      return
+      withBlck(signedBlock):
+        when stateFork >= BeaconStateFork.Bellatrix:
+          if blck.message.is_execution_block:
+            template payload(): auto = blck.message.body.execution_payload
+
+            let eth1Monitor = node.eth1Monitor
+            if eth1Monitor != nil and not payload.block_hash.isZero:
+              # engine_newPayloadV1
+              discard await eth1Monitor.newExecutionPayload(payload)
+
+              # Retain optimistic head for other `forkchoiceUpdated` callers.
+              # May temporarily block `forkchoiceUpdatedV1` calls, e.g., Geth:
+              # - Refuses `newPayload`: "Ignoring payload while snap syncing"
+              # - Refuses `fcU`: "Forkchoice requested unknown head"
+              # Once DAG sync catches up or as new optimistic heads are fetched
+              # the situation recovers
+              node.consensusManager[].setOptimisticHead(
+                blck.toBlockId(), payload.block_hash)
+
+              # engine_forkchoiceUpdatedV1
+              let beaconHead = node.attestationPool[].getBeaconHead(nil)
+              discard await eth1Monitor.runForkchoiceUpdated(
+                headBlockRoot = payload.block_hash,
+                safeBlockRoot = beaconHead.safeExecutionPayloadHash,
+                finalizedBlockRoot = beaconHead.finalizedExecutionPayloadHash)
+          else: discard
+
     optimisticProcessor = initOptimisticProcessor(
       getBeaconTime, optimisticHandler)
 
@@ -62,7 +81,7 @@ proc initLightClient*(
       node.network, rng, config, cfg, forkDigests, getBeaconTime,
       genesis_validators_root, LightClientFinalizationMode.Strict)
 
-  if config.lightClientEnable:
+  if config.syncLightClient:
     proc onFinalizedHeader(
         lightClient: LightClient, finalizedHeader: BeaconBlockHeader) =
       optimisticProcessor.setFinalizedHeader(finalizedHeader)
@@ -73,18 +92,18 @@ proc initLightClient*(
 
     lightClient.onFinalizedHeader = onFinalizedHeader
     lightClient.onOptimisticHeader = onOptimisticHeader
-    lightClient.trustedBlockRoot = config.lightClientTrustedBlockRoot
+    lightClient.trustedBlockRoot = config.trustedBlockRoot
 
-  elif config.lightClientTrustedBlockRoot.isSome:
-    warn "Ignoring `lightClientTrustedBlockRoot`, light client not enabled",
-      lightClientEnable = config.lightClientEnable,
-      lightClientTrustedBlockRoot = config.lightClientTrustedBlockRoot
+  elif config.trustedBlockRoot.isSome:
+    warn "Ignoring `trustedBlockRoot`, light client not enabled",
+      syncLightClient = config.syncLightClient,
+      trustedBlockRoot = config.trustedBlockRoot
 
   node.optimisticProcessor = optimisticProcessor
   node.lightClient = lightClient
 
 proc startLightClient*(node: BeaconNode) =
-  if not node.config.lightClientEnable:
+  if not node.config.syncLightClient:
     return
 
   node.lightClient.start()
@@ -94,7 +113,7 @@ proc installLightClientMessageValidators*(node: BeaconNode) =
     if node.config.lightClientDataServe:
       # Process gossip using both full node and light client
       node.processor
-    elif node.config.lightClientEnable:
+    elif node.config.syncLightClient:
       # Only process gossip using light client
       nil
     else:
@@ -116,9 +135,9 @@ proc updateLightClientGossipStatus*(
   node.lightClient.updateGossipStatus(slot, some isBehind)
 
 proc updateLightClientFromDag*(node: BeaconNode) =
-  if not node.config.lightClientEnable:
+  if not node.config.syncLightClient:
     return
-  if node.config.lightClientTrustedBlockRoot.isSome:
+  if node.config.trustedBlockRoot.isSome:
     return
 
   let
