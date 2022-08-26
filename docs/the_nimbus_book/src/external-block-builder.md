@@ -1,4 +1,4 @@
-# Set up MEV
+# Set up block builders
 
 [Maximal extractable value](https://ethereum.org/en/developers/docs/mev/) involves consensus clients contacting an external execution payload builder which might maximize profit or some other defined metric in ways hindered for a purely local consensus and execution client setup. This external builder network uses the [builder API](https://ethereum.github.io/builder-specs/) which consensus clients use to access MEV bundles found by searchers. In exchange, such searchers and builders might choose to retain some of the profit gained from such bundles. A builder API relay provides access to multiple searchers via a single URL.
 
