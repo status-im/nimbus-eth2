@@ -1303,10 +1303,9 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
         builderStatus = restBuilderStatus
       return
 
-    # TODO cache the generated registrations and keep resending the previous ones
     # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#validator-registration
     var validatorRegistrations: seq[SignedValidatorRegistrationV1]
-    for validator in node.attachedValidators[].validators.values:
+    for validator in node.attachedValidators[].validators.mvalues:
       if validator.index.isNone:
         continue
 
@@ -1321,14 +1320,18 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
             state.data.validators.item(validator.index.get).exit_epoch:
           continue
 
-      let validatorRegistration =
-        await node.getValidatorRegistration(validator, epoch)
-      if validatorRegistration.isErr:
-        error "registerValidators: validatorRegistration failed",
-               validatorRegistration
-        continue
+      if validator.externalBuilderRegistration.isNone:
+        let validatorRegistration =
+          await node.getValidatorRegistration(validator, epoch)
+        if validatorRegistration.isErr:
+          error "registerValidators: validatorRegistration failed",
+                 validatorRegistration
+          continue
+        validator.externalBuilderRegistration =
+          Opt.some validatorRegistration.get
 
-      validatorRegistrations.add validatorRegistration.get
+      if validator.externalBuilderRegistration.isSome:
+        validatorRegistrations.add validator.externalBuilderRegistration.get
 
     let registerValidatorResult =
       awaitWithTimeout(node.payloadBuilderRestClient.registerValidator(validatorRegistrations),

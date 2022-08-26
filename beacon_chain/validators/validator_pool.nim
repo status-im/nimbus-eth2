@@ -58,7 +58,11 @@ type
 
     # Cache the latest slot signature - the slot signature is used to determine
     # if the validator will be aggregating (in the near future)
-    slotSignature*: Option[tuple[slot: Slot, signature: ValidatorSig]]
+    slotSignature*: Opt[tuple[slot: Slot, signature: ValidatorSig]]
+
+    # For the external payload builder; each epoch, the external payload
+    # builder should be informed of current validators
+    externalBuilderRegistration*: Opt[SignedValidatorRegistrationV1]
 
     startSlot*: Slot
 
@@ -93,8 +97,10 @@ proc addLocalValidator*(pool: var ValidatorPool, item: KeystoreData,
                         index: Opt[ValidatorIndex], slot: Slot) =
   doAssert item.kind == KeystoreKind.Local
   let pubkey = item.pubkey
-  let v = AttachedValidator(kind: ValidatorKind.Local, pubkey: pubkey,
-                            index: index, data: item, startSlot: slot)
+  let v = AttachedValidator(
+    kind: ValidatorKind.Local, pubkey: pubkey, index: index, data: item,
+    externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
+    startSlot: slot)
   pool.validators[pubkey] = v
   notice "Local validator attached", pubkey, validator = shortLog(v),
                                      start_slot = slot
@@ -109,9 +115,11 @@ proc addRemoteValidator*(pool: var ValidatorPool, item: KeystoreData,
                          index: Opt[ValidatorIndex], slot: Slot) =
   doAssert item.kind == KeystoreKind.Remote
   let pubkey = item.pubkey
-  let v = AttachedValidator(kind: ValidatorKind.Remote, pubkey: pubkey,
-                            index: index, data: item, clients: clients,
-                            startSlot: slot)
+  let v = AttachedValidator(
+    kind: ValidatorKind.Remote, pubkey: pubkey, index: index, data: item,
+    clients: clients,
+    externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
+    startSlot: slot)
   pool.validators[pubkey] = v
   notice "Remote validator attached", pubkey, validator = shortLog(v),
                                       remote_signer = $item.remotes,
@@ -403,7 +411,7 @@ proc getSlotSignature*(v: AttachedValidator, fork: Fork,
   if signature.isErr:
     return signature
 
-  v.slotSignature = some((slot, signature.get))
+  v.slotSignature = Opt.some((slot, signature.get))
   return signature
 
 # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#signing
