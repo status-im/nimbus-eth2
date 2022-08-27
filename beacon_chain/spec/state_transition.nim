@@ -52,7 +52,7 @@ import
     beaconstate, eth2_merkleization, forks, helpers, signatures,
     state_transition_block, state_transition_epoch, validator]
 
-export results, extras, phase0, altair, bellatrix
+export results, extras, phase0, altair, bellatrix, capella
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(

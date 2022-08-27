@@ -25,7 +25,7 @@ import
   ../fork_choice/fork_choice,
   ../beacon_clock
 
-export tables, results, phase0, altair, bellatrix, blockchain_dag, fork_choice
+export tables, results, phase0, altair, bellatrix, capella, blockchain_dag, fork_choice
 
 const
   ATTESTATION_LOOKBACK* =

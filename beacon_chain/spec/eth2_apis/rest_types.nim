@@ -23,7 +23,7 @@ import
   ".."/datatypes/[phase0, altair, bellatrix, capella],
   ".."/mev/bellatrix_mev
 
-export forks, phase0, altair, bellatrix, bellatrix_mev
+export forks, phase0, altair, bellatrix, bellatrix_mev, capella
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
