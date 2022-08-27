@@ -926,6 +926,9 @@ template isomorphicCast*[T, U](x: U): T =
   # Each of these pairs of types has ABI-compatible memory representations.
   static: doAssert (T is ref) == (U is ref)
   when T is ref:
+    # NOTE: Uncomment for debugging type size mismatch
+    # echo alignLeft($T.typeof & ":", 50), T.sizeof
+    # echo alignLeft($U.typeof & ":", 50), U.sizeof, "\n", repeat("-", 20)
     type
       TT = typeof default(typeof T)[]
       UU = typeof default(typeof U)[]

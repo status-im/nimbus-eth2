@@ -107,3 +107,16 @@ upgrade which need to be modified or in some way made non-ambiguous.
 
 So far in the slow process of migration type ambiguity has been the single
 largest slowdown to progress.
+
+** sizeof(U) !== sizeof(T)
+Go into datatypes/base.nim and uncomment the following lines:
+#+begin_src nim
+# NOTE: Uncomment for debugging type size mismatch
+echo alignLeft($T.typeof & ":", 50), T.sizeof
+echo alignLeft($U.typeof & ":", 50), U.sizeof, "\n", repeat("-", 20)
+#+end_src
+
+Then rebuild. This should print out the typenames and the corresponding
+size when an isomorphicCast attempt is made during compile time.
+Hopefully this will allow you to narrow down exactly which types are
+causing the issue.

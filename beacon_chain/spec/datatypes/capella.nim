@@ -195,7 +195,8 @@ type
   # NOTE: Duplicates from bellatrix
   #
 
-  PayloadID* = array[8, byte]
+  PayloadID* = object
+    buf*: array[8, byte]
 
   MsgTrustedSignedBeaconBlock* = object
     message*: TrustedBeaconBlock

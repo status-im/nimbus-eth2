@@ -47,7 +47,8 @@ type
   BloomLogs* = object
     data*: array[BYTES_PER_LOGS_BLOOM, byte]
 
-  PayloadID* = array[8, byte]
+  PayloadID* = object
+    buf*: array[8, byte]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#executionpayload
   ExecutionPayload* = object

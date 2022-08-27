@@ -499,4 +499,5 @@ suite "Eth1 monitor":
     for executionPayload in executionPayloads:
       check:
         executionPayload == asConsensusExecutionPayload(
+          bellatrix.PayloadID(),
           asEngineExecutionPayload(executionPayload))

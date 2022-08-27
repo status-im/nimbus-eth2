@@ -318,7 +318,6 @@ func asEth2Digest*(x: BlockHash): Eth2Digest =
 template asBlockHash*(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
-# NOTE: First param here added to distinguish between forks
 func asConsensusExecutionPayload*(payload_id: bellatrix.PayloadID, rpcExecutionPayload: ExecutionPayloadV1):
     bellatrix.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
@@ -344,8 +343,6 @@ func asConsensusExecutionPayload*(payload_id: bellatrix.PayloadID, rpcExecutionP
     transactions: List[bellatrix.Transaction, bellatrix.MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
 
-# NOTE: First param here added to distinguish between forks
-# TODO: @tavurth is there a nicer way to write this?
 func asConsensusExecutionPayload*(payload_id: capella.PayloadID, rpcExecutionPayload: ExecutionPayloadV1):
     capella.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): capella.Transaction =
@@ -533,7 +530,7 @@ proc getPayload*(p: Eth1Monitor,
     epr.complete(default(engine_api.ExecutionPayloadV1))
     return epr
 
-  p.dataProvider.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId)
+  p.dataProvider.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId.buf)
 
 proc getPayload*(p: Eth1Monitor,
                  payloadId: capella.PayloadID): Future[engine_api.ExecutionPayloadV1] =
@@ -544,7 +541,7 @@ proc getPayload*(p: Eth1Monitor,
     epr.complete(default(engine_api.ExecutionPayloadV1))
     return epr
 
-  p.dataProvider.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId)
+  p.dataProvider.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId.buf)
 
 proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV1):
     Future[PayloadStatusV1] =
