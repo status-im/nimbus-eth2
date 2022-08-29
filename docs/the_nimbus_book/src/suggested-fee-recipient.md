@@ -21,5 +21,5 @@ For example, `nimbus_beacon_node --suggested-fee-recipient=0x70E47C843E0F6ab0991
 
 === "Prater"
     ```sh
-    ./run-mainnet-beacon-node.sh --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
+    ./run-prater-beacon-node.sh --suggested-fee-recipient=0x70E47C843E0F6ab0991A3189c28F2957eb6d3842
     ```
