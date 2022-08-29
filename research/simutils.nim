@@ -87,7 +87,7 @@ proc loadGenesis*(validators: Natural, validate: bool):
         quit 1
 
       if forkyState.data.validators.len != validators:
-        echo &"Supplied genesis file has {state.data.validators.len} validators, while {validators} where requested, running anyway"
+        echo &"Supplied genesis file has {forkyState.data.validators.len} validators, while {validators} where requested, running anyway"
 
       echo &"Loaded {genesisFn}..."
 

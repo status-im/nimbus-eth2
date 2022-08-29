@@ -11,7 +11,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[algorithm, collections/heapqueue, math, options, sequtils, tables],
+  std/[algorithm, collections/heapqueue, math, sequtils, tables],
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
