@@ -1313,6 +1313,10 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
     # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#validator-registration
     var validatorRegistrations: seq[SignedValidatorRegistrationV1]
     for key in attachedValidatorPubkeys:
+      # Time passed during awaits; REST keymanager API might have removed it
+      if key notin node.attachedValidators[].validators:
+        continue
+
       let validator = node.attachedValidators[].validators[key]
 
       if validator.index.isNone:
