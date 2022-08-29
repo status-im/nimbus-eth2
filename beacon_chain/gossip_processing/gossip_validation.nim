@@ -210,12 +210,12 @@ template validateBeaconBlockBellatrix(
       quarantine[].addUnviable(signed_beacon_block.root)
       return errReject("BeaconBlock: mismatched execution payload timestamp")
 
-    if signed_beacon_block.message.parent_root in dag.optimisticRoots:
-      # Definitely don't mark this as unviable.
-      # [REJECT] The block's parent (defined by `block.parent_root`) passes all
-      # validation (excluding execution node verification of the
-      # `block.body.execution_payload`).
-      return errReject("BeaconBlock: execution payload would build on optimistic parent")
+  # The condition:
+  # [REJECT] The block's parent (defined by `block.parent_root`) passes all
+  # validation (excluding execution node verification of the
+  # `block.body.execution_payload`).
+  # cannot occur here, because Nimbus's optimistic sync waits for either
+  # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/bellatrix/p2p-interface.md#beacon_block
