@@ -916,6 +916,16 @@ func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
     # is still better to keep field names parallel.
     result.add((name.replace("blob", "data"), sizeof(value), n))
 
+macro moduleOf*(sym: typed{sym}): untyped =
+  ## Should return the string name of the type owner (file)
+  ## TODO: @tavurth find a way to fix this with imports for fork
+  var owner = sym.owner
+  while owner != nil:
+    if owner.symKind == nskModule:
+      break
+    owner = owner.owner
+  newLit($owner)
+
 ## At the GC-level, the GC is type-agnostic; it's all type-erased so
 ## casting between seq[Attestation] and seq[TrustedAttestation] will
 ## not disrupt GC operations.
@@ -941,6 +951,7 @@ template isomorphicCast*[T, U](x: U): T =
       doAssert sizeof(T) == sizeof(U)
       doAssert getSizeofSig(T()) == getSizeofSig(U())
     cast[ptr T](unsafeAddr x)[]
+
 
 func prune*(cache: var StateCache, epoch: Epoch) =
   # Prune all cache information that is no longer relevant in order to process

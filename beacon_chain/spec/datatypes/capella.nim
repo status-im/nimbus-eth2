@@ -191,6 +191,39 @@ type
     # Capella operations
     bls_to_execution_changes*: List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
 
+  SigVerifiedBeaconBlockBody* = object
+    ## A BeaconBlock body with signatures verified
+    ## including:
+    ## - Randao reveal
+    ## - Attestations
+    ## - ProposerSlashing (SignedBeaconBlockHeader)
+    ## - AttesterSlashing (IndexedAttestation)
+    ## - SignedVoluntaryExits
+    ##
+    ## - ETH1Data (Deposits) can contain invalid BLS signatures
+    ##
+    ## The block state transition has NOT been verified
+    randao_reveal*: ValidatorSig
+    eth1_data*: Eth1Data
+      ## Eth1 data vote
+
+    graffiti*: GraffitiBytes
+      ## Arbitrary data
+
+    # Operations
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    sync_aggregate*: SyncAggregate # TODO TrustedSyncAggregate after batching
+
+    # Execution
+    execution_payload*: ExecutionPayload
+
+    # Capella operations
+    bls_to_execution_changes*: List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+
   #
   # NOTE: Duplicates from bellatrix
   #
@@ -261,7 +294,6 @@ type
     ## validators that will have a chance to vote on it through attestations.
     ## Each block collects attestations, or votes, on past blocks, thus a chain
     ## is formed.
-
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
@@ -309,36 +341,6 @@ type
     parent_root*: Eth2Digest
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
-
-  SigVerifiedBeaconBlockBody* = object
-    ## A BeaconBlock body with signatures verified
-    ## including:
-    ## - Randao reveal
-    ## - Attestations
-    ## - ProposerSlashing (SignedBeaconBlockHeader)
-    ## - AttesterSlashing (IndexedAttestation)
-    ## - SignedVoluntaryExits
-    ##
-    ## - ETH1Data (Deposits) can contain invalid BLS signatures
-    ##
-    ## The block state transition has NOT been verified
-    randao_reveal*: ValidatorSig
-    eth1_data*: Eth1Data
-      ## Eth1 data vote
-
-    graffiti*: GraffitiBytes
-      ## Arbitrary data
-
-    # Operations
-    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
-    deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-    sync_aggregate*: SyncAggregate # TODO TrustedSyncAggregate after batching
-
-    # Execution
-    execution_payload*: ExecutionPayload
 
   TrustedBeaconBlockBody* = object
     ## A full verified block

@@ -422,8 +422,8 @@ proc processBlock(
       else: Result[void, BlockError].err(res.error()))
 
 from eth/async_utils import awaitWithTimeout
-from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
-from ../spec/datatypes/capella import ExecutionPayload, SignedBeaconBlock
+from ../spec/datatypes/capella import ExecutionPayload
+from ../spec/datatypes/bellatrix import ExecutionPayload
 
 proc newExecutionPayload*(
     eth1Monitor: Eth1Monitor, executionPayload: capella.ExecutionPayload):
@@ -591,9 +591,10 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
 
              let executionPayload =
                withBlck(blck.blck):
-                 when stateFork >= BeaconStateFork.Bellatrix:
+                 if stateFork >= BeaconStateFork.Bellatrix:
                    blck.message.body.execution_payload
                  else:
+                   # Unreachable
                    doAssert false
                    default(bellatrix.ExecutionPayload) # satisfy Nim
 

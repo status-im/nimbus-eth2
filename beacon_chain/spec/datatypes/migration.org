@@ -120,3 +120,6 @@ Then rebuild. This should print out the typenames and the corresponding
 size when an isomorphicCast attempt is made during compile time.
 Hopefully this will allow you to narrow down exactly which types are
 causing the issue.
+
+Most of these issues are caused by a missing duplicate item in one of your spec
+files. It could also be in the file ~beacon_chain_db_immutable.nim~

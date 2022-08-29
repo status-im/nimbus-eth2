@@ -1,25 +1,25 @@
 
 # Table of Contents
 
-1.  [Bellatrix -> Capella (August 2022)](#org32b378a)
-    1.  [Setup and overview](#orgd0d532f)
-    2.  [Spec files (capella.nim)](#org0308a33)
-    3.  [Fork file (forks.nim)](#org9d5a8d9)
-    4.  [Review](#org50832d4)
-    5.  [Typing](#org96d43f4)
-    6.  [Duplication](#org6b5a16c)
-        1.  [Duplication should be preferred](#org2b30f71)
-    7.  [Rebase on `unstable`](#org3b5cbc9)
-    8.  [Tracking compiler errors](#org870ee63)
-    9.  [Ran into a serialization problem with the spec](#orgab005bf)
-    10. [Large amount of typing errors](#org64ea657)
-    11. [Polymorphic errors](#org8b97db0)
-    12. [Ambiguous calls](#org1b622ca)
-    13. [sizeof(U) !== sizeof(T)](#org87b79a5)
+1.  [Bellatrix -> Capella (August 2022)](#orga9cb28e)
+    1.  [Setup and overview](#orgb55d43d)
+    2.  [Spec files (capella.nim)](#org841fa8d)
+    3.  [Fork file (forks.nim)](#org93c364b)
+    4.  [Review](#org8a8b0a8)
+    5.  [Typing](#org14b11a6)
+    6.  [Duplication](#org6c47389)
+        1.  [Duplication should be preferred](#org0e7075d)
+    7.  [Rebase on `unstable`](#orgda99c04)
+    8.  [Tracking compiler errors](#org78596b2)
+    9.  [Ran into a serialization problem with the spec](#orge2e15b4)
+    10. [Large amount of typing errors](#orge24f293)
+    11. [Polymorphic errors](#org625eca5)
+    12. [Ambiguous calls](#orgf36c394)
+    13. [sizeof(U) !== sizeof(T)](#orgbad8329)
 
 
 
-<a id="org32b378a"></a>
+<a id="orga9cb28e"></a>
 
 # Bellatrix -> Capella (August 2022)
 
@@ -38,7 +38,7 @@ Stop at unviable areas, tag with TODO and get it to compile first.
 &#x2014;
 
 
-<a id="orgd0d532f"></a>
+<a id="orgb55d43d"></a>
 
 ## Setup and overview
 
@@ -46,7 +46,7 @@ Started working on adding the relevant part of the spec files to the capella.nim
 More cleaning up of the spec files
 
 
-<a id="org0308a33"></a>
+<a id="org841fa8d"></a>
 
 ## Spec files (capella.nim)
 
@@ -56,7 +56,7 @@ Functions at the bottom of the page were required for later compilation steps
 Better to copy them and try to remove later if possible
 
 
-<a id="org9d5a8d9"></a>
+<a id="org93c364b"></a>
 
 ## Fork file (forks.nim)
 
@@ -64,7 +64,7 @@ Find and duplicate all bellatrix (previous entry) functions and type names
 Better to search next and modify in this case, there are many hidden ones
 
 
-<a id="org50832d4"></a>
+<a id="org8a8b0a8"></a>
 
 ## Review
 
@@ -73,7 +73,7 @@ specversion had inconsistencies with the previous spec
 marked with TODO and left for the end
 
 
-<a id="org96d43f4"></a>
+<a id="org14b11a6"></a>
 
 ## Typing
 
@@ -83,7 +83,7 @@ these parts later when assured I could remove them (I could not),
 More helpers work and slowly tracking the compiler errors
 
 
-<a id="org6b5a16c"></a>
+<a id="org6c47389"></a>
 
 ## Duplication
 
@@ -96,7 +96,7 @@ Tried to generalise some functionality but was unable to
 easily because of typing errors.
 
 
-<a id="org2b30f71"></a>
+<a id="org0e7075d"></a>
 
 ### Duplication should be preferred
 
@@ -107,7 +107,7 @@ errors are not always helpful at telling you where the issue
 is as the compiler complains a lot about non-matching types.
 
 
-<a id="org3b5cbc9"></a>
+<a id="orgda99c04"></a>
 
 ## Rebase on `unstable`
 
@@ -117,7 +117,7 @@ Understand the scope is much more spread
 Search and replace prev + new fork everywhere
 
 
-<a id="org870ee63"></a>
+<a id="org78596b2"></a>
 
 ## Tracking compiler errors
 
@@ -134,7 +134,7 @@ these steps above will likely save you many compiler errors
 be sure to TODO tag the ones which differ from spec to spec
 
 
-<a id="orgab005bf"></a>
+<a id="orge2e15b4"></a>
 
 ## Ran into a serialization problem with the spec
 
@@ -144,7 +144,7 @@ There was a better implementation below which
 takes the version (in REST) from the JSON body
 
 
-<a id="org64ea657"></a>
+<a id="orge24f293"></a>
 
 ## Large amount of typing errors
 
@@ -161,7 +161,7 @@ Found some more missed areas from the first code sweep and fixed
 them up.
 
 
-<a id="org8b97db0"></a>
+<a id="org625eca5"></a>
 
 ## Polymorphic errors
 
@@ -172,7 +172,7 @@ Search `export {previous_fork_name}` and be sure that all of them are
 updated with your new fork name.
 
 
-<a id="org1b622ca"></a>
+<a id="orgf36c394"></a>
 
 ## Ambiguous calls
 
@@ -183,7 +183,7 @@ So far in the slow process of migration type ambiguity has been the single
 largest slowdown to progress.
 
 
-<a id="org87b79a5"></a>
+<a id="orgbad8329"></a>
 
 ## sizeof(U) !== sizeof(T)
 
@@ -197,4 +197,7 @@ Then rebuild. This should print out the typenames and the corresponding
 size when an isomorphicCast attempt is made during compile time.
 Hopefully this will allow you to narrow down exactly which types are
 causing the issue.
+
+Most of these issues are caused by a missing duplicate item in one of your spec
+files. It could also be in the file `beacon_chain_db_immutable.nim`
 
