@@ -35,6 +35,8 @@ The following options are available:
      --secrets-dir             A directory containing validator keystore passwords.
      --wallets-dir             A directory containing wallet files.
      --web3-url                One or more execution layer Web3 provider URLs.
+     --require-engine-api-in-bellatrix  Require Nimbus to be configured with an Engine API end-point after the Bellatrix
+                               fork epoch [=true].
      --non-interactive         Do not display interative prompts. Quit on missing configuration.
      --netkey-file             Source of network (secp256k1) private key file (random|<path>) [=random].
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key file [=false].

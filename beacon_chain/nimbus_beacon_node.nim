@@ -1285,13 +1285,21 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # above, this will be done just before the next slot starts
   await node.updateGossipStatus(slot + 1)
 
-func syncStatus(node: BeaconNode): string =
+func syncStatus(node: BeaconNode, wallSlot: Slot): string =
   let optimistic_head = node.dag.is_optimistic(node.dag.head.root)
   if node.syncManager.inProgress:
-    if optimistic_head:
-      node.syncManager.syncStatus & "/opt"
-    else:
-      node.syncManager.syncStatus
+    let
+      optimisticSuffix =
+        if optimistic_head:
+          "/opt"
+        else:
+          ""
+      lightClientSuffix =
+        if node.consensusManager[].shouldSyncOptimistically(wallSlot):
+          " - lc: " & $shortLog(node.consensusManager[].optimisticHead)
+        else:
+          ""
+    node.syncManager.syncStatus & optimisticSuffix & lightClientSuffix
   elif node.backfiller.inProgress:
     "backfill: " & node.backfiller.syncStatus
   elif optimistic_head:
@@ -1318,7 +1326,7 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
   info "Slot start",
     slot = shortLog(wallSlot),
     epoch = shortLog(wallSlot.epoch),
-    sync = node.syncStatus(),
+    sync = node.syncStatus(wallSlot),
     peers = len(node.network.peerPool),
     head = shortLog(node.dag.head),
     finalized = shortLog(getStateField(
@@ -1751,7 +1759,7 @@ when not defined(windows):
         formatGwei(node.attachedValidatorBalanceTotal)
 
       of "sync_status":
-        node.syncStatus()
+        node.syncStatus(node.currentSlot)
       else:
         # We ignore typos for now and just render the expression
         # as it was written. TODO: come up with a good way to show

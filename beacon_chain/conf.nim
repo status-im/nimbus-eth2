@@ -284,16 +284,16 @@ type
         desc: "Weak subjectivity checkpoint in the format block_root:epoch_number"
         name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
 
-      lightClientEnable* {.
+      syncLightClient* {.
         hidden
-        desc: "BETA: Accelerate sync using light client."
+        desc: "Accelerate sync using light client"
         defaultValue: false
-        name: "light-client" .}: bool
+        name: "sync-light-client" .}: bool
 
-      lightClientTrustedBlockRoot* {.
+      trustedBlockRoot* {.
         hidden
-        desc: "BETA: Recent trusted finalized block root to initialize light client from."
-        name: "light-client-trusted-block-root" .}: Option[Eth2Digest]
+        desc: "Recent trusted finalized block root to initialize light client from"
+        name: "trusted-block-root" .}: Option[Eth2Digest]
 
       finalizedCheckpointState* {.
         desc: "SSZ file specifying a recent finalized state"

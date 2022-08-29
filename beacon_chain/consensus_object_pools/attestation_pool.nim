@@ -740,7 +740,7 @@ type BeaconHead* = object
   safeExecutionPayloadHash*, finalizedExecutionPayloadHash*: Eth2Digest
 
 proc getBeaconHead*(
-    pool: var AttestationPool, headBlock: BlockRef): BeaconHead =
+    pool: AttestationPool, headBlock: BlockRef): BeaconHead =
   let
     finalizedExecutionPayloadHash =
       pool.dag.loadExecutionBlockRoot(pool.dag.finalizedHead.blck)

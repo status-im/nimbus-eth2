@@ -17,8 +17,9 @@ import
   ../sszdump
 
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, runForkchoiceUpdated, runProposalForkchoiceUpdated,
-  updateHead, updateHeadWithExecution
+  ConsensusManager, optimisticExecutionPayloadHash, runForkchoiceUpdated,
+  runForkchoiceUpdatedDiscardResult, runProposalForkchoiceUpdated,
+  shouldSyncOptimistically, updateHead, updateHeadWithExecution
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, slot
 from ../consensus_object_pools/block_pools_types import BlockError, EpochRef
@@ -294,25 +295,48 @@ proc storeBlock*(
         wallSlot.start_beacon_time)
 
   if newHead.isOk:
-    let headExecutionPayloadHash =
-      self.consensusManager.dag.loadExecutionBlockRoot(newHead.get.blck)
-    if headExecutionPayloadHash.isZero:
-      # Blocks without execution payloads can't be optimistic.
-      self.consensusManager[].updateHead(newHead.get.blck)
-    elif not self.consensusManager.dag.is_optimistic newHead.get.blck.root:
-      # Not `NOT_VALID`; either `VALID` or `INVALIDATED`, but latter wouldn't
-      # be selected as head, so `VALID`. `forkchoiceUpdated` necessary for EL
-      # client only.
-      self.consensusManager[].updateHead(newHead.get.blck)
-      asyncSpawn self.consensusManager.eth1Monitor.expectValidForkchoiceUpdated(
-        headExecutionPayloadHash,
-        newHead.get.safeExecutionPayloadHash,
-        newHead.get.finalizedExecutionPayloadHash)
+    template eth1Monitor(): auto = self.consensusManager.eth1Monitor
+    if self.consensusManager[].shouldSyncOptimistically(wallSlot):
+      # Optimistic head is far in the future; report it as head block to EL.
 
-      # TODO remove redundant fcU in case of proposal
-      asyncSpawn self.consensusManager.runProposalForkchoiceUpdated()
+      # Note that the specification allows an EL client to skip fcU processing
+      # if an update to an ancestor is requested.
+      # > Client software MAY skip an update of the forkchoice state and MUST
+      #   NOT begin a payload build process if `forkchoiceState.headBlockHash`
+      #   references an ancestor of the head of canonical chain.
+      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#engine_forkchoiceupdatedv1
+      #
+      # However, in practice, an EL client may not have completed importing all
+      # block headers, so may be unaware of a block's ancestor status.
+      # Therefore, hopping back and forth between the optimistic head and the
+      # chain DAG head does not work well in practice, e.g., Geth:
+      # - "Beacon chain gapped" from DAG head to optimistic head,
+      # - followed by "Beacon chain reorged" from optimistic head back to DAG.
+      self.consensusManager[].updateHead(newHead.get.blck)
+      asyncSpawn eth1Monitor.runForkchoiceUpdatedDiscardResult(
+        headBlockRoot = self.consensusManager[].optimisticExecutionPayloadHash,
+        safeBlockRoot = newHead.get.safeExecutionPayloadHash,
+        finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
     else:
-      asyncSpawn self.consensusManager.updateHeadWithExecution(newHead.get)
+      let headExecutionPayloadHash =
+        self.consensusManager.dag.loadExecutionBlockRoot(newHead.get.blck)
+      if headExecutionPayloadHash.isZero:
+        # Blocks without execution payloads can't be optimistic.
+        self.consensusManager[].updateHead(newHead.get.blck)
+      elif not self.consensusManager.dag.is_optimistic newHead.get.blck.root:
+        # Not `NOT_VALID`; either `VALID` or `INVALIDATED`, but latter wouldn't
+        # be selected as head, so `VALID`. `forkchoiceUpdated` necessary for EL
+        # client only.
+        self.consensusManager[].updateHead(newHead.get.blck)
+        asyncSpawn eth1Monitor.expectValidForkchoiceUpdated(
+          headBlockRoot = headExecutionPayloadHash,
+          safeBlockRoot = newHead.get.safeExecutionPayloadHash,
+          finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
+
+        # TODO remove redundant fcU in case of proposal
+        asyncSpawn self.consensusManager.runProposalForkchoiceUpdated()
+      else:
+        asyncSpawn self.consensusManager.updateHeadWithExecution(newHead.get)
   else:
     warn "Head selection failed, using previous head",
       head = shortLog(self.consensusManager.dag.head), wallSlot

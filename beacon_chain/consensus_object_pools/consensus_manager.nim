@@ -56,6 +56,7 @@ type
     # Tracking last proposal forkchoiceUpdated payload information
     # ----------------------------------------------------------------
     forkchoiceUpdatedInfo*: Opt[ForkchoiceUpdatedInformation]
+    optimisticHead: tuple[bid: BlockId, execution_block_hash: Eth2Digest]
 
 # Initialization
 # ------------------------------------------------------------------------------
@@ -117,6 +118,45 @@ from web3/engine_api_types import
 
 func `$`(h: BlockHash): string = $h.asEth2Digest
 
+func shouldSyncOptimistically*(
+    optimisticSlot, dagSlot, wallSlot: Slot): bool =
+  ## Determine whether an optimistic execution block hash should be reported
+  ## to the EL client instead of the current head as determined by fork choice.
+
+  # Check whether optimistic head is sufficiently ahead of DAG
+  const minProgress = 8 * SLOTS_PER_EPOCH  # Set arbitrarily
+  if optimisticSlot < dagSlot or optimisticSlot - dagSlot < minProgress:
+    return false
+
+  # Check whether optimistic head has synced sufficiently close to wall slot
+  const maxAge = 2 * SLOTS_PER_EPOCH  # Set arbitrarily
+  if optimisticSlot < max(wallSlot, maxAge.Slot) - maxAge:
+    return false
+
+  true
+
+func shouldSyncOptimistically*(self: ConsensusManager, wallSlot: Slot): bool =
+  if self.eth1Monitor == nil:
+    return false
+  if self.optimisticHead.execution_block_hash.isZero:
+    return false
+
+  shouldSyncOptimistically(
+    optimisticSlot = self.optimisticHead.bid.slot,
+    dagSlot = getStateField(self.dag.headState, slot),
+    wallSlot = wallSlot)
+
+func optimisticHead*(self: ConsensusManager): BlockId =
+  self.optimisticHead.bid
+
+func optimisticExecutionPayloadHash*(self: ConsensusManager): Eth2Digest =
+  self.optimisticHead.execution_block_hash
+
+func setOptimisticHead*(
+    self: var ConsensusManager,
+    bid: BlockId, execution_block_hash: Eth2Digest) =
+  self.optimisticHead = (bid: bid, execution_block_hash: execution_block_hash)
+
 proc runForkchoiceUpdated*(
     eth1Monitor: Eth1Monitor,
     headBlockRoot, safeBlockRoot, finalizedBlockRoot: Eth2Digest):
@@ -157,6 +197,12 @@ proc runForkchoiceUpdated*(
     error "runForkchoiceUpdated: forkchoiceUpdated failed",
       err = err.msg
     return PayloadExecutionStatus.syncing
+
+proc runForkchoiceUpdatedDiscardResult*(
+    eth1Monitor: Eth1Monitor,
+    headBlockRoot, safeBlockRoot, finalizedBlockRoot: Eth2Digest) {.async.} =
+  discard await eth1Monitor.runForkchoiceUpdated(
+    headBlockRoot, safeBlockRoot, finalizedBlockRoot)
 
 proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BeaconHead)
     {.async.} =
