@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[tables, os, sets, sequtils],
+  std/[tables, os, sets, sequtils, strutils, uri],
   stew/[base10, results, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils, json_serialization/std/[options, net],
@@ -94,12 +94,11 @@ type
     duties*: seq[ProposerTask]
 
   BeaconNodeRole* {.pure.} = enum
-    Duty,
+    Duties,
     AttestationData, AttestationPublish,
-    AggrAttestationData, AggrAttestationPublish,
+    AggregatedData, AggregatedPublish,
     BlockProposalData, BlockProposalPublish,
-    SyncCommitteeData, SyncContributionPublish,
-    SyncSignaturePublish
+    SyncCommitteeData, SyncCommitteePublish
 
   BeaconNodeServer* = object
     client*: RestClientRef
@@ -187,47 +186,67 @@ const
   SlotDuration* = int64(SECONDS_PER_SLOT).seconds
   OneThirdDuration* = int64(SECONDS_PER_SLOT).seconds div INTERVALS_PER_SLOT
   AllBeaconNodeRoles* = {
-    BeaconNodeRole.Duty,
+    BeaconNodeRole.Duties,
     BeaconNodeRole.AttestationData,
     BeaconNodeRole.AttestationPublish,
-    BeaconNodeRole.AggrAttestationData,
-    BeaconNodeRole.AggrAttestationPublish,
+    BeaconNodeRole.AggregatedData,
+    BeaconNodeRole.AggregatedPublish,
     BeaconNodeRole.BlockProposalData,
     BeaconNodeRole.BlockProposalPublish,
     BeaconNodeRole.SyncCommitteeData,
-    BeaconNodeRole.SyncContributionPublish,
-    BeaconNodeRole.SyncSignaturePublish
+    BeaconNodeRole.SyncCommitteePublish,
   }
 
 proc `$`*(roles: set[BeaconNodeRole]): string =
   if card(roles) > 0:
     if roles != AllBeaconNodeRoles:
       var res: seq[string]
-      if BeaconNodeRole.Duty in roles:
-        res.add("DuD")
+      if BeaconNodeRole.Duties in roles:
+        res.add("duties")
       if BeaconNodeRole.AttestationData in roles:
-        res.add("AtD")
+        res.add("attestation-data")
       if BeaconNodeRole.AttestationPublish in roles:
-        res.add("AtP")
-      if BeaconNodeRole.AggrAttestationData in roles:
-        res.add("AaD")
-      if BeaconNodeRole.AggrAttestationPublish in roles:
-        res.add("AaP")
+        res.add("attestation-publish")
+      if BeaconNodeRole.AggregatedData in roles:
+        res.add("aggregated-data")
+      if BeaconNodeRole.AggregatedPublish in roles:
+        res.add("aggregated-publish")
       if BeaconNodeRole.BlockProposalData in roles:
-        res.add("BpD")
+        res.add("block-data")
       if BeaconNodeRole.BlockProposalPublish in roles:
-        res.add("BpP")
+        res.add("block-publish")
       if BeaconNodeRole.SyncCommitteeData in roles:
-        res.add("ScD")
-      if BeaconNodeRole.SyncContributionPublish in roles:
-        res.add("ScP")
-      if BeaconNodeRole.SyncSignaturePublish in roles:
-        res.add("SsP")
+        res.add("sync-data")
+      if BeaconNodeRole.SyncCommitteePublish in roles:
+        res.add("sync-publish")
       res.join(",")
     else:
       "{all}"
   else:
     "{}"
+
+proc shortLog*(roles: set[BeaconNodeRole]): string =
+  var r = "AGBSD"
+  if BeaconNodeRole.AttestationData in roles:
+    if BeaconNodeRole.AttestationPublish in roles: r[0] = 'A' else: r[0] = 'a'
+  else:
+    if BeaconNodeRole.AttestationPublish in roles: r[0] = '+' else: r[0] = '-'
+  if BeaconNodeRole.AggregatedData in roles:
+    if BeaconNodeRole.AggregatedPublish in roles: r[1] = 'G' else: r[1] = 'g'
+  else:
+    if BeaconNodeRole.AggregatedPublish in roles: r[1] = '+' else: r[1] = '-'
+  if BeaconNodeRole.BlockProposalData in roles:
+    if BeaconNodeRole.BlockProposalPublish in roles: r[2] = 'B' else: r[2] = 'b'
+  else:
+    if BeaconNodeRole.BlockProposalPublish in roles: r[2] = '+' else: r[2] = '-'
+  if BeaconNodeRole.SyncCommitteeData in roles:
+    if BeaconNodeRole.SyncCommitteePublish in roles:
+      r[3] = 'S' else: r[3] = 's'
+  else:
+    if BeaconNodeRole.SyncCommitteePublish in roles:
+      r[3] = '+' else: r[3] = '-'
+  if BeaconNodeRole.Duties in roles: r[4] = 'D' else: r[4] = '-'
+  r
 
 proc `$`*(bn: BeaconNodeServerRef): string =
   if bn.ident.isSome():
@@ -235,8 +254,10 @@ proc `$`*(bn: BeaconNodeServerRef): string =
   else:
     bn.logIdent
 
-chronicles.formatIt BeaconNodeServerRef:
-  $it
+chronicles.expandIt(BeaconNodeServerRef):
+  node = $it
+  node_index = it.index
+  node_roles = shortLog(it.roles)
 
 chronicles.expandIt(RestAttesterDuty):
   pubkey = shortLog(it.pubkey)
@@ -265,18 +286,82 @@ proc isDefault*(sdap: SyncDutyAndProof): bool =
 proc isDefault*(prd: ProposedData): bool =
   prd.epoch == Epoch(0xFFFF_FFFF_FFFF_FFFF'u64)
 
-proc init*(t: typedesc[BeaconNodeServerRef], client: RestClientRef,
-           endpoint: string, index: int,
-           roles = AllBeaconNodeRoles): BeaconNodeServerRef =
-  BeaconNodeServerRef(
-    client: client,
-    endpoint: endpoint,
-    index: index,
-    roles: roles,
+proc parseRoles*(data: string): Result[set[BeaconNodeRole], cstring] =
+  var res: set[BeaconNodeRole]
+  if len(data) == 0:
+    return ok(AllBeaconNodeRoles)
+  let parts = data.split("roles=")
+  if (len(parts) != 2) or (len(parts[0]) != 0):
+    return err("Invalid beacon node roles string")
+  let sroles = parts[1].split(",")
+  for srole in sroles:
+    case toLower(strip(srole))
+    of "":
+      discard
+    of "all":
+      res.incl(AllBeaconNodeRoles)
+    of "attestation":
+      res.incl({BeaconNodeRole.AttestationData,
+                BeaconNodeRole.AttestationPublish})
+    of "block":
+      res.incl({BeaconNodeRole.BlockProposalData,
+                BeaconNodeRole.BlockProposalPublish})
+    of "aggregated":
+      res.incl({BeaconNodeRole.AggregatedData,
+                BeaconNodeRole.AggregatedPublish})
+    of "sync":
+      res.incl({BeaconNodeRole.SyncCommitteeData,
+                BeaconNodeRole.SyncCommitteePublish})
+    of "attestation-data":
+      res.incl(BeaconNodeRole.AttestationData)
+    of "attestation-publish":
+      res.incl(BeaconNodeRole.AttestationPublish)
+    of "aggregated-data":
+      res.incl(BeaconNodeRole.AggregatedData)
+    of "aggregated-publish":
+      res.incl(BeaconNodeRole.AggregatedPublish)
+    of "block-data":
+      res.incl(BeaconNodeRole.BlockProposalData)
+    of "block-publish":
+      res.incl(BeaconNodeRole.BlockProposalPublish)
+    of "sync-data":
+      res.incl(BeaconNodeRole.SyncCommitteeData)
+    of "sync-publish":
+      res.incl(BeaconNodeRole.SyncCommitteePublish)
+    of "duties":
+      res.incl(BeaconNodeRole.Duties)
+    else:
+      return err("Invalid beacon node role string found")
+  ok(res)
+
+proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
+           index: int): Result[BeaconNodeServerRef, string] =
+  doAssert(index >= 0)
+  let
+    flags = {RestClientFlag.CommaSeparatedArray}
+    client =
+      block:
+        let res = RestClientRef.new($remote, flags = flags)
+        if res.isErr(): return err($res.error())
+        res.get()
+    roles =
+      block:
+        let res = parseRoles(remote.anchor)
+        if res.isErr(): return err($res.error())
+        res.get()
+
+  let server = BeaconNodeServerRef(
+    client: client, endpoint: $remote, index: index, roles: roles,
     logIdent: client.address.hostname & ":" &
-              Base10.toString(client.address.port) &
-              "#" & Base10.toString(uint64(index))
+              Base10.toString(client.address.port)
   )
+  ok(server)
+
+proc getMissingRoles*(n: openArray[BeaconNodeServerRef]): set[BeaconNodeRole] =
+  var res: set[BeaconNodeRole] = AllBeaconNodeRoles
+  for node in n.items():
+    res.excl(node.roles)
+  res
 
 proc init*(t: typedesc[DutyAndProof], epoch: Epoch, dependentRoot: Eth2Digest,
            duty: RestAttesterDuty,

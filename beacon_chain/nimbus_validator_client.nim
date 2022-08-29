@@ -181,14 +181,19 @@ proc new*(T: type ValidatorClientRef,
   let beaconNodes =
     block:
       var servers: seq[BeaconNodeServerRef]
-      let flags = {RestClientFlag.CommaSeparatedArray}
       for index, url in config.beaconNodes.pairs():
-        let res = RestClientRef.new(url, flags = flags)
+        let res = BeaconNodeServerRef.init(url, index)
         if res.isErr():
-          warn "Unable to resolve remote beacon node server's hostname",
-                url = url
+          warn "Unable to initialize remote beacon node",
+                url = $url, error = res.error()
         else:
-          servers.add(BeaconNodeServerRef.init(res.get(), url, index))
+          debug "Beacon node was initialized", node = res.get()
+        servers.add(res.get())
+      let missingRoles = getMissingRoles(servers)
+      if len(missingRoles) != 0:
+        fatal "Beacon nodes do not use all required roles",
+              missing_roles = $missingRoles, nodes_count = len(servers)
+        quit 1
       servers
 
   if len(beaconNodes) == 0:
