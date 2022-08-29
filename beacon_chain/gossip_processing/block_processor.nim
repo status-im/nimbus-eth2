@@ -397,7 +397,6 @@ proc processBlock(
       if res.isOk(): Result[void, BlockError].ok()
       else: Result[void, BlockError].err(res.error()))
 
-from eth/async_utils import awaitWithTimeout
 from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
 
 proc newExecutionPayload*(
@@ -423,24 +422,15 @@ proc newExecutionPayload*(
 
   try:
     let
-      payloadResponse =
-        awaitWithTimeout(
-            eth1Monitor.newPayload(
-              executionPayload.asEngineExecutionPayload),
-            NEWPAYLOAD_TIMEOUT):
-          info "newPayload: newPayload timed out"
-          return Opt.none PayloadExecutionStatus
-
-          # Placeholder for type system
-          PayloadStatusV1(status: PayloadExecutionStatus.syncing)
-
+      payloadResponse = await eth1Monitor.newPayload(
+        executionPayload.asEngineExecutionPayload)
       payloadStatus = payloadResponse.status
 
     debug "newPayload: succeeded",
       parentHash = executionPayload.parent_hash,
       blockHash = executionPayload.block_hash,
       blockNumber = executionPayload.block_number,
-      payloadStatus
+      payloadStatus = $payloadStatus
 
     return Opt.some payloadStatus
   except CatchableError as err:

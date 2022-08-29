@@ -445,13 +445,8 @@ proc getExecutionPayload(
           warn "Getting execution payload from Engine API failed",
                 payload_id, err = err.msg
           empty_execution_payload
-
       executionPayloadStatus =
-        awaitWithTimeout(
-          node.consensusManager.eth1Monitor.newExecutionPayload(payload),
-          NEWPAYLOAD_TIMEOUT):
-            info "getExecutionPayload: newPayload timed out"
-            Opt.none PayloadExecutionStatus
+        await node.consensusManager.eth1Monitor.newExecutionPayload(payload)
 
     if executionPayloadStatus.isNone or executionPayloadStatus.get in [
         PayloadExecutionStatus.invalid,

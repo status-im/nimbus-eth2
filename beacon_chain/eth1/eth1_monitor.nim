@@ -485,15 +485,22 @@ proc getPayload*(p: Eth1Monitor,
   p.dataProvider.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId)
 
 proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV1):
-    Future[PayloadStatusV1] =
+    Future[PayloadStatusV1] {.async.} =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.dataProvider.isNil:
-    let epr = newFuture[PayloadStatusV1]("newPayload")
-    epr.complete(PayloadStatusV1(status: PayloadExecutionStatus.syncing))
-    return epr
+    raise newException(CatchableError, "Web3 provider is nil")
 
-  p.dataProvider.web3.provider.engine_newPayloadV1(payload)
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#request
+  const NEWPAYLOAD_TIMEOUT = 8.seconds
+
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#timeouts
+  # Consensus Layer client software **MUST** wait for a specified `timeout`
+  # before aborting the call. In such an event, the Consensus Layer client
+  # software **SHOULD** retry the call when it is needed to keep progressing.
+  return awaitWithRetries(
+    p.dataProvider.web3.provider.engine_newPayloadV1(payload),
+    timeout = NEWPAYLOAD_TIMEOUT)
 
 proc forkchoiceUpdated*(p: Eth1Monitor,
                         headBlock, safeBlock, finalizedBlock: Eth2Digest):
