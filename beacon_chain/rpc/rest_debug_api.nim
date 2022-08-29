@@ -11,6 +11,8 @@ import ".."/beacon_node,
        ".."/spec/forks,
        "."/[rest_utils, state_ttl_cache]
 
+from ../fork_choice/proto_array import ProtoArrayItem, items
+
 export rest_utils
 
 logScope: topics = "rest_debug"
@@ -106,6 +108,74 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         )
       )
     )
+
+  # https://github.com/ethereum/beacon-APIs/pull/232
+  if node.config.debugForkChoice:
+    router.api(MethodGet,
+               "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
+      type
+        ForkChoiceResponseExtraData = object
+          justified_root: Eth2Digest
+          finalized_root: Eth2Digest
+          u_justified_checkpoint: Option[Checkpoint]
+          u_finalized_checkpoint: Option[Checkpoint]
+          best_child: Eth2Digest
+          best_descendant: Eth2Digest
+
+        ForkChoiceResponse = object
+          slot: Slot
+          block_root: Eth2Digest
+          parent_root: Eth2Digest
+          justified_epoch: Epoch
+          finalized_epoch: Epoch
+          weight: uint64
+          execution_optimistic: bool
+          execution_payload_root: Eth2Digest
+          extra_data: Option[ForkChoiceResponseExtraData]
+
+      var responses: seq[ForkChoiceResponse]
+      for item in node.attestationPool[].forkChoice.backend.proto_array:
+        let
+          bid = node.dag.getBlockId(item.root)
+          slot =
+            if bid.isOk:
+              bid.unsafeGet.slot
+            else:
+              FAR_FUTURE_SLOT
+          executionPayloadRoot =
+            if bid.isOk:
+              node.dag.loadExecutionBlockRoot(bid.unsafeGet)
+            else:
+              ZERO_HASH
+          unrealized = item.unrealized.get(item.checkpoints)
+          u_justified_checkpoint =
+            if unrealized.justified != item.checkpoints.justified:
+              some unrealized.justified
+            else:
+              none(Checkpoint)
+          u_finalized_checkpoint =
+            if unrealized.finalized != item.checkpoints.finalized:
+              some unrealized.finalized
+            else:
+              none(Checkpoint)
+
+        responses.add ForkChoiceResponse(
+          slot: slot,
+          block_root: item.root,
+          parent_root: item.parent,
+          justified_epoch: item.checkpoints.justified.epoch,
+          finalized_epoch: item.checkpoints.finalized.epoch,
+          weight: cast[uint64](item.weight),
+          execution_optimistic: node.dag.is_optimistic(item.root),
+          execution_payload_root: executionPayloadRoot,
+          extra_data: some ForkChoiceResponseExtraData(
+            justified_root: item.checkpoints.justified.root,
+            finalized_root: item.checkpoints.finalized.root,
+            u_justified_checkpoint: u_justified_checkpoint,
+            u_finalized_checkpoint: u_finalized_checkpoint,
+            best_child: item.bestChild,
+            bestDescendant: item.bestDescendant))
+      return RestApiResponse.jsonResponse(responses)
 
   # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
   # `/api` path component

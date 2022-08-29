@@ -552,6 +552,50 @@ func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
     (self.checkpoints.finalized.epoch == GENESIS_EPOCH)
   )
 
+# Diagnostics
+# ----------------------------------------------------------------------
+# Helpers to dump internal state
+
+type ProtoArrayItem* = object
+  root*: Eth2Digest
+  parent*: Eth2Digest
+  checkpoints*: FinalityCheckpoints
+  unrealized*: Option[FinalityCheckpoints]
+  weight*: int64
+  bestChild*: Eth2Digest
+  bestDescendant*: Eth2Digest
+
+func root(self: ProtoNodes, logicalIdx: Option[Index]): Eth2Digest =
+  if logicalIdx.isNone:
+    return ZERO_HASH
+  let node = self[logicalIdx.unsafeGet]
+  if node.isNone:
+    return ZERO_HASH
+  node.unsafeGet.root
+
+iterator items*(self: ProtoArray): ProtoArrayItem =
+  ## Iterate over all nodes known by fork choice.
+  doAssert self.indices.len == self.nodes.len
+  for nodePhysicalIdx, node in self.nodes.buf:
+    if node.root.isZero:
+      continue
+
+    let unrealized = block:
+      let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
+      if self.currentEpochTips.hasKey(nodeLogicalIdx):
+        some self.currentEpochTips.unsafeGet(nodeLogicalIdx)
+      else:
+        none(FinalityCheckpoints)
+
+    yield ProtoArrayItem(
+      root: node.root,
+      parent: self.nodes.root(node.parent),
+      checkpoints: node.checkpoints,
+      unrealized: unrealized,
+      weight: node.weight,
+      bestChild: self.nodes.root(node.bestChild),
+      bestDescendant: self.nodes.root(node.bestDescendant))
+
 # Sanity checks
 # ----------------------------------------------------------------------
 # Sanity checks on internal private procedures

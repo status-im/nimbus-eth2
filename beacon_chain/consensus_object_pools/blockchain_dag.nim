@@ -1692,26 +1692,23 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
     statePruneDur = statePruneTick - startTick,
     epochRefPruneDur = epochRefPruneTick - statePruneTick
 
+proc loadExecutionBlockRoot*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
+  if dag.cfg.blockForkAtEpoch(bid.slot.epoch) < BeaconBlockFork.Bellatrix:
+    return ZERO_HASH
+
+  let blockData = dag.getForkedBlock(bid).valueOr:
+    return ZERO_HASH
+
+  withBlck(blockData):
+    when stateFork >= BeaconStateFork.Bellatrix:
+      blck.message.body.execution_payload.block_hash
+    else:
+      ZERO_HASH
+
 proc loadExecutionBlockRoot*(dag: ChainDAGRef, blck: BlockRef): Eth2Digest =
-  if dag.cfg.blockForkAtEpoch(blck.bid.slot.epoch) < BeaconBlockFork.Bellatrix:
-    return ZERO_HASH
-
-  if blck.executionBlockRoot.isSome:
-    return blck.executionBlockRoot.get
-
-  let blockData = dag.getForkedBlock(blck.bid).valueOr:
-    blck.executionBlockRoot = some ZERO_HASH
-    return ZERO_HASH
-
-  let executionBlockRoot =
-    withBlck(blockData):
-      when stateFork >= BeaconStateFork.Bellatrix:
-        blck.message.body.execution_payload.block_hash
-      else:
-        ZERO_HASH
-  blck.executionBlockRoot = some executionBlockRoot
-
-  executionBlockRoot
+  if blck.executionBlockRoot.isNone:
+    blck.executionBlockRoot = some dag.loadExecutionBlockRoot(blck.bid)
+  blck.executionBlockRoot.unsafeGet
 
 proc updateHead*(
     dag: ChainDAGRef,
