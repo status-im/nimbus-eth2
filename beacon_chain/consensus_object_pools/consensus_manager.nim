@@ -125,7 +125,7 @@ func shouldSyncOptimistically*(
 
   # Check whether optimistic head is sufficiently ahead of DAG
   const minProgress = 8 * SLOTS_PER_EPOCH  # Set arbitrarily
-  if dagSlot + minProgress > optimisticSlot:
+  if optimisticSlot < dagSlot or optimisticSlot - dagSlot < minProgress:
     return false
 
   # Check whether optimistic head has synced sufficiently close to wall slot
