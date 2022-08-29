@@ -564,8 +564,11 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
 
     let
       blck = await self[].blockQueue.popFirst()
+
       hasExecutionPayload =
-        withBlck(blck.blck): blck.message.is_execution_block
+        withBlck(blck.blck):
+          blck.message.is_execution_block
+
       executionPayloadStatus =
        if hasExecutionPayload:
          # Eth1 syncing is asynchronous from this
@@ -591,7 +594,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
 
              let executionPayload =
                withBlck(blck.blck):
-                 if stateFork >= BeaconStateFork.Bellatrix:
+                 when stateFork >= BeaconStateFork.Bellatrix:
                    blck.message.body.execution_payload
                  else:
                    # Unreachable

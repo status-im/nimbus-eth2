@@ -16,6 +16,12 @@ Stop at unviable areas, tag with TODO and get it to compile first.
 
 ---
 
+** Getting stuck
+If you run into some difficult type or other error that you can't process.
+Try to compile a different part of the project using the command:
+
+~./env.sh nim c beacon_chain/foo.nim~
+
 ** Setup and overview
 Started working on adding the relevant part of the spec files to the capella.nim I added
 More cleaning up of the spec files
