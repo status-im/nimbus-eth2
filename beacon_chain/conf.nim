@@ -50,6 +50,7 @@ const
   defaultAdminListenAddress* = (static ValidIpAddress.init("127.0.0.1"))
   defaultSigningNodeRequestTimeout* = 60
   defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
+  defaultBeaconNodeUri* = parseUri(defaultBeaconNode)
 
   defaultListenAddressDesc* = $defaultListenAddress
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
@@ -895,9 +896,9 @@ type
 
     beaconNodes* {.
       desc: "URL addresses to one or more beacon node HTTP REST APIs",
-      defaultValue: @[defaultBeaconNode]
-      defaultValueDesc: $defaultBeaconNodeDesc
-      name: "beacon-node" .}: seq[string]
+      defaultValue: @[defaultBeaconNodeUri]
+      defaultValueDesc: $defaultBeaconNodeUri
+      name: "beacon-node" .}: seq[Uri]
 
   SigningNodeConf* = object
     configFile* {.
