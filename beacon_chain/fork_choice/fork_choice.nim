@@ -51,10 +51,14 @@ func compute_deltas(
 
 logScope: topics = "fork_choice"
 
-func init*(T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints): T =
-  T(proto_array: ProtoArray.init(checkpoints))
+func init*(
+    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints,
+    hasLowParticipation = false): T =
+  T(proto_array: ProtoArray.init(checkpoints, hasLowParticipation))
 
-proc init*(T: type ForkChoice, epochRef: EpochRef, blck: BlockRef): T =
+proc init*(
+    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef,
+    hasLowParticipation = false): T =
   ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
@@ -66,7 +70,8 @@ proc init*(T: type ForkChoice, epochRef: EpochRef, blck: BlockRef): T =
     backend: ForkChoiceBackend.init(
       FinalityCheckpoints(
         justified: checkpoint,
-        finalized: checkpoint)),
+        finalized: checkpoint),
+      hasLowParticipation),
     checkpoints: Checkpoints(
       justified: BalanceCheckpoint(
         checkpoint: checkpoint,
@@ -369,6 +374,7 @@ proc process_block*(self: var ForkChoice,
 
 func find_head*(
        self: var ForkChoiceBackend,
+       current_epoch: Epoch,
        checkpoints: FinalityCheckpoints,
        justified_state_balances: seq[Gwei],
        proposer_boost_root: Eth2Digest
@@ -387,7 +393,8 @@ func find_head*(
 
   # Apply score changes
   ? self.proto_array.applyScoreChanges(
-    deltas, checkpoints, justified_state_balances, proposer_boost_root)
+    deltas, current_epoch, checkpoints,
+    justified_state_balances, proposer_boost_root)
 
   self.balances = justified_state_balances
 
@@ -407,6 +414,7 @@ proc get_head*(self: var ForkChoice,
   ? self.update_time(dag, wallTime)
 
   self.backend.find_head(
+    self.checkpoints.time.slotOrZero.epoch,
     FinalityCheckpoints(
       justified: self.checkpoints.justified.checkpoint,
       finalized: self.checkpoints.finalized),

@@ -92,6 +92,8 @@ type
     ## to get the physical index
 
   ProtoArray* = object
+    hasLowParticipation*: bool
+    currentEpoch*: Epoch
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
     indices*: Table[Eth2Digest, Index]

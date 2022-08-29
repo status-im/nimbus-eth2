@@ -74,6 +74,9 @@ func len*(nodes: ProtoNodes): int =
 func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
 
+func isPreviousEpochJustified(self: ProtoArray): bool =
+  self.checkpoints.justified.epoch + 1 == self.currentEpoch
+
 # Forward declarations
 # ----------------------------------------------------------------------
 
@@ -87,7 +90,9 @@ func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool]
 # ProtoArray routines
 # ----------------------------------------------------------------------
 
-func init*(T: type ProtoArray, checkpoints: FinalityCheckpoints): T =
+func init*(
+    T: type ProtoArray, checkpoints: FinalityCheckpoints,
+    hasLowParticipation: bool): T =
   let node = ProtoNode(
     root: checkpoints.finalized.root,
     parent: none(int),
@@ -96,9 +101,28 @@ func init*(T: type ProtoArray, checkpoints: FinalityCheckpoints): T =
     bestChild: none(int),
     bestDescendant: none(int))
 
-  T(checkpoints: checkpoints,
+  T(hasLowParticipation: hasLowParticipation,
+    checkpoints: checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.root: 0}.toTable())
+
+iterator realizePendingCheckpoints*(
+    self: var ProtoArray, resetTipTracking = true): FinalityCheckpoints =
+  # Pull-up chain tips from previous epoch
+  for idx, unrealized in self.currentEpochTips.pairs():
+    let physicalIdx = idx - self.nodes.offset
+    if unrealized != self.nodes.buf[physicalIdx].checkpoints:
+      trace "Pulling up chain tip",
+        blck = self.nodes.buf[physicalIdx].root,
+        checkpoints = self.nodes.buf[physicalIdx].checkpoints,
+        unrealized
+      self.nodes.buf[physicalIdx].checkpoints = unrealized
+
+    yield unrealized
+
+  # Reset tip tracking for new epoch
+  if resetTipTracking:
+    self.currentEpochTips.clear()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/fork-choice.md#configuration
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
@@ -124,6 +148,7 @@ func calculateProposerBoost(validatorBalances: openArray[Gwei]): int64 =
 
 func applyScoreChanges*(self: var ProtoArray,
                         deltas: var openArray[Delta],
+                        currentEpoch: Epoch,
                         checkpoints: FinalityCheckpoints,
                         newBalances: openArray[Gwei],
                         proposerBoostRoot: Eth2Digest): FcResult[void] =
@@ -148,7 +173,13 @@ func applyScoreChanges*(self: var ProtoArray,
       deltasLen: deltas.len,
       indicesLen: self.indices.len)
 
+  self.currentEpoch = currentEpoch
   self.checkpoints = checkpoints
+
+  # If previous epoch is justified, pull up all current tips to previous epoch
+  if self.hasLowParticipation and self.isPreviousEpochJustified:
+    for realized in self.realizePendingCheckpoints(resetTipTracking = false):
+      discard
 
   ## Alias
   # This cannot raise the IndexError exception, how to tell compiler?
@@ -299,21 +330,6 @@ func onBlock*(self: var ProtoArray,
   ? self.maybeUpdateBestChildAndDescendant(parentIdx, nodeLogicalIdx)
 
   ok()
-
-iterator realizePendingCheckpoints*(self: var ProtoArray): FinalityCheckpoints =
-  # Pull-up chain tips from previous epoch
-  for idx, unrealized in self.currentEpochTips.pairs():
-    let physicalIdx = idx - self.nodes.offset
-    trace "Pulling up chain tip",
-      blck = self.nodes.buf[physicalIdx].root,
-      checkpoints = self.nodes.buf[physicalIdx].checkpoints,
-      unrealized
-    self.nodes.buf[physicalIdx].checkpoints = unrealized
-
-    yield unrealized
-
-  # Reset tip tracking for new epoch
-  self.currentEpochTips.clear()
 
 func findHead*(self: var ProtoArray,
                head: var Eth2Digest,
@@ -518,7 +534,14 @@ func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool] =
 func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
   ## This is the equivalent of `filter_block_tree` function in eth2 spec
   ## https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/fork-choice.md#filter_block_tree
-  ##
+  if self.hasLowParticipation:
+    if node.checkpoints.justified.epoch < self.checkpoints.justified.epoch:
+      return false
+    if self.isPreviousEpochJustified:
+      return true
+    return node.checkpoints.finalized == self.checkpoints.finalized or
+      self.checkpoints.finalized.epoch == GENESIS_EPOCH
+
   ## Any node that has a different finalized or justified epoch
   ## should not be viable for the head.
   (
