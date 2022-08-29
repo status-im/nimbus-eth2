@@ -119,7 +119,7 @@ proc syncCommitteeRootForPeriod(
   dag.withUpdatedExistingState(tmpState, bsi) do:
     withState(state):
       when stateFork >= BeaconStateFork.Altair:
-        ok state.syncCommitteeRoot
+        ok forkyState.syncCommitteeRoot
       else: raiseAssert "Unreachable"
   do: err()
 
@@ -208,7 +208,7 @@ proc initLightClientBootstrapForPeriod(
         continue
       let branch = withState(tmpState[]):
         when stateFork >= BeaconStateFork.Altair:
-          state.data.build_proof(altair.CURRENT_SYNC_COMMITTEE_INDEX).get
+          forkyState.data.build_proof(altair.CURRENT_SYNC_COMMITTEE_INDEX).get
         else: raiseAssert "Unreachable"
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(bid.slot, branch)
   res
@@ -322,7 +322,7 @@ proc initLightClientUpdateForPeriod(
         dag.withUpdatedExistingState(tmpState[], attestedBid.atSlot) do:
           withState(state):
             when stateFork >= BeaconStateFork.Altair:
-              state.data.finalized_checkpoint.epoch
+              forkyState.data.finalized_checkpoint.epoch
             else: raiseAssert "Unreachable"
         do:
           dag.handleUnexpectedLightClientError(attestedBid.slot)
@@ -615,7 +615,7 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
     return
   withState(dag.headState):
     when stateFork >= BeaconStateFork.Altair:
-      dag.cacheLightClientData(state, dag.head.bid)
+      dag.cacheLightClientData(forkyState, dag.head.bid)
     else: raiseAssert "Unreachable" # `tailSlot` cannot be before Altair
   if dag.lcDataStore.importMode == LightClientDataImportMode.OnlyNew:
     return
@@ -748,7 +748,7 @@ proc processHeadChangeForLightClient*(dag: ChainDAGRef) =
           period, dag.lcDataStore.cache.pendingBest.getOrDefault(key))
     withState(dag.headState): # Common case separate to avoid `tmpState` copy
       when stateFork >= BeaconStateFork.Altair:
-        let key = (headPeriod, state.syncCommitteeRoot)
+        let key = (headPeriod, forkyState.syncCommitteeRoot)
         dag.lcDataStore.db.putBestUpdate(
           headPeriod, dag.lcDataStore.cache.pendingBest.getOrDefault(key))
       else: raiseAssert "Unreachable" # `tailSlot` cannot be before Altair
@@ -845,7 +845,8 @@ proc getLightClientBootstrap*(
           dag.withUpdatedExistingState(tmpState[], bsi) do:
             branch = withState(state):
               when stateFork >= BeaconStateFork.Altair:
-                state.data.build_proof(altair.CURRENT_SYNC_COMMITTEE_INDEX).get
+                forkyState.data.build_proof(
+                  altair.CURRENT_SYNC_COMMITTEE_INDEX).get
               else: raiseAssert "Unreachable"
           do: return err()
           dag.lcDataStore.db.putCurrentSyncCommitteeBranch(slot, branch)

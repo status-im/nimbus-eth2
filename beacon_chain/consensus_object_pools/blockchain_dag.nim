@@ -143,7 +143,7 @@ template is_merge_transition_complete(
     stateParam: ForkedHashedBeaconState): bool =
   withState(stateParam):
     when stateFork >= BeaconStateFork.Bellatrix:
-      is_merge_transition_complete(state.data)
+      is_merge_transition_complete(forkyState.data)
     else:
       false
 
@@ -366,7 +366,7 @@ func init*(
     dependent_epoch =
       if epoch < 1: Epoch(0) else: epoch - 1
     attester_dependent_root =
-      withState(state): state.dependent_root(dependent_epoch)
+      withState(state): forkyState.dependent_root(dependent_epoch)
 
   ShufflingRef(
     epoch: epoch,
@@ -380,13 +380,15 @@ func init*(
     cache: var StateCache): T =
   let
     epoch = state.get_current_epoch()
-    proposer_dependent_root = withState(state): state.proposer_dependent_root
+    proposer_dependent_root = withState(state):
+      forkyState.proposer_dependent_root
     shufflingRef = dag.findShufflingRef(state.latest_block_id, epoch).valueOr:
       let tmp = ShufflingRef.init(state, cache, epoch)
       dag.putShufflingRef(tmp)
       tmp
 
-    attester_dependent_root = withState(state): state.attester_dependent_root
+    attester_dependent_root = withState(state):
+      forkyState.attester_dependent_root
     epochRef = EpochRef(
       key: dag.epochAncestor(state.latest_block_id, epoch),
 
@@ -703,7 +705,7 @@ proc putState(dag: ChainDAGRef, state: ForkedHashedBeaconState, bid: BlockId) =
   # transaction to prevent database inconsistencies, but the state loading code
   # is resilient against one or the other going missing
   withState(state):
-    dag.db.putState(state)
+    dag.db.putState(forkyState)
 
   debug "Stored state", putStateDur = Moment.now() - startTick
 
@@ -733,9 +735,10 @@ proc advanceSlots*(
       # in the monitor. This may be inaccurate during a deep reorg (>1 epoch)
       # which is an acceptable tradeoff for monitoring.
       withState(state):
-        let postEpoch = state.data.slot.epoch
+        let postEpoch = forkyState.data.slot.epoch
         if preEpoch != postEpoch:
-          dag.validatorMonitor[].registerEpochInfo(postEpoch, info, state.data)
+          dag.validatorMonitor[].registerEpochInfo(
+            postEpoch, info, forkyState.data)
 
 proc applyBlock(
     dag: ChainDAGRef, state: var ForkedHashedBeaconState, bid: BlockId,
@@ -772,8 +775,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            lcDataConfig = default(LightClientDataConfig)): ChainDAGRef =
   cfg.checkForkConsistency()
 
-  doAssert updateFlags - {strictVerification, enableTestFeatures} == {},
-    "Other flags not supported in ChainDAG"
+  doAssert updateFlags - {
+      strictVerification, enableTestFeatures, lowParticipation
+    } == {}, "Other flags not supported in ChainDAG"
 
   # TODO we require that the db contains both a head and a tail block -
   #      asserting here doesn't seem like the right way to go about it however..
@@ -800,7 +804,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
       # The only allowed flag right now is strictVerification, as the others all
       # allow skipping some validation.
-      updateFlags: {strictVerification, enableTestFeatures} * updateFlags,
+      updateFlags: updateFlags * {
+        strictVerification, enableTestFeatures, lowParticipation
+      },
       cfg: cfg,
 
       vanityLogs: vanityLogs,
@@ -1233,7 +1239,7 @@ proc updateState*(
   let
     startTick = Moment.now()
     current {.used.} = withState(state):
-      BlockSlotId.init(state.latest_block_id, state.data.slot)
+      BlockSlotId.init(forkyState.latest_block_id, forkyState.data.slot)
 
   var
     ancestors: seq[BlockId]
@@ -1361,7 +1367,7 @@ proc updateState*(
   let
     assignTick = Moment.now()
     ancestor {.used.} = withState(state):
-      BlockSlotId.init(state.latest_block_id, state.data.slot)
+      BlockSlotId.init(forkyState.latest_block_id, forkyState.data.slot)
     ancestorRoot {.used.} = getStateRoot(state)
 
   var info: ForkedEpochInfo
@@ -1576,7 +1582,7 @@ func syncCommitteeParticipants*(dag: ChainDAGRef,
     when stateFork >= BeaconStateFork.Altair:
       let
         period = sync_committee_period(slot)
-        curPeriod = sync_committee_period(state.data.slot)
+        curPeriod = sync_committee_period(forkyState.data.slot)
 
       if period == curPeriod:
         @(dag.headSyncCommittees.current_sync_committee)
@@ -1606,7 +1612,7 @@ func getSubcommitteePositions*(
     when stateFork >= BeaconStateFork.Altair:
       let
         period = sync_committee_period(slot)
-        curPeriod = sync_committee_period(state.data.slot)
+        curPeriod = sync_committee_period(forkyState.data.slot)
 
       template search(syncCommittee: openArray[ValidatorIndex]): seq[uint64] =
         dag.getSubcommitteePositionsAux(
@@ -1769,7 +1775,7 @@ proc updateHead*(
 
   withState(dag.headState):
     when stateFork >= BeaconStateFork.Altair:
-      dag.headSyncCommittees = state.data.get_sync_committee_cache(cache)
+      dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
   let
     finalized_checkpoint =
@@ -1822,8 +1828,9 @@ proc updateHead*(
     if not(isNil(dag.onHeadChanged)):
       let
         currentEpoch = epoch(newHead.slot)
-        depRoot = withState(dag.headState): state.proposer_dependent_root
-        prevDepRoot = withState(dag.headState): state.attester_dependent_root
+        depRoot = withState(dag.headState): forkyState.proposer_dependent_root
+        prevDepRoot = withState(dag.headState):
+          forkyState.attester_dependent_root
         epochTransition = (finalizedHead != dag.finalizedHead)
         # TODO (cheatfate): Proper implementation required
         data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
@@ -1837,7 +1844,7 @@ proc updateHead*(
     # state-related metrics change - notify the validator monitor.
     # Doing this update during head update ensures there's a reasonable number
     # of such updates happening - at most once per valid block.
-    dag.validatorMonitor[].registerState(state.data)
+    dag.validatorMonitor[].registerState(forkyState.data)
 
   if finalizedHead != dag.finalizedHead:
     debug "Reached new finalization checkpoint",
@@ -2180,10 +2187,10 @@ proc rebuildIndex*(dag: ChainDAGRef) =
       dag.updateFlags).expect("process_slots shouldn't fail when state slot is correct")
 
     withState(state[]):
-      dag.db.putState(state)
+      dag.db.putState(forkyState)
       dag.db.checkpoint()
 
-      state_root = state.root
+      state_root = forkyState.root
 
   # Now that we have states all the way to genesis, we can adjust the tail
   # and readjust the in-memory indices to what they would look like if we had
