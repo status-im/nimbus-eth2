@@ -210,12 +210,19 @@ template validateBeaconBlockBellatrix(
       quarantine[].addUnviable(signed_beacon_block.root)
       return errReject("BeaconBlock: mismatched execution payload timestamp")
 
-    if signed_beacon_block.message.parent_root in dag.optimisticRoots:
-      # Definitely don't mark this as unviable.
-      # [REJECT] The block's parent (defined by `block.parent_root`) passes all
-      # validation (excluding execution node verification of the
-      # `block.body.execution_payload`).
-      return errReject("BeaconBlock: execution payload would build on optimistic parent")
+  # The condition:
+  # [REJECT] The block's parent (defined by `block.parent_root`) passes all
+  # validation (excluding execution node verification of the
+  # `block.body.execution_payload`).
+  # is handled implicitly already as a `REJECT`, because by the time
+  # validateBeaconBlockBellatrix() is called, it's already confirmed that there
+  # exists a BlockRef for the parent, i.e. it was a valid block, excluding that
+  # execution node verification of `block.body.execution_payload`, so it'd show
+  # up as a missing parent error.
+  #
+  # The DAG only contains CL-verified blocks, which implies this condition. The
+  # blocks might not be EL-verified, but that's not required here, so it is not
+  # possible for this condition to fail at this point.
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/bellatrix/p2p-interface.md#beacon_block
