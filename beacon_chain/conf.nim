@@ -484,6 +484,12 @@ type
         defaultValue: true # the use of the nimbus_signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
         name: "in-process-validators" .}: bool
 
+      debugForkChoice* {.
+        hidden
+        desc: "Enable debug API for fork choice (https://github.com/ethereum/beacon-APIs/pull/232)"
+        defaultValue: false
+        name: "debug-fork-choice" .}: bool
+
       discv5Enabled* {.
         desc: "Enable Discovery v5"
         defaultValue: true
