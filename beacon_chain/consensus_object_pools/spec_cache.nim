@@ -99,28 +99,38 @@ iterator get_attesting_indices*(
     let
       slot =
         check_attestation_slot_target(attestation.data).valueOr:
-          warn "Invalid attestation slot"
+          warn "Invalid attestation slot in trusted attestation",
+            attestation = shortLog(attestation.data)
           doAssert strictVerification notin dag.updateFlags
           break
       blck =
         dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
-          # Attestation block unknown
+          # Attestation block unknown - this is fairly common because we
+          # discard alternative histories on restart
           break
       target =
         blck.atCheckpoint(attestation.data.target).valueOr:
-          warn "Invalid attestation target"
+          warn "Unknown attestation target in trusted attestation",
+            blck = shortLog(blck),
+            attestation = shortLog(attestation.data)
           doAssert strictVerification notin dag.updateFlags
           break
       shufflingRef =
         dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
-          warn "Attestation shuffling not found"
+          warn "Attestation shuffling not found",
+            blck = shortLog(blck),
+            attestation = shortLog(attestation.data)
+
           doAssert strictVerification notin dag.updateFlags
           break
 
       committeesPerSlot = get_committee_count_per_slot(shufflingRef)
       committeeIndex =
         CommitteeIndex.init(attestation.data.index, committeesPerSlot).valueOr:
-          warn "Unexpected committee index in block attestation"
+          warn "Unexpected committee index in trusted attestation",
+            blck = shortLog(blck),
+            attestation = shortLog(attestation.data)
+
           doAssert strictVerification notin dag.updateFlags
           break
 
