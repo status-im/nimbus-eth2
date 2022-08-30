@@ -139,7 +139,7 @@ func validatorKey*(
   ## non-head branch)!
   dag.db.immutableValidators.load(index)
 
-template is_merge_transition_complete(
+template is_merge_transition_complete*(
     stateParam: ForkedHashedBeaconState): bool =
   withState(stateParam):
     when stateFork >= BeaconStateFork.Bellatrix:
