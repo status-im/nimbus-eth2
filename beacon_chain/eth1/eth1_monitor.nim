@@ -573,6 +573,7 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
       finalizedBlockHash: finalizedBlock.asBlockHash),
     none(engine_api.PayloadAttributesV1))
 
+
 proc forkchoiceUpdated*(p: Eth1Monitor,
                         headBlock, safeBlock, finalizedBlock: Eth2Digest,
                         timestamp: uint64,

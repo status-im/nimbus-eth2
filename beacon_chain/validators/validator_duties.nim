@@ -315,6 +315,11 @@ proc getBlockProposalEth1Data*(node: BeaconNode,
       finalizedEpochRef.eth1_deposit_index)
 
 from web3/engine_api import ForkchoiceUpdatedResponse
+from web3/engine_api_types import PayloadExecutionStatus, PayloadID
+
+
+converter to_buf(payload_id: engine_api_types.PayloadID): array[8, byte] =
+  return array[8, byte](payload_id)
 
 # TODO: This copies the entire BeaconState on each call
 proc forkchoice_updated(state: bellatrix.BeaconState,
@@ -347,7 +352,7 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
     payloadId = forkchoiceResponse.payloadId
 
   return if payloadId.isSome:
-    some(payloadId.get())
+    some(bellatrix.PayloadID(buf: payloadId.get()))
   else:
     none(bellatrix.PayloadID)
 
@@ -371,7 +376,7 @@ proc forkchoice_updated(state: capella.BeaconState,
     payloadId = forkchoiceResponse.payloadId
 
   return if payloadId.isSome:
-    some(payloadId.get())
+    some(capella.PayloadID(buf: payloadId.get()))
   else:
     none(capella.PayloadID)
 
@@ -383,8 +388,8 @@ proc get_execution_payload(
     default(bellatrix.ExecutionPayload)
   else:
     asConsensusExecutionPayload(
-      payload_id,
-      await execution_engine.getPayload(payload_id.get))
+      payload_id.get(),
+      await execution_engine.getPayload(payload_id.get()))
 
 proc get_execution_payload(
     payload_id: Option[capella.PayloadID], execution_engine: Eth1Monitor):
@@ -394,7 +399,7 @@ proc get_execution_payload(
     default(capella.ExecutionPayload)
   else:
     asConsensusExecutionPayload(
-      payload_id,
+      payload_id.get(),
       await execution_engine.getPayload(payload_id.get))
 
 # TODO remove in favor of consensusManager copy
@@ -498,7 +503,6 @@ proc getExecutionPayload(
           beacon_block_payload_errors.inc()
           warn "Getting execution payload from Engine API failed",
                 payload_id, err = err.msg
-
           empty_execution_payload
 
       executionPayloadStatus =
