@@ -2542,6 +2542,11 @@ proc broadcastBeaconBlock*(
   node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(
+    node: Eth2Node, blck: capella.SignedBeaconBlock): Future[SendResult] =
+  let topic = getBeaconBlocksTopic(node.forkDigests.capella)
+  node.broadcast(topic, blck)
+
+proc broadcastBeaconBlock*(
     node: Eth2Node, forked: ForkedSignedBeaconBlock): Future[SendResult] =
   withBlck(forked): node.broadcastBeaconBlock(blck)
 

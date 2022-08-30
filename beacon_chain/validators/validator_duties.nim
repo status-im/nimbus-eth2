@@ -347,7 +347,7 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
     payloadId = forkchoiceResponse.payloadId
 
   return if payloadId.isSome:
-    some(bellatrix.PayloadID(payloadId.get))
+    some(payloadId.get())
   else:
     none(bellatrix.PayloadID)
 
@@ -371,7 +371,7 @@ proc forkchoice_updated(state: capella.BeaconState,
     payloadId = forkchoiceResponse.payloadId
 
   return if payloadId.isSome:
-    some(capella.PayloadID(payloadId.get))
+    some(payloadId.get())
   else:
     none(capella.PayloadID)
 
