@@ -430,7 +430,7 @@ proc getExecutionPayload(
     epoch: Epoch,
     validator_index: ValidatorIndex,
     pubkey: ValidatorPubKey):
-    Future[Opt[ExecutionPayload]] {.async.} =
+    Future[bellatrix.ExecutionPayload | capella.ExecutionPayload] {.async.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
 
   # Only current hardfork with execution payloads is Bellatrix & Capella
@@ -530,7 +530,10 @@ proc makeBeaconBlockForHeadAndSlot*(
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
-    execution_payload: Opt[ExecutionPayload] = Opt.none(ExecutionPayload),
+    execution_payload:
+      Opt[bellatrix.ExecutionPayload] | Opt[capella.ExecutionPayload]
+        = Opt.none(bellatrix.ExecutionPayload),
+
     transactions_root: Opt[Eth2Digest] = Opt.none(Eth2Digest),
     execution_payload_root: Opt[Eth2Digest] = Opt.none(Eth2Digest)):
     Future[ForkedBlockResult] {.async.} =
@@ -662,7 +665,9 @@ proc makeBeaconBlockForHeadAndSlot*(
 proc getBlindedExecutionPayload(
     node: BeaconNode, slot: Slot, executionBlockRoot: Eth2Digest,
     pubkey: ValidatorPubKey):
-    Future[Result[ExecutionPayloadHeader, cstring]] {.async.} =
+    Future[
+      Result[bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader, cstring]
+    ] {.async.} =
   if node.payloadBuilderRestClient.isNil:
     return err "getBlindedBeaconBlock: nil REST client"
 
