@@ -570,69 +570,66 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
           blck.message.is_execution_block
 
       executionPayloadStatus =
-       if hasExecutionPayload:
-         # Eth1 syncing is asynchronous from this
-         # TODO self.consensusManager.eth1Monitor.terminalBlockHash.isSome
-         # should gate this when it works more reliably
-         # TODO detect have-TTD-but-not-is_execution_block case, and where
-         # execution payload was non-zero when TTD detection more reliable
-         when true:
-           # When an execution engine returns an error or fails to respond to a
-           # payload validity request for some block, a consensus engine:
-           # - MUST NOT optimistically import the block.
-           # - MUST NOT apply the block to the fork choice store.
-           # - MAY queue the block for later processing.
-           # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#execution-engine-errors
-           template reEnqueueBlock: untyped =
-             await sleepAsync(chronos.seconds(1))
-             self[].addBlock(
-               blck.src, blck.blck, blck.resfut, blck.validationDur)
+        if hasExecutionPayload:
+          # When an execution engine returns an error or fails to respond to a
+          # payload validity request for some block, a consensus engine:
+          # - MUST NOT optimistically import the block.
+          # - MUST NOT apply the block to the fork choice store.
+          # - MAY queue the block for later processing.
+          # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#execution-engine-errors
+          template reEnqueueBlock: untyped =
+            await sleepAsync(chronos.seconds(1))
+            self[].addBlock(
+              blck.src, blck.blck, blck.resfut, blck.validationDur)
 
-           try:
-             # Minimize window for Eth1 monitor to shut down connection
-             await self.consensusManager.eth1Monitor.ensureDataProvider()
+          # Eth1 syncing is asynchronous from this
+          # TODO self.consensusManager.eth1Monitor.terminalBlockHash.isSome
+          # should gate this when it works more reliably
+          # TODO detect have-TTD-but-not-is_execution_block case, and where
+          # execution payload was non-zero when TTD detection more reliable
+          try:
+            # Minimize window for Eth1 monitor to shut down connection
+            await self.consensusManager.eth1Monitor.ensureDataProvider()
 
-             let executionPayload =
-               withBlck(blck.blck):
-                 when stateFork >= BeaconStateFork.Bellatrix:
-                   blck.message.body.execution_payload
-                 else:
-                   # Unreachable
-                   doAssert false
-                   default(bellatrix.ExecutionPayload) # satisfy Nim
+            withBlck(blck.blck):
+              when stateFork < BeaconStateFork.Bellatrix:
+                # Move to catchable block
+                raise newException(ValueError, "StateFork version is not supported!")
 
-             let executionPayloadStatus = await newExecutionPayload(
-               self.consensusManager.eth1Monitor, executionPayload)
-             if executionPayloadStatus.isNone:
-               reEnqueueBlock()
-               continue
+              else:
+                let executionPayload = blck.message.body.execution_payload
+                await newExecutionPayload(self.consensusManager.eth1Monitor, executionPayload)
 
-             executionPayloadStatus.get
-           except CatchableError as err:
-             error "runQueueProcessingLoop: newPayload failed", err = err.msg
-             reEnqueueBlock()
-             continue
-         else:
-           debug "runQueueProcessingLoop: got execution payload before TTD"
-           PayloadExecutionStatus.syncing
-       else:
-         # Vacuously
-         PayloadExecutionStatus.valid
+          except CatchableError as err:
+            info "runQueueProcessingLoop: newPayload failed",
+              err = err.msg
+            # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#execution-engine-errors
+            if not blck.resfut.isNil:
+              blck.resfut.complete(Result[void, BlockError].err(BlockError.MissingParent))
+            continue
+
+        else:
+          # Vacuously
+          PayloadExecutionStatus.valid
 
     if executionPayloadStatus in static([
         PayloadExecutionStatus.invalid,
         PayloadExecutionStatus.invalid_block_hash]):
+
       debug "runQueueProcessingLoop: execution payload invalid",
         executionPayloadStatus,
         blck = shortLog(blck.blck)
+
       self.consensusManager.dag.markBlockInvalid(blck.blck.root)
       self.consensusManager.quarantine[].addUnviable(blck.blck.root)
+
       # Every loop iteration ends with some version of blck.resfut.complete(),
       # including processBlock(), otherwise the sync manager stalls.
       if not blck.resfut.isNil:
         blck.resfut.complete(Result[void, BlockError].err(BlockError.Invalid))
+
     else:
-      if  executionPayloadStatus == PayloadExecutionStatus.valid or
+      if executionPayloadStatus == PayloadExecutionStatus.valid or
           self[].is_optimistic_candidate_block(blck.blck):
         self[].processBlock(
           blck,
