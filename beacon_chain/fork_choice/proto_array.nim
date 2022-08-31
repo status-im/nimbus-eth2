@@ -12,7 +12,7 @@ else:
 
 import
   # Standard library
-  std/[options, tables, typetraits],
+  std/[tables, typetraits],
   # Status libraries
   chronicles,
   stew/results,

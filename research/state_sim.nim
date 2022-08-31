@@ -110,10 +110,10 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
           slot = forkyState.data.slot
           epoch = slot.epoch
           committees_per_slot =
-            get_committee_count_per_slot(state.data, epoch, cache)
+            get_committee_count_per_slot(forkyState.data, epoch, cache)
         for committee_index in get_committee_indices(committees_per_slot):
           let committee = get_beacon_committee(
-            state.data, slot, committee_index, cache)
+            forkyState.data, slot, committee_index, cache)
           var
             attestation = Attestation(
               aggregation_bits: CommitteeValidatorsBits.init(committee.len),

@@ -538,11 +538,11 @@ type
         defaultValue: false
         name: "validator-monitor-totals" .}: bool
 
-      # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#fork-choice-poisoning
+      # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#fork-choice-poisoning
       safeSlotsToImportOptimistically* {.
         hidden
         desc: "Modify SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY"
-        # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#constants
+        # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#constants
         defaultValue: 128
         name: "safe-slots-to-import-optimistically" .}: uint16
 

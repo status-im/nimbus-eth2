@@ -1954,21 +1954,22 @@ proc preInit*(
   let genesisBlockRoot = withState(genesisState):
     if forkyState.root != getStateRoot(tailState):
       # Different tail and genesis
-      if state.data.slot >= getStateField(tailState, slot):
+      if forkyState.data.slot >= getStateField(tailState, slot):
         fatal "Tail state must be newer or the same as genesis state"
         quit 1
 
       let tail_genesis_validators_root =
         getStateField(tailState, genesis_validators_root)
-      if state.data.genesis_validators_root != tail_genesis_validators_root:
+      if  forkyState.data.genesis_validators_root !=
+          tail_genesis_validators_root:
         fatal "Tail state doesn't match genesis validators root, it is likely from a different network!",
-          genesis_validators_root = shortLog(state.data.genesis_validators_root),
+          genesis_validators_root = shortLog(forkyState.data.genesis_validators_root),
           tail_genesis_validators_root = shortLog(tail_genesis_validators_root)
         quit 1
 
-      let blck = get_initial_beacon_block(state)
+      let blck = get_initial_beacon_block(forkyState)
       db.putBlock(blck)
-      db.putState(state)
+      db.putState(forkyState)
 
       db.putGenesisBlock(blck.root)
 
@@ -1984,14 +1985,14 @@ proc preInit*(
       # BlockSlot->state_root map, so the only way the init code can find the
       # state is through the state root in the block - this could be relaxed
       # down the line
-      if blck.message.state_root != state.root:
+      if blck.message.state_root != forkyState.root:
         fatal "State must match the given block",
             tailBlck = shortLog(blck)
 
         quit 1
 
       db.putBlock(blck)
-      db.putState(state)
+      db.putState(forkyState)
 
       db.putTailBlock(blck.root)
       db.putHeadBlock(blck.root)
@@ -2001,8 +2002,8 @@ proc preInit*(
         genesisStateRoot = shortLog(getStateRoot(genesisState)),
         tailBlockRoot = shortLog(blck.root),
         tailStateRoot = shortLog(state.root),
-        fork = state.data.fork,
-        validators = state.data.validators.len()
+        fork = forkyState.data.fork,
+        validators = forkyState.data.validators.len()
 
 proc getProposer*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot): Option[ValidatorIndex] =

@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[options, tables],
+  std/tables,
   metrics, chronicles,
   ../spec/[beaconstate, forks, helpers],
   ../beacon_clock

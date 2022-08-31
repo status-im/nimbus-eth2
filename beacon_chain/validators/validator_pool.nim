@@ -274,7 +274,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
             fork, genesis_validators_root, web3SignerBlock)
         await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
                               data: AttestationData
@@ -391,7 +391,7 @@ proc getEpochSignature*(v: AttachedValidator, fork: Fork,
         fork, genesis_validators_root, epoch)
       await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#aggregation-selection
 proc getSlotSignature*(v: AttachedValidator, fork: Fork,
                        genesis_validators_root: Eth2Digest, slot: Slot
                       ): Future[SignatureResult] {.async.} =
