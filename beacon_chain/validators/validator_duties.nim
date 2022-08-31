@@ -433,10 +433,7 @@ proc getExecutionPayload(
             latestHead, latestSafe, latestFinalized,
             timestamp,
             feeRecipient,
-            cachedHeadBlockRoot = lastFcU.get.headBlockRoot,
-            cachedFinalizedBlockRoot = lastFcU.get.finalizedBlockRoot,
-            cachedTimestamp = lastFcU.get.timestamp,
-            cachedFeeRecipient = lastFcU.get.feeRecipient
+            cachedForkchoiceUpdateInformation = lastFcU
 
           (await forkchoice_updated(
            proposalState.bellatrixData.data,
