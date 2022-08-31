@@ -368,7 +368,7 @@ proc check_voluntary_exit*(
     signed_voluntary_exit: SomeSignedVoluntaryExit;
     flags: UpdateFlags): Result[ValidatorIndex, cstring] =
   withState(state):
-    check_voluntary_exit(cfg, state.data, signed_voluntary_exit, flags)
+    check_voluntary_exit(cfg, forkyState.data, signed_voluntary_exit, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
