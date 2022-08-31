@@ -63,11 +63,11 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
         write(stdout, ".")
 
       if last:
-        withState(state[]): writeJson("state.json", state.data)
+        withState(state[]): writeJson("state.json", forkyState.data)
     else:
       withState(state[]):
-        if state.data.slot mod json_interval.uint64 == 0:
-          writeJson(jsonName(prefix, state.data.slot), state.data)
+        if forkyState.data.slot mod json_interval.uint64 == 0:
+          writeJson(jsonName(prefix, forkyState.data.slot), forkyState.data)
           write(stdout, ":")
         else:
           write(stdout, ".")
@@ -107,7 +107,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
 
       withState(state[]):
         let
-          slot = state.data.slot
+          slot = forkyState.data.slot
           epoch = slot.epoch
           committees_per_slot =
             get_committee_count_per_slot(state.data, epoch, cache)

@@ -1952,7 +1952,7 @@ proc preInit*(
     tailStateSlot = getStateField(tailState, slot)
 
   let genesisBlockRoot = withState(genesisState):
-    if state.root != getStateRoot(tailState):
+    if forkyState.root != getStateRoot(tailState):
       # Different tail and genesis
       if state.data.slot >= getStateField(tailState, slot):
         fatal "Tail state must be newer or the same as genesis state"

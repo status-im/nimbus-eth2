@@ -23,7 +23,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[algorithm, options, sequtils, sets, tables],
+  std/[algorithm, sequtils, sets, tables],
   chronicles, metrics,
   ../extras,
   ./datatypes/[phase0, altair, bellatrix],
@@ -172,7 +172,7 @@ proc check_proposer_slashing*(
     state: var ForkedHashedBeaconState; proposer_slashing: SomeProposerSlashing;
     flags: UpdateFlags): Result[ValidatorIndex, cstring] =
   withState(state):
-    check_proposer_slashing(state.data, proposer_slashing, flags)
+    check_proposer_slashing(forkyState.data, proposer_slashing, flags)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(

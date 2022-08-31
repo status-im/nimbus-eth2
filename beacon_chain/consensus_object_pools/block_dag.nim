@@ -11,7 +11,6 @@ else:
   {.push raises: [].}
 
 import
-  std/options,
   chronicles,
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/forks

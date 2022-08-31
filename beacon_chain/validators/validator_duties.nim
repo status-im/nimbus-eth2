@@ -1280,6 +1280,8 @@ proc getValidatorRegistration(
 
   return ok validatorRegistration
 
+from std/sequtils import toSeq
+
 proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
   try:
     if  (not node.config.payloadBuilderEnable) or
@@ -1303,10 +1305,20 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
         builderStatus = restBuilderStatus
       return
 
-    # TODO cache the generated registrations and keep resending the previous ones
+    # The async aspect of signing the registrations can cause the attached
+    # validators to change during the loop.
+    let attachedValidatorPubkeys =
+      toSeq(node.attachedValidators[].validators.keys)
+
     # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#validator-registration
     var validatorRegistrations: seq[SignedValidatorRegistrationV1]
-    for validator in node.attachedValidators[].validators.values:
+    for key in attachedValidatorPubkeys:
+      # Time passed during awaits; REST keymanager API might have removed it
+      if key notin node.attachedValidators[].validators:
+        continue
+
+      let validator = node.attachedValidators[].validators[key]
+
       if validator.index.isNone:
         continue
 
@@ -1321,14 +1333,23 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
             state.data.validators.item(validator.index.get).exit_epoch:
           continue
 
-      let validatorRegistration =
-        await node.getValidatorRegistration(validator, epoch)
-      if validatorRegistration.isErr:
-        error "registerValidators: validatorRegistration failed",
-               validatorRegistration
-        continue
+      if validator.externalBuilderRegistration.isSome:
+        validatorRegistrations.add validator.externalBuilderRegistration.get
+      else:
+        let validatorRegistration =
+          await node.getValidatorRegistration(validator, epoch)
+        if validatorRegistration.isErr:
+          error "registerValidators: validatorRegistration failed",
+                 validatorRegistration
+          continue
 
-      validatorRegistrations.add validatorRegistration.get
+        # Time passed during await; REST keymanager API might have removed it
+        if key notin node.attachedValidators[].validators:
+          continue
+
+        node.attachedValidators[].validators[key].externalBuilderRegistration =
+          Opt.some validatorRegistration.get
+        validatorRegistrations.add validatorRegistration.get
 
     let registerValidatorResult =
       awaitWithTimeout(node.payloadBuilderRestClient.registerValidator(validatorRegistrations),
