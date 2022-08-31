@@ -20,6 +20,7 @@ from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
 from ../validators/keystore_management import
   KeymanagerHost, getSuggestedFeeRecipient
+from ../validators/validator_pool import ValidatorPool, getValidator
 
 type
   ForkChoiceUpdatedInformation* = object
@@ -47,6 +48,10 @@ type
     # ----------------------------------------------------------------
     eth1Monitor*: Eth1Monitor
 
+    # Allow determination of whether there's an upcoming proposal
+    # ----------------------------------------------------------------
+    attachedValidators*: ref ValidatorPool
+
     # Allow determination of preferred fee recipient during proposals
     # ----------------------------------------------------------------
     dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore
@@ -66,6 +71,7 @@ func new*(T: type ConsensusManager,
           attestationPool: ref AttestationPool,
           quarantine: ref Quarantine,
           eth1Monitor: Eth1Monitor,
+          attachedValidators: ref ValidatorPool,
           dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
           keymanagerHost: ref KeymanagerHost,
           defaultFeeRecipient: Eth1Address
@@ -75,6 +81,7 @@ func new*(T: type ConsensusManager,
     attestationPool: attestationPool,
     quarantine: quarantine,
     eth1Monitor: eth1Monitor,
+    attachedValidators: attachedValidators,
     dynamicFeeRecipientsStore: dynamicFeeRecipientsStore,
     keymanagerHost: keymanagerHost,
     forkchoiceUpdatedInfo: Opt.none ForkchoiceUpdatedInformation,
@@ -260,12 +267,22 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   self.updateHead(newHead.blck)
 
-proc checkNextProposer(dag: ChainDAGRef, slot: Slot):
+proc checkNextProposer(
+    dag: ChainDAGRef, attachedValidators: ref ValidatorPool, slot: Slot):
     Opt[(ValidatorIndex, ValidatorPubKey)] =
   let proposer = dag.getProposer(dag.head, slot + 1)
   if proposer.isNone():
     return Opt.none((ValidatorIndex, ValidatorPubKey))
-  Opt.some((proposer.get, dag.validatorKey(proposer.get).get().toPubKey))
+  let proposerKey = dag.validatorKey(proposer.get).get().toPubKey
+  if attachedValidators[].getValidator(proposerKey).isNil:
+    return Opt.none((ValidatorIndex, ValidatorPubKey))
+  Opt.some((proposer.get, proposerKey))
+
+proc checkNextProposer*(self: ref ConsensusManager):
+    Opt[(ValidatorIndex, ValidatorPubKey)] =
+  withState(self.dag.headState):
+    self.dag.checkNextProposer(
+      self.attachedValidators, forkyState.data.slot + 1)
 
 proc getFeeRecipient*(
     self: ref ConsensusManager, pubkey: ValidatorPubKey, validatorIdx: ValidatorIndex,
@@ -283,9 +300,10 @@ proc runProposalForkchoiceUpdated*(self: ref ConsensusManager) {.async.} =
   withState(self.dag.headState):
     let
       nextSlot = state.data.slot + 1
-      (validatorIndex, nextProposer) =
-        self.dag.checkNextProposer(nextSlot).valueOr:
-          return
+      (validatorIndex, nextProposer) = self.checkNextProposer().valueOr:
+        debug "runProposalForkchoiceUpdated: expected to be proposing next slot",
+          nextSlot
+        return
 
     # Approximately lines up with validator_duties version. Used optimistcally/
     # opportunistically, so mismatches are fine if not too frequent.
@@ -337,15 +355,16 @@ proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BeaconHead)
   # Grab the new head according to our latest attestation data
   try:
     # Ensure dag.updateHead has most current information
-    await self.updateExecutionClientHead(newHead)
+    if self.checkNextProposer().isNone:
+      # Next slot isn't anticipated to be proposed by this node
+      await self.updateExecutionClientHead(newHead)
+    else:
+      # This node should propose next slot, so start preparing payload
+      asyncSpawn self.runProposalForkchoiceUpdated()
 
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized
     self.dag.updateHead(newHead.blck, self.quarantine[])
-
-    # TODO after things stabilize with this, check for upcoming proposal and
-    # don't bother sending first fcU, but initially, keep both in place
-    asyncSpawn self.runProposalForkchoiceUpdated()
 
     self[].checkExpectedBlock()
   except CatchableError as exc:

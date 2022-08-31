@@ -17,9 +17,10 @@ import
   ../sszdump
 
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, optimisticExecutionPayloadHash, runForkchoiceUpdated,
-  runForkchoiceUpdatedDiscardResult, runProposalForkchoiceUpdated,
-  shouldSyncOptimistically, updateHead, updateHeadWithExecution
+  ConsensusManager, checkNextProposer, optimisticExecutionPayloadHash,
+  runForkchoiceUpdated, runForkchoiceUpdatedDiscardResult,
+  runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
+  updateHeadWithExecution
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, slot
 from ../consensus_object_pools/block_pools_types import BlockError, EpochRef
@@ -328,13 +329,16 @@ proc storeBlock*(
         # be selected as head, so `VALID`. `forkchoiceUpdated` necessary for EL
         # client only.
         self.consensusManager[].updateHead(newHead.get.blck)
-        asyncSpawn eth1Monitor.expectValidForkchoiceUpdated(
-          headBlockRoot = headExecutionPayloadHash,
-          safeBlockRoot = newHead.get.safeExecutionPayloadHash,
-          finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
 
-        # TODO remove redundant fcU in case of proposal
-        asyncSpawn self.consensusManager.runProposalForkchoiceUpdated()
+        if self.consensusManager.checkNextProposer().isNone:
+          # No attached validator is next proposer, so use non-proposal fcU
+          asyncSpawn eth1Monitor.expectValidForkchoiceUpdated(
+            headBlockRoot = headExecutionPayloadHash,
+            safeBlockRoot = newHead.get.safeExecutionPayloadHash,
+            finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
+        else:
+          # Some attached validator is next proposer, so prepare payload
+          asyncSpawn self.consensusManager.runProposalForkchoiceUpdated()
       else:
         asyncSpawn self.consensusManager.updateHeadWithExecution(newHead.get)
   else:
