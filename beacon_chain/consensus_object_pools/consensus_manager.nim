@@ -360,7 +360,7 @@ proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BeaconHead)
       await self.updateExecutionClientHead(newHead)
     else:
       # This node should propose next slot, so start preparing payload
-      asyncSpawn self.runProposalForkchoiceUpdated()
+      await self.runProposalForkchoiceUpdated()
 
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized
