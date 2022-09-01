@@ -665,9 +665,7 @@ proc makeBeaconBlockForHeadAndSlot*(
 proc getBlindedExecutionPayload(
     node: BeaconNode, slot: Slot, executionBlockRoot: Eth2Digest,
     pubkey: ValidatorPubKey):
-    Future[
-      Result[bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader, cstring]
-    ] {.async.} =
+    Future[Result[bellatrix.ExecutionPayloadHeader, cstring]] {.async.} =
   if node.payloadBuilderRestClient.isNil:
     return err "getBlindedBeaconBlock: nil REST client"
 
@@ -679,14 +677,39 @@ proc getBlindedExecutionPayload(
   const httpOk = 200
   if blindedHeader.status != httpOk:
     return err "getBlindedExecutionPayload: non-200 HTTP response"
-  else:
-    if not verify_builder_signature(
-        node.dag.cfg.genesisFork, blindedHeader.data.data.message,
-        blindedHeader.data.data.message.pubkey,
-        blindedHeader.data.data.signature):
-      return err "getBlindedExecutionPayload: signature verification failed"
 
-    return ok blindedHeader.data.data.message.header
+  if not verify_builder_signature(
+    node.dag.cfg.genesisFork, blindedHeader.data.data.message,
+    blindedHeader.data.data.message.pubkey,
+    blindedHeader.data.data.signature):
+    return err "getBlindedExecutionPayload: signature verification failed"
+
+  return blindedHeader.data.data.message.header.ok()
+
+proc getBlindedExecutionPayload(
+    node: BeaconNode, slot: Slot, executionBlockRoot: Eth2Digest,
+    pubkey: ValidatorPubKey):
+    Future[Result[capella.ExecutionPayloadHeader, cstring]] {.async.} =
+  if node.payloadBuilderRestClient.isNil:
+    return err "getBlindedBeaconBlock: nil REST client"
+
+  let blindedHeader = await node.payloadBuilderRestClient.getHeader(
+    slot,
+    executionBlockRoot,
+    pubkey
+  )
+
+  const httpOk = 200
+  if blindedHeader.status != httpOk:
+    return err "getBlindedExecutionPayload: non-200 HTTP response"
+
+  if not verify_builder_signature(
+    node.dag.cfg.genesisFork, blindedHeader.data.data.message,
+    blindedHeader.data.data.message.pubkey,
+    blindedHeader.data.data.signature):
+    return err "getBlindedExecutionPayload: signature verification failed"
+
+  return blindedHeader.data.data.message.header.ok()
 
 import std/macros
 
