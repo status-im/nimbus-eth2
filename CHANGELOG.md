@@ -1,3 +1,20 @@
+2022-08-30 v22.8.2
+==================
+
+Nimbus `v22.8.2` is a `low-urgency` hotfix release, addressing a potential crash introduced in `v22.8.1` when
+producing blocks on a node with DEBUG logs enabled. If you don't run your node with DEBUG logging, you can safely skip this release.
+
+### Improvements:
+
+* Reduced CPU usage for validator registration when using an external builder:
+  https://github.com/status-im/nimbus-eth2/pull/4040
+
+### Fixes:
+
+* A potential crash during block production when DEBUG logging is enabled:
+  https://github.com/status-im/nimbus-eth2/pull/4054
+
+
 2022-08-30 v22.8.1
 ==================
 
