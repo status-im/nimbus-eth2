@@ -556,6 +556,8 @@ func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
   ) and (
     (node.checkpoints.finalized == self.checkpoints.finalized) or
     (self.checkpoints.finalized.epoch == GENESIS_EPOCH)
+  ) and (
+    not node.invalid
   )
 
 # Diagnostics

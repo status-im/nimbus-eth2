@@ -17,9 +17,10 @@ import
   ../sszdump
 
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, optimisticExecutionPayloadHash, runForkchoiceUpdated,
-  runForkchoiceUpdatedDiscardResult, runProposalForkchoiceUpdated,
-  shouldSyncOptimistically, updateHead, updateHeadWithExecution
+  ConsensusManager, markRootInvalid, optimisticExecutionPayloadHash,
+  runForkchoiceUpdated, runForkchoiceUpdatedDiscardResult,
+  runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
+  updateHeadWithExecution
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, slot
 from ../consensus_object_pools/block_pools_types import BlockError, EpochRef
@@ -328,6 +329,9 @@ proc storeBlock*(
         # be selected as head, so `VALID`. `forkchoiceUpdated` necessary for EL
         # client only.
         self.consensusManager[].updateHead(newHead.get.blck)
+
+        # TODO headBlockRoot isn't necessarily the new head, in which case fcU
+        # shouldn't be assumed to work
         asyncSpawn eth1Monitor.expectValidForkchoiceUpdated(
           headBlockRoot = headExecutionPayloadHash,
           safeBlockRoot = newHead.get.safeExecutionPayloadHash,
@@ -337,6 +341,7 @@ proc storeBlock*(
         asyncSpawn self.consensusManager.runProposalForkchoiceUpdated()
       else:
         asyncSpawn self.consensusManager.updateHeadWithExecution(newHead.get)
+	# TODO if invalid, mark newHead.root as invalid
   else:
     warn "Head selection failed, using previous head",
       head = shortLog(self.consensusManager.dag.head), wallSlot
@@ -422,6 +427,7 @@ proc processBlock(
       else: Result[void, BlockError].err(res.error()))
 
 from eth/async_utils import awaitWithTimeout
+from ../fork_choice/fork_choice import markInvalid
 from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
 
 proc newExecutionPayload*(
@@ -577,8 +583,9 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       debug "runQueueProcessingLoop: execution payload invalid",
         executionPayloadStatus,
         blck = shortLog(blck.blck)
-      self.consensusManager.dag.markBlockInvalid(blck.blck.root)
-      self.consensusManager.quarantine[].addUnviable(blck.blck.root)
+
+      self.consensusManager.markRootInvalid(blck.blck.root)
+
       # Every loop iteration ends with some version of blck.resfut.complete(),
       # including processBlock(), otherwise the sync manager stalls.
       if not blck.resfut.isNil:

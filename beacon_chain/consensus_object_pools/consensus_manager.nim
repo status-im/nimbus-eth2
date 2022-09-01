@@ -157,6 +157,8 @@ func setOptimisticHead*(
     bid: BlockId, execution_block_hash: Eth2Digest) =
   self.optimisticHead = (bid: bid, execution_block_hash: execution_block_hash)
 
+from ../fork_choice/fork_choice import markInvalid
+
 proc runForkchoiceUpdated*(
     eth1Monitor: Eth1Monitor,
     headBlockRoot, safeBlockRoot, finalizedBlockRoot: Eth2Digest):
@@ -204,8 +206,45 @@ proc runForkchoiceUpdatedDiscardResult*(
   discard await eth1Monitor.runForkchoiceUpdated(
     headBlockRoot, safeBlockRoot, finalizedBlockRoot)
 
-proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BeaconHead)
-    {.async.} =
+proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
+  ## Trigger fork choice and update the DAG with the new head block
+  ## This does not automatically prune the DAG after finalization
+  ## `pruneFinalized` must be called for pruning.
+
+  # Store the new head in the chain DAG - this may cause epochs to be
+  # justified and finalized
+  self.dag.updateHead(newHead, self.quarantine[])
+
+  self.checkExpectedBlock()
+
+proc updateHead(self: var ConsensusManager, wallSlot: Slot) =
+  ## Trigger fork choice and update the DAG with the new head block
+  ## This does not automatically prune the DAG after finalization
+  ## `pruneFinalized` must be called for pruning.
+
+  # Grab the new head according to our latest attestation data
+  let newHead = self.attestationPool[].selectOptimisticHead(
+      wallSlot.start_beacon_time).valueOr:
+    warn "Head selection failed, using previous head",
+      head = shortLog(self.dag.head), wallSlot
+    return
+
+  if self.dag.loadExecutionBlockRoot(newHead.blck).isZero:
+    # Blocks without execution payloads can't be optimistic.
+    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
+
+  self.updateHead(newHead.blck)
+
+proc markRootInvalid*(self: ref ConsensusManager, root: Eth2Digest) =
+  self.dag.markBlockInvalid(root)
+  self.attestationPool[].forkChoice.markInvalid(root)
+  self.quarantine[].addUnviable(root)
+
+from ../beacon_clock import GetBeaconTimeFn
+
+proc updateExecutionClientHead(
+    self: ref ConsensusManager, newHead: BeaconHead,
+    getBeaconTimeFn: GetBeaconTimeFn) {.async.} =
   if self.eth1Monitor.isNil:
     return
 
@@ -226,39 +265,10 @@ proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BeaconHead)
   of PayloadExecutionStatus.valid:
     self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
-    self.dag.markBlockInvalid(newHead.blck.root)
-    self.quarantine[].addUnviable(newHead.blck.root)
+    self.markRootInvalid(newHead.blck.root)
+    self[].updateHead(getBeaconTimeFn().slotOrZero)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
     self.dag.optimisticRoots.incl newHead.blck.root
-
-proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
-  ## Trigger fork choice and update the DAG with the new head block
-  ## This does not automatically prune the DAG after finalization
-  ## `pruneFinalized` must be called for pruning.
-
-  # Store the new head in the chain DAG - this may cause epochs to be
-  # justified and finalized
-  self.dag.updateHead(newHead, self.quarantine[])
-
-  self.checkExpectedBlock()
-
-proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
-  ## Trigger fork choice and update the DAG with the new head block
-  ## This does not automatically prune the DAG after finalization
-  ## `pruneFinalized` must be called for pruning.
-
-  # Grab the new head according to our latest attestation data
-  let newHead = self.attestationPool[].selectOptimisticHead(
-      wallSlot.start_beacon_time).valueOr:
-    warn "Head selection failed, using previous head",
-      head = shortLog(self.dag.head), wallSlot
-    return
-
-  if self.dag.loadExecutionBlockRoot(newHead.blck).isZero:
-    # Blocks without execution payloads can't be optimistic.
-    self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
-
-  self.updateHead(newHead.blck)
 
 proc checkNextProposer(dag: ChainDAGRef, slot: Slot):
     Opt[(ValidatorIndex, ValidatorPubKey)] =
@@ -328,8 +338,9 @@ proc runProposalForkchoiceUpdated*(self: ref ConsensusManager) {.async.} =
     except CatchableError as err:
       error "Engine API fork-choice update failed", err = err.msg
 
-proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BeaconHead)
-    {.async.} =
+proc updateHeadWithExecution*(
+    self: ref ConsensusManager, newHead: BeaconHead,
+    getBeaconTimeFn: GetBeaconTimeFn) {.async.} =
   ## Trigger fork choice and update the DAG with the new head block
   ## This does not automatically prune the DAG after finalization
   ## `pruneFinalized` must be called for pruning.
@@ -337,7 +348,7 @@ proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BeaconHead)
   # Grab the new head according to our latest attestation data
   try:
     # Ensure dag.updateHead has most current information
-    await self.updateExecutionClientHead(newHead)
+    await self.updateExecutionClientHead(newHead, getBeaconTimeFn)
 
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized

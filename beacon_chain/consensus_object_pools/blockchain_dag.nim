@@ -1526,8 +1526,19 @@ proc markBlockInvalid*(dag: ChainDAGRef, root: Eth2Digest) =
     doAssert strictVerification notin dag.updateFlags
     return
 
-  debug "markBlockInvalid"
-  dag.pruneBlockSlot(blck.atSlot())
+  # There can still be stray blocks in DAG, but fork choice won't select them
+  if blck.isAncestorOf(dag.head):
+    debug "markBlockInvalid"
+    var curBlck = dag.head
+    while true:
+      if curBlck == blck or curBlck.slot <= blck.slot:
+        break
+      dag.pruneBlockSlot(curBlck.atSlot())
+      curBlck = blck.parent
+    # TODO update head to parent and/or get head from fc
+  else:
+    debug "markBlockInvalid"
+    dag.pruneBlockSlot(blck.atSlot())
 
 proc markBlockVerified*(
     dag: ChainDAGRef, quarantine: var Quarantine, root: Eth2Digest) =
