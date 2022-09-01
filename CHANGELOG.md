@@ -1,3 +1,46 @@
+2022-08-30 v22.8.1
+==================
+
+Nimbus `v22.8.1` is a `high-urgency` upgrade, improving the stability and performance of Nimbus in post-merge networks. Upgrading is highly recommended due to improved timing of the interactions with the execution engine which may lead to higher profitability from block production, especially for users running Nethermind.
+
+### Improvements
+
+* More timely block proposals in the presence of a non-responsive builder node:
+  https://github.com/status-im/nimbus-eth2/pull/4012
+
+* More timely delivery of fork-choice update information to the execution client, enabling the production of more profitable blocks:
+  https://github.com/status-im/nimbus-eth2/pull/4012
+
+* Improved SHA256 hashing performance resulting in a minor overall CPU usage reduction:
+  https://github.com/status-im/nimbus-eth2/pull/4017
+
+* Reduced latency in the light client when following the head of the chain optimistically:
+  https://github.com/status-im/nimbus-eth2/pull/4002
+
+* Spec-compliant delivery of the "safe block hash" property of the "fork-choice update" messages sent to the Engine API:
+  https://github.com/status-im/nimbus-eth2/pull/4010
+
+* Relax overly aggressive gossip filtering conditions for incoming blocks:
+  https://github.com/status-im/nimbus-eth2/pull/4044
+
+* New metrics `beacon_block_production_errors` and`beacon_block_payload_errors` for detecting non-healthy operation of the Engine API:
+  https://github.com/status-im/nimbus-eth2/pull/4036
+
+### Fixes
+
+* Sporadic loss of connectivity to the execution engine in the presence of large payloads:
+  https://github.com/status-im/nimbus-eth2/pull/4028
+
+* Inappropriate loss of connectivity to honest peers in the presence of a non-responding execution client:
+  https://github.com/status-im/nimbus-eth2/pull/4020
+
+* A loophole allowing the inclusion of very old and invalid slashing and exit messages within blocks:
+  https://github.com/status-im/nimbus-eth2/pull/4013
+
+* Confusing error message when trusted node sync is executed with an invalid REST URL:
+  https://github.com/status-im/nimbus-eth2/pull/4024
+
+
 2022-08-23 v22.8.0
 ==================
 

@@ -1135,6 +1135,7 @@ proc ensureDataProvider*(m: Eth1Monitor) {.async.} =
       m.depositContractAddress, web3Url, m.jwtSecret)
     if v.isErr():
       raise (ref CatchableError)(msg: v.error())
+    info "Established connection to execution layer", url = web3Url
     v.get()
 
 proc stop(m: Eth1Monitor) {.async.} =
