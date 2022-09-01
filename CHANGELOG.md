@@ -1,8 +1,7 @@
-2022-08-30 v22.8.2
+2022-08-31 v22.8.2
 ==================
 
-Nimbus `v22.8.2` is a `low-urgency` hotfix release, addressing a potential crash introduced in `v22.8.1` when
-producing blocks on a node with DEBUG logs enabled. If you don't run your node with DEBUG logging, you can safely skip this release.
+Nimbus `v22.8.2` is a `low-urgency` hotfix release, eliminating a risk for potential crash during block production that was introduced in the `v22.8.1` release. You can safely skip this release if you haven't enabled DEBUG logging on your beacon node, as the risk exists only when DEBUG logging is enabled.
 
 ### Improvements:
 
