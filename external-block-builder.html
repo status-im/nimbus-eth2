@@ -8,14 +8,14 @@
       
       
       
-        <link rel="canonical" href="https://nimbus.guide/log-levels.html">
+        <link rel="canonical" href="https://nimbus.guide/external-block-builder.html">
       
       <link rel="icon" href="assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.3.1, mkdocs-material-8.3.9">
     
     
       
-        <title>Log levels - The Nimbus Guide</title>
+        <title>Set up block builders - The Nimbus Guide</title>
       
     
     
@@ -65,6 +65,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#set-up-block-builders" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -94,7 +99,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Log levels
+              Set up block builders
             
           </span>
         </div>
@@ -198,6 +203,8 @@
         
   
   
+    
+  
 
 
   
@@ -209,7 +216,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="install.html" class="md-tabs__link">
+      <a href="install.html" class="md-tabs__link md-tabs__link--active">
         How-to
       </a>
     </li>
@@ -524,12 +531,14 @@
 
   
   
+    
+  
   
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
       
       
       
@@ -653,12 +662,14 @@
               
   
   
+    
+  
   
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_3_2" type="checkbox" id="__nav_3_2" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_2" type="checkbox" id="__nav_3_2" checked>
       
       
       
@@ -749,11 +760,52 @@
               
   
   
+    
   
-    <li class="md-nav__item">
-      <a href="external-block-builder.html" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Set up block builders
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="external-block-builder.html" class="md-nav__link md-nav__link--active">
         Set up block builders
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#command-line-option" class="md-nav__link">
+    Command line option
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1456,6 +1508,23 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#command-line-option" class="md-nav__link">
+    Command line option
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1467,15 +1536,35 @@
             <article class="md-content__inner md-typeset">
               
                 
-  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/log-levels.md" title="Edit this page" class="md-content__button md-icon">
+  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/external-block-builder.md" title="Edit this page" class="md-content__button md-icon">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
   </a>
 
 
 
-  <h1>Log levels</h1>
-
-<p>This information has moved to <a href="logging.html">logging</a>.</p>
+<h1 id="set-up-block-builders">Set up block builders</h1>
+<p><a href="https://ethereum.org/en/developers/docs/mev/">Maximal extractable value</a> involves consensus clients contacting an external block builder which might maximize profit or some other defined metric in ways hindered for a purely local consensus and execution client setup. This external builder network uses the <a href="https://ethereum.github.io/builder-specs/">builder API</a> which consensus clients use to access external block builder bundles found by searchers. In exchange, such searchers and builders might choose to retain some of the profit gained from such bundles. A builder API relay provides access to multiple searchers via a single URL.</p>
+<p>Nimbus supports this API to access these external block builders. If one is configured, the block production flow becomes modified:
+1. attempt to use the specified external block builder relay or builder to create an execution payload
+2. if the external block builder builder or relay doesn't function, and Nimbus has not signed a blinded beacon block, then fall back to existing local execution client to produce a block</p>
+<p>There exists a failure mode, intrinsic to the builder API, wherein the consensus client has signed a blinded proposal and therefore even if the external block builder relay or builder doesn't provide a full block, a consensus client such as Nimbus cannot safely proceed with step 2 and fall back on its local execution client.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>By default, <a href="https://eips.ethereum.org/EIPS/eip-1559#abstract">priority and maximum gas fees</a> determine transaction inclusion in blocks, but external block builders may use other strategies for transaction selection, which might involve regulatory constraints and extracted value. For further information, check the documentation of the block builder.</p>
+</div>
+<h2 id="command-line-option">Command line option</h2>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Prater</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-mainnet-beacon-node.sh --payload-builder<span class="o">=</span><span class="nb">true</span> --payload-builder-url<span class="o">=</span>https://<span class="si">${</span><span class="nv">HOST</span><span class="si">}</span>:<span class="si">${</span><span class="nv">PORT</span><span class="si">}</span>/
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./run-prater-beacon-node.sh --payload-builder<span class="o">=</span><span class="nb">true</span> --payload-builder-url<span class="o">=</span>https://<span class="si">${</span><span class="nv">HOST</span><span class="si">}</span>:<span class="si">${</span><span class="nv">PORT</span><span class="si">}</span>/
+</code></pre></div>
+</div>
+</div>
+</div>
 
               
             </article>
@@ -1493,6 +1582,42 @@
       </main>
       
         <footer class="md-footer">
+  
+    
+    <nav class="md-footer__inner md-grid" aria-label="Footer" >
+      
+        
+        <a href="suggested-fee-recipient.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Set up suggested fee recipient" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Set up suggested fee recipient
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="keep-an-eye.html" class="md-footer__link md-footer__link--next" aria-label="Next: Keep an eye on your validator" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              Keep an eye on your validator
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
