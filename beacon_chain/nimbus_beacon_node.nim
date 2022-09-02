@@ -625,7 +625,7 @@ proc init*(T: type BeaconNode,
     dag = loadChainDag(
       config, cfg, db, eventBus,
       validatorMonitor, networkGenesisValidatorsRoot,
-      genesisStateContents.deploymentPhase <= DeploymentPhase.Devnet)
+      genesisStateContents.deploymentPhase <= DeploymentPhase.Testnet)
     genesisTime = getStateField(dag.headState, genesis_time)
     beaconClock = BeaconClock.init(genesisTime)
     getBeaconTime = beaconClock.getBeaconTimeFn()
