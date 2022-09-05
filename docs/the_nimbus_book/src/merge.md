@@ -2,7 +2,7 @@
 
 The Ethereum network is preparing for a major upgrade to merge the beacon chain with the existing proof-of-work execution network, thus transitioning to proof-of-stake.
 
-Read more about [here](https://ethereum.org/en/upgrades/merge/).
+Read more about it [here](https://ethereum.org/en/upgrades/merge/).
 
 ## Preparing for the merge
 
@@ -26,6 +26,6 @@ Please note that once the Bellatrix fork epoch is reached on 6th of September 20
 
 ### Prepare a suggested fee recipient
 
-After the merge, validators that propose blocks are eligible to recieve transaction fees - read more about fee recipients [here](https://launchpad.ethereum.org/en/merge-readiness#fee-recipient).
+After the merge, validators that propose blocks are eligible to receive transaction fees - read more about fee recipients [here](https://launchpad.ethereum.org/en/merge-readiness#fee-recipient).
 
 See the [suggested fee recipent page](./suggested-fee-recipient.md) for information about the changes needed to Nimbus.
