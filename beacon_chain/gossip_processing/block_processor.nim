@@ -339,7 +339,9 @@ proc storeBlock*(
             safeBlockRoot = newHead.get.safeExecutionPayloadHash,
             finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
         else:
-          # Some attached validator is next proposer, so prepare payload
+          # Some attached validator is next proposer, so prepare payload. As
+          # updateHead() updated the DAG head, runProposalForkchoiceUpdated,
+          # which needs the state corresponding to that head block, can run.
           asyncSpawn self.consensusManager.runProposalForkchoiceUpdated(
             wallSlot)
       else:
