@@ -60,7 +60,7 @@ As part of the migration process, you need to stop your existing client and expo
     You will then find the `slashing-protection.json` file in your specified `/path/to/export_dir` folder.
 
     !!! tip
-        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check it's recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
 === "Lighthouse"
 
@@ -95,7 +95,7 @@ As part of the migration process, you need to stop your existing client and expo
     This will export your history in the correct format to `slashing-protection.json`.
 
     !!! tip
-        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check it's recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
 === "Teku"
 
@@ -125,7 +125,7 @@ As part of the migration process, you need to stop your existing client and expo
     - `--to` specifies the file to export the slashing-protection data to (in this case `/home/slash/slashing-protection.json`).
 
     !!! tip
-        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check it's recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
 === "Nimbus"
 
@@ -152,11 +152,11 @@ As part of the migration process, you need to stop your existing client and expo
 
     This will export your history in the correct format to `slashing-protection.json`.
 
-    > **Tip:** To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check it's recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+    > **Tip:** To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
 
 ### 3. Import your validator key(s) into Nimbus
-To import you validator key(s), follow the instructions [outlined here](./keys.md).
+To import your validator key(s), follow the instructions [outlined here](./keys.md).
 
 !!! tip
     To check that your key(s) has been successfully imported, look for a file named after your public key in `build/data/shared_mainet_0/secrets/`.
