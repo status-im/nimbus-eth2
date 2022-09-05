@@ -77,7 +77,6 @@ type
     syncManager*: SyncManager[Peer, PeerId]
     backfiller*: SyncManager[Peer, PeerId]
     genesisSnapshotContent*: string
-    actionTracker*: ActionTracker
     processor*: ref Eth2Processor
     blockProcessor*: ref BlockProcessor
     consensusManager*: ref ConsensusManager

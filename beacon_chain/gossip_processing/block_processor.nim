@@ -319,8 +319,10 @@ proc storeBlock*(
         safeBlockRoot = newHead.get.safeExecutionPayloadHash,
         finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
     else:
-      let headExecutionPayloadHash =
-        self.consensusManager.dag.loadExecutionBlockRoot(newHead.get.blck)
+      let
+        headExecutionPayloadHash =
+          self.consensusManager.dag.loadExecutionBlockRoot(newHead.get.blck)
+        wallSlot = self.getBeaconTime().slotOrZero
       if headExecutionPayloadHash.isZero:
         # Blocks without execution payloads can't be optimistic.
         self.consensusManager[].updateHead(newHead.get.blck)
@@ -330,7 +332,7 @@ proc storeBlock*(
         # client only.
         self.consensusManager[].updateHead(newHead.get.blck)
 
-        if self.consensusManager.checkNextProposer().isNone:
+        if self.consensusManager.checkNextProposer(wallSlot).isNone:
           # No attached validator is next proposer, so use non-proposal fcU
           asyncSpawn eth1Monitor.expectValidForkchoiceUpdated(
             headBlockRoot = headExecutionPayloadHash,
@@ -338,9 +340,11 @@ proc storeBlock*(
             finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
         else:
           # Some attached validator is next proposer, so prepare payload
-          asyncSpawn self.consensusManager.runProposalForkchoiceUpdated()
+          asyncSpawn self.consensusManager.runProposalForkchoiceUpdated(
+            wallSlot)
       else:
-        asyncSpawn self.consensusManager.updateHeadWithExecution(newHead.get)
+        asyncSpawn self.consensusManager.updateHeadWithExecution(
+          newHead.get, wallSlot)
   else:
     warn "Head selection failed, using previous head",
       head = shortLog(self.consensusManager.dag.head), wallSlot
