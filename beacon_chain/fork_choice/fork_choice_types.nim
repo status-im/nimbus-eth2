@@ -88,8 +88,7 @@ type
   ProtoNodes* = object
     buf*: seq[ProtoNode]
     offset*: int ##\
-    ## Substracted from logical Index
-    ## to get the physical index
+    ## Subtracted from logical index to get the physical index
 
   ProtoArray* = object
     hasLowParticipation*: bool
