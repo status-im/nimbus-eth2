@@ -232,6 +232,7 @@ ${NIMBUS_BEACON_NODE_BIN} \
   --secrets-dir="${SECRETS_DIR}" \
   --doppelganger-detection=off \
   --nat=none \
+  --no-el \
   --metrics \
   --metrics-address=${METRICS_ADDRESS} \
   --metrics-port=${BASE_METRICS_PORT} \

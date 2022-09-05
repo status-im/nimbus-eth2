@@ -79,7 +79,7 @@ func signBlock(
   ForkedSignedBeaconBlock.init(forked, root, signature)
 
 proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
-    bellatrix.ExecutionPayload =
+    bellatrix.ExecutionPayloadForSigning =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions from a non-merged block.
 
@@ -103,7 +103,8 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
 
   payload.block_hash = rlpHash payloadToBlockHeader(payload)
 
-  payload
+  bellatrix.ExecutionPayloadForSigning(executionPayload: payload,
+                                       blockValue: Wei.zero)
 
 proc addTestBlock*(
     state: var ForkedHashedBeaconState,
@@ -140,7 +141,7 @@ proc addTestBlock*(
     if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
       # Can't keep correctly doing this once Capella happens, but LVH search
       # test relies on merging. So, merge only if no Capella transition.
-      default(bellatrix.ExecutionPayload)
+      default(bellatrix.ExecutionPayloadForSigning)
     else:
       withState(state):
         when stateFork == ConsensusFork.Bellatrix:
@@ -153,9 +154,9 @@ proc addTestBlock*(
             else:
               build_empty_merge_execution_payload(forkyState.data)
           else:
-            default(bellatrix.ExecutionPayload)
+            default(bellatrix.ExecutionPayloadForSigning)
         else:
-          default(bellatrix.ExecutionPayload)
+          default(bellatrix.ExecutionPayloadForSigning)
 
   let
     message = makeBeaconBlock(
@@ -174,7 +175,6 @@ proc addTestBlock*(
       BeaconBlockValidatorChanges(),
       sync_aggregate,
       execution_payload,
-      (static(default(deneb.KZGCommitmentList))),
       noRollback,
       cache,
       verificationFlags = {skipBlsValidation})

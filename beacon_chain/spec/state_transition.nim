@@ -343,8 +343,7 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    blob_kzg_commitments: KZGCommitmentList,
-    execution_payload: bellatrix.ExecutionPayload):
+    execution_payload: bellatrix.ExecutionPayloadForSigning):
     phase0.BeaconBlock =
   phase0.BeaconBlock(
     slot: state.data.slot,
@@ -372,8 +371,7 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    blob_kzg_commitments: KZGCommitmentList,
-    execution_payload: bellatrix.ExecutionPayload):
+    execution_payload: bellatrix.ExecutionPayloadForSigning):
     altair.BeaconBlock =
   altair.BeaconBlock(
     slot: state.data.slot,
@@ -402,8 +400,7 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    blob_kzg_commitments: KZGCommitmentList,
-    execution_payload: bellatrix.ExecutionPayload):
+    execution_payload: bellatrix.ExecutionPayloadForSigning):
     bellatrix.BeaconBlock =
   bellatrix.BeaconBlock(
     slot: state.data.slot,
@@ -419,7 +416,7 @@ template partialBeaconBlock*(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: validator_changes.voluntary_exits,
       sync_aggregate: sync_aggregate,
-      execution_payload: execution_payload))
+      execution_payload: execution_payload.executionPayload))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/validator.md#block-proposal
 template partialBeaconBlock*(
@@ -433,9 +430,7 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    blob_kzg_commitments: KZGCommitmentList,
-    execution_payload: capella.ExecutionPayload,
-    ):
+    execution_payload: capella.ExecutionPayloadForSigning):
     capella.BeaconBlock =
   capella.BeaconBlock(
     slot: state.data.slot,
@@ -451,7 +446,7 @@ template partialBeaconBlock*(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: validator_changes.voluntary_exits,
       sync_aggregate: sync_aggregate,
-      execution_payload: execution_payload,
+      execution_payload: execution_payload.executionPayload,
       bls_to_execution_changes: validator_changes.bls_to_execution_changes
       ))
 
@@ -467,9 +462,7 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    kzg_commitments: deneb.KZGCommitmentList,
-    execution_payload: deneb.ExecutionPayload,
-    ):
+    execution_payload: deneb.ExecutionPayloadForSigning):
     deneb.BeaconBlock =
   eip4844.BeaconBlock(
     slot: state.data.slot,
@@ -485,13 +478,12 @@ template partialBeaconBlock*(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: validator_changes.voluntary_exits,
       sync_aggregate: sync_aggregate,
-      execution_payload: execution_payload,
+      execution_payload: execution_payload.executionPayload,
       bls_to_execution_changes: validator_changes.bls_to_execution_changes,
-      blob_kzg_commitments: kzg_commitments
+      blob_kzg_commitments: execution_payload.kzgs
       ))
 
-proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
-                      deneb.ExecutionPayload](
+proc makeBeaconBlock*(
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -502,8 +494,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    executionPayload: T,
-    blob_kzg_commitments: KZGCommitmentList,
+    executionPayload: ForkyExecutionPayloadForSigning,
     rollback: RollbackForkedHashedProc,
     cache: var StateCache,
     # TODO:
@@ -527,7 +518,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
         partialBeaconBlock(
           cfg, state.`kind Data`, proposer_index, randao_reveal, eth1_data,
           graffiti, attestations, deposits, validator_changes, sync_aggregate,
-          blob_kzg_commitments, executionPayload))
+          executionPayload))
 
     let res = process_block(
       cfg, state.`kind Data`.data, blck.`kind Data`.asSigVerified(),
@@ -589,60 +580,63 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
 
     ok(blck)
 
-  when T is bellatrix.ExecutionPayload:
+  const payloadFork = typeof(executionPayload).toFork
+  when payloadFork == ConsensusFork.Bellatrix:
     case state.kind
     of ConsensusFork.Phase0:    makeBeaconBlock(phase0)
     of ConsensusFork.Altair:    makeBeaconBlock(altair)
     of ConsensusFork.Bellatrix: makeBeaconBlock(bellatrix)
     of ConsensusFork.Capella, ConsensusFork.Deneb:
       raiseAssert "Attempt to use Bellatrix payload with post-Bellatrix state"
-  elif T is capella.ExecutionPayload:
+  elif payloadFork == ConsensusFork.Capella:
     case state.kind
     of  ConsensusFork.Phase0, ConsensusFork.Altair,
         ConsensusFork.Bellatrix, ConsensusFork.Deneb:
       raiseAssert "Attempt to use Capella payload with non-Capella state"
     of ConsensusFork.Capella:   makeBeaconBlock(capella)
-  elif T is deneb.ExecutionPayload:
+  elif payloadFork == ConsensusFork.Deneb:
     case state.kind
     of  ConsensusFork.Phase0, ConsensusFork.Altair,
         ConsensusFork.Bellatrix, ConsensusFork.Capella:
       raiseAssert "Attempt to use EIP4844 payload with non-EIP4844 state"
     of ConsensusFork.Deneb: makeBeaconBlock(deneb)
+  else:
+    {.error: "You need to add support for the next fork".}
 
 # workaround for https://github.com/nim-lang/Nim/issues/20900 rather than have
 # these be default arguments
-proc makeBeaconBlock*[T](
+proc makeBeaconBlock*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
     proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
     eth1_data: Eth1Data, graffiti: GraffitiBytes,
     attestations: seq[Attestation], deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate, executionPayload: T,
-    blob_kzg_commitments: KZGCommitmentList,
+    sync_aggregate: SyncAggregate,
+    executionPayload: ForkyExecutionPayloadForSigning,
     rollback: RollbackForkedHashedProc, cache: var StateCache):
     Result[ForkedBeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
     attestations, deposits, validator_changes, sync_aggregate,
-    executionPayload, blob_kzg_commitments, rollback, cache,
+    executionPayload, rollback, cache,
     verificationFlags = {}, transactions_root = Opt.none Eth2Digest,
     execution_payload_root = Opt.none Eth2Digest)
 
-proc makeBeaconBlock*[T](
+proc makeBeaconBlock*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState,
     proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
     eth1_data: Eth1Data, graffiti: GraffitiBytes,
     attestations: seq[Attestation], deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
-    sync_aggregate: SyncAggregate, executionPayload: T,
-    blob_kzg_commitments: KZGCommitmentList,
+    sync_aggregate: SyncAggregate,
+    executionPayload: ForkyExecutionPayloadForSigning,
     rollback: RollbackForkedHashedProc,
     cache: var StateCache, verificationFlags: UpdateFlags):
     Result[ForkedBeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
     attestations, deposits, validator_changes, sync_aggregate,
-    executionPayload, blob_kzg_commitments, rollback, cache,
+    executionPayload, rollback, cache,
     verificationFlags = verificationFlags,
     transactions_root = Opt.none Eth2Digest,
     execution_payload_root = Opt.none Eth2Digest)

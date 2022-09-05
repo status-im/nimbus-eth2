@@ -70,7 +70,7 @@ suite "Spec helpers":
     let state = newClone(initGenesisState(cfg = cfg).bellatrixData)
 
     proc testCase(recipient: Eth1Address) =
-      let payload = build_empty_execution_payload(state[].data, recipient)
+      let payload = build_empty_execution_payload(state[].data, recipient).executionPayload
       check payload.fee_recipient ==
         bellatrix.ExecutionAddress(data: distinctBase(recipient))
 

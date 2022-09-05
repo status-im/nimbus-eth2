@@ -204,3 +204,6 @@
 	path = vendor/capella-testnets
 	url = https://github.com/ethpandaops/withdrawals-testnet.git
 	branch = master
+[submodule "vendor/withdrawals-testnets"]
+	path = vendor/withdrawals-testnets
+	url = https://github.com/ethpandaops/withdrawals-testnet.git

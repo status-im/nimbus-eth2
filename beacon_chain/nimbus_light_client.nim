@@ -16,7 +16,6 @@ import
   ./spec/datatypes/[phase0, altair, bellatrix, capella, eip4844],
   "."/[filepath, light_client, light_client_db, nimbus_binary_common, version]
 
-from ./consensus_object_pools/consensus_manager import runForkchoiceUpdated
 from ./gossip_processing/block_processor import newExecutionPayload
 from ./gossip_processing/eth2_processor import toValidationResult
 
@@ -87,21 +86,16 @@ programMain:
     network = createEth2Node(
       rng, config, netKeys, cfg,
       forkDigests, getBeaconTime, genesis_validators_root)
-
-    eth1Monitor =
-      if config.web3Urls.len > 0:
-        let res = Eth1Monitor.init(
+    engineApiUrls = config.engineApiUrls
+    elManager =
+      if engineApiUrls.len > 0:
+        ELManager.new(
           cfg,
           metadata.depositContractBlock,
           metadata.depositContractBlockHash,
           db = nil,
-          getBeaconTime,
-          config.web3Urls,
-          metadata.eth1Network,
-          forcePolling = false,
-          rng[].loadJwtSecret(config, allowCreate = false))
-        waitFor res.ensureDataProvider()
-        res
+          engineApiUrls,
+          metadata.eth1Network)
       else:
         nil
 
@@ -115,17 +109,12 @@ programMain:
           if blck.message.is_execution_block:
             template payload(): auto = blck.message.body.execution_payload
 
-            if eth1Monitor != nil and not payload.block_hash.isZero:
-              await eth1Monitor.ensureDataProvider()
-
-              # engine_newPayloadV1
-              discard await eth1Monitor.newExecutionPayload(payload)
-
-              # engine_forkchoiceUpdatedV1
-              discard await eth1Monitor.runForkchoiceUpdated(
-                headBlockHash = payload.block_hash,
-                safeBlockHash = payload.block_hash,  # stub value
-                finalizedBlockHash = ZERO_HASH)
+            if elManager != nil and not payload.block_hash.isZero:
+              discard await elManager.newExecutionPayload(payload)
+              discard await elManager.forkchoiceUpdated(
+                headBlock = payload.block_hash,
+                safeBlock = payload.block_hash,  # stub value
+                finalizedBlock = ZERO_HASH)
         else: discard
     optimisticProcessor = initOptimisticProcessor(
       getBeaconTime, optimisticHandler)
@@ -224,7 +213,7 @@ programMain:
 
   func shouldSyncOptimistically(wallSlot: Slot): bool =
     # Check whether an EL is connected
-    if eth1Monitor == nil:
+    if elManager == nil:
       return false
 
     isSynced(wallSlot)
@@ -323,16 +312,8 @@ programMain:
       nextSlot = wallSlot + 1
       timeToNextSlot = nextSlot.start_beacon_time() - getBeaconTime()
 
-  var nextExchangeTransitionConfTime = Moment.now + chronos.seconds(60)
   proc onSecond(time: Moment) =
     let wallSlot = getBeaconTime().slotOrZero()
-
-    # engine_exchangeTransitionConfigurationV1
-    if time > nextExchangeTransitionConfTime and eth1Monitor != nil:
-      nextExchangeTransitionConfTime = time + chronos.seconds(45)
-      if wallSlot.epoch >= cfg.BELLATRIX_FORK_EPOCH:
-        traceAsyncErrors eth1Monitor.exchangeTransitionConfiguration()
-
     if checkIfShouldStopAtEpoch(wallSlot, config.stopAtEpoch):
       quit(0)
 

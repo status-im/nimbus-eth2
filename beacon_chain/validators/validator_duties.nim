@@ -259,71 +259,10 @@ proc createAndSendAttestation(node: BeaconNode,
 proc getBlockProposalEth1Data*(node: BeaconNode,
                                state: ForkedHashedBeaconState):
                                BlockProposalEth1Data =
-  if node.eth1Monitor.isNil:
-    let pendingDepositsCount =
-      getStateField(state, eth1_data).deposit_count -
-        getStateField(state, eth1_deposit_index)
-    if pendingDepositsCount > 0:
-      result.hasMissingDeposits = true
-    else:
-      result.vote = getStateField(state, eth1_data)
-  else:
-    let finalizedEpochRef = node.dag.getFinalizedEpochRef()
-    result = node.eth1Monitor.getBlockProposalData(
-      state, finalizedEpochRef.eth1_data,
-      finalizedEpochRef.eth1_deposit_index)
-
-from web3/engine_api import ForkchoiceUpdatedResponse
-
-proc forkchoice_updated(
-    head_block_hash: Eth2Digest, safe_block_hash: Eth2Digest,
-    finalized_block_hash: Eth2Digest, timestamp: uint64, random: Eth2Digest,
-    fee_recipient: ethtypes.Address, withdrawals: Opt[seq[Withdrawal]],
-    execution_engine: Eth1Monitor):
-    Future[Option[bellatrix.PayloadID]] {.async.} =
-  logScope:
-    head_block_hash
-    finalized_block_hash
-
-  let
-    forkchoiceResponse =
-      try:
-        awaitWithTimeout(
-          execution_engine.forkchoiceUpdated(
-            head_block_hash, safe_block_hash, finalized_block_hash,
-            timestamp, random.data, fee_recipient, withdrawals),
-          FORKCHOICEUPDATED_TIMEOUT):
-            error "Engine API fork-choice update timed out"
-            default(ForkchoiceUpdatedResponse)
-      except CatchableError as err:
-        error "Engine API fork-choice update failed", err = err.msg
-        default(ForkchoiceUpdatedResponse)
-
-    payloadId = forkchoiceResponse.payloadId
-
-  return if payloadId.isSome:
-    some(bellatrix.PayloadID(payloadId.get))
-  else:
-    none(bellatrix.PayloadID)
-
-proc get_execution_payload[EP](
-    payload_id: Option[bellatrix.PayloadID], execution_engine: Eth1Monitor):
-    Future[Opt[EP]] {.async.} =
-  return if payload_id.isNone():
-    # Pre-merge, empty payload
-    Opt.some default(EP)
-  else:
-    when EP is bellatrix.ExecutionPayload:
-      Opt.some asConsensusExecutionPayload(
-        await execution_engine.getPayloadV1(payload_id.get))
-    elif EP is capella.ExecutionPayload:
-      Opt.some asConsensusExecutionPayload(
-        await execution_engine.getPayloadV2(payload_id.get))
-    elif EP is eip4844.ExecutionPayload:
-      Opt.some asConsensusExecutionPayload(
-        await execution_engine.getPayloadV3(payload_id.get))
-    else:
-      static: doAssert "unknown execution payload type"
+  let finalizedEpochRef = node.dag.getFinalizedEpochRef()
+  result = node.elManager.getBlockProposalData(
+    state, finalizedEpochRef.eth1_data,
+    finalizedEpochRef.eth1_deposit_index)
 
 proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
@@ -337,12 +276,13 @@ proc getGasLimit(node: BeaconNode,
 
 from web3/engine_api_types import PayloadExecutionStatus
 from ../spec/datatypes/capella import BeaconBlock, ExecutionPayload
-from ../spec/datatypes/eip4844 import
-  BeaconBlock, ExecutionPayload, shortLog
+from ../spec/datatypes/deneb import BeaconBlock, ExecutionPayload, shortLog
+from ../spec/beaconstate import get_expected_withdrawals
 
-proc getExecutionPayload[T](
+proc getExecutionPayload(
+    PayloadType: type ForkyExecutionPayloadForSigning,
     node: BeaconNode, proposalState: ref ForkedHashedBeaconState,
-    epoch: Epoch, validator_index: ValidatorIndex): Future[Opt[T]] {.async.} =
+    epoch: Epoch, validator_index: ValidatorIndex): Future[Opt[PayloadType]] {.async.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
 
   let feeRecipient = block:
@@ -363,29 +303,17 @@ proc getExecutionPayload[T](
         # compute way from CL due to incorporation of withdrawals into EL state
         # cannot use fake-EL fallback. Unlike transactions, withdrawals are not
         # optional, so one cannot avoid this by not including any withdrawals.
-        Opt.none T
+        Opt.none PayloadType
       elif (stateFork == ConsensusFork.Bellatrix and
-            T is bellatrix.ExecutionPayload):
+            PayloadType is bellatrix.ExecutionPayloadForSigning):
         Opt.some build_empty_execution_payload(forkyState.data, feeRecipient)
       elif stateFork == ConsensusFork.Bellatrix:
         raiseAssert "getExecutionPayload: mismatched proposalState and ExecutionPayload fork"
       else:
         # Vacuously -- these are pre-Bellatrix and not used.
-        Opt.some default(T)
-
-  if node.eth1Monitor.isNil:
-    beacon_block_payload_errors.inc()
-    warn "getExecutionPayload: eth1Monitor not initialized; using empty execution payload"
-    return empty_execution_payload
+        Opt.some default(PayloadType)
 
   try:
-    # Minimize window for Eth1 monitor to shut down connection
-    await node.consensusManager.eth1Monitor.ensureDataProvider()
-
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#request-2
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/shanghai.md#request-2
-    const GETPAYLOAD_TIMEOUT = 1.seconds
-
     let
       beaconHead = node.attestationPool[].getBeaconHead(node.dag.head)
       executionHead = withState(proposalState[]):
@@ -395,101 +323,39 @@ proc getExecutionPayload[T](
           (static(default(Eth2Digest)))
       latestSafe = beaconHead.safeExecutionPayloadHash
       latestFinalized = beaconHead.finalizedExecutionPayloadHash
-      lastFcU = node.consensusManager.forkchoiceUpdatedInfo
       timestamp = withState(proposalState[]):
         compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
+      random = withState(proposalState[]):
+        get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
       withdrawals = withState(proposalState[]):
         when stateFork >= ConsensusFork.Capella:
-          Opt.some get_expected_withdrawals(forkyState.data)
+          get_expected_withdrawals(forkyState.data)
         else:
-          Opt.none(seq[Withdrawal])
-      payload_id =
-        if  lastFcU.isSome and
-            lastFcU.get.headBlockRoot == executionHead and
-            lastFcU.get.safeBlockRoot == latestSafe and
-            lastFcU.get.finalizedBlockRoot == latestFinalized and
-            lastFcU.get.timestamp == timestamp and
-            lastFcU.get.feeRecipient == feeRecipient and
-            lastFcU.get.withdrawals == withdrawals:
-          some bellatrix.PayloadID(lastFcU.get.payloadId)
-        else:
-          debug "getExecutionPayload: didn't find payloadId, re-querying",
-            executionHead, latestSafe, latestFinalized,
-            timestamp,
-            feeRecipient,
-            cachedForkchoiceUpdateInformation = lastFcU
+          @[]
+      payload = await node.elManager.getPayload(
+        PayloadType, executionHead, latestSafe, latestFinalized,
+        timestamp, random, feeRecipient, withdrawals)
 
-          let random = withState(proposalState[]): get_randao_mix(
-            forkyState.data, get_current_epoch(forkyState.data))
-          let fcu_payload_id = (await forkchoice_updated(
-           executionHead, latestSafe, latestFinalized, timestamp, random,
-           feeRecipient, withdrawals, node.consensusManager.eth1Monitor))
-          await sleepAsync(500.milliseconds)
+    if payload.isNone:
+      error "Failed to obtain execution payload from EL",
+             executionHeadBlock = executionHead
+      return Opt.none(PayloadType)
 
-          fcu_payload_id
-
-    let
-      payload = try:
-        awaitWithTimeout(
-          get_execution_payload[T](payload_id, node.consensusManager.eth1Monitor),
-          GETPAYLOAD_TIMEOUT):
-            beacon_block_payload_errors.inc()
-            warn "Getting execution payload from Engine API timed out", payload_id
-            empty_execution_payload
-      except CatchableError as err:
-        beacon_block_payload_errors.inc()
-        warn "Getting execution payload from Engine API failed",
-              payload_id, err = err.msg
-        empty_execution_payload
-
-    when T is capella.ExecutionPayload:
-      if  payload.isSome and withdrawals.isSome and
-          withdrawals.get() != payload.get.withdrawals.asSeq:
-        warn "Execution client did not return correct withdrawals",
-          payload = shortLog(payload.get()),
-          withdrawals_from_cl = withdrawals.get(),
-          withdrawals_from_el = payload.get.withdrawals
-
-    return payload
+    return Opt.some payload.get
   except CatchableError as err:
     beacon_block_payload_errors.inc()
     error "Error creating non-empty execution payload; using empty execution payload",
       msg = err.msg
     return empty_execution_payload
 
-proc getBlobsBundle(
-    node: BeaconNode, epoch: Epoch, validator_index: ValidatorIndex,
-    payload_id: PayloadID): Future[BlobsBundleV1] {.async.} =
-    # https://github.com/ethereum/consensus-specs/blob/dev/specs/eip4844/validator.md#get_blobs_and_kzg_commitments
-
-  # Minimize window for Eth1 monitor to shut down connection
-  await node.consensusManager.eth1Monitor.ensureDataProvider()
-
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/experimental/blob-extension.md#engine_getblobsbundlev1
-  const GETBLOBS_TIMEOUT = 1.seconds
-
-  let payload = try:
-    awaitWithTimeout(
-      node.consensusManager.eth1Monitor.getBlobsBundleV1(payload_id),
-      GETBLOBS_TIMEOUT):
-        beacon_block_payload_errors.inc()
-        warn "Getting blobs sidecar from Engine API timed out", payload_id
-        default(BlobsBundleV1)
-  except CatchableError as err:
-    beacon_block_payload_errors.inc()
-    warn "Getting blobs sidecar from Engine API failed",
-          payload_id, err = err.msg
-    default(BlobsBundleV1)
-
-  return payload
-
-proc makeBeaconBlockForHeadAndSlot*[EP](
+proc makeBeaconBlockForHeadAndSlot*(
+    PayloadType: type ForkyExecutionPayloadForSigning,
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
 
-    # Thse parameters are for the builder API
-    execution_payload: Opt[EP],
+    # These parameters are for the builder API
+    execution_payload: Opt[PayloadType],
     transactions_root: Opt[Eth2Digest],
     execution_payload_root: Opt[Eth2Digest],
     withdrawals_root: Opt[Eth2Digest]):
@@ -521,28 +387,29 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
         var modified_execution_payload = execution_payload
         withState(state[]):
           when  stateFork >= ConsensusFork.Capella and
-                EP isnot bellatrix.ExecutionPayload:
+                PayloadType.toFork >= ConsensusFork.Capella:
             let withdrawals = List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
               get_expected_withdrawals(forkyState.data))
             if  withdrawals_root.isNone or
                 hash_tree_root(withdrawals) != withdrawals_root.get:
+              # TODO: Why don't we fallback to the EL payload here?
               return err("Builder relay provided incorrect withdrawals root")
             # Otherwise, the state transition function notices that there are
             # too few withdrawals.
-            assign(modified_execution_payload.get.withdrawals, withdrawals)
+            assign(modified_execution_payload.get.executionPayload.withdrawals,
+                   withdrawals)
 
-        let fut = newFuture[Opt[EP]]("given-payload")
+        let fut = newFuture[Opt[PayloadType]]("given-payload")
         fut.complete(modified_execution_payload)
         fut
       elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
            not state[].is_merge_transition_complete:
-        let fut = newFuture[Opt[EP]]("empty-payload")
-        fut.complete(Opt.some(default(EP)))
+        let fut = newFuture[Opt[PayloadType]]("empty-payload")
+        fut.complete(Opt.some(default(PayloadType)))
         fut
       else:
         # Create execution payload while packing attestations
-        getExecutionPayload[EP](
-          node, state, slot.epoch, validator_index)
+        getExecutionPayload(PayloadType, node, state, slot.epoch, validator_index)
 
     eth1Proposal = node.getBlockProposalEth1Data(state[])
 
@@ -580,7 +447,6 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
       exits,
       syncAggregate,
       payload,
-      (static(default(KZGCommitmentList))),
       noRollback, # Temporary state - no need for rollback
       cache,
       verificationFlags = {},
@@ -596,14 +462,14 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
 
 # workaround for https://github.com/nim-lang/Nim/issues/20900 to avoid default
 # parameters
-proc makeBeaconBlockForHeadAndSlot*[EP](
-    node: BeaconNode, randao_reveal: ValidatorSig,
+proc makeBeaconBlockForHeadAndSlot*(
+    PayloadType: type ForkyExecutionPayloadForSigning, node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot):
-    Future[ForkedBlockResult] =
-  return makeBeaconBlockForHeadAndSlot[EP](
-    node, randao_reveal, validator_index, graffiti, head, slot,
-    execution_payload = Opt.none(EP),
+    Future[ForkedBlockResult] {.async.} =
+  return await makeBeaconBlockForHeadAndSlot(
+    PayloadType, node, randao_reveal, validator_index, graffiti, head, slot,
+    execution_payload = Opt.none(PayloadType),
     transactions_root = Opt.none(Eth2Digest),
     execution_payload_root = Opt.none(Eth2Digest),
     withdrawals_root = Opt.none(Eth2Digest))
@@ -741,8 +607,7 @@ proc getBlindedBeaconBlock[
     else:
       return err("getBlindedBeaconBlock: attempt to construct pre-Bellatrix blinded block")
 
-proc getBlindedBlockParts[
-    EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader](
+proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
     node: BeaconNode, head: BlockRef, pubkey: ValidatorPubKey,
     slot: Slot, randao: ValidatorSig, validator_index: ValidatorIndex,
     graffiti: GraffitiBytes): Future[Result[(EPH, ForkedBeaconBlock), string]]
@@ -776,23 +641,26 @@ proc getBlindedBlockParts[
   # root after running the state transition function on an otherwise equivalent
   # non-blinded block without transactions.
   when EPH is bellatrix.ExecutionPayloadHeader:
-    type EP = bellatrix.ExecutionPayload
+    type PayloadType = bellatrix.ExecutionPayloadForSigning
     let withdrawals_root = Opt.none Eth2Digest
   elif EPH is capella.ExecutionPayloadHeader:
-    type EP = capella.ExecutionPayload
+    type PayloadType = capella.ExecutionPayloadForSigning
+    let withdrawals_root = Opt.some executionPayloadHeader.get.withdrawals_root
+  elif EPH is deneb.ExecutionPayloadHeader:
+    type PayloadType = deneb.ExecutionPayloadForSigning
     let withdrawals_root = Opt.some executionPayloadHeader.get.withdrawals_root
   else:
     static: doAssert false
 
-  var shimExecutionPayload: EP
+  var shimExecutionPayload: PayloadType
   copyFields(
-    shimExecutionPayload, executionPayloadHeader.get, getFieldNames(EPH))
+    shimExecutionPayload.executionPayload, executionPayloadHeader.get, getFieldNames(EPH))
   # In Capella and later, this doesn't have withdrawals, which each node knows
   # regardless of EL or builder API. makeBeaconBlockForHeadAndSlot fills it in
   # when it detects builder API usage.
 
-  let newBlock = await makeBeaconBlockForHeadAndSlot[EP](
-    node, randao, validator_index, graffiti, head, slot,
+  let newBlock = await makeBeaconBlockForHeadAndSlot(
+    PayloadType, node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,
     transactions_root = Opt.some executionPayloadHeader.get.transactions_root,
     execution_payload_root =
@@ -975,15 +843,21 @@ proc proposeBlock(node: BeaconNode,
         beacon_block_builder_missed_without_fallback.inc()
       return newBlockMEV.get
 
+  # TODO Compare the value of the MEV block and the execution block
+  #      obtained from the EL below:
+
   let newBlock =
     if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-      await makeBeaconBlockForHeadAndSlot[eip4844.ExecutionPayload](
+      await makeBeaconBlockForHeadAndSlot(
+        deneb.ExecutionPayloadForSigning,
         node, randao, validator_index, node.graffitiBytes, head, slot)
     elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
-      await makeBeaconBlockForHeadAndSlot[capella.ExecutionPayload](
+      await makeBeaconBlockForHeadAndSlot(
+        capella.ExecutionPayloadForSigning,
         node, randao, validator_index, node.graffitiBytes, head, slot)
     else:
-      await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
+      await makeBeaconBlockForHeadAndSlot(
+        bellatrix.ExecutionPayloadForSigning,
         node, randao, validator_index, node.graffitiBytes, head, slot)
 
   if newBlock.isErr():
@@ -995,28 +869,13 @@ proc proposeBlock(node: BeaconNode,
     var blobs_sidecar = eip4844.BlobsSidecar(
       beacon_block_slot: slot,
     )
-    when blck is eip4844.BeaconBlock and const_preset != "minimal":
-      # TODO when lastfcu is none, getExecutionPayload re-queries the EE.
-      # We don't do that here, which could lead us to propose invalid blocks
-      # (with a payload but no blobs).
-      if not (node.eth1Monitor.isNil) and
-         node.consensusManager.forkchoiceUpdatedInfo.isSome():
-
-        let
-          lastFcU = node.consensusManager.forkchoiceUpdatedInfo
-          payload_id = bellatrix.PayloadID(lastFcU.get.payloadId)
-          bundle = await getBlobsBundle(node, slot.epoch, validator_index, default(PayloadID))
-
-          # todo: actually compute proof over blobs using nim-kzg-4844
-          kzg_aggregated_proof = default(KZGProof)
-
-        blck.body.blob_kzg_commitments =
-            List[eip4844.KZGCommitment, Limit MAX_BLOBS_PER_BLOCK].init(
-              mapIt(bundle.kzgs, eip4844.KzgCommitment(it)))
-
-        blobs_sidecar.blobs = List[eip4844.Blob, Limit MAX_BLOBS_PER_BLOCK].init(
-          mapIt(bundle.blobs, eip4844.Blob(it)))
-        blobs_sidecar.kzg_aggregated_proof = kzg_aggregated_proof
+    when blck is eip4844.BeaconBlock:
+      # TODO: The blobs_sidecar variable is not currently used.
+      #       It could be initialized in makeBeaconBlockForHeadAndSlot
+      #       where the required information is available.
+      # blobs_sidecar.blobs = forkedBlck.blobs
+      # blobs_sidecar.kzg_aggregated_proof = kzg_aggregated_proof
+      discard
 
     let
       blockRoot = hash_tree_root(blck)
@@ -1062,7 +921,7 @@ proc proposeBlock(node: BeaconNode,
             message: blck, signature: signature, root: blockRoot)
         elif blck is eip4844.BeaconBlock:
           # TODO: also route blobs
-          eip4844.SignedBeaconBlock(message: blck, signature: signature, root: blockRoot)
+          deneb.SignedBeaconBlock(message: blck, signature: signature, root: blockRoot)
        else:
           static: doAssert "Unknown SignedBeaconBlock type"
       newBlockRef =

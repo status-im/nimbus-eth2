@@ -227,11 +227,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   router.api(MethodGet, "/nimbus/v1/eth1/chain") do (
     ) -> RestApiResponse:
-    let res =
-      if not(isNil(node.eth1Monitor)):
-        mapIt(node.eth1Monitor.depositChainBlocks, it)
-      else:
-        @[]
+    let res = mapIt(node.elManager.eth1ChainBlocks, it)
     return RestApiResponse.jsonResponse(res)
 
   router.api(MethodGet, "/nimbus/v1/eth1/proposal_data") do (

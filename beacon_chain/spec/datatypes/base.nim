@@ -167,6 +167,7 @@ type
     ## The `SubnetId` type is constrained to values in the range
     ## `[0, ATTESTATION_SUBNET_COUNT)` during initialization.
 
+  Wei* = UInt256
   Gwei* = uint64
 
   # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for

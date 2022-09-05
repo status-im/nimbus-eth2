@@ -289,6 +289,7 @@ proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
     "--rest=true",
     "--rest-address=127.0.0.1",
     "--rest-port=" & $(basePort + PortKind.KeymanagerBN.ord),
+    "--no-el",
     "--keymanager=true",
     "--keymanager-address=127.0.0.1",
     "--keymanager-port=" & $(basePort + PortKind.KeymanagerBN.ord),
