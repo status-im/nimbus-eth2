@@ -194,7 +194,7 @@ Change the value assigned to `CONF_SWAPSIZE` from `100` to `2048`:
 ...
 
 # set size to absolute value, leaving empty (default) then uses computed value
-#   you most likely don't want this, unless you have an special disk situation
+#   you most likely don't want this, unless you have a special disk situation
 CONF_SWAPSIZE=2048
 
 ...
@@ -300,7 +300,7 @@ build/nimbus_beacon_node deposits import  --data-dir=build/data/shared_prater_0 
 We're finally ready to connect to the Prater testnet!
 
 !!! note
-    If you haven't already, we recommend registering for, and running, your own eth1 node in parallel. For instruction on how to do so, see [this page](./eth1.md).
+    If you haven't already, we recommend registering for, and running, your own eth1 node in parallel. For instructions on how to do so, see [this page](./eth1.md).
 
 To connect to Prater, run:
 ```
@@ -333,9 +333,9 @@ To keep track of your syncing progress, have a look at the output at the very bo
 peers: 15 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:1.2313:1.0627:12h01m(280512)
 ```
 
-Keep an eye on the number of peers your currently connected to (in the above case that's `15`), as well as your [sync progress](./keep-an-eye.md#syncing-progress).
+Keep an eye on the number of peers you're currently connected to (in the above case that's `15`), as well as your [sync progress](./keep-an-eye.md#syncing-progress).
 
-> **Note:** 15 - 20 peers and an average sync speed of **0.5 - 1.0** blocks per second is normal on `Prater` with a Pi. If you're sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter. See [this post](https://www.raspberrypi.org/forums/viewtopic.php?f=28&t=245931) for a recommended workaround.
+> **Note:** 15 - 20 peers and an average sync speed of **0.5 - 1.0** blocks per second is normal on `Prater` with a Pi. If your sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter. See [this post](https://www.raspberrypi.org/forums/viewtopic.php?f=28&t=245931) for a recommended workaround.
 
 
 ## Mainnet advice
