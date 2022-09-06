@@ -48,6 +48,8 @@ build/
 
 test_keymanager_api
 
+/libnfuzz_linkerArgs.txt
+
 # Prometheus db
 /data
 # Grafana dashboards
