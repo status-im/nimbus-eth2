@@ -6,7 +6,9 @@ Read more about it [here](https://ethereum.org/en/upgrades/merge/).
 
 ## Preparing for the merge
 
-The merge is in its final phase of testing on testnets and is expected to happen later during the year.
+The merge happens in two phases, the first of which is the Bellatrix upgrade on the Beacon Chain 2022-09-22 11:34:47 UTC.
+
+The second phase happens when total difficulty on the execution chain reaches `58750000000000000000000` - it is expected this happens around 2022-09-15, but may come days early or late.
 
 ### Bookmark this page!
 
@@ -15,6 +17,8 @@ As the merge draws near, we will continue to update this page with the latest in
 ### Keep Nimbus up to date
 
 Leading up to the merge, it is important to [keep Nimbus up to date](./keep-updated.md). Before the merge, the exact version of Nimbus required to participate will be announced, but stakers should be prepared to upgrade their nodes on short notice.
+
+You must be running Nimbus **22.8.0** or later.
 
 ### Set up your Execution Client
 
