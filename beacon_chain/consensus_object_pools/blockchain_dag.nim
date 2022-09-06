@@ -1515,14 +1515,14 @@ proc markBlockInvalid*(dag: ChainDAGRef, root: Eth2Digest) =
     doAssert strictVerification notin dag.updateFlags
     return
 
-  if root == dag.finalizedHead.blck.root:
+  if blck.slot <= dag.finalizedHead.slot:
     # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#re-orgs
     # "If the justified checkpoint transitions from `NOT_VALIDATED` ->
     # `INVALIDATED`, a consensus engine MAY choose to alert the user and force
     # the application to exit."
     #
     # But be slightly less aggressive, and only check finalized.
-    warn "markBlockInvalid: finalized block invalidated"
+    warn "markBlockInvalid: attempted to mark finalized block invalidated"
     doAssert strictVerification notin dag.updateFlags
     return
 
