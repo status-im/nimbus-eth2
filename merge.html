@@ -1610,19 +1610,21 @@
 
 <h1 id="the-merge">The Merge</h1>
 <p>The Ethereum network is preparing for a major upgrade to merge the beacon chain with the existing proof-of-work execution network, thus transitioning to proof-of-stake.</p>
-<p>Read more about <a href="https://ethereum.org/en/upgrades/merge/">here</a>.</p>
+<p>Read more about it <a href="https://ethereum.org/en/upgrades/merge/">here</a>.</p>
 <h2 id="preparing-for-the-merge">Preparing for the merge</h2>
-<p>The merge is in its final phase of testing on testnets and is expected to happen later during the year.</p>
+<p>The merge happens in two phases, the first of which is the Bellatrix upgrade on the Beacon Chain 2022-09-22 11:34:47 UTC.</p>
+<p>The second phase happens when total difficulty on the execution chain reaches <code>58750000000000000000000</code> - it is expected this happens around 2022-09-15, but may come days early or late.</p>
 <h3 id="bookmark-this-page">Bookmark this page!</h3>
 <p>As the merge draws near, we will continue to update this page with the latest information and instructions.</p>
 <h3 id="keep-nimbus-up-to-date">Keep Nimbus up to date</h3>
 <p>Leading up to the merge, it is important to <a href="keep-updated.html">keep Nimbus up to date</a>. Before the merge, the exact version of Nimbus required to participate will be announced, but stakers should be prepared to upgrade their nodes on short notice.</p>
+<p>You must be running Nimbus <strong>22.8.0</strong> or later.</p>
 <h3 id="set-up-your-execution-client">Set up your Execution Client</h3>
 <p>As a node operator, you will need to run both an execution client and a consensus client after the merge. If you were previously using a third-party web3 provider (such as Infura or Pocket), you will need to <a href="eth1.html">set up an execution client</a>.</p>
 <p>If you were running an execution client before, make sure to update its configuration to include an option for <a href="eth1.html#3-pass-the-jwt-secret-to-nimbus">JWT secrets</a> and engine API.</p>
 <p>Please note that once the Bellatrix fork epoch is reached on 6th of September 2022, Nimbus will refuse to start unless connected to a properly configured execution client. If you need more time to complete the transition, you can temporarily run the beacon node with the command-line option <code>--require-engine-api-in-bellatrix=no</code>, but please note that such a setup will stop working once the network TTD is reached (currently estimated to happen on 13th of September, see https://wenmerge.com/ for more up-to-date information).</p>
 <h3 id="prepare-a-suggested-fee-recipient">Prepare a suggested fee recipient</h3>
-<p>After the merge, validators that propose blocks are eligible to recieve transaction fees - read more about fee recipients <a href="https://launchpad.ethereum.org/en/merge-readiness#fee-recipient">here</a>.</p>
+<p>After the merge, validators that propose blocks are eligible to receive transaction fees - read more about fee recipients <a href="https://launchpad.ethereum.org/en/merge-readiness#fee-recipient">here</a>.</p>
 <p>See the <a href="suggested-fee-recipient.html">suggested fee recipent page</a> for information about the changes needed to Nimbus.</p>
 
               
