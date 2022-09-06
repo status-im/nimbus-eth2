@@ -105,6 +105,7 @@ type
     parent*: Option[Index]
     checkpoints*: FinalityCheckpoints
     weight*: int64
+    invalid*: bool
     bestChild*: Option[Index]
     bestDescendant*: Option[Index]
 
