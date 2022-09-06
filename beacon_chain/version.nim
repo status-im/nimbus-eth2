@@ -20,7 +20,7 @@ const
   versionMinor* = 8
   versionBuild* = 2
 
-  versionBlob* = "stateofus" # Single word - ends up in the default graffiti
+  versionBlob* = "stateofus" # Single word
 
   gitRevision* = strip(staticExec("git rev-parse --short HEAD"))[0..5]
 
@@ -29,7 +29,8 @@ const
   versionAsStr* =
     $versionMajor & "." & $versionMinor & "." & $versionBuild
 
-  fullVersionStr* = "v" & versionAsStr & "-" & gitRevision & "-" & versionBlob
+  shortVersionStr* = "v" & versionAsStr & "-" & gitRevision
+  fullVersionStr* = shortVersionStr & "-" & versionBlob
 
 func shortNimBanner*(): string =
   const gitPrefix = "git hash: "

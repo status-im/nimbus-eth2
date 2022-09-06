@@ -871,7 +871,7 @@ func init*(
 
 func defaultGraffitiBytes*(): GraffitiBytes =
   const graffitiBytes =
-    toBytes("Nimbus/" & fullVersionStr)
+    toBytes("Nimbus/" & shortVersionStr & "/🐼")  # PR #2875
   static: doAssert graffitiBytes.len <= MAX_GRAFFITI_SIZE
   distinctBase(result)[0 ..< graffitiBytes.len] = graffitiBytes
 
