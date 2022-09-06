@@ -341,7 +341,7 @@ proc storeBlock*(
         asyncSpawn self.consensusManager.runProposalForkchoiceUpdated()
       else:
         asyncSpawn self.consensusManager.updateHeadWithExecution(newHead.get)
-	# TODO if invalid, mark newHead.root as invalid
+        # TODO if invalid, mark newHead.root as invalid
   else:
     warn "Head selection failed, using previous head",
       head = shortLog(self.consensusManager.dag.head), wallSlot
