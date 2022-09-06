@@ -6,7 +6,7 @@ Read more about it [here](https://ethereum.org/en/upgrades/merge/).
 
 ## Preparing for the merge
 
-The merge happens in two phases, the first of which is the Bellatrix upgrade on the Beacon Chain 2022-09-22 11:34:47 UTC.
+The merge happens in two phases, the first of which is the Bellatrix upgrade on the Beacon Chain 2022-09-06 11:34:47 UTC.
 
 The second phase happens when total difficulty on the execution chain reaches `58750000000000000000000` - it is expected this happens around 2022-09-15, but may come days early or late.
 
