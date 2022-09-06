@@ -702,6 +702,7 @@ iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
           keystore = loadKeystore(validatorsDir, secretsDir, keyName,
                                   nonInteractive)
         if keystore.isSome():
+          get
           yield keystore.get()
         else:
           fatal "Unable to load keystore", keystore = file
@@ -718,6 +719,48 @@ iterator listLoadableKeystores*(config: AnyConf): KeystoreData =
                                   config.nonInteractive,
                                   {KeystoreKind.Local, KeystoreKind.Remote}):
     yield el
+
+type
+  FeeRecipientStatus* = enum
+    noSuchValidator
+    invalidFeeRecipientFile
+
+func validatorKeystoreDir(
+    validatorsDir: string, pubkey: ValidatorPubKey): string =
+  validatorsDir / pubkey.fsName
+
+func feeRecipientPath(validatorsDir: string,
+                       pubkey: ValidatorPubKey): string =
+  validatorsDir.validatorKeystoreDir(pubkey) / FeeRecipientFilename
+
+proc getSuggestedFeeRecipient*(
+    validatorsDir: string,
+    pubkey: ValidatorPubKey,
+    defaultFeeRecipient: Eth1Address): Result[Eth1Address, FeeRecipientStatus] =
+  # In this particular case, an error might be by design. If the file exists,
+  # but doesn't load or parse that's a more urgent matter to fix. Many people
+  # people might prefer, however, not to override their default suggested fee
+  # recipients per validator, so don't warn very loudly, if at all.
+  if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
+    return err noSuchValidator
+
+  let feeRecipientPath = validatorsDir.feeRecipientPath(pubkey)
+  if not fileExists(feeRecipientPath):
+    return ok defaultFeeRecipient
+
+  try:
+    # Avoid being overly flexible initially. Trailing whitespace is common
+    # enough it probably should be allowed, but it is reasonable to simply
+    # disallow the mostly-pointless flexibility of leading whitespace.
+    ok Eth1Address.fromHex(strutils.strip(
+      readFile(feeRecipientPath), leading = false, trailing = true))
+  except CatchableError as exc:
+    # Because the nonexistent validator case was already checked, any failure
+    # at this point is serious enough to alert the user.
+    warn "getSuggestedFeeRecipient: failed loading fee recipient file; falling back to default fee recipient",
+      feeRecipientPath,
+      err = exc.msg
+    err invalidFeeRecipientFile
 
 type
   KeystoreGenerationErrorKind* = enum
@@ -1254,11 +1297,11 @@ proc generateDistirbutedStore*(rng: var HmacDrbgContext,
 
 func validatorKeystoreDir(host: KeymanagerHost,
                           pubkey: ValidatorPubKey): string =
-  host.validatorsDir / pubkey.fsName
+  host.validatorsDir.validatorKeystoreDir(pubkey)
 
 func feeRecipientPath*(host: KeymanagerHost,
                        pubkey: ValidatorPubKey): string =
-  host.validatorKeystoreDir(pubkey) / FeeRecipientFilename
+  host.validatorsDir.feeRecipientPath(pubkey)
 
 proc removeFeeRecipientFile*(host: KeymanagerHost,
                              pubkey: ValidatorPubKey): Result[void, string] =
@@ -1279,40 +1322,10 @@ proc setFeeRecipient*(host: KeymanagerHost, pubkey: ValidatorPubKey, feeRecipien
   io2.writeFile(validatorKeystoreDir / FeeRecipientFilename, $feeRecipient)
     .mapErr(proc(e: auto): string = "Failed to write fee recipient file: " & $e)
 
-type
-  FeeRecipientStatus* = enum
-    noSuchValidator
-    invalidFeeRecipientFile
-
 proc getSuggestedFeeRecipient*(
     host: KeymanagerHost,
     pubkey: ValidatorPubKey): Result[Eth1Address, FeeRecipientStatus] =
-  let validatorDir = host.validatorKeystoreDir(pubkey)
-
-  # In this particular case, an error might be by design. If the file exists,
-  # but doesn't load or parse that's a more urgent matter to fix. Many people
-  # people might prefer, however, not to override their default suggested fee
-  # recipients per validator, so don't warn very loudly, if at all.
-  if not dirExists(validatorDir):
-    return err noSuchValidator
-
-  let feeRecipientPath = validatorDir / FeeRecipientFilename
-  if not fileExists(feeRecipientPath):
-    return ok host.defaultFeeRecipient
-
-  try:
-    # Avoid being overly flexible initially. Trailing whitespace is common
-    # enough it probably should be allowed, but it is reasonable to simply
-    # disallow the mostly-pointless flexibility of leading whitespace.
-    ok Eth1Address.fromHex(strutils.strip(
-      readFile(feeRecipientPath), leading = false, trailing = true))
-  except CatchableError as exc:
-    # Because the nonexistent validator case was already checked, any failure
-    # at this point is serious enough to alert the user.
-    warn "getSuggestedFeeRecipient: failed loading fee recipient file; falling back to default fee recipient",
-      feeRecipientPath,
-      err = exc.msg
-    err invalidFeeRecipientFile
+  host.validatorsDir.getSuggestedFeeRecipient(pubkey, host.defaultFeeRecipient)
 
 proc generateDeposits*(cfg: RuntimeConfig,
                        rng: var HmacDrbgContext,

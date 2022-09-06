@@ -91,64 +91,40 @@ proc findValidator*(validators: auto, pubkey: ValidatorPubKey): Opt[ValidatorInd
   else:
     Opt.some idx.ValidatorIndex
 
-proc addLocalValidator(node: BeaconNode, validators: auto,
-                       item: KeystoreData, slot: Slot) =
-  let
-    pubkey = item.pubkey
-    index = findValidator(validators, pubkey)
-  node.attachedValidators[].addLocalValidator(item, index, slot)
-
 # TODO: This should probably be moved to the validator_pool module
 proc addRemoteValidator*(pool: var ValidatorPool,
+                         keystore: KeystoreData,
                          index: Opt[ValidatorIndex],
-                         item: KeystoreData,
                          slot: Slot) =
   var clients: seq[(RestClientRef, RemoteSignerInfo)]
   let httpFlags =
     block:
       var res: set[HttpClientFlag]
-      if RemoteKeystoreFlag.IgnoreSSLVerification in item.flags:
+      if RemoteKeystoreFlag.IgnoreSSLVerification in keystore.flags:
         res.incl({HttpClientFlag.NoVerifyHost,
                   HttpClientFlag.NoVerifyServerName})
       res
   let prestoFlags = {RestClientFlag.CommaSeparatedArray}
-  for remote in item.remotes:
+  for remote in keystore.remotes:
     let client = RestClientRef.new($remote.url, prestoFlags, httpFlags)
     if client.isErr():
       warn "Unable to resolve distributed signer address",
           remote_url = $remote.url, validator = $remote.pubkey
     clients.add((client.get(), remote))
-  pool.addRemoteValidator(item, clients, index, slot)
-
-proc addLocalValidators*(node: BeaconNode,
-                         validators: openArray[KeystoreData]) =
-  let slot = node.currentSlot()
-  withState(node.dag.headState):
-    for item in validators:
-      node.addLocalValidator(forkyState.data.validators.asSeq(), item, slot)
-
-proc addRemoteValidators*(node: BeaconNode,
-                          validators: openArray[KeystoreData]) =
-  let slot = node.currentSlot()
-  withState(node.dag.headState):
-    for item in validators:
-      let index = findValidator(
-        forkyState.data.validators.asSeq(), item.pubkey)
-      node.attachedValidators[].addRemoteValidator(index, item, slot)
+  pool.addRemoteValidator(keystore, clients, index, slot)
 
 proc addValidators*(node: BeaconNode) =
-  let (localValidators, remoteValidators) =
-    block:
-      var local, remote, distributed: seq[KeystoreData]
-      for keystore in listLoadableKeystores(node.config):
-        case keystore.kind
-        of KeystoreKind.Local:
-          local.add(keystore)
-        of KeystoreKind.Remote:
-          remote.add(keystore)
-      (local, remote)
-  node.addLocalValidators(localValidators)
-  node.addRemoteValidators(remoteValidators)
+  debug "Loading validators", validatorsDir = node.config.validatorsDir()
+  let slot = node.currentSlot()
+  for keystore in listLoadableKeystores(node.config):
+    let index = withState(node.dag.headState):
+      findValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
+
+    case keystore.kind
+    of KeystoreKind.Local:
+      node.attachedValidators[].addLocalValidator(keystore, index, slot)
+    of KeystoreKind.Remote:
+      node.attachedValidators[].addRemoteValidator(keystore, index, slot)
 
 proc getAttachedValidator(node: BeaconNode,
                           pubkey: ValidatorPubKey): AttachedValidator =
@@ -357,17 +333,11 @@ proc get_execution_payload(
     asConsensusExecutionPayload(
       await execution_engine.getPayload(payload_id.get))
 
-# TODO remove in favor of consensusManager copy
 proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
                      validatorIdx: ValidatorIndex,
                      epoch: Epoch): Eth1Address =
-  node.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
-    if node.keymanagerHost != nil:
-      node.keymanagerHost[].getSuggestedFeeRecipient(pubkey).valueOr:
-        node.config.defaultFeeRecipient
-    else:
-      node.config.defaultFeeRecipient
+  node.consensusManager[].getFeeRecipient(pubkey, validatorIdx, epoch)
 
 from web3/engine_api_types import PayloadExecutionStatus
 

@@ -55,7 +55,7 @@ type
     # Allow determination of preferred fee recipient during proposals
     # ----------------------------------------------------------------
     dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore
-    keymanagerHost: ref KeymanagerHost
+    validatorsDir: string
     defaultFeeRecipient: Eth1Address
 
     # Tracking last proposal forkchoiceUpdated payload information
@@ -73,7 +73,7 @@ func new*(T: type ConsensusManager,
           eth1Monitor: Eth1Monitor,
           actionTracker: ActionTracker,
           dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
-          keymanagerHost: ref KeymanagerHost,
+          validatorsDir: string,
           defaultFeeRecipient: Eth1Address
          ): ref ConsensusManager =
   (ref ConsensusManager)(
@@ -83,7 +83,7 @@ func new*(T: type ConsensusManager,
     eth1Monitor: eth1Monitor,
     actionTracker: actionTracker,
     dynamicFeeRecipientsStore: dynamicFeeRecipientsStore,
-    keymanagerHost: keymanagerHost,
+    validatorsDir: validatorsDir,
     forkchoiceUpdatedInfo: Opt.none ForkchoiceUpdatedInformation,
     defaultFeeRecipient: defaultFeeRecipient
   )
@@ -319,13 +319,13 @@ proc checkNextProposer*(self: ref ConsensusManager, wallSlot: Slot):
     self.actionTracker, self.dynamicFeeRecipientsStore, wallSlot)
 
 proc getFeeRecipient*(
-    self: ref ConsensusManager, pubkey: ValidatorPubKey, validatorIdx: ValidatorIndex,
+    self: ConsensusManager, pubkey: ValidatorPubKey, validatorIdx: ValidatorIndex,
     epoch: Epoch): Eth1Address =
-  self.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(validatorIdx, epoch).valueOr:
-    if self.keymanagerHost != nil:
-      self.keymanagerHost[].getSuggestedFeeRecipient(pubkey).valueOr:
-        self.defaultFeeRecipient
-    else:
+  self.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
+      validatorIdx, epoch).valueOr:
+    self.validatorsDir.getSuggestedFeeRecipient(
+        pubkey, self.defaultFeeRecipient).valueOr:
+      # Ignore errors and use default - errors are logged in gsfr
       self.defaultFeeRecipient
 
 from ../spec/datatypes/bellatrix import PayloadID

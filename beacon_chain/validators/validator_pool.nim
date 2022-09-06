@@ -41,7 +41,6 @@ type
   ValidatorConnection* = RestClientRef
 
   AttachedValidator* = ref object
-    pubkey*: ValidatorPubKey
     data*: KeystoreData
     case kind*: ValidatorKind
     of ValidatorKind.Local:
@@ -75,6 +74,9 @@ type
     validators*: Table[ValidatorPubKey, AttachedValidator]
     slashingProtection*: SlashingProtectionDB
 
+template pubkey*(v: AttachedValidator): ValidatorPubKey =
+  v.data.pubkey
+
 func shortLog*(v: AttachedValidator): string =
   case v.kind
   of ValidatorKind.Local:
@@ -93,36 +95,36 @@ func init*(T: type ValidatorPool,
 template count*(pool: ValidatorPool): int =
   len(pool.validators)
 
-proc addLocalValidator*(pool: var ValidatorPool, item: KeystoreData,
+proc addLocalValidator*(pool: var ValidatorPool, keystore: KeystoreData,
                         index: Opt[ValidatorIndex], slot: Slot) =
-  doAssert item.kind == KeystoreKind.Local
-  let pubkey = item.pubkey
+  doAssert keystore.kind == KeystoreKind.Local
   let v = AttachedValidator(
-    kind: ValidatorKind.Local, pubkey: pubkey, index: index, data: item,
+    kind: ValidatorKind.Local, index: index, data: keystore,
     externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
     startSlot: slot)
-  pool.validators[pubkey] = v
-  notice "Local validator attached", pubkey, validator = shortLog(v),
+  pool.validators[v.pubkey] = v
+  notice "Local validator attached", pubkey = v.pubkey,
+                                     validator = shortLog(v),
                                      start_slot = slot
   validators.set(pool.count().int64)
 
-proc addLocalValidator*(pool: var ValidatorPool, item: KeystoreData,
+proc addLocalValidator*(pool: var ValidatorPool, keystore: KeystoreData,
                         slot: Slot) =
-  addLocalValidator(pool, item, Opt.none ValidatorIndex, slot)
+  addLocalValidator(pool, keystore, Opt.none ValidatorIndex, slot)
 
-proc addRemoteValidator*(pool: var ValidatorPool, item: KeystoreData,
+proc addRemoteValidator*(pool: var ValidatorPool, keystore: KeystoreData,
                          clients: seq[(RestClientRef, RemoteSignerInfo)],
                          index: Opt[ValidatorIndex], slot: Slot) =
-  doAssert item.kind == KeystoreKind.Remote
-  let pubkey = item.pubkey
+  doAssert keystore.kind == KeystoreKind.Remote
   let v = AttachedValidator(
-    kind: ValidatorKind.Remote, pubkey: pubkey, index: index, data: item,
+    kind: ValidatorKind.Remote, index: index, data: keystore,
     clients: clients,
     externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
     startSlot: slot)
-  pool.validators[pubkey] = v
-  notice "Remote validator attached", pubkey, validator = shortLog(v),
-                                      remote_signer = $item.remotes,
+  pool.validators[v.pubkey] = v
+  notice "Remote validator attached", pubkey = v.pubkey,
+                                      validator = shortLog(v),
+                                      remote_signer = $keystore.remotes,
                                       start_slot = slot
   validators.set(pool.count().int64)
 

@@ -125,7 +125,7 @@ proc handleAddRemoteValidatorReq(host: KeymanagerHost,
     let
       slot = host.getBeaconTimeFn().slotOrZero
       validatorIdx = host.getValidatorIdx(keystore.pubkey)
-    host.validatorPool[].addRemoteValidator(validatorIdx, res.get, slot)
+    host.validatorPool[].addRemoteValidator(res.get, validatorIdx, slot)
     RequestItemStatus(status: $KeystoreStatus.imported)
   else:
     case res.error().status
