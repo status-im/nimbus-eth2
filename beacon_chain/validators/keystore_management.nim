@@ -702,7 +702,6 @@ iterator listLoadableKeystores*(validatorsDir, secretsDir: string,
           keystore = loadKeystore(validatorsDir, secretsDir, keyName,
                                   nonInteractive)
         if keystore.isSome():
-          get
           yield keystore.get()
         else:
           fatal "Unable to load keystore", keystore = file
