@@ -1513,7 +1513,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH and m.terminalBlockHash.isNone:
       var terminalBlockCandidate = nextBlock
 
-      info "startEth1Syncing: checking for merge terminal block",
+      debug "startEth1Syncing: checking for merge terminal block",
         currentEpoch = m.currentEpoch,
         BELLATRIX_FORK_EPOCH = m.cfg.BELLATRIX_FORK_EPOCH,
         totalDifficulty = $nextBlock.totalDifficulty,
