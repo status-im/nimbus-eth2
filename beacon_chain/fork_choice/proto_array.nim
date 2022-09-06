@@ -98,6 +98,7 @@ func init*(
     parent: none(int),
     checkpoints: checkpoints,
     weight: 0,
+    invalid: false,
     bestChild: none(int),
     bestDescendant: none(int))
 
@@ -317,6 +318,7 @@ func onBlock*(self: var ProtoArray,
     parent: some(parentIdx),
     checkpoints: checkpoints,
     weight: 0,
+    invalid: false,
     bestChild: none(int),
     bestDescendant: none(int))
 
@@ -534,6 +536,10 @@ func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool] =
 func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
   ## This is the equivalent of `filter_block_tree` function in eth2 spec
   ## https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/fork-choice.md#filter_block_tree
+
+  if node.invalid:
+    return false
+
   if self.hasLowParticipation:
     if node.checkpoints.justified.epoch < self.checkpoints.justified.epoch:
       return false
@@ -562,6 +568,7 @@ type ProtoArrayItem* = object
   checkpoints*: FinalityCheckpoints
   unrealized*: Option[FinalityCheckpoints]
   weight*: int64
+  invalid*: bool
   bestChild*: Eth2Digest
   bestDescendant*: Eth2Digest
 
@@ -593,6 +600,7 @@ iterator items*(self: ProtoArray): ProtoArrayItem =
       checkpoints: node.checkpoints,
       unrealized: unrealized,
       weight: node.weight,
+      invalid: node.invalid,
       bestChild: self.nodes.root(node.bestChild),
       bestDescendant: self.nodes.root(node.bestDescendant))
 
