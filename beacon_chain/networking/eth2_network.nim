@@ -2123,7 +2123,7 @@ proc getPersistentNetKeys*(
     rng.getRandomNetKeys()
 
 func gossipId(
-    data: openArray[byte], altairPrefix, topic: string): seq[byte] =
+    data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/p2p-interface.md#topics-and-messages
   const
@@ -2132,7 +2132,8 @@ func gossipId(
   let messageDigest = withEth2Hash:
     h.update(MESSAGE_DOMAIN_VALID_SNAPPY)
 
-    if topic.startsWith(altairPrefix):
+    if not topic.startsWith(phase0Prefix):
+      # everything >= altair
       h.update topic.len.uint64.toBytesLE
       h.update topic
 
@@ -2210,7 +2211,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
   # are running behind a NAT).
   var switch = newBeaconSwitch(config, netKeys.seckey, hostAddress, rng)
 
-  let altairPrefix = "/eth2/" & $forkDigests.altair
+  let phase0Prefix = "/eth2/" & $forkDigests.phase0
 
   func msgIdProvider(m: messages.Message): Result[seq[byte], ValidationResult] =
     template topic: untyped =
@@ -2220,7 +2221,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       # This doesn't have to be a tight bound, just enough to avoid denial of
       # service attacks.
       let decoded = snappy.decode(m.data, maxGossipMaxSize())
-      ok(gossipId(decoded, altairPrefix, topic))
+      ok(gossipId(decoded, phase0Prefix, topic))
     except CatchableError:
       err(ValidationResult.Reject)
 
