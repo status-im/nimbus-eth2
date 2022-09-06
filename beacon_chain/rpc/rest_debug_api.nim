@@ -121,6 +121,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           u_finalized_checkpoint: Option[Checkpoint]
           best_child: Eth2Digest
           best_descendant: Eth2Digest
+          invalid: bool
 
         ForkChoiceResponse = object
           slot: Slot
@@ -174,7 +175,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
             u_justified_checkpoint: u_justified_checkpoint,
             u_finalized_checkpoint: u_finalized_checkpoint,
             best_child: item.bestChild,
-            bestDescendant: item.bestDescendant))
+            bestDescendant: item.bestDescendant,
+            invalid: item.invalid))
       return RestApiResponse.jsonResponse(responses)
 
   # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
