@@ -200,13 +200,23 @@ func get_deposit_signature*(message: DepositMessage, version: Version,
   blsSign(privkey, signing_root.data)
 
 proc verify_deposit_signature*(preset: RuntimeConfig,
-                               deposit: DepositData): bool =
+                               deposit: DepositData,
+                               pubkey: CookedPubKey): bool =
   let
     deposit_message = deposit.getDepositMessage()
     signing_root = compute_deposit_signing_root(
       preset.GENESIS_FORK_VERSION, deposit_message)
 
-  blsVerify(deposit.pubkey, signing_root.data, deposit.signature)
+  blsVerify(pubkey, signing_root.data, deposit.signature)
+
+proc verify_deposit_signature*(preset: RuntimeConfig,
+                               deposit: DepositData): bool =
+  # Deposits come with compressed public keys; uncompressing them is expensive.
+  # `blsVerify` fills an internal cache when using `ValidatorPubKey`.
+  # To avoid filling this cache unnecessarily, uncompress explicitly here.
+  let validator = getImmutableValidatorData(deposit).valueOr:
+    return false
+  verify_deposit_signature(preset, deposit, validator.pubkey)
 
 func compute_voluntary_exit_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,

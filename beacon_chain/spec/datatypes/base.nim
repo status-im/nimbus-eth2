@@ -537,6 +537,15 @@ func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
     pubkey: cookedKey.get(),
     withdrawal_credentials: validator.withdrawal_credentials)
 
+func getImmutableValidatorData*(
+    deposit: DepositData): Opt[ImmutableValidatorData2] =
+  let cookedKey = deposit.pubkey.load()
+  if cookedKey.isNone:
+    return err()
+  ok ImmutableValidatorData2(
+    pubkey: cookedKey.get(),
+    withdrawal_credentials: deposit.withdrawal_credentials)
+
 template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
   # A "tigher" type is often used for T, but for the range check to be effective
   # it must make sense..
