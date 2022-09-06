@@ -103,11 +103,6 @@
 	url = https://github.com/status-im/nim-json-rpc.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/news"]
-	path = vendor/news
-	url = https://github.com/status-im/news.git
-	ignore = untracked
-	branch = status
 [submodule "vendor/nim-unicodedb"]
 	path = vendor/nim-unicodedb
 	url = https://github.com/nitely/nim-unicodedb.git
