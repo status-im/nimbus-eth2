@@ -709,21 +709,6 @@ proc init*(T: type BeaconNode,
       else:
         nil
 
-    maxSecondsInMomentType = Moment.high.epochSeconds
-    # If the Bellatrix epoch is above this value, the calculation
-    # below will overflow. This happens in practice for networks
-    # where the `BELLATRIX_FORK_EPOCH` is not yet specified.
-    maxSupportedBellatrixEpoch = (maxSecondsInMomentType.uint64 - genesisTime) div
-                                 (SLOTS_PER_EPOCH * SECONDS_PER_SLOT)
-    bellatrixEpochTime = if cfg.BELLATRIX_FORK_EPOCH < maxSupportedBellatrixEpoch:
-      int64(genesisTime + cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH * SECONDS_PER_SLOT)
-    else:
-      maxSecondsInMomentType
-
-    nextExchangeTransitionConfTime =
-      max(Moment.init(bellatrixEpochTime, Second),
-          Moment.now)
-
   let payloadBuilderRestClient =
     if config.payloadBuilderEnable:
       RestClientRef.new(
@@ -756,7 +741,7 @@ proc init*(T: type BeaconNode,
     beaconClock: beaconClock,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache,
-    nextExchangeTransitionConfTime: nextExchangeTransitionConfTime,
+    nextExchangeTransitionConfTime: Moment.now,
     dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()))
 
   node.initLightClient(
@@ -1376,8 +1361,9 @@ proc onSecond(node: BeaconNode, time: Moment) =
   ## This procedure will be called once per minute.
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#engine_exchangetransitionconfigurationv1
   if time > node.nextExchangeTransitionConfTime and not node.eth1Monitor.isNil:
-    node.nextExchangeTransitionConfTime = time + chronos.minutes(1)
-    traceAsyncErrors node.eth1Monitor.exchangeTransitionConfiguration()
+    node.nextExchangeTransitionConfTime = time + chronos.seconds(45)
+    if node.currentSlot.epoch >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+      traceAsyncErrors node.eth1Monitor.exchangeTransitionConfiguration()
 
   if node.config.stopAtSyncedEpoch != 0 and
       node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
