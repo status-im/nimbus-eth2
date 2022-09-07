@@ -368,17 +368,14 @@ func updateScore*(peer: Peer, score: int) {.inline.} =
   if peer.score > PeerScoreHighLimit:
     peer.score = PeerScoreHighLimit
 
-func updateStats*(peer: Peer, index: int, value: uint64) {.inline.} =
+func updateStats*(peer: Peer, index: SyncResponseKind,
+                  value: uint64) {.inline.} =
   ## Update peer's ``peer`` specific ``index`` statistics with value ``value``.
-  if (index >= 0) and (index < len(peer.statistics)):
-    peer.statistics[index] = peer.statistics[index] + value
+  peer.statistics.update(index, value)
 
-func getStats*(peer: Peer, index: int): uint64 {.inline.} =
+func getStats*(peer: Peer, index: SyncResponseKind): uint64 {.inline.} =
   ## Returns current statistics value for peer ``peer`` and index ``index``.
-  if (index >= 0) and (index < len(peer.statistics)):
-    peer.statistics[index]
-  else:
-    0'u64
+  peer.statistics.get(index)
 
 func calcThroughput(dur: Duration, value: uint64): float =
   let secs = float(chronos.seconds(1).nanoseconds)

@@ -412,13 +412,13 @@ proc rewardGapers[T](sq: SyncQueue[T], score: int) =
     direction = sq.kind
     topics = "syncman"
 
-  mixin updateScore
+  mixin updateScore, getStats
   for gap in sq.gapList:
     if score < 0:
       # Every empty response increases penalty by 25%, but not more than 200%.
       let
-        emptyCount = gap.item.statistics.get(SyncResponseKind.Empty)
-        goodCount = gap.item.statistics.get(SyncResponseKind.Good)
+        emptyCount = gap.item.getStats(SyncResponseKind.Empty)
+        goodCount = gap.item.getStats(SyncResponseKind.Good)
 
       if emptyCount <= goodCount:
         gap.item.updateScore(score)
@@ -598,7 +598,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
     topics = "syncman"
 
   ## Push successful result to queue ``sq``.
-  mixin updateScore
+  mixin updateScore, updateStats, getStats
 
   if sr.index notin sq.pending:
     # If request `sr` not in our pending list, it only means that
@@ -709,7 +709,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         # If there no error and response was not empty we should reward peer
         # with some bonus score - not for duplicate blocks though.
         item.request.item.updateScore(PeerScoreGoodBlocks)
-        item.request.item.statistics.update(SyncResponseKind.Good, 1)
+        item.request.item.updateStats(SyncResponseKind.Good, 1'u64)
 
         # BlockProcessor reports good block, so we can reward all the peers
         # who sent us empty responses.
@@ -717,7 +717,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         sq.gapList.reset()
       else:
         # Response was empty
-        item.request.item.statistics.update(SyncResponseKind.Empty, 1)
+        item.request.item.updateStats(SyncResponseKind.Empty, 1'u64)
 
       sq.processGap(item)
 
