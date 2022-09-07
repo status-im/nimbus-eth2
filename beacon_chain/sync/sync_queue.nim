@@ -46,6 +46,11 @@ type
     request*: SyncRequest[T]
     data*: seq[ref ForkedSignedBeaconBlock]
 
+  GapItem*[T] = object
+    start*: Slot
+    finish*: Slot
+    item*: T
+
   SyncWaiter* = ref object
     future: Future[void]
     reset: bool
@@ -64,6 +69,7 @@ type
     queueSize*: int
     counter*: uint64
     pending*: Table[uint64, SyncRequest[T]]
+    gapList*: seq[GapItem[T]]
     waiters: seq[SyncWaiter]
     getSafeSlot*: GetSlotCallback
     debtsQueue: HeapQueue[SyncRequest[T]]
@@ -385,6 +391,47 @@ proc getLastNonEmptySlot*[T](sr: SyncResult[T]): Slot {.inline.} =
   else:
     sr.data[^1][].slot
 
+proc processGap[T](sq: SyncQueue[T], sr: SyncResult[T]) =
+  if sr.isEmpty():
+    let gitem = GapItem[T](start: sr.request.slot,
+                           finish: sr.request.slot + sr.request.count - 1'u64,
+                           item: sr.request.item)
+    sq.gapList.add(gitem)
+  else:
+    if sr.hasEndGap():
+      let gitem = GapItem[T](start: sr.getLastNonEmptySlot() + 1'u64,
+                             finish: sr.request.slot + sr.request.count - 1'u64,
+                             item: sr.request.item)
+      sq.gapList.add(gitem)
+    else:
+      sq.gapList.reset()
+
+proc rewardGapers[T](sq: SyncQueue[T], score: int) =
+  logScope:
+    sync_ident = sq.ident
+    direction = sq.kind
+    topics = "syncman"
+
+  mixin updateScore
+  for gap in sq.gapList:
+    if score < 0:
+      # Every empty response increases penalty by 25%, but not more than 200%.
+      let
+        emptyCount = gap.item.statistics.get(SyncResponseKind.Empty)
+        goodCount = gap.item.statistics.get(SyncResponseKind.Good)
+
+      if emptyCount <= goodCount:
+        gap.item.updateScore(score)
+      else:
+        let
+          weight = int(min(emptyCount - goodCount, 8'u64))
+          newScore = score + score * weight div 4
+        gap.item.updateScore(newScore)
+        debug "Peer received gap penalty", peer = gap.item,
+              penalty = newScore
+    else:
+      gap.item.updateScore(score)
+
 proc toDebtsQueue[T](sq: SyncQueue[T], sr: SyncRequest[T]) =
   sq.debtsQueue.push(sr)
   sq.debtsCount = sq.debtsCount + sr.count
@@ -611,10 +658,10 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
 
     # Validating received blocks one by one
     var
-      hasOkBlock = false
       hasInvalidBlock = false
       unviableBlock: Option[(Eth2Digest, Slot)]
       missingParentSlot: Option[Slot]
+      goodBlock: Option[Slot]
 
       # compiler segfault if this is moved into the for loop, at time of writing
       # TODO this does segfault in 1.2 but not 1.6, so remove workaround when 1.2
@@ -624,7 +671,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
     for blk in sq.blocks(item):
       res = await sq.blockVerifier(blk[])
       if res.isOk():
-        hasOkBlock = true
+        goodBlock = some(blk[].slot)
       else:
         case res.error()
         of BlockError.MissingParent:
@@ -654,14 +701,25 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
     # with, hopefully, a different peer
     let retryRequest =
       hasInvalidBlock or unviableBlock.isSome() or missingParentSlot.isSome()
-    if not retryRequest:
+    if not(retryRequest):
       let numSlotsAdvanced = item.request.count - sq.numAlreadyKnownSlots(sr)
       sq.advanceOutput(numSlotsAdvanced)
 
-      if hasOkBlock:
+      if goodBlock.isSome():
         # If there no error and response was not empty we should reward peer
         # with some bonus score - not for duplicate blocks though.
         item.request.item.updateScore(PeerScoreGoodBlocks)
+        item.request.item.statistics.update(SyncResponseKind.Good, 1)
+
+        # BlockProcessor reports good block, so we can reward all the peers
+        # who sent us empty responses.
+        sq.rewardGapers(PeerScoreGoodBlocks)
+        sq.gapList.reset()
+      else:
+        # Response was empty
+        item.request.item.statistics.update(SyncResponseKind.Empty, 1)
+
+      sq.processGap(item)
 
       if numSlotsAdvanced > 0:
         sq.wakeupWaiters()
@@ -669,13 +727,13 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       debug "Block pool rejected peer's response", request = item.request,
             blocks_map = getShortMap(item.request, item.data),
             blocks_count = len(item.data),
-            ok = hasOkBlock,
+            ok = goodBlock.isSome(),
             unviable = unviableBlock.isSome(),
             missing_parent = missingParentSlot.isSome()
       # We need to move failed response to the debts queue.
       sq.toDebtsQueue(item.request)
 
-      if unviableBlock.isSome:
+      if unviableBlock.isSome():
         let req = item.request
         notice "Received blocks from an unviable fork", request = req,
               blockRoot = unviableBlock.get()[0],
@@ -684,34 +742,54 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               blocks_map = getShortMap(req, item.data)
         req.item.updateScore(PeerScoreUnviableFork)
 
-      if missingParentSlot.isSome:
+      if missingParentSlot.isSome():
         var
           resetSlot: Option[Slot]
           failSlot = missingParentSlot.get()
 
         # If we got `BlockError.MissingParent` it means that peer returns chain
         # of blocks with holes or `block_pool` is in incomplete state. We going
-        # to rewind to the first slot at latest finalized epoch.
+        # to rewind the SyncQueue some distance back (2ⁿ, where n∈[0,∞], but
+        # no more than `finalized_epoch`).
         let
           req = item.request
           safeSlot = sq.getSafeSlot()
+          gapsCount = len(sq.gapList)
+
+        # We should penalize all the peers which responded with gaps.
+        sq.rewardGapers(PeerScoreMissingBlocks)
+        sq.gapList.reset()
+
         case sq.kind
         of SyncQueueKind.Forward:
-          if safeSlot < failSlot:
-            let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
-            debug "Unexpected missing parent, rewind happens",
-                 request = req, rewind_to_slot = rewindSlot,
-                 rewind_point = sq.rewind, finalized_slot = safeSlot,
-                 blocks_count = len(item.data),
-                 blocks_map = getShortMap(req, item.data)
-            resetSlot = some(rewindSlot)
+          if goodBlock.isSome():
+            # `BlockError.MissingParent` and `Success` present in response,
+            # it means that we just need to request this range one more time.
+            debug "Unexpected missing parent, but no rewind needed",
+                  request = req, finalized_slot = safeSlot,
+                  last_good_slot = goodBlock.get(),
+                  missing_parent_slot = missingParentSlot.get(),
+                  blocks_count = len(item.data),
+                  blocks_map = getShortMap(req, item.data),
+                  gaps_count = gapsCount
             req.item.updateScore(PeerScoreMissingBlocks)
           else:
-            error "Unexpected missing parent at finalized epoch slot",
+            if safeSlot < req.slot:
+              let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
+              debug "Unexpected missing parent, rewind happens",
+                   request = req, rewind_to_slot = rewindSlot,
+                   rewind_point = sq.rewind, finalized_slot = safeSlot,
+                   blocks_count = len(item.data),
+                   blocks_map = getShortMap(req, item.data),
+                   gaps_count = gapsCount
+              resetSlot = some(rewindSlot)
+            else:
+              error "Unexpected missing parent at finalized epoch slot",
                   request = req, rewind_to_slot = safeSlot,
                   blocks_count = len(item.data),
-                  blocks_map = getShortMap(req, item.data)
-            req.item.updateScore(PeerScoreBadBlocks)
+                  blocks_map = getShortMap(req, item.data),
+                  gaps_count = gapsCount
+              req.item.updateScore(PeerScoreBadBlocks)
         of SyncQueueKind.Backward:
           if safeSlot > failSlot:
             let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
