@@ -367,14 +367,13 @@ proc updateHeadWithExecution*(
     # justified and finalized
     self.dag.updateHead(newHead.blck, self.quarantine[])
 
-    if self.checkNextProposer(wallSlot).isSome:
-      # This node should propose next slot, so start preparing payload. Both
-      # fcUs are useful: the updateExecutionClientHead(newHead) call updates
-      # the head state (including optimistic status) that self.dagUpdateHead
-      # needs while runProposalForkchoiceUpdated requires RANDAO information
-      # from the head state corresponding to the `newHead` block, which only
-      # self.dag.updateHead(...) sets up.
-      await self.runProposalForkchoiceUpdated(wallSlot)
+    # If this node should propose next slot, start preparing payload. Both
+    # fcUs are useful: the updateExecutionClientHead(newHead) call updates
+    # the head state (including optimistic status) that self.dagUpdateHead
+    # needs while runProposalForkchoiceUpdated requires RANDAO information
+    # from the head state corresponding to the `newHead` block, which only
+    # self.dag.updateHead(...) sets up.
+    await self.runProposalForkchoiceUpdated(wallSlot)
 
     self[].checkExpectedBlock()
   except CatchableError as exc:
