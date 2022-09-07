@@ -54,7 +54,7 @@ pipeline {
 
     stage('Build') {
       steps { timeout(40) {
-        sh 'make LOG_LEVEL=TRACE'
+        sh 'make V=1 LOG_LEVEL=TRACE'
       } }
     }
 
@@ -62,13 +62,13 @@ pipeline {
       parallel {
         stage('General') {
           steps { timeout(60) {
-            sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
+            sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 V=1 test'
           } }
         }
 
         stage('REST') {
           steps { timeout(5) {
-            sh 'make restapi-test'
+            sh 'make V=1 restapi-test'
           } }
         }
       }
@@ -114,7 +114,7 @@ def launchLocalTestnet(String name) {
     buildResult: 'FAILURE',
     stageResult: 'FAILURE'
   ) {
-    sh "make local-testnet-${name}"
+    sh "make V=1 local-testnet-${name}"
   }
   /* Archive test results regardless of outcome. */
   sh "tar cjf local-testnet-${name}.tar.gz local-testnet-${name}/*.txt"
