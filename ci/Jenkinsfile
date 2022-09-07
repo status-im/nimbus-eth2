@@ -53,7 +53,7 @@ pipeline {
     }
 
     stage('Build') {
-      steps { timeout(30) {
+      steps { timeout(40) {
         sh 'make LOG_LEVEL=TRACE'
       } }
     }
@@ -77,13 +77,13 @@ pipeline {
     stage('Finalizations') {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
         stage('minimal') {
-          steps { script { timeout(15) {
+          steps { script { timeout(25) {
             launchLocalTestnet('minimal')
           } } }
         }
 
         stage('mainnet') {
-          steps { script { timeout(45) {
+          steps { script { timeout(55) {
             launchLocalTestnet('mainnet')
           } } }
         }
