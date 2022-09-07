@@ -530,16 +530,14 @@ const
   DOMAIN_CONTRIBUTION_AND_PROOF* = DomainType([byte 0x09, 0x00, 0x00, 0x00])
 
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
-  let cookedKey = validator.pubkey.load() # Loading the pubkey is slow!
-  doAssert cookedKey.isSome,
-    "Cannot parse validator key: " & toHex(validator.pubkey)
+  let cookedKey = validator.pubkey.loadValid()  # `Validator` has valid key
   ImmutableValidatorData2(
-    pubkey: cookedKey.get(),
+    pubkey: cookedKey,
     withdrawal_credentials: validator.withdrawal_credentials)
 
 func getImmutableValidatorData*(
     deposit: DepositData): Opt[ImmutableValidatorData2] =
-  let cookedKey = deposit.pubkey.load()
+  let cookedKey = deposit.pubkey.load()  # Loading the pubkey is slow!
   if cookedKey.isNone:
     return err()
   ok ImmutableValidatorData2(
