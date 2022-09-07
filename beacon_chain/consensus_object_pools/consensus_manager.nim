@@ -268,20 +268,25 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
   self.updateHead(newHead.blck)
 
 proc checkNextProposer(
-    dag: ChainDAGRef, actionTracker: ActionTracker, slot: Slot):
+    dag: ChainDAGRef, actionTracker: ActionTracker,
+    dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
+    slot: Slot):
     Opt[(ValidatorIndex, ValidatorPubKey)] =
   let nextSlot = slot + 1
-  if actionTracker.getNextProposalSlot(slot) != nextSlot:
-    return Opt.none((ValidatorIndex, ValidatorPubKey))
   let proposer = dag.getProposer(dag.head, nextSlot)
   if proposer.isNone():
+    return Opt.none((ValidatorIndex, ValidatorPubKey))
+  if  actionTracker.getNextProposalSlot(slot) != nextSlot and
+      dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
+        proposer.get, nextSlot.epoch).isNone:
     return Opt.none((ValidatorIndex, ValidatorPubKey))
   let proposerKey = dag.validatorKey(proposer.get).get().toPubKey
   Opt.some((proposer.get, proposerKey))
 
 proc checkNextProposer*(self: ref ConsensusManager, wallSlot: Slot):
     Opt[(ValidatorIndex, ValidatorPubKey)] =
-  self.dag.checkNextProposer(self.actionTracker, wallSlot)
+  self.dag.checkNextProposer(
+    self.actionTracker, self.dynamicFeeRecipientsStore, wallSlot)
 
 proc getFeeRecipient*(
     self: ref ConsensusManager, pubkey: ValidatorPubKey, validatorIdx: ValidatorIndex,
