@@ -274,18 +274,41 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   self.updateHead(newHead.blck)
 
+func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
+  # This is a tweaked version of the validator_duties isSynced. TODO, refactor
+  # that one so this becomes the default version, with the same information to
+  # work with. For the head slot, use the DAG head regardless of what head the
+  # proposer forkchoiceUpdated is using, because by the validator_duties might
+  # be ready to actually propose, it's going to do so from the DAG head. Given
+  # the defaultSyncHorizon, it will start triggering in time so that potential
+  # discrepancies between the head here, and the head the DAG has (which might
+  # not yet be updated) won't be visible.
+  const defaultSyncHorizon = 50
+
+  if dag.head.slot + defaultSyncHorizon < wallSlot:
+    false
+  else:
+    not dag.is_optimistic(dag.head.root)
+
 proc checkNextProposer(
     dag: ChainDAGRef, actionTracker: ActionTracker,
     dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
-    slot: Slot):
+    wallSlot: Slot):
     Opt[(ValidatorIndex, ValidatorPubKey)] =
-  let nextSlot = slot + 1
-  let proposer = dag.getProposer(dag.head, nextSlot)
+  let nextWallSlot = wallSlot + 1
+
+  # Avoid long rewinds during syncing, when it's not going to propose. Though
+  # this is preparing for a proposal on `nextWallSlot`, it can't possibly yet
+  # be on said slot, so still check just `wallSlot`.
+  if not dag.isSynced(wallSlot):
+    return Opt.none((ValidatorIndex, ValidatorPubKey))
+
+  let proposer = dag.getProposer(dag.head, nextWallSlot)
   if proposer.isNone():
     return Opt.none((ValidatorIndex, ValidatorPubKey))
-  if  actionTracker.getNextProposalSlot(slot) != nextSlot and
+  if  actionTracker.getNextProposalSlot(wallSlot) != nextWallSlot and
       dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
-        proposer.get, nextSlot.epoch).isNone:
+        proposer.get, nextWallSlot.epoch).isNone:
     return Opt.none((ValidatorIndex, ValidatorPubKey))
   let proposerKey = dag.validatorKey(proposer.get).get().toPubKey
   Opt.some((proposer.get, proposerKey))
