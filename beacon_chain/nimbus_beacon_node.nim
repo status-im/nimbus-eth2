@@ -292,6 +292,7 @@ proc initFullNode(
       ExitPool.init(dag, attestationPool, onVoluntaryExitAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.eth1Monitor,
+      ActionTracker.init(rng, config.subscribeAllSubnets),
       node.dynamicFeeRecipientsStore, node.keymanagerHost,
       config.defaultFeeRecipient)
     blockProcessor = BlockProcessor.new(
@@ -371,9 +372,10 @@ proc initFullNode(
         node.validatorMonitor[].addMonitor(validator.pubkey, validator.index)
 
       if validator.index.isSome():
-        node.actionTracker.knownValidators[validator.index.get()] = wallSlot
-    let
-      stabilitySubnets = node.actionTracker.stabilitySubnets(wallSlot)
+        node.consensusManager[].actionTracker.knownValidators[
+          validator.index.get()] = wallSlot
+    let stabilitySubnets =
+      node.consensusManager[].actionTracker.stabilitySubnets(wallSlot)
     # Here, we also set the correct ENR should we be in all subnets mode!
     node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
@@ -735,7 +737,6 @@ proc init*(T: type BeaconNode,
     keymanagerHost: keymanagerHost,
     keymanagerServer: keymanagerInitResult.server,
     eventBus: eventBus,
-    actionTracker: ActionTracker.init(rng, config.subscribeAllSubnets),
     gossipState: {},
     blocksGossipState: {},
     beaconClock: beaconClock,
@@ -791,20 +792,22 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     return
 
   let
-    aggregateSubnets = node.actionTracker.aggregateSubnets(slot)
-    stabilitySubnets = node.actionTracker.stabilitySubnets(slot)
+    aggregateSubnets =
+      node.consensusManager[].actionTracker.aggregateSubnets(slot)
+    stabilitySubnets =
+      node.consensusManager[].actionTracker.stabilitySubnets(slot)
     subnets = aggregateSubnets + stabilitySubnets
 
   node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
   # Now we know what we should be subscribed to - make it so
   let
-    prevSubnets = node.actionTracker.subscribedSubnets
+    prevSubnets = node.consensusManager[].actionTracker.subscribedSubnets
     unsubscribeSubnets = prevSubnets - subnets
     subscribeSubnets = subnets - prevSubnets
 
   # Remember what we subscribed to, so we can unsubscribe later
-  node.actionTracker.subscribedSubnets = subnets
+  node.consensusManager[].actionTracker.subscribedSubnets = subnets
 
   let forkDigests = node.forkDigests()
 
@@ -888,7 +891,7 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   for subnet_id in SubnetId:
     node.network.unsubscribe(getAttestationTopic(forkDigest, subnet_id))
 
-  node.actionTracker.subscribedSubnets = default(AttnetBits)
+  node.consensusManager[].actionTracker.subscribedSubnets = default(AttnetBits)
 
 func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
   # Only used to determine which gossip topics to which to subscribe
@@ -1103,15 +1106,16 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
     # We "know" the actions for the current and the next epoch
     withState(node.dag.headState):
-      if node.actionTracker.needsUpdate(state, slot.epoch):
+      if node.consensusManager[].actionTracker.needsUpdate(state, slot.epoch):
         let epochRef = node.dag.getEpochRef(head, slot.epoch, false).expect(
           "Getting head EpochRef should never fail")
-        node.actionTracker.updateActions(epochRef)
+        node.consensusManager[].actionTracker.updateActions(epochRef)
 
-      if node.actionTracker.needsUpdate(state, slot.epoch + 1):
+      if node.consensusManager[].actionTracker.needsUpdate(
+          state, slot.epoch + 1):
         let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
           "Getting head EpochRef should never fail")
-        node.actionTracker.updateActions(epochRef)
+        node.consensusManager[].actionTracker.updateActions(epochRef)
 
   if node.gossipState.card > 0 and targetGossipState.card == 0:
     debug "Disabling topic subscriptions",
@@ -1192,14 +1196,17 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   let head = node.dag.head
   if node.isSynced(head):
     withState(node.dag.headState):
-      if node.actionTracker.needsUpdate(state, slot.epoch + 1):
+      if node.consensusManager[].actionTracker.needsUpdate(
+          state, slot.epoch + 1):
         let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
           "Getting head EpochRef should never fail")
-        node.actionTracker.updateActions(epochRef)
+        node.consensusManager[].actionTracker.updateActions(epochRef)
 
   let
-    nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)
-    nextProposalSlot = node.actionTracker.getNextProposalSlot(slot)
+    nextAttestationSlot =
+      node.consensusManager[].actionTracker.getNextAttestationSlot(slot)
+    nextProposalSlot =
+      node.consensusManager[].actionTracker.getNextProposalSlot(slot)
     nextActionWaitTime = saturate(fromNow(
       node.beaconClock, min(nextAttestationSlot, nextProposalSlot)))
 
@@ -1263,7 +1270,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     node.dag.advanceClearanceState()
 
   # Prepare action tracker for the next slot
-  node.actionTracker.updateSlot(slot + 1)
+  node.consensusManager[].actionTracker.updateSlot(slot + 1)
 
   # The last thing we do is to perform the subscriptions and unsubscriptions for
   # the next slot, just before that slot starts - because of the advance cuttoff

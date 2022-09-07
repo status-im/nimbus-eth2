@@ -1384,8 +1384,10 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       doppelgangerDetection.nodeLaunchSlot > GENESIS_SLOT and
       node.config.doppelgangerDetection:
     let
-      nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot - 1)
-      nextProposalSlot = node.actionTracker.getNextProposalSlot(slot - 1)
+      nextAttestationSlot =
+        node.consensusManager[].actionTracker.getNextAttestationSlot(slot - 1)
+      nextProposalSlot =
+        node.consensusManager[].actionTracker.getNextProposalSlot(slot - 1)
 
     if slot in [nextAttestationSlot, nextProposalSlot]:
       notice "Doppelganger detection active - skipping validator duties while observing activity on the network",
@@ -1544,5 +1546,5 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
             continue
           let isAggregator = is_aggregator(committee.lenu64, slotSigRes.get())
 
-          node.actionTracker.registerDuty(
+          node.consensusManager[].actionTracker.registerDuty(
             slot, subnet_id, validator_index, isAggregator)

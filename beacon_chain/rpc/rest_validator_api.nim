@@ -605,7 +605,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         get_committee_count_per_slot(shufflingRef), request.slot,
         request.committee_index)
 
-      node.actionTracker.registerDuty(
+      node.consensusManager[].actionTracker.registerDuty(
         request.slot, subnet_id, request.validator_index,
         request.is_aggregator)
 
