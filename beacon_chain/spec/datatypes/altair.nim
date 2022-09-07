@@ -421,7 +421,10 @@ type
     ## The block state transition has NOT been verified
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
+      ## Eth1 data vote
+
     graffiti*: GraffitiBytes
+      ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
@@ -445,7 +448,10 @@ type
     ## A full verified block
     randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
+      ## Eth1 data vote
+
     graffiti*: GraffitiBytes
+      ## Arbitrary data
 
     # Operations
     proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
