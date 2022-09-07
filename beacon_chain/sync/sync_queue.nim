@@ -406,13 +406,13 @@ proc processGap[T](sq: SyncQueue[T], sr: SyncResult[T]) =
     else:
       sq.gapList.reset()
 
-proc rewardGapers[T](sq: SyncQueue[T], score: int) =
+proc rewardForGaps[T](sq: SyncQueue[T], score: int) =
+  mixin updateScore, getStats
   logScope:
     sync_ident = sq.ident
     direction = sq.kind
     topics = "syncman"
 
-  mixin updateScore, getStats
   for gap in sq.gapList:
     if score < 0:
       # Every empty response increases penalty by 25%, but not more than 200%.
@@ -713,7 +713,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
 
         # BlockProcessor reports good block, so we can reward all the peers
         # who sent us empty responses.
-        sq.rewardGapers(PeerScoreGoodBlocks)
+        sq.rewardForGaps(PeerScoreGoodBlocks)
         sq.gapList.reset()
       else:
         # Response was empty
