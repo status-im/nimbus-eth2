@@ -348,6 +348,20 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
              request = req
         return
 
+      if len(data) == 0 and man.direction == SyncQueueKind.Backward and
+          req.contains(man.getSafeSlot()):
+        # The sync protocol does not distinguish between:
+        # - All requested slots are empty
+        # - Peer does not have data available about requested range
+        #
+        # However, we include the `backfill` slot in backward sync requests.
+        # If we receive an empty response to a request covering that slot,
+        # we know that the response is incomplete and can descore.
+        peer.updateScore(PeerScoreNoBlocks)
+        man.queue.push(req)
+        debug "Response does not include known-to-exist block", request = req
+        return
+
       # Scoring will happen in `syncUpdate`.
       man.workers[index].status = SyncWorkerStatus.Queueing
       await man.queue.push(req, data, proc() =

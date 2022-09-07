@@ -1,5 +1,7 @@
 # Set up suggested fee recipient
 
+The fee recipient is an Ethereum address that receives the transaction fees from block production, separately from the proposer reward that accrues on the beacon chain.
+
 A suggested fee recipient offers an execution client, in a merged Ethereum network, a coinbase it might use, based on the validator that is proposing the block.
 
 !!! warning

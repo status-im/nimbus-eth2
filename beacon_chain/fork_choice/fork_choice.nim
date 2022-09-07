@@ -435,6 +435,17 @@ func prune*(
 func prune*(self: var ForkChoice): FcResult[void] =
   self.backend.prune(self.checkpoints.finalized.root)
 
+func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
+  try:
+    let nodePhysicalIdx =
+      self.backend.proto_array.indices[root] -
+        self.backend.proto_array.nodes.offset
+    if nodePhysicalIdx < self.backend.proto_array.nodes.buf.len:
+      self.backend.proto_array.nodes.buf[nodePhysicalIdx].invalid = true
+  # Best-effort; attempts to mark unknown roots invalid harmlessly ignored
+  except KeyError:
+    discard
+
 func compute_deltas(
        deltas: var openArray[Delta],
        indices: Table[Eth2Digest, Index],

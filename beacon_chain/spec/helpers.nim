@@ -18,7 +18,7 @@ import
   # Status libraries
   stew/[bitops2, byteutils, endians2, objects, saturation_arith],
   chronicles,
-  eth/eip1559, eth/common/eth_types,
+  eth/eip1559, eth/common/[eth_types, eth_types_rlp],
   # Internal
   ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, ssz_codec]
@@ -353,7 +353,7 @@ proc emptyPayloadToBlockHeader*(payload: ExecutionPayload): ExecutionBlockHeader
     ommersHash    : EMPTY_UNCLE_HASH,
     coinbase      : EthAddress payload.fee_recipient.data,
     stateRoot     : payload.state_root,
-    txRoot        : BLANK_ROOT_HASH,
+    txRoot        : EMPTY_ROOT_HASH,
     receiptRoot   : payload.receipts_root,
     bloom         : payload.logs_bloom.data,
     difficulty    : default(DifficultyInt),
@@ -381,7 +381,7 @@ func build_empty_execution_payload*(state: bellatrix.BeaconState): ExecutionPayl
   var payload = ExecutionPayload(
     parent_hash: latest.block_hash,
     state_root: latest.state_root, # no changes to the state
-    receipts_root: BLANK_ROOT_HASH,
+    receipts_root: EMPTY_ROOT_HASH,
     block_number: latest.block_number + 1,
     prev_randao: randao_mix,
     gas_limit: latest.gas_limit, # retain same limit

@@ -1754,8 +1754,6 @@ proc startListening*(node: Eth2Node) {.async.} =
     fatal "Failed to start LibP2P transport. TCP port may be already in use"
     quit 1
 
-  await node.pubsub.start()
-
 proc peerPingerHeartbeat(node: Eth2Node): Future[void] {.gcsafe.}
 proc peerTrimmerHeartbeat(node: Eth2Node): Future[void] {.gcsafe.}
 
