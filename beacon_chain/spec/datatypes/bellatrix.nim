@@ -145,11 +145,11 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]  # [New in Altair]
 
-    # Sync
-    current_sync_committee*: SyncCommittee
-    next_sync_committee*: SyncCommittee
+    # Light client sync committees
+    current_sync_committee*: SyncCommittee     # [New in Altair]
+    next_sync_committee*: SyncCommittee        # [New in Altair]
 
     # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader  # [New in Bellatrix]
@@ -186,6 +186,7 @@ type
   SigVerifiedBeaconBlock* = object
     ## A BeaconBlock that contains verified signatures
     ## but that has not been verified for state transition
+
     slot*: Slot
     proposer_index*: uint64 # `ValidatorIndex` after validation
 
@@ -235,6 +236,8 @@ type
     attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+
+    # [New in Altair]
     sync_aggregate*: SyncAggregate
 
     # Execution
@@ -248,11 +251,13 @@ type
     ## - ProposerSlashing (SignedBeaconBlockHeader)
     ## - AttesterSlashing (IndexedAttestation)
     ## - SignedVoluntaryExits
+    ## - SyncAggregate
     ##
+    ## However:
     ## - ETH1Data (Deposits) can contain invalid BLS signatures
     ##
     ## The block state transition has NOT been verified
-    randao_reveal*: ValidatorSig
+    randao_reveal*: TrustedSig
     eth1_data*: Eth1Data
       ## Eth1 data vote
 
@@ -260,12 +265,14 @@ type
       ## Arbitrary data
 
     # Operations
-    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    proposer_slashings*: List[TrustedProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[TrustedAttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
-    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-    sync_aggregate*: SyncAggregate # TODO TrustedSyncAggregate after batching
+    voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+
+    # [New in Altair]
+    sync_aggregate*: TrustedSyncAggregate
 
     # Execution
     execution_payload*: ExecutionPayload  # [New in Bellatrix]
@@ -285,6 +292,8 @@ type
     attestations*: List[TrustedAttestation, Limit MAX_ATTESTATIONS]
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+
+    # [New in Altair]
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
@@ -351,9 +360,6 @@ type
 
   BoolReturnSuccessRPC = object
     success*: bool
-
-func encodeQuantityHex*(x: auto): string =
-  "0x" & x.toHex
 
 func fromHex*(T: typedesc[BloomLogs], s: string): T {.
      raises: [Defect, ValueError].} =
