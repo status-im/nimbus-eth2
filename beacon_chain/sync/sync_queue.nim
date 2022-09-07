@@ -757,7 +757,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           gapsCount = len(sq.gapList)
 
         # We should penalize all the peers which responded with gaps.
-        sq.rewardGapers(PeerScoreMissingBlocks)
+        sq.rewardForGaps(PeerScoreMissingBlocks)
         sq.gapList.reset()
 
         case sq.kind
