@@ -211,17 +211,21 @@ proc runForkchoiceUpdatedDiscardResult*(
   discard await eth1Monitor.runForkchoiceUpdated(
     headBlockRoot, safeBlockRoot, finalizedBlockRoot)
 
-proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BeaconHead)
-    {.async.} =
+from ../beacon_clock import GetBeaconTimeFn
+from ../fork_choice/fork_choice import mark_root_invalid
+
+proc updateExecutionClientHead(
+    self: ref ConsensusManager, newHead: BeaconHead):
+    Future[Opt[void]] {.async.} =
   if self.eth1Monitor.isNil:
-    return
+    return Opt[void].ok()
 
   let headExecutionPayloadHash = self.dag.loadExecutionBlockRoot(newHead.blck)
 
   if headExecutionPayloadHash.isZero:
     # Blocks without execution payloads can't be optimistic.
     self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
-    return
+    return Opt[void].ok()
 
   # Can't use dag.head here because it hasn't been updated yet
   let payloadExecutionStatus = await self.eth1Monitor.runForkchoiceUpdated(
@@ -235,8 +239,11 @@ proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BeaconHead)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
     self.dag.markBlockInvalid(newHead.blck.root)
     self.quarantine[].addUnviable(newHead.blck.root)
+    return Opt.none(void)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
     self.dag.optimisticRoots.incl newHead.blck.root
+
+  return Opt[void].ok()
 
 proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
   ## Trigger fork choice and update the DAG with the new head block
@@ -352,8 +359,8 @@ proc runProposalForkchoiceUpdated*(
     error "Engine API fork-choice update failed", err = err.msg
 
 proc updateHeadWithExecution*(
-    self: ref ConsensusManager, newHead: BeaconHead, wallSlot: Slot)
-    {.async.} =
+    self: ref ConsensusManager, initialNewHead: BeaconHead,
+    getBeaconTimeFn: GetBeaconTimeFn) {.async.} =
   ## Trigger fork choice and update the DAG with the new head block
   ## This does not automatically prune the DAG after finalization
   ## `pruneFinalized` must be called for pruning.
@@ -361,7 +368,28 @@ proc updateHeadWithExecution*(
   # Grab the new head according to our latest attestation data
   try:
     # Ensure dag.updateHead has most current information
-    await self.updateExecutionClientHead(newHead)
+    var
+      attempts = 0
+      newHead = initialNewHead
+    while (await self.updateExecutionClientHead(newHead)).isErr:
+      # This proc is called on every new block; guarantee timely return
+      inc attempts
+      const maxAttempts = 3
+      if attempts >= maxAttempts:
+        warn "updateHeadWithExecution: too many attempts to recover from invalid payload",
+          attempts, maxAttempts, newHead, initialNewHead
+        break
+
+      # Select new head for next attempt
+      let
+        wallTime = getBeaconTimeFn()
+        nextHead = self.attestationPool[].selectOptimisticHead(wallTime).valueOr:
+          warn "Head selection failed after invalid block, using previous head",
+            newHead, wallSlot = wallTime.slotOrZero
+          break
+      warn "updateHeadWithExecution: attempting to recover from invalid payload",
+        attempts, maxAttempts, newHead, initialNewHead, nextHead
+      newHead = nextHead
 
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized
@@ -373,7 +401,7 @@ proc updateHeadWithExecution*(
     # needs while runProposalForkchoiceUpdated requires RANDAO information
     # from the head state corresponding to the `newHead` block, which only
     # self.dag.updateHead(...) sets up.
-    await self.runProposalForkchoiceUpdated(wallSlot)
+    await self.runProposalForkchoiceUpdated(getBeaconTimeFn().slotOrZero)
 
     self[].checkExpectedBlock()
   except CatchableError as exc:

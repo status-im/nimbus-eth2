@@ -346,7 +346,7 @@ proc storeBlock*(
             wallSlot)
       else:
         asyncSpawn self.consensusManager.updateHeadWithExecution(
-          newHead.get, wallSlot)
+          newHead.get, self.getBeaconTime)
   else:
     warn "Head selection failed, using previous head",
       head = shortLog(self.consensusManager.dag.head), wallSlot
