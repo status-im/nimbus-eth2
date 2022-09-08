@@ -1,68 +1,113 @@
-# Run an eth1 node
+# Run an execution client
 
-> ⚠️ Warning: make sure you've copied the endpoint that starts with either `ws` or `wss` (websocket), and not `http` or `https`. Nimbus does not currently support `http` endpoints.
+In order to run a beacon node, you need to also be running an execution client - one for each beacon node.
 
+Nimbus has been tested all major execution clients - see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
 
-In order to process incoming validator deposits from the eth1 chain, you'll need to run an eth1 client in parallel to your eth2 client. 
+!!! warning
+    You need to run your own execution client after [the merge](./merge.md) - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.
 
-Validators are responsible for including new deposits when they propose blocks. And an eth1 client is needed to ensure your validator performs this task correctly.
+!!! info
+    Syncing an execution client may take hours or even days, depending on your hardware! The backup providers will be synced only when the primary becomes unavailable, which may lead to a small gap in validation duties - this limitation may be lifted in future versions.
 
-On this page we provide instructions for using Geth (however, any reputable eth1 client should do the trick).
+## Steps
 
-> **Note:** If you have a > 500GB SSD, and your [hardware](./hardware.md) can handle it, we strongly recommend running your own eth1 client. This will help ensure the network stays as decentralised as possible. If you can't however, the next best option is to set up a 3rd part provider like [infura](./infura-guide.md).
+### 1. Install execution client
 
-## Nimbus
-In parallel to `nimbus-eth2` we are working hard on our [our exectution client](https://github.com/status-im/nimbus-eth1). While this is  very much a project in development (i.e. not yet ready for public consumption), we welcome you to experiment with it.
+Select an execution client and install it, configuring it such that that WebSockets are enabled and a JWT secret file is created.
 
-## Nethermind
-*TBC*
+=== "Nimbus"
 
-## Geth
+    In parallel to `nimbus-eth2`, we are working hard on the [Nimbus execution client](https://github.com/status-im/nimbus-eth1). While this is very much a project in development (i.e. not yet ready for public consumption), we welcome you to experiment with it.
 
-### 1. Install Geth
-If you're running MacOS, follow the instructions [listed here](https://github.com/ethereum/go-ethereum/wiki/Installation-Instructions-for-Mac) to install geth. Otherwise [see here](https://github.com/ethereum/go-ethereum/wiki/Installing-Geth).
+=== "Geth"
 
-### 2. Start Geth
+    #### 1. Install Geth
 
-Once you have geth installed, use the following command to start your eth1 node:
+    See the [Installing Geth](https://geth.ethereum.org/docs/install-and-build/installing-geth) for instructions on installing Geth.
 
-**Testnet**
-```
-geth --goerli --ws
-```
+    #### 2. Start Geth
 
-**Mainnet**
-```
-geth --ws
-```
+    Once you have geth installed, make sure to enable the JSON-RPC WebSocket interface when running geth, along with the options for creating an [autheticated RPC endpoint](https://geth.ethereum.org/docs/interface/consensus-clients):
 
->**Note:** The `--ws` flag is needed to enable the websocket RPC API. This allows Nimbus to query the eth1 chain using Web3 API calls.
+    === "Mainnet"
+        ```
+        geth --ws --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
+        ```
 
+    === "Goerli"
+        ```
+        geth --goerli --ws --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
+        ```
 
-### 3. Leave Geth running
+    !!! note
+        The `--ws` flag allows Nimbus to connect using WebSockets.
 
-Let it sync - Geth uses a fast sync mode by default. It may take anywhere between a few hours and a couple of days.
+    #### 3. Leave Geth running
 
->**N.B.** It is safe to run Nimbus and start validating even if Geth hasn't fully synced yet
+    Let it syns - it may take anywhere between a few hours and a couple of days.
 
-You'll know Geth has finished syncing, when you start seeing logs that look like the following:
+    You'll know Geth has finished syncing, when you start seeing logs that look like the following:
 
-```
-INFO [05-29|01:14:53] Imported new chain segment               blocks=1 txs=2   mgas=0.043  elapsed=6.573ms   mgasps=6.606   number=3785437 hash=f72595…c13f23
-INFO [05-29|01:15:08] Imported new chain segment               blocks=1 txs=3   mgas=0.067  elapsed=7.639ms   mgasps=8.731   number=3785441 hash=be7e55…a8c1c7
-INFO [05-29|01:15:25] Imported new chain segment               blocks=1 txs=21  mgas=1.084  elapsed=33.610ms  mgasps=32.264  number=3785442 hash=fd54be…79b047
-INFO [05-29|01:15:42] Imported new chain segment               blocks=1 txs=26  mgas=0.900  elapsed=26.209ms  mgasps=34.335  number=3785443 hash=2504ff…119622
-INFO [05-29|01:15:59] Imported new chain segment               blocks=1 txs=12  mgas=1.228  elapsed=22.693ms  mgasps=54.122  number=3785444 hash=951dfe…a2a083
-INFO [05-29|01:16:05] Imported new chain segment               blocks=1 txs=3   mgas=0.065  elapsed=5.885ms   mgasps=11.038  number=3785445 hash=553d9e…fc4547
-INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=0   mgas=0.000  elapsed=5.447ms   mgasps=0.000   number=3785446 hash=5e3e7d…bd4afd
-INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=1   mgas=0.021  elapsed=7.382ms   mgasps=2.845   number=3785447 hash=39986c…dd2a01
-INFO [05-29|01:16:14] Imported new chain segment               blocks=1 txs=11  mgas=1.135  elapsed=22.281ms  mgasps=50.943  number=3785444 hash=277bb9…623d8c
-```
+    ```
+    INFO [05-29|01:16:05] Imported new chain segment               blocks=1 txs=3   mgas=0.065  elapsed=5.885ms   mgasps=11.038  number=3785445 hash=553d9e…fc4547
+    INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=0   mgas=0.000  elapsed=5.447ms   mgasps=0.000   number=3785446 hash=5e3e7d…bd4afd
+    INFO [05-29|01:16:10] Imported new chain segment               blocks=1 txs=1   mgas=0.021  elapsed=7.382ms   mgasps=2.845   number=3785447 hash=39986c…dd2a01
+    INFO [05-29|01:16:14] Imported new chain segment               blocks=1 txs=11  mgas=1.135  elapsed=22.281ms  mgasps=50.943  number=3785444 hash=277bb9…623d8c
+    ```
 
+    Geth accepts connections from the localhost interface (`127.0.0.1`), with default authenticated RPC port `8551`. This means that your default Web3 provider URL should be: `ws://127.0.0.1:8551`
 
-Geth accepts connections from the loopback interface (`127.0.0.1`), with default WebSocket port `8546`. This means that your default Web3 provider URL should be: `ws://127.0.0.1:8546`
+=== "Nethermind"
 
+    See the [Getting started](https://docs.nethermind.io/nethermind/first-steps-with-nethermind/getting-started) guide to set up Nethermind.
 
+    Make sure to enable the [JSON-RPC](https://docs.nethermind.io/nethermind/first-steps-with-nethermind/running-nethermind-post-merge#jsonrpc-configuration-module) interface over WebSockets, and pass `--JsonRpc.JwtSecretFile=/tmp/jwtsecret` to select a JWT secret file location.
 
+=== "Besu"
 
+    See the [Besu documentation](https://besu.hyperledger.org/en/stable/) for instructions on setting up Besu.
 
+    Make sure to enable the [JSON-RPC](https://besu.hyperledger.org/en/stable/HowTo/Interact/APIs/Using-JSON-RPC-API/) WebSocket interface and store the JWT token in `/tmp/jwtsecret`.
+
+=== "Erigon"
+
+    See the [Erigon README](https://github.com/ledgerwatch/erigon#getting-started) for instructions on setting up Erigon.
+
+    Make sure to enable the [JSON-RPC](https://github.com/ledgerwatch/erigon#beacon-chain-consensus-layer) WebSocket interface and use `--authrpc.jwtsecret=/tmp/jwtsecret` to set a path to the JWT token file.
+
+### 2. Leave the execution client running
+
+The execution client will be syncing the chain, up to [the merge](./merge.md). Once it reaches this point, it will wait for the beacon node to provide further sync instructions.
+
+It is safe to start the beacon node even if the execution client is not yet fully synced and vice versa.
+
+### 3. Pass the URL and JWT secret to Nimbus
+
+The `--web3-url` option informs the beacon node how to connect to the execution client - both `http://` and `ws://` URL:s are supported.
+
+Once started, the execution client will create a file containing a JWT secret token. The token file is needed for Nimbus to authenticate itself with the execution client and perform trusted operations. You will need to pass the path to the token file to Nimbus together with the web3 URL.
+
+=== "Mainnet"
+    ```sh
+    ./run-mainnet-beacon-node.sh \
+      --web3-url=ws://127.0.0.1:8551 \
+      --jwt-secret=/tmp/jwtsecret
+    ```
+
+=== "Prater"
+    ```sh
+    ./run-prater-beacon-node.sh \
+      --web3-url=ws://127.0.0.1:8551 \
+      --jwt-secret=/tmp/jwtsecret
+    ```
+
+!!! tip
+    You can pass one or more `--web3-url` parameters to the node as long as they share JWT secret. Any additional web3 url:s will be used for backup, should the first one become unavailable:
+
+    ```sh
+    ./run-mainnet-beacon-node.sh \
+      --web3-url=ws://127.0.0.1:8551 \
+      --web3-url=http://other:8551 \
+      --jwt-secret=/tmp/jwtsecret
+    ```

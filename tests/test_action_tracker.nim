@@ -6,7 +6,8 @@ import
   ../beacon_chain/validators/action_tracker
 
 suite "subnet tracker":
-  let rng = keys.newRng()
+  setup:
+    let rng = keys.newRng()
 
   test "should register stability subnets on attester duties":
     var tracker = ActionTracker.init(rng, false)
@@ -28,15 +29,26 @@ suite "subnet tracker":
     check:
       tracker.aggregateSubnets(Slot(0)).countOnes() == 2
       tracker.aggregateSubnets(Slot(1)).countOnes() == 1
+      tracker.knownValidators.len() == 1
 
     tracker.registerDuty(Slot(SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS), SubnetId(2), ValidatorIndex(0), true)
     check:
       tracker.aggregateSubnets(Slot(0)).countOnes() == 2
       tracker.aggregateSubnets(Slot(1)).countOnes() == 2
+      tracker.knownValidators.len() == 1
+
+    tracker.updateSlot(
+      Slot(SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS) + KNOWN_VALIDATOR_DECAY + 1)
+
+    check:
+      # Validator should be "forgotten" if they don't register for duty
+      tracker.knownValidators.len() == 0
 
     # Guaranteed to expire
     tracker.updateSlot(
-      Slot(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION * 2 * SLOTS_PER_EPOCH))
+      (Epoch(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION * 2) + 1).start_slot() +
+      SUBNET_SUBSCRIPTION_LEAD_TIME_SLOTS + KNOWN_VALIDATOR_DECAY + 1)
+
 
     check:
       tracker.stabilitySubnets(Slot(0)).countOnes() == 0

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,7 +13,7 @@ import
   math,
 
   # Specs
-  ../../beacon_chain/spec/[eth2_merkleization, keystore, signatures],
+  ../../beacon_chain/spec/[eth2_merkleization, keystore, forks, signatures],
   ../../beacon_chain/spec/datatypes/base,
 
   # Internals
@@ -66,7 +66,7 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      result[valIdx] = 
+      result[valIdx] =
         mockDepositData(MockPubKeys[valIdx.ValidatorIndex], amount)
   else: # With signing
     var depositsDataHash: seq[Eth2Digest]
@@ -80,16 +80,16 @@ template mockGenesisDepositsImpl(
       updateAmount
 
       # DepositData
-      result[valIdx] = 
+      result[valIdx] =
         mockDepositData(
-          MockPubKeys[valIdx.ValidatorIndex], 
-          MockPrivKeys[valIdx.ValidatorIndex], 
+          MockPubKeys[valIdx.ValidatorIndex],
+          MockPrivKeys[valIdx.ValidatorIndex],
           amount, flags)
 
       depositsData.add result[valIdx]
       depositsDataHash.add hash_tree_root(result[valIdx])
 
-proc mockGenesisBalancedDeposits*(
+func mockGenesisBalancedDeposits*(
         validatorCount: uint64,
         amountInEth: Positive,
         flags: UpdateFlags = {}
@@ -106,8 +106,8 @@ proc mockGenesisBalancedDeposits*(
   mockGenesisDepositsImpl(result, validatorCount,amount,flags):
     discard
 
-proc mockUpdateStateForNewDeposit*[T](
-       state: var T,
+func mockUpdateStateForNewDeposit*(
+       state: var ForkyBeaconState,
        validator_index: uint64,
        amount: uint64,
        # withdrawal_credentials: Eth2Digest

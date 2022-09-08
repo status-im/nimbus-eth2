@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+
+# The data folder will be removed as part of uninstallin the beacon node - this
+# is not ideal, but otoh, the VC data folder is small.
+
+# https://wiki.debian.org/AccountHandlingInMaintainerScripts argues "mostly"
+# that users should not be removed, as do several debian bug debates that have
+# been ongoing since forever. Fedora is clear on the topic: don't remove
+# https://fedoraproject.org/wiki/Packaging:UsersAndGroups#Allocation_Strategies
+if id -u `nimbus` > /dev/null 2>&1; then
+  echo User `nimbus` needs to be removed manually
+fi

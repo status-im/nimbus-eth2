@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -9,10 +9,10 @@
 
 import
   std/[algorithm, options, sequtils],
-  unittest2,
+  unittest2, snappy,
   ../beacon_chain/[beacon_chain_db, interop],
   ../beacon_chain/spec/[beaconstate, forks, state_transition],
-  ../beacon_chain/spec/datatypes/[phase0, altair, merge],
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/consensus_object_pools/blockchain_dag,
   eth/db/kvstore,
   # test utilies
@@ -32,14 +32,14 @@ proc getAltairStateRef(db: BeaconChainDB, root: Eth2Digest):
     altair.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = (altair.BeaconStateRef)()
-  if db.getAltairState(root, res[], noRollback):
+  if db.getState(root, res[], noRollback):
     return res
 
-proc getMergeStateRef(db: BeaconChainDB, root: Eth2Digest):
-    merge.NilableBeaconStateRef =
+proc getBellatrixStateRef(db: BeaconChainDB, root: Eth2Digest):
+    bellatrix.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
-  let res = (merge.BeaconStateRef)()
-  if db.getMergeState(root, res[], noRollback):
+  let res = (bellatrix.BeaconStateRef)()
+  if db.getState(root, res[], noRollback):
     return res
 
 func withDigest(blck: phase0.TrustedBeaconBlock):
@@ -56,9 +56,9 @@ func withDigest(blck: altair.TrustedBeaconBlock):
     root: hash_tree_root(blck)
   )
 
-func withDigest(blck: merge.TrustedBeaconBlock):
-    merge.TrustedSignedBeaconBlock =
-  merge.TrustedSignedBeaconBlock(
+func withDigest(blck: bellatrix.TrustedBeaconBlock):
+    bellatrix.TrustedSignedBeaconBlock =
+  bellatrix.TrustedSignedBeaconBlock(
     message: blck,
     root: hash_tree_root(blck)
   )
@@ -66,8 +66,9 @@ func withDigest(blck: merge.TrustedBeaconBlock):
 proc getTestStates(stateFork: BeaconStateFork): auto =
   let
     db = makeTestDB(SLOTS_PER_EPOCH)
-    dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
-  var testStates = getTestStates(dag.headState.data, stateFork)
+    validatorMonitor = newClone(ValidatorMonitor.init())
+    dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+  var testStates = getTestStates(dag.headState, stateFork)
 
   # Ensure transitions beyond just adding validators and increasing slots
   sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:
@@ -75,23 +76,23 @@ proc getTestStates(stateFork: BeaconStateFork): auto =
 
   testStates
 
-# Each of phase 0/altair/merge states gets used twice, so make them global to
+# Each of phase 0/altair/bellatrix states gets used twice, so scope them to
 # module
 let
-  testStatesPhase0 = getTestStates(BeaconStateFork.Phase0)
-  testStatesAltair = getTestStates(BeaconStateFork.Altair)
-  testStatesMerge  = getTestStates(BeaconStateFork.Merge)
+  testStatesPhase0    = getTestStates(BeaconStateFork.Phase0)
+  testStatesAltair    = getTestStates(BeaconStateFork.Altair)
+  testStatesBellatrix = getTestStates(BeaconStateFork.Bellatrix)
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
     var
       db = BeaconChainDB.new("", inMemory = true)
     check:
-      db.getPhase0StateRef(Eth2Digest()).isNil
-      db.getBlock(Eth2Digest()).isNone
+      db.getPhase0StateRef(ZERO_HASH).isNil
+      db.getBlock(ZERO_HASH, phase0.TrustedSignedBeaconBlock).isNone
 
   test "sanity check phase 0 blocks" & preset():
-    var db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new("", inMemory = true)
 
     let
       signedBlock = withDigest((phase0.TrustedBeaconBlock)())
@@ -99,20 +100,28 @@ suite "Beacon chain DB" & preset():
 
     db.putBlock(signedBlock)
 
+    var tmp, tmp2: seq[byte]
     check:
       db.containsBlock(root)
-      db.containsBlockPhase0(root)
-      not db.containsBlockAltair(root)
-      not db.containsBlockMerge(root)
-      db.getBlock(root).get() == signedBlock
+      db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
+      db.getBlock(root, phase0.TrustedSignedBeaconBlock).get() == signedBlock
+      db.getBlockSSZ(root, tmp, phase0.TrustedSignedBeaconBlock)
+      db.getBlockSZ(root, tmp2, phase0.TrustedSignedBeaconBlock)
+      tmp == SSZ.encode(signedBlock)
+      tmp2 == encodeFramed(tmp)
+      uncompressedLenFramed(tmp2).isSome
 
     db.delBlock(root)
     check:
       not db.containsBlock(root)
-      not db.containsBlockPhase0(root)
-      not db.containsBlockAltair(root)
-      not db.containsBlockMerge(root)
-      db.getBlock(root).isErr()
+      not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
+      db.getBlock(root, phase0.TrustedSignedBeaconBlock).isErr()
+      not db.getBlockSSZ(root, tmp, phase0.TrustedSignedBeaconBlock)
+      not db.getBlockSZ(root, tmp2, phase0.TrustedSignedBeaconBlock)
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
@@ -126,7 +135,7 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Altair blocks" & preset():
-    var db = BeaconChainDB.new("", inMemory = true)
+    let db = BeaconChainDB.new("", inMemory = true)
 
     let
       signedBlock = withDigest((altair.TrustedBeaconBlock)())
@@ -134,20 +143,28 @@ suite "Beacon chain DB" & preset():
 
     db.putBlock(signedBlock)
 
+    var tmp, tmp2: seq[byte]
     check:
       db.containsBlock(root)
-      not db.containsBlockPhase0(root)
-      db.containsBlockAltair(root)
-      not db.containsBlockMerge(root)
-      db.getAltairBlock(root).get() == signedBlock
+      not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
+      db.containsBlock(root, altair.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
+      db.getBlock(root, altair.TrustedSignedBeaconBlock).get() == signedBlock
+      db.getBlockSSZ(root, tmp, altair.TrustedSignedBeaconBlock)
+      db.getBlockSZ(root, tmp2, altair.TrustedSignedBeaconBlock)
+      tmp == SSZ.encode(signedBlock)
+      tmp2 == encodeFramed(tmp)
+      uncompressedLenFramed(tmp2).isSome
 
     db.delBlock(root)
     check:
       not db.containsBlock(root)
-      not db.containsBlockPhase0(root)
-      not db.containsBlockAltair(root)
-      not db.containsBlockMerge(root)
-      db.getAltairBlock(root).isErr()
+      not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
+      db.getBlock(root, altair.TrustedSignedBeaconBlock).isErr()
+      not db.getBlockSSZ(root, tmp, altair.TrustedSignedBeaconBlock)
+      not db.getBlockSZ(root, tmp2, altair.TrustedSignedBeaconBlock)
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
@@ -160,29 +177,37 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check Merge blocks" & preset():
-    var db = BeaconChainDB.new("", inMemory = true)
+  test "sanity check Bellatrix blocks" & preset():
+    let db = BeaconChainDB.new("", inMemory = true)
 
     let
-      signedBlock = withDigest((merge.TrustedBeaconBlock)())
+      signedBlock = withDigest((bellatrix.TrustedBeaconBlock)())
       root = hash_tree_root(signedBlock.message)
 
     db.putBlock(signedBlock)
 
+    var tmp, tmp2: seq[byte]
     check:
       db.containsBlock(root)
-      not db.containsBlockPhase0(root)
-      not db.containsBlockAltair(root)
-      db.containsBlockMerge(root)
-      db.getMergeBlock(root).get() == signedBlock
+      not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
+      db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
+      db.getBlock(root, bellatrix.TrustedSignedBeaconBlock).get() == signedBlock
+      db.getBlockSSZ(root, tmp, bellatrix.TrustedSignedBeaconBlock)
+      db.getBlockSZ(root, tmp2, bellatrix.TrustedSignedBeaconBlock)
+      tmp == SSZ.encode(signedBlock)
+      tmp2 == encodeFramed(tmp)
+      uncompressedLenFramed(tmp2).isSome
 
     db.delBlock(root)
     check:
       not db.containsBlock(root)
-      not db.containsBlockPhase0(root)
-      not db.containsBlockAltair(root)
-      not db.containsBlockMerge(root)
-      db.getMergeBlock(root).isErr()
+      not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
+      not db.containsBlock(root, bellatrix.TrustedSignedBeaconBlock)
+      db.getBlock(root, bellatrix.TrustedSignedBeaconBlock).isErr()
+      not db.getBlockSSZ(root, tmp, bellatrix.TrustedSignedBeaconBlock)
+      not db.getBlockSZ(root, tmp2, bellatrix.TrustedSignedBeaconBlock)
 
     db.putStateRoot(root, signedBlock.message.slot, root)
     var root2 = root
@@ -196,11 +221,11 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check phase 0 states" & preset():
-    var db = makeTestDB(SLOTS_PER_EPOCH)
+    let db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesPhase0:
-      db.putState(state[].phase0Data.data)
-      let root = hash_tree_root(state[])
+      let root = state[].phase0Data.root
+      db.putState(root, state[].phase0Data.data)
 
       check:
         db.containsState(root)
@@ -214,11 +239,11 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Altair states" & preset():
-    var db = makeTestDB(SLOTS_PER_EPOCH)
+    let db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesAltair:
-      db.putState(state[].altairData.data)
-      let root = hash_tree_root(state[])
+      let root = state[].altairData.root
+      db.putState(root, state[].altairData.data)
 
       check:
         db.containsState(root)
@@ -231,31 +256,31 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check Merge states" & preset():
-    var db = makeTestDB(SLOTS_PER_EPOCH)
+  test "sanity check Bellatrix states" & preset():
+    let db = makeTestDB(SLOTS_PER_EPOCH)
 
-    for state in testStatesMerge:
-      db.putState(state[].mergeData.data)
-      let root = hash_tree_root(state[])
+    for state in testStatesBellatrix:
+      let root = state[].bellatrixData.root
+      db.putState(root, state[].bellatrixData.data)
 
       check:
         db.containsState(root)
-        hash_tree_root(db.getMergeStateRef(root)[]) == root
+        hash_tree_root(db.getBellatrixStateRef(root)[]) == root
 
       db.delState(root)
       check:
         not db.containsState(root)
-        db.getMergeStateRef(root).isNil
+        db.getBellatrixStateRef(root).isNil
 
     db.close()
 
   test "sanity check phase 0 states, reusing buffers" & preset():
-    var db = makeTestDB(SLOTS_PER_EPOCH)
+    let db = makeTestDB(SLOTS_PER_EPOCH)
     let stateBuffer = (phase0.BeaconStateRef)()
 
     for state in testStatesPhase0:
-      db.putState(state[].phase0Data.data)
-      let root = hash_tree_root(state[])
+      let root = state[].phase0Data.root
+      db.putState(root, state[].phase0Data.data)
 
       check:
         db.getState(root, stateBuffer[], noRollback)
@@ -270,61 +295,62 @@ suite "Beacon chain DB" & preset():
     db.close()
 
   test "sanity check Altair states, reusing buffers" & preset():
-    var db = makeTestDB(SLOTS_PER_EPOCH)
+    let db = makeTestDB(SLOTS_PER_EPOCH)
     let stateBuffer = (altair.BeaconStateRef)()
 
     for state in testStatesAltair:
-      db.putState(state[].altairData.data)
-      let root = hash_tree_root(state[])
+      let root = state[].altairData.root
+      db.putState(root, state[].altairData.data)
 
       check:
-        db.getAltairState(root, stateBuffer[], noRollback)
+        db.getState(root, stateBuffer[], noRollback)
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
       db.delState(root)
       check:
         not db.containsState(root)
-        not db.getAltairState(root, stateBuffer[], noRollback)
+        not db.getState(root, stateBuffer[], noRollback)
 
     db.close()
 
-  test "sanity check Merge states, reusing buffers" & preset():
-    var db = makeTestDB(SLOTS_PER_EPOCH)
-    let stateBuffer = (merge.BeaconStateRef)()
+  test "sanity check Bellatrix states, reusing buffers" & preset():
+    let db = makeTestDB(SLOTS_PER_EPOCH)
+    let stateBuffer = (bellatrix.BeaconStateRef)()
 
-    for state in testStatesMerge:
-      db.putState(state[].mergeData.data)
-      let root = hash_tree_root(state[])
+    for state in testStatesBellatrix:
+      let root = state[].bellatrixData.root
+      db.putState(root, state[].bellatrixData.data)
 
       check:
-        db.getMergeState(root, stateBuffer[], noRollback)
+        db.getState(root, stateBuffer[], noRollback)
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
       db.delState(root)
       check:
         not db.containsState(root)
-        not db.getMergeState(root, stateBuffer[], noRollback)
+        not db.getState(root, stateBuffer[], noRollback)
 
     db.close()
 
   test "sanity check phase 0 getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Phase0,
         phase0Data: phase0.HashedBeaconState(data: phase0.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptPhase0State(root)
+    db.putCorruptState(BeaconStateFork.Phase0, root)
 
     let restoreAddr = addr dag.headState
 
     func restore() =
-      assign(state[], restoreAddr[].data)
+      assign(state[], restoreAddr[])
 
     check:
       state[].phase0Data.data.slot == 10.Slot
@@ -334,48 +360,50 @@ suite "Beacon chain DB" & preset():
   test "sanity check Altair and cross-fork getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: BeaconStateFork.Altair,
         altairData: altair.HashedBeaconState(data: altair.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptAltairState(root)
+    db.putCorruptState(BeaconStateFork.Altair, root)
 
     let restoreAddr = addr dag.headState
 
     func restore() =
-      assign(state[], restoreAddr[].data)
+      assign(state[], restoreAddr[])
 
     check:
       state[].altairData.data.slot == 10.Slot
-      not db.getAltairState(root, state[].altairData.data, restore)
+      not db.getState(root, state[].altairData.data, restore)
 
       # assign() has switched the case object fork
       state[].kind == BeaconStateFork.Phase0
       state[].phase0Data.data.slot != 10.Slot
 
-  test "sanity check Merge and cross-fork getState rollback" & preset():
+  test "sanity check Bellatrix and cross-fork getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
-      dag = init(ChainDAGRef, defaultRuntimeConfig, db, {})
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Merge,
-        mergeData: merge.HashedBeaconState(data: merge.BeaconState(
+        kind: BeaconStateFork.Bellatrix,
+        bellatrixData: bellatrix.HashedBeaconState(data: bellatrix.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptMergeState(root)
+    db.putCorruptState(BeaconStateFork.Bellatrix, root)
 
     let restoreAddr = addr dag.headState
 
     func restore() =
-      assign(state[], restoreAddr[].data)
+      assign(state[], restoreAddr[])
 
     check:
-      state[].mergeData.data.slot == 10.Slot
-      not db.getMergeState(root, state[].mergeData.data, restore)
+      state[].bellatrixData.data.slot == 10.Slot
+      not db.getState(root, state[].bellatrixData.data, restore)
 
       # assign() has switched the case object fork
       state[].kind == BeaconStateFork.Phase0
@@ -393,32 +421,22 @@ suite "Beacon chain DB" & preset():
       a2 = withDigest(
         (phase0.TrustedBeaconBlock)(slot: GENESIS_SLOT + 2, parent_root: a1.root))
 
-    doAssert toSeq(db.getAncestors(a0.root)) == []
-    doAssert toSeq(db.getAncestors(a2.root)) == []
-
     doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
     doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 0
+    doAssert db.getBeaconBlockSummary(a2.root).isNone()
 
     db.putBlock(a2)
 
-    doAssert toSeq(db.getAncestors(a0.root)) == []
-    doAssert toSeq(db.getAncestors(a2.root)) == [a2]
-
     doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
     doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 1
+    doAssert db.getBeaconBlockSummary(a2.root).get().slot == a2.message.slot
 
     db.putBlock(a1)
-
-    doAssert toSeq(db.getAncestors(a0.root)) == []
-    doAssert toSeq(db.getAncestors(a2.root)) == [a2, a1]
 
     doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 0
     doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 2
 
     db.putBlock(a0)
-
-    doAssert toSeq(db.getAncestors(a0.root)) == [a0]
-    doAssert toSeq(db.getAncestors(a2.root)) == [a2, a1, a0]
 
     doAssert toSeq(db.getAncestorSummaries(a0.root)).len == 1
     doAssert toSeq(db.getAncestorSummaries(a2.root)).len == 3
@@ -432,21 +450,20 @@ suite "Beacon chain DB" & preset():
       db = BeaconChainDB.new("", inMemory = true)
 
     let
-      state = initialize_beacon_state_from_eth1(
+      state = newClone(initialize_hashed_beacon_state_from_eth1(
         defaultRuntimeConfig, eth1BlockHash, 0,
-        makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation})
-      root = hash_tree_root(state[])
+        makeInitialDeposits(SLOTS_PER_EPOCH), {skipBlsValidation}))
 
-    db.putState(state[])
+    db.putState(state[].root, state[].data)
 
-    check db.containsState(root)
-    let state2 = db.getPhase0StateRef(root)
-    db.delState(root)
-    check not db.containsState(root)
+    check db.containsState(state[].root)
+    let state2 = db.getPhase0StateRef(state[].root)
+    db.delState(state[].root)
+    check not db.containsState(state[].root)
     db.close()
 
     check:
-      hash_tree_root(state2[]) == root
+      hash_tree_root(state2[]) == state[].root
 
   test "sanity check state diff roundtrip" & preset():
     var
@@ -466,3 +483,32 @@ suite "Beacon chain DB" & preset():
 
     check:
       hash_tree_root(state2[]) == root
+
+suite "FinalizedBlocks" & preset():
+  test "Basic ops" & preset():
+    var
+      db = SqStoreRef.init("", "test", inMemory = true).expect(
+        "working database (out of memory?)")
+
+    var s = FinalizedBlocks.init(db, "finalized_blocks").get()
+
+    check:
+      s.low.isNone
+      s.high.isNone
+
+    s.insert(Slot 0, ZERO_HASH)
+    check:
+      s.low.get() == Slot 0
+      s.high.get() == Slot 0
+
+    s.insert(Slot 5, ZERO_HASH)
+    check:
+      s.low.get() == Slot 0
+      s.high.get() == Slot 5
+
+    var items = 0
+    for k, v in s:
+      check: k in [Slot 0, Slot 5]
+      items += 1
+
+    check: items == 2

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,7 +8,6 @@
 {.used.}
 
 import
-  chronicles,
   # Standard library
   os, strutils,
   # Beacon chain internals
@@ -41,7 +40,7 @@ proc runTest(identifier: string) =
       check:
         process_slots(
           defaultRuntimeConfig, fhPreState[],
-          getStateField(fhPreState[], slot) + num_slots, cache, info, {})
+          getStateField(fhPreState[], slot) + num_slots, cache, info, {}).isOk()
 
         getStateRoot(fhPreState[]) == postState[].hash_tree_root()
       let newPreState = newClone(fhPreState.altairData.data)
@@ -49,6 +48,6 @@ proc runTest(identifier: string) =
 
   `testImpl _ slots _ identifier`()
 
-suite "Ethereum Foundation - Altair - Sanity - Slots " & preset():
+suite "EF - Altair - Sanity - Slots " & preset():
   for kind, path in walkDir(SanitySlotsDir, relative = true, checkDir = true):
     runTest(path)

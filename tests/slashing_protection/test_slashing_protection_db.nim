@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
@@ -52,11 +52,7 @@ const TestDbName = "test_slashprot"
 suite "Slashing Protection DB" & preset():
   test "Empty database" & preset():
     sqlite3db_delete(TestDir, TestDbName)
-    let db = SlashingProtectionDB.init(
-               default(Eth2Digest),
-               TestDir,
-               TestDbName
-             )
+    let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
     defer:
       db.close()
       sqlite3db_delete(TestDir, TestDbName)
@@ -82,11 +78,7 @@ suite "Slashing Protection DB" & preset():
 
   test "SP for block proposal - linear append":
     sqlite3db_delete(TestDir, TestDbName)
-    let db = SlashingProtectionDB.init(
-               default(Eth2Digest),
-               TestDir,
-               TestDbName
-             )
+    let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
     defer:
       db.close()
       sqlite3db_delete(TestDir, TestDbName)
@@ -172,11 +164,7 @@ suite "Slashing Protection DB" & preset():
 
   test "SP for block proposal - backtracking append":
     sqlite3db_delete(TestDir, TestDbName)
-    let db = SlashingProtectionDB.init(
-               default(Eth2Digest),
-               TestDir,
-               TestDbName
-             )
+    let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
     defer:
       db.close()
       sqlite3db_delete(TestDir, TestDbName)
@@ -306,11 +294,7 @@ suite "Slashing Protection DB" & preset():
 
   test "SP for same epoch attestation target - linear append":
     sqlite3db_delete(TestDir, TestDbName)
-    let db = SlashingProtectionDB.init(
-               default(Eth2Digest),
-               TestDir,
-               TestDbName
-             )
+    let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
     defer:
       db.close()
       sqlite3db_delete(TestDir, TestDbName)
@@ -392,11 +376,7 @@ suite "Slashing Protection DB" & preset():
   test "SP for surrounded attestations":
     block:
       sqlite3db_delete(TestDir, TestDbName)
-      let db = SlashingProtectionDB.init(
-                default(Eth2Digest),
-                TestDir,
-                TestDbName
-              )
+      let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
       defer:
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
@@ -427,11 +407,7 @@ suite "Slashing Protection DB" & preset():
 
     block:
       sqlite3db_delete(TestDir, TestDbName)
-      let db = SlashingProtectionDB.init(
-                default(Eth2Digest),
-                TestDir,
-                TestDbName
-              )
+      let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
       defer:
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
@@ -476,11 +452,7 @@ suite "Slashing Protection DB" & preset():
   test "SP for surrounding attestations":
     block:
       sqlite3db_delete(TestDir, TestDbName)
-      let db = SlashingProtectionDB.init(
-                default(Eth2Digest),
-                TestDir,
-                TestDbName
-              )
+      let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
       defer:
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
@@ -505,11 +477,7 @@ suite "Slashing Protection DB" & preset():
 
     block:
       sqlite3db_delete(TestDir, TestDbName)
-      let db = SlashingProtectionDB.init(
-                default(Eth2Digest),
-                TestDir,
-                TestDbName
-              )
+      let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
       defer:
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
@@ -544,11 +512,7 @@ suite "Slashing Protection DB" & preset():
   test "Attestation ordering #1698":
     block:
       sqlite3db_delete(TestDir, TestDbName)
-      let db = SlashingProtectionDB.init(
-                default(Eth2Digest),
-                TestDir,
-                TestDbName
-              )
+      let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
       defer:
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
@@ -596,11 +560,7 @@ suite "Slashing Protection DB" & preset():
   test "Test valid attestation #1699":
     block:
       sqlite3db_delete(TestDir, TestDbName)
-      let db = SlashingProtectionDB.init(
-                default(Eth2Digest),
-                TestDir,
-                TestDbName
-              )
+      let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
       defer:
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
@@ -630,11 +590,7 @@ suite "Slashing Protection DB" & preset():
   test "Pruning blocks works":
     block:
       sqlite3db_delete(TestDir, TestDbName)
-      let db = SlashingProtectionDB.init(
-                default(Eth2Digest),
-                TestDir,
-                TestDbName
-              )
+      let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
       defer:
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
@@ -660,7 +616,7 @@ suite "Slashing Protection DB" & preset():
       ).error.kind == DoubleProposal
 
       db.pruneAfterFinalization(
-        compute_epoch_at_slot(Slot 1000)
+        epoch(Slot 1000)
       )
 
       doAssert db.checkSlashableBlockProposal(
@@ -672,11 +628,7 @@ suite "Slashing Protection DB" & preset():
   test "Don't prune the very last block even by mistake":
     block:
       sqlite3db_delete(TestDir, TestDbName)
-      let db = SlashingProtectionDB.init(
-                default(Eth2Digest),
-                TestDir,
-                TestDbName
-              )
+      let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
       defer:
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
@@ -702,7 +654,7 @@ suite "Slashing Protection DB" & preset():
 
       # Pruning far in the future
       db.pruneAfterFinalization(
-        compute_epoch_at_slot(Slot 10000)
+        epoch(Slot 10000)
       )
 
       # Last block is still there
@@ -715,11 +667,7 @@ suite "Slashing Protection DB" & preset():
   test "Pruning attestations works":
     block:
       sqlite3db_delete(TestDir, TestDbName)
-      let db = SlashingProtectionDB.init(
-                default(Eth2Digest),
-                TestDir,
-                TestDbName
-              )
+      let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
       defer:
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
@@ -790,11 +738,7 @@ suite "Slashing Protection DB" & preset():
   test "Don't prune the very last attestation(s) even by mistake":
     block:
       sqlite3db_delete(TestDir, TestDbName)
-      let db = SlashingProtectionDB.init(
-                default(Eth2Digest),
-                TestDir,
-                TestDbName
-              )
+      let db = SlashingProtectionDB.init(ZERO_HASH, TestDir, TestDbName)
       defer:
         db.close()
         sqlite3db_delete(TestDir, TestDbName)
@@ -815,7 +759,7 @@ suite "Slashing Protection DB" & preset():
 
       # --------------------------------
       db.pruneAfterFinalization(
-        compute_epoch_at_slot(Slot 10000)
+        epoch(Slot 10000)
       )
       # --------------------------------
 

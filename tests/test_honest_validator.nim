@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 {.used.}
 
 import
@@ -17,6 +24,8 @@ suite "Honest validator":
       getAttesterSlashingsTopic(forkDigest) == "/eth2/00000000/attester_slashing/ssz_snappy"
       getAggregateAndProofsTopic(forkDigest) == "/eth2/00000000/beacon_aggregate_and_proof/ssz_snappy"
       getSyncCommitteeContributionAndProofTopic(forkDigest) == "/eth2/00000000/sync_committee_contribution_and_proof/ssz_snappy"
+      getLightClientFinalityUpdateTopic(forkDigest) == "/eth2/00000000/light_client_finality_update/ssz_snappy"
+      getLightClientOptimisticUpdateTopic(forkDigest) == "/eth2/00000000/light_client_optimistic_update/ssz_snappy"
 
   test "Mainnet attestation topics":
     check:
@@ -173,3 +182,18 @@ suite "Honest validator":
 
       is_aggregator(132, ValidatorSig.fromHex(
         "0xa1e0546d5acaf84e5e108e9e23d5d2854c543142afaab5992c7544dd8934709c8c6252f9d23ce04207a1e9fca6716c660f950a9b27e1c591255f00ba2830ad7dba0d2595ae6b27106fadeff2059a6d70c32514db0d878b1dbc924058465e313d")[])
+
+  test "isNearSyncCommitteePeriod":
+    check:
+      nearSyncCommitteePeriod(0.Epoch).get == 0
+
+    for i in 1'u64 .. 20'u64:
+      for j in 0'u64 .. SYNC_COMMITTEE_SUBNET_COUNT:
+        check: nearSyncCommitteePeriod((EPOCHS_PER_SYNC_COMMITTEE_PERIOD * i - j).Epoch).get == j
+
+    # Smaller values EPOCHS_PER_SYNC_COMMITTEE_PERIOD would mean the wrap-around
+    # causes false test failures
+    static: doAssert EPOCHS_PER_SYNC_COMMITTEE_PERIOD >= 8
+    for i in 1'u64 .. 20'u64:
+      for j in (SYNC_COMMITTEE_SUBNET_COUNT + 1'u64) .. 7'u64:
+        check: nearSyncCommitteePeriod((EPOCHS_PER_SYNC_COMMITTEE_PERIOD * i - j).Epoch).isNone

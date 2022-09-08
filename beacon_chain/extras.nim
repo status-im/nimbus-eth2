@@ -1,11 +1,14 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 # Temporary dumping ground for extra types and helpers that could make it into
 # the spec potentially
@@ -26,7 +29,9 @@ type
     ## Also useful to avoid unnecessary work when replaying known, good blocks.
     skipStateRootValidation ##\
     ## Skip verification of block state root.
-    verifyFinalization
+    strictVerification ##\
+    ## Strictly assert on unexpected conditions to aid debugging.
+    ## Should not be used in production, as additional asserts are reachable.
     slotProcessed ##\
     ## Allow blocks to be applied to states with the same slot number as the
     ## block which is what happens when `process_block` is called separately
@@ -34,5 +39,9 @@ type
     ## When process_slots() is being called as part of a state_transition(),
     ## the hash_tree_root() from the block will fill in the state.root so it
     ## should skip calculating that last state root.
+    enableTestFeatures ##\
+    ## Whether to enable extra features for testing.
+    lowParticipation ##\
+    ## Whether the network is prone to low participation.
 
   UpdateFlags* = set[UpdateFlag]

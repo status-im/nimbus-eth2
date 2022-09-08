@@ -9,7 +9,6 @@ jobs:
   build:
     strategy:
       fail-fast: false
-      max-parallel: 20
       matrix:
         target:
           - os: linux
@@ -26,11 +25,11 @@ jobs:
         include:
           - target:
               os: linux
-            builder: ubuntu-18.04
+            builder: ubuntu-20.04
             shell: bash
           - target:
               os: macos
-            builder: macos-10.15
+            builder: macos-11
             shell: bash
           - target:
               os: windows
@@ -45,13 +44,13 @@ jobs:
     runs-on: ${{ matrix.builder }}
     continue-on-error: ${{ matrix.branch == 'version-1-6' || matrix.branch == 'devel' }}
     steps:
-      - name: Checkout nimbus-eth2
+      - name: Checkout
         if: ${{ github.event_name != 'pull_request' }}
         uses: actions/checkout@v2
         with:
           ref: unstable
 
-      - name: Checkout nimbus-eth2 (pull request)
+      - name: Checkout (pull request)
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/checkout@v2
 
@@ -84,6 +83,7 @@ jobs:
             base-devel
             git
             mingw-w64-i686-toolchain
+            mingw-w64-i686-cmake
 
       - name: MSYS2 (Windows amd64)
         if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
@@ -94,13 +94,14 @@ jobs:
             base-devel
             git
             mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
 
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
         uses: actions/cache@v2
         with:
-          path: external/dlls-${{ matrix.target.cpu }}
+          path: external/dlls
           key: 'dlls-${{ matrix.target.cpu }}'
 
       - name: Install DLLs dependencies (Windows)
@@ -110,13 +111,13 @@ jobs:
         run: |
           mkdir -p external
           curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          7z x -y external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
+          7z x -y external/windeps.zip -oexternal/dlls
 
       - name: Path to cached dependencies (Windows)
         if: >
           runner.os == 'Windows'
         run: |
-          echo "${{ github.workspace }}/external/dlls-${{ matrix.target.cpu }}" >> $GITHUB_PATH
+          echo "${{ github.workspace }}/external/dlls" >> $GITHUB_PATH
           # for miniupnp that runs "wingenminiupnpcstrings.exe" from the current dir
           echo "." >> $GITHUB_PATH
 
@@ -135,6 +136,12 @@ jobs:
           fi
           echo "PLATFORM=${PLATFORM}" >> $GITHUB_ENV
 
+          # Stack usage test on recent enough gcc:
+          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
+            export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
+            echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
+          fi
+
           # libminiupnp / natpmp
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'i386' ]]; then
             export CFLAGS="${CFLAGS} -m32 -mno-adx"
@@ -142,6 +149,7 @@ jobs:
           fi
 
           ncpu=""
+          make_cmd="make"
           case '${{ runner.os }}' in
           'Linux')
             ncpu=$(nproc)
@@ -151,14 +159,17 @@ jobs:
             ;;
           'Windows')
             ncpu=${NUMBER_OF_PROCESSORS}
+            make_cmd="mingw32-make"
             ;;
           esac
           [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
           echo "ncpu=${ncpu}" >> $GITHUB_ENV
+          echo "make_cmd=${make_cmd}" >> $GITHUB_ENV
 
       - name: Build Nim and Nimbus dependencies
         run: |
-          make -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          ${make_cmd} -j ${ncpu} NIM_COMMIT=${{ matrix.branch }} ARCH_OVERRIDE=${PLATFORM} QUICK_AND_DIRTY_COMPILER=1 update
+          ./env.sh nim --version
 
       - name: Get latest fixtures commit hash
         id: fixtures_version
@@ -182,11 +193,10 @@ jobs:
 
       - name: Build all tools
         run: |
-          make -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }}
+          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }}
           # The Windows image runs out of disk space, so make some room
           rm -rf nimcache
 
-      - name: Run nimbus-eth2 tests
+      - name: Run tests
         run: |
-          make -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
-
+          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test

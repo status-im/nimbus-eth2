@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,21 +7,22 @@
 
 import
   # Standard library
-  std/strformat, std/tables, std/options,
+  std/[options, strformat, tables],
   # Status libraries
   stew/[results, endians2],
   # Internals
   ../../beacon_chain/spec/datatypes/base,
+  ../../beacon_chain/spec/helpers,
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types]
 
-export results, base, fork_choice, fork_choice_types, tables, options
+export results, base, helpers, fork_choice, fork_choice_types, tables, options
 
 func fakeHash*(index: SomeInteger): Eth2Digest =
   ## Create fake hashes
   ## Those are just the value serialized in big-endian
-  ## We add 16x16 to avoid having a zero hash are those are special cased
+  ## We add 16x16 to avoid having a zero hash as those are special cased
   ## We store them in the first 8 bytes
-  ## as those are the one used in hash tables Table[Eth2Digest, T]
+  ## as those are the ones used in hash tables Table[Eth2Digest, T]
   result.data[0 ..< 8] = (16*16+index).uint64.toBytesBE()
 
 # The fork choice tests are quite complex.
@@ -41,16 +42,13 @@ type
     # variant specific fields
     case kind*: OpKind
     of FindHead, InvalidFindHead:
-      justified_epoch*: Epoch
-      justified_root*: Eth2Digest
-      finalized_epoch*: Epoch
+      checkpoints*: FinalityCheckpoints
       justified_state_balances*: seq[Gwei]
       expected_head*: Eth2Digest
     of ProcessBlock:
       root*: Eth2Digest
       parent_root*: Eth2Digest
-      blk_justified_epoch*: Epoch
-      blk_finalized_epoch*: Epoch
+      blk_checkpoints*: FinalityCheckpoints
     of ProcessAttestation:
       validator_index*: ValidatorIndex
       block_root*: Eth2Digest
@@ -67,33 +65,30 @@ func apply(ctx: var ForkChoiceBackend, id: int, op: Operation) =
   case op.kind
   of FindHead, InvalidFindHead:
     let r = ctx.find_head(
-      op.justified_epoch,
-      op.justified_root,
-      op.finalized_epoch,
-      op.justified_state_balances
-    )
+      GENESIS_EPOCH,
+      op.checkpoints,
+      op.justified_state_balances,
+      # Don't use proposer boosting
+      ZERO_HASH)
     if op.kind == FindHead:
       doAssert r.isOk(), &"find_head (op #{id}) returned an error: {r.error}"
-      doAssert r.get() == op.expected_head, &"find_head (op #{id}) returned an incorrect result: {r.get()} (expected: {op.expected_head})"
-      debugEcho "    Found expected head: 0x", op.expected_head, " from justified checkpoint(epoch: ", op.justified_epoch, ", root: 0x", op.justified_root, ")"
+      doAssert r.get() == op.expected_head, &"find_head (op #{id}) returned an incorrect result: {r.get()} (expected: {op.expected_head}, from justified checkpoint: {op.checkpoints.justified}, finalized checkpoint: {op.checkpoints.finalized})"
+      debugEcho &"    Found expected head: 0x{op.expected_head} from justified checkpoint {op.checkpoints.justified}, finalized checkpoint {op.checkpoints.justified}"
     else:
-      doAssert r.isErr(), "find_head was unexpectedly successful"
-      debugEcho "    Detected an expected invalid head"
+      doAssert r.isErr(), &"invalid_find_head (op #{id}) was unexpectedly successful, head {op.expected_head} from justified checkpoint {op.checkpoints.justified}, finalized checkpoint {op.checkpoints.finalized}"
+      debugEcho &"    Detected an expected invalid head from justified checkpoint {op.checkpoints.justified}, finalized checkpoint {op.checkpoints.finalized}"
   of ProcessBlock:
     let r = ctx.process_block(
       block_root = op.root,
       parent_root = op.parent_root,
-      justified_epoch = op.blk_justified_epoch,
-      finalized_epoch = op.blk_finalized_epoch
-    )
+      checkpoints = op.blk_checkpoints)
     doAssert r.isOk(), &"process_block (op #{id}) returned an error: {r.error}"
-    debugEcho "    Processed block      0x", op.root, " with parent 0x", op.parent_root, " and justified epoch ", op.blk_justified_epoch
+    debugEcho "    Processed block      0x", op.root, " with parent 0x", op.parent_root, " and justified checkpoint ", op.blk_checkpoints.justified
   of ProcessAttestation:
     ctx.process_attestation(
       validator_index = op.validator_index,
       block_root = op.block_root,
-      target_epoch = op.target_epoch
-    )
+      target_epoch = op.target_epoch)
     debugEcho "    Processed att target 0x", op.block_root, " from validator ", op.validator_index, " for epoch ", op.target_epoch
   of Prune:
     let r = ctx.prune(op.finalized_root)

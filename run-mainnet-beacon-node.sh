@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright (c) 2020-2021 Status Research & Development GmbH. Licensed under
 # either of:
@@ -9,5 +9,5 @@
 
 cd "$(dirname $0)"
 # Allow the binary to receive signals directly.
-exec scripts/run-beacon-node.sh nimbus_beacon_node mainnet $@
+exec scripts/run-beacon-node.sh nimbus_beacon_node mainnet "$@"
 

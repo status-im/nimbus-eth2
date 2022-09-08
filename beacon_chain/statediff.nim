@@ -1,15 +1,18 @@
 # beacon_chain
-# Copyright (c) 2020-2021 Status Research & Development GmbH
+# Copyright (c) 2020-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   stew/assign2,
-  ./spec/datatypes/phase0,
+  ./spec/datatypes/altair,
   ./spec/helpers
 
 func diffModIncEpoch[T, U](hl: HashArray[U, T], startSlot: uint64):
@@ -32,7 +35,7 @@ func applyValidatorIdentities(
     hl: auto) =
   for item in hl:
     if not validators.add Validator(
-        pubkey: item.pubkey.loadValid().toPubKey(),
+        pubkey: item.pubkey.toPubKey(),
         withdrawal_credentials: item.withdrawal_credentials):
       raiseAssert "cannot readd"
 
@@ -42,14 +45,15 @@ func setValidatorStatuses(
   doAssert validators.len == hl.len
 
   for i in 0 ..< hl.len:
-    validators[i].effective_balance = hl[i].effective_balance
-    validators[i].slashed = hl[i].slashed
+    let validator = addr validators.mitem(i)
+    validator[].effective_balance = hl[i].effective_balance
+    validator[].slashed = hl[i].slashed
 
-    validators[i].activation_eligibility_epoch =
+    validator[].activation_eligibility_epoch =
       hl[i].activation_eligibility_epoch
-    validators[i].activation_epoch = hl[i].activation_epoch
-    validators[i].exit_epoch = hl[i].exit_epoch
-    validators[i].withdrawable_epoch = hl[i].withdrawable_epoch
+    validator[].activation_epoch = hl[i].activation_epoch
+    validator[].exit_epoch = hl[i].exit_epoch
+    validator[].withdrawable_epoch = hl[i].withdrawable_epoch
 
 func replaceOrAddEncodeEth1Votes[T, U](votes0, votes1: HashList[T, U]):
     (bool, List[T, U]) =
@@ -81,7 +85,7 @@ func replaceOrAddDecodeEth1Votes[T, U](
     if not votes0.add item:
       raiseAssert "same limit"
 
-func getMutableValidatorStatuses(state: phase0.BeaconState):
+func getMutableValidatorStatuses(state: altair.BeaconState):
     List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT] =
   if not result.setLen(state.validators.len):
     raiseAssert "same limt as validators"
@@ -96,9 +100,9 @@ func getMutableValidatorStatuses(state: phase0.BeaconState):
     assign(result[i].exit_epoch, validator.exit_epoch)
     assign(result[i].withdrawable_epoch, validator.withdrawable_epoch)
 
-func diffStates*(state0, state1: phase0.BeaconState): BeaconStateDiff =
+func diffStates*(state0, state1: altair.BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
-  doAssert state0.slot.isEpoch
+  doAssert state0.slot.is_epoch
   doAssert state1.slot == state0.slot + SLOTS_PER_EPOCH
   # TODO not here, but in dag, an isancestorof check
 
@@ -134,22 +138,27 @@ func diffStates*(state0, state1: phase0.BeaconState): BeaconStateDiff =
     balances: state1.balances.data,
 
     # RANDAO mixes gets updated every block, in place
-    randao_mix: state1.randao_mixes[state0.slot.compute_epoch_at_slot.uint64 mod
+    randao_mix: state1.randao_mixes[state0.slot.epoch.uint64 mod
       EPOCHS_PER_HISTORICAL_VECTOR.uint64],
-    slashing: state1.slashings[state0.slot.compute_epoch_at_slot.uint64 mod
+    slashing: state1.slashings[state0.slot.epoch.uint64 mod
       EPOCHS_PER_HISTORICAL_VECTOR.uint64],
 
-    previous_epoch_attestations: state1.previous_epoch_attestations.data,
-    current_epoch_attestations: state1.current_epoch_attestations.data,
+    previous_epoch_participation: state1.previous_epoch_participation.data,
+    current_epoch_participation: state1.current_epoch_participation.data,
 
     justification_bits: state1.justification_bits,
     previous_justified_checkpoint: state1.previous_justified_checkpoint,
     current_justified_checkpoint: state1.current_justified_checkpoint,
-    finalized_checkpoint: state1.finalized_checkpoint
+    finalized_checkpoint: state1.finalized_checkpoint,
+
+    inactivity_scores: state1.inactivity_scores.data,
+
+    current_sync_committee: state1.current_sync_committee,
+    next_sync_committee: state1.next_sync_committee
   )
 
 func applyDiff*(
-    state: var phase0.BeaconState,
+    state: var altair.BeaconState,
     immutableValidators: openArray[ImmutableValidatorData2],
     stateDiff: BeaconStateDiff) =
   template assign[T, U](tgt: var HashList[T, U], src: List[T, U]) =
@@ -179,13 +188,13 @@ func applyDiff*(
   # >=1 value from it
   let epochIndex =
     state.slot.epoch.uint64 mod EPOCHS_PER_HISTORICAL_VECTOR.uint64
-  assign(state.randao_mixes[epochIndex], stateDiff.randao_mix)
-  assign(state.slashings[epochIndex], stateDiff.slashing)
+  assign(state.randao_mixes.mitem(epochIndex), stateDiff.randao_mix)
+  assign(state.slashings.mitem(epochIndex), stateDiff.slashing)
 
   assign(
-    state.previous_epoch_attestations, stateDiff.previous_epoch_attestations)
+    state.previous_epoch_participation.data, stateDiff.previous_epoch_participation)
   assign(
-    state.current_epoch_attestations, stateDiff.current_epoch_attestations)
+    state.current_epoch_participation.data, stateDiff.current_epoch_participation)
 
   state.justification_bits = stateDiff.justification_bits
   assign(
@@ -193,6 +202,11 @@ func applyDiff*(
   assign(
     state.current_justified_checkpoint, stateDiff.current_justified_checkpoint)
   assign(state.finalized_checkpoint, stateDiff.finalized_checkpoint)
+
+  assign(state.inactivity_scores, stateDiff.inactivity_scores)
+
+  assign(state.current_sync_committee, stateDiff.current_sync_committee)
+  assign(state.next_sync_committee, stateDiff.next_sync_committee)
 
   # Don't update slot until the end, because various other updates depend on it
   state.slot = stateDiff.slot

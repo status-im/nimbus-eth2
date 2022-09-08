@@ -8,13 +8,13 @@ Grafana is a tool for beautiful dashboard monitoring that works well with Promet
 
 ## Simple metrics
 
-Run the beacon node  with the `--metrics` flag:
+To enable the metrics server, run the beacon node  with the `--metrics` flag:
 
 ```
 ./run-prater-beacon-node.sh --metrics
 ```
 
-And visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) to see the raw metrics. You should see a plaintext page that looks something like this:
+Visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) with a browser or `curl`. You should see a plaintext page that looks something like this:
 
 ```
 # HELP nim_runtime_info Nim runtime info
@@ -37,9 +37,7 @@ nim_gc_heap_instance_occupied_bytes{type_name="seq[TrustedAttestation]"} 29728.0
 
 > **Note:** Metrics are by default only accessible from the same machine as the beacon node is running on - to fetch metrics from a remote machine, an SSH tunnel is recommended.
 
-Unfortunately, this simple method only offers one snapshot in time (you'll need to keep refreshing to see the data update) which means it's impossible to see a useful history of the metrics. In short, it's far from optimal from an information design point of view.
-
-In order to settle on a better solution, we'll need the help of two external projects -- Prometheus and Grafana.
+The metrics server offers one snapshot in time of the state of the beacon node -- metrics however are at their most useful when collected over time -- for this, we'll need to set up two more pieces of software -- Prometheus and Grafana.
 
 ## Prometheus and Grafana
 

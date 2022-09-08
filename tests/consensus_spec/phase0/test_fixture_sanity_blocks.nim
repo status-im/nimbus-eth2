@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -27,7 +27,7 @@ proc runTest(testName, testDir, unitTestName: string) =
 
   proc `testImpl _ blck _ testName`() =
     let
-      hasPostState = existsFile(testPath/"post.ssz_snappy")
+      hasPostState = fileExists(testPath/"post.ssz_snappy")
       prefix = if hasPostState: "[Valid]   " else: "[Invalid] "
 
     test prefix & testName & " - " & unitTestName & preset():
@@ -45,15 +45,14 @@ proc runTest(testName, testDir, unitTestName: string) =
         let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, phase0.SignedBeaconBlock)
 
         if hasPostState:
-          let success = state_transition(
+          state_transition(
             defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
-            noRollback)
-          doAssert success, "Failure when applying block " & $i
+            noRollback).expect("should apply block")
         else:
-          let success = state_transition(
+          let res = state_transition(
             defaultRuntimeConfig, fhPreState[], blck, cache, info, flags = {},
             noRollback)
-          doAssert (i + 1 < numBlocks) or not success,
+          doAssert (i + 1 < numBlocks) or not res.isOk(),
             "We didn't expect these invalid blocks to be processed"
 
       if hasPostState:
@@ -64,14 +63,14 @@ proc runTest(testName, testDir, unitTestName: string) =
 
   `testImpl _ blck _ testName`()
 
-suite "Ethereum Foundation - Phase 0 - Sanity - Blocks " & preset():
+suite "EF - Phase 0 - Sanity - Blocks " & preset():
   for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
-    runTest("Ethereum Foundation - Phase 0 - Sanity - Blocks", SanityBlocksDir, path)
+    runTest("EF - Phase 0 - Sanity - Blocks", SanityBlocksDir, path)
 
-suite "Ethereum Foundation - Phase 0 - Finality " & preset():
+suite "EF - Phase 0 - Finality " & preset():
   for kind, path in walkDir(FinalityDir, relative = true, checkDir = true):
-    runTest("Ethereum Foundation - Phase 0 - Finality", FinalityDir, path)
+    runTest("EF - Phase 0 - Finality", FinalityDir, path)
 
-suite "Ethereum Foundation - Phase 0 - Random " & preset():
+suite "EF - Phase 0 - Random " & preset():
   for kind, path in walkDir(RandomDir, relative = true, checkDir = true):
-    runTest("Ethereum Foundation - Phase 0 - Random", RandomDir, path)
+    runTest("EF - Phase 0 - Random", RandomDir, path)

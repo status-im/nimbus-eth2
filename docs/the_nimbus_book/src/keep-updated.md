@@ -1,40 +1,51 @@
-# Keep Nimbus updated
+# Upgrade / downgrade
 
-Make sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the **announcements** channel on our [discord](https://discord.com/invite/XRxWahP). The Nimbus eth2 releases page can be found [here](https://github.com/status-im/nimbus-eth2/releases/).
+Make sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the **announcements** channel on our [discord](https://discord.com/invite/XRxWahP). The release page can be found [here](https://github.com/status-im/nimbus-eth2/releases/).
 
-> **Note:** If your beacon node is already running, you'll need to disconnect and reconnect for the changes to take effect.
+!!! note
+    If your beacon node is already running, you'll need to restart it for the changes to take effect.
 
-To update to the latest version, either download the binary or compile the beacon node release.
+To update to the latest version, either download the binary or compile the beacon node release (see below).
 
-> **Tip:** To check which version of Nimbus you're currently running, run `build/nimbus_beacon_node --version`
+!!! tip
+    To check which version of Nimbus you're currently running, run `build/nimbus_beacon_node --version`
 
-## Download the binary
+## Binaries
 
-Open the latest [Nimbus eth2 release](https://github.com/status-im/nimbus-eth2/releases/latest) and copy the link for the file that works on your system.
+Open the latest [Nimbus release](https://github.com/status-im/nimbus-eth2/releases/latest) and download the file that corresponds to your operation system and machine.
 
-```
+Once downloaded, unpack the binaries in the same folder as your current version, overwriting the existing files.
+
+```sh
 wget <insert download link here>
-tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz -C nimbus-eth2
+tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz --strip-components 1 -C nimbus-eth2
 rm nimbus-eth2_Linux_arm64v8*.tar.gz
 ```
 
-## Compile the beacon node release
+## Build from source
 
-> ⚠️   In order to minimise downtime, we recommend updating and rebuilding the beacon node before restarting.
+Upgrading Nimbus when built from source is similar to the installation process.
 
-```
+Run:
+
+```sh
+# Download the updated source code
 git pull && make update
 ```
 
 Followed by:
 
-```
-make nimbus_beacon_node
+```sh
+make -j4 nimbus_beacon_node
 ```
 
-to [rebuild the beacon node](./build.md).
+Now, restart your node.
+
+!!! tip
+    In order to minimise downtime, we recommend updating and [rebuilding](./build.md) the beacon node **before restarting**.
 
 ## Urgency guidelines
+
 As of `v1.4.0`, releases are marked with the following tags:
 
 `low-urgency`: update at your own convenience, sometime within our normal update cycle of two weeks
@@ -43,4 +54,39 @@ As of `v1.4.0`, releases are marked with the following tags:
 
 `high-urgency`: update as soon as you can, this is a critical update required for Nimbus to function correctly
 
+
+## Install a specific version
+
+*Occassionally you may need to either upgrade or downgrade to a specific version of Nimbus.*
+
+To pull a specific version of Nimbus (e.g. `v1.3.0`), run:
+```sh
+git checkout v1.3.0 && make update
+```
+
+Followed by:
+
+```sh
+make nimbus_beacon_node
+```
+
+Now, restart your node.
+
+!!! note
+    Alternatively, you can grab the appropriate binary release - create a backup of your `build` folder, then download the appropriate binary from here: [https://github.com/status-im/nimbus-eth2/releases/tag/v1.3.0](https://github.com/status-im/nimbus-eth2/releases/tag/v1.3.0)
+
+### Go back to stable
+
+If you need to go back to the latest (stable) version, run:
+```sh
+git checkout stable &&  make update
+```
+
+Followed by
+
+```sh
+make nimbus_beacon_node
+```
+
+Don't forget to restart your node.
 

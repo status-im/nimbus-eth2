@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 
 # process_deposit (beaconstate.nim)
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#deposits
 # ---------------------------------------------------------------
 
 {.used.}
@@ -32,7 +32,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
   template valid_deposit(deposit_amount: uint64, name: string): untyped =
     test "Deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
-      var state = assignClone(genesisState[])
+      let state = assignClone(genesisState[])
 
       # Test configuration
       # ----------------------------------------
@@ -48,7 +48,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
       # ----------------------------------------
       let pre_val_count = state.data.validators.len
       let pre_balance = if validator_index < pre_val_count:
-                          state.data.balances[validator_index]
+                          state.data.balances.item(validator_index)
                         else:
                           0
 
@@ -61,10 +61,10 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
       check:
         state.data.validators.len == pre_val_count + 1
         state.data.balances.len == pre_val_count + 1
-        state.data.balances[validator_index] == pre_balance + deposit.data.amount
-        state.data.validators[validator_index].effective_balance ==
+        state.data.balances.item(validator_index) == pre_balance + deposit.data.amount
+        state.data.validators.item(validator_index).effective_balance ==
           round_multiple_down(
-            min(MAX_EFFECTIVE_BALANCE, state.data.balances[validator_index]),
+            min(MAX_EFFECTIVE_BALANCE, state.data.balances.item(validator_index)),
             EFFECTIVE_BALANCE_INCREMENT
           )
 
@@ -73,7 +73,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
   valid_deposit(MAX_EFFECTIVE_BALANCE + 1, "over")
 
   test "Validator top-up":
-    var state = assignClone(genesisState[])
+    let state = assignClone(genesisState[])
 
     # Test configuration
     # ----------------------------------------
@@ -90,7 +90,7 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
     # ----------------------------------------
     let pre_val_count = state.data.validators.len
     let pre_balance = if validator_index < pre_val_count:
-                        state.data.balances[validator_index]
+                        state.data.balances.mitem(validator_index)
                       else:
                         0
 
@@ -103,22 +103,22 @@ suite "[Unit - Spec - Block processing] Deposits " & preset():
     check:
       state.data.validators.len == pre_val_count
       state.data.balances.len == pre_val_count
-      state.data.balances[validator_index] == pre_balance + deposit.data.amount
-      state.data.validators[validator_index].effective_balance ==
+      state.data.balances.item(validator_index) == pre_balance + deposit.data.amount
+      state.data.validators.item(validator_index).effective_balance ==
         round_multiple_down(
-          min(MAX_EFFECTIVE_BALANCE, state.data.balances[validator_index]),
+          min(MAX_EFFECTIVE_BALANCE, state.data.balances.item(validator_index)),
           EFFECTIVE_BALANCE_INCREMENT
         )
 
   template invalid_signature(deposit_amount: uint64, name: string): untyped =
     test "Invalid deposit " & name & " MAX_EFFECTIVE_BALANCE balance (" &
           $(MAX_EFFECTIVE_BALANCE div 10'u64^9) & " ETH)":
-      var state = assignClone(genesisState[])
+      let state = assignClone(genesisState[])
 
       # Test configuration
       # ----------------------------------------
       let validator_index = state.data.validators.len
-      var deposit = mockUpdateStateForNewDeposit(
+      let deposit = mockUpdateStateForNewDeposit(
                       state.data,
                       uint64 validator_index,
                       deposit_amount,

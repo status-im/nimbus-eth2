@@ -1,305 +1,199 @@
-import std/options,
-       presto,
-       nimcrypto/utils as ncrutils,
+# beacon_chain
+# Copyright (c) 2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
+
+import std/[options, macros],
+       stew/byteutils, presto,
        ../spec/[forks],
        ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
+       ../validators/validator_duties,
+       ../consensus_object_pools/blockchain_dag,
        ../beacon_node,
-       ../consensus_object_pools/[block_pools_types, blockchain_dag]
+       "."/[rest_constants, state_ttl_cache]
 
 export
-  options, eth2_rest_serialization, blockchain_dag, presto, rest_types
-
-const
-  MaxEpoch* = compute_epoch_at_slot(not(0'u64))
-
-  BlockValidationError* =
-    "The block failed validation, but was successfully broadcast anyway. It " &
-    "was not integrated into the beacon node's database."
-  BlockValidationSuccess* =
-    "The block was validated successfully and has been broadcast"
-  BeaconNodeInSyncError* =
-    "Beacon node is currently syncing and not serving request on that endpoint"
-  BlockNotFoundError* =
-    "Block header/data has not been found"
-  BlockProduceError* =
-    "Could not produce the block"
-  EmptyRequestBodyError* =
-    "Empty request's body"
-  InvalidBlockObjectError* =
-    "Unable to decode block object(s)"
-  InvalidAttestationObjectError* =
-    "Unable to decode attestation object(s)"
-  AttestationValidationError* =
-    "Some errors happened while validating attestation(s)"
-  AttestationValidationSuccess* =
-    "Attestation object(s) was broadcasted"
-  InvalidAttesterSlashingObjectError* =
-    "Unable to decode attester slashing object(s)"
-  AttesterSlashingValidationError* =
-    "Invalid attester slashing, it will never pass validation so it's rejected"
-  AttesterSlashingValidationSuccess* =
-    "Attester slashing object was broadcasted"
-  InvalidProposerSlashingObjectError* =
-    "Unable to decode proposer slashing object(s)"
-  ProposerSlashingValidationError* =
-    "Invalid proposer slashing, it will never pass validation so it's rejected"
-  ProposerSlashingValidationSuccess* =
-    "Proposer slashing object was broadcasted"
-  InvalidVoluntaryExitObjectError* =
-    "Unable to decode voluntary exit object(s)"
-  VoluntaryExitValidationError* =
-    "Invalid voluntary exit, it will never pass validation so it's rejected"
-  VoluntaryExitValidationSuccess* =
-    "Voluntary exit object(s) was broadcasted"
-  InvalidAggregateAndProofObjectError* =
-    "Unable to decode aggregate and proof object(s)"
-  AggregateAndProofValidationError* =
-    "Invalid aggregate and proof, it will never pass validation so it's " &
-    "rejected"
-  AggregateAndProofValidationSuccess* =
-    "Aggregate and proof object(s) was broadcasted"
-  BeaconCommitteeSubscriptionSuccess* =
-    "Beacon node processed committee subscription request(s)"
-  SyncCommitteeSubscriptionSuccess* =
-    "Beacon node processed sync committee subscription request(s)"
-  InvalidParentRootValueError* =
-    "Invalid parent root value"
-  MissingSlotValueError* =
-    "Missing `slot` value"
-  InvalidSlotValueError* =
-    "Invalid slot value"
-  MissingCommitteeIndexValueError* =
-    "Missing `committee_index` value"
-  InvalidCommitteeIndexValueError* =
-    "Invalid committee index value"
-  MissingAttestationDataRootValueError* =
-    "Missing `attestation_data_root` value"
-  InvalidAttestationDataRootValueError* =
-    "Invalid attestation data root value"
-  UnableToGetAggregatedAttestationError* =
-    "Unable to retrieve an aggregated attestation"
-  MissingRandaoRevealValue* =
-    "Missing `randao_reveal` value"
-  InvalidRandaoRevealValue* =
-    "Invalid randao reveal value"
-  InvalidGraffitiBytesValye* =
-    "Invalid graffiti bytes value"
-  InvalidEpochValueError* =
-    "Invalid epoch value"
-  EpochFromFutureError* =
-    "Epoch value is far from the future"
-  InvalidStateIdValueError* =
-    "Invalid state identifier value"
-  InvalidBlockIdValueError* =
-    "Invalid block identifier value"
-  InvalidValidatorIdValueError* =
-    "Invalid validator's identifier value(s)"
-  MaximumNumberOfValidatorIdsError* =
-    "Maximum number of validator identifier values exceeded"
-  InvalidValidatorStatusValueError* =
-    "Invalid validator's status value error"
-  InvalidValidatorIndexValueError* =
-    "Invalid validator's index value(s)"
-  EmptyValidatorIndexArrayError* =
-    "Empty validator's index array"
-  InvalidSubscriptionRequestValueError* =
-    "Invalid subscription request object(s)"
-  ValidatorNotFoundError* =
-    "Could not find validator"
-  ValidatorStatusNotFoundError* =
-    "Could not obtain validator's status"
-  TooHighValidatorIndexValueError* =
-    "Validator index exceeds maximum number of validators allowed"
-  UnsupportedValidatorIndexValueError* =
-    "Validator index exceeds maximum supported number of validators"
-  StateNotFoundError* =
-    "Could not get requested state"
-  SlotNotFoundError* =
-    "Slot number is too far away"
-  SlotNotInNextWallSlotEpochError* =
-    "Requested slot not in next wall-slot epoch"
-  SlotFromThePastError* =
-    "Requested slot from the past"
-  SlotFromTheIncorrectForkError* =
-    "Requested slot is from incorrect fork"
-  EpochFromTheIncorrectForkError* =
-    "Requested epoch is from incorrect fork"
-  ProposerNotFoundError* =
-    "Could not find proposer for the head and slot"
-  NoHeadForSlotError* =
-    "Cound not find head for slot"
-  EpochOverflowValueError* =
-    "Requesting epoch for which slot would overflow"
-  InvalidPeerStateValueError* =
-    "Invalid peer's state value(s) error"
-  InvalidPeerDirectionValueError* =
-    "Invalid peer's direction value(s) error"
-  InvalidPeerIdValueError* =
-    "Invalid peer's id value(s) error"
-  PeerNotFoundError* =
-    "Peer not found"
-  InvalidLogLevelValueError* =
-    "Invalid log level value error"
-  ContentNotAcceptableError* =
-    "Could not find out accepted content type"
-  InvalidAcceptError* =
-    "Incorrect accept response type"
-  MissingSubCommitteeIndexValueError* =
-    "Missing `subcommittee_index` value"
-  InvalidSubCommitteeIndexValueError* =
-    "Invalid `subcommittee_index` value"
-  MissingBeaconBlockRootValueError* =
-    "Missing `beacon_block_root` value"
-  InvalidBeaconBlockRootValueError* =
-    "Invalid `beacon_block_root` value"
-  EpochOutsideSyncCommitteePeriodError* =
-    "Epoch is outside the sync committee period of the state"
-  InvalidSyncCommitteeSignatureMessageError* =
-    "Unable to decode sync committee message(s)"
-  InvalidSyncCommitteeSubscriptionRequestError* =
-    "Unable to decode sync committee subscription request(s)"
-  InvalidContributionAndProofMessageError* =
-    "Unable to decode contribute and proof message(s)"
-  SyncCommitteeMessageValidationError* =
-    "Some errors happened while validating sync committee message(s)"
-  SyncCommitteeMessageValidationSuccess* =
-    "Sync committee message(s) was broadcasted"
-  ContributionAndProofValidationError* =
-    "Some errors happened while validating contribution and proof(s)"
-  ContributionAndProofValidationSuccess* =
-    "Contribution and proof(s) was broadcasted"
-  ProduceContributionError* =
-    "Unable to produce contribution using the passed parameters"
-  InternalServerError* =
-    "Internal server error"
-  NoImplementationError* =
-    "Not implemented yet"
-  KeystoreAdditionFailure* =
-    "Could not add some keystores"
-  InvalidKeystoreObjects* =
-    "Invalid keystore objects found"
-  KeystoreAdditionSuccess* =
-    "All keystores has been added"
-  KeystoreModificationFailure* =
-    "Could not change keystore(s) state"
-  KeystoreModificationSuccess* =
-    "Keystore(s) state was successfully modified"
-  KeystoreRemovalSuccess* =
-    "Keystore(s) was successfully removed"
-  KeystoreRemovalFailure* =
-    "Could not remove keystore(s)"
-  InvalidValidatorPublicKey* =
-    "Invalid validator's public key(s) found"
+  options, eth2_rest_serialization, blockchain_dag, presto, rest_types,
+  rest_constants
 
 type
   ValidatorIndexError* {.pure.} = enum
     UnsupportedValue, TooHighValue
 
-func match(data: openarray[char], charset: set[char]): int =
+func match(data: openArray[char], charset: set[char]): int =
   for ch in data:
     if ch notin charset:
       return 1
   0
 
-proc validate(key: string, value: string): int =
-  ## This is rough validation procedure which should be simple and fast,
-  ## because it will be used for query routing.
-  case key
-  of "{epoch}":
-    0
-  of "{slot}":
-    0
-  of "{peer_id}":
-    0
-  of "{state_id}":
-    0
-  of "{block_id}":
-    0
-  of "{validator_id}":
-    0
-  else:
-    1
+proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
+  let head = node.dag.head
 
-proc getCurrentHead*(node: BeaconNode,
-                     slot: Slot): Result[BlockRef, cstring] =
-  let res = node.dag.head
-  # if not(node.isSynced(res)):
-  #   return err("Cannot fulfill request until node is synced")
-  if res.slot + uint64(2 * SLOTS_PER_EPOCH) < slot:
+  if slot > head.slot and not node.isSynced(head):
     return err("Requesting way ahead of the current head")
-  ok(res)
 
-proc getCurrentHead*(node: BeaconNode,
-                     epoch: Epoch): Result[BlockRef, cstring] =
+  ok(head)
+
+func getCurrentSlot*(node: BeaconNode, slot: Slot):
+    Result[Slot, cstring] =
+  if slot <= (node.dag.head.slot + (SLOTS_PER_EPOCH * 2)):
+    ok(slot)
+  else:
+    err("Requesting slot too far ahead of the current head")
+
+proc getSyncedHead*(node: BeaconNode,
+                    epoch: Epoch): Result[BlockRef, cstring] =
   if epoch > MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
-  node.getCurrentHead(compute_start_slot_at_epoch(epoch))
+  node.getSyncedHead(epoch.start_slot())
 
-proc toBlockSlot*(blckRef: BlockRef): BlockSlot =
-  blckRef.atSlot(blckRef.slot)
-
-proc getBlockSlot*(node: BeaconNode,
-                   stateIdent: StateIdent): Result[BlockSlot, cstring] =
+proc getBlockSlotId*(node: BeaconNode,
+                     stateIdent: StateIdent): Result[BlockSlotId, cstring] =
   case stateIdent.kind
   of StateQueryKind.Slot:
-    let head = ? getCurrentHead(node, stateIdent.slot)
-    let bslot = head.atSlot(stateIdent.slot)
-    if isNil(bslot.blck):
-      return err("Block not found")
-    ok(bslot)
+    # Limit requests by state id to the next epoch with respect to the current
+    # head to avoid long empty slot replays (in particular a second epoch
+    # transition)
+    if stateIdent.slot.epoch > (node.dag.head.slot.epoch + 1):
+      return err("Requesting state too far ahead of current head")
+
+    let bsi = node.dag.getBlockIdAtSlot(stateIdent.slot).valueOr:
+      return err("State for given slot not found, history not available?")
+
+    ok(bsi)
+
   of StateQueryKind.Root:
-    let blckRef = node.dag.getRef(stateIdent.root)
-    if isNil(blckRef):
-      return err("Block not found")
-    ok(blckRef.toBlockSlot())
+    if stateIdent.root == getStateRoot(node.dag.headState):
+      ok(node.dag.head.bid.atSlot())
+    else:
+      # We don't have a state root -> BlockSlot mapping
+      err("State for given root not found")
   of StateQueryKind.Named:
     case stateIdent.value
     of StateIdentType.Head:
-      ok(node.dag.head.toBlockSlot())
+      ok(node.dag.head.bid.atSlot())
     of StateIdentType.Genesis:
-      ok(node.dag.getGenesisBlockSlot())
+      ok(node.dag.genesis.atSlot())
     of StateIdentType.Finalized:
-      ok(node.dag.finalizedHead)
+      ok(node.dag.finalizedHead.toBlockSlotId().expect("not nil"))
     of StateIdentType.Justified:
-      ok(node.dag.head.atEpochStart(getStateField(
-        node.dag.headState.data, current_justified_checkpoint).epoch))
+      # Take checkpoint-synced nodes into account
+      let justifiedEpoch =
+        max(
+          getStateField(node.dag.headState, current_justified_checkpoint).epoch,
+          node.dag.finalizedHead.slot.epoch)
+      ok(node.dag.head.atEpochStart(justifiedEpoch).toBlockSlotId().expect("not nil"))
 
-proc getBlockDataFromBlockIdent*(node: BeaconNode,
-                                 id: BlockIdent): Result[BlockData, cstring] =
+proc getBlockId*(node: BeaconNode, id: BlockIdent): Opt[BlockId] =
   case id.kind
   of BlockQueryKind.Named:
     case id.value
     of BlockIdentType.Head:
-      ok(node.dag.get(node.dag.head))
+      ok(node.dag.head.bid)
     of BlockIdentType.Genesis:
-      ok(node.dag.getGenesisBlockData())
+      ok(node.dag.genesis)
     of BlockIdentType.Finalized:
-      ok(node.dag.get(node.dag.finalizedHead.blck))
+      ok(node.dag.finalizedHead.blck.bid)
   of BlockQueryKind.Root:
-    let res = node.dag.get(id.root)
-    if res.isNone():
-      return err("Block not found")
-    ok(res.get())
+    node.dag.getBlockId(id.root)
   of BlockQueryKind.Slot:
-    let head = ? node.getCurrentHead(id.slot)
-    let blockSlot = head.atSlot(id.slot)
-    if isNil(blockSlot.blck):
-      return err("Block not found")
-    ok(node.dag.get(blockSlot.blck))
+    let bsid = node.dag.getBlockIdAtSlot(id.slot)
+    if bsid.isSome and bsid.get().isProposed():
+      ok bsid.get().bid
+    else:
+      err()
 
-template withStateForBlockSlot*(node: BeaconNode,
-                                blockSlot: BlockSlot, body: untyped): untyped =
-  template isState(state: StateData): bool =
-    state.blck.atSlot(getStateField(state.data, slot)) == blockSlot
+proc getForkedBlock*(node: BeaconNode, id: BlockIdent):
+    Opt[ForkedTrustedSignedBeaconBlock] =
+  let bid = ? node.getBlockId(id)
 
-  if isState(node.dag.headState):
-    withStateVars(node.dag.headState):
-      var cache {.inject.}: StateCache
+  node.dag.getForkedBlock(bid)
+
+proc disallowInterruptionsAux(body: NimNode) =
+  for n in body:
+    const because =
+      "because the `state` variable may be mutated (and thus invalidated) " &
+      "before the function resumes execution."
+
+    if n.kind == nnkYieldStmt:
+      macros.error "You cannot use yield in this block " & because, n
+
+    if (n.kind in {nnkCall, nnkCommand} and
+       n[0].kind in {nnkIdent, nnkSym} and
+       $n[0] == "await"):
+      macros.error "You cannot use await in this block " & because, n
+
+    disallowInterruptionsAux(n)
+
+macro disallowInterruptions(body: untyped) =
+  disallowInterruptionsAux(body)
+
+template withStateForBlockSlotId*(nodeParam: BeaconNode,
+                                  blockSlotIdParam: BlockSlotId,
+                                  body: untyped): untyped =
+
+  block:
+    let
+      node = nodeParam
+      blockSlotId = blockSlotIdParam
+
+    template isState(state: ForkedHashedBeaconState): bool =
+      state.matches_block_slot(blockSlotId.bid.root, blockSlotId.slot)
+
+    var cache {.inject, used.}: StateCache
+
+    # If we have a cache hit, there is a concern that the REST request
+    # handler may continue executing asynchronously while we hit the same
+    # advanced state is another request. We don't want the two requests
+    # to work over the same state object because mutations to it will be
+    # visible in both, so we must outlaw yielding within the `body` block.
+    # Please note that the problem is not limited to the situations where
+    # we have a cache hit. Working with the `headState` will result in the
+    # same problem as it may change while the request is executing.
+    #
+    # TODO
+    # The solution below is only partion, because it theory yields or awaits
+    # can still be hidden in the body through the use of helper templates
+    disallowInterruptions(body)
+
+    # TODO view-types
+    # Avoid the code bloat produced by the double `body` reference through a lent var
+    if isState(node.dag.headState):
+      template state: untyped {.inject, used.} = node.dag.headState
+      template stateRoot: untyped {.inject, used.} =
+        getStateRoot(node.dag.headState)
       body
-  else:
-    let rpcState = assignClone(node.dag.headState)
-    node.dag.withState(rpcState[], blockSlot):
-      body
+    else:
+      let cachedState = if node.stateTtlCache != nil:
+        node.stateTtlCache.getClosestState(node.dag, blockSlotId)
+      else:
+        nil
+
+      let stateToAdvance = if cachedState != nil:
+        cachedState
+      else:
+        assignClone(node.dag.headState)
+
+      if node.dag.updateState(stateToAdvance[], blockSlotId, false, cache):
+        if cachedState == nil and node.stateTtlCache != nil:
+          # This was not a cached state, we can cache it now
+          node.stateTtlCache.add(stateToAdvance)
+
+        template state: untyped {.inject, used.} = stateToAdvance[]
+        template stateRoot: untyped {.inject, used.} = getStateRoot(stateToAdvance[])
+
+        body
+
+template strData*(body: ContentBody): string =
+  bind fromBytes
+  string.fromBytes(body.data)
 
 proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
                                                           ValidatorIndexError] =
@@ -322,7 +216,8 @@ proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
     doAssert(false, "ValidatorIndex type size is incorrect")
 
 func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
-  epoch: Epoch): Result[seq[ValidatorPubKey], cstring] =
+                                epoch: Epoch
+                               ): Result[seq[ValidatorPubKey], cstring] =
   withState(forkedState):
     when stateFork >= BeaconStateFork.Altair:
       let
@@ -342,19 +237,20 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
                     keys: openArray[ValidatorPubKey]
                    ): seq[Option[ValidatorIndex]] =
   var indices = newSeq[Option[ValidatorIndex]](len(keys))
+  let totalValidatorsInState = getStateField(forkedState, validators).lenu64
   var keyset =
     block:
       var res: Table[ValidatorPubKey, int]
-      for inputIndex, pubkey in keys.pairs():
+      for inputIndex, pubkey in keys:
         # Try to search in cache first.
         cacheTable.withValue(pubkey, vindex):
-          indices[inputIndex] = some(vindex[])
+          if uint64(vindex[]) < totalValidatorsInState:
+            indices[inputIndex] = some(vindex[])
         do:
           res[pubkey] = inputIndex
       res
   if len(keyset) > 0:
-    for validatorIndex, validator in getStateField(forkedState,
-                                                   validators).pairs():
+    for validatorIndex, validator in getStateField(forkedState, validators):
       keyset.withValue(validator.pubkey, listIndex):
         # Store pair (pubkey, index) into cache table.
         cacheTable[validator.pubkey] = ValidatorIndex(validatorIndex)
@@ -362,5 +258,46 @@ func keysToIndices*(cacheTable: var Table[ValidatorPubKey, ValidatorIndex],
         indices[listIndex[]] = some(ValidatorIndex(validatorIndex))
   indices
 
-proc getRouter*(): RestRouter =
-  RestRouter.init(validate)
+proc getStateOptimistic*(node: BeaconNode,
+                         state: ForkedHashedBeaconState): Option[bool] =
+  if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+    case state.kind
+    of BeaconStateFork.Phase0, BeaconStateFork.Altair:
+      some[bool](false)
+    of BeaconStateFork.Bellatrix:
+      # A state is optimistic iff the block which created it is
+      withState(state):
+        # The block root which created the state at slot `n` is at slot `n-1`
+        if state.data.slot == GENESIS_SLOT:
+          some[bool](false)
+        else:
+          doAssert state.data.slot > 0
+          some[bool](node.dag.is_optimistic(
+            get_block_root_at_slot(state.data, state.data.slot - 1)))
+  else:
+    none[bool]()
+
+proc getBlockOptimistic*(node: BeaconNode,
+                         blck: ForkedTrustedSignedBeaconBlock |
+                               ForkedSignedBeaconBlock): Option[bool] =
+  if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+    case blck.kind
+    of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
+      some[bool](false)
+    of BeaconBlockFork.Bellatrix:
+      some[bool](node.dag.is_optimistic(blck.root))
+  else:
+    none[bool]()
+
+proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
+  let blck = node.dag.getForkedBlock(blck.bid).get()
+  case blck.kind
+  of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
+    false
+  of BeaconBlockFork.Bellatrix:
+    node.dag.is_optimistic(blck.root)
+
+const
+  jsonMediaType* = MediaType.init("application/json")
+  sszMediaType* = MediaType.init("application/octet-stream")
+  textEventStreamMediaType* = MediaType.init("text/event-stream")

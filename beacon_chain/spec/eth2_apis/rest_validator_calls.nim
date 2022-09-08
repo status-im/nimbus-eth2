@@ -1,10 +1,13 @@
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   chronos, presto/client,
@@ -76,7 +79,8 @@ proc prepareSyncCommitteeSubnets*(body: seq[RestSyncCommitteeSubscription]): Res
 
 proc produceSyncCommitteeContribution*(slot: Slot,
                                        subcommittee_index: SyncSubcommitteeIndex,
-                                       beacon_block_root: Eth2Digest): RestPlainResponse {.
+                                       beacon_block_root: Eth2Digest
+                                      ): RestResponse[ProduceSyncCommitteeContributionResponse] {.
      rest, endpoint: "/eth/v1/validator/sync_committee_contribution",
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceSyncCommitteeContribution
@@ -85,3 +89,8 @@ proc publishContributionAndProofs*(body: seq[RestSignedContributionAndProof]): R
      rest, endpoint: "/eth/v1/validator/contribution_and_proofs",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/publishContributionAndProofs
+
+proc prepareBeaconProposer*(body: seq[PrepareBeaconProposer]): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/prepare_beacon_proposer",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/ValidatorRequiredApi/prepareBeaconProposer

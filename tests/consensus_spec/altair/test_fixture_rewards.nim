@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2021 Status Research & Development GmbH
+# Copyright (c) 2020-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,9 +9,7 @@
 
 import
   # Standard library
-  os,
-  # Utilities
-  stew/results,
+  std/os,
   # Beacon chain internals
   ../../beacon_chain/spec/[beaconstate, validator, helpers, state_transition_epoch],
   ../../beacon_chain/spec/datatypes/altair,
@@ -35,7 +33,7 @@ proc runTest(rewardsDir, identifier: string) =
   let testDir = rewardsDir / identifier
 
   proc `testImpl _ rewards _ identifier`() =
-    test "Ethereum Foundation - Altair - Rewards - " & identifier & preset():
+    test "EF - Altair - Rewards - " & identifier & preset():
       var info: altair.EpochInfo
 
       let
@@ -61,9 +59,11 @@ proc runTest(rewardsDir, identifier: string) =
           Deltas.init(state[].validators.len)]
         inactivityPenaltyDeltas2 = Deltas.init(state[].validators.len)
 
+      let finality_delay = get_finality_delay(state[])
+
       for flag_index in 0 ..< PARTICIPATION_FLAG_WEIGHTS.len:
         for validator_index, delta in get_flag_index_deltas(
-            state[], flag_index, base_reward_per_increment, info):
+            state[], flag_index, base_reward_per_increment, info, finality_delay):
           if not is_eligible_validator(info.validators[validator_index]):
             continue
           flagDeltas2[flag_index].rewards[validator_index] = delta.rewards
@@ -79,7 +79,7 @@ proc runTest(rewardsDir, identifier: string) =
 
   `testImpl _ rewards _ identifier`()
 
-suite "Ethereum Foundation - Altair - Rewards " & preset():
+suite "EF - Altair - Rewards " & preset():
   for rewardsDir in [RewardsDirBasic, RewardsDirLeak, RewardsDirRandom]:
     for kind, path in walkDir(rewardsDir, relative = true, checkDir = true):
       runTest(rewardsDir, path)

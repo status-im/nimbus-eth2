@@ -1,34 +1,5 @@
 AllTests-mainnet
 ===
-## 
-```diff
-+ Slashing test: duplicate_pubkey_not_slashable.json                                         OK
-+ Slashing test: multiple_interchanges_single_validator_single_message_gap.json              OK
-+ Slashing test: multiple_interchanges_single_validator_single_message_out_of_order.json     OK
-+ Slashing test: multiple_validators_multiple_blocks_and_attestations.json                   OK
-+ Slashing test: multiple_validators_same_slot_blocks.json                                   OK
-+ Slashing test: single_validator_genesis_attestation.json                                   OK
-+ Slashing test: single_validator_import_only.json                                           OK
-+ Slashing test: single_validator_multiple_block_attempts.json                               OK
-+ Slashing test: single_validator_multiple_blocks_and_attestations.json                      OK
-+ Slashing test: single_validator_out_of_order_attestations.json                             OK
-+ Slashing test: single_validator_out_of_order_blocks.json                                   OK
-+ Slashing test: single_validator_resign_attestation.json                                    OK
-+ Slashing test: single_validator_resign_block.json                                          OK
-+ Slashing test: single_validator_single_attestation.json                                    OK
-+ Slashing test: single_validator_single_block.json                                          OK
-+ Slashing test: single_validator_single_block_and_attestation.json                          OK
-+ Slashing test: single_validator_single_block_and_attestation_signing_root.json             OK
-+ Slashing test: single_validator_slashable_attestations_double_vote.json                    OK
-+ Slashing test: single_validator_slashable_attestations_surrounded_by_existing.json         OK
-+ Slashing test: single_validator_slashable_attestations_surrounds_existing.json             OK
-+ Slashing test: single_validator_slashable_blocks.json                                      OK
-+ Slashing test: single_validator_slashable_blocks_no_root.json                              OK
-+ Slashing test: single_validator_source_greater_than_target.json                            OK
-+ Slashing test: single_validator_two_blocks_no_signing_root.json                            OK
-+ Slashing test: wrong_genesis_validators_root.json                                          OK
-```
-OK: 25/25 Fail: 0/25 Skip: 0/25
 ## Attestation pool processing [Preset: mainnet]
 ```diff
 + Attestations may arrive in any order [Preset: mainnet]                                     OK
@@ -44,6 +15,12 @@ OK: 25/25 Fail: 0/25 Skip: 0/25
 + Working with aggregates [Preset: mainnet]                                                  OK
 ```
 OK: 11/11 Fail: 0/11 Skip: 0/11
+## Backfill
+```diff
++ backfill to genesis                                                                        OK
++ reload backfill position                                                                   OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + empty database [Preset: mainnet]                                                           OK
@@ -52,10 +29,10 @@ OK: 11/11 Fail: 0/11 Skip: 0/11
 + sanity check Altair blocks [Preset: mainnet]                                               OK
 + sanity check Altair states [Preset: mainnet]                                               OK
 + sanity check Altair states, reusing buffers [Preset: mainnet]                              OK
-+ sanity check Merge and cross-fork getState rollback [Preset: mainnet]                      OK
-+ sanity check Merge blocks [Preset: mainnet]                                                OK
-+ sanity check Merge states [Preset: mainnet]                                                OK
-+ sanity check Merge states, reusing buffers [Preset: mainnet]                               OK
++ sanity check Bellatrix and cross-fork getState rollback [Preset: mainnet]                  OK
++ sanity check Bellatrix blocks [Preset: mainnet]                                            OK
++ sanity check Bellatrix states [Preset: mainnet]                                            OK
++ sanity check Bellatrix states, reusing buffers [Preset: mainnet]                           OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
@@ -67,60 +44,89 @@ OK: 16/16 Fail: 0/16 Skip: 0/16
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
++ dependent_root                                                                             OK
++ get_beacon_proposer_index                                                                  OK
++ latest_block_root                                                                          OK
++ merklizer state roundtrip                                                                  OK
++ process_slots                                                                              OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
+## Beacon time
+```diff
++ basics                                                                                     OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Bit fields
+## Block pool altair processing [Preset: mainnet]
 ```diff
-+ isZeros                                                                                    OK
-+ iterating words                                                                            OK
-+ overlaps                                                                                   OK
-+ roundtrips BitArray                                                                        OK
-+ roundtrips BitSeq                                                                          OK
++ Invalid signatures [Preset: mainnet]                                                       OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool processing [Preset: mainnet]
 ```diff
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
-+ Reverse order block add & get [Preset: mainnet]                                            OK
 + Simple block add&get [Preset: mainnet]                                                     OK
-+ getRef returns nil for missing blocks                                                      OK
-+ loading tail block works [Preset: mainnet]                                                 OK
++ basic ops                                                                                  OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
-+ updateStateData sanity [Preset: mainnet]                                                   OK
++ updateState sanity [Preset: mainnet]                                                       OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
-## BlockRef and helpers [Preset: mainnet]
+OK: 5/5 Fail: 0/5 Skip: 0/5
+## Block processor [Preset: mainnet]
 ```diff
-+ epochAncestor sanity [Preset: mainnet]                                                     OK
-+ get_ancestor sanity [Preset: mainnet]                                                      OK
-+ isAncestorOf sanity [Preset: mainnet]                                                      OK
++ Reverse order block add & get [Preset: mainnet]                                            OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
-## BlockSlot and helpers [Preset: mainnet]
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## Block quarantine
 ```diff
-+ atSlot sanity [Preset: mainnet]                                                            OK
-+ parent sanity [Preset: mainnet]                                                            OK
++ Unviable smoke test                                                                        OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## BlockId and helpers
+```diff
++ atSlot sanity                                                                              OK
++ parent sanity                                                                              OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## BlockRef and helpers
+```diff
++ get_ancestor sanity                                                                        OK
++ isAncestorOf sanity                                                                        OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## BlockSlot and helpers
+```diff
++ atSlot sanity                                                                              OK
++ parent sanity                                                                              OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## DeleteKeys requests [Beacon Node] [Preset: mainnet]
+```diff
++ Deleting not existing key [Beacon Node] [Preset: mainnet]                                  OK
++ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
++ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
++ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
+## DeleteRemoteKeys requests [Beacon Node] [Preset: mainnet]
+```diff
++ Deleting existing local key and remote key [Beacon Node] [Preset: mainnet]                 OK
++ Deleting not existing key [Beacon Node] [Preset: mainnet]                                  OK
++ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
++ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
++ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
+## Discovery fork ID
+```diff
++ Expected fork IDs                                                                          OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Diverging hardforks
 ```diff
 + Non-tail block in common                                                                   OK
 + Tail block only in common                                                                  OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Eth1 monitor
-```diff
-+ Rewrite HTTPS Infura URLs                                                                  OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
-## Eth2 specific discovery tests
-```diff
-+ Invalid attnets field                                                                      OK
-+ Subnet query                                                                               OK
-+ Subnet query after ENR update                                                              OK
-```
-OK: 3/3 Fail: 0/3 Skip: 0/3
-## Ethereum Foundation - SSZ generic types
+## EF - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid                                                      Skip
 + Testing basic_vector inputs - valid                                                        OK
@@ -136,13 +142,44 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Testing uints        inputs - valid                                                        OK
 ```
 OK: 10/12 Fail: 0/12 Skip: 2/12
+## Eth1 monitor
+```diff
++ Deposits chain                                                                             OK
++ Rewrite HTTPS Infura URLs                                                                  OK
++ Roundtrip engine RPC and consensus ExecutionPayload representations                        OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
+## Eth2 specific discovery tests
+```diff
++ Invalid attnets field                                                                      OK
++ Subnet query                                                                               OK
++ Subnet query after ENR update                                                              OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Exit pool testing suite
 ```diff
 + addExitMessage/getAttesterSlashingMessage                                                  OK
 + addExitMessage/getProposerSlashingMessage                                                  OK
 + addExitMessage/getVoluntaryExitMessage                                                     OK
++ pre-pre-fork voluntary exit                                                                OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
+## Fee recipient management [Beacon Node] [Preset: mainnet]
+```diff
++ Configuring the fee recpient [Beacon Node] [Preset: mainnet]                               OK
++ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
++ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
++ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
++ Obtaining the fee recpient of a missing validator returns 404 [Beacon Node] [Preset: mainn OK
++ Obtaining the fee recpient of an unconfigured validator returns the suggested default [Bea OK
++ Setting the fee recipient on a missing validator creates a record for it [Beacon Node] [Pr OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
+## FinalizedBlocks [Preset: mainnet]
+```diff
++ Basic ops [Preset: mainnet]                                                                OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Fork Choice + Finality  [Preset: mainnet]
 ```diff
 + fork_choice - testing finality #01                                                         OK
@@ -158,10 +195,26 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Next fork epoch check                                                                      OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Forked SSZ readers
+```diff
++ load altair block                                                                          OK
++ load altair state                                                                          OK
++ load bellatrix block                                                                       OK
++ load bellatrix state                                                                       OK
++ load phase0 block                                                                          OK
++ load phase0 state                                                                          OK
++ should raise on unknown data                                                               OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
+## Gossip fork transition
+```diff
++ Gossip fork transition                                                                     OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Gossip validation  [Preset: mainnet]
 ```diff
-+ Any committee index is valid                                                               OK
-+ Validation sanity                                                                          OK
++ Empty committee when no committee for slot                                                 OK
++ validateAttestation                                                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Gossip validation - Extra
@@ -173,9 +226,26 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ```diff
 + General pubsub topics                                                                      OK
 + Mainnet attestation topics                                                                 OK
++ isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
+## ImportKeystores requests [Beacon Node] [Preset: mainnet]
+```diff
++ ImportKeystores/ListKeystores/DeleteKeystores [Beacon Node] [Preset: mainnet]              OK
++ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
++ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
++ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
+## ImportRemoteKeys/ListRemoteKeys/DeleteRemoteKeys [Beacon Node] [Preset: mainnet]
+```diff
++ Importing list of remote keys [Beacon Node] [Preset: mainnet]                              OK
++ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
++ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
++ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Interop
 ```diff
 + Interop genesis                                                                            OK
@@ -183,19 +253,69 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Mocked start private key                                                                   OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## Key spliting
+```diff
++ k < n                                                                                      OK
++ k == n                                                                                     OK
++ k == n == 100                                                                              OK
++ single share                                                                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## KeyStorage testing suite
 ```diff
++ Load Prysm keystore                                                                        OK
 + Pbkdf2 errors                                                                              OK
 + [PBKDF2] Keystore decryption                                                               OK
++ [PBKDF2] Keystore decryption (requireAllFields, allowUnknownFields)                        OK
 + [PBKDF2] Keystore encryption                                                               OK
 + [PBKDF2] Network Keystore decryption                                                       OK
 + [PBKDF2] Network Keystore encryption                                                       OK
 + [SCRYPT] Keystore decryption                                                               OK
++ [SCRYPT] Keystore decryption (requireAllFields, allowUnknownFields)                        OK
 + [SCRYPT] Keystore encryption                                                               OK
 + [SCRYPT] Network Keystore decryption                                                       OK
 + [SCRYPT] Network Keystore encryption                                                       OK
 ```
-OK: 9/9 Fail: 0/9 Skip: 0/9
+OK: 12/12 Fail: 0/12 Skip: 0/12
+## Light client [Preset: mainnet]
+```diff
++ Init from checkpoint                                                                       OK
++ Light client sync                                                                          OK
++ Pre-Altair                                                                                 OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
+## Light client processor [Preset: mainnet]
+```diff
++ Duplicate bootstrap (Optimistic) [Preset: mainnet]                                         OK
++ Duplicate bootstrap (Strict) [Preset: mainnet]                                             OK
++ Invalid bootstrap (Optimistic) [Preset: mainnet]                                           OK
++ Invalid bootstrap (Strict) [Preset: mainnet]                                               OK
++ Missing bootstrap (finality update) (Optimistic) [Preset: mainnet]                         OK
++ Missing bootstrap (finality update) (Strict) [Preset: mainnet]                             OK
++ Missing bootstrap (optimistic update) (Optimistic) [Preset: mainnet]                       OK
++ Missing bootstrap (optimistic update) (Strict) [Preset: mainnet]                           OK
++ Missing bootstrap (update) (Optimistic) [Preset: mainnet]                                  OK
++ Missing bootstrap (update) (Strict) [Preset: mainnet]                                      OK
++ Sync (Optimistic) [Preset: mainnet]                                                        OK
++ Sync (Strict) [Preset: mainnet]                                                            OK
+```
+OK: 12/12 Fail: 0/12 Skip: 0/12
+## ListKeys requests [Beacon Node] [Preset: mainnet]
+```diff
++ Correct token provided [Beacon Node] [Preset: mainnet]                                     OK
++ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
++ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
++ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
+## ListRemoteKeys requests [Beacon Node] [Preset: mainnet]
+```diff
++ Correct token provided [Beacon Node] [Preset: mainnet]                                     OK
++ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
++ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
++ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Message signatures
 ```diff
 + Aggregate and proof signatures                                                             OK
@@ -229,40 +349,60 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + deletePeer() test                                                                          OK
 ```
 OK: 12/12 Fail: 0/12 Skip: 0/12
-## SSZ dynamic navigator
+## Remove keystore testing suite
 ```diff
-+ navigating fields                                                                          OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
-## SSZ generic roundtrip tests
-```diff
-+ case objects                                                                               OK
-+ lists                                                                                      OK
-+ objects                                                                                    OK
-+ sets                                                                                       OK
-+ simple values                                                                              OK
-+ tables                                                                                     OK
-+ tuple                                                                                      OK
-```
-OK: 7/7 Fail: 0/7 Skip: 0/7
-## SSZ navigator
-```diff
-+ basictype                                                                                  OK
-+ lists with max size                                                                        OK
-+ simple object fields                                                                       OK
++ vesion 1                                                                                   OK
++ vesion 2 many remotes                                                                      OK
++ vesion 2 single remote                                                                     OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
-## Slashing Protection DB - Interchange [Preset: mainnet]
+## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
-+ Smoke test - Complete format - Invalid database is refused [Preset: mainnet]               OK
-+ Smoke test - Complete format [Preset: mainnet]                                             OK
-```
-OK: 2/2 Fail: 0/2 Skip: 0/2
-## Slashing Protection DB - v1 and v2 migration [Preset: mainnet]
-```diff
-+ Minimal format migration [Preset: mainnet]                                                 OK
++ Deserialization test vectors                                                               OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Slashing Interchange tests  [Preset: mainnet]
+```diff
++ Slashing test: duplicate_pubkey_not_slashable.json                                         OK
++ Slashing test: duplicate_pubkey_slashable_attestation.json                                 OK
++ Slashing test: duplicate_pubkey_slashable_block.json                                       OK
++ Slashing test: multiple_interchanges_multiple_validators_repeat_idem.json                  OK
++ Slashing test: multiple_interchanges_overlapping_validators_merge_stale.json               OK
++ Slashing test: multiple_interchanges_overlapping_validators_repeat_idem.json               OK
++ Slashing test: multiple_interchanges_single_validator_fail_iff_imported.json               OK
++ Slashing test: multiple_interchanges_single_validator_first_surrounds_second.json          OK
++ Slashing test: multiple_interchanges_single_validator_multiple_blocks_out_of_order.json    OK
++ Slashing test: multiple_interchanges_single_validator_second_surrounds_first.json          OK
++ Slashing test: multiple_interchanges_single_validator_single_att_out_of_order.json         OK
++ Slashing test: multiple_interchanges_single_validator_single_block_out_of_order.json       OK
++ Slashing test: multiple_interchanges_single_validator_single_message_gap.json              OK
++ Slashing test: multiple_validators_multiple_blocks_and_attestations.json                   OK
++ Slashing test: multiple_validators_same_slot_blocks.json                                   OK
++ Slashing test: single_validator_genesis_attestation.json                                   OK
++ Slashing test: single_validator_import_only.json                                           OK
++ Slashing test: single_validator_multiple_block_attempts.json                               OK
++ Slashing test: single_validator_multiple_blocks_and_attestations.json                      OK
++ Slashing test: single_validator_out_of_order_attestations.json                             OK
++ Slashing test: single_validator_out_of_order_blocks.json                                   OK
+  Slashing test: single_validator_resign_attestation.json                                    Skip
++ Slashing test: single_validator_resign_block.json                                          OK
++ Slashing test: single_validator_single_attestation.json                                    OK
++ Slashing test: single_validator_single_block.json                                          OK
++ Slashing test: single_validator_single_block_and_attestation.json                          OK
++ Slashing test: single_validator_single_block_and_attestation_signing_root.json             OK
++ Slashing test: single_validator_slashable_attestations_double_vote.json                    OK
++ Slashing test: single_validator_slashable_attestations_surrounded_by_existing.json         OK
++ Slashing test: single_validator_slashable_attestations_surrounds_existing.json             OK
++ Slashing test: single_validator_slashable_blocks.json                                      OK
++ Slashing test: single_validator_slashable_blocks_no_root.json                              OK
++ Slashing test: single_validator_source_greater_than_target.json                            OK
++ Slashing test: single_validator_source_greater_than_target_sensible_iff_minified.json      OK
+  Slashing test: single_validator_source_greater_than_target_surrounded.json                 Skip
+  Slashing test: single_validator_source_greater_than_target_surrounding.json                Skip
++ Slashing test: single_validator_two_blocks_no_signing_root.json                            OK
++ Slashing test: wrong_genesis_validators_root.json                                          OK
+```
+OK: 35/38 Fail: 0/38 Skip: 3/38
 ## Slashing Protection DB [Preset: mainnet]
 ```diff
 + Attestation ordering #1698                                                                 OK
@@ -287,13 +427,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
 + build_proof - BeaconState                                                                  OK
-+ get_branch_indices                                                                         OK
-+ get_helper_indices                                                                         OK
-+ get_path_indices                                                                           OK
 + integer_squareroot                                                                         OK
-+ verify_merkle_multiproof                                                                   OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Specific field types
 ```diff
 + root update                                                                                OK
@@ -310,22 +446,31 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 4/4 Fail: 0/4 Skip: 0/4
 ## SyncManager test suite
 ```diff
-+ [SyncQueue] Async pending and resetWait() test                                             OK
-+ [SyncQueue] Async unordered push start from zero                                           OK
-+ [SyncQueue] Async unordered push with not full start from non-zero                         OK
-+ [SyncQueue] Full and incomplete success/fail start from non-zero                           OK
-+ [SyncQueue] Full and incomplete success/fail start from zero                               OK
-+ [SyncQueue] One smart and one stupid + debt split + empty                                  OK
-+ [SyncQueue] Smart and stupid success/fail                                                  OK
-+ [SyncQueue] Start and finish slots equal                                                   OK
-+ [SyncQueue] Two full requests success/fail                                                 OK
++ Process all unviable blocks                                                                OK
++ [SyncQueue#Backward] Async unordered push test                                             OK
++ [SyncQueue#Backward] Async unordered push with rewind test                                 OK
++ [SyncQueue#Backward] Good response with missing values towards end                         OK
++ [SyncQueue#Backward] Handle out-of-band sync progress advancement                          OK
++ [SyncQueue#Backward] Pass through established limits test                                  OK
++ [SyncQueue#Backward] Smoke test                                                            OK
++ [SyncQueue#Backward] Start and finish slots equal                                          OK
++ [SyncQueue#Backward] Two full requests success/fail                                        OK
++ [SyncQueue#Backward] getRewindPoint() test                                                 OK
++ [SyncQueue#Forward] Async unordered push test                                              OK
++ [SyncQueue#Forward] Async unordered push with rewind test                                  OK
++ [SyncQueue#Forward] Good response with missing values towards end                          OK
++ [SyncQueue#Forward] Handle out-of-band sync progress advancement                           OK
++ [SyncQueue#Forward] Pass through established limits test                                   OK
++ [SyncQueue#Forward] Smoke test                                                             OK
++ [SyncQueue#Forward] Start and finish slots equal                                           OK
++ [SyncQueue#Forward] Two full requests success/fail                                         OK
++ [SyncQueue#Forward] getRewindPoint() test                                                  OK
 + [SyncQueue] checkResponse() test                                                           OK
 + [SyncQueue] contains() test                                                                OK
 + [SyncQueue] getLastNonEmptySlot() test                                                     OK
-+ [SyncQueue] getRewindPoint() test                                                          OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
-OK: 14/14 Fail: 0/14 Skip: 0/14
+OK: 23/23 Fail: 0/23 Skip: 0/23
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -333,12 +478,6 @@ OK: 14/14 Fail: 0/14 Skip: 0/14
 + default initialization of signatures                                                       OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
-## [Unit - Spec - Block processing] Attestations  [Preset: mainnet]
-```diff
-+ Valid attestation                                                                          OK
-+ Valid attestation from previous epoch                                                      OK
-```
-OK: 2/2 Fail: 0/2 Skip: 0/2
 ## [Unit - Spec - Block processing] Deposits  [Preset: mainnet]
 ```diff
 + Deposit at MAX_EFFECTIVE_BALANCE balance (32 ETH)                                          OK
@@ -367,19 +506,60 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + prune heads on finalization [Preset: mainnet]                                              OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## createValidatorFiles()
+```diff
++ Add keystore files [LOCAL]                                                                 OK
++ Add keystore files [REMOTE]                                                                OK
++ Add keystore files twice [LOCAL]                                                           OK
++ Add keystore files twice [REMOTE]                                                          OK
++ `createLocalValidatorFiles` with `keystoreDir` without permissions                         OK
++ `createLocalValidatorFiles` with `secretsDir` without permissions                          OK
++ `createLocalValidatorFiles` with `validatorsDir` without permissions                       OK
++ `createValidatorFiles` with already existing dirs and any error                            OK
+```
+OK: 8/8 Fail: 0/8 Skip: 0/8
+## engine API authentication
+```diff
++ HS256 JWS iat token signing                                                                OK
++ HS256 JWS signing                                                                          OK
++ getIatToken                                                                                OK
+```
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## eth2.0-deposits-cli compatibility
 ```diff
 + restoring mnemonic with password                                                           OK
 + restoring mnemonic without password                                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## hash
+## removeValidatorFiles()
 ```diff
-+ HashArray                                                                                  OK
-+ HashList fixed                                                                             OK
-+ HashList variable                                                                          OK
++ Remove nonexistent validator                                                               OK
++ Remove validator files                                                                     OK
++ Remove validator files twice                                                               OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
+## removeValidatorFiles() multiple keystore types
+```diff
++ Remove [LOCAL] when [LOCAL] is missing                                                     OK
++ Remove [LOCAL] when [LOCAL] is present                                                     OK
++ Remove [LOCAL] when [REMOTE] is present                                                    OK
++ Remove [REMOTE] when [LOCAL] is present                                                    OK
++ Remove [REMOTE] when [REMOTE] is missing                                                   OK
++ Remove [REMOTE] when [REMOTE] is present                                                   OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
+## saveKeystore()
+```diff
++ Save [LOCAL] keystore after [LOCAL] keystore with different id                             OK
++ Save [LOCAL] keystore after [LOCAL] keystore with same id                                  OK
++ Save [LOCAL] keystore after [REMOTE] keystore with different id                            OK
++ Save [LOCAL] keystore after [REMOTE] keystore with same id                                 OK
++ Save [REMOTE] keystore after [LOCAL] keystore with different id                            OK
++ Save [REMOTE] keystore after [LOCAL] keystore with same id                                 OK
++ Save [REMOTE] keystore after [REMOTE] keystore with different id                           OK
++ Save [REMOTE] keystore after [REMOTE] keystore with same id                                OK
+```
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## state diff tests [Preset: mainnet]
 ```diff
 + random slot differences [Preset: mainnet]                                                  OK
@@ -390,66 +570,19 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + should register stability subnets on attester duties                                       OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## underlong values
+## weak-subjectivity-checkpoint
 ```diff
-  Overlong SSZ.decode: BitArray[32]                                                          Skip
-  Overlong SSZ.decode: BitList[32]                                                           Skip
-  Overlong SSZ.decode: HashArray[32, system.uint8]                                           Skip
-+ Overlong SSZ.decode: HashList[system.uint64, 32]                                           OK
-+ Overlong SSZ.decode: List[system.uint64, 32]                                               OK
-  Overlong SSZ.decode: Simple                                                                Skip
-  Overlong SSZ.decode: UInt128                                                               Skip
-  Overlong SSZ.decode: UInt256                                                               Skip
-  Overlong SSZ.decode: array[0..31, byte]                                                    Skip
-  Overlong SSZ.decode: bool                                                                  Skip
-  Overlong SSZ.decode: limb_t                                                                Skip
-  Overlong SSZ.decode: uint16                                                                Skip
-  Overlong SSZ.decode: uint32                                                                Skip
-  Overlong SSZ.decode: uint8                                                                 Skip
-+ Overlong readSszBytes: BitArray[32]                                                        OK
-  Overlong readSszBytes: BitList[32]                                                         Skip
-+ Overlong readSszBytes: HashArray[32, system.uint8]                                         OK
-+ Overlong readSszBytes: HashList[system.uint64, 32]                                         OK
-+ Overlong readSszBytes: List[system.uint64, 32]                                             OK
-  Overlong readSszBytes: Simple                                                              Skip
-+ Overlong readSszBytes: UInt128                                                             OK
-+ Overlong readSszBytes: UInt256                                                             OK
-+ Overlong readSszBytes: array[0..31, byte]                                                  OK
-+ Overlong readSszBytes: bool                                                                OK
-+ Overlong readSszBytes: limb_t                                                              OK
-+ Overlong readSszBytes: uint16                                                              OK
-+ Overlong readSszBytes: uint32                                                              OK
-+ Overlong readSszBytes: uint8                                                               OK
-+ Underlong SSZ.decode: BitArray[32]                                                         OK
-+ Underlong SSZ.decode: BitList[32]                                                          OK
-+ Underlong SSZ.decode: HashArray[32, system.uint8]                                          OK
-+ Underlong SSZ.decode: HashList[system.uint64, 32]                                          OK
-+ Underlong SSZ.decode: List[system.uint64, 32]                                              OK
-+ Underlong SSZ.decode: Simple                                                               OK
-+ Underlong SSZ.decode: UInt128                                                              OK
-+ Underlong SSZ.decode: UInt256                                                              OK
-+ Underlong SSZ.decode: array[0..31, byte]                                                   OK
-+ Underlong SSZ.decode: bool                                                                 OK
-+ Underlong SSZ.decode: limb_t                                                               OK
-+ Underlong SSZ.decode: uint16                                                               OK
-+ Underlong SSZ.decode: uint32                                                               OK
-+ Underlong SSZ.decode: uint8                                                                OK
-+ Underlong readSszBytes: BitArray[32]                                                       OK
-+ Underlong readSszBytes: BitList[32]                                                        OK
-+ Underlong readSszBytes: HashArray[32, system.uint8]                                        OK
-+ Underlong readSszBytes: HashList[system.uint64, 32]                                        OK
-+ Underlong readSszBytes: List[system.uint64, 32]                                            OK
-+ Underlong readSszBytes: Simple                                                             OK
-+ Underlong readSszBytes: UInt128                                                            OK
-+ Underlong readSszBytes: UInt256                                                            OK
-+ Underlong readSszBytes: array[0..31, byte]                                                 OK
-+ Underlong readSszBytes: bool                                                               OK
-+ Underlong readSszBytes: limb_t                                                             OK
-+ Underlong readSszBytes: uint16                                                             OK
-+ Underlong readSszBytes: uint32                                                             OK
-+ Underlong readSszBytes: uint8                                                              OK
++ Correct values                                                                             OK
++ invalid characters in root                                                                 OK
++ longer root                                                                                OK
++ missing epoch                                                                              OK
++ missing root                                                                               OK
++ missing separator                                                                          OK
++ negative epoch                                                                             OK
++ non-number epoch                                                                           OK
++ shorter root                                                                               OK
 ```
-OK: 42/56 Fail: 0/56 Skip: 14/56
+OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 258/274 Fail: 0/274 Skip: 16/274
+OK: 326/331 Fail: 0/331 Skip: 5/331

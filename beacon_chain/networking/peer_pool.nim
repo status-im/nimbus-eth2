@@ -1,11 +1,14 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import std/[tables, heapqueue]
 import chronos
@@ -543,7 +546,8 @@ proc acquire*[A, B](pool: PeerPool[A, B],
 
 proc acquireNoWait*[A, B](pool: PeerPool[A, B],
                           filter = {PeerType.Incoming,
-                                    PeerType.Outgoing}): A =
+                                    PeerType.Outgoing}
+                         ): A {.raises: [PeerPoolError, Defect].} =
   doAssert(filter != {}, "Filter must not be empty")
   if pool.lenAvailable(filter) < 1:
     raise newException(PeerPoolError, "Not enough peers in pool")

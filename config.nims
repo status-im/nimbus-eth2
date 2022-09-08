@@ -13,6 +13,10 @@ switch("nimcache", nimCachePath)
 # `-flto` gives a significant improvement in processing speed, specially hash tree and state transition (basically any CPU-bound code implemented in nim)
 # With LTO enabled, optimization flags should be passed to both compiler and linker!
 if defined(release) and not defined(disableLTO):
+  # "-w" is not passed to the compiler during linking, so we need to disable
+  # some warnings by hand.
+  switch("passL", "-Wno-stringop-overflow -Wno-stringop-overread")
+
   if defined(macosx): # Clang
     switch("passC", "-flto=thin")
     switch("passL", "-flto=thin -Wl,-object_path_lto," & nimCachePath & "/lto")
@@ -25,6 +29,24 @@ if defined(release) and not defined(disableLTO):
     # On windows, LTO needs more love and attention so "gcc-ar" and "gcc-ranlib" are
     # used for static libraries.
     discard
+
+# show C compiler warnings
+if defined(cwarnings):
+  let common_gcc_options = "-Wno-discarded-qualifiers -Wno-incompatible-pointer-types"
+  if defined(windows):
+    put("gcc.options.always", "-mno-ms-bitfields " & common_gcc_options)
+    put("clang.options.always", "-mno-ms-bitfields " & common_gcc_options)
+  else:
+    put("gcc.options.always", common_gcc_options)
+    put("clang.options.always", common_gcc_options)
+
+if defined(limitStackUsage):
+  # This limits stack usage of each individual function to 1MB - the option is
+  # available on some GCC versions but not all - run with `-d:limitStackUsage`
+  # and look for .su files in "./build/", "./nimcache/" or $TMPDIR that list the
+  # stack size of each function.
+  switch("passC", "-fstack-usage -Werror=stack-usage=1048576")
+  switch("passL", "-fstack-usage -Werror=stack-usage=1048576")
 
 if defined(windows):
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
@@ -41,17 +63,43 @@ if defined(windows):
   # because these require direct manipulations of the stdout File object.
   switch("define", "chronicles_colors=off")
 
+  # Avoid some rare stack corruption while using exceptions with a SEH-enabled
+  # toolchain: https://github.com/status-im/nimbus-eth2/issues/3121
+  switch("define", "nimRawSetjmp")
+
 # This helps especially for 32-bit x86, which sans SSE2 and newer instructions
 # requires quite roundabout code generation for cryptography, and other 64-bit
 # and larger arithmetic use cases, along with register starvation issues. When
 # engineering a more portable binary release, this should be tweaked but still
 # use at least -msse2 or -msse3.
 #
-# Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
-if defined(disableMarchNative) or (defined(macosx) and defined(arm64)):
+# https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#ssse3-supplemental-sse3
+# suggests that SHA256 hashing with SSSE3 is 20% faster than without SSSE3, so
+# given its near-ubiquity in the x86 installed base, it renders a distribution
+# build more viable on an overall broader range of hardware.
+#
+if defined(disableMarchNative):
   if defined(i386) or defined(amd64):
-    switch("passC", "-msse3")
-    switch("passL", "-msse3")
+    if defined(macosx):
+      # https://support.apple.com/kb/SP777
+      # "macOS Mojave - Technical Specifications": EOL as of 2021-10
+      # https://support.apple.com/kb/SP803
+      # "macOS Catalina - Technical Specifications" lists current oldest
+      # supported models: MacBook Air (Mid 2012 or newer), MacBook Pro
+      # (Mid 2012 or newer), Mac mini (Late 2012 or newer), and iMac (Late 2012
+      # or newer). These all have Ivy Bridge CPUs or newer.
+      #
+      # This ensures AVX, AES, PCLMUL, FSGSBASE, RDRND, and F16C instruction
+      # set support.
+      switch("passC", "-march=ivybridge")
+      switch("passL", "-march=ivybridge")
+    else:
+      switch("passC", "-mssse3")
+      switch("passL", "-mssse3")
+elif defined(macosx) and defined(arm64):
+  # Apple's Clang can't handle "-march=native" on M1: https://github.com/status-im/nimbus-eth2/issues/2758
+  switch("passC", "-mcpu=apple-a14")
+  switch("passL", "-mcpu=apple-a14")
 else:
   switch("passC", "-march=native")
   switch("passL", "-march=native")
@@ -71,11 +119,9 @@ switch("passL", "-fno-omit-frame-pointer")
 --excessiveStackTrace:on
 # enable metric collection
 --define:metrics
---define:chronicles_line_numbers
+--define:chronicles_line_numbers # These are disabled for release binaries
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
-
-# switch("define", "snappy_implementation=libp2p")
 
 const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
@@ -83,10 +129,7 @@ switch("define", "withoutPCRE")
 
 switch("import", "testutils/moduletests")
 
-const useLibStackTrace = not defined(windows) and
-                         not defined(disable_libbacktrace)
-
-when useLibStackTrace:
+when not defined(disable_libbacktrace):
   --define:nimStackTraceOverride
   switch("import", "libbacktrace")
 else:
@@ -165,4 +208,3 @@ put("ecp_BLS12381.always", "-fno-lto")
 # sqlite3.c: In function ‘sqlite3SelectNew’:
 # vendor/nim-sqlite3-abi/sqlite3.c:124500: warning: function may return address of local variable [-Wreturn-local-addr]
 put("sqlite3.always", "-fno-lto") # -Wno-return-local-addr
-

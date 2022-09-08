@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -93,9 +93,6 @@ $BEACON_NODE_BIN \
   --udp-port=$PORT \
   $NAT_ARG \
   $WEB3_ARG \
-  --rpc \
-  --rpc-address="127.0.0.1" \
-  --rpc-port="$(( $BASE_RPC_PORT + $NODE_ID ))" \
   --rest \
   --rest-address="127.0.0.1" \
   --rest-port="$(( $BASE_REST_PORT + $NODE_ID ))" \

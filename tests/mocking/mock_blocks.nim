@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,18 +9,15 @@ import
   # Beacon chain internals
   ../../beacon_chain/spec/
     [forks, helpers, signatures, state_transition, validator],
-  ../../beacon_chain/spec/datatypes/[phase0, altair, merge],
+  ../../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   # Test utilities
   ../testblockutil
 
 # Routines for mocking blocks
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.1/tests/core/pyspec/eth2spec/test/helpers/block.py#L26-L35
-func apply_randao_reveal(
-    state: SomeBeaconState,
-    blck: var (phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-               merge.SignedBeaconBlock)) =
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/tests/core/pyspec/eth2spec/test/helpers/block.py#L26-L35
+func apply_randao_reveal(state: ForkyBeaconState, blck: var ForkySignedBeaconBlock) =
   doAssert state.slot <= blck.message.slot
   let
     proposer_index = blck.message.proposer_index.ValidatorIndex
@@ -29,14 +26,11 @@ func apply_randao_reveal(
   blck.message.body.randao_reveal = get_epoch_signature(
     state.fork,
     state.genesis_validators_root,
-    blck.message.slot.compute_epoch_at_slot,
+    blck.message.slot.epoch,
     privkey).toValidatorSig()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/tests/core/pyspec/eth2spec/test/helpers/block.py#L38-L54
-func sign_block(
-    state: SomeBeaconState,
-    blck: var (phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-               merge.SignedBeaconBlock)) =
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/tests/core/pyspec/eth2spec/test/helpers/block.py#L38-L54
+func sign_block(state: ForkyBeaconState, blck: var ForkySignedBeaconBlock) =
   let
     proposer_index = blck.message.proposer_index.ValidatorIndex
     privkey = MockPrivKeys[proposer_index]
@@ -49,35 +43,7 @@ func sign_block(
     blck.root,
     privkey).toValidatorSig()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.1/tests/core/pyspec/eth2spec/test/helpers/execution_payload.py#L1-L31
-func build_empty_execution_payload(
-    state: merge.BeaconState): ExecutionPayload =
-  ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
-  ## without any transactions.
-  let
-    latest = state.latest_execution_payload_header
-    timestamp = compute_timestamp_at_slot(state, state.slot)
-    randao_mix = get_randao_mix(state, get_current_epoch(state))
-
-  var payload = ExecutionPayload(
-    parent_hash: latest.block_hash,
-    state_root: latest.state_root, # no changes to the state
-    receipt_root: Eth2Digest(data: cast[array[32, uint8]](
-      "no receipts here\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0")),
-    block_number: latest.block_number + 1,
-    random: randao_mix,
-    gas_limit: latest.gas_limit, # retain same limit
-    gas_used: 0, # empty block, 0 gas
-    timestamp: timestamp,
-    base_fee_per_gas: latest.base_fee_per_gas) # retain same base_fee
-
-  payload.block_hash = withEth2Hash:
-    h.update payload.hash_tree_root().data
-    h.update cast[array[13, uint8]]("FAKE RLP HASH")
-
-  payload
-
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/tests/core/pyspec/eth2spec/test/helpers/block.py#L75-L104
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/tests/core/pyspec/eth2spec/test/helpers/block.py#L75-L104
 proc mockBlock*(
     state: ForkedHashedBeaconState,
     slot: Slot,
@@ -89,12 +55,12 @@ proc mockBlock*(
     tmpState = assignClone(state)
   if getStateField(state, slot) != slot:
     var info = ForkedEpochInfo()
-    doAssert process_slots(cfg, tmpState[], slot, cache, info, flags = {})
+    process_slots(cfg, tmpState[], slot, cache, info, flags = {}).expect("no failure")
 
   result.kind = case tmpState[].kind
-                of BeaconStateFork.Phase0: BeaconBlockFork.Phase0
-                of BeaconStateFork.Altair: BeaconBlockFork.Altair
-                of BeaconStateFork.Merge:  BeaconBlockFork.Merge
+                of BeaconStateFork.Phase0:    BeaconBlockFork.Phase0
+                of BeaconStateFork.Altair:    BeaconBlockFork.Altair
+                of BeaconStateFork.Bellatrix: BeaconBlockFork.Bellatrix
   withStateAndBlck(tmpState[], result):
     blck.message.slot = slot
     blck.message.proposer_index =
@@ -111,13 +77,13 @@ proc mockBlock*(
     when stateFork >= BeaconStateFork.Altair:
       blck.message.body.sync_aggregate = SyncAggregate.init()
 
-    when stateFork >= BeaconStateFork.Merge:
+    when stateFork >= BeaconStateFork.Bellatrix:
       blck.message.body.execution_payload =
         build_empty_execution_payload(state.data)
 
     sign_block(state.data, blck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.1/tests/core/pyspec/eth2spec/test/helpers/block.py#L107-L108
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/tests/core/pyspec/eth2spec/test/helpers/block.py#L107-L108
 proc mockBlockForNextSlot*(
     state: ForkedHashedBeaconState): ForkedSignedBeaconBlock =
   ## Mock a BeaconBlock for the next slot

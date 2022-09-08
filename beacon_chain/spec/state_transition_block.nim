@@ -1,12 +1,12 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition - block processing, as described in
-# https://github.com/ethereum/consensus-specs/blob/master/specs/core/0_beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
 #
@@ -17,22 +17,24 @@
 #   improvements to be made - other than that, keep things similar to spec unless
 #   motivated by security or performance considerations
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
-  std/[algorithm, options, sequtils, sets, tables],
+  std/[algorithm, sequtils, sets, tables],
   chronicles, metrics,
   ../extras,
-  ./datatypes/[phase0, altair, merge],
-  "."/[beaconstate, eth2_merkleization, helpers, validator, signatures],
-  ../../nbench/bench_lab
+  ./datatypes/[phase0, altair, bellatrix],
+  "."/[beaconstate, eth2_merkleization, helpers, validator, signatures]
 
 export extras, phase0, altair
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
-    state: var SomeBeaconState, blck: SomeSomeBeaconBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.} =
+    state: var ForkyBeaconState, blck: SomeForkyBeaconBlock, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] =
   # Verify that the slots match
   if not (blck.slot == state.slot):
     return err("process_block_header: slot mismatch")
@@ -46,7 +48,7 @@ func process_block_header*(
   if proposer_index.isNone:
     return err("process_block_header: proposer missing")
 
-  if not (blck.proposer_index.ValidatorIndex == proposer_index.get):
+  if not (blck.proposer_index == proposer_index.get):
     return err("process_block_header: proposer index incorrect")
 
   # Verify that the parent matches
@@ -54,7 +56,7 @@ func process_block_header*(
     return err("process_block_header: previous block root mismatch")
 
   # Verify proposer is not slashed
-  if state.validators.asSeq()[blck.proposer_index].slashed:
+  if state.validators.item(blck.proposer_index).slashed:
     return err("process_block_header: proposer slashed")
 
   # Cache current block as the new latest block
@@ -72,10 +74,10 @@ func `xor`[T: array](a, b: T): T =
   for i in 0..<result.len:
     result[i] = a[i] xor b[i]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#randao
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#randao
 proc process_randao(
-    state: var SomeBeaconState, body: SomeSomeBeaconBlockBody, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.} =
+    state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody, flags: UpdateFlags,
+    cache: var StateCache): Result[void, cstring] =
   let
     proposer_index = get_beacon_proposer_index(state, cache)
 
@@ -86,8 +88,8 @@ proc process_randao(
   let
     epoch = state.get_current_epoch()
 
-  if skipBLSValidation notin flags:
-    let proposer_pubkey = state.validators.asSeq()[proposer_index.get].pubkey
+  if skipBlsValidation notin flags:
+    let proposer_pubkey = state.validators.item(proposer_index.get).pubkey
 
     if not verify_epoch_signature(
         state.fork, state.genesis_validators_root, epoch, proposer_pubkey,
@@ -100,13 +102,13 @@ proc process_randao(
     mix = get_randao_mix(state, epoch)
     rr = eth2digest(body.randao_reveal.toRaw()).data
 
-  state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR].data =
+  state.randao_mixes.mitem(epoch mod EPOCHS_PER_HISTORICAL_VECTOR).data =
     mix.data xor rr
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#eth1-data
-func process_eth1_data(state: var SomeBeaconState, body: SomeSomeBeaconBlockBody): Result[void, cstring] {.nbench.}=
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#eth1-data
+func process_eth1_data(state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody): Result[void, cstring]=
   if not state.eth1_data_votes.add body.eth1_data:
     # Count is reset  in process_final_updates, so this should never happen
     return err("process_eth1_data: no more room for eth1 data")
@@ -116,26 +118,22 @@ func process_eth1_data(state: var SomeBeaconState, body: SomeSomeBeaconBlockBody
     state.eth1_data = body.eth1_data
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
-    state: var SomeBeaconState, proposer_slashing: SomeProposerSlashing,
+    state: ForkyBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
-    Result[void, cstring] {.nbench.} =
+    Result[ValidatorIndex, cstring] =
 
   let
     header_1 = proposer_slashing.signed_header_1.message
     header_2 = proposer_slashing.signed_header_2.message
-
-  # Not from spec
-  if header_1.proposer_index >= state.validators.lenu64:
-    return err("check_proposer_slashing: invalid proposer index")
 
   # Verify header slots match
   if not (header_1.slot == header_2.slot):
@@ -150,7 +148,10 @@ proc check_proposer_slashing*(
     return err("check_proposer_slashing: headers not different")
 
   # Verify the proposer is slashable
-  let proposer = unsafeAddr state.validators.asSeq()[header_1.proposer_index]
+  if header_1.proposer_index >= state.validators.lenu64:
+    return err("check_proposer_slashing: invalid proposer index")
+
+  let proposer = unsafeAddr state.validators[header_1.proposer_index]
   if not is_slashable_validator(proposer[], get_current_epoch(state)):
     return err("check_proposer_slashing: slashed proposer")
 
@@ -164,22 +165,26 @@ proc check_proposer_slashing*(
           signed_header.signature):
         return err("check_proposer_slashing: invalid signature")
 
-  ok()
+  # Verified above against state.validators
+  ValidatorIndex.init(header_1.proposer_index)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#proposer-slashings
+proc check_proposer_slashing*(
+    state: var ForkedHashedBeaconState; proposer_slashing: SomeProposerSlashing;
+    flags: UpdateFlags): Result[ValidatorIndex, cstring] =
+  withState(state):
+    check_proposer_slashing(forkyState.data, proposer_slashing, flags)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
-    cfg: RuntimeConfig, state: var SomeBeaconState,
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
     cache: var StateCache):
-    Result[void, cstring] {.nbench.} =
-  ? check_proposer_slashing(state, proposer_slashing, flags)
-  slash_validator(
-    cfg, state,
-    proposer_slashing.signed_header_1.message.proposer_index.ValidatorIndex,
-    cache)
+    Result[void, cstring] =
+  let proposer_index = ? check_proposer_slashing(state, proposer_slashing, flags)
+  ? slash_validator(cfg, state, proposer_index, cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -191,12 +196,12 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
-       state: var SomeBeaconState,
+       state: ForkyBeaconState,
        attester_slashing: SomeAttesterSlashing,
        flags: UpdateFlags
-     ): Result[seq[ValidatorIndex], cstring] {.nbench.} =
+     ): Result[seq[ValidatorIndex], cstring] =
   let
     attestation_1 = attester_slashing.attestation_1
     attestation_2 = attester_slashing.attestation_2
@@ -218,36 +223,52 @@ proc check_attester_slashing*(
       attestation_1.attesting_indices.asSeq, it in attesting_indices_2),
       system.cmp):
     if is_slashable_validator(
-        state.validators.asSeq()[index], get_current_epoch(state)):
-      slashed_indices.add index.ValidatorIndex
+        state.validators[index], get_current_epoch(state)):
+      slashed_indices.add ValidatorIndex.init(index).expect(
+        "checked by is_valid_indexed_attestation")
+
   if slashed_indices.len == 0:
     return err("Attester slashing: Trying to slash participant(s) twice")
 
   ok slashed_indices
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#attester-slashings
+proc check_attester_slashing*(
+    state: var ForkedHashedBeaconState; attester_slashing: SomeAttesterSlashing;
+    flags: UpdateFlags): Result[seq[ValidatorIndex], cstring] =
+  withState(state):
+    check_attester_slashing(forkyState.data, attester_slashing, flags)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
-    state: var SomeBeaconState,
+    state: var ForkyBeaconState,
     attester_slashing: SomeAttesterSlashing,
     flags: UpdateFlags,
     cache: var StateCache
-    ): Result[void, cstring] {.nbench.} =
-  let attester_slashing_validity =
-    check_attester_slashing(state, attester_slashing, flags)
+    ): Result[void, cstring] =
+  let slashed_attesters =
+    ? check_attester_slashing(state, attester_slashing, flags)
 
-  if attester_slashing_validity.isErr:
-    return err(attester_slashing_validity.error)
-
-  for index in attester_slashing_validity.value:
-    slash_validator(cfg, state, index, cache)
+  for index in slashed_attesters:
+    ? slash_validator(cfg, state, index, cache)
 
   ok()
 
+func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
+    Opt[ValidatorIndex] =
+  # This linear scan is unfortunate, but should be fairly fast as we do a simple
+  # byte comparison of the key. The alternative would be to build a Table, but
+  # given that each block can hold no more than 16 deposits, it's slower to
+  # build the table and use it for lookups than to scan it like this.
+  # Once we have a reusable, long-lived cache, this should be revisited
+  for vidx in state.validators.vindices:
+    if state.validators.asSeq[vidx].pubkey == pubkey:
+      return Opt[ValidatorIndex].ok(vidx)
+
 proc process_deposit*(cfg: RuntimeConfig,
-                      state: var SomeBeaconState,
+                      state: var ForkyBeaconState,
                       deposit: Deposit,
-                      flags: UpdateFlags): Result[void, cstring] {.nbench.} =
+                      flags: UpdateFlags): Result[void, cstring] =
   ## Process an Eth1 deposit, registering a validator or increasing its balance.
 
   # Verify the Merkle branch
@@ -266,26 +287,15 @@ proc process_deposit*(cfg: RuntimeConfig,
   let
     pubkey = deposit.data.pubkey
     amount = deposit.data.amount
+    index = findValidatorIndex(state, pubkey)
 
-  var index = -1
-
-  # This linear scan is unfortunate, but should be fairly fast as we do a simple
-  # byte comparison of the key. The alternative would be to build a Table, but
-  # given that each block can hold no more than 16 deposits, it's slower to
-  # build the table and use it for lookups than to scan it like this.
-  # Once we have a reusable, long-lived cache, this should be revisited
-  for i in 0..<state.validators.len():
-    if state.validators.asSeq()[i].pubkey == pubkey:
-      index = i
-      break
-
-  if index != -1:
+  if index.isSome():
     # Increase balance by deposit amount
-    increase_balance(state, index.ValidatorIndex, amount)
+    increase_balance(state, index.get(), amount)
   else:
     # Verify the deposit signature (proof of possession) which is not checked
     # by the deposit contract
-    if skipBLSValidation in flags or verify_deposit_signature(cfg, deposit.data):
+    if verify_deposit_signature(cfg, deposit.data):
       # New validator! Add validator and balance entries
       if not state.validators.add(get_validator_from_deposit(deposit.data)):
         return err("process_deposit: too many validators")
@@ -293,7 +303,7 @@ proc process_deposit*(cfg: RuntimeConfig,
         static: doAssert state.balances.maxLen == state.validators.maxLen
         raiseAssert "adding validator succeeded, so should balances"
 
-      when state is altair.BeaconState or state is merge.BeaconState:
+      when state is altair.BeaconState or state is bellatrix.BeaconState:
         if not state.previous_epoch_participation.add(ParticipationFlags(0)):
           return err("process_deposit: too many validators (previous_epoch_participation)")
         if not state.current_epoch_participation.add(ParticipationFlags(0)):
@@ -311,20 +321,19 @@ proc process_deposit*(cfg: RuntimeConfig,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#voluntary-exits
 proc check_voluntary_exit*(
     cfg: RuntimeConfig,
-    state: SomeBeaconState,
+    state: ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
-    flags: UpdateFlags): Result[void, cstring] {.nbench.} =
+    flags: UpdateFlags): Result[ValidatorIndex, cstring] =
 
   let voluntary_exit = signed_voluntary_exit.message
 
-  # Not in spec. Check that validator_index is in range
   if voluntary_exit.validator_index >= state.validators.lenu64:
     return err("Exit: invalid validator index")
 
-  let validator = unsafeAddr state.validators.asSeq()[voluntary_exit.validator_index]
+  let validator = unsafeAddr state.validators[voluntary_exit.validator_index]
 
   # Verify the validator is active
   if not is_active_validator(validator[], get_current_epoch(state)):
@@ -351,39 +360,35 @@ proc check_voluntary_exit*(
         validator[].pubkey, signed_voluntary_exit.signature):
       return err("Exit: invalid signature")
 
-  # Initiate exit
-  debug "Exit: checking voluntary exit (validator_leaving)",
-    index = voluntary_exit.validator_index,
-    num_validators = state.validators.len,
-    epoch = voluntary_exit.epoch,
-    current_epoch = get_current_epoch(state),
-    validator_slashed = validator[].slashed,
-    validator_withdrawable_epoch = validator[].withdrawable_epoch,
-    validator_exit_epoch = validator[].exit_epoch,
-    validator_effective_balance = validator[].effective_balance
+  # Checked above
+  ValidatorIndex.init(voluntary_exit.validator_index)
 
-  ok()
+proc check_voluntary_exit*(
+    cfg: RuntimeConfig, state: ForkedHashedBeaconState;
+    signed_voluntary_exit: SomeSignedVoluntaryExit;
+    flags: UpdateFlags): Result[ValidatorIndex, cstring] =
+  withState(state):
+    check_voluntary_exit(cfg, forkyState.data, signed_voluntary_exit, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     cfg: RuntimeConfig,
-    state: var SomeBeaconState,
+    state: var ForkyBeaconState,
     signed_voluntary_exit: SomeSignedVoluntaryExit,
     flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.} =
-  ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
-  initiate_validator_exit(
-    cfg, state, signed_voluntary_exit.message.validator_index.ValidatorIndex,
-    cache)
+    cache: var StateCache): Result[void, cstring] =
+  let exited_validator =
+    ? check_voluntary_exit(cfg, state, signed_voluntary_exit, flags)
+  ? initiate_validator_exit(cfg, state, exited_validator, cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#operations
 proc process_operations(cfg: RuntimeConfig,
-                        state: var SomeBeaconState,
-                        body: SomeSomeBeaconBlockBody,
+                        state: var ForkyBeaconState,
+                        body: SomeForkyBeaconBlockBody,
                         base_reward_per_increment: Gwei,
                         flags: UpdateFlags,
-                        cache: var StateCache): Result[void, cstring] {.nbench.} =
+                        cache: var StateCache): Result[void, cstring] =
   # Verify that outstanding deposits are processed up to the maximum number of
   # deposits
   let
@@ -407,36 +412,8 @@ proc process_operations(cfg: RuntimeConfig,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
-proc process_sync_aggregate*(
-    state: var (altair.BeaconState | merge.BeaconState),
-    aggregate: SyncAggregate, total_active_balance: Gwei, cache: var StateCache):
-    Result[void, cstring] {.nbench.} =
-  # Verify sync committee aggregate signature signing over the previous slot
-  # block root
-  let
-    committee_pubkeys = state.current_sync_committee.pubkeys
-    previous_slot = max(state.slot, Slot(1)) - 1
-    domain = get_domain(state, DOMAIN_SYNC_COMMITTEE, compute_epoch_at_slot(previous_slot))
-    signing_root = compute_signing_root(get_block_root_at_slot(state, previous_slot), domain)
-
-  var participant_pubkeys: seq[ValidatorPubKey]
-  for i in 0 ..< committee_pubkeys.len:
-    if aggregate.sync_committee_bits[i]:
-      participant_pubkeys.add committee_pubkeys[i]
-
-  # p2p-interface message validators check for empty sync committees, so it
-  # shouldn't run except as part of test suite.
-  if  participant_pubkeys.len == 0 and
-      aggregate.sync_committee_signature != default(CookedSig).toValidatorSig():
-    return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
-
-  # Empty participants allowed
-  if participant_pubkeys.len > 0 and not blsFastAggregateVerify(
-      participant_pubkeys, signing_root.data, aggregate.sync_committee_signature):
-    return err("process_sync_aggregate: invalid signature")
-
-  # Compute participant and proposer rewards
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#sync-committee-processing
+func get_participant_reward*(total_active_balance: Gwei): Gwei =
   let
     total_active_increments =
       total_active_balance div EFFECTIVE_BALANCE_INCREMENT
@@ -444,9 +421,46 @@ proc process_sync_aggregate*(
       get_base_reward_per_increment(total_active_balance) * total_active_increments
     max_participant_rewards =
       total_base_rewards * SYNC_REWARD_WEIGHT div WEIGHT_DENOMINATOR div SLOTS_PER_EPOCH
-    participant_reward = max_participant_rewards div SYNC_COMMITTEE_SIZE
-    proposer_reward =
-      participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
+  max_participant_rewards div SYNC_COMMITTEE_SIZE
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.0-alpha.6/specs/altair/beacon-chain.md#sync-committee-processing
+func get_proposer_reward*(participant_reward: Gwei): Gwei =
+  participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#sync-committee-processing
+proc process_sync_aggregate*(
+    state: var (altair.BeaconState | bellatrix.BeaconState),
+    sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
+    cache: var StateCache):
+    Result[void, cstring]  =
+  # Verify sync committee aggregate signature signing over the previous slot
+  # block root
+  when sync_aggregate.sync_committee_signature isnot TrustedSig:
+    var participant_pubkeys: seq[ValidatorPubKey]
+    for i in 0 ..< state.current_sync_committee.pubkeys.len:
+      if sync_aggregate.sync_committee_bits[i]:
+        participant_pubkeys.add state.current_sync_committee.pubkeys.data[i]
+
+    # p2p-interface message validators check for empty sync committees, so it
+    # shouldn't run except as part of test suite.
+    if participant_pubkeys.len == 0:
+      if sync_aggregate.sync_committee_signature != ValidatorSig.infinity():
+        return err("process_sync_aggregate: empty sync aggregates need signature of point at infinity")
+    else:
+      # Empty participants allowed
+      let
+        previous_slot = max(state.slot, Slot(1)) - 1
+        beacon_block_root = get_block_root_at_slot(state, previous_slot)
+      if not verify_sync_committee_signature(
+          state.fork, state.genesis_validators_root, previous_slot,
+          beacon_block_root, participant_pubkeys,
+          sync_aggregate.sync_committee_signature):
+        return err("process_sync_aggregate: invalid signature")
+
+  # Compute participant and proposer rewards
+  let
+    participant_reward = get_participant_reward(total_active_balance)
+    proposer_reward = state_transition_block.get_proposer_reward(participant_reward)
     proposer_index = get_beacon_proposer_index(state, cache)
 
   if proposer_index.isNone:
@@ -454,23 +468,14 @@ proc process_sync_aggregate*(
     return err("process_sync_aggregate: no proposer")
 
   # Apply participant and proposer rewards
-
-  # stand-in to be replaced
-  # TODO obviously not viable as written
-  # TODO also, this could use the pubkey -> index map that's been approached a couple places
-  let s = toHashSet(state.current_sync_committee.pubkeys.data)  # TODO leaking abstraction
-  var pubkeyIndices: Table[ValidatorPubKey, ValidatorIndex]
-  for i, v in state.validators:
-    if v.pubkey in s:
-      pubkeyIndices[v.pubkey] = i.ValidatorIndex
+  let indices = get_sync_committee_cache(state, cache).current_sync_committee
 
   # TODO could use a sequtils2 zipIt
   for i in 0 ..< min(
     state.current_sync_committee.pubkeys.len,
-    aggregate.sync_committee_bits.len):
-    let participant_index =
-      pubkeyIndices.getOrDefault(state.current_sync_committee.pubkeys[i])
-    if aggregate.sync_committee_bits[i]:
+    sync_aggregate.sync_committee_bits.len):
+    let participant_index = indices[i]
+    if sync_aggregate.sync_committee_bits[i]:
       increase_balance(state, participant_index, participant_reward)
       increase_balance(state, proposer_index.get, proposer_reward)
     else:
@@ -478,47 +483,19 @@ proc process_sync_aggregate*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#is_valid_gas_limit
-func is_valid_gas_limit(
-    payload: ExecutionPayload, parent: ExecutionPayloadHeader): bool =
-  let parent_gas_limit = parent.gas_limit
-
-  # Check if the payload used too much gas
-  if payload.gas_used > payload.gas_limit:
-    return false
-
-  # Check if the payload changed the gas limit too much
-  if payload.gas_limit >=
-      parent_gas_limit + parent_gas_limit div GAS_LIMIT_DENOMINATOR:
-    return false
-  if payload.gas_limit <=
-      parent_gas_limit - parent_gas_limit div GAS_LIMIT_DENOMINATOR:
-    return false
-
-  # Check if the gas limit is at least the minimum gas limit
-  if payload.gas_limit < MIN_GAS_LIMIT:
-    return false
-
-  true
-
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/merge/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var merge.BeaconState, payload: ExecutionPayload,
-    execute_payload: ExecutePayload): Result[void, cstring] {.nbench.} =
-  # Verify consistency of the parent hash, block number, base fee per gas and
-  # gas limit with respect to the previous execution payload header
-  if is_merge_complete(state):
+    state: var bellatrix.BeaconState, payload: ExecutionPayload,
+    notify_new_payload: ExecutePayload): Result[void, cstring] =
+  ## Verify consistency of the parent hash with respect to the previous
+  ## execution payload header
+  if is_merge_transition_complete(state):
     if not (payload.parent_hash ==
         state.latest_execution_payload_header.block_hash):
       return err("process_execution_payload: payload and state parent hash mismatch")
-    if not (payload.block_number ==
-        state.latest_execution_payload_header.block_number + 1):
-      return err("process_execution_payload: payload and state block number mismatch")
-    if not is_valid_gas_limit(payload, state.latest_execution_payload_header):
-      return err("process_execution_payload: invalid gas limit")
 
-  # Verify random
-  if not (payload.random == get_randao_mix(state, get_current_epoch(state))):
+  # Verify prev_randao
+  if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
     return err("process_execution_payload: payload and state randomness mismatch")
 
   # Verify timestamp
@@ -526,28 +503,29 @@ proc process_execution_payload*(
     return err("process_execution_payload: invalid timestamp")
 
   # Verify the execution payload is valid
-  if not execute_payload(payload):
+  if not notify_new_payload(payload):
     return err("process_execution_payload: execution payload invalid")
 
   # Cache execution payload header
   state.latest_execution_payload_header = ExecutionPayloadHeader(
     parent_hash: payload.parent_hash,
-    coinbase: payload.coinbase,
+    fee_recipient: payload.fee_recipient,
     state_root: payload.state_root,
-    receipt_root: payload.receipt_root,
+    receipts_root: payload.receipts_root,
     logs_bloom: payload.logs_bloom,
-    random: payload.random,
+    prev_randao: payload.prev_randao,
     block_number: payload.block_number,
     gas_limit: payload.gas_limit,
     gas_used: payload.gas_used,
     timestamp: payload.timestamp,
     base_fee_per_gas: payload.base_fee_per_gas,
     block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
     transactions_root: hash_tree_root(payload.transactions))
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/phase0.nim
 type SomePhase0Block =
@@ -555,7 +533,7 @@ type SomePhase0Block =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var phase0.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
+    cache: var StateCache): Result[void, cstring]=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -567,19 +545,7 @@ proc process_block*(
 
   ok()
 
-proc process_block*(
-    cfg: RuntimeConfig,
-    state: var altair.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.} =
-  err("process_block: Altair state with Phase 0 block")
-
-proc process_block*(
-    cfg: RuntimeConfig,
-    state: var merge.BeaconState, blck: SomePhase0Block, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.} =
-  err("process_block: Merge state with Phase 0 block")
-
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.4/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
 type SomeAltairBlock =
@@ -587,7 +553,7 @@ type SomeAltairBlock =
 proc process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
+    cache: var StateCache): Result[void, cstring]=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -609,12 +575,12 @@ proc process_block*(
   ok()
 
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-type SomeMergeBlock =
-  merge.BeaconBlock | merge.SigVerifiedBeaconBlock | merge.TrustedBeaconBlock
+type SomeBellatrixBlock =
+  bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var merge.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
+    state: var bellatrix.BeaconState, blck: SomeBellatrixBlock,
+    flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
   ## block application fails (!)
@@ -638,27 +604,3 @@ proc process_block*(
     state, blck.body.sync_aggregate, total_active_balance, cache)
 
   ok()
-
-proc process_block*(
-    cfg: RuntimeConfig,
-    state: var phase0.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
-  err("process_block: Phase 0 state with Altair block")
-
-proc process_block*(
-    cfg: RuntimeConfig,
-    state: var phase0.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
-  err("process_block: Phase 0 state with Merge block")
-
-proc process_block*(
-    cfg: RuntimeConfig,
-    state: var altair.BeaconState, blck: SomeMergeBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
-  err("process_block: Altair state with Merge block")
-
-proc process_block*(
-    cfg: RuntimeConfig,
-    state: var merge.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,
-    cache: var StateCache): Result[void, cstring] {.nbench.}=
-  err("process_block: Merge state with Altair block")

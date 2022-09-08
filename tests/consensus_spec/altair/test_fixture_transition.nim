@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021 Status Research & Development GmbH
+# Copyright (c) 2021-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,7 +12,6 @@ import
   # Standard library
   os, sequtils,
   # Status internal
-  chronicles,
   faststreams, streams,
   # Beacon chain internals
   ../../../beacon_chain/spec/[state_transition, forks, helpers],
@@ -36,7 +35,7 @@ proc runTest(testName, testDir, unitTestName: string) =
   let testPath = testDir / unitTestName
 
   var transitionInfo: TransitionInfo
-  var s = openFileStream(testPath/"meta.yaml")
+  let s = openFileStream(testPath/"meta.yaml")
   defer: close(s)
   yaml.load(s, transitionInfo)
 
@@ -58,17 +57,17 @@ proc runTest(testName, testDir, unitTestName: string) =
         if i <= transitionInfo.fork_block:
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, phase0.SignedBeaconBlock)
 
-          let success = state_transition(
+          let res = state_transition(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
-          doAssert success, "Failure when applying block " & $i
+          res.expect("no failure when applying block " & $i)
         else:
           let blck = parseTest(testPath/"blocks_" & $i & ".ssz_snappy", SSZ, altair.SignedBeaconBlock)
 
-          let success = state_transition(
+          let res = state_transition(
             cfg, fhPreState[], blck, cache, info,
             flags = {skipStateRootValidation}, noRollback)
-          doAssert success, "Failure when applying block " & $i
+          res.expect("no failure when applying block " & $i)
 
       let postState = newClone(parseTest(testPath/"post.ssz_snappy", SSZ, altair.BeaconState))
       when false:
@@ -77,6 +76,6 @@ proc runTest(testName, testDir, unitTestName: string) =
 
   `testImpl _ blck _ testName`()
 
-suite "Ethereum Foundation - Altair - Transition " & preset():
+suite "EF - Altair - Transition " & preset():
   for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
-    runTest("Ethereum Foundation - Altair - Transition", TransitionDir, path)
+    runTest("EF - Altair - Transition", TransitionDir, path)

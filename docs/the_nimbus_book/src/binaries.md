@@ -1,21 +1,32 @@
-# Nimbus binaries
+# Binaries
+
+Binary releases can be downloaded from [https://github.com/status-im/nimbus-eth2/releases/latest](https://github.com/status-im/nimbus-eth2/releases/latest).
 
 We currently have binaries available for Linux `AMD64`, `ARM` and `ARM64`, Windows `AMD64` and macOS (`AMD64` and `ARM64`).
 
-You can find the latest release here: [https://github.com/status-im/nimbus-eth2/releases](https://github.com/status-im/nimbus-eth2/releases)
+## Download
 
-Scroll to the bottom of the first (non-nightly) release you see, and click on `Assets`. You should see a list that looks like the following:
+The binaries are available at the bottom of the page under `Assets`. You should see a list that looks like the following:
 
-![](https://i.imgur.com/6wuvM2d.png)
+![Assets](https://i.imgur.com/6wuvM2d.png)
 
-Click on the `tar.gz` file that corresponds to your OS and architecture, unpack the archive, read the README and run the binary directly (or through one of our provided wrapper scripts).
+Click on the file that corresponds to your OS and architecture, unpack the archive, read the README and run the binary directly (or through one of our provided wrapper scripts).
+
+## Installation
+
+To install or upgrade a binary release, simply unpack the downloaded archive in a directory of your choice.
+
+```sh
+# Create a directory that can hold the beacon chain data and applications - this should be a fast SSD
+mkdir -p nimbus-eth2
+# Unpack the archive into the `nimbus-eth2` directory you just created
+tar xvf nimbus-eth2_Linux_amd64_22.6.1_2444e994.tar.gz --strip-components 1 -C nimbus-eth2
+```
+
+After unpacking, you may wish to [verify the checksum](./checksums.md).
+
+## Reproducible builds
 
 We've designed the build process to be reproducible. In practice, this means that anyone can verify that these exact binaries were produced from the corresponding source code commits. For more about the philosophy and importance of this feature see [reproducible-builds.org](https://reproducible-builds.org/).
 
-For instructions on how to reproduce those binaries, see "README.md" inside the archive.
-
-> **N.B.** These binaries are meant to run as a service. As such, they do not
-support the `log-file` [option](./options.md) - duplicating stdout to a
-log file would complicate things. We recommend capturing
-their output (stdout and stderr) with a [log rotation
-helper](./log-rotate.md) instead.
+For instructions on how to reproduce those binaries, see "README.md" inside the archive, as well as the [in-depth guide](./distribution_internals.md).

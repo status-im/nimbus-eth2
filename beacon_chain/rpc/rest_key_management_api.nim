@@ -1,424 +1,509 @@
-# Copyright (c) 2021 Status Research & Development GmbH
+# Copyright (c) 2021-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/[tables, os, sequtils, strutils]
+import std/[tables, os, strutils, uri]
 import chronos, chronicles, confutils,
-       stew/[base10, results, byteutils, io2], bearssl, blscurve
-# Local modules
-import ".."/[conf, version, filepath, beacon_node]
+       stew/[base10, results, io2], blscurve
 import ".."/spec/[keystore, crypto]
+import ".."/spec/eth2_apis/rest_keymanager_types
+import ".."/validators/[slashing_protection, keystore_management,
+                        validator_pool, validator_duties]
 import ".."/rpc/rest_utils
-import ".."/validators/[keystore_management, validator_pool]
 
-export results
+export rest_utils, results
 
-type
-  ValidatorToggleAction {.pure.} = enum
-    Enable, Disable
+func validateKeymanagerApiQueries*(key: string, value: string): int =
+  # There are no queries to validate
+  return 0
 
-  KmResult*[T] = Result[T, cstring]
+proc listLocalValidators*(validatorPool: ValidatorPool): seq[KeystoreInfo]
+                         {.raises: [Defect].} =
+  var validators: seq[KeystoreInfo]
+  for item in validatorPool:
+    if item.kind == ValidatorKind.Local:
+      validators.add KeystoreInfo(
+        validating_pubkey: item.pubkey,
+        derivation_path: string(item.data.path),
+        readonly: false
+      )
+  validators
 
-  StoredValidatorKeyFlag* {.pure.} = enum
-    Valid, NoPassword, NoPermission, Disabled
+proc listRemoteValidators*(validatorPool: ValidatorPool): seq[RemoteKeystoreInfo]
+                          {.raises: [Defect].} =
+  var validators: seq[RemoteKeystoreInfo]
+  for item in validatorPool:
+    if item.kind == ValidatorKind.Remote and item.data.remotes.len == 1:
+      validators.add RemoteKeystoreInfo(
+        pubkey: item.pubkey,
+        url: HttpHostUri(item.data.remotes[0].url)
+      )
+  validators
 
-  StoredValidatorKey* = object
-    name*: string
-    filename*: string
-    flag*: StoredValidatorKeyFlag
-    path*: KeyPath
-    description*: string
-    pubkey*: ValidatorPubKey
+proc listRemoteDistributedValidators*(validatorPool: ValidatorPool): seq[DistributedKeystoreInfo]
+                                     {.raises: [Defect].} =
+  var validators: seq[DistributedKeystoreInfo]
+  for item in validatorPool:
+    if item.kind == ValidatorKind.Remote and item.data.remotes.len > 1:
+      validators.add DistributedKeystoreInfo(
+        pubkey: item.pubkey,
+        remotes: item.data.remotes
+      )
+  validators
 
-  ValidatorListItem* = object
-    pubkey*: ValidatorPubKey
-    status*: string
-    description*: string
-    path*: string
-
-  ValidatorKeystoreItem* = object
-    keystore*: Keystore
-    password*: string
-
-proc `$`*(s: StoredValidatorKeyFlag): string =
-  case s
-  of StoredValidatorKeyFlag.Valid:
-    "enabled"
-  of StoredValidatorKeyFlag.NoPassword:
-    "failed"
-  of StoredValidatorKeyFlag.NoPermission:
-    "failed"
-  of StoredValidatorKeyFlag.Disabled:
-    "disabled"
-
-proc init*(t: typedesc[ValidatorListItem],
-           key: StoredValidatorKey): ValidatorListItem {.
-     raises: [Defect].} =
-  ValidatorListItem(pubkey: key.pubkey, status: $key.flag,
-                    description: key.description, path: string(key.path))
-
-proc listValidators*(conf: AnyConf): seq[StoredValidatorKey] {.
-     raises: [Defect].} =
-  var validators: seq[StoredValidatorKey]
-  try:
-    for kind, file in walkDir(conf.validatorsDir()):
-      if kind == pcDir:
-        let keyName = splitFile(file).name
-        let rkey = ValidatorPubKey.fromHex(keyName)
-        if rkey.isErr():
-          # Skip folders which represents invalid public key
-          continue
-        let secretFile = conf.secretsDir() / keyName
-        let keystorePath = conf.validatorsDir() / keyName
-        let keystoreFile = keystorePath / KeystoreFileName
-        let disableFile = keystorePath / DisableFileName
-
-        if not(fileExists(keystoreFile)):
-          # Skip folders which do not have keystore file inside.
-          continue
-
-        let keystore =
-          block:
-            let res = loadKeystoreFile(keystoreFile)
-            if res.isErr():
-              # Skip folders which do not have keystore of proper format.
-              continue
-            res.get()
-
-        let flag =
-          if fileExists(secretFile):
-            if checkSensitiveFilePermissions(secretFile):
-              if not(fileExists(disableFile)):
-                StoredValidatorKeyFlag.Valid
-              else:
-                StoredValidatorKeyFlag.Disabled
-            else:
-              StoredValidatorKeyFlag.NoPermission
-          else:
-            StoredValidatorKeyFlag.NoPassword
-        let item = StoredValidatorKey(name: keyName,
-                                      filename: keystoreFile, flag: flag,
-                                      path: keystore.path,
-                                      description: keystore.description[],
-                                      pubkey: rkey.get())
-        validators.add(item)
-    validators
-  except OSError:
-    return validators
-
-func getPubKey*(privkey: ValidatorPrivKey): KmResult[ValidatorPubKey] {.
-     raises: [Defect].} =
-  ## Derive a public key from a private key
-  var pubKey: blscurve.PublicKey
-  let ok = publicFromSecret(pubKey, SecretKey privkey)
-  if not(ok):
-    return err("Invalid private key or zero key")
-  ok(ValidatorPubKey(blob: pubKey.exportRaw()))
-
-proc addValidator(pool: var ValidatorPool,
-                  rng: var BrHmacDrbgContext,
-                  conf: AnyConf, keystore: Keystore,
-                  password: string): KmResult[void] {.
-     raises: [Defect].} =
-  let keypass = KeystorePass.init(password)
-  let privateKey =
+proc keymanagerApiError(status: HttpCode, msg: string): RestApiResponse =
+  let data =
     block:
-      let res = decryptKeystore(keystore, keypass)
-      if res.isOk():
-        res.get()
-      else:
-        return err("Keystore decryption failed")
+      var default: string
+      try:
+        var defstrings: seq[string]
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.beginRecord()
+        writer.writeField("message", msg)
+        writer.endRecord()
+        stream.getOutput(string)
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.error(status, data, "application/json")
 
-  let publicKey = ? privateKey.getPubKey()
-  let keyName = publicKey.toHex()
-
-  let secretFile = conf.secretsDir() / keyName
-  let keystorePath = conf.validatorsDir() / keyName
-  let keystoreFile = keystorePath / KeystoreFileName
-
-  if fileExists(keystoreFile) or fileExists(secretFile):
-    return err("Keystore artifacts already exists")
-
-  let plainStorage = createKeystore(kdfScrypt, rng, privateKey, keypass)
-
-  let encodedStorage =
-    try:
-      Json.encode(plainStorage)
-    except SerializationError:
-      error "Could not serialize keystore", key_path = keystoreFile
-      return err("Could not serialize keystore")
-
-  let cleanupSecretsDir =
-    if not(dirExists(conf.secretsDir())):
-      let res = secureCreatePath(conf.secretsDir())
-      if res.isErr():
-        return err("Unable to create data secrets folder")
-      true
-    else:
-      false
-
-  let cleanupValidatorsDir =
-    if not(dirExists(conf.validatorsDir())):
-      let res = secureCreatePath(conf.validatorsDir())
-      if res.isErr():
-        if cleanupSecretsDir: discard io2.removeDir(conf.secretsDir())
-        return err("Unable to create data validators folder")
-      true
-    else:
-      false
-
-  block:
-    let res = secureCreatePath(keystorePath)
-    if res.isErr():
-      if cleanupSecretsDir: discard io2.removeDir(conf.secretsDir())
-      if cleanupValidatorsDir: discard io2.removeDir(conf.validatorsDir())
-      return err("Unable to create folder for keystore")
-
-  block:
-    let res = secureWriteFile(secretFile, keypass.str)
-    if res.isErr():
-      discard io2.removeDir(keystorePath)
-      if cleanupSecretsDir: discard io2.removeDir(conf.secretsDir())
-      if cleanupValidatorsDir: discard io2.removeDir(conf.validatorsDir())
-      return err("Could not store password file")
-
-  block:
-    let res = secureWriteFile(keystoreFile, encodedStorage)
-    if res.isErr():
-      discard io2.removeFile(secretFile)
-      discard io2.removeDir(keystorePath)
-      if cleanupSecretsDir: discard io2.removeDir(conf.secretsDir())
-      if cleanupValidatorsDir: discard io2.removeDir(conf.validatorsDir())
-      return err("Could not store keystore file")
-
-  pool.addLocalValidator(ValidatorPrivateItem.init(privateKey, keystore))
-  ok()
-
-proc removeValidator(pool: var ValidatorPool, conf: AnyConf,
-                     publicKey: ValidatorPubKey): KmResult[void] {.
-     raises: [Defect].} =
-  let keyName = publicKey.toHex()
-  let keystorePath = conf.validatorsDir() / keyName
-  let keystoreFile = keystorePath / KeystoreFileName
-  let secretFile = conf.secretsDir() / keyName
-  try:
-    removeDir(keystorePath, false)
-  except OSError:
-    return err("Could not remove keystore directory")
-  if dirExists(keystorePath):
-    return err("Could not remove keystore directory")
-  let res = io2.removeFile(secretFile)
-  if res.isErr():
-    return err("Could not remove password file")
-  pool.removeValidator(publicKey)
-  ok()
-
-proc toggleValidator(pool: var ValidatorPool,
-                     conf: AnyConf,
-                     publicKey: ValidatorPubKey,
-                     action: ValidatorToggleAction): KmResult[void] {.
-     raises:[Defect].} =
-  let keyName = publicKey.toHex()
-  let keystorePath = conf.validatorsDir() / keyName
-  let disableFile = keystorePath / DisableFileName
-  let secretFile = conf.secretsDir() / keyName
-  let keystoreFile = keystorePath / KeystoreFileName
-
-  if dirExists(keystorePath) and checkSensitivePathPermissions(keyStorePath):
-    case action
-    of ValidatorToggleAction.Enable:
-      if fileExists(disableFile):
-        if checkSensitivePathPermissions(secretFile) and
-           checkSensitivePathPermissions(keystoreFile):
-          let privateKey =
-            block:
-              let res = loadKeystoreUnsafe(conf.validatorsDir(),
-                                           conf.secretsDir(), keyName)
-              if res.isErr():
-                return err("Could not decrypt validator's keystore")
-              res.get()
-          let res = io2.removeFile(disableFile)
-          if res.isErr():
-            return err("Could not enable validator's keystore")
-          if isNil(pool.getValidator(publicKey)):
-            pool.addLocalValidator(privateKey)
-          ok()
+proc checkAuthorization*(request: HttpRequestRef,
+                         host: KeymanagerHost): Result[void, AuthorizationError] =
+  let authorizations = request.headers.getList("authorization")
+  if authorizations.len > 0:
+    for authHeader in authorizations:
+      let parts = authHeader.split(' ', maxsplit = 1)
+      if parts.len == 2 and parts[0] == "Bearer":
+        if parts[1] == host.keymanagerToken:
+          return ok()
         else:
-          err("Could not read validator's keystore")
-      else:
-        # Disable file is already missing.
-        if isNil(pool.getValidator(publicKey)):
-          # If validator pool do not have ``publicKey`` validator we going to
-          # add it.
-          if checkSensitivePathPermissions(secretFile) and
-             checkSensitivePathPermissions(keystoreFile):
-            let privateKey =
-              block:
-                let res = loadKeystoreUnsafe(conf.validatorsDir(),
-                                             conf.secretsDir(), keyName)
-                if res.isErr():
-                  return err("Could not decrypt validator's keystore")
-                res.get()
-            if isNil(pool.getValidator(publicKey)):
-              pool.addLocalValidator(privateKey)
-            ok()
-          else:
-            err("Could not read validator's keystore")
-        else:
-          ok()
-    of ValidatorToggleAction.Disable:
-      if not(fileExists(disableFile)):
-        # Disable file is not present, we first create `.disable` file and in
-        # case of success we removing validator from validators pool.
-        block:
-          let res = secureWriteFile(disableFile, DisableFileContent)
-          if res.isErr():
-            return err("Could not create disable file")
-        pool.removeValidator(publicKey)
-        ok()
-      else:
-        # Disable file is already present.
-        pool.removeValidator(publicKey)
-        ok()
+          return err incorrectToken
+    return err missingBearerScheme
   else:
-    err("No validator keystore found")
+    return err noAuthorizationHeader
 
-proc installValidatorManagementHandlers*(router: var RestRouter,
-                                         node: BeaconNode) =
-  router.api(MethodGet, "/api/nimbus/v1/validators") do (
-    ) -> RestApiResponse:
-    let validators = node.config.listValidators().mapIt(
-      ValidatorListItem.init(it)
-    )
-    return RestApiResponse.jsonResponse(validators)
+proc authErrorResponse(error: AuthorizationError): RestApiResponse =
+  let status = case error:
+    of missingBearerScheme, noAuthorizationHeader:
+      Http401
+    of incorrectToken:
+      Http403
 
-  router.api(MethodPost, "/api/nimbus/v1/validators") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
-    let keystores =
+  keymanagerApiError(status, InvalidAuthorizationError)
+
+proc validateUri*(url: string): Result[Uri, cstring] =
+  let surl = parseUri(url)
+  if surl.scheme notin ["http", "https"]:
+    return err("Incorrect URL scheme")
+  if len(surl.hostname) == 0:
+    return err("Empty URL hostname")
+  ok(surl)
+
+proc handleRemoveValidatorReq(host: KeymanagerHost,
+                              key: ValidatorPubKey): RemoteKeystoreStatus =
+    let res = removeValidator(host.validatorPool[],
+                              host.validatorsDir, host.secretsDir,
+                              key, KeystoreKind.Remote)
+    if res.isOk:
+      case res.value()
+      of RemoveValidatorStatus.deleted:
+        return RemoteKeystoreStatus(status: KeystoreStatus.deleted)
+      of RemoveValidatorStatus.notFound:
+        return RemoteKeystoreStatus(status: KeystoreStatus.notFound)
+    else:
+      return RemoteKeystoreStatus(status: KeystoreStatus.error,
+                                  message: some($res.error()))
+
+proc handleAddRemoteValidatorReq(host: KeymanagerHost,
+                                 keystore: RemoteKeystore): RequestItemStatus =
+  let res = importKeystore(host.validatorPool[], host.validatorsDir, keystore)
+  if res.isOk:
+    let
+      slot = host.getBeaconTimeFn().slotOrZero
+      validatorIdx = host.getValidatorIdx(keystore.pubkey)
+    host.validatorPool[].addRemoteValidator(validatorIdx, res.get, slot)
+    RequestItemStatus(status: $KeystoreStatus.imported)
+  else:
+    case res.error().status
+    of AddValidatorStatus.failed:
+      RequestItemStatus(status: $KeystoreStatus.error,
+                        message: $res.error().message)
+    of AddValidatorStatus.existingArtifacts:
+      RequestItemStatus(status: $KeystoreStatus.duplicate)
+
+proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
+  # https://ethereum.github.io/keymanager-APIs/#/Keymanager/ListKeys
+  router.api(MethodGet, "/api/eth/v1/keystores") do () -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let response = GetKeystoresResponse(
+      data: listLocalValidators(host.validatorPool[]))
+    return RestApiResponse.jsonResponsePlain(response)
+
+  # https://ethereum.github.io/keymanager-APIs/#/Keymanager/ImportKeystores
+  router.api(MethodPost, "/api/eth/v1/keystores") do (
+      contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let request =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
-        let dres = decodeBody(seq[ValidatorKeystoreItem], contentBody.get())
+          return keymanagerApiError(Http404, EmptyRequestBodyError)
+        let dres = decodeBody(KeystoresAndSlashingProtection, contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidKeystoreObjects,
-                                           $dres.error())
+          return keymanagerApiError(Http400, InvalidKeystoreObjects)
         dres.get()
 
-    var failures: seq[RestFailureItem]
-    for index, item in keystores.pairs():
-      let res = addValidator(node.attachedValidators[], node.network.rng[],
-                             node.config, item.keystore, item.password)
-      if res.isErr():
-        failures.add(RestFailureItem(index: uint64(index),
-                                     message: $res.error()))
-    if len(failures) > 0:
-      return RestApiResponse.jsonErrorList(Http400, KeystoreAdditionFailure,
-                                           failures)
-    else:
-      return RestApiResponse.jsonMsgResponse(KeystoreAdditionSuccess)
+    if request.slashing_protection.isSome():
+      let slashing_protection = request.slashing_protection.get()
+      let nodeSPDIR = toSPDIR(host.validatorPool[].slashingProtection)
+      if nodeSPDIR.metadata.genesis_validators_root.Eth2Digest !=
+         slashing_protection.metadata.genesis_validators_root.Eth2Digest:
+        return keymanagerApiError(Http400,
+          "The slashing protection database and imported file refer to " &
+          "different blockchains.")
+      let res = inclSPDIR(host.validatorPool[].slashingProtection,
+                          slashing_protection)
+      if res == siFailure:
+        return keymanagerApiError(Http500,
+          "Internal server error; Failed to import slashing protection data")
 
-  router.api(MethodPost, "/api/nimbus/v1/validators/enable") do (
-    contentBody: Option[ContentBody]) -> RestApiResponse:
+    var response: PostKeystoresResponse
+
+    for index, item in request.keystores:
+      let res = importKeystore(host.validatorPool[], host.rng[],
+                               host.validatorsDir, host.secretsDir,
+                               item, request.passwords[index])
+      if res.isErr():
+        let failure = res.error()
+        case failure.status
+        of AddValidatorStatus.failed:
+          response.data.add(
+            RequestItemStatus(status: $KeystoreStatus.error,
+                              message: failure.message))
+        of AddValidatorStatus.existingArtifacts:
+          response.data.add(
+            RequestItemStatus(status: $KeystoreStatus.duplicate))
+      else:
+        host.addLocalValidator(res.get())
+        response.data.add(
+          RequestItemStatus(status: $KeystoreStatus.imported))
+
+    return RestApiResponse.jsonResponsePlain(response)
+
+  # https://ethereum.github.io/keymanager-APIs/#/Keymanager/DeleteKeys
+  router.api(MethodDelete, "/api/eth/v1/keystores") do (
+      contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
     let keys =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
-        let dres = decodeBody(seq[ValidatorPubKey], contentBody.get())
+          return keymanagerApiError(Http404, EmptyRequestBodyError)
+        let dres = decodeBody(DeleteKeystoresBody, contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidValidatorPublicKey,
-                                           $dres.error())
-        dres.get()
+          return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+        dres.get().pubkeys
 
-    var failures: seq[RestFailureItem]
-    for index, key in keys.pairs():
-      let res = toggleValidator(node.attachedValidators[], node.config, key,
-                                ValidatorToggleAction.Enable)
-      if res.isErr():
-        failures.add(RestFailureItem(index: uint64(index),
-                                     message: $res.error()))
-    if len(failures) > 0:
-      return RestApiResponse.jsonErrorList(Http400, KeystoreModificationFailure,
-                                           failures)
-    else:
-      return RestApiResponse.jsonMsgResponse(KeystoreModificationSuccess)
+    var
+      response: DeleteKeystoresResponse
+      nodeSPDIR = toSPDIR(host.validatorPool[].slashingProtection)
+      # Hash table to keep the removal status of all keys form request
+      keysAndDeleteStatus = initTable[PubKeyBytes, RequestItemStatus]()
+      responseSPDIR: SPDIR
 
-  router.api(MethodPost, "/api/nimbus/v1/validators/disable") do (
+    responseSPDIR.metadata = nodeSPDIR.metadata
+
+    for index, key in keys:
+      let
+        res = removeValidator(host.validatorPool[],
+                              host.validatorsDir, host.secretsDir,
+                              key, KeystoreKind.Local)
+        pubkey = key.blob.PubKey0x.PubKeyBytes
+
+      if res.isOk:
+        case res.value()
+        of RemoveValidatorStatus.deleted:
+          keysAndDeleteStatus[pubkey] =
+            RequestItemStatus(status: $KeystoreStatus.deleted)
+
+        # At first all keys with status missing directory after removal receive
+        # status 'not_found'
+        of RemoveValidatorStatus.notFound:
+          keysAndDeleteStatus[pubkey] =
+            RequestItemStatus(status: $KeystoreStatus.notFound)
+      else:
+        keysAndDeleteStatus[pubkey] =
+          RequestItemStatus(status: $KeystoreStatus.error,
+                            message: $res.error())
+
+    # If we discover slashing protection data for a validator that was not
+    # found, this means the validator was active in the past, so we must
+    # respond with `not_active`:
+    for validator in nodeSPDIR.data:
+      keysAndDeleteStatus.withValue(validator.pubkey.PubKeyBytes,
+                                    foundKeystore) do:
+        responseSPDIR.data.add(validator)
+
+        if foundKeystore.status == $KeystoreStatus.notFound:
+          foundKeystore.status = $KeystoreStatus.notActive
+
+    for index, key in keys:
+      response.data.add(keysAndDeleteStatus[key.blob.PubKey0x.PubKeyBytes])
+
+    response.slashing_protection = RestJson.encode(responseSPDIR)
+
+    return RestApiResponse.jsonResponsePlain(response)
+
+  # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ListRemoteKeys
+  router.api(MethodGet, "/api/eth/v1/remotekeys") do () -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let response = GetRemoteKeystoresResponse(
+      data: listRemoteValidators(host.validatorPool[]))
+    return RestApiResponse.jsonResponsePlain(response)
+
+  # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys
+  router.api(MethodPost, "/api/eth/v1/remotekeys") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
     let keys =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
-        let dres = decodeBody(seq[ValidatorPubKey], contentBody.get())
+          return keymanagerApiError(Http404, EmptyRequestBodyError)
+        let dres = decodeBody(ImportRemoteKeystoresBody, contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidValidatorPublicKey,
-                                           $dres.error())
-        dres.get()
+          return keymanagerApiError(Http400, InvalidKeystoreObjects)
+        dres.get().remote_keys
 
-    var failures: seq[RestFailureItem]
-    for index, key in keys.pairs():
-      let res = toggleValidator(node.attachedValidators[], node.config, key,
-                                ValidatorToggleAction.Disable)
-      if res.isErr():
-        failures.add(RestFailureItem(index: uint64(index),
-                                     message: $res.error()))
-    if len(failures) > 0:
-      return RestApiResponse.jsonErrorList(Http400, KeystoreModificationFailure,
-                                           failures)
-    else:
-      return RestApiResponse.jsonMsgResponse(KeystoreModificationSuccess)
+    var response: PostKeystoresResponse
 
-  router.api(MethodPost, "/api/nimbus/v1/validators/remove") do (
+    for index, key in keys:
+      let
+        remoteInfo = RemoteSignerInfo(
+          url: key.url,
+          pubkey: key.pubkey,
+          id: 0)
+        keystore = RemoteKeystore(
+          version: 1'u64, remoteType: RemoteSignerType.Web3Signer,
+          pubkey: key.pubkey, remotes: @[remoteInfo])
+
+      response.data.add handleAddRemoteValidatorReq(host, keystore)
+
+    return RestApiResponse.jsonResponsePlain(response)
+
+  # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/DeleteRemoteKeys
+  router.api(MethodDelete, "/api/eth/v1/remotekeys") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
     let keys =
       block:
         if contentBody.isNone():
-          return RestApiResponse.jsonError(Http404, EmptyRequestBodyError)
-        let dres = decodeBody(seq[ValidatorPubKey], contentBody.get())
+          return keymanagerApiError(Http404, EmptyRequestBodyError)
+        let dres = decodeBody(DeleteKeystoresBody, contentBody.get())
         if dres.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidValidatorPublicKey,
-                                           $dres.error())
-        dres.get()
+          return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+        dres.get().pubkeys
 
-    var failures: seq[RestFailureItem]
-    for index, key in keys.pairs():
-      let res = removeValidator(node.attachedValidators[], node.config, key)
-      if res.isErr():
-        failures.add(RestFailureItem(index: uint64(index),
-                                     message: $res.error()))
-    if len(failures) > 0:
-      return RestApiResponse.jsonErrorList(Http400, KeystoreRemovalFailure,
-                                           failures)
+    var response: DeleteRemoteKeystoresResponse
+    for index, key in keys:
+      response.data.add handleRemoveValidatorReq(host, key)
+    return RestApiResponse.jsonResponsePlain(response)
+
+  # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/ListFeeRecipient
+  router.api(MethodGet, "/api/eth/v1/validator/{pubkey}/feerecipient") do (
+             pubkey: ValidatorPubKey) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let
+      pubkey = pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      ethaddress = host.getSuggestedFeeRecipient(pubkey)
+
+    return if ethaddress.isOk:
+      RestApiResponse.jsonResponse(ListFeeRecipientResponse(
+        pubkey: pubkey,
+        ethaddress: ethaddress.get))
     else:
-      return RestApiResponse.jsonMsgResponse(KeystoreRemovalSuccess)
+      case ethaddress.error
+      of noSuchValidator:
+        keymanagerApiError(Http404, "No matching validator found")
+      of invalidFeeRecipientFile:
+        keymanagerApiError(Http500, "Error reading fee recipient file")
+
+  # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/SetFeeRecipient
+  router.api(MethodPost, "/api/eth/v1/validator/{pubkey}/feerecipient") do (
+             pubkey: ValidatorPubKey,
+             contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let
+      pubkey= pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      feeRecipientReq =
+        block:
+          if contentBody.isNone():
+            return keymanagerApiError(Http400, InvalidFeeRecipientRequestError)
+          let dres = decodeBody(SetFeeRecipientRequest, contentBody.get())
+          if dres.isErr():
+            return keymanagerApiError(Http400, InvalidFeeRecipientRequestError)
+          dres.get()
+
+      status = host.setFeeRecipient(pubkey, feeRecipientReq.ethaddress)
+
+    return if status.isOk:
+      RestApiResponse.response("", Http202, "text/plain")
+    else:
+      keymanagerApiError(
+        Http500, "Failed to set fee recipient: " & status.error)
+
+  # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/DeleteFeeRecipient
+  router.api(MethodDelete, "/api/eth/v1/validator/{pubkey}/feerecipient") do (
+             pubkey: ValidatorPubKey) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let
+      pubkey = pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      res = host.removeFeeRecipientFile(pubkey)
+
+    return if res.isOk:
+      RestApiResponse.response("", Http204, "text/plain")
+    else:
+      keymanagerApiError(
+        Http500, "Failed to remove fee recipient file: " & res.error)
+
+  # TODO: These URLs will be changed once we submit a proposal for
+  #       /api/eth/v2/remotekeys that supports distributed keys.
+  router.api(MethodGet, "/api/eth/v1/remotekeys/distributed") do () -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let response = GetDistributedKeystoresResponse(
+      data: listRemoteDistributedValidators(host.validatorPool[]))
+    return RestApiResponse.jsonResponsePlain(response)
+
+  # TODO: These URLs will be changed once we submit a proposal for
+  #       /api/eth/v2/remotekeys that supports distributed keys.
+  router.api(MethodPost, "/api/eth/v1/remotekeys/distributed") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let keys =
+      block:
+        if contentBody.isNone():
+          return keymanagerApiError(Http404, EmptyRequestBodyError)
+        let dres = decodeBody(ImportDistributedKeystoresBody, contentBody.get())
+        if dres.isErr():
+          return keymanagerApiError(Http400, InvalidKeystoreObjects)
+        dres.get.remote_keys
+
+    var response: PostKeystoresResponse
+
+    for index, key in keys:
+      let keystore = RemoteKeystore(
+        version: 2'u64,
+        remoteType: RemoteSignerType.Web3Signer,
+        pubkey: key.pubkey,
+        remotes: key.remotes,
+        threshold: uint32 key.threshold
+      )
+      response.data.add handleAddRemoteValidatorReq(host, keystore)
+
+    return RestApiResponse.jsonResponsePlain(response)
+
+  router.api(MethodDelete, "/api/eth/v1/remotekeys/distributed") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let keys =
+      block:
+        if contentBody.isNone():
+          return keymanagerApiError(Http404, EmptyRequestBodyError)
+        let dres = decodeBody(DeleteKeystoresBody, contentBody.get())
+        if dres.isErr():
+          return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+        dres.get.pubkeys
+
+    var response: DeleteRemoteKeystoresResponse
+    for index, key in keys:
+      response.data.add handleRemoveValidatorReq(host, key)
+
+    return RestApiResponse.jsonResponsePlain(response)
 
   router.redirect(
     MethodGet,
-    "/nimbus/v1/validators",
-    "/api/nimbus/v1/validators"
-  )
+    "/eth/v1/keystores",
+    "/api/eth/v1/keystores")
 
   router.redirect(
     MethodPost,
-    "/nimbus/v1/validators",
-    "/api/nimbus/v1/validators"
-  )
+    "/eth/v1/keystores",
+    "/api/eth/v1/keystores")
+
+  router.redirect(
+    MethodDelete,
+    "/eth/v1/keystores",
+    "/api/eth/v1/keystores")
+
+  router.redirect(
+    MethodGet,
+    "/eth/v1/remotekeys",
+    "/api/eth/v1/remotekeys")
 
   router.redirect(
     MethodPost,
-    "/nimbus/v1/validators/enable",
-    "/api/nimbus/v1/validators/enable"
-  )
+    "/eth/v1/remotekeys",
+    "/api/eth/v1/remotekeys")
+
+  router.redirect(
+    MethodDelete,
+    "/eth/v1/remotekeys",
+    "/api/eth/v1/remotekeys")
+
+  router.redirect(
+    MethodGet,
+    "/eth/v1/validator/{pubkey}/feerecipient",
+    "/api/eth/v1/validator/{pubkey}/feerecipient")
 
   router.redirect(
     MethodPost,
-    "/nimbus/v1/validators/disable",
-    "/api/nimbus/v1/validators/disable"
-  )
+    "/eth/v1/validator/{pubkey}/feerecipient",
+    "/api/eth/v1/validator/{pubkey}/feerecipient")
+
+  router.redirect(
+    MethodDelete,
+    "/eth/v1/validator/{pubkey}/feerecipient",
+    "/api/eth/v1/validator/{pubkey}/feerecipient")
+
+  router.redirect(
+    MethodGet,
+    "/eth/v1/remotekeys/distributed",
+    "/api/eth/v1/remotekeys/distributed")
 
   router.redirect(
     MethodPost,
-    "/nimbus/v1/validators/remove",
-    "/api/nimbus/v1/validators/remove"
-  )
+    "/eth/v1/remotekeys/distributed",
+    "/api/eth/v1/remotekeys/distributed")
+
+  router.redirect(
+    MethodDelete,
+    "/eth/v1/remotekeys/distributed",
+    "/api/eth/v1/remotekeys/distributed")

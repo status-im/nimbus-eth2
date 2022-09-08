@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  strformat, tables,
+  std/strformat,
   # Specs
   ../../beacon_chain/spec/datatypes/phase0,
   ../../beacon_chain/spec/[beaconstate, validator, helpers],
@@ -23,7 +23,7 @@ func addMockAttestations*(
        sufficient_support = false
   ) =
   # We must be at the end of the epoch
-  doAssert (state.slot + 1).isEpoch
+  doAssert (state.slot + 1).is_epoch
 
   # Alias the attestations container
   var attestations: ptr seq[PendingAttestation]
@@ -39,14 +39,11 @@ func addMockAttestations*(
   var remaining_balance = state.get_total_active_balance(cache).int64 * 2 div 3
 
   let
-    start_slot = compute_start_slot_at_epoch(epoch)
     committees_per_slot = get_committee_count_per_slot(state, epoch, cache)
 
-  # for-loop of distinct type is broken: https://github.com/nim-lang/Nim/issues/12074
-  for slot in start_slot.uint64 ..< start_slot.uint64 + SLOTS_PER_EPOCH:
-    for index in 0'u64 ..< committees_per_slot:
-      let committee = get_beacon_committee(
-                        state, slot.Slot, index.CommitteeIndex, cache)
+  for slot in epoch.slots():
+    for committee_index in get_committee_indices(committees_per_slot):
+      let committee = get_beacon_committee(state, slot, committee_index, cache)
 
       # Create a bitfield filled with the given count per attestation,
       # exactly on the right-most part of the committee field.
@@ -54,7 +51,7 @@ func addMockAttestations*(
       for v in 0 ..< committee.len * 2 div 3 + 1:
         if remaining_balance > 0:
           # Beware of the underflows, use int
-          remaining_balance -= state.validators[v].effective_balance.int64
+          remaining_balance -= state.validators.item(v).effective_balance.int64
           aggregation_bits[v] = true
         else:
           break
@@ -70,7 +67,7 @@ func addMockAttestations*(
         aggregation_bits: aggregation_bits,
         data: AttestationData(
           slot: slot.Slot,
-          index: index,
+          index: committee_index.uint64,
           beacon_block_root: [byte 0xFF] * 32, # Irrelevant for testing
           source: source,
           target: target,
@@ -89,5 +86,5 @@ func putCheckpointsInBlockRoots*(
        state: var phase0.BeaconState,
        checkpoints: openArray[Checkpoint]) =
   for c in checkpoints:
-    let idx = c.epoch.compute_start_slot_at_epoch() mod SLOTS_PER_HISTORICAL_ROOT
+    let idx = c.epoch.start_slot() mod SLOTS_PER_HISTORICAL_ROOT
     state.block_roots[idx] = c.root

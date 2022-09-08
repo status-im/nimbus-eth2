@@ -2,12 +2,13 @@
 
 import
   unittest2,
+  eth/keys,
   ../beacon_chain/spec/[beaconstate, helpers, signatures],
   ../beacon_chain/consensus_object_pools/sync_committee_msg_pool,
   ./testblockutil
 
-func aggregate(sigs: openarray[CookedSig]): CookedSig =
-  var agg {.noInit.}: AggregateSignature
+func aggregate(sigs: openArray[CookedSig]): CookedSig =
+  var agg {.noinit.}: AggregateSignature
   agg.init sigs[0]
   for i in 1 ..< sigs.len:
     agg.aggregate sigs[i]
@@ -15,7 +16,7 @@ func aggregate(sigs: openarray[CookedSig]): CookedSig =
 
 suite "Sync committee pool":
   setup:
-    var pool = SyncCommitteeMsgPool.init()
+    var pool = SyncCommitteeMsgPool.init(keys.newRng())
 
   test "An empty pool is safe to use":
     let headRoot = eth2digest(@[1.byte, 2, 3])
@@ -44,7 +45,7 @@ suite "Sync committee pool":
   test "Aggregating votes":
     let
       fork = altairFork(defaultRuntimeConfig)
-      genesisValidatorsRoot = eth2digest(@[5.byte, 6, 7])
+      genesis_validators_root = eth2digest(@[5.byte, 6, 7])
 
       privkey1 = MockPrivKeys[1.ValidatorIndex]
       privkey2 = MockPrivKeys[2.ValidatorIndex]
@@ -62,24 +63,24 @@ suite "Sync committee pool":
       subcommittee1 = SyncSubcommitteeIndex(0)
       subcommittee2 = SyncSubcommitteeIndex(1)
 
-      sig1 = blsSign(privkey1, sync_committee_msg_signing_root(
-        fork, root1Slot.epoch, genesisValidatorsRoot, root1).data)
-
-      sig2 = blsSign(privkey2, sync_committee_msg_signing_root(
-        fork, root2Slot.epoch, genesisValidatorsRoot, root1).data)
-
-      sig3 = blsSign(privkey3, sync_committee_msg_signing_root(
-        fork, root3Slot.epoch, genesisValidatorsRoot, root1).data)
-
-      sig4 = blsSign(privkey4, sync_committee_msg_signing_root(
-        fork, root3Slot.epoch, genesisValidatorsRoot, root2).data)
+      sig1 = get_sync_committee_message_signature(
+        fork, genesis_validators_root, root1Slot, root1, privkey1)
+      sig2 = get_sync_committee_message_signature(
+        fork, genesis_validators_root, root2Slot, root2, privkey1)
+      sig3 = get_sync_committee_message_signature(
+        fork, genesis_validators_root, root3Slot, root3, privkey1)
+      sig4 = get_sync_committee_message_signature(
+        fork, genesis_validators_root, root3Slot, root2, privkey1)
 
     # Inserting sync committee messages
     #
-    pool.addSyncCommitteeMsg(root1Slot, root1, sig1, subcommittee1, 1)
-    pool.addSyncCommitteeMsg(root1Slot, root1, sig2, subcommittee1, 10)
-    pool.addSyncCommitteeMsg(root2Slot, root1, sig3, subcommittee2, 7)
-    pool.addSyncCommitteeMsg(root2Slot, root2, sig4, subcommittee2, 3)
+    pool.addSyncCommitteeMessage(root1Slot, root1, 1, sig1, subcommittee1, [1'u64])
+    pool.addSyncCommitteeMessage(root1Slot, root1, 2, sig2, subcommittee1, [10'u64])
+    pool.addSyncCommitteeMessage(root2Slot, root1, 3, sig3, subcommittee2, [7'u64])
+    pool.addSyncCommitteeMessage(root2Slot, root2, 4, sig4, subcommittee2, [3'u64])
+
+    # Insert a duplicate message (this should be handled gracefully)
+    pool.addSyncCommitteeMessage(root1Slot, root1, 1, sig1, subcommittee1, [1'u64])
 
     # Producing contributions
     #
@@ -97,77 +98,89 @@ suite "Sync committee pool":
 
     block:
       # Checking a committee where 2 signatures should have been aggregated:
-      var outContribution: SyncCommitteeContribution
+      var outContribution: SignedContributionAndProof
+      template contribution: untyped = outContribution.message.contribution
       let success = pool.produceContribution(
         root1Slot,
         root1,
         subcommittee1,
-        outContribution)
+        contribution)
 
       let expectedSig = aggregate [sig1, sig2]
-
       check:
         success
-        outContribution.slot == root1Slot
-        outContribution.beacon_block_root == root1
-        outContribution.subcommittee_index == subcommittee1.uint64
-        outContribution.aggregation_bits.countOnes == 2
-        outContribution.aggregation_bits[1] == true
-        outContribution.aggregation_bits[8] == false
-        outContribution.aggregation_bits[10] == true
-        outContribution.signature == expectedSig.toValidatorSig
+        contribution.slot == root1Slot
+        contribution.beacon_block_root == root1
+        contribution.subcommittee_index == subcommittee1.uint64
+        contribution.aggregation_bits.countOnes == 2
+        contribution.aggregation_bits[1] == true
+        contribution.aggregation_bits[8] == false
+        contribution.aggregation_bits[10] == true
+        contribution.signature == expectedSig.toValidatorSig
 
-      pool.addSyncContribution(outContribution, expectedSig)
+      let addContributionRes = pool.addContribution(outContribution, expectedSig)
+      check:
+        addContributionRes == newBest
+        pool.isSeen(outContribution.message)
 
     block:
       # Checking a committee with a signle participant:
-      var outContribution: SyncCommitteeContribution
+      var outContribution: SignedContributionAndProof
+      template contribution: untyped = outContribution.message.contribution
       let success = pool.produceContribution(
         root1Slot,
         root1,
         subcommittee2,
-        outContribution)
+        contribution)
 
       check:
         success
-        outContribution.slot == root1Slot
-        outContribution.beacon_block_root == root1
-        outContribution.subcommittee_index == subcommittee2.uint64
-        outContribution.aggregation_bits.countOnes == 1
-        outContribution.aggregation_bits[7] == true
-        outContribution.signature == sig3.toValidatorSig
+        contribution.slot == root1Slot
+        contribution.beacon_block_root == root1
+        contribution.subcommittee_index == subcommittee2.uint64
+        contribution.aggregation_bits.countOnes == 1
+        contribution.aggregation_bits[7] == true
+        contribution.signature == sig3.toValidatorSig
 
-      pool.addSyncContribution(outContribution, sig3)
+      let addContributionRes = pool.addContribution(outContribution, sig3)
+      check:
+        addContributionRes == newBest
+        pool.isSeen(outContribution.message)
 
     block:
       # Checking another committee with a signle participant
       # voting for a different block:
-      var outContribution: SyncCommitteeContribution
+      var outContribution: SignedContributionAndProof
+      template contribution: untyped = outContribution.message.contribution
       let success = pool.produceContribution(
         root2Slot,
         root2,
         subcommittee2,
-        outContribution)
+        contribution)
 
       check:
         success
-        outContribution.slot == root2Slot
-        outContribution.beacon_block_root == root2
-        outContribution.subcommittee_index == subcommittee2.uint64
-        outContribution.aggregation_bits.countOnes == 1
-        outContribution.aggregation_bits[3] == true
-        outContribution.signature == sig4.toValidatorSig
+        contribution.slot == root2Slot
+        contribution.beacon_block_root == root2
+        contribution.subcommittee_index == subcommittee2.uint64
+        contribution.aggregation_bits.countOnes == 1
+        contribution.aggregation_bits[3] == true
+        contribution.signature == sig4.toValidatorSig
 
-      pool.addSyncContribution(outContribution, sig4)
+      let addContributionRes = pool.addContribution(outContribution, sig4)
+      check:
+        addContributionRes == newBest
+        pool.isSeen(outContribution.message)
 
     block:
       # Checking a block root nobody voted for
-      var outContribution: SyncCommitteeContribution
+      var outContribution: SignedContributionAndProof
+      template contribution: untyped = outContribution.message.contribution
       let success = pool.produceContribution(
         root3Slot,
         root3,
         subcommittee2,
-        outContribution)
+        contribution)
 
       check:
         not success

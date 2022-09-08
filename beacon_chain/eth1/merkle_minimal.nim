@@ -1,13 +1,16 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/tests/core/pyspec/eth2spec/utils/merkle_minimal.py
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/tests/core/pyspec/eth2spec/utils/merkle_minimal.py
 
 # Merkle tree helpers
 # ---------------------------------------------------------------
@@ -19,12 +22,10 @@ import
   ../spec/[eth2_merkleization, digest],
   ../spec/datatypes/base
 
-const depositContractLimit* = Limit(1'u64 shl DEPOSIT_CONTRACT_TREE_DEPTH)
-
 func attachMerkleProofs*(deposits: var openArray[Deposit]) =
   let depositsRoots = mapIt(deposits, hash_tree_root(it.data))
 
-  var incrementalMerkleProofs = createMerkleizer(depositContractLimit)
+  var incrementalMerkleProofs = createMerkleizer(DEPOSIT_CONTRACT_LIMIT)
 
   for i in 0 ..< depositsRoots.len:
     incrementalMerkleProofs.addChunkAndGenMerkleProof(depositsRoots[i], deposits[i].proof)

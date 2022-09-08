@@ -138,16 +138,6 @@
 	url = https://github.com/status-im/nim-snappy.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/nim-protobuf-serialization"]
-	path = vendor/nim-protobuf-serialization
-	url = https://github.com/status-im/nim-protobuf-serialization.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/nim-rocksdb"]
-	path = vendor/nim-rocksdb
-	url = https://github.com/status-im/nim-rocksdb.git
-	ignore = untracked
-	branch = master
 [submodule "vendor/asynctools"]
 	path = vendor/asynctools
 	url = https://github.com/cheatfate/asynctools.git
@@ -205,7 +195,35 @@
 	branch = master
 [submodule "vendor/eth2-networks"]
 	path = vendor/eth2-networks
-	url = https://github.com/eth2-clients/eth2-networks.git
+	url = https://github.com/eth-clients/eth2-networks.git
+	ignore = untracked
+	branch = master
 [submodule "vendor/nim-taskpools"]
 	path = vendor/nim-taskpools
 	url = https://github.com/status-im/nim-taskpools
+	ignore = untracked
+	branch = stable
+[submodule "vendor/nim-ssz-serialization"]
+	path = vendor/nim-ssz-serialization
+	url = https://github.com/status-im/nim-ssz-serialization.git
+	ignore = untracked
+	branch = master
+[submodule "vendor/nim-websock"]
+	path = vendor/nim-websock
+	url = https://github.com/status-im/nim-websock.git
+	ignore = untracked
+	branch = main
+[submodule "vendor/nim-zlib"]
+	path = vendor/nim-zlib
+	url = https://github.com/status-im/nim-zlib.git
+	ignore = untracked
+	branch = master
+[submodule "vendor/nim-toml-serialization"]
+	path = vendor/nim-toml-serialization
+	url = https://github.com/status-im/nim-toml-serialization.git
+	ignore = untracked
+	branch = master
+[submodule "vendor/merge-testnets"]
+	path = vendor/merge-testnets
+	url = https://github.com/eth-clients/merge-testnets.git
+	branch = main

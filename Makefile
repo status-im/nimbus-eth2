@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2019-2022 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -23,9 +23,16 @@ LINK_PCRE := 0
 
 NODE_ID := 0
 BASE_PORT := 9000
-BASE_RPC_PORT := 9190
+BASE_REST_PORT := 5052
 BASE_METRICS_PORT := 8008
-WEB3_URL := "wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
+# WARNING: Use lazy assignment to allow CI to override.
+EXECUTOR_NUMBER ?= 0
+
+ROPSTEN_WEB3_URL := "--web3-url=wss://ropsten.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
+SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
+GOERLI_WEB3_URL := "--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
+GNOSIS_WEB3_URLS := "--web3-url=wss://rpc.gnosischain.com/wss --web3-url=wss://xdai.poanetwork.dev/wss"
+
 VALIDATORS := 1
 CPU_LIMIT := 0
 BUILD_END_MSG := "\\x1B[92mBuild completed successfully:\\x1B[39m"
@@ -36,6 +43,14 @@ else
 	CPU_LIMIT_CMD := cpulimit --limit=$(CPU_LIMIT) --foreground --
 endif
 
+# TODO: move this to nimbus-build-system
+ifeq ($(shell uname), Darwin)
+	# Scary warnings in large volume: https://github.com/status-im/nimbus-eth2/issues/3076
+	SILENCE_WARNINGS := 2>&1 | grep -v "failed to insert symbol" | grep -v "could not find object file symbol for symbol" || true
+else
+	SILENCE_WARNINGS :=
+endif
+
 # unconditionally built by the default Make target
 # TODO re-enable ncli_query if/when it works again
 TOOLS := \
@@ -43,13 +58,15 @@ TOOLS := \
 	deposit_contract \
 	resttest \
 	logtrace \
-	nbench \
-	nbench_spec_scenarios \
 	ncli \
 	ncli_db \
+	ncli_split_keystore \
+	wss_sim \
 	stack_sizes \
+	nimbus_light_client \
 	nimbus_validator_client \
-	nimbus_signing_process
+	nimbus_signing_node \
+	validator_db_aggregator
 .PHONY: $(TOOLS)
 
 # bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
@@ -57,9 +74,7 @@ TOOLS := \
 TOOLS_DIRS := \
 	beacon_chain \
 	beacon_chain/eth1 \
-	benchmarks \
 	ncli \
-	nbench \
 	research \
 	tools
 TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
@@ -71,10 +86,6 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	test \
 	clean_eth2_network_simulation_all \
 	eth2_network_simulation \
-	clean-testnet0 \
-	testnet0 \
-	clean-testnet1 \
-	testnet1 \
 	clean \
 	libbacktrace \
 	book \
@@ -85,8 +96,7 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	dist-win64 \
 	dist-macos \
 	dist-macos-arm64 \
-	dist \
-	benchmarks
+	dist
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
@@ -114,11 +124,6 @@ all: | $(TOOLS) libnfuzz.so libnfuzz.a
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
 
-ifeq ($(OS), Windows_NT)
-  # libbacktrace/libunwind is disabled on Windows.
-  USE_LIBBACKTRACE := 0
-endif
-
 DEPOSITS_DELAY := 0
 
 #- "--define:release" cannot be added to "config.nims"
@@ -127,8 +132,7 @@ DEPOSITS_DELAY := 0
 NIM_PARAMS += -d:release --parallelBuild:1 -d:libp2p_agents_metrics -d:KnownLibP2PAgents=nimbus,lighthouse,prysm,teku
 
 ifeq ($(USE_LIBBACKTRACE), 0)
-# Blame Jacek for the lack of line numbers in your stack traces ;-)
-NIM_PARAMS += --stacktrace:on --excessiveStackTrace:on --linetrace:off -d:disable_libbacktrace
+NIM_PARAMS += -d:disable_libbacktrace
 endif
 
 deps: | deps-common nat-libs build/generate_makefile
@@ -145,6 +149,77 @@ update: | update-common
 libbacktrace:
 	+ "$(MAKE)" -C vendor/nim-libbacktrace --no-print-directory BUILD_CXX_LIB=0
 
+# Make sure ports don't overlap to support concurrent execution of tests
+# Avoid selecting ephemeral ports that may be used by others; safe = 5001-9999
+#
+# EXECUTOR_NUMBER: [0, 1] (depends on max number of concurrent CI jobs)
+#
+# The following port ranges are allocated (entire continuous range):
+# - --base-port + [0, --nodes + --light-clients)
+# - --base-rest-port + [0, --nodes)
+# - --base-metrics-port + [0, --nodes)
+# - --base-remote-signer-port + [0, --remote-signers)
+#
+# If --run-geth or --run-nimbus is specified (only these ports):
+# - --base-el-net-port + --el-port-offset * [0, --nodes + --light-clients)
+# - --base-el-http-port + --el-port-offset * [0, --nodes + --light-clients)
+# - --base-el-ws-port + --el-port-offset * [0, --nodes + --light-clients)
+# - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
+
+restapi-test:
+	./tests/simulation/restapi.sh \
+		--data-dir resttest0_data \
+		--base-port $$(( 5001 + EXECUTOR_NUMBER * 500 )) \
+		--base-rest-port $$(( 5031 + EXECUTOR_NUMBER * 500 )) \
+		--base-metrics-port $$(( 5061 + EXECUTOR_NUMBER * 500 )) \
+		--resttest-delay 30 \
+		--kill-old-processes
+
+local-testnet-minimal:
+	./scripts/launch_local_testnet.sh \
+		--data-dir $@ \
+		--preset minimal \
+		--nodes 4 \
+		--stop-at-epoch 5 \
+		--disable-htop \
+		--enable-logtrace \
+		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
+		--base-rest-port $$(( 6031 + EXECUTOR_NUMBER * 500 )) \
+		--base-metrics-port $$(( 6061 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-port $$(( 6101 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-net-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 6202 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-ws-port $$(( 6203 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-auth-rpc-port $$(( 6204 + EXECUTOR_NUMBER * 500 )) \
+		--el-port-offset 5 \
+		--timeout 600 \
+		--kill-old-processes \
+		-- \
+		--verify-finalization \
+		--discv5:no
+
+local-testnet-mainnet:
+	./scripts/launch_local_testnet.sh \
+		--data-dir $@ \
+		--nodes 4 \
+		--stop-at-epoch 5 \
+		--disable-htop \
+		--enable-logtrace \
+		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
+		--base-rest-port $$(( 7031 + EXECUTOR_NUMBER * 500 )) \
+		--base-metrics-port $$(( 7061 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-port $$(( 7101 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-net-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 7202 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-ws-port $$(( 7203 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-auth-rpc-port $$(( 7204 + EXECUTOR_NUMBER * 500 )) \
+		--el-port-offset 5 \
+		--timeout 2400 \
+		--kill-old-processes \
+		-- \
+		--verify-finalization \
+		--discv5:no
+
 # test binaries that can output an XML report
 XML_TEST_BINARIES := \
 	consensus_spec_tests_mainnet \
@@ -153,8 +228,6 @@ XML_TEST_BINARIES := \
 
 # test suite
 TEST_BINARIES := \
-	proto_array \
-	fork_choice \
 	state_sim \
 	block_sim
 .PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES)
@@ -246,7 +319,7 @@ build/generate_makefile: | libbacktrace
 endif
 build/generate_makefile: tools/generate_makefile.nim | deps-common
 	+ echo -e $(BUILD_MSG) "$@" && \
-	$(ENV_SCRIPT) nim c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim && \
+	$(ENV_SCRIPT) nim c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim $(SILENCE_WARNINGS) && \
 	echo -e $(BUILD_END_MSG) "$@"
 
 # GCC's LTO parallelisation is able to detect a GNU Make jobserver and get its
@@ -269,53 +342,37 @@ clean_eth2_network_simulation_all:
 	rm -rf tests/simulation/{data,validators}
 
 GOERLI_TESTNETS_PARAMS := \
-  --web3-url=$(WEB3_URL) \
-  --tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
-  --udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
-  --metrics \
-  --metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
-  --rpc \
-  --rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
+	--tcp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+	--udp-port=$$(( $(BASE_PORT) + $(NODE_ID) )) \
+	--metrics \
+	--metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
+	--rest \
+	--rest-port=$$(( $(BASE_REST_PORT) +$(NODE_ID) ))
 
 eth2_network_simulation: | build deps clean_eth2_network_simulation_all
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
 	killall prometheus &>/dev/null
 
-clean-testnet0:
-	rm -rf build/data/testnet0*
-
-clean-testnet1:
-	rm -rf build/data/testnet1*
-
-testnet0 testnet1: | nimbus_beacon_node nimbus_signing_process
-	build/nimbus_beacon_node \
-		--network=$@ \
-		--log-level="$(RUNTIME_LOG_LEVEL)" \
-		--data-dir=build/data/$@_$(NODE_ID) \
-		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
-
 #- https://www.gnu.org/software/make/manual/html_node/Multi_002dLine.html
 #- macOS doesn't support "=" at the end of "define FOO": https://stackoverflow.com/questions/13260396/gnu-make-3-81-eval-function-not-working
 define CONNECT_TO_NETWORK
-  scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
 		--base-metrics-port $$(($(BASE_METRICS_PORT) + $(NODE_ID))) \
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
-	[ "$(3)" == "FastSync" ] && { export CHECKPOINT_PARAMS="--finalized-checkpoint-state=vendor/eth2-networks/shared/$(1)/recent-finalized-state.ssz \
-																													--finalized-checkpoint-block=vendor/eth2-network/shared/$(1)/recent-finalized-block.ssz" ; }; \
 	$(CPU_LIMIT_CMD) build/$(2) \
-		--network=$(1) \
+		--network=$(1) $(3) $(GOERLI_TESTNETS_PARAMS) \
 		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		$$CHECKPOINT_PARAMS $(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS)
+		$(NODE_PARAMS)
 endef
 
 define CONNECT_TO_NETWORK_IN_DEV_MODE
-  scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
 
 	scripts/make_prometheus_config.sh \
 		--nodes 1 \
@@ -323,10 +380,11 @@ define CONNECT_TO_NETWORK_IN_DEV_MODE
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
 	$(CPU_LIMIT_CMD) build/$(2) \
-		--network=$(1) \
+		--network=$(1) $(3) $(GOERLI_TESTNETS_PARAMS) \
 		--log-level="DEBUG; TRACE:discv5,networking; REQUIRED:none; DISABLED:none" \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		$(GOERLI_TESTNETS_PARAMS) --dump $(NODE_PARAMS)
+		--sync-light-client=on \
+		--dump $(NODE_PARAMS)
 endef
 
 define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
@@ -340,13 +398,13 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 		--config-file "build/data/shared_$(1)_$(NODE_ID)/prometheus.yml"
 
 	$(CPU_LIMIT_CMD) build/$(2) \
-		--network=$(1) \
+		--network=$(1) $(3) $(GOERLI_TESTNETS_PARAMS) \
 		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_bn_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
 		--validators-dir=build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder \
 		--secrets-dir=build/data/shared_$(1)_$(NODE_ID)/empty_dummy_folder \
-		$(GOERLI_TESTNETS_PARAMS) $(NODE_PARAMS) &
+		$(NODE_PARAMS) &
 
 	sleep 4
 
@@ -354,7 +412,18 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_vc_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		--rpc-port=$$(( $(BASE_RPC_PORT) +$(NODE_ID) ))
+		--rest-port=$$(( $(BASE_REST_PORT) +$(NODE_ID) ))
+endef
+
+define CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT
+	scripts/makedir.sh build/data/shared_$(1)_$(NODE_ID)
+
+	$(CPU_LIMIT_CMD) build/nimbus_light_client \
+		--network=$(1) \
+		--log-level="$(RUNTIME_LOG_LEVEL)" \
+		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_lc_$$(date +"%Y%m%d%H%M%S").log \
+		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
+		--trusted-block-root="$(LC_TRUSTED_BLOCK_ROOT)"
 endef
 
 define MAKE_DEPOSIT_DATA
@@ -377,10 +446,11 @@ define MAKE_DEPOSIT
 		--count=$(VALIDATORS)
 
 	build/deposit_contract sendDeposits \
-		--web3-url=$(WEB3_URL) \
-		--deposit-contract=$$(cat vendor/eth2-network/shared/$(1)/deposit_contract.txt) \
+		$(2) \
+		--deposit-contract=$$(cat vendor/eth2-networks/shared/$(1)/deposit_contract.txt) \
 		--deposits-file=nbc-$(1)-deposits.json \
 		--min-delay=$(DEPOSITS_DELAY) \
+		--max-delay=$(DEPOSITS_DELAY) \
 		--ask-for-key
 endef
 
@@ -391,61 +461,199 @@ define CLEAN_NETWORK
 endef
 
 ###
-### Pyrmont
-###
-pyrmont-build: | nimbus_beacon_node nimbus_signing_process
-
-# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-pyrmont: | pyrmont-build
-	$(call CONNECT_TO_NETWORK,pyrmont,nimbus_beacon_node)
-
-pyrmont-vc: | pyrmont-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,pyrmont,nimbus_beacon_node)
-
-ifneq ($(LOG_LEVEL), TRACE)
-pyrmont-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
-else
-pyrmont-dev: | pyrmont-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,pyrmont,nimbus_beacon_node)
-endif
-
-pyrmont-dev-deposit: | pyrmont-build deposit_contract
-	$(call MAKE_DEPOSIT,pyrmont)
-
-clean-pyrmont:
-	$(call CLEAN_NETWORK,pyrmont)
-
-
-###
 ### Prater
 ###
-prater-build: | nimbus_beacon_node nimbus_signing_process
+prater-build: | nimbus_beacon_node nimbus_signing_node
 
 # https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
 prater: | prater-build
-	$(call CONNECT_TO_NETWORK,prater,nimbus_beacon_node)
+	$(call CONNECT_TO_NETWORK,prater,nimbus_beacon_node,$(GOERLI_WEB3_URL))
 
 prater-vc: | prater-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,prater,nimbus_beacon_node)
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,prater,nimbus_beacon_node,$(GOERLI_WEB3_URL))
+
+prater-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,prater)
 
 ifneq ($(LOG_LEVEL), TRACE)
 prater-dev:
 	+ "$(MAKE)" LOG_LEVEL=TRACE $@
 else
 prater-dev: | prater-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,prater,nimbus_beacon_node)
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,prater,nimbus_beacon_node,$(GOERLI_WEB3_URL))
 endif
 
 prater-dev-deposit: | prater-build deposit_contract
-	$(call MAKE_DEPOSIT,prater)
+	$(call MAKE_DEPOSIT,prater,$(GOERLI_WEB3_URL))
 
 clean-prater:
 	$(call CLEAN_NETWORK,prater)
 
+
+###
+### Goerli
+###
+goerli-build: | nimbus_beacon_node nimbus_signing_node
+
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
+goerli: | goerli-build
+	$(call CONNECT_TO_NETWORK,goerli,nimbus_beacon_node,$(GOERLI_WEB3_URL))
+
+goerli-vc: | goerli-build nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,goerli,nimbus_beacon_node,$(GOERLI_WEB3_URL))
+
+goerli-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,goerli)
+
+ifneq ($(LOG_LEVEL), TRACE)
+goerli-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+goerli-dev: | goerli-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,goerli,nimbus_beacon_node,$(GOERLI_WEB3_URL))
+endif
+
+goerli-dev-deposit: | goerli-build deposit_contract
+	$(call MAKE_DEPOSIT,goerli,$(GOERLI_WEB3_URL))
+
+clean-goerli:
+	$(call CLEAN_NETWORK,goerli)
+
+
+###
+### Ropsten
+###
+ropsten-build: | nimbus_beacon_node nimbus_signing_node
+
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
+ropsten: | ropsten-build
+	$(call CONNECT_TO_NETWORK,ropsten,nimbus_beacon_node,$(ROPSTEN_WEB3_URL))
+
+ropsten-vc: | ropsten-build nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,ropsten,nimbus_beacon_node,$(ROPSTEN_WEB3_URL))
+
+ropsten-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,ropsten)
+
+ifneq ($(LOG_LEVEL), TRACE)
+ropsten-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+ropsten-dev: | ropsten-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,ropsten,nimbus_beacon_node,$(ROPSTEN_WEB3_URL))
+endif
+
+ropsten-dev-deposit: | ropsten-build deposit_contract
+	$(call MAKE_DEPOSIT,ropsten,$(ROPSTEN_WEB3_URL))
+
+clean-ropsten:
+	$(call CLEAN_NETWORK,ropsten)
+
+###
+### Sepolia
+###
+sepolia-build: | nimbus_beacon_node nimbus_signing_node
+
+# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
+sepolia: | sepolia-build
+	$(call CONNECT_TO_NETWORK,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+
+sepolia-vc: | sepolia-build nimbus_validator_client
+	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+
+sepolia-lc: | nimbus_light_client
+	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,sepolia)
+
+ifneq ($(LOG_LEVEL), TRACE)
+sepolia-dev:
+	+ "$(MAKE)" LOG_LEVEL=TRACE $@
+else
+sepolia-dev: | sepolia-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,sepolia,nimbus_beacon_node,$(SEPOLIA_WEB3_URL))
+endif
+
+sepolia-dev-deposit: | sepolia-build deposit_contract
+	$(call MAKE_DEPOSIT,sepolia,$(SEPOLIA_WEB3_URL))
+
+clean-sepolia:
+	$(call CLEAN_NETWORK,sepolia)
+
+###
+### Gnosis chain binary
+###
+
+# TODO The constants overrides below should not be necessary if we restore
+#      the support for compiling with custom const presets.
+#      See the prepared preset file in media/gnosis/preset.yaml
+#
+#      The `-d:gnosisChainBinary` override can be removed if the web3 library
+#      gains support for multiple "Chain Profiles" that consist of a set of
+#      consensus object (such as blocks and transactions) that are specific
+#      to the chain.
+gnosis-build gnosis-chain-build: | build deps
+	+ echo -e $(BUILD_MSG) "build/nimbus_beacon_node_gnosis" && \
+		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
+			nimbus_beacon_node_gnosis \
+			beacon_chain/nimbus_beacon_node.nim \
+			$(NIM_PARAMS) \
+			-d:gnosisChainBinary \
+			-d:has_genesis_detection \
+			-d:SLOTS_PER_EPOCH=16 \
+			-d:SECONDS_PER_SLOT=5 \
+			-d:BASE_REWARD_FACTOR=25 \
+			-d:EPOCHS_PER_SYNC_COMMITTEE_PERIOD=512 \
+			&& \
+		echo -e $(BUILD_END_MSG) "build/nimbus_beacon_node_gnosis"
+
+gnosis: | gnosis-build
+	$(call CONNECT_TO_NETWORK,gnosis,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
+
+ifneq ($(LOG_LEVEL), TRACE)
+gnosis-dev:
+	+ "$(MAKE)" --no-print-directory LOG_LEVEL=TRACE $@
+else
+gnosis-dev: | gnosis-build
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,gnosis,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
+endif
+
+gnosis-dev-deposit: | gnosis-build deposit_contract
+	$(call MAKE_DEPOSIT,gnosis,$(GNOSIS_WEB3_URLS))
+
+clean-gnosis:
+	$(call CLEAN_NETWORK,gnosis)
+
+# v22.3 names
+gnosis-chain: | gnosis-build
+	echo `gnosis-chain` is deprecated, use `gnosis` after migrating data folder
+	$(call CONNECT_TO_NETWORK,gnosis-chain,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
+
+ifneq ($(LOG_LEVEL), TRACE)
+gnosis-chain-dev:
+	+ "$(MAKE)" --no-print-directory LOG_LEVEL=TRACE $@
+else
+gnosis-chain-dev: | gnosis-build
+	echo `gnosis-chain-dev` is deprecated, use `gnosis-dev` instead
+	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,gnosis-chain,nimbus_beacon_node_gnosis,$(GNOSIS_WEB3_URLS))
+endif
+
+gnosis-chain-dev-deposit: | gnosis-build deposit_contract
+	echo `gnosis-chain-dev-deposit` is deprecated, use `gnosis-chain-dev-deposit` instead
+	$(call MAKE_DEPOSIT,gnosis-chain,$(GNOSIS_WEB3_URLS))
+
+clean-gnosis-chain:
+	$(call CLEAN_NETWORK,gnosis-chain)
+
 ###
 ### Other
 ###
+
+nimbus-msi: | nimbus_beacon_node
+	"$(WIX)/bin/candle" -ext WixUIExtension -ext WixUtilExtension installer/windows/*.wxs -o installer/windows/obj/
+	"$(WIX)/bin/light" -ext WixUIExtension -ext WixUtilExtension -cultures:"en-us;en-uk;neutral" installer/windows/obj/*.wixobj -out build/NimbusBeaconNode.msi
+
+nimbus-pkg: | nimbus_beacon_node
+	xcodebuild -project installer/macos/nimbus-pkg.xcodeproj -scheme nimbus-pkg build
+	packagesbuild installer/macos/nimbus-pkg.pkgproj
 
 ctail: | build deps
 	mkdir -p vendor/.nimble/bin/
@@ -456,14 +664,14 @@ ntu: | build deps
 	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
-	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,state_sim,transition*,generate_makefile}
+	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,state_sim,transition*,generate_makefile,nimbus-wix/obj}
 ifneq ($(USE_LIBBACKTRACE), 0)
 	+ "$(MAKE)" -C vendor/nim-libbacktrace clean $(HANDLE_OUTPUT)
 endif
 
 libnfuzz.so: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
+		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@" && \
 		rm -f build/$@ && \
 		ln -s $@.0 build/$@
@@ -471,18 +679,18 @@ libnfuzz.so: | build deps
 libnfuzz.a: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		rm -f build/$@ && \
-		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim && \
+		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@" && \
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 
 book:
-	which mdbook &>/dev/null || { echo "'mdbook' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	which mdbook-toc &>/dev/null || { echo "'mdbook-toc' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	which mdbook-open-on-gh &>/dev/null || { echo "'mdbook-open-on-gh' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
-	cd docs/the_nimbus_book && \
-	mdbook build
+	"$(MAKE)" -C docs book
 
 auditors-book:
+	[[ "$$(mdbook --version)" = "mdbook v0.4.18" ]] || { echo "'mdbook v0.4.18' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-toc --version)" == "mdbook-toc 0.8.0" ]] || { echo "'mdbook-toc 0.8.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-open-on-gh --version)" == "mdbook-open-on-gh 2.1.0" ]] || { echo "'mdbook-open-on-gh 2.1.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
+	[[ "$$(mdbook-admonish --version)" == "mdbook-admonish 1.7.0" ]] || { echo "'mdbook-open-on-gh 1.7.0' not found in PATH. See 'docs/README.md'. Aborting."; exit 1; }
 	cd docs/the_auditors_handbook && \
 	mdbook build
 
@@ -497,11 +705,11 @@ publish-book: | book auditors-book
 	rm -rf tmp-book/* && \
 	mkdir -p tmp-book/auditors-book && \
 	cp -a docs/the_nimbus_book/CNAME tmp-book/ && \
-	cp -a docs/the_nimbus_book/book/* tmp-book/ && \
+	cp -a docs/the_nimbus_book/site/* tmp-book/ && \
 	cp -a docs/the_auditors_handbook/book/* tmp-book/auditors-book/ && \
 	cd tmp-book && \
 	git add . && { \
-		git commit -m "make publish-book" && \
+		git commit -m "make publish-book $$(git rev-parse --short HEAD)" && \
 		git push origin gh-pages || true; } && \
 	cd .. && \
 	git worktree remove -f tmp-book && \

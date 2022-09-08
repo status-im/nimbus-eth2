@@ -1,26 +1,29 @@
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   chronos, presto/client,
-  ".."/[helpers, forks], ".."/datatypes/[phase0, altair, merge],
+  ".."/[helpers, forks], ".."/datatypes/[phase0, altair],
   "."/[rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization
 
 proc getStatePlain*(state_id: StateIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v1/debug/beacon/states/{state_id}",
-     accept: "application/octet-stream,application-json;q=0.9",
+     accept: preferSSZ,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/getState
 
 proc getState*(client: RestClientRef, state_id: StateIdent,
-               restAccept = ""): Future[ForkedBeaconState] {.async.} =
+               restAccept = ""): Future[phase0.BeaconState] {.async.} =
   let resp =
     if len(restAccept) > 0:
       await client.getStatePlain(state_id, restAcceptType = restAccept)
@@ -38,7 +41,7 @@ proc getState*(client: RestClientRef, state_id: StateIdent,
             if res.isErr():
               raise newException(RestError, $res.error())
             res.get()
-        ForkedBeaconState.init(state.data)
+        state.data
       of "application/octet-stream":
         let state =
           block:
@@ -47,7 +50,7 @@ proc getState*(client: RestClientRef, state_id: StateIdent,
             if res.isErr():
               raise newException(RestError, $res.error())
             res.get()
-        ForkedBeaconState.init(state)
+        state
       else:
         raise newException(RestError, "Unsupported content-type")
     of 400, 404, 500:
@@ -73,13 +76,15 @@ proc getDebugChainHeads*(): RestResponse[GetDebugChainHeadsResponse] {.
 
 proc getStateV2Plain*(state_id: StateIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v2/debug/beacon/states/{state_id}",
-     accept: "application/octet-stream,application-json;q=0.9",
+     accept: preferSSZ,
      meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
 
 proc getStateV2*(client: RestClientRef, state_id: StateIdent,
-                 forks: array[2, Fork],
-                 restAccept = ""): Future[ForkedBeaconState] {.async.} =
+                 cfg: RuntimeConfig, restAccept = ""
+                ): Future[ref ForkedHashedBeaconState] {.async.} =
+  # nil is returned if the state is not found due to a 404 - `ref` is needed
+  # to manage stack usage
   let resp =
     if len(restAccept) > 0:
       await client.getStateV2Plain(state_id, restAcceptType = restAccept)
@@ -92,40 +97,22 @@ proc getStateV2*(client: RestClientRef, state_id: StateIdent,
       of "application/json":
         let state =
           block:
-            let res = decodeBytes(GetStateV2Response, resp.data,
-                                  resp.contentType)
-            if res.isErr():
-              raise newException(RestError, $res.error())
-            res.get()
+            let res = newClone(decodeBytes(GetStateV2Response, resp.data,
+                                  resp.contentType))
+            if res[].isErr():
+              raise newException(RestError, $res[].error())
+            newClone(res[].get())
         state
       of "application/octet-stream":
-        let header =
-          block:
-            let res = decodeBytes(GetStateV2Header, resp.data, resp.contentType)
-            if res.isErr():
-              raise newException(RestError, $res.error())
-            res.get()
-        if header.slot.epoch() < forks[1].epoch:
-          let state =
-            block:
-              let res = decodeBytes(GetPhase0StateSszResponse, resp.data,
-                                    resp.contentType)
-              if res.isErr():
-                raise newException(RestError, $res.error())
-              res.get()
-          ForkedBeaconState.init(state)
-        else:
-          let blck =
-            block:
-              let res = decodeBytes(GetAltairStateSszResponse, resp.data,
-                                    resp.contentType)
-              if res.isErr():
-                raise newException(RestError, $res.error())
-              res.get()
-          ForkedBeaconState.init(blck)
+        try:
+          newClone(readSszForkedHashedBeaconState(cfg, resp.data))
+        except CatchableError as exc:
+          raise newException(RestError, exc.msg)
       else:
         raise newException(RestError, "Unsupported content-type")
-    of 400, 404, 500:
+    of 404:
+      nil
+    of 400, 500:
       let error =
         block:
           let res = decodeBytes(RestGenericError, resp.data, resp.contentType)

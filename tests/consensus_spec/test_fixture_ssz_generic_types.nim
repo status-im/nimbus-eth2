@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -84,11 +84,11 @@ type
 proc checkBasic(T: typedesc,
                 dir: string,
                 expectedHash: SSZHashTreeRoot) =
-  var fileContents = snappy.decode(readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
-  var deserialized = newClone(sszDecodeEntireInput(fileContents, T))
+  let fileContents = snappy.decode(readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
+  let deserialized = newClone(sszDecodeEntireInput(fileContents, T))
 
   let expectedHash = expectedHash.root
-  let actualHash = "0x" & toLowerASCII($hash_tree_root(deserialized[]))
+  let actualHash = "0x" & toLowerAscii($hash_tree_root(deserialized[]))
 
   check expectedHash == actualHash
   check sszSize(deserialized[]) == fileContents.len
@@ -106,10 +106,10 @@ macro testVector(typeIdent: string, size: int): untyped =
   let types = ["bool", "uint8", "uint16", "uint32", "uint64", "uint128", "uint256"]
   let sizes = [1, 2, 3, 4, 5, 8, 16, 31, 512, 513]
 
-  var dispatcher = nnkIfStmt.newTree()
+  let dispatcher = nnkIfStmt.newTree()
   for t in types:
     # if typeIdent == t // elif typeIdent == t
-    var sizeDispatch = nnkIfStmt.newTree()
+    let sizeDispatch = nnkIfStmt.newTree()
     for s in sizes:
       # if size == s // elif size == s
       let T = nnkBracketExpr.newTree(
@@ -119,7 +119,7 @@ macro testVector(typeIdent: string, size: int): untyped =
         of "uint256": ident("UInt256")
         else: ident(t)
       )
-      var testStmt = quote do:
+      let testStmt = quote do:
         checkBasic(`T`, dir, expectedHash)
       sizeDispatch.add nnkElifBranch.newTree(
         newCall(ident"==", size, newLit(s)),
@@ -196,7 +196,7 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
   # Hash tree root
   var expectedHash: SSZHashTreeRoot
   if fileExists(dir/"meta.yaml"):
-    var s = openFileStream(dir/"meta.yaml")
+    let s = openFileStream(dir/"meta.yaml")
     defer: close(s)
     yaml.load(s, expectedHash)
 
@@ -221,7 +221,7 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
   of "bitlist": checkBitList(sszSubType, dir, expectedHash)
   of "containers":
     var name: string
-    let wasMatched = scanf(sszSubtype, "$+_", name)
+    let wasMatched = scanf(sszSubType, "$+_", name)
     doAssert wasMatched
     case name
     of "SingleFieldTestStruct": checkBasic(SingleFieldTestStruct, dir, expectedHash)
@@ -245,8 +245,8 @@ proc sszCheck(baseDir, sszType, sszSubType: string) =
 # Test runner
 # ------------------------------------------------------------------------
 
-suite "Ethereum Foundation - SSZ generic types":
-  doAssert existsDir(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
+suite "EF - SSZ generic types":
+  doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir
 
@@ -278,5 +278,3 @@ suite "Ethereum Foundation - SSZ generic types":
           checkpoint getStackTrace(getCurrentException())
           checkpoint getCurrentExceptionMsg()
           check false
-
-summarizeLongTests("FixtureSSZGeneric")

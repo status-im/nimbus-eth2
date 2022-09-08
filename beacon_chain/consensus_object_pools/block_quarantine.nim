@@ -1,29 +1,74 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
-  std/[tables, options],
-  chronicles,
+  std/[tables],
   stew/bitops2,
-  eth/keys,
-  ../spec/datatypes/[phase0, altair, merge],
-  ./block_pools_types
+  ../spec/forks
 
-export options, block_pools_types
+export tables, forks
 
-logScope:
-  topics = "quarant"
+const
+  MaxMissingItems = 1024
+    ## Arbitrary
+  MaxOrphans = SLOTS_PER_EPOCH * 3
+    ## Enough for finalization in an alternative fork
+  MaxUnviables = 16 * 1024
+    ## About a day of blocks - most likely not needed but it's quite cheap..
 
-func init*(T: type QuarantineRef, rng: ref BrHmacDrbgContext, taskpool: TaskpoolPtr): T =
-  T(rng: rng, taskpool: taskpool)
+type
+  MissingBlock* = object
+    tries*: int
 
-func checkMissing*(quarantine: QuarantineRef): seq[FetchRecord] =
+  FetchRecord* = object
+    root*: Eth2Digest
+
+  Quarantine* = object
+    ## Keeps track of unvalidated blocks coming from the network
+    ## and that cannot yet be added to the chain
+    ##
+    ## This only stores blocks that cannot be linked to the
+    ## ChainDAGRef DAG due to missing ancestor(s).
+    ##
+    ## Trivially invalid blocks may be dropped before reaching this stage.
+
+    orphans*: Table[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
+      ## Blocks that we don't have a parent for - when we resolve the parent, we
+      ## can proceed to resolving the block as well - we index this by root and
+      ## signature such that a block with invalid signature won't cause a block
+      ## with a valid signature to be dropped
+
+    unviable*: OrderedTable[Eth2Digest, tuple[]]
+      ## Unviable blocks are those that come from a history that does not
+      ## include the finalized checkpoint we're currently following, and can
+      ## therefore never be included in our canonical chain - we keep their hash
+      ## around so that we can avoid cluttering the orphans table with their
+      ## descendants - the ChainDAG only keeps track blocks that make up the
+      ## valid and canonical history.
+      ##
+      ## Entries are evicted in FIFO order - recent entries are more likely to
+      ## appear again in attestations and blocks - however, the unviable block
+      ## table is not a complete directory of all unviable blocks circulating -
+      ## only those we have observed, been able to verify as unviable and fit
+      ## in this cache.
+
+    missing*: Table[Eth2Digest, MissingBlock]
+      ## Roots of blocks that we would like to have (either parent_root of
+      ## unresolved blocks or block roots of attestations)
+
+func init*(T: type Quarantine): T =
+  T()
+
+func checkMissing*(quarantine: var Quarantine): seq[FetchRecord] =
   ## Return a list of blocks that we should try to resolve from other client -
   ## to be called periodically but not too often (once per slot?)
   var done: seq[Eth2Digest]
@@ -38,7 +83,7 @@ func checkMissing*(quarantine: QuarantineRef): seq[FetchRecord] =
     quarantine.missing.del(k)
 
   # simple (simplistic?) exponential backoff for retries..
-  for k, v in quarantine.missing.pairs():
+  for k, v in quarantine.missing:
     if countOnes(v.tries.uint64) == 1:
       result.add(FetchRecord(root: k))
 
@@ -53,160 +98,138 @@ template anyIt(s, pred: untyped): bool =
       break
   result
 
-func containsOrphan*(
-    quarantine: QuarantineRef, signedBlock: phase0.SignedBeaconBlock): bool =
-  (signedBlock.root, signedBlock.signature) in quarantine.orphansPhase0
-
-func containsOrphan*(
-    quarantine: QuarantineRef, signedBlock: altair.SignedBeaconBlock): bool =
-  (signedBlock.root, signedBlock.signature) in quarantine.orphansAltair
-
-func containsOrphan*(
-    quarantine: QuarantineRef, signedBlock: merge.SignedBeaconBlock): bool =
-  (signedBlock.root, signedBlock.signature) in quarantine.orphansMerge
-
-func addMissing*(quarantine: QuarantineRef, root: Eth2Digest) =
+func addMissing*(quarantine: var Quarantine, root: Eth2Digest) =
   ## Schedule the download a the given block
-  # Can only request by root, not by signature, so partial match suffices
-  if (not anyIt(quarantine.orphansMerge.keys,  it[0] == root)) and
-     (not anyIt(quarantine.orphansAltair.keys, it[0] == root)) and
-     (not anyIt(quarantine.orphansPhase0.keys, it[0] == root)):
-    # If the block is in orphans, we no longer need it
-    discard quarantine.missing.hasKeyOrPut(root, MissingBlock())
+  if quarantine.missing.len >= MaxMissingItems:
+    return
 
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-# copy of phase0.SomeSignedBeaconBlock from datatypes/phase0.nim
-type SomeSignedPhase0Block =
-  phase0.SignedBeaconBlock | phase0.SigVerifiedSignedBeaconBlock |
-  phase0.TrustedSignedBeaconBlock
-func removeOrphan*(
-    quarantine: QuarantineRef, signedBlock: SomeSignedPhase0Block) =
-  quarantine.orphansPhase0.del((signedBlock.root, signedBlock.signature))
+  if root in quarantine.unviable:
+    # Won't get anywhere with this block
+    return
 
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-# copy of altair.SomeSignedBeaconBlock from datatypes/altair.nim
-type SomeSignedAltairBlock =
-  altair.SignedBeaconBlock | altair.SigVerifiedSignedBeaconBlock |
-  altair.TrustedSignedBeaconBlock
-func removeOrphan*(
-    quarantine: QuarantineRef, signedBlock: SomeSignedAltairBlock) =
-  quarantine.orphansAltair.del((signedBlock.root, signedBlock.signature))
+  # It's not really missing if we're keeping it in the quarantine
+  if anyIt(quarantine.orphans.keys,  it[0] == root):
+    return
 
-# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-# copy of merge.SomeSignedBeaconBlock from datatypes/merge.nim
-type SomeSignedMergeBlock =
-  merge.SignedBeaconBlock | merge.SigVerifiedSignedBeaconBlock |
-  merge.TrustedSignedBeaconBlock
+  # Add if it's not there, but don't update missing counter
+  discard quarantine.missing.hasKeyOrPut(root, MissingBlock())
+
 func removeOrphan*(
-    quarantine: QuarantineRef, signedBlock: SomeSignedMergeBlock) =
-  quarantine.orphansMerge.del((signedBlock.root, signedBlock.signature))
+    quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
+  quarantine.orphans.del((signedBlock.root, signedBlock.signature))
 
 func isViableOrphan(
-    dag: ChainDAGRef,
-    signedBlock: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                 merge.SignedBeaconBlock): bool =
+    finalizedSlot: Slot, signedBlock: ForkedSignedBeaconBlock): bool =
   # The orphan must be newer than the finalization point so that its parent
   # either is the finalized block or more recent
-  signedBlock.message.slot > dag.finalizedHead.slot
+  let
+    slot = getForkedBlockField(signedBlock, slot)
+  slot > finalizedSlot
 
-func removeOldBlocks(quarantine: QuarantineRef, dag: ChainDAGRef) =
-  var oldBlocks: seq[(Eth2Digest, ValidatorSig)]
+func cleanupUnviable(quarantine: var Quarantine) =
+  while quarantine.unviable.len() >= MaxUnviables:
+    var toDel: Eth2Digest
+    for k in quarantine.unviable.keys():
+      toDel = k
+      break # Cannot modify while for-looping
+    quarantine.unviable.del(toDel)
 
-  template removeNonviableOrphans(orphans: untyped) =
-    for k, v in orphans.pairs():
-      if not isViableOrphan(dag, v):
-        oldBlocks.add k
+func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
+  if root in quarantine.unviable:
+    return
 
-    for k in oldBlocks:
-      orphans.del k
+  quarantine.cleanupUnviable()
 
-  removeNonviableOrphans(quarantine.orphansPhase0)
-  removeNonviableOrphans(quarantine.orphansAltair)
-  removeNonviableOrphans(quarantine.orphansMerge)
+  # Remove the tree of orphans whose ancestor is unviable - they are now also
+  # unviable! This helps avoiding junk in the quarantine, because we don't keep
+  # unviable parents in the DAG and there's no way to tell an orphan from an
+  # unviable block without the parent.
+  var
+    toRemove: seq[(Eth2Digest, ValidatorSig)] # Can't modify while iterating
+    toCheck = @[root]
+  while toCheck.len > 0:
+    let root = toCheck.pop()
+    for k, v in quarantine.orphans.mpairs():
+      if getForkedBlockField(v, parent_root) == root:
+        toCheck.add(k[0])
+        toRemove.add(k)
+      elif k[0] == root:
+        toRemove.add(k)
 
-func clearQuarantine*(quarantine: QuarantineRef) =
-  quarantine.orphansPhase0.clear()
-  quarantine.orphansAltair.clear()
-  quarantine.orphansMerge.clear()
-  quarantine.missing.clear()
+    for k in toRemove:
+      quarantine.orphans.del k
+      quarantine.unviable[k[0]] = ()
+
+    toRemove.setLen(0)
+
+  quarantine.unviable[root] = ()
+
+func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
+  var toDel: seq[(Eth2Digest, ValidatorSig)]
+
+  for k, v in quarantine.orphans:
+    if not isViableOrphan(finalizedSlot, v):
+      toDel.add k
+
+  for k in toDel:
+    quarantine.addUnviable k[0]
+
+func clearAfterReorg*(quarantine: var Quarantine) =
+  ## Clear missing and orphans to start with a fresh slate in case of a reorg
+  ## Unviables remain unviable and are not cleared.
+  quarantine.missing.reset()
+  quarantine.orphans.reset()
 
 # Typically, blocks will arrive in mostly topological order, with some
 # out-of-order block pairs. Therefore, it is unhelpful to use either a
 # FIFO or LIFO discpline, and since by definition each block gets used
 # either 0 or 1 times it's not a cache either. Instead, stop accepting
-# new blocks, and rely on syncing to cache up again if necessary. When
-# using forward sync, blocks only arrive in an order not requiring the
-# quarantine.
+# new blocks, and rely on syncing to cache up again if necessary.
 #
 # For typical use cases, this need not be large, as they're two or three
 # blocks arriving out of order due to variable network delays. As blocks
 # for future slots are rejected before reaching quarantine, this usually
 # will be a block for the last couple of slots for which the parent is a
 # likely imminent arrival.
-
-# Since we start forward sync when about one epoch is missing, that's as
-# good a number as any.
-const MAX_QUARANTINE_ORPHANS = SLOTS_PER_EPOCH
-
-func add*(quarantine: QuarantineRef, dag: ChainDAGRef,
-          signedBlock: phase0.SignedBeaconBlock): bool =
+func addOrphan*(
+    quarantine: var Quarantine, finalizedSlot: Slot,
+    signedBlock: ForkedSignedBeaconBlock): bool =
   ## Adds block to quarantine's `orphans` and `missing` lists.
-  if not isViableOrphan(dag, signedBlock):
+  if not isViableOrphan(finalizedSlot, signedBlock):
+    quarantine.addUnviable(signedBlock.root)
     return false
 
-  quarantine.removeOldBlocks(dag)
+  quarantine.cleanupOrphans(finalizedSlot)
+
+  let parent_root = getForkedBlockField(signedBlock, parent_root)
+
+  if parent_root in quarantine.unviable:
+    quarantine.unviable[signedBlock.root] = ()
+    return true
 
   # Even if the quarantine is full, we need to schedule its parent for
   # downloading or we'll never get to the bottom of things
-  quarantine.addMissing(signedBlock.message.parent_root)
+  quarantine.addMissing(parent_root)
 
-  if quarantine.orphansPhase0.lenu64 >= MAX_QUARANTINE_ORPHANS:
+  if quarantine.orphans.lenu64 >= MaxOrphans:
     return false
 
-  quarantine.orphansPhase0[(signedBlock.root, signedBlock.signature)] =
+  quarantine.orphans[(signedBlock.root, signedBlock.signature)] =
     signedBlock
   quarantine.missing.del(signedBlock.root)
 
   true
 
-func add*(quarantine: QuarantineRef, dag: ChainDAGRef,
-          signedBlock: altair.SignedBeaconBlock): bool =
-  ## Adds block to quarantine's `orphans` and `missing` lists.
-  if not isViableOrphan(dag, signedBlock):
-    return false
+iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
+    ForkedSignedBeaconBlock =
+  # Pop orphans whose parent is the block identified by `root`
 
-  quarantine.removeOldBlocks(dag)
+  var toRemove: seq[(Eth2Digest, ValidatorSig)]
+  defer: # Run even if iterator is not carried to termination
+    for k in toRemove:
+      quarantine.orphans.del k
 
-  # Even if the quarantine is full, we need to schedule its parent for
-  # downloading or we'll never get to the bottom of things
-  quarantine.addMissing(signedBlock.message.parent_root)
-
-  if quarantine.orphansAltair.lenu64 >= MAX_QUARANTINE_ORPHANS:
-    return false
-
-  quarantine.orphansAltair[(signedBlock.root, signedBlock.signature)] =
-    signedBlock
-  quarantine.missing.del(signedBlock.root)
-
-  true
-
-func add*(quarantine: QuarantineRef, dag: ChainDAGRef,
-          signedBlock: merge.SignedBeaconBlock): bool =
-  ## Adds block to quarantine's `orphans` and `missing` lists.
-  if not isViableOrphan(dag, signedBlock):
-    return false
-
-  quarantine.removeOldBlocks(dag)
-
-  # Even if the quarantine is full, we need to schedule its parent for
-  # downloading or we'll never get to the bottom of things
-  quarantine.addMissing(signedBlock.message.parent_root)
-
-  if quarantine.orphansMerge.lenu64 >= MAX_QUARANTINE_ORPHANS:
-    return false
-
-  quarantine.orphansMerge[(signedBlock.root, signedBlock.signature)] =
-    signedBlock
-  quarantine.missing.del(signedBlock.root)
-
-  true
+  for k, v in quarantine.orphans.mpairs():
+    if getForkedBlockField(v, parent_root) == root:
+      toRemove.add(k)
+      yield v

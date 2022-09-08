@@ -1,3 +1,10 @@
+# beacon_chain
+# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 nimcache/
 
 # Executables shall be put in an ignored build/ directory
@@ -23,8 +30,10 @@ build/
 *.la
 *.exe
 *.dll
+*.su
 
 /scripts/testnet*.sh
+/scripts/package_image/usr/bin
 
 # State sim # TODO - move in another folder
 0000-*.json
@@ -37,6 +46,8 @@ build/
 /local_testnet_data*/
 /local_testnet*_data*/
 
+test_keymanager_api
+
 # Prometheus db
 /data
 # Grafana dashboards
@@ -48,3 +59,12 @@ build/
 /dist
 /benchmark_results
 /.update.timestamp
+resttest0_data
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Nimble user files
+nimble.develop
+nimble.paths

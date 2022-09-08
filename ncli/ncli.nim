@@ -1,9 +1,11 @@
 import
   std/[os, strutils, stats],
   confutils, chronicles, json_serialization,
-  stew/byteutils,
+  stew/[byteutils, io2],
+  snappy,
   ../research/simutils,
-  ../beacon_chain/spec/datatypes/[phase0],
+  ../beacon_chain/spec/eth2_apis/eth2_rest_serialization,
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/spec/[
     eth2_ssz_serialization, forks, helpers, state_transition],
   ../beacon_chain/networking/network_metadata
@@ -16,10 +18,14 @@ type
     slots = "Apply empty slots"
 
   NcliConf* = object
-
     eth2Network* {.
       desc: "The Eth2 network preset to use"
       name: "network" }: Option[string]
+
+    printTimes* {.
+      defaultValue: false # false to avoid polluting minimal output
+      name: "print-times"
+      desc: "Print timing information".}: bool
 
     # TODO confutils argument pragma doesn't seem to do much; also, the cases
     # are largely equivalent, but this helps create command line usage text
@@ -75,31 +81,58 @@ type
 
 template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
   case value.kind:
-  of BeaconStateFork.Phase0: SSZ.saveFile(filename, value.phase0Data.data)
-  of BeaconStateFork.Altair: SSZ.saveFile(filename, value.altairData.data)
-  of BeaconStateFork.Merge:  SSZ.saveFile(filename, value.mergeData.data)
+  of BeaconStateFork.Phase0:    SSZ.saveFile(filename, value.phase0Data.data)
+  of BeaconStateFork.Altair:    SSZ.saveFile(filename, value.altairData.data)
+  of BeaconStateFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
+
+proc loadFile(filename: string, T: type): T =
+  let
+    ext = splitFile(filename).ext
+    bytes = readAllBytes(filename).expect("file exists")
+  if cmpIgnoreCase(ext, ".ssz") == 0:
+    SSZ.decode(bytes, T)
+  elif cmpIgnoreCase(ext, ".ssz_snappy") == 0:
+    SSZ.decode(snappy.decode(bytes), T)
+  elif cmpIgnoreCase(ext, ".json") == 0:
+    # JSON.loadFile(file, t)
+    echo "TODO needs porting to RestJson"
+    quit 1
+  else:
+    echo "Unknown file type: ", ext
+    quit 1
 
 proc doTransition(conf: NcliConf) =
-  let
-    stateY = (ref ForkedHashedBeaconState)(
-      phase0Data: phase0.HashedBeaconState(
-        data: SSZ.loadFile(conf.preState, phase0.BeaconState)),
-      kind: BeaconStateFork.Phase0
-    )
-    blckX = SSZ.loadFile(conf.blck, phase0.SignedBeaconBlock)
-    flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
+  type
+    Timers = enum
+      tLoadState = "Load state from file"
+      tTransition = "Apply slot"
+      tSaveState = "Save state to file"
+  var timers: array[Timers, RunningStat]
 
-  setStateRoot(stateY[], hash_tree_root(stateY[]))
+  let
+    cfg = getRuntimeConfig(conf.eth2Network)
+    stateY = withTimerRet(timers[tLoadState]):
+      newClone(readSszForkedHashedBeaconState(
+        cfg, readAllBytes(conf.preState).tryGet()))
+    blckX = readSszForkedSignedBeaconBlock(
+      cfg, readAllBytes(conf.blck).tryGet())
+    flags = if not conf.verifyStateRoot: {skipStateRootValidation} else: {}
 
   var
     cache = StateCache()
     info = ForkedEpochInfo()
-  if not state_transition(getRuntimeConfig(conf.eth2Network),
-                          stateY[], blckX, cache, info, flags, noRollback):
-    error "State transition failed"
+  let res = withTimerRet(timers[tTransition]): withBlck(blckX):
+    state_transition(
+      cfg, stateY[], blck, cache, info, flags, noRollback)
+  if res.isErr():
+    error "State transition failed", error = res.error()
     quit 1
   else:
-    saveSSZFile(conf.postState, stateY[])
+    withTimer(timers[tSaveState]):
+      saveSSZFile(conf.postState, stateY[])
+
+  if conf.printTimes:
+    printTimers(false, timers)
 
 proc doSlots(conf: NcliConf) =
   type
@@ -111,30 +144,32 @@ proc doSlots(conf: NcliConf) =
 
   var timers: array[Timers, RunningStat]
   let
-    stateY = withTimerRet(timers[tLoadState]): (ref ForkedHashedBeaconState)(
-      phase0Data: phase0.HashedBeaconState(
-        data: SSZ.loadFile(conf.preState2, phase0.BeaconState)),
-      kind: BeaconStateFork.Phase0
-    )
-
-  setStateRoot(stateY[], hash_tree_root(stateY[]))
-
+    cfg = getRuntimeConfig(conf.eth2Network)
+    stateY = withTimerRet(timers[tLoadState]):
+      newClone(readSszForkedHashedBeaconState(
+        cfg, readAllBytes(conf.preState2).tryGet()))
   var
     cache = StateCache()
     info = ForkedEpochInfo()
   for i in 0'u64..<conf.slot:
-    let isEpoch = (getStateField(stateY[], slot) + 1).isEpoch
+    let isEpoch = (getStateField(stateY[], slot) + 1).is_epoch
     withTimer(timers[if isEpoch: tApplyEpochSlot else: tApplySlot]):
-      doAssert process_slots(
-        defaultRuntimeConfig, stateY[], getStateField(stateY[], slot) + 1,
-        cache, info, {})
+      process_slots(
+        cfg, stateY[], getStateField(stateY[], slot) + 1,
+        cache, info, {}).expect("should be able to advance slot")
 
   withTimer(timers[tSaveState]):
-    saveSSZFile(conf.postState, stateY[])
+    saveSSZFile(conf.postState2, stateY[])
 
-  printTimers(false, timers)
+  if conf.printTimes:
+    printTimers(false, timers)
 
 proc doSSZ(conf: NcliConf) =
+  type Timers = enum
+    tLoad = "Load file"
+    tCompute = "Compute"
+  var timers: array[Timers, RunningStat]
+
   let (kind, file) =
     case conf.cmd:
     of hashTreeRoot: (conf.htrKind, conf.htrFile)
@@ -143,45 +178,52 @@ proc doSSZ(conf: NcliConf) =
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
   template printit(t: untyped) {.dirty.} =
-    let v = newClone(
-      if cmpIgnoreCase(ext, ".ssz") == 0:
-        SSZ.loadFile(file, t)
-      elif cmpIgnoreCase(ext, ".json") == 0:
-        JSON.loadFile(file, t)
-      else:
-        echo "Unknown file type: ", ext
-        quit 1
-    )
+
+    let v = withTimerRet(timers[tLoad]):
+      newClone(loadFile(file, t))
 
     case conf.cmd:
     of hashTreeRoot:
-      when t is phase0.SignedBeaconBlock:
-        echo hash_tree_root(v.message).data.toHex()
-      else:
-        echo hash_tree_root(v[]).data.toHex()
+      let root = withTimerRet(timers[tCompute]):
+        when t is ForkySignedBeaconBlock:
+          hash_tree_root(v[].message)
+        else:
+          hash_tree_root(v[])
+
+      echo root.data.toHex()
     of pretty:
-      echo JSON.encode(v[], pretty = true)
+      echo RestJson.encode(v[], pretty = true)
     else:
       raiseAssert "doSSZ() only implements hashTreeRoot and pretty commands"
 
-  let ext = splitFile(file).ext
+    if conf.printTimes:
+      printTimers(false, timers)
 
   case kind
   of "attester_slashing": printit(AttesterSlashing)
   of "attestation": printit(Attestation)
-  of "signed_block": printit(phase0.SignedBeaconBlock)
-  of "block": printit(phase0.BeaconBlock)
-  of "block_body": printit(phase0.BeaconBlockBody)
+  of "phase0_signed_block": printit(phase0.SignedBeaconBlock)
+  of "altair_signed_block": printit(altair.SignedBeaconBlock)
+  of "bellatrix_signed_block": printit(bellatrix.SignedBeaconBlock)
+  of "phase0_block": printit(phase0.BeaconBlock)
+  of "altair_block": printit(altair.BeaconBlock)
+  of "bellatrix_block": printit(bellatrix.BeaconBlock)
+  of "phase0_block_body": printit(phase0.BeaconBlockBody)
+  of "altair_block_body": printit(altair.BeaconBlockBody)
+  of "bellatrix_block_body": printit(bellatrix.BeaconBlockBody)
   of "block_header": printit(BeaconBlockHeader)
   of "deposit": printit(Deposit)
   of "deposit_data": printit(DepositData)
   of "eth1_data": printit(Eth1Data)
-  of "state": printit(phase0.BeaconState)
+  of "phase0_state": printit(phase0.BeaconState)
+  of "altair_state": printit(altair.BeaconState)
+  of "bellatrix_state": printit(bellatrix.BeaconState)
   of "proposer_slashing": printit(ProposerSlashing)
   of "voluntary_exit": printit(VoluntaryExit)
 
 when isMainModule:
-  let conf = NcliConf.load()
+  let
+    conf = NcliConf.load()
 
   case conf.cmd:
   of hashTreeRoot: doSSZ(conf)

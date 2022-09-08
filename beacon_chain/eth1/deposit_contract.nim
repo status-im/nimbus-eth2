@@ -1,11 +1,14 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   os, sequtils, strutils, options, json, terminal,
@@ -27,7 +30,6 @@ type
 
   StartUpCommand {.pure.} = enum
     deploy
-    drain
     sendEth
     generateSimulationDeposits
     sendDeposits
@@ -56,11 +58,6 @@ type
     of deploy:
       discard
 
-    of drain:
-      drainedContractAddress* {.
-        desc: "Address of the contract to drain"
-        name: "deposit-contract" }: Eth1Address
-
     of sendEth:
       toAddress {.name: "to".}: Eth1Address
       valueEth {.name: "eth".}: string
@@ -82,6 +79,20 @@ type
         desc: "A LaunchPad deposits file to write"
         name: "out-deposits-file" }: OutFile
 
+      threshold {.
+        defaultValue: 1
+        desc: "Used to generate distributed keys"
+        name: "threshold" }: uint32
+
+      remoteValidatorsCount {.
+        defaultValue: 0
+        desc: "The number of distributed validators validator"
+        name: "remote-validators-count" }: uint32
+
+      remoteSignersUrls {.
+        desc: "URLs of the remote signers"
+        name: "remote-signer" }: seq[string]
+
     of sendDeposits:
       depositsFile {.
         desc: "A LaunchPad deposits file"
@@ -101,13 +112,16 @@ type
         desc: "Maximum possible delay between making two deposits (in seconds)"
         name: "max-delay" }: float
 
-contract(DepositContract):
-  proc deposit(pubkey: Bytes48,
-               withdrawalCredentials: Bytes32,
-               signature: Bytes96,
-               deposit_data_root: FixedBytes[32])
+type
+  PubKeyBytes = DynamicBytes[48, 48]
+  WithdrawalCredentialsBytes = DynamicBytes[32, 32]
+  SignatureBytes = DynamicBytes[96, 96]
 
-  proc drain()
+contract(DepositContract):
+  proc deposit(pubkey: PubKeyBytes,
+               withdrawalCredentials: WithdrawalCredentialsBytes,
+               signature: SignatureBytes,
+               deposit_data_root: FixedBytes[32])
 
 proc deployContract*(web3: Web3, code: string): Future[ReceiptObject] {.async.} =
   var code = code
@@ -157,22 +171,23 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
     depositContract = depositContractAddress
 
   var web3 = await initWeb3(web3Url, privateKey)
+  let gasPrice = int(await web3.provider.eth_gasPrice()) * 2
   let depositContract = web3.contractSender(DepositContract,
                                             Address depositContractAddress)
-  for i, launchPadDeposit in deposits:
-    let dp = launchPadDeposit as DepositData
+  for i in 4200 ..< deposits.len:
+    let dp = deposits[i] as DepositData
 
     while true:
       try:
         let tx = depositContract.deposit(
-          Bytes48(dp.pubKey.toRaw()),
-          Bytes32(dp.withdrawal_credentials.data),
-          Bytes96(dp.signature.toRaw()),
+          PubKeyBytes(@(dp.pubkey.toRaw())),
+          WithdrawalCredentialsBytes(@(dp.withdrawal_credentials.data)),
+          SignatureBytes(@(dp.signature.toRaw())),
           FixedBytes[32](hash_tree_root(dp).data))
 
-        let status = await tx.send(value = 32.u256.ethToWei, gasPrice = 1)
+        let status = await tx.send(value = 32.u256.ethToWei, gasPrice = gasPrice)
 
-        info "Deposit sent", status = $status
+        info "Deposit sent", tx = $status
 
         if delayGenerator != nil:
           await sleepAsync(delayGenerator())
@@ -184,24 +199,27 @@ proc sendDeposits*(deposits: seq[LaunchPadDeposit],
 
 {.pop.} # TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 proc main() {.async.} =
-  var conf = CliConfig.load()
+  var conf = try: CliConfig.load()
+  except CatchableError as exc:
+    raise exc
+  except Exception as exc: # TODO fix confutils
+    raiseAssert exc.msg
+
   let rng = keys.newRng()
 
   if conf.cmd == StartUpCommand.generateSimulationDeposits:
     let
       mnemonic = generateMnemonic(rng[])
-      seed = getSeed(mnemonic, KeyStorePass.init "")
+      seed = getSeed(mnemonic, KeystorePass.init "")
       cfg = getRuntimeConfig(conf.eth2Network)
 
-    let vres = secureCreatePath(string conf.outValidatorsDir)
-    if vres.isErr():
+    if (let res = secureCreatePath(string conf.outValidatorsDir); res.isErr):
       warn "Could not create validators folder",
-           path = string conf.outValidatorsDir, err = ioErrorMsg(vres.error)
+        path = string conf.outValidatorsDir, err = ioErrorMsg(res.error)
 
-    let sres = secureCreatePath(string conf.outSecretsDir)
-    if sres.isErr():
+    if (let res = secureCreatePath(string conf.outSecretsDir); res.isErr):
       warn "Could not create secrets folder",
-           path = string conf.outSecretsDir, err = ioErrorMsg(sres.error)
+        path = string conf.outSecretsDir, err = ioErrorMsg(res.error)
 
     let deposits = generateDeposits(
       cfg,
@@ -209,7 +227,11 @@ proc main() {.async.} =
       seed,
       0, conf.simulationDepositsCount,
       string conf.outValidatorsDir,
-      string conf.outSecretsDir)
+      string conf.outSecretsDir,
+      conf.remoteSignersUrls,
+      conf.threshold,
+      conf.remoteValidatorsCount,
+      KeystoreMode.Fast)
 
     if deposits.isErr:
       fatal "Failed to generate deposits", err = deposits.error
@@ -228,7 +250,7 @@ proc main() {.async.} =
 
   if conf.askForKey:
     var
-      privateKey: TaintedString
+      privateKey: string  # TODO consider using a SecretString type
       reasonForKey = ""
 
     if conf.cmd == StartUpCommand.sendDeposits:
@@ -253,11 +275,6 @@ proc main() {.async.} =
   of StartUpCommand.deploy:
     let receipt = await web3.deployContract(contractCode)
     echo receipt.contractAddress.get, ";", receipt.blockHash
-
-  of StartUpCommand.drain:
-    let sender = web3.contractSender(DepositContract,
-                                     conf.drainedContractAddress)
-    discard await sender.drain().send(gasPrice = 1)
 
   of StartUpCommand.sendEth:
     echo await sendEth(web3, conf.toAddress, conf.valueEth.parseInt)

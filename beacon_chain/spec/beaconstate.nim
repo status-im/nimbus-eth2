@@ -1,35 +1,37 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
-  std/[algorithm, collections/heapqueue, math, options, sequtils, tables],
+  std/[algorithm, collections/heapqueue, math, sequtils, tables],
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
   ../extras,
-  ./datatypes/[phase0, altair, merge],
-  "."/[eth2_merkleization, helpers, signatures, validator],
-  ../../nbench/bench_lab
+  ./datatypes/[phase0, altair, bellatrix],
+  "."/[eth2_merkleization, forks, signatures, validator]
 
-export extras, phase0, altair, merge
+export extras, forks, validator
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#increase_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#increase_balance
 func increase_balance*(balance: var Gwei, delta: Gwei) =
   balance += delta
 
 func increase_balance*(
-    state: var SomeBeaconState, index: ValidatorIndex, delta: Gwei) =
+    state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Increase the validator balance at index ``index`` by ``delta``.
   if delta != 0: # avoid dirtying the balance cache if not needed
-    increase_balance(state.balances[index], delta)
+    increase_balance(state.balances.mitem(index), delta)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#decrease_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#decrease_balance
 func decrease_balance*(balance: var Gwei, delta: Gwei) =
   balance =
     if delta > balance:
@@ -38,14 +40,14 @@ func decrease_balance*(balance: var Gwei, delta: Gwei) =
       balance - delta
 
 func decrease_balance*(
-    state: var SomeBeaconState, index: ValidatorIndex, delta: Gwei) =
+    state: var ForkyBeaconState, index: ValidatorIndex, delta: Gwei) =
   ## Decrease the validator balance at index ``index`` by ``delta``, with
   ## underflow protection.
   if delta != 0: # avoid dirtying the balance cache if not needed
-    decrease_balance(state.balances[index], delta)
+    decrease_balance(state.balances.mitem(index), delta)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#deposits
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/beacon-chain.md#modified-process_deposit
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#modified-process_deposit
 func get_validator_from_deposit*(deposit: DepositData):
     Validator =
   let
@@ -63,15 +65,15 @@ func get_validator_from_deposit*(deposit: DepositData):
     effective_balance: effective_balance
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
 func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
   ## ``epoch`` take effect.
   epoch + 1 + MAX_SEED_LOOKAHEAD
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_validator_churn_limit
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_validator_churn_limit
 func get_validator_churn_limit*(
-      cfg: RuntimeConfig, state: SomeBeaconState, cache: var StateCache):
+      cfg: RuntimeConfig, state: ForkyBeaconState, cache: var StateCache):
     uint64 =
   ## Return the validator churn limit for the current epoch.
   max(
@@ -79,15 +81,17 @@ func get_validator_churn_limit*(
     count_active_validators(
       state, state.get_current_epoch(), cache) div cfg.CHURN_LIMIT_QUOTIENT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#initiate_validator_exit
-func initiate_validator_exit*(cfg: RuntimeConfig, state: var SomeBeaconState,
-                              index: ValidatorIndex, cache: var StateCache) =
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#initiate_validator_exit
+func initiate_validator_exit*(
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
+    index: ValidatorIndex, cache: var StateCache): Result[void, cstring] =
   ## Initiate the exit of the validator with index ``index``.
 
+  if state.validators.item(index).exit_epoch != FAR_FUTURE_EPOCH:
+    return ok() # Before touching cache
+
   # Return if validator already initiated exit
-  let validator = addr state.validators[index]
-  if validator.exit_epoch != FAR_FUTURE_EPOCH:
-    return
+  let validator = addr state.validators.mitem(index)
 
   trace "Validator exiting",
     index = index,
@@ -101,14 +105,14 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var SomeBeaconState,
   var exit_queue_epoch = compute_activation_exit_epoch(get_current_epoch(state))
   # Compute max exit epoch
   for idx in 0..<state.validators.len:
-    let exit_epoch = state.validators.asSeq()[idx].exit_epoch
+    let exit_epoch = state.validators.item(idx).exit_epoch
     if exit_epoch != FAR_FUTURE_EPOCH and exit_epoch > exit_queue_epoch:
       exit_queue_epoch = exit_epoch
 
   var
     exit_queue_churn: int
   for idx in 0..<state.validators.len:
-    if state.validators.asSeq()[idx].exit_epoch == exit_queue_epoch:
+    if state.validators.item(idx).exit_epoch == exit_queue_epoch:
       exit_queue_churn += 1
 
   if exit_queue_churn.uint64 >= get_validator_churn_limit(cfg, state, cache):
@@ -116,18 +120,61 @@ func initiate_validator_exit*(cfg: RuntimeConfig, state: var SomeBeaconState,
 
   # Set validator exit epoch and withdrawable epoch
   validator.exit_epoch = exit_queue_epoch
+
+  if  validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY <
+      validator.exit_epoch:
+    return err("initiate_validator_exit: exit_epoch overflowed")
+
   validator.withdrawable_epoch =
     validator.exit_epoch + cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#modified-slash_validator
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#modified-slash_validator
+func get_slashing_penalty*(state: ForkyBeaconState,
+                           validator_effective_balance: Gwei): Gwei =
+  # TODO Consider whether this is better than splitting the functions apart; in
+  # each case, tradeoffs. Here, it's just changing a couple of constants.
+  when state is phase0.BeaconState:
+      validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT
+  elif state is altair.BeaconState:
+      validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR
+  elif state is bellatrix.BeaconState:
+      validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX
+  else:
+    {.fatal: "invalid BeaconState type".}
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#modified-slash_validator
+func get_whistleblower_reward*(validator_effective_balance: Gwei): Gwei =
+  validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#modified-slash_validator
+func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): Gwei =
+  when state is phase0.BeaconState:
+    whistleblower_reward div PROPOSER_REWARD_QUOTIENT
+  elif state is altair.BeaconState or state is bellatrix.BeaconState:
+    whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
+  else:
+    {.fatal: "invalid BeaconState type".}
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/bellatrix/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
-    cfg: RuntimeConfig, state: var SomeBeaconState,
-    slashed_index: ValidatorIndex, cache: var StateCache) =
+    cfg: RuntimeConfig, state: var ForkyBeaconState,
+    slashed_index: ValidatorIndex, cache: var StateCache):
+    Result[void, cstring] =
   ## Slash the validator with index ``index``.
   let epoch = get_current_epoch(state)
-  initiate_validator_exit(cfg, state, slashed_index, cache)
-  let validator = addr state.validators[slashed_index]
+  ? initiate_validator_exit(cfg, state, slashed_index, cache)
+
+  let validator = addr state.validators.mitem(slashed_index)
 
   trace "slash_validator: ejecting validator via slashing (validator_leaving)",
     index = slashed_index,
@@ -141,39 +188,24 @@ proc slash_validator*(
   validator.slashed = true
   validator.withdrawable_epoch =
     max(validator.withdrawable_epoch, epoch + EPOCHS_PER_SLASHINGS_VECTOR)
-  state.slashings[int(epoch mod EPOCHS_PER_SLASHINGS_VECTOR)] +=
+  state.slashings.mitem(int(epoch mod EPOCHS_PER_SLASHINGS_VECTOR)) +=
     validator.effective_balance
 
-  # TODO Consider whether this is better than splitting the functions apart; in
-  # each case, tradeoffs. Here, it's just changing a couple of constants.
-  when state is phase0.BeaconState:
-    decrease_balance(state, slashed_index,
-      validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT)
-  elif state is altair.BeaconState or state is merge.BeaconState:
-    decrease_balance(state, slashed_index,
-      validator.effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR)
-  else:
-    raiseAssert "invalid BeaconState type"
+  decrease_balance(state, slashed_index,
+    get_slashing_penalty(state, validator.effective_balance))
 
   # The rest doesn't make sense without there being any proposer index, so skip
   let proposer_index = get_beacon_proposer_index(state, cache)
   if proposer_index.isNone:
     debug "No beacon proposer index and probably no active validators"
-    return
+    return ok()
 
   # Apply proposer and whistleblower rewards
   let
     # Spec has whistleblower_index as optional param, but it's never used.
     whistleblower_index = proposer_index.get
-    whistleblower_reward =
-      (validator.effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT).Gwei
-    proposer_reward =
-      when state is phase0.BeaconState:
-        whistleblower_reward div PROPOSER_REWARD_QUOTIENT
-      elif state is altair.BeaconState or state is merge.BeaconState:
-        whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
-      else:
-        raiseAssert "invalid BeaconState type"
+    whistleblower_reward = get_whistleblower_reward(validator.effective_balance)
+    proposer_reward = get_proposer_reward(state, whistleblower_reward)
 
   increase_balance(state, proposer_index.get, proposer_reward)
   # TODO: evaluate if spec bug / underflow can be triggered
@@ -181,36 +213,18 @@ proc slash_validator*(
   increase_balance(
     state, whistleblower_index, whistleblower_reward - proposer_reward)
 
+  ok()
+
 func genesis_time_from_eth1_timestamp*(cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
   eth1_timestamp + cfg.GENESIS_DELAY
 
-func genesisFork*(cfg: RuntimeConfig): Fork =
-  Fork(
-    previous_version: cfg.GENESIS_FORK_VERSION,
-    current_version: cfg.GENESIS_FORK_VERSION,
-    epoch: GENESIS_EPOCH)
-
-func altairFork*(cfg: RuntimeConfig): Fork =
-  Fork(
-    previous_version: cfg.GENESIS_FORK_VERSION,
-    current_version: cfg.ALTAIR_FORK_VERSION,
-    epoch: cfg.ALTAIR_FORK_EPOCH)
-
-func mergeFork*(cfg: RuntimeConfig): Fork =
-  # TODO in theory, the altair + merge forks could be in same epoch, so the
-  # previous fork version would be the GENESIS_FORK_VERSION
-  Fork(
-    previous_version: cfg.ALTAIR_FORK_VERSION,
-    current_version: cfg.MERGE_FORK_VERSION,
-    epoch: cfg.MERGE_FORK_EPOCH)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#genesis
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#genesis
 proc initialize_beacon_state_from_eth1*(
     cfg: RuntimeConfig,
     eth1_block_hash: Eth2Digest,
     eth1_timestamp: uint64,
     deposits: openArray[DepositData],
-    flags: UpdateFlags = {}): phase0.BeaconStateRef {.nbench.} =
+    flags: UpdateFlags = {}): phase0.BeaconState =
   ## Get the genesis ``BeaconState``.
   ##
   ## Before the beacon chain starts, validators will register in the Eth1 chain
@@ -227,7 +241,9 @@ proc initialize_beacon_state_from_eth1*(
   # at that point :)
   doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
 
-  var state = phase0.BeaconStateRef(
+  # TODO https://github.com/nim-lang/Nim/issues/19094
+  template state(): untyped = result
+  state = phase0.BeaconState(
     fork: genesisFork(cfg),
     genesis_time: genesis_time_from_eth1_timestamp(cfg, eth1_timestamp),
     eth1_data:
@@ -250,7 +266,7 @@ proc initialize_beacon_state_from_eth1*(
                                              deposits.len)
   state.eth1_deposit_index = deposits.lenu64
 
-  var pubkeyToIndex = initTable[ValidatorPubKey, int]()
+  var pubkeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
   for idx, deposit in deposits:
     let
       pubkey = deposit.pubkey
@@ -258,11 +274,11 @@ proc initialize_beacon_state_from_eth1*(
 
     pubkeyToIndex.withValue(pubkey, foundIdx) do:
       # Increase balance by deposit amount
-      increase_balance(state[], ValidatorIndex foundIdx[], amount)
+      increase_balance(state, foundIdx[], amount)
     do:
       if skipBlsValidation in flags or
          verify_deposit_signature(cfg, deposit):
-        pubkeyToIndex[pubkey] = state.validators.len
+        pubkeyToIndex[pubkey] = ValidatorIndex(state.validators.len)
         if not state.validators.add(get_validator_from_deposit(deposit)):
           raiseAssert "too many validators"
         if not state.balances.add(amount):
@@ -274,10 +290,10 @@ proc initialize_beacon_state_from_eth1*(
           deposit = shortLog(deposit)
 
   # Process activations
-  for validator_index in 0 ..< state.validators.len:
+  for vidx in state.validators.vindices:
     let
-      balance = state.balances.asSeq()[validator_index]
-      validator = addr state.validators[validator_index]
+      balance = state.balances.item(vidx)
+      validator = addr state.validators.mitem(vidx)
 
     validator.effective_balance = min(
       balance - balance mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
@@ -289,7 +305,8 @@ proc initialize_beacon_state_from_eth1*(
   # Set genesis validators root for domain separation and chain versioning
   state.genesis_validators_root = hash_tree_root(state.validators)
 
-  state
+  # TODO https://github.com/nim-lang/Nim/issues/19094
+  # state
 
 proc initialize_hashed_beacon_state_from_eth1*(
     cfg: RuntimeConfig,
@@ -297,26 +314,55 @@ proc initialize_hashed_beacon_state_from_eth1*(
     eth1_timestamp: uint64,
     deposits: openArray[DepositData],
     flags: UpdateFlags = {}): phase0.HashedBeaconState =
-  let genesisState = initialize_beacon_state_from_eth1(
-    cfg, eth1_block_hash, eth1_timestamp, deposits, flags)
-  phase0.HashedBeaconState(
-    data: genesisState[], root: hash_tree_root(genesisState[]))
+  # TODO https://github.com/nim-lang/Nim/issues/19094
+  result = phase0.HashedBeaconState(
+    data: initialize_beacon_state_from_eth1(
+      cfg, eth1_block_hash, eth1_timestamp, deposits, flags))
+  result.root = hash_tree_root(result.data)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#genesis-block
-func get_initial_beacon_block*(state: phase0.BeaconState):
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#genesis-block
+func get_initial_beacon_block*(state: phase0.HashedBeaconState):
     phase0.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
   let message = phase0.TrustedBeaconBlock(
-    slot: state.slot,
-    state_root: hash_tree_root(state),)
+    slot: state.data.slot,
+    state_root: state.root)
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
   phase0.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_block_root_at_slot
-func get_block_root_at_slot*(state: SomeBeaconState,
-                             slot: Slot): Eth2Digest =
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#initialize-state-for-pure-altair-testnets-and-test-vectors
+func get_initial_beacon_block*(state: altair.HashedBeaconState):
+    altair.TrustedSignedBeaconBlock =
+  # The genesis block is implicitly trusted
+  let message = altair.TrustedBeaconBlock(
+    slot: state.data.slot,
+    state_root: state.root)
+    # parent_root, randao_reveal, eth1_data, signature, and body automatically
+    # initialized to default values.
+  altair.TrustedSignedBeaconBlock(
+    message: message, root: hash_tree_root(message))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#testing
+func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
+    bellatrix.TrustedSignedBeaconBlock =
+  # The genesis block is implicitly trusted
+  let message = bellatrix.TrustedBeaconBlock(
+    slot: state.data.slot,
+    state_root: state.root)
+    # parent_root, randao_reveal, eth1_data, signature, and body automatically
+    # initialized to default values.
+  bellatrix.TrustedSignedBeaconBlock(
+    message: message, root: hash_tree_root(message))
+
+func get_initial_beacon_block*(state: ForkedHashedBeaconState):
+    ForkedTrustedSignedBeaconBlock =
+  withState(state):
+    ForkedTrustedSignedBeaconBlock.init(get_initial_beacon_block(forkyState))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_block_root_at_slot
+func get_block_root_at_slot*(state: ForkyBeaconState, slot: Slot): Eth2Digest =
   ## Return the block root at a recent ``slot``.
 
   # Potential overflow/wrap shouldn't occur, as get_block_root_at_slot() called
@@ -327,31 +373,42 @@ func get_block_root_at_slot*(state: SomeBeaconState,
   doAssert slot < state.slot
   state.block_roots[slot mod SLOTS_PER_HISTORICAL_ROOT]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_block_root
-func get_block_root*(state: SomeBeaconState, epoch: Epoch): Eth2Digest =
-  ## Return the block root at the start of a recent ``epoch``.
-  get_block_root_at_slot(state, compute_start_slot_at_epoch(epoch))
+func get_block_root_at_slot*(
+    state: ForkedHashedBeaconState, slot: Slot): Eth2Digest =
+  ## Return the block root at a recent ``slot``.
+  withState(state):
+    get_block_root_at_slot(forkyState.data, slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_block_root
+func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
+  ## Return the block root at the start of a recent ``epoch``.
+  get_block_root_at_slot(state, epoch.start_slot())
+
+func get_block_root*(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
+  ## Return the block root at the start of a recent ``epoch``.
+  withState(state):
+    get_block_root(forkyState.data, epoch)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_total_balance
 template get_total_balance(
-    state: SomeBeaconState, validator_indices: untyped): Gwei =
+    state: ForkyBeaconState, validator_indices: untyped): Gwei =
   ## Return the combined effective balance of the ``indices``.
   ## ``EFFECTIVE_BALANCE_INCREMENT`` Gwei minimum to avoid divisions by zero.
-  ## Math safe up to ~10B ETH, afterwhich this overflows uint64.
+  ## Math safe up to ~10B ETH, after which this overflows uint64.
   var res = 0.Gwei
   for validator_index in validator_indices:
-    res += state.validators.asSeq()[validator_index].effective_balance
+    res += state.validators[validator_index].effective_balance
   max(EFFECTIVE_BALANCE_INCREMENT, res)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
 func is_eligible_for_activation_queue*(validator: Validator): bool =
   ## Check if ``validator`` is eligible to be placed into the activation queue.
   validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
     validator.effective_balance == MAX_EFFECTIVE_BALANCE
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#is_eligible_for_activation
-func is_eligible_for_activation*(state: SomeBeaconState, validator: Validator):
-    bool =
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#is_eligible_for_activation
+func is_eligible_for_activation*(
+    state: ForkyBeaconState, validator: Validator): bool =
   ## Check if ``validator`` is eligible for activation.
 
   # Placement in queue is finalized
@@ -359,9 +416,9 @@ func is_eligible_for_activation*(state: SomeBeaconState, validator: Validator):
   # Has not yet been activated
     validator.activation_epoch == FAR_FUTURE_EPOCH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
-    state: SomeBeaconState, indexed_attestation: SomeIndexedAttestation,
+    state: ForkyBeaconState, indexed_attestation: SomeIndexedAttestation,
     flags: UpdateFlags): Result[void, cstring] =
   ## Check if ``indexed_attestation`` is not empty, has sorted and unique
   ## indices and has a valid aggregate signature.
@@ -387,7 +444,7 @@ proc is_valid_indexed_attestation*(
     return err("indexed attestation: indices not sorted and unique")
 
   # Verify aggregate signature
-  if not (skipBLSValidation in flags or indexed_attestation.signature is TrustedSig):
+  if not (skipBlsValidation in flags or indexed_attestation.signature is TrustedSig):
     let pubkeys = mapIt(
       indexed_attestation.attesting_indices, state.validators[it].pubkey)
     if not verify_attestation_signature(
@@ -397,30 +454,43 @@ proc is_valid_indexed_attestation*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_attesting_indices
-func get_attesting_indices*(state: SomeBeaconState,
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_attesting_indices
+func get_attesting_indices*(state: ForkyBeaconState,
                             data: AttestationData,
                             bits: CommitteeValidatorsBits,
                             cache: var StateCache): seq[ValidatorIndex] =
-  ## Return the set of attesting indices corresponding to ``data`` and ``bits``.
+  ## Return the set of attesting indices corresponding to ``data`` and ``bits``
+  ## or nothing if `data` is invalid
 
   var res: seq[ValidatorIndex]
   # Can't be an iterator due to https://github.com/nim-lang/Nim/issues/18188
-  if bits.lenu64 != get_beacon_committee_len(
-      state, data.slot, data.index.CommitteeIndex, cache):
-    trace "get_attesting_indices: inconsistent aggregation and committee length"
+  let committee_index = CommitteeIndex.init(data.index)
+  if committee_index.isErr() or bits.lenu64 != get_beacon_committee_len(
+      state, data.slot, committee_index.get(), cache):
+    trace "get_attesting_indices: invalid attestation data"
   else:
-    var i = 0
-    for index in get_beacon_committee(
-        state, data.slot, data.index.CommitteeIndex, cache):
-      if bits[i]:
-        res.add index
-      inc i
+    for index_in_committee, validator_index in get_beacon_committee(
+        state, data.slot, committee_index.get(), cache):
+      if bits[index_in_committee]:
+        res.add validator_index
 
   res
 
+func get_attesting_indices*(state: ForkedHashedBeaconState;
+                            data: AttestationData;
+                            bits: CommitteeValidatorsBits;
+                            cache: var StateCache): seq[ValidatorIndex] =
+  # TODO when https://github.com/nim-lang/Nim/issues/18188 fixed, use an
+  # iterator
+
+  var idxBuf: seq[ValidatorIndex]
+  withState(state):
+    for vidx in forkyState.data.get_attesting_indices(data, bits, cache):
+      idxBuf.add vidx
+  idxBuf
+
 proc is_valid_indexed_attestation*(
-    state: SomeBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
+    state: ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   # This is a variation on `is_valid_indexed_attestation` that works directly
   # with an attestation instead of first constructing an `IndexedAttestation`
@@ -433,7 +503,7 @@ proc is_valid_indexed_attestation*(
     return err("is_valid_indexed_attestation: no attesting indices")
 
   # Verify aggregate signature
-  if not (skipBLSValidation in flags or attestation.signature is TrustedSig):
+  if not (skipBlsValidation in flags or attestation.signature is TrustedSig):
     var
       pubkeys = newSeqOfCap[ValidatorPubKey](sigs)
     for index in get_attesting_indices(
@@ -449,48 +519,51 @@ proc is_valid_indexed_attestation*(
 
 # Attestation validation
 # ------------------------------------------------------------------------------------------
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#attestations
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 
-func check_attestation_slot_target*(data: AttestationData): Result[void, cstring] =
-  if not (data.target.epoch == compute_epoch_at_slot(data.slot)):
+func check_attestation_slot_target*(data: AttestationData): Result[Slot, cstring] =
+  if not (data.target.epoch == epoch(data.slot)):
     return err("Target epoch doesn't match attestation slot")
 
-  ok()
+  ok(data.slot)
 
 func check_attestation_target_epoch(
-    data: AttestationData, current_epoch: Epoch): Result[void, cstring] =
+    data: AttestationData, current_epoch: Epoch): Result[Epoch, cstring] =
   if not (data.target.epoch == get_previous_epoch(current_epoch) or
       data.target.epoch == current_epoch):
     return err("Target epoch not current or previous epoch")
 
-  ok()
+  ok(data.target.epoch)
 
-func check_attestation_inclusion(data: AttestationData,
+func check_attestation_inclusion(attestation_slot: Slot,
                                  current_slot: Slot): Result[void, cstring] =
   # Check for overflow
   static:
     doAssert SLOTS_PER_EPOCH >= MIN_ATTESTATION_INCLUSION_DELAY
-  if data.slot + SLOTS_PER_EPOCH <= data.slot:
+  if attestation_slot + SLOTS_PER_EPOCH <= attestation_slot:
     return err("attestation data.slot overflow, malicious?")
 
-  if not (data.slot + MIN_ATTESTATION_INCLUSION_DELAY <= current_slot):
+  if not (attestation_slot + MIN_ATTESTATION_INCLUSION_DELAY <= current_slot):
     return err("Attestation too new")
 
-  if not (current_slot <= data.slot + SLOTS_PER_EPOCH):
+  if not (current_slot <= attestation_slot + SLOTS_PER_EPOCH):
     return err("Attestation too old")
 
   ok()
 
-func check_attestation_index(
-    data: AttestationData, committees_per_slot: uint64): Result[void, cstring] =
-  if not (data.index < committees_per_slot):
-    return err("Data index exceeds committee count")
+func check_attestation_index*(
+    index, committees_per_slot: uint64):
+    Result[CommitteeIndex, cstring] =
+  CommitteeIndex.init(index, committees_per_slot)
 
-  ok()
+func check_attestation_index*(
+    data: AttestationData, committees_per_slot: uint64):
+    Result[CommitteeIndex, cstring] =
+  check_attestation_index(data.index, committees_per_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
-func get_attestation_participation_flag_indices(state: altair.BeaconState | merge.BeaconState,
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
+func get_attestation_participation_flag_indices(state: altair.BeaconState | bellatrix.BeaconState,
                                                 data: AttestationData,
                                                 inclusion_delay: uint64): seq[int] =
   ## Return the flag indices that are satisfied by an attestation.
@@ -523,8 +596,8 @@ func get_attestation_participation_flag_indices(state: altair.BeaconState | merg
 # TODO these duplicate some stuff in state_transition_epoch which uses TotalBalances
 # better to centralize around that if feasible
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_total_active_balance
-func get_total_active_balance*(state: SomeBeaconState, cache: var StateCache): Gwei =
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_total_active_balance
+func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): Gwei =
   ## Return the combined effective balance of the active validators.
   # Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
   # minimum to avoid divisions by zero.
@@ -534,7 +607,7 @@ func get_total_active_balance*(state: SomeBeaconState, cache: var StateCache): G
   get_total_balance(
     state, cache.get_shuffled_active_validator_indices(state, epoch))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_base_reward_per_increment
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment_sqrt*(
     total_active_balance_sqrt: uint64): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div total_active_balance_sqrt
@@ -543,9 +616,9 @@ func get_base_reward_per_increment*(
     total_active_balance: Gwei): Gwei =
   get_base_reward_per_increment_sqrt(integer_squareroot(total_active_balance))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_base_reward
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
-    state: altair.BeaconState | merge.BeaconState, index: ValidatorIndex,
+    state: altair.BeaconState | bellatrix.BeaconState, index: ValidatorIndex,
     base_reward_per_increment: Gwei): Gwei =
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
@@ -553,9 +626,9 @@ func get_base_reward(
     state.validators[index].effective_balance div EFFECTIVE_BALANCE_INCREMENT
   increments * base_reward_per_increment
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#attestations
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#attestations
 proc check_attestation*(
-    state: SomeBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
+    state: ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   ## Check that an attestation follows the rules of being included in the state
   ## at the current slot. When acting as a proposer, the same rules need to
@@ -563,21 +636,21 @@ proc check_attestation*(
 
   let
     data = attestation.data
-
-  ? check_attestation_target_epoch(data, state.get_current_epoch())
-  ? check_attestation_slot_target(data)
-  ? check_attestation_inclusion(data, state.slot)
-  ? check_attestation_index(
+    epoch = ? check_attestation_target_epoch(data, state.get_current_epoch())
+    slot = ? check_attestation_slot_target(data)
+    committee_index = ? check_attestation_index(
       data,
-      get_committee_count_per_slot(state, data.target.epoch, cache))
+      get_committee_count_per_slot(state, epoch, cache))
+
+  ? check_attestation_inclusion(slot, state.slot)
 
   let committee_len = get_beacon_committee_len(
-    state, data.slot, data.index.CommitteeIndex, cache)
+    state, slot, committee_index, cache)
 
   if attestation.aggregation_bits.lenu64 != committee_len:
     return err("Inconsistent aggregation and committee length")
 
-  if data.target.epoch == get_current_epoch(state):
+  if epoch == get_current_epoch(state):
     if not (data.source == state.current_justified_checkpoint):
       return err("FFG data not matching current justified epoch")
   else:
@@ -588,10 +661,35 @@ proc check_attestation*(
 
   ok()
 
+func get_proposer_reward*(state: ForkyBeaconState,
+                          attestation: SomeAttestation,
+                          base_reward_per_increment: Gwei,
+                          cache: var StateCache,
+                          epoch_participation: var EpochParticipationFlags): uint64 =
+  let participation_flag_indices = get_attestation_participation_flag_indices(
+    state, attestation.data, state.slot - attestation.data.slot)
+  for index in get_attesting_indices(
+      state, attestation.data, attestation.aggregation_bits, cache):
+    for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
+      if flag_index in participation_flag_indices and
+         not has_flag(epoch_participation.item(index), flag_index):
+        epoch_participation[index] =
+          add_flag(epoch_participation.item(index), flag_index)
+        # these are all valid; TODO statically verify or do it type-safely
+        result += get_base_reward(
+          state, index, base_reward_per_increment) * weight.uint64
+  epoch_participation.asHashList.clearCache()
+
+  let proposer_reward_denominator =
+    (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) *
+    WEIGHT_DENOMINATOR.uint64 div PROPOSER_WEIGHT.uint64
+
+  return result div proposer_reward_denominator
+
 proc process_attestation*(
-    state: var SomeBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
+    state: var ForkyBeaconState, attestation: SomeAttestation, flags: UpdateFlags,
     base_reward_per_increment: Gwei, cache: var StateCache):
-    Result[void, cstring] {.nbench.} =
+    Result[void, cstring] =
   # In the spec, attestation validation is mixed with state mutation, so here
   # we've split it into two functions so that the validation logic can be
   # reused when looking for suitable blocks to include in attestations.
@@ -611,7 +709,7 @@ proc process_attestation*(
     # The genericSeqAssign generated by the compiler to copy the attestation
     # data sadly is a processing hotspot - the business with the addDefault
     # pointer is here simply to work around the poor codegen
-    var pa = attestations.addDefault()
+    let pa = attestations.addDefault()
     if pa.isNil:
       return err("process_attestation: too many pending attestations")
     assign(pa[].aggregation_bits, attestation.aggregation_bits)
@@ -619,28 +717,10 @@ proc process_attestation*(
     pa[].inclusion_delay = state.slot - attestation.data.slot
     pa[].proposer_index = proposer_index.get().uint64
 
-  # For Altair
+  # Altair and Bellatrix
   template updateParticipationFlags(epoch_participation: untyped) =
-    var proposer_reward_numerator = 0'u64
-
-    # Participation flag indices
-    let
-      participation_flag_indices =
-        get_attestation_participation_flag_indices(
-          state, attestation.data, state.slot - attestation.data.slot)
-
-    for index in get_attesting_indices(state, attestation.data, attestation.aggregation_bits, cache):
-        for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
-            if flag_index in participation_flag_indices and not has_flag(epoch_participation[index], flag_index):
-              epoch_participation[index] = add_flag(epoch_participation[index], flag_index)
-              proposer_reward_numerator += get_base_reward(
-                state, index, base_reward_per_increment) * weight.uint64 # these are all valid, #TODO statically verify or do it type-safely
-
-    # Reward proposer
-    let
-      # TODO use correct type at source
-      proposer_reward_denominator = (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) * WEIGHT_DENOMINATOR.uint64 div PROPOSER_WEIGHT.uint64
-      proposer_reward = Gwei(proposer_reward_numerator div proposer_reward_denominator)
+    let proposer_reward = get_proposer_reward(
+      state, attestation, base_reward_per_increment, cache, epoch_participation)
     increase_balance(state, proposer_index.get, proposer_reward)
 
   when state is phase0.BeaconState:
@@ -649,7 +729,7 @@ proc process_attestation*(
       addPendingAttestation(state.current_epoch_attestations)
     else:
       addPendingAttestation(state.previous_epoch_attestations)
-  elif state is altair.BeaconState or state is merge.BeaconState:
+  elif state is altair.BeaconState or state is bellatrix.BeaconState:
     doAssert base_reward_per_increment > 0.Gwei
     if attestation.data.target.epoch == get_current_epoch(state):
       updateParticipationFlags(state.current_epoch_participation)
@@ -660,12 +740,14 @@ proc process_attestation*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_next_sync_committee_indices
-func get_next_sync_committee_keys(state: altair.BeaconState | merge.BeaconState):
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#get_next_sync_committee_indices
+func get_next_sync_committee_keys(state: altair.BeaconState | bellatrix.BeaconState):
     array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
-  ## Return the sequence of sync committee indices (which may include
-  ## duplicate indices) for the next sync committee, given a ``state`` at a
-  ## sync committee period boundary.
+  ## Return the sequence of sync committee indices, with possible duplicates,
+  ## for the next sync committee.
+  # The sync committe depends on seed and effective balance - it can
+  # thus only be computed for the current epoch of the state, after balance
+  # updates have been performed
 
   let epoch = get_current_epoch(state) + 1
 
@@ -681,9 +763,10 @@ func get_next_sync_committee_keys(state: altair.BeaconState | merge.BeaconState)
     hash_buffer: array[40, byte]
   hash_buffer[0..31] = seed.data
   while index < SYNC_COMMITTEE_SIZE:
-    hash_buffer[32..39] = uint_to_bytes8(uint64(i div 32))
+    hash_buffer[32..39] = uint_to_bytes(uint64(i div 32))
     let
-      shuffled_index = compute_shuffled_index(uint64(i mod active_validator_count), active_validator_count, seed)
+      shuffled_index = compute_shuffled_index(
+        uint64(i mod active_validator_count), active_validator_count, seed)
       candidate_index = active_validator_indices[shuffled_index]
       random_byte = eth2digest(hash_buffer).data[i mod 32]
       effective_balance = state.validators[candidate_index].effective_balance
@@ -693,8 +776,8 @@ func get_next_sync_committee_keys(state: altair.BeaconState | merge.BeaconState)
     i += 1'u64
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#get_next_sync_committee
-proc get_next_sync_committee*(state: altair.BeaconState | merge.BeaconState):
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#get_next_sync_committee
+func get_next_sync_committee*(state: altair.BeaconState | bellatrix.BeaconState):
     SyncCommittee =
   ## Return the *next* sync committee for a given ``state``.
   var res: SyncCommittee
@@ -703,14 +786,14 @@ proc get_next_sync_committee*(state: altair.BeaconState | merge.BeaconState):
   # see signatures_batch, TODO shouldn't be here
   # Deposit processing ensures all keys are valid
   var attestersAgg: AggregatePublicKey
-  attestersAgg.init(res.pubkeys.data[0].loadWithCache().get)
+  attestersAgg.init(res.pubkeys.data[0].load().get)
   for i in 1 ..< res.pubkeys.data.len:
-    attestersAgg.aggregate(res.pubkeys.data[i].loadWithCache().get)
+    attestersAgg.aggregate(res.pubkeys.data[i].load().get)
 
   res.aggregate_pubkey = finish(attestersAgg).toPubKey()
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/altair/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/fork.md#upgrading-the-state
 func translate_participation(
     state: var altair.BeaconState,
     pending_attestations: openArray[phase0.PendingAttestation]) =
@@ -730,21 +813,21 @@ func translate_participation(
         state, data, attestation.aggregation_bits, cache):
       for flag_index in participation_flag_indices:
         state.previous_epoch_participation[index] =
-          add_flag(state.previous_epoch_participation[index], flag_index)
+          add_flag(state.previous_epoch_participation.item(index), flag_index)
 
-proc upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState): ref altair.BeaconState =
+func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
+    ref altair.BeaconState =
   var
-    empty_participation =
-      HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]()
+    empty_participation: EpochParticipationFlags
     inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
 
   doAssert empty_participation.data.setLen(pre.validators.len)
-  empty_participation.resetCache()
+  empty_participation.asHashList.resetCache()
 
   doAssert inactivity_scores.data.setLen(pre.validators.len)
   inactivity_scores.resetCache()
 
-  var post = (ref altair.BeaconState)(
+  let post = (ref altair.BeaconState)(
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
     slot: pre.slot,
@@ -797,18 +880,18 @@ proc upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState): ref altair
 
   post
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/merge/fork.md#upgrading-the-state
-func upgrade_to_merge*(cfg: RuntimeConfig, pre: altair.BeaconState):
-    ref merge.BeaconState =
+# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/fork.md#upgrading-the-state
+func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
+    ref bellatrix.BeaconState =
   let epoch = get_current_epoch(pre)
-  (ref merge.BeaconState)(
+  (ref bellatrix.BeaconState)(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
     slot: pre.slot,
     fork: Fork(
         previous_version: pre.fork.current_version,
-        current_version: cfg.MERGE_FORK_VERSION,
+        current_version: cfg.BELLATRIX_FORK_VERSION,
         epoch: epoch,
     ),
 
@@ -853,3 +936,130 @@ func upgrade_to_merge*(cfg: RuntimeConfig, pre: altair.BeaconState):
     # Execution-layer
     latest_execution_payload_header: ExecutionPayloadHeader()
   )
+
+template isValidInState*(idx: ValidatorIndex, state: ForkyBeaconState): bool =
+  idx.uint64 < state.validators.lenu64
+
+func latest_block_root*(state: ForkyBeaconState, state_root: Eth2Digest): Eth2Digest =
+  # The root of the last block that was successfully applied to this state -
+  # normally, when a block is applied, the data from the header is stored in
+  # the state without the state root - on the next process_slot, the state root
+  # is added to the header and the block root can now be computed and added to
+  # the block roots table. If process_slot has not yet run on top of the new
+  # block, we must fill in the state root ourselves.
+  if state.slot == state.latest_block_header.slot:
+    # process_slot will not yet have updated the header of the "current" block -
+    # similar to block creation, we fill it in with the state root
+    var tmp = state.latest_block_header
+    tmp.state_root = state_root
+    hash_tree_root(tmp)
+  elif state.slot <=
+      (state.latest_block_header.slot + SLOTS_PER_HISTORICAL_ROOT):
+    # block_roots is limited to about a day - see assert in
+    # `get_block_root_at_slot`
+    state.get_block_root_at_slot(state.latest_block_header.slot)
+  else:
+    # Reallly long periods of empty slots - unlikely but possible
+    hash_tree_root(state.latest_block_header)
+
+func latest_block_root*(state: ForkyHashedBeaconState): Eth2Digest =
+  latest_block_root(state.data, state.root)
+
+func latest_block_root*(state: ForkedHashedBeaconState): Eth2Digest =
+  withState(state): latest_block_root(state)
+
+func get_sync_committee_cache*(
+    state: altair.BeaconState | bellatrix.BeaconState, cache: var StateCache):
+    SyncCommitteeCache =
+  let period = state.slot.sync_committee_period()
+
+  cache.sync_committees.withValue(period, v) do:
+    return v[]
+
+  var
+    s = toHashSet(state.current_sync_committee.pubkeys.data)
+
+  for pk in state.next_sync_committee.pubkeys.data:
+    s.incl(pk)
+
+  var pubkeyIndices: Table[ValidatorPubKey, ValidatorIndex]
+  for vidx in state.validators.vindices:
+    let pubkey = state.validators[vidx].pubkey
+    if pubkey in s:
+      pubkeyIndices[pubkey] = vidx
+
+  var res: SyncCommitteeCache
+  try:
+    for i in 0..<res.current_sync_committee.len():
+      res.current_sync_committee[i] =
+        pubkeyIndices[state.current_sync_committee.pubkeys[i]]
+      res.next_sync_committee[i] =
+        pubkeyIndices[state.next_sync_committee.pubkeys[i]]
+  except KeyError:
+    raiseAssert "table constructed just above"
+
+  cache.sync_committees[period] = res
+
+  res
+
+func dependent_root*(state: ForkyHashedBeaconState, epoch: Epoch): Eth2Digest =
+  ## Return the root of the last block that contributed to the shuffling in the
+  ## given epoch
+  if epoch > state.data.slot.epoch:
+    state.latest_block_root
+  elif epoch == Epoch(0):
+    if state.data.slot == Slot(0):
+      state.latest_block_root
+    else:
+      state.data.get_block_root_at_slot(Slot(0))
+  else:
+    let dependent_slot = epoch.start_slot - 1
+    if state.data.slot <= dependent_slot + SLOTS_PER_HISTORICAL_ROOT:
+      state.data.get_block_root_at_slot(epoch.start_slot - 1)
+    else:
+      Eth2Digest() # "don't know"
+
+func proposer_dependent_root*(state: ForkyHashedBeaconState): Eth2Digest =
+  state.dependent_root(state.data.slot.epoch)
+
+func attester_dependent_root*(state: ForkyHashedBeaconState): Eth2Digest =
+  let epoch = state.data.slot.epoch
+  state.dependent_root(if epoch == Epoch(0): epoch else: epoch - 1)
+
+func latest_block_id*(state: ForkyHashedBeaconState): BlockId =
+  ## Block id of the latest block applied to this state
+  BlockId(
+    root: state.latest_block_root,
+    slot: state.data.latest_block_header.slot)
+
+func latest_block_id*(state: ForkedHashedBeaconState): BlockId =
+  ## Block id of the latest block applied to this state
+  withState(state): state.latest_block_id()
+
+func matches_block*(
+    state: ForkyHashedBeaconState, block_root: Eth2Digest): bool =
+  ## Return true iff the latest block applied to this state matches the given
+  ## `block_root`
+  block_root == state.latest_block_root
+
+func matches_block*(
+    state: ForkedHashedBeaconState, block_root: Eth2Digest): bool =
+  withState(state): state.matches_block(block_root)
+
+func matches_block_slot*(
+    state: ForkyHashedBeaconState, block_root: Eth2Digest, slot: Slot): bool =
+  ## Return true iff the latest block applied to this state matches the given
+  ## `block_root` and the state slot has been advanced to the given slot
+  slot == state.data.slot and block_root == state.latest_block_root
+func matches_block_slot*(
+    state: ForkedHashedBeaconState, block_root: Eth2Digest, slot: Slot): bool =
+  withState(state): state.matches_block_slot(block_root, slot)
+
+func can_advance_slots*(
+    state: ForkyHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
+  ## Return true iff we can reach the given block/slot combination simply by
+  ## advancing slots
+  target_slot >= state.data.slot and block_root == state.latest_block_root
+func can_advance_slots*(
+    state: ForkedHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
+  withState(state): state.can_advance_slots(block_root, target_slot)

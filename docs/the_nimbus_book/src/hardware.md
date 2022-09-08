@@ -1,19 +1,18 @@
-# System requirements (recommended)
+# System requirements
 
------------------
-**Operating System:** Linux [64-bit](https://en.wikipedia.org/wiki/64-bit_computing), Windows 64-bit, macOS X 10.14+,
+The recommended system requirements for running the Nimbus beacon node are:
 
-**Memory:** 4GB RAM
+| What       |  Recommended |
+| ---------- | ------ |
+| Operating system | Linux [64-bit](https://en.wikipedia.org/wiki/64-bit_computing), Windows 64-bit, macOS X 10.15+ |
+| Memory     | 4GB |
+| Disk space | 200GB |
+| Network    | Reliable broadband |
 
-**Storage:** 160GB SSD
+!!! note "Execution client"
+    In addtion to the beacon node, you will need to run an [execution client](./eth1.md) - check the documentation of the client of choice and add them to the above requirements.
 
-**Internet:** Reliable broadband connection
+    Broadly, to run both an execution and a consensus client on the same machine, we recommend a **2 TB** SSD drive and **8** GB RAM.
 
-----------------
-
-Note that in order to process incoming validator deposits from the eth1 chain, you will need to run an eth1 client in parallel to your eth2 client. While it is possible to use a third-party service like [Infura](/infura-guide.md), if you choose to run your own eth1 client locally, you'll need more memory and storage.
-
-For example, you'll need at least another **500GB SSD** to run [geth fast sync](/eth1.md) on mainnet.
-
-To future proof your setup we recommend a **1TB SSD**.
-
+!!! note "Minimal requirements"
+    Nimbus has been optimized to also run well on hardware significantly less powerful than the recommended system requirements - the more validators you run on the same node, the more hardware resources and network bandwidth will it will use.

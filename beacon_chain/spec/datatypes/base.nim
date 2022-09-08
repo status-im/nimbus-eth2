@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -15,61 +15,77 @@
 # These datatypes are used as specifications for serialization - thus should not
 # be altered outside of what the spec says. Likewise, they should not be made
 # `ref` - this can be achieved by wrapping them in higher-level
-# types / composition
+# types / composition.
+#
+# Most integers in the spec correspond to little-endian `uint64` in their binary
+# SSZ encoding and thus may take values from the full `uint64` range. Some
+# integers have maximum valid values specified in spec constants, but still use
+# an `uint64` in the SSZ encoding, meaning that out-of-range values may be seen
+# in the encoded byte stream.
+#
+# In types derived from the spec, we use unsigned integers throughout which
+# cover the full range of possible values in the binary encoding. This leads to
+# some friction compared to "normal" Nim code, and special care must be taken
+# on the boundary between the "raw" `uint64` data from the wire (which may not
+# be trusted, generally) and "sanitized" data. In many cases, we use `uint64`
+# directly in code:
+#
+# * Unsigned arithmetic is not overflow-checked - instead, it wraps at the
+#   boundary
+# * Converting an unsigned integer to a signed integer may lead to a Defect -
+#   before doing so, the value must always be checked in the unsigned domain
+# * Because unsigned arithmetic was added late to the language, there are
+#   lingering edge cases and bugs - when using features on the boundary between
+#   signed and unsigned, careful testing is advised
+#
+# In cases where the range of valid values are statically known, we further
+# "sanitize" data using `distinct` types such as `CommitteeIndex` - in these
+# cases, two levels of sanitization is possible:
+#
+# * static range checking, where valid range is known at compile time
+# * dynamic range checking, where valid is tied to a particular state or block,
+#   such as a list index
+#
+# For static range checking, we use `distinct` types to mark that the range
+# check has been performed. However, this does not imply that the value is
+# valid for a particular state or block - dynamic range checking must still be
+# performed at every usage site - this applies in particular to `ValidatorIndex`
+# and `CommitteeIndex` which have upper bounds in the spec that are far above
+# their dynamically valid range when used to access lists in the state.
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
 #      likely change in future versions of the language:
 #      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
-  json_serialization
-
-export
-  json_serialization
-
-import
-  std/[macros, hashes, strutils, tables, typetraits],
-  stew/[assign2, byteutils],
+  std/[macros, hashes, sets, strutils, tables, typetraits],
+  stew/[assign2, byteutils, results],
   chronicles,
+  json_serialization,
   chronos/timer,
-  ../../version, ../../ssz/types as sszTypes,
-  ".."/[crypto, digest, presets]
+  ssz_serialization/types as sszTypes,
+  ../../version,
+  ".."/[beacon_time, crypto, digest, presets]
 
 export
-  timer, crypto, digest, sszTypes, presets
+  tables, results, json_serialization, timer, sszTypes, beacon_time, crypto,
+  digest, presets
 
-# Presently, we're reusing the data types from the serialization (uint64) in the
-# objects we pass around to the beacon chain logic, thus keeping the two
-# similar. This is convenient for keeping up with the specification, but
-# will eventually need a more robust approach such that we don't run into
-# over- and underflows.
-# Some of the open questions are being tracked here:
-# https://github.com/ethereum/consensus-specs/issues/224
-#
-# The present approach causes some problems due to how Nim treats unsigned
-# integers - here's no high(uint64), arithmetic support is incomplete, there's
-# no over/underflow checking available
-#
-# Eventually, we could also differentiate between user/tainted data and
-# internal state that's gone through sanity checks already.
-
-const SPEC_VERSION* = "1.1.3"
+const SPEC_VERSION* = "1.2.0-rc.3"
 ## Spec version we're aiming to be compatible with, right now
 
 const
-  GENESIS_SLOT* = Slot(0)
-  GENESIS_EPOCH* = (GENESIS_SLOT.uint64 div SLOTS_PER_EPOCH).Epoch ##\
-  ## compute_epoch_at_slot(GENESIS_SLOT)
-
   # Not part of spec. Still useful, pending removing usage if appropriate.
   ZERO_HASH* = Eth2Digest()
   MAX_GRAFFITI_SIZE* = 32
-  FAR_FUTURE_SLOT* = (not 0'u64).Slot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/p2p-interface.md#configuration
   MAXIMUM_GOSSIP_CLOCK_DISPARITY* = 500.millis
 
   SLOTS_PER_ETH1_VOTING_PERIOD* =
@@ -78,8 +94,10 @@ const
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT* = 64
+
+  DEPOSIT_CONTRACT_LIMIT* = Limit(1'u64 shl DEPOSIT_CONTRACT_TREE_DEPTH)
 
 template maxSize*(n: int) {.pragma.}
 
@@ -116,50 +134,56 @@ template maxSize*(n: int) {.pragma.}
 type
   # Domains
   # ---------------------------------------------------------------
-  DomainType* = enum
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#domain-types
-    DOMAIN_BEACON_PROPOSER = 0
-    DOMAIN_BEACON_ATTESTER = 1
-    DOMAIN_RANDAO = 2
-    DOMAIN_DEPOSIT = 3
-    DOMAIN_VOLUNTARY_EXIT = 4
-    DOMAIN_SELECTION_PROOF = 5
-    DOMAIN_AGGREGATE_AND_PROOF = 6
+  DomainType* = distinct array[4, byte]
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/altair/beacon-chain.md#domain-types
-    DOMAIN_SYNC_COMMITTEE = 7
-    DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF = 8
-    DOMAIN_CONTRIBUTION_AND_PROOF = 9
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
 
-  # https://github.com/nim-lang/Nim/issues/574 and be consistent across
-  # 32-bit and 64-bit word platforms.
-  # The distinct types here should only be used when data has been de-tainted
-  # following overflow checks - they cannot be used in SSZ objects as SSZ
-  # instances are not invalid _per se_ when they hold an out-of-bounds index -
-  # that is part of consensus.
-  # VALIDATOR_REGISTRY_LIMIT is 1^40 in spec 1.0, but if the number of
-  # validators ever grows near 1^32 that we support here, we'll have bigger
-  # issues than the size of this type to take care of. Until then, we'll use
-  # uint32 as it halves memory requirements for active validator sets,
-  # improves consistency on 32-vs-64-bit platforms and works better with
-  # Nim seq constraints.
   ValidatorIndex* = distinct uint32
+    ## Each validator has an index that is used in lieu of the public key to
+    ## identify the validator. The index is assigned according to the order of
+    ## deposits in the deposit contract, skipping the invalid ones
+    ## (deposit index >= validator index).
+    ##
+    ## According to the spec, up to 1^40 (VALIDATOR_REGISTRY_LIMIT) validator
+    ## indices may be assigned, but given that each validator has an entry in
+    ## the beacon state and we keep the full beacon state in memory,
+    ## pragmatically a much lower limit applies.
+    ##
+    ## In the wire encoding, validator indices are `uint64`, but we use `uint32`
+    ## instead to save memory and to work around limitations in seq indexing on
+    ## 32-bit platforms (https://github.com/nim-lang/Nim/issues/574).
+    ##
+    ## `ValidatorIndex` is not used in types used for serialization (to allow
+    ## reading invalid data) - validation happens on use instead, via `init`.
 
-  # Though in theory the committee index would fit in a uint8, it is not used
-  # in a way that would significantly benefit from the smaller type, thus we
-  # leave it at spec size
-  CommitteeIndex* = distinct uint64
+  CommitteeIndex* = distinct uint8
+    ## Index identifying a per-slot committee - depending on the active
+    ## validator count, there may be up to `MAX_COMMITTEES_PER_SLOT` committees
+    ## working in each slot.
+    ##
+    ## The `CommitteeIndex` type is constrained to values in the range
+    ## `[0, MAX_COMMITTEES_PER_SLOT)` during initialization - to find out if
+    ## a committee index is valid for a particular state, see
+    ## `check_attestation_index`.
+    ##
+    ## `CommitteIndex` is not used in types used for serialization (to allow
+    ## reading invalid data) - validation happens on use instead, via `init`.
 
-  # The subnet id maps which gossip subscription to use to publish an
-  # attestation - it is distinct from the CommitteeIndex in particular
   SubnetId* = distinct uint8
+    ## The subnet id maps which gossip subscription to use to publish an
+    ## attestation - it is distinct from the CommitteeIndex in particular
+    ##
+    ## The `SubnetId` type is constrained to values in the range
+    ## `[0, ATTESTATION_SUBNET_COUNT)` during initialization.
 
   Gwei* = uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#proposerslashing
+  # BitVector[4] in the spec, ie 4 bits which end up encoded as a byte for
+  # SSZ / hashing purposes
+  JustificationBits* = distinct uint8
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#proposerslashing
   ProposerSlashing* = object
     signed_header_1*: SignedBeaconBlockHeader
     signed_header_2*: SignedBeaconBlockHeader
@@ -171,7 +195,7 @@ type
     signed_header_1*: TrustedSignedBeaconBlockHeader
     signed_header_2*: TrustedSignedBeaconBlockHeader
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#attesterslashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#attesterslashing
   AttesterSlashing* = object
     attestation_1*: IndexedAttestation
     attestation_2*: IndexedAttestation
@@ -183,7 +207,7 @@ type
     attestation_1*: TrustedIndexedAttestation
     attestation_2*: TrustedIndexedAttestation
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#indexedattestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#indexedattestation
   IndexedAttestation* = object
     attesting_indices*: List[uint64, Limit MAX_VALIDATORS_PER_COMMITTEE]
     data*: AttestationData
@@ -199,7 +223,7 @@ type
 
   CommitteeValidatorsBits* = BitList[Limit MAX_VALIDATORS_PER_COMMITTEE]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#attestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#attestation
   Attestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
@@ -215,21 +239,21 @@ type
 
   ForkDigest* = distinct array[4, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#forkdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#forkdata
   ForkData* = object
     current_version*: Version
     genesis_validators_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#checkpoint
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#checkpoint
   Checkpoint* = object
     epoch*: Epoch
     root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#AttestationData
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#AttestationData
   AttestationData* = object
     slot*: Slot
 
-    index*: uint64
+    index*: uint64 ## `CommitteeIndex` after validation
 
     # LMD GHOST vote
     beacon_block_root*: Eth2Digest
@@ -238,20 +262,20 @@ type
     source*: Checkpoint
     target*: Checkpoint
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#deposit
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#deposit
   Deposit* = object
-    proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH + 1, Eth2Digest] ##\
-    ## Merkle path to deposit root
+    proof*: array[DEPOSIT_CONTRACT_TREE_DEPTH + 1, Eth2Digest]
+      ## Merkle path to deposit root
 
     data*: DepositData
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#depositmessage
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#depositmessage
   DepositMessage* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#depositdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#depositdata
   DepositData* = object
     pubkey*: ValidatorPubKey
     withdrawal_credentials*: Eth2Digest
@@ -260,12 +284,11 @@ type
     # if the deposit should be added or not during processing
     signature*: ValidatorSig  # Signing over DepositMessage
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
-    epoch*: Epoch ##\
-    ## Earliest epoch when voluntary exit can be processed
-
-    validator_index*: uint64
+    epoch*: Epoch
+      ## Earliest epoch when voluntary exit can be processed
+    validator_index*: uint64 # `ValidatorIndex` after validation
 
   SomeAttestation* = Attestation | TrustedAttestation
   SomeIndexedAttestation* = IndexedAttestation | TrustedIndexedAttestation
@@ -281,61 +304,65 @@ type
 
   # Non-spec type that represents the immutable part of a validator - an
   # uncompressed key serialization is used to speed up loading from database
-  ImmutableValidatorData2* = object
+  ImmutableValidatorDataDb2* = object
     pubkey*: UncompressedPubKey
     withdrawal_credentials*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#validator
+  ImmutableValidatorData2* = object
+    pubkey*: CookedPubKey
+    withdrawal_credentials*: Eth2Digest
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#validator
   Validator* = object
     pubkey*: ValidatorPubKey
 
-    withdrawal_credentials*: Eth2Digest ##\
-    ## Commitment to pubkey for withdrawals and transfers
+    withdrawal_credentials*: Eth2Digest
+      ## Commitment to pubkey for withdrawals and transfers
 
-    effective_balance*: uint64 ##\
-    ## Balance at stake
+    effective_balance*: Gwei
+      ## Balance at stake
 
     slashed*: bool
 
     # Status epochs
-    activation_eligibility_epoch*: Epoch ##\
-    ## When criteria for activation were met
+    activation_eligibility_epoch*: Epoch
+      ## When criteria for activation were met
 
     activation_epoch*: Epoch
     exit_epoch*: Epoch
 
-    withdrawable_epoch*: Epoch ##\
-    ## When validator can withdraw or transfer funds
+    withdrawable_epoch*: Epoch
+      ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#pendingattestation
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#pendingattestation
   PendingAttestation* = object
     aggregation_bits*: CommitteeValidatorsBits
     data*: AttestationData
 
     inclusion_delay*: uint64
 
-    proposer_index*: uint64
+    proposer_index*: uint64 # `ValidatorIndex` after validation
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#historicalbatch
   HistoricalBatch* = object
     block_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     state_roots* : array[SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#fork
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#fork
   Fork* = object
     previous_version*: Version
     current_version*: Version
 
-    epoch*: Epoch ##\
-    ## Epoch of latest fork
+    epoch*: Epoch
+      ## Epoch of latest fork
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#eth1data
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#eth1data
   Eth1Data* = object
     deposit_root*: Eth2Digest
     deposit_count*: uint64
     block_hash*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#signedvoluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#signedvoluntaryexit
   SignedVoluntaryExit* = object
     message*: VoluntaryExit
     signature*: ValidatorSig
@@ -344,22 +371,22 @@ type
     message*: VoluntaryExit
     signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#beaconblockheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#beaconblockheader
   BeaconBlockHeader* = object
     slot*: Slot
-    proposer_index*: uint64
+    proposer_index*: uint64 # `ValidatorIndex` after validation
     parent_root*: Eth2Digest
     state_root*: Eth2Digest
     body_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#signingdata
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#signingdata
   SigningData* = object
     object_root*: Eth2Digest
     domain*: Eth2Domain
 
   GraffitiBytes* = distinct array[MAX_GRAFFITI_SIZE, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#signedbeaconblockheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#signedbeaconblockheader
   SignedBeaconBlockHeader* = object
     message*: BeaconBlockHeader
     signature*: ValidatorSig
@@ -368,107 +395,65 @@ type
     message*: BeaconBlockHeader
     signature*: TrustedSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/validator.md#aggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregateandproof
   AggregateAndProof* = object
-    aggregator_index*: uint64
+    aggregator_index*: uint64 # `ValidatorIndex` after validation
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
 
+  SyncCommitteeCache* = object
+    current_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
+    next_sync_committee*: array[SYNC_COMMITTEE_SIZE, ValidatorIndex]
+
   # This doesn't know about forks or branches in the DAG. It's for straight,
   # linear chunks of the chain.
   StateCache* = object
-    shuffled_active_validator_indices*:
-      Table[Epoch, seq[ValidatorIndex]]
+    shuffled_active_validator_indices*: Table[Epoch, seq[ValidatorIndex]]
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
+    sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/solidity_deposit_contract/deposit_contract.sol
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/solidity_deposit_contract/deposit_contract.sol
   DepositContractState* = object
     branch*: array[DEPOSIT_CONTRACT_TREE_DEPTH, Eth2Digest]
     deposit_count*: array[32, byte] # Uint256
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0/specs/phase0/beacon-chain.md#validator
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#validator
   ValidatorStatus* = object
     # This is a validator without the expensive, immutable, append-only parts
     # serialized. They're represented in memory to allow in-place SSZ reading
     # and writing compatibly with the full Validator object.
 
-    pubkey* {.dontserialize.}: ValidatorPubKey
+    pubkey* {.dontSerialize.}: ValidatorPubKey
 
-    withdrawal_credentials* {.dontserialize.}: Eth2Digest ##\
-    ## Commitment to pubkey for withdrawals and transfers
+    withdrawal_credentials* {.dontSerialize.}: Eth2Digest
+      ## Commitment to pubkey for withdrawals and transfers
 
-    effective_balance*: uint64 ##\
-    ## Balance at stake
+    effective_balance*: Gwei
+      ## Balance at stake
 
     slashed*: bool
 
     # Status epochs
-    activation_eligibility_epoch*: Epoch ##\
-    ## When criteria for activation were met
+    activation_eligibility_epoch*: Epoch
+      ## When criteria for activation were met
 
     activation_epoch*: Epoch
     exit_epoch*: Epoch
 
-    withdrawable_epoch*: Epoch ##\
-    ## When validator can withdraw or transfer funds
+    withdrawable_epoch*: Epoch
+      ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/p2p-interface.md#eth2-field
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object
     fork_digest*: ForkDigest
     next_fork_version*: Version
     next_fork_epoch*: Epoch
-
-  BeaconStateDiff* = object
-    # Small and/or static; always include
-    slot*: Slot
-    latest_block_header*: BeaconBlockHeader
-
-    # Mod-increment/circular
-    block_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
-    state_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
-
-    # Append only; either 0 or 1 per epoch
-    historical_root_added*: bool
-    historical_root*: Eth2Digest
-
-    # Replace
-    eth1_data*: Eth1Data
-
-    eth1_data_votes_replaced*: bool
-    eth1_data_votes*:
-      List[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
-
-    # Replace
-    eth1_deposit_index*: uint64
-
-    # Validators come in two parts, the immutable public key and mutable
-    # entrance/exit/slashed information about that validator.
-    validator_statuses*:
-      List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
-
-    # Represent in full
-    balances*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
-
-    # Mod-increment
-    randao_mix*: Eth2Digest
-    slashing*: uint64
-
-    # To start with, always overwrite, not append
-    previous_epoch_attestations*:
-      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
-    current_epoch_attestations*:
-      List[PendingAttestation, Limit(MAX_ATTESTATIONS * SLOTS_PER_EPOCH)]
-
-    justification_bits*: uint8
-    previous_justified_checkpoint*: Checkpoint
-    current_justified_checkpoint*: Checkpoint
-    finalized_checkpoint*: Checkpoint
 
   BeaconBlockExits* = object
     # Collection of exits that are suitable for block production
@@ -487,11 +472,11 @@ type
     penalties*: Gwei
 
   InclusionInfo* = object
-    # The distance between the attestation slot and the slot that attestation
-    # was included in block.
     delay*: uint64
-    # The index of the proposer at the slot where the attestation was included.
-    proposer_index*: uint64
+      ## The distance between the attestation slot and the slot that attestation
+      ## was included in block.
+    proposer_index*: uint64 # `ValidatorIndex` after validation
+      ## The index of the proposer at the slot where the attestation was included
 
   RewardFlags* {.pure.} = enum
     isSlashed
@@ -518,7 +503,7 @@ type
     ## reward processing
 
     # The validator's effective balance in the _current_ epoch.
-    current_epoch_effective_balance*: uint64
+    current_epoch_effective_balance*: Gwei
 
     # True if the validator had an attestation included in the _previous_ epoch.
     is_previous_epoch_attester*: Option[InclusionInfo]
@@ -528,199 +513,169 @@ type
 
     flags*: set[RewardFlags]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.2/specs/phase0/beacon-chain.md#get_total_balance
-  TotalBalances* = object
-    # The total effective balance of all active validators during the _current_
-    # epoch.
-    current_epoch_raw*: Gwei
-    # The total effective balance of all active validators during the _previous_
-    # epoch.
-    previous_epoch_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _current_ epoch.
-    current_epoch_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _current_ epoch and agreed with the state about the beacon block at the
-    # first slot of the _current_ epoch.
-    current_epoch_target_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _previous_ epoch.
-    previous_epoch_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _previous_ epoch and agreed with the state about the beacon block at the
-    # first slot of the _previous_ epoch.
-    previous_epoch_target_attesters_raw*: Gwei
-    # The total effective balance of all validators who attested during the
-    # _previous_ epoch and agreed with the state about the beacon block at the
-    # time of attestation.
-    previous_epoch_head_attesters_raw*: Gwei
+const
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#domain-types
+  DOMAIN_BEACON_PROPOSER* = DomainType([byte 0x00, 0x00, 0x00, 0x00])
+  DOMAIN_BEACON_ATTESTER* = DomainType([byte 0x01, 0x00, 0x00, 0x00])
+  DOMAIN_RANDAO* = DomainType([byte 0x02, 0x00, 0x00, 0x00])
+  DOMAIN_DEPOSIT* = DomainType([byte 0x03, 0x00, 0x00, 0x00])
+  DOMAIN_VOLUNTARY_EXIT* = DomainType([byte 0x04, 0x00, 0x00, 0x00])
+  DOMAIN_SELECTION_PROOF* = DomainType([byte 0x05, 0x00, 0x00, 0x00])
+  DOMAIN_AGGREGATE_AND_PROOF* = DomainType([byte 0x06, 0x00, 0x00, 0x00])
+  DOMAIN_APPLICATION_MASK* = DomainType([byte 0x00, 0x00, 0x00, 0x01])
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#domain-types
+  DOMAIN_SYNC_COMMITTEE* = DomainType([byte 0x07, 0x00, 0x00, 0x00])
+  DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF* = DomainType([byte 0x08, 0x00, 0x00, 0x00])
+  DOMAIN_CONTRIBUTION_AND_PROOF* = DomainType([byte 0x09, 0x00, 0x00, 0x00])
 
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
   let cookedKey = validator.pubkey.load() # Loading the pubkey is slow!
   doAssert cookedKey.isSome,
     "Cannot parse validator key: " & toHex(validator.pubkey)
   ImmutableValidatorData2(
-    pubkey: cookedKey.get().toUncompressed(),
+    pubkey: cookedKey.get(),
     withdrawal_credentials: validator.withdrawal_credentials)
 
-# TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
-# switch proc {.noSideEffect.} to func.
-template ethTimeUnit(typ: type) {.dirty.} =
-  proc `+`*(x: typ, y: uint64): typ {.borrow, noSideEffect.}
-  proc `-`*(x: typ, y: uint64): typ {.borrow, noSideEffect.}
-  proc `-`*(x: uint64, y: typ): typ {.borrow, noSideEffect.}
+template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =
+  # A "tigher" type is often used for T, but for the range check to be effective
+  # it must make sense..
+  type L = typeof limit
 
-  # Not closed over type in question (Slot or Epoch)
-  proc `mod`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
-  proc `div`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
-  proc `div`*(x: uint64, y: typ): uint64 {.borrow, noSideEffect.}
-  proc `-`*(x: typ, y: typ): uint64 {.borrow, noSideEffect.}
+  static: doAssert limit <= distinctBase(T).high()
+  # Many `uint64` values in the spec have a more limited range of valid values
+  func init*(t: type T, value: uint64): Result[T, cstring] =
+    if value < limit:
+      ok(Result[T, cstring], T(value))
+    else:
+      err(Result[T, cstring], name(T) & " out of range")
 
-  proc `*`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
+  iterator items*(t: type T): T =
+    for i in 0'u64..<limit:
+      yield T(i)
 
-  proc `+=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
-  proc `+=`*(x: var typ, y: uint64) {.borrow, noSideEffect.}
-  proc `-=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
-  proc `-=`*(x: var typ, y: uint64) {.borrow, noSideEffect.}
+  proc writeValue*(writer: var JsonWriter, value: T)
+                  {.raises: [IOError, Defect].} =
+    writeValue(writer, distinctBase value)
 
-  # Comparison operators
-  proc `<`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
-  proc `<`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
-  proc `<`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
-  proc `<=`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
-  proc `<=`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
-  proc `<=`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
+  proc readValue*(reader: var JsonReader, value: var T)
+                {.raises: [IOError, SerializationError, Defect].} =
+    let v = T.init(reader.readValue(uint64))
+    if v.isSome():
+      value = v.get()
+    else:
+      raiseUnexpectedValue(reader, $v.error())
 
-  proc `==`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
-  proc `==`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
-  proc `==`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
+  template `==`*(x, y: T): bool = distinctBase(x) == distinctBase(y)
+  template `==`*(x: T, y: uint64): bool = distinctBase(x) == y
+  template `==`*(x: uint64, y: T): bool = x == distinctBase(y)
 
-  # Nim integration
-  proc `$`*(x: typ): string {.borrow, noSideEffect.}
-  proc hash*(x: typ): Hash {.borrow, noSideEffect.}
+  template `<`*(x, y: T): bool = distinctBase(x) < distinctBase(y)
+  template `<`*(x: T, y: uint64): bool = distinctBase(x) < y
+  template `<`*(x: uint64, y: T): bool = x < distinctBase(y)
 
-  # Serialization
-  proc writeValue*(writer: var JsonWriter, value: typ)
-                  {.raises: [IOError, Defect].}=
-    writeValue(writer, uint64 value)
+  template hash*(x: T): Hash =
+    hash distinctBase(x)
 
-  proc readValue*(reader: var JsonReader, value: var typ)
-                 {.raises: [IOError, SerializationError, Defect].} =
-    value = typ reader.readValue(uint64)
+  template `$`*(x: T): string = $ distinctBase(x)
 
-proc writeValue*(writer: var JsonWriter, value: ValidatorIndex)
-                {.raises: [IOError, Defect].} =
-  writeValue(writer, distinctBase value)
+  template asInt*(x: T): int = int(distinctBase(x))
+  template asUInt64*(x: T): uint64 = uint64(distinctBase(x))
 
-proc readValue*(reader: var JsonReader, value: var ValidatorIndex)
-               {.raises: [IOError, SerializationError, Defect].} =
-  value = ValidatorIndex reader.readValue(distinctBase ValidatorIndex)
+  template toSszType(x: T): uint64 =
+    {.error: "Limited types should not be used with SSZ (abi differences)".}
 
-proc writeValue*(writer: var JsonWriter, value: CommitteeIndex)
-                {.raises: [IOError, Defect].} =
-  writeValue(writer, distinctBase value)
+template makeLimitedU8*(T: untyped, limit: uint8) =
+  makeLimitedUInt(T, limit)
 
-proc readValue*(reader: var JsonReader, value: var CommitteeIndex)
-               {.raises: [IOError, SerializationError, Defect].} =
-  value = CommitteeIndex reader.readValue(distinctBase CommitteeIndex)
+template makeLimitedU16*(T: type, limit: uint16) =
+  makeLimitedUInt(T, limit)
 
-proc writeValue*(writer: var JsonWriter, value: SubnetId)
-                {.raises: [IOError, Defect].} =
-  writeValue(writer, distinctBase value)
+template makeLimitedU64*(T: untyped, limit: uint64) =
+  makeLimitedUInt(T, limit)
 
-proc readValue*(reader: var JsonReader, value: var SubnetId)
-               {.raises: [IOError, SerializationError, Defect].} =
-  let v = reader.readValue(distinctBase SubnetId)
-  if v > ATTESTATION_SUBNET_COUNT:
-    raiseUnexpectedValue(
-      reader, "Subnet id must be <= " & $ATTESTATION_SUBNET_COUNT)
-  value = SubnetId(v)
+makeLimitedU64(CommitteeIndex, MAX_COMMITTEES_PER_SLOT)
+makeLimitedU64(SubnetId, ATTESTATION_SUBNET_COUNT)
 
-template writeValue*(writer: var JsonWriter, value: Version | ForkDigest) =
-  writeValue(writer, $value)
-
-proc readValue*(reader: var JsonReader, value: var Version)
-               {.raises: [IOError, SerializationError, Defect].} =
-  let hex = reader.readValue(string)
-  try:
-    hexToByteArray(hex, array[4, byte](value))
-  except ValueError:
-    raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
-
-proc readValue*(reader: var JsonReader, value: var ForkDigest)
-               {.raises: [IOError, SerializationError, Defect].} =
-  let hex = reader.readValue(string)
-  try:
-    hexToByteArray(hex, array[4, byte](value))
-  except ValueError:
-    raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
-
-# In general, ValidatorIndex is assumed to be convertible to/from an int. This
-# should be valid for a long time, because
-# https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#configuration
-# notes that "The maximum supported validator count is 2**22 (=4,194,304), or
-# ~134 million ETH staking. Assuming 32 slots per epoch and 64 committees per
-# slot, this gets us to a max 2048 validators in a committee."
-#
-# That's only active validators, so in principle, it can grow larger, but it
-# should be orders of magnitude more validators than expected in the next in
-# the next couple of years, than int32 indexing supports.
+const
+  validatorIndexLimit = min(uint64(int32.high), VALIDATOR_REGISTRY_LIMIT)
+    ## Because we limit ourselves to what is practically possible to index in a
+    ## seq, we will discard some otherwise "potentially valid" validator indices
+    ## here - this is a tradeoff made for code simplicity.
+    ##
+    ## In general, `ValidatorIndex` is assumed to be convertible to/from an
+    ## `int`. This should be valid for a long time, because
+    ## https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md#configuration
+    ## notes that "The maximum supported validator count is 2**22 (=4,194,304),
+    ## or ~134 million ETH staking. Assuming 32 slots per epoch and 64
+    ## committees per slot, this gets us to a max 2048 validators in a
+    ## committee."
+    ## That's only active validators, so in principle, it can grow larger, but
+    ## it should be orders of magnitude more validators than expected in the
+    ## next couple of years, than int32 indexing supports.
 static: doAssert high(int) >= high(int32)
 
-# `ValidatorIndex` seq handling.
-func `[]`*[T](a: var seq[T], b: ValidatorIndex): var T =
-  a[b.int]
+makeLimitedU64(ValidatorIndex, validatorIndexLimit)
 
-func `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
+func init*(T: type CommitteeIndex, index, committees_per_slot: uint64):
+    Result[CommitteeIndex, cstring] =
+  if index < min(committees_per_slot, MAX_COMMITTEES_PER_SLOT):
+    ok(CommitteeIndex(index))
+  else:
+    err("Committee index out of range for epoch")
+
+template writeValue*(
+    writer: var JsonWriter, value: Version | ForkDigest | DomainType) =
+  writeValue(writer, to0xHex(distinctBase(value)))
+
+proc readValue*(
+    reader: var JsonReader, value: var (Version | ForkDigest | DomainType))
+               {.raises: [IOError, SerializationError, Defect].} =
+  let hex = reader.readValue(string)
+  try:
+    hexToByteArray(hex, distinctBase(value))
+  except ValueError:
+    raiseUnexpectedValue(reader, "Hex string of 4 bytes expected")
+
+func `$`*(x: JustificationBits): string =
+  "0x" & toHex(uint8(x))
+
+proc readValue*(reader: var JsonReader, value: var JustificationBits)
+    {.raises: [IOError, SerializationError, Defect].} =
+  let hex = reader.readValue(string)
+  try:
+    value = JustificationBits(hexToByteArray(hex, 1)[0])
+  except ValueError:
+    raiseUnexpectedValue(reader, "Hex string of 1 byte expected")
+
+proc writeValue*(writer: var JsonWriter, value: JustificationBits)
+    {.raises: [IOError, Defect].} =
+  writer.writeValue $value
+
+# `ValidatorIndex` seq handling.
+template `[]=`*[T](a: var seq[T], b: ValidatorIndex, c: T) =
   a[b.int] = c
 
-func `[]`*[T](a: seq[T], b: ValidatorIndex): auto =
+template `[]`*[T](a: seq[T], b: ValidatorIndex): auto = # Also var seq (!)
   a[b.int]
 
-# `ValidatorIndex` Nim integration
-template `==`*(x, y: ValidatorIndex) : bool =
+iterator vindices*(
+    a: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
+  for i in 0..<a.len():
+    yield i.ValidatorIndex
+
+iterator vindices*(
+    a: List[Validator, Limit VALIDATOR_REGISTRY_LIMIT]): ValidatorIndex =
+  for i in 0..<a.len():
+    yield i.ValidatorIndex
+
+template `==`*(x, y: JustificationBits): bool =
   distinctBase(x) == distinctBase(y)
-
-template `<`*(x, y: ValidatorIndex): bool =
-  distinctBase(x) < distinctBase(y)
-
-template hash*(x: ValidatorIndex): Hash =
-  hash distinctBase(x)
-
-template `$`*(x: ValidatorIndex): auto =
-  $ distinctBase(x)
-
-template `==`*(x: uint64, y: ValidatorIndex): bool =
-  x == uint64(y)
-
-template `==`*(x: ValidatorIndex, y: uint64): bool =
-  uint64(x) == y
-
-template `==`*(x, y: CommitteeIndex): bool =
-  distinctBase(x) == distinctBase(y)
-
-template `<`*(x, y: CommitteeIndex): bool =
-  distinctBase(x) < distinctBase(y)
-
-template hash*(x: CommitteeIndex): Hash =
-  hash distinctBase(x)
-
-template `$`*(x: CommitteeIndex): auto =
-  $ distinctBase(x)
-
-template `==`*(x, y: SubnetId): bool =
-  distinctBase(x) == distinctBase(y)
-
-template `$`*(x: SubnetId): string =
-  $ distinctBase(x)
 
 func `as`*(d: DepositData, T: type DepositMessage): T =
   T(pubkey: d.pubkey,
     withdrawal_credentials: d.withdrawal_credentials,
     amount: d.amount)
-
-ethTimeUnit Slot
-ethTimeUnit Epoch
 
 template newClone*[T: not ref](x: T): ref T =
   # TODO not nil in return type: https://github.com/nim-lang/Nim/issues/14146
@@ -733,6 +688,7 @@ template assignClone*[T: not ref](x: T): ref T =
   # This is a bit of a mess: if x is an rvalue (temporary), RVO kicks in for
   # newClone - if it's not, `genericAssign` will be called which is ridiculously
   # slow - so `assignClone` should be used when RVO doesn't work. sigh.
+  mixin assign
   let res = new typeof(x) # TODO safe to do noinit here?
   assign(res[], x)
   res
@@ -746,8 +702,8 @@ template newClone*[T](x: ref T not nil): ref T =
 template lenu64*(x: untyped): untyped =
   uint64(len(x))
 
-func `$`*(v: ForkDigest | Version): string =
-  toHex(array[4, byte](v))
+func `$`*(v: ForkDigest | Version | DomainType): string =
+  toHex(distinctBase(v))
 
 func toGaugeValue*(x: uint64 | Epoch | Slot): int64 =
   if x > uint64(int64.high):
@@ -756,23 +712,18 @@ func toGaugeValue*(x: uint64 | Epoch | Slot): int64 =
     int64(x)
 
 # TODO where's borrow support when you need it
-func `==`*(a, b: ForkDigest | Version): bool =
+func `==`*(a, b: ForkDigest | Version | DomainType): bool =
   array[4, byte](a) == array[4, byte](b)
 func `<`*(a, b: ForkDigest | Version): bool =
   uint32.fromBytesBE(array[4, byte](a)) < uint32.fromBytesBE(array[4, byte](b))
-func len*(v: ForkDigest | Version): int = sizeof(v)
+func len*(v: ForkDigest | Version | DomainType): int = sizeof(v)
 func low*(v: ForkDigest | Version): int = 0
 func high*(v: ForkDigest | Version): int = len(v) - 1
-func `[]`*(v: ForkDigest | Version, idx: int): byte = array[4, byte](v)[idx]
+func `[]`*(v: ForkDigest | Version | DomainType, idx: int): byte =
+  array[4, byte](v)[idx]
 
-template bytes*(v: ForkDigest): array[4, byte] =
+template data*(v: ForkDigest | Version | DomainType): array[4, byte] =
   distinctBase(v)
-
-func shortLog*(s: Slot): uint64 =
-  s - GENESIS_SLOT
-
-func shortLog*(e: Epoch): uint64 =
-  e - GENESIS_EPOCH
 
 func shortLog*(v: BeaconBlockHeader): auto =
   (
@@ -791,7 +742,7 @@ func shortLog*(v: SomeSignedBeaconBlockHeader): auto =
 func shortLog*(v: DepositData): auto =
   (
     pubkey: shortLog(v.pubkey),
-    withdrawal_credentials: shortlog(v.withdrawal_credentials),
+    withdrawal_credentials: shortLog(v.withdrawal_credentials),
     amount: v.amount,
     signature: shortLog(v.signature)
   )
@@ -824,12 +775,25 @@ func shortLog*(v: SomeAttestation): auto =
     signature: shortLog(v.signature)
   )
 
+template asTrusted*(x: Attestation): TrustedAttestation =
+  isomorphicCast[TrustedAttestation](x)
+
 func shortLog*(v: SomeIndexedAttestation): auto =
   (
     attestating_indices: v.attesting_indices,
     data: shortLog(v.data),
     signature: shortLog(v.signature)
   )
+
+iterator getValidatorIndices*(attester_slashing: SomeAttesterSlashing): uint64 =
+  template attestation_1(): auto = attester_slashing.attestation_1
+  template attestation_2(): auto = attester_slashing.attestation_2
+
+  let attestation_2_indices = toHashSet(attestation_2.attesting_indices.asSeq)
+  for validator_index in attestation_1.attesting_indices.asSeq:
+    if validator_index notin attestation_2_indices:
+      continue
+    yield validator_index
 
 func shortLog*(v: SomeAttesterSlashing): auto =
   (
@@ -855,8 +819,6 @@ func shortLog*(v: SomeSignedVoluntaryExit): auto =
     signature: shortLog(v.signature)
   )
 
-chronicles.formatIt Slot: it.shortLog
-chronicles.formatIt Epoch: it.shortLog
 chronicles.formatIt AttestationData: it.shortLog
 chronicles.formatIt Attestation: it.shortLog
 chronicles.formatIt Checkpoint: it.shortLog
@@ -890,6 +852,23 @@ func init*(T: type GraffitiBytes, input: string): GraffitiBytes
       raise newException(ValueError, "The graffiti value should be 32 characters or less")
     distinctBase(result)[0 ..< input.len] = toBytes(input)
 
+func init*(
+    T: type Attestation,
+    indices_in_committee: openArray[uint64],
+    committee_len: int,
+    data: AttestationData,
+    signature: ValidatorSig): Result[T, cstring] =
+  var bits = CommitteeValidatorsBits.init(committee_len)
+  for index_in_committee in indices_in_committee:
+    if index_in_committee >= committee_len.uint64: return err("Invalid index for committee")
+    bits.setBit index_in_committee
+
+  ok Attestation(
+    aggregation_bits: bits,
+    data: data,
+    signature: signature
+  )
+
 func defaultGraffitiBytes*(): GraffitiBytes =
   const graffitiBytes =
     toBytes("Nimbus/" & fullVersionStr)
@@ -910,13 +889,13 @@ proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
   except ValueError as err:
     r.raiseUnexpectedValue err.msg
 
-proc load*(
+func load*(
     validators: openArray[ImmutableValidatorData2],
     index: ValidatorIndex | uint64): Option[CookedPubKey] =
   if validators.lenu64() <= index.uint64:
     none(CookedPubKey)
   else:
-    some(validators[index.int].pubkey.loadValid())
+    some(validators[index.int].pubkey)
 
 template hash*(header: BeaconBlockHeader): Hash =
   hash(header.state_root)
@@ -937,9 +916,88 @@ func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
     # is still better to keep field names parallel.
     result.add((name.replace("blob", "data"), sizeof(value), n))
 
+## At the GC-level, the GC is type-agnostic; it's all type-erased so
+## casting between seq[Attestation] and seq[TrustedAttestation] will
+## not disrupt GC operations.
+##
+## These SHOULD be used in function calls to avoid expensive temporary.
+## see https://github.com/status-im/nimbus-eth2/pull/2250#discussion_r562010679
 template isomorphicCast*[T, U](x: U): T =
   # Each of these pairs of types has ABI-compatible memory representations.
-  static:
-    doAssert sizeof(T) == sizeof(U)
-    doAssert getSizeofSig(T()) == getSizeofSig(U())
-  cast[ptr T](unsafeAddr x)[]
+  static: doAssert (T is ref) == (U is ref)
+  when T is ref:
+    type
+      TT = typeof default(typeof T)[]
+      UU = typeof default(typeof U)[]
+    static:
+      doAssert sizeof(TT) == sizeof(UU)
+      doAssert getSizeofSig(TT()) == getSizeofSig(UU())
+    cast[T](x)
+  else:
+    static:
+      doAssert sizeof(T) == sizeof(U)
+      doAssert getSizeofSig(T()) == getSizeofSig(U())
+    cast[ptr T](unsafeAddr x)[]
+
+func prune*(cache: var StateCache, epoch: Epoch) =
+  # Prune all cache information that is no longer relevant in order to process
+  # the given epoch
+  if epoch < 2: return
+
+  let
+    pruneEpoch = epoch - 2
+
+  var drops: seq[Slot]
+  block:
+    for k in cache.shuffled_active_validator_indices.keys:
+      if k < pruneEpoch:
+        drops.add pruneEpoch.start_slot
+    for drop in drops:
+      cache.shuffled_active_validator_indices.del drop.epoch
+    drops.setLen(0)
+
+  block:
+    for k in cache.beacon_proposer_indices.keys:
+      if k < pruneEpoch.start_slot:
+        drops.add k
+    for drop in drops:
+      cache.beacon_proposer_indices.del drop
+    drops.setLen(0)
+
+  block:
+    for k in cache.sync_committees.keys:
+      if k < pruneEpoch.sync_committee_period:
+        drops.add(k.start_epoch.start_slot)
+    for drop in drops:
+      cache.sync_committees.del drop.sync_committee_period
+    drops.setLen(0)
+
+func clear*(cache: var StateCache) =
+  cache.shuffled_active_validator_indices.clear
+  cache.beacon_proposer_indices.clear
+  cache.sync_committees.clear
+
+func checkForkConsistency*(cfg: RuntimeConfig) =
+  doAssert cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
+  doAssert cfg.SHARDING_FORK_EPOCH == FAR_FUTURE_EPOCH
+
+  let forkVersions =
+    [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
+     cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
+     cfg.SHARDING_FORK_VERSION]
+  for i in 0 ..< forkVersions.len:
+    for j in i+1 ..< forkVersions.len:
+      doAssert distinctBase(forkVersions[i]) != distinctBase(forkVersions[j])
+
+  template assertForkEpochOrder(
+      firstForkEpoch: Epoch, secondForkEpoch: Epoch) =
+    doAssert distinctBase(firstForkEpoch) <= distinctBase(secondForkEpoch)
+
+    # TODO https://github.com/ethereum/consensus-specs/issues/2902 multiple
+    # fork transitions per epoch don't work in a well-defined way.
+    doAssert distinctBase(firstForkEpoch) < distinctBase(secondForkEpoch) or
+             firstForkEpoch in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
+
+  assertForkEpochOrder(cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH)
+  assertForkEpochOrder(cfg.BELLATRIX_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH)
+  assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.SHARDING_FORK_EPOCH)

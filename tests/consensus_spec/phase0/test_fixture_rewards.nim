@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2021 Status Research & Development GmbH
+# Copyright (c) 2020-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -9,9 +9,7 @@
 
 import
   # Standard library
-  os,
-  # Utilities
-  stew/results,
+  std/os,
   # Beacon chain internals
   ../../beacon_chain/spec/[validator, helpers, state_transition_epoch],
   ../../beacon_chain/spec/datatypes/phase0,
@@ -39,7 +37,7 @@ proc runTest(rewardsDir, identifier: string) =
   let testDir = rewardsDir / identifier
 
   proc `testImpl _ rewards _ identifier`() =
-    test "Ethereum Foundation - Phase 0 - Rewards - " & identifier & preset():
+    test "EF - Phase 0 - Rewards - " & identifier & preset():
       let
         state = newClone(
           parseTest(testDir/"pre.ssz_snappy", SSZ, phase0.BeaconState))
@@ -61,7 +59,7 @@ proc runTest(rewardsDir, identifier: string) =
       info.init(state[])
       info.process_attestations(state[], cache)
       let
-        total_balance = info.total_balances.current_epoch
+        total_balance = info.balances.current_epoch
         total_balance_sqrt = integer_squareroot(total_balance)
 
       var
@@ -71,7 +69,7 @@ proc runTest(rewardsDir, identifier: string) =
         inclusionDelayDeltas2 = Deltas.init(state[].validators.len)
         inactivityPenaltyDeltas2 = Deltas.init(state[].validators.len)
 
-      for index, validator in info.statuses.mpairs():
+      for index, validator in info.validators.mpairs():
         if not is_eligible_validator(validator):
           continue
 
@@ -80,11 +78,11 @@ proc runTest(rewardsDir, identifier: string) =
             state[], index.ValidatorIndex, total_balance_sqrt)
 
         sourceDeltas2.add(index, get_source_delta(
-          validator, base_reward, info.total_balances, finality_delay))
+          validator, base_reward, info.balances, finality_delay))
         targetDeltas2.add(index, get_target_delta(
-          validator, base_reward, info.total_balances, finality_delay))
+          validator, base_reward, info.balances, finality_delay))
         headDeltas2.add(index, get_head_delta(
-          validator, base_reward, info.total_balances, finality_delay))
+          validator, base_reward, info.balances, finality_delay))
 
         let
           (inclusion_delay_delta, proposer_delta) =
@@ -107,7 +105,7 @@ proc runTest(rewardsDir, identifier: string) =
 
   `testImpl _ rewards _ identifier`()
 
-suite "Ethereum Foundation - Phase 0 - Rewards " & preset():
+suite "EF - Phase 0 - Rewards " & preset():
   for rewardsDir in [RewardsDirBasic, RewardsDirLeak, RewardsDirRandom]:
     for kind, path in walkDir(rewardsDir, relative = true, checkDir = true):
       runTest(rewardsDir, path)

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -44,11 +44,11 @@ proc finalizeOn234(
   # Mock the state
   getStateField(state, previous_justified_checkpoint) = c4
   getStateField(state, current_justified_checkpoint) = c3
-  getStateField(state, justification_bits) = 0'u8 # Bitvector of length 4
+  getStateField(state, justification_bits) = JustificationBits(0'u8) # Bitvector of length 4
   # mock 3rd and 4th latest epochs as justified
   # indices are pre-shift
-  getStateField(state, justification_bits).setBit 1
-  getStateField(state, justification_bits).setBit 2
+  uint8(getStateField(state, justification_bits)).setBit 1
+  uint8(getStateField(state, justification_bits)).setBit 2
   # mock the 2nd latest epoch as justifiable, with 4th as the source
   addMockAttestations(
     state.phase0Data.data,
@@ -90,10 +90,10 @@ proc finalizeOn23(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_s
   # Mock the state
   getStateField(state, previous_justified_checkpoint) = c3
   getStateField(state, current_justified_checkpoint) = c3
-  getStateField(state, justification_bits) = 0'u8 # Bitvector of length 4
+  getStateField(state, justification_bits) = JustificationBits(0'u8) # Bitvector of length 4
   # mock 3rd as justified
   # indices are pre-shift
-  getStateField(state, justification_bits).setBit 1
+  uint8(getStateField(state, justification_bits)).setBit 1
   # mock the 2nd latest epoch as justifiable, with 3rd as the source
   addMockAttestations(
     state.phase0Data.data,
@@ -135,10 +135,10 @@ proc finalizeOn123(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_
   # Mock the state
   getStateField(state, previous_justified_checkpoint) = c5
   getStateField(state, current_justified_checkpoint) = c3
-  getStateField(state, justification_bits) = 0'u8 # Bitvector of length 4
+  getStateField(state, justification_bits) = JustificationBits(0'u8) # Bitvector of length 4
   # mock 3rd as justified
   # indices are pre-shift
-  getStateField(state, justification_bits).setBit 1
+  uint8(getStateField(state, justification_bits)).setBit 1
   # mock the 2nd latest epoch as justifiable, with 5th as the source
   addMockAttestations(
     state.phase0Data.data,
@@ -188,10 +188,10 @@ proc finalizeOn12(state: var ForkedHashedBeaconState, epoch: Epoch, sufficient_s
   # Mock the state
   getStateField(state, previous_justified_checkpoint) = c2
   getStateField(state, current_justified_checkpoint) = c2
-  getStateField(state, justification_bits) = 0'u8 # Bitvector of length 4
+  getStateField(state, justification_bits) = JustificationBits(0'u8) # Bitvector of length 4
   # mock 3rd as justified
   # indices are pre-shift
-  getStateField(state, justification_bits).setBit 0
+  uint8(getStateField(state, justification_bits)).setBit 0
   # mock the 2nd latest epoch as justifiable, with 3rd as the source
   addMockAttestations(
     state.phase0Data.data,
@@ -222,7 +222,7 @@ proc payload =
     doAssert getStateField(genesisState[], validators).lenu64 == NumValidators
 
     setup:
-      var state = assignClone(genesisState[])
+      let state = assignClone(genesisState[])
 
     test " Rule I - 234 finalization with enough support":
       finalizeOn234(state[], Epoch 5, sufficient_support = true)

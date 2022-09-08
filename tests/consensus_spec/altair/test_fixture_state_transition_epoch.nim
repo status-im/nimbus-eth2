@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -24,25 +24,25 @@ const RootDir = SszTestsDir/const_preset/"altair"/"epoch_processing"
 
 template runSuite(
     suiteDir, testName: string, transitionProc: untyped): untyped =
-  suite "Ethereum Foundation - Altair - Epoch Processing - " & testName & preset():
+  suite "EF - Altair - Epoch Processing - " & testName & preset():
     for testDir in walkDirRec(suiteDir, yieldFilter = {pcDir}, checkDir = true):
 
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
         # BeaconState objects are stored on the heap to avoid stack overflow
         type T = altair.BeaconState
-        var preState {.inject.} = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
-        let postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, T))
+        let preState {.inject.} = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
         var cache {.inject, used.} = StateCache()
         template state: untyped {.inject, used.} = preState[]
         template cfg: untyped {.inject, used.} = defaultRuntimeConfig
 
-        transitionProc
-
-        check:
-          hash_tree_root(preState[]) == hash_tree_root(postState[])
-
-        reportDiff(preState, postState)
+        if transitionProc.isOk:
+          let postState =
+            newClone(parseTest(testDir/"post.ssz_snappy", SSZ, T))
+          check: hash_tree_root(preState[]) == hash_tree_root(postState[])
+          reportDiff(preState, postState)
+        else:
+          check: not fileExists(testDir/"post.ssz_snappy")
 
 # Justification & Finalization
 # ---------------------------------------------------------------
@@ -51,6 +51,7 @@ const JustificationFinalizationDir = RootDir/"justification_and_finalization"/"p
 runSuite(JustificationFinalizationDir, "Justification & Finalization"):
   let info = altair.EpochInfo.init(state)
   process_justification_and_finalization(state, info.balances)
+  Result[void, cstring].ok()
 
 # Inactivity updates
 # ---------------------------------------------------------------
@@ -59,6 +60,7 @@ const InactivityDir = RootDir/"inactivity_updates"/"pyspec_tests"
 runSuite(InactivityDir, "Inactivity"):
   let info = altair.EpochInfo.init(state)
   process_inactivity_updates(cfg, state, info)
+  Result[void, cstring].ok()
 
 # Rewards & Penalties
 # ---------------------------------------------------------------
@@ -79,6 +81,7 @@ const SlashingsDir = RootDir/"slashings"/"pyspec_tests"
 runSuite(SlashingsDir, "Slashings"):
   let info = altair.EpochInfo.init(state)
   process_slashings(state, info.balances.current_epoch)
+  Result[void, cstring].ok()
 
 # Eth1 data reset
 # ---------------------------------------------------------------
@@ -86,6 +89,7 @@ runSuite(SlashingsDir, "Slashings"):
 const Eth1DataResetDir = RootDir/"eth1_data_reset/"/"pyspec_tests"
 runSuite(Eth1DataResetDir, "Eth1 data reset"):
   process_eth1_data_reset(state)
+  Result[void, cstring].ok()
 
 # Effective balance updates
 # ---------------------------------------------------------------
@@ -93,6 +97,7 @@ runSuite(Eth1DataResetDir, "Eth1 data reset"):
 const EffectiveBalanceUpdatesDir = RootDir/"effective_balance_updates"/"pyspec_tests"
 runSuite(EffectiveBalanceUpdatesDir, "Effective balance updates"):
   process_effective_balance_updates(state)
+  Result[void, cstring].ok()
 
 # Slashings reset
 # ---------------------------------------------------------------
@@ -100,6 +105,7 @@ runSuite(EffectiveBalanceUpdatesDir, "Effective balance updates"):
 const SlashingsResetDir = RootDir/"slashings_reset"/"pyspec_tests"
 runSuite(SlashingsResetDir, "Slashings reset"):
   process_slashings_reset(state)
+  Result[void, cstring].ok()
 
 # RANDAO mixes reset
 # ---------------------------------------------------------------
@@ -107,6 +113,7 @@ runSuite(SlashingsResetDir, "Slashings reset"):
 const RandaoMixesResetDir = RootDir/"randao_mixes_reset"/"pyspec_tests"
 runSuite(RandaoMixesResetDir, "RANDAO mixes reset"):
   process_randao_mixes_reset(state)
+  Result[void, cstring].ok()
 
 # Historical roots update
 # ---------------------------------------------------------------
@@ -114,6 +121,7 @@ runSuite(RandaoMixesResetDir, "RANDAO mixes reset"):
 const HistoricalRootsUpdateDir = RootDir/"historical_roots_update"/"pyspec_tests"
 runSuite(HistoricalRootsUpdateDir, "Historical roots update"):
   process_historical_roots_update(state)
+  Result[void, cstring].ok()
 
 # Participation flag updates
 # ---------------------------------------------------------------
@@ -121,10 +129,16 @@ runSuite(HistoricalRootsUpdateDir, "Historical roots update"):
 const ParticipationFlagDir = RootDir/"participation_flag_updates"/"pyspec_tests"
 runSuite(ParticipationFlagDir, "Participation flag updates"):
   process_participation_flag_updates(state)
+  Result[void, cstring].ok()
 
 # Sync committee updates
 # ---------------------------------------------------------------
 
+# These are only for minimal, not mainnet
 const SyncCommitteeDir = RootDir/"sync_committee_updates"/"pyspec_tests"
-runSuite(SyncCommitteeDir, "Sync committee updates"):
-  process_sync_committee_updates(state)
+when const_preset == "minimal":
+  runSuite(SyncCommitteeDir, "Sync committee updates"):
+    process_sync_committee_updates(state)
+    Result[void, cstring].ok()
+else:
+  doAssert not dirExists(SyncCommitteeDir)

@@ -1,5 +1,5 @@
 # Mainnet preset - Altair
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/presets/mainnet/altair.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/presets/mainnet/altair.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------
@@ -16,10 +16,12 @@ const
   # 2**9 (= 512)
   SYNC_COMMITTEE_SIZE* = 512
   # 2**8 (= 256)
-  EPOCHS_PER_SYNC_COMMITTEE_PERIOD*: uint64 = 256
+  EPOCHS_PER_SYNC_COMMITTEE_PERIOD* {.intdefine.}: uint64 = 256
 
 
   # Sync protocol
   # ---------------------------------------------------------------
   # 1
   MIN_SYNC_COMMITTEE_PARTICIPANTS* = 1
+  # SLOTS_PER_EPOCH * EPOCHS_PER_SYNC_COMMITTEE_PERIOD (= 32 * 256)
+  UPDATE_TIMEOUT*: uint64 = 8192

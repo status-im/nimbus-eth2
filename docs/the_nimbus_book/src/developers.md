@@ -25,7 +25,7 @@ The `unstable` branch contains features and bugfixes that are actively being tes
 The `testing` branch contains features and bugfixes that have gone through CI and initial testing on the `unstable` branch and are ready to be included in the next release.
 
 * After testing a bugfix or feature on `unstable`, the features and fixes that are planned for the next release get merged to the `testing` branch either by the release manager or team members.
-* The `testing` branch is regularly deployed to the Nimbus prater and pyrmont fleet as well as a smaller mainnet fleet.
+* The `testing` branch is regularly deployed to the Nimbus prater fleet as well as a smaller mainnet fleet.
 * The branch should remain release-ready at most times.
 
 ### Stable
@@ -139,7 +139,19 @@ make NIMFLAGS="-d:disableMarchNative" nimbus_beacon_node
 make NIMFLAGS="-d:disableLTO" nimbus_beacon_node
 ```
 
-- build a static binary
+- show C compiler warnings:
+
+```bash
+make NIMFLAGS="-d:cwarnings" nimbus_beacon_node
+```
+
+- limit stack usage to 1 MiB per C function (static analysis - see the [GCC docs](https://gcc.gnu.org/onlinedocs/gnat_ugn/Static-Stack-Usage-Analysis.html); if LTO is enabled, it works without `-d:cwarnings`):
+
+```bash
+make NIMFLAGS="-d:limitStackUsage" nimbus_beacon_node
+```
+
+- build a static binary:
 
 ```bash
 make NIMFLAGS="--passL:-static" nimbus_beacon_node
@@ -151,16 +163,10 @@ make NIMFLAGS="--passL:-static" nimbus_beacon_node
 make publish-book
 ```
 
-- create a binary distribution
+- create a binary distribution:
 
 ```bash
 make dist
-```
-
-- test the binaries
-
-```bash
-make dist-test
 ```
 
 ## Multi-client interop scripts

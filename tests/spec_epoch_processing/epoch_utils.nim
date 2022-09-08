@@ -39,4 +39,4 @@ proc transitionEpochUntilJustificationFinalization*(state: var ForkedHashedBeaco
   info.init(state.phase0Data.data)
   info.process_attestations(state.phase0Data.data, cache)
   process_justification_and_finalization(
-    state.phase0Data.data, info.total_balances)
+    state.phase0Data.data, info.balances)

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021 Status Research & Development GmbH
+# Copyright (c) 2021-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -7,102 +7,195 @@
 
 import std/sequtils
 import chronicles
-import ".."/[version, beacon_node],
+import ".."/beacon_node,
        ".."/spec/forks,
-       "."/rest_utils
+       "."/[rest_utils, state_ttl_cache]
+
+from ../fork_choice/proto_array import ProtoArrayItem, items
+
+export rest_utils
 
 logScope: topics = "rest_debug"
 
 proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Debug/getState
   router.api(MethodGet,
-             "/api/eth/v1/debug/beacon/states/{state_id}") do (
+             "/eth/v1/debug/beacon/states/{state_id}") do (
     state_id: StateIdent) -> RestApiResponse:
     let bslot =
       block:
         if state_id.isErr():
           return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                            $state_id.error())
-        let bres = node.getBlockSlot(state_id.get())
+        let bres = node.getBlockSlotId(state_id.get())
         if bres.isErr():
           return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                            $bres.error())
         bres.get()
     let contentType =
       block:
-        let res = preferredContentType("application/octet-stream",
-                                       "application/json")
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
         if res.isErr():
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
-    node.withStateForBlockSlot(bslot):
+    node.withStateForBlockSlotId(bslot):
       return
-        case stateData.data.kind
+        case state.kind
         of BeaconStateFork.Phase0:
-          case contentType
-            of "application/octet-stream":
-              RestApiResponse.sszResponse(stateData.data.phase0Data.data)
-            of "application/json":
-              RestApiResponse.jsonResponse(stateData.data.phase0Data.data)
-            else:
-              RestApiResponse.jsonError(Http500, InvalidAcceptError)
-        of BeaconStateFork.Altair, BeaconStateFork.Merge:
+          if contentType == sszMediaType:
+            RestApiResponse.sszResponse(state.phase0Data.data, [])
+          elif contentType == jsonMediaType:
+            RestApiResponse.jsonResponse(state.phase0Data.data)
+          else:
+            RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        of BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
           RestApiResponse.jsonError(Http404, StateNotFoundError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
   router.api(MethodGet,
-             "/api/eth/v2/debug/beacon/states/{state_id}") do (
+             "/eth/v2/debug/beacon/states/{state_id}") do (
     state_id: StateIdent) -> RestApiResponse:
     let bslot =
       block:
         if state_id.isErr():
           return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
                                            $state_id.error())
-        let bres = node.getBlockSlot(state_id.get())
+        let bres = node.getBlockSlotId(state_id.get())
         if bres.isErr():
           return RestApiResponse.jsonError(Http404, StateNotFoundError,
                                            $bres.error())
         bres.get()
     let contentType =
       block:
-        let res = preferredContentType("application/octet-stream",
-                                       "application/json")
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
         if res.isErr():
           return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
         res.get()
-    node.withStateForBlockSlot(bslot):
+    node.withStateForBlockSlotId(bslot):
       return
-        case contentType
-        of "application/json":
-          RestApiResponse.jsonResponsePlain(
-            ForkedBeaconState.init(stateData.data))
-        of "application/octet-stream":
-          withState(stateData.data):
-            RestApiResponse.sszResponse(state.data)
+        if contentType == jsonMediaType:
+          RestApiResponse.jsonResponseState(
+            state,
+            node.getStateOptimistic(state)
+          )
+        elif contentType == sszMediaType:
+          let headers = [("eth-consensus-version", state.kind.toString())]
+          withState(state):
+            RestApiResponse.sszResponse(state.data, headers)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeads
   router.api(MethodGet,
-             "/api/eth/v1/debug/beacon/heads") do () -> RestApiResponse:
+             "/eth/v1/debug/beacon/heads") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(
       node.dag.heads.mapIt((root: it.root, slot: it.slot))
     )
 
+  # https://ethereum.github.io/beacon-APIs/#/Debug/getDebugChainHeadsV2
+  router.api(MethodGet,
+             "/eth/v2/debug/beacon/heads") do () -> RestApiResponse:
+    return RestApiResponse.jsonResponse(
+      node.dag.heads.mapIt(
+        (
+          root: it.root,
+          slot: it.slot,
+          execution_optimistic: node.getBlockRefOptimistic(it)
+        )
+      )
+    )
+
+  # https://github.com/ethereum/beacon-APIs/pull/232
+  if node.config.debugForkChoice:
+    router.api(MethodGet,
+               "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
+      type
+        ForkChoiceResponseExtraData = object
+          justified_root: Eth2Digest
+          finalized_root: Eth2Digest
+          u_justified_checkpoint: Option[Checkpoint]
+          u_finalized_checkpoint: Option[Checkpoint]
+          best_child: Eth2Digest
+          best_descendant: Eth2Digest
+
+        ForkChoiceResponse = object
+          slot: Slot
+          block_root: Eth2Digest
+          parent_root: Eth2Digest
+          justified_epoch: Epoch
+          finalized_epoch: Epoch
+          weight: uint64
+          execution_optimistic: bool
+          execution_payload_root: Eth2Digest
+          extra_data: Option[ForkChoiceResponseExtraData]
+
+      var responses: seq[ForkChoiceResponse]
+      for item in node.attestationPool[].forkChoice.backend.proto_array:
+        let
+          bid = node.dag.getBlockId(item.root)
+          slot =
+            if bid.isOk:
+              bid.unsafeGet.slot
+            else:
+              FAR_FUTURE_SLOT
+          executionPayloadRoot =
+            if bid.isOk:
+              node.dag.loadExecutionBlockRoot(bid.unsafeGet)
+            else:
+              ZERO_HASH
+          unrealized = item.unrealized.get(item.checkpoints)
+          u_justified_checkpoint =
+            if unrealized.justified != item.checkpoints.justified:
+              some unrealized.justified
+            else:
+              none(Checkpoint)
+          u_finalized_checkpoint =
+            if unrealized.finalized != item.checkpoints.finalized:
+              some unrealized.finalized
+            else:
+              none(Checkpoint)
+
+        responses.add ForkChoiceResponse(
+          slot: slot,
+          block_root: item.root,
+          parent_root: item.parent,
+          justified_epoch: item.checkpoints.justified.epoch,
+          finalized_epoch: item.checkpoints.finalized.epoch,
+          weight: cast[uint64](item.weight),
+          execution_optimistic: node.dag.is_optimistic(item.root),
+          execution_payload_root: executionPayloadRoot,
+          extra_data: some ForkChoiceResponseExtraData(
+            justified_root: item.checkpoints.justified.root,
+            finalized_root: item.checkpoints.finalized.root,
+            u_justified_checkpoint: u_justified_checkpoint,
+            u_finalized_checkpoint: u_finalized_checkpoint,
+            best_child: item.bestChild,
+            bestDescendant: item.bestDescendant))
+      return RestApiResponse.jsonResponse(responses)
+
+  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
+  # `/api` path component
   router.redirect(
     MethodGet,
-    "/eth/v1/debug/beacon/states/{state_id}",
-    "/api/eth/v1/debug/beacon/states/{state_id}"
+    "/api/eth/v1/debug/beacon/states/{state_id}",
+    "/eth/v1/debug/beacon/states/{state_id}"
   )
   router.redirect(
     MethodGet,
-    "/eth/v2/debug/beacon/states/{state_id}",
-    "/api/eth/v2/debug/beacon/states/{state_id}"
+    "/api/eth/v2/debug/beacon/states/{state_id}",
+    "/eth/v2/debug/beacon/states/{state_id}"
   )
   router.redirect(
     MethodGet,
-    "/eth/v1/debug/beacon/heads",
-    "/api/eth/v1/debug/beacon/heads"
+    "/api/eth/v1/debug/beacon/heads",
+    "/eth/v1/debug/beacon/heads"
+  )
+  router.redirect(
+    MethodGet,
+    "/api/eth/v2/debug/beacon/heads",
+    "/eth/v2/debug/beacon/heads"
   )

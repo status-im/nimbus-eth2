@@ -1,21 +1,24 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
-import options, sequtils, strutils
+import std/[sequtils, strutils]
 import chronos, chronicles
 import
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0],
   ../spec/forks,
   ../networking/eth2_network,
-  ../gossip_processing/block_processor,
+  ../consensus_object_pools/block_quarantine,
   "."/sync_protocol, "."/sync_manager
-export sync_manager
+export block_quarantine, sync_manager
 
 logScope:
   topics = "requman"
@@ -28,10 +31,14 @@ const
     ## Number of peers we using to resolve our request.
 
 type
+  BlockVerifier* =
+    proc(signedBlock: ForkedSignedBeaconBlock):
+      Future[Result[void, BlockError]] {.gcsafe, raises: [Defect].}
+
   RequestManager* = object
     network*: Eth2Node
     inpQueue*: AsyncQueue[FetchRecord]
-    blockProcessor: ref BlockProcessor
+    blockVerifier: BlockVerifier
     loopFuture: Future[void]
 
 func shortLog*(x: seq[Eth2Digest]): string =
@@ -41,32 +48,26 @@ func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
 proc init*(T: type RequestManager, network: Eth2Node,
-           blockProcessor: ref BlockProcessor): RequestManager =
+           blockVerifier: BlockVerifier): RequestManager =
   RequestManager(
     network: network,
     inpQueue: newAsyncQueue[FetchRecord](),
-    blockProcessor: blockProcessor
+    blockVerifier: blockVerifier
   )
 
 proc checkResponse(roots: openArray[Eth2Digest],
-                   blocks: openArray[ForkedSignedBeaconBlock]): bool =
+                   blocks: openArray[ref ForkedSignedBeaconBlock]): bool =
   ## This procedure checks peer's response.
   var checks = @roots
   if len(blocks) > len(roots):
     return false
   for blk in blocks:
-    let res = checks.find(blk.root)
+    let res = checks.find(blk[].root)
     if res == -1:
       return false
     else:
       checks.del(res)
   return true
-
-proc validate(rman: RequestManager,
-              b: ForkedSignedBeaconBlock): Future[Result[void, BlockError]] =
-  let resfut = newFuture[Result[void, BlockError]]("request.manager.validate")
-  rman.blockProcessor[].addBlock(b, resfut)
-  resfut
 
 proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
                                     items: seq[Eth2Digest]) {.async.} =
@@ -77,41 +78,58 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
                                        peer_score = peer.getScore()
 
     let blocks = if peer.useSyncV2():
-      await peer.beaconBlocksByRoot_v2(BlockRootsList items)
+      await beaconBlocksByRoot_v2(peer, BlockRootsList items)
     else:
-      (await peer.beaconBlocksByRoot(BlockRootsList items)).map() do (blcks: seq[phase0.SignedBeaconBlock]) -> auto:
-        blcks.mapIt(ForkedSignedBeaconBlock.init(it))
+      (await beaconBlocksByRoot(peer, BlockRootsList items)).map(
+        proc(blcks: seq[phase0.SignedBeaconBlock]): auto =
+          blcks.mapIt(newClone(ForkedSignedBeaconBlock.init(it))))
 
     if blocks.isOk:
       let ublocks = blocks.get()
       if checkResponse(items, ublocks):
-        var res: Result[void, BlockError]
-        if len(ublocks) > 0:
-          for b in ublocks:
-            res = await rman.validate(b)
-            # We are ignoring errors:
-            # `BlockError.MissingParent` - because the order of the blocks that
-            # we requested may be different from the order in which we need
-            # these blocks to apply.
-            # `BlockError.Old`, `BlockError.Duplicate` and `BlockError.Unviable`
-            # errors could occur due to the concurrent/parallel requests we are
-            # made.
-            if res.isErr() and (res.error == BlockError.Invalid):
-              # We stop processing blocks further to avoid DoS attack with big
-              # chunk of incorrect blocks.
-              break
-        else:
-          res = Result[void, BlockError].ok()
+        var
+          gotGoodBlock = false
+          gotUnviableBlock = false
 
-        if res.isOk():
-          if len(ublocks) > 0:
-            # We reward peer only if it returns something.
-            peer.updateScore(PeerScoreGoodBlocks)
-        else:
-          # We are not penalizing other errors because of the reasons described
-          # above.
-          if res.error == BlockError.Invalid:
-            peer.updateScore(PeerScoreBadBlocks)
+        for b in ublocks:
+          let ver = await rman.blockVerifier(b[])
+          if ver.isErr():
+            case ver.error()
+            of BlockError.MissingParent:
+              # Ignoring because the order of the blocks that
+              # we requested may be different from the order in which we need
+              # these blocks to apply.
+              discard
+            of BlockError.Duplicate:
+              # Ignoring because these errors could occur due to the
+              # concurrent/parallel requests we made.
+              discard
+            of BlockError.UnviableFork:
+              # If they're working a different fork, we'll want to descore them
+              # but also process the other blocks (in case we can register the
+              # other blocks as unviable)
+              gotUnviableBlock = true
+            of BlockError.Invalid:
+              # We stop processing blocks because peer is either sending us
+              # junk or working a different fork
+              notice "Received invalid block",
+                peer = peer, blocks = shortLog(items),
+                peer_score = peer.getScore()
+              peer.updateScore(PeerScoreBadBlocks)
+
+              return # Stop processing this junk...
+          else:
+            gotGoodBlock = true
+
+        if gotUnviableBlock:
+          notice "Received blocks from an unviable fork",
+            peer = peer, blocks = shortLog(items),
+            peer_score = peer.getScore()
+          peer.updateScore(PeerScoreUnviableFork)
+        elif gotGoodBlock:
+          # We reward peer only if it returns something.
+          peer.updateScore(PeerScoreGoodBlocks)
+
       else:
         peer.updateScore(PeerScoreBadResponse)
     else:
@@ -142,7 +160,7 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
         rootList.add(rman.inpQueue.popFirstNoWait().root)
         dec(count)
 
-      let start = SyncMoment.now(Slot(0))
+      let start = SyncMoment.now(0)
 
       for i in 0 ..< PARALLEL_REQUESTS:
         workers[i] = rman.fetchAncestorBlocksFromNetwork(rootList)
@@ -150,7 +168,7 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
       # We do not care about
       await allFutures(workers)
 
-      let finish = SyncMoment.now(Slot(0) + uint64(len(rootList)))
+      let finish = SyncMoment.now(uint64(len(rootList)))
 
       var succeed = 0
       for worker in workers:

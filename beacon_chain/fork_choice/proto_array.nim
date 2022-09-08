@@ -1,20 +1,24 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   # Standard library
-  std/tables, std/options, std/typetraits,
+  std/[tables, typetraits],
   # Status libraries
   chronicles,
   stew/results,
   # Internal
   ../spec/datatypes/base,
+  ../spec/helpers,
   # Fork choice
   ./fork_choice_types
 
@@ -62,13 +66,16 @@ func `[]`(nodes: ProtoNodes, idx: Index): Option[ProtoNode] =
   let i = idx - nodes.offset
   if i >= nodes.buf.len:
     return none(ProtoNode)
-  return some(nodes.buf[i])
+  some(nodes.buf[i])
 
 func len*(nodes: ProtoNodes): int =
   nodes.buf.len
 
 func add(nodes: var ProtoNodes, node: ProtoNode) =
   nodes.buf.add node
+
+func isPreviousEpochJustified(self: ProtoArray): bool =
+  self.checkpoints.justified.epoch + 1 == self.currentEpoch
 
 # Forward declarations
 # ----------------------------------------------------------------------
@@ -83,44 +90,82 @@ func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool]
 # ProtoArray routines
 # ----------------------------------------------------------------------
 
-func init*(T: type ProtoArray,
-           justifiedEpoch: Epoch,
-           finalizedRoot: Eth2Digest,
-           finalizedEpoch: Epoch): T =
+func init*(
+    T: type ProtoArray, checkpoints: FinalityCheckpoints,
+    hasLowParticipation: bool): T =
   let node = ProtoNode(
-    root: finalizedRoot,
+    root: checkpoints.finalized.root,
     parent: none(int),
-    justifiedEpoch: justifiedEpoch,
-    finalizedEpoch: finalizedEpoch,
+    checkpoints: checkpoints,
     weight: 0,
     bestChild: none(int),
-    bestDescendant: none(int)
-  )
+    bestDescendant: none(int))
 
-  T(
-    justifiedEpoch: justifiedEpoch,
-    finalizedEpoch: finalizedEpoch,
+  T(hasLowParticipation: hasLowParticipation,
+    checkpoints: checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
-    indices: {node.root: 0}.toTable()
-  )
+    indices: {node.root: 0}.toTable())
+
+iterator realizePendingCheckpoints*(
+    self: var ProtoArray, resetTipTracking = true): FinalityCheckpoints =
+  # Pull-up chain tips from previous epoch
+  for idx, unrealized in self.currentEpochTips.pairs():
+    let physicalIdx = idx - self.nodes.offset
+    if unrealized != self.nodes.buf[physicalIdx].checkpoints:
+      trace "Pulling up chain tip",
+        blck = self.nodes.buf[physicalIdx].root,
+        checkpoints = self.nodes.buf[physicalIdx].checkpoints,
+        unrealized
+      self.nodes.buf[physicalIdx].checkpoints = unrealized
+
+    yield unrealized
+
+  # Reset tip tracking for new epoch
+  if resetTipTracking:
+    self.currentEpochTips.clear()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/fork-choice.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
+const PROPOSER_SCORE_BOOST* = 40
+func calculateProposerBoost(validatorBalances: openArray[Gwei]): int64 =
+  var
+    total_balance: uint64
+    num_validators: int64
+  for balance in validatorBalances:
+    # We need to filter zero balances here to get an accurate active validator
+    # count. This is because we default inactive validator balances to zero
+    # when creating this balances array.
+    if balance != 0:
+      total_balance += balance
+      num_validators += 1
+  if num_validators == 0:
+    return 0
+  let
+    average_balance = int64(total_balance div num_validators.uint64)
+    committee_size = num_validators div SLOTS_PER_EPOCH.int64
+    committee_weight = committee_size * average_balance
+  (committee_weight * PROPOSER_SCORE_BOOST) div 100
 
 func applyScoreChanges*(self: var ProtoArray,
                         deltas: var openArray[Delta],
-                        justifiedEpoch: Epoch,
-                        finalizedEpoch: Epoch): FcResult[void] =
+                        currentEpoch: Epoch,
+                        checkpoints: FinalityCheckpoints,
+                        newBalances: openArray[Gwei],
+                        proposerBoostRoot: Eth2Digest): FcResult[void] =
   ## Iterate backwards through the array, touching all nodes and their parents
   ## and potentially the best-child of each parent.
-  ##
-  ## The structure of `self.nodes` array ensures that the child of each node
-  ## is always touched before it's aprent.
-  ##
-  ## For each node the following is done:
-  ##
-  ## 1. Update the node's weight with the corresponding delta.
-  ## 2. Backpropagate each node's delta to its parent's delta.
-  ## 3. Compare the current node with the parent's best-child,
-  ##    updating if the current node should become the best-child
-  ## 4. If required, update the parent's best-descendant with the current node or its best-descendant
+  #
+  # The structure of `self.nodes` array ensures that the child of each node
+  # is always touched before its parent.
+  #
+  # For each node the following is done:
+  #
+  # 1. Update the node's weight with the corresponding delta.
+  # 2. Backpropagate each node's delta to its parent's delta.
+  # 3. Compare the current node with the parent's best-child,
+  #    updating if the current node should become the best-child
+  # 4. If required, update the parent's best-descendant with the current node
+  #    or its best-descendant
   doAssert self.indices.len == self.nodes.len # By construction
   if deltas.len != self.indices.len:
     return err ForkChoiceError(
@@ -128,20 +173,52 @@ func applyScoreChanges*(self: var ProtoArray,
       deltasLen: deltas.len,
       indicesLen: self.indices.len)
 
-  self.justifiedEpoch = justifiedEpoch
-  self.finalizedEpoch = finalizedEpoch
+  self.currentEpoch = currentEpoch
+  self.checkpoints = checkpoints
+
+  # If previous epoch is justified, pull up all current tips to previous epoch
+  if self.hasLowParticipation and self.isPreviousEpochJustified:
+    for realized in self.realizePendingCheckpoints(resetTipTracking = false):
+      discard
 
   ## Alias
   # This cannot raise the IndexError exception, how to tell compiler?
   template node: untyped {.dirty.} =
     self.nodes.buf[nodePhysicalIdx]
 
+  # Default value, if not otherwise set in first node loop
+  var proposerBoostScore: int64
+
   # Iterate backwards through all the indices in `self.nodes`
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
-    if node.root == default(Eth2Digest):
+    if node.root.isZero:
       continue
 
-    let nodeDelta = deltas[nodePhysicalIdx]
+    var nodeDelta = deltas[nodePhysicalIdx]
+
+    # If we find the node for which the proposer boost was previously applied,
+    # decrease the delta by the previous score amount.
+    if  (not self.previousProposerBoostRoot.isZero) and
+        self.previousProposerBoostRoot == node.root:
+          if  nodeDelta < 0 and
+              nodeDelta - low(Delta) < self.previousProposerBoostScore:
+            return err ForkChoiceError(
+                kind: fcDeltaUnderflow,
+                index: nodePhysicalIdx)
+          nodeDelta -= self.previousProposerBoostScore
+
+    # If we find the node matching the current proposer boost root, increase
+    # the delta by the new score amount.
+    #
+    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
+    if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.root:
+      proposerBoostScore = calculateProposerBoost(newBalances)
+      if  nodeDelta >= 0 and
+          high(Delta) - nodeDelta < self.previousProposerBoostScore:
+        return err ForkChoiceError(
+            kind: fcDeltaOverflow,
+            index: nodePhysicalIdx)
+      nodeDelta += proposerBoostScore.int64
 
     # Apply the delta to the node
     # We fail fast if underflow, which shouldn't happen.
@@ -153,7 +230,7 @@ func applyScoreChanges*(self: var ProtoArray,
         index: nodePhysicalIdx)
     node.weight = weight
 
-    # If the node has a parent, try to update its best-child and best-descendant
+    # If the node has a parent, try to update its best-child and best-descendent
     if node.parent.isSome():
       let parentLogicalIdx = node.parent.unsafeGet()
       let parentPhysicalIdx = parentLogicalIdx - self.nodes.offset
@@ -187,8 +264,12 @@ func applyScoreChanges*(self: var ProtoArray,
       # Back-propagate the nodes delta to its parent.
       deltas[parentPhysicalIdx] += nodeDelta
 
+  # After applying all deltas, update the `previous_proposer_boost`.
+  self.previousProposerBoostRoot = proposerBoostRoot
+  self.previousProposerBoostScore = proposerBoostScore
+
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
-    if node.root == default(Eth2Digest):
+    if node.root.isZero:
       continue
 
     if node.parent.isSome():
@@ -206,8 +287,8 @@ func applyScoreChanges*(self: var ProtoArray,
 func onBlock*(self: var ProtoArray,
               root: Eth2Digest,
               parent: Eth2Digest,
-              justifiedEpoch: Epoch,
-              finalizedEpoch: Epoch): FcResult[void] =
+              checkpoints: FinalityCheckpoints,
+              unrealized = none(FinalityCheckpoints)): FcResult[void] =
   ## Register a block with the fork choice
   ## A block `hasParentInForkChoice` may be false
   ## on fork choice initialization:
@@ -234,15 +315,17 @@ func onBlock*(self: var ProtoArray,
   let node = ProtoNode(
     root: root,
     parent: some(parentIdx),
-    justifiedEpoch: justifiedEpoch,
-    finalizedEpoch: finalizedEpoch,
+    checkpoints: checkpoints,
     weight: 0,
     bestChild: none(int),
-    bestDescendant: none(int)
-  )
+    bestDescendant: none(int))
 
   self.indices[node.root] = nodeLogicalIdx
   self.nodes.add node
+
+  if unrealized.isSome:
+    self.currentEpochTips.del parentIdx
+    self.currentEpochTips[nodeLogicalIdx] = unrealized.get
 
   ? self.maybeUpdateBestChildAndDescendant(parentIdx, nodeLogicalIdx)
 
@@ -283,11 +366,9 @@ func findHead*(self: var ProtoArray,
     return err ForkChoiceError(
       kind: fcInvalidBestNode,
       startRoot: justifiedRoot,
-      justifiedEpoch: self.justifiedEpoch,
-      finalizedEpoch: self.finalizedEpoch,
+      fkChoiceCheckpoints: self.checkpoints,
       headRoot: justifiedNode.get().root,
-      headJustifiedEpoch: justifiedNode.get().justifiedEpoch,
-      headFinalizedEpoch: justifiedNode.get().finalizedEpoch)
+      headCheckpoints: justifiedNode.get().checkpoints)
 
   head = bestNode.get().root
   ok()
@@ -320,10 +401,11 @@ func prune*(self: var ProtoArray, finalizedRoot: Eth2Digest): FcResult[void] =
       finalizedRoot: finalizedRoot)
 
   trace "Pruning blocks from fork choice",
-    finalizedRoot = shortlog(finalizedRoot)
+    finalizedRoot = shortLog(finalizedRoot)
 
   let finalPhysicalIdx = finalizedIdx - self.nodes.offset
   for nodeIdx in 0 ..< finalPhysicalIdx:
+    self.currentEpochTips.del nodeIdx
     self.indices.del(self.nodes.buf[nodeIdx].root)
 
   # Drop all nodes prior to finalization.
@@ -451,17 +533,68 @@ func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool] =
 
 func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
   ## This is the equivalent of `filter_block_tree` function in eth2 spec
-  ## https://github.com/ethereum/consensus-specs/blob/v0.10.0/specs/phase0/fork-choice.md#filter_block_tree
-  ##
+  ## https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/fork-choice.md#filter_block_tree
+  if self.hasLowParticipation:
+    if node.checkpoints.justified.epoch < self.checkpoints.justified.epoch:
+      return false
+    if self.isPreviousEpochJustified:
+      return true
+    return node.checkpoints.finalized == self.checkpoints.finalized or
+      self.checkpoints.finalized.epoch == GENESIS_EPOCH
+
   ## Any node that has a different finalized or justified epoch
   ## should not be viable for the head.
   (
-    (node.justifiedEpoch == self.justifiedEpoch) or
-    (self.justifiedEpoch == Epoch(0))
+    (node.checkpoints.justified == self.checkpoints.justified) or
+    (self.checkpoints.justified.epoch == GENESIS_EPOCH)
   ) and (
-    (node.finalizedEpoch == self.finalizedEpoch) or
-    (self.finalizedEpoch == Epoch(0))
+    (node.checkpoints.finalized == self.checkpoints.finalized) or
+    (self.checkpoints.finalized.epoch == GENESIS_EPOCH)
   )
+
+# Diagnostics
+# ----------------------------------------------------------------------
+# Helpers to dump internal state
+
+type ProtoArrayItem* = object
+  root*: Eth2Digest
+  parent*: Eth2Digest
+  checkpoints*: FinalityCheckpoints
+  unrealized*: Option[FinalityCheckpoints]
+  weight*: int64
+  bestChild*: Eth2Digest
+  bestDescendant*: Eth2Digest
+
+func root(self: ProtoNodes, logicalIdx: Option[Index]): Eth2Digest =
+  if logicalIdx.isNone:
+    return ZERO_HASH
+  let node = self[logicalIdx.unsafeGet]
+  if node.isNone:
+    return ZERO_HASH
+  node.unsafeGet.root
+
+iterator items*(self: ProtoArray): ProtoArrayItem =
+  ## Iterate over all nodes known by fork choice.
+  doAssert self.indices.len == self.nodes.len
+  for nodePhysicalIdx, node in self.nodes.buf:
+    if node.root.isZero:
+      continue
+
+    let unrealized = block:
+      let nodeLogicalIdx = nodePhysicalIdx + self.nodes.offset
+      if self.currentEpochTips.hasKey(nodeLogicalIdx):
+        some self.currentEpochTips.unsafeGet(nodeLogicalIdx)
+      else:
+        none(FinalityCheckpoints)
+
+    yield ProtoArrayItem(
+      root: node.root,
+      parent: self.nodes.root(node.parent),
+      checkpoints: node.checkpoints,
+      unrealized: unrealized,
+      weight: node.weight,
+      bestChild: self.nodes.root(node.bestChild),
+      bestDescendant: self.nodes.root(node.bestDescendant))
 
 # Sanity checks
 # ----------------------------------------------------------------------
@@ -473,19 +606,19 @@ when isMainModule:
   echo "Sanity checks on fork choice tiebreaks"
 
   block:
-    let a = Eth2Digest.fromHex("0x0000000000000001000000000000000000000000000000000000000000000000")
-    let b = Eth2Digest.fromHex("0x0000000000000000000000000000000000000000000000000000000000000000") # sha256(1)
+    const a = Eth2Digest.fromHex("0x0000000000000001000000000000000000000000000000000000000000000000")
+    const b = Eth2Digest.fromHex("0x0000000000000000000000000000000000000000000000000000000000000000") # sha256(1)
 
     doAssert tiebreak(a, b)
 
   block:
-    let a = Eth2Digest.fromHex("0x0000000000000002000000000000000000000000000000000000000000000000")
-    let b = Eth2Digest.fromHex("0x0000000000000001000000000000000000000000000000000000000000000000") # sha256(1)
+    const a = Eth2Digest.fromHex("0x0000000000000002000000000000000000000000000000000000000000000000")
+    const b = Eth2Digest.fromHex("0x0000000000000001000000000000000000000000000000000000000000000000") # sha256(1)
 
     doAssert tiebreak(a, b)
 
   block:
-    let a = Eth2Digest.fromHex("0xD86E8112F3C4C4442126F8E9F44F16867DA487F29052BF91B810457DB34209A4") # sha256(2)
-    let b = Eth2Digest.fromHex("0x7C9FA136D4413FA6173637E883B6998D32E1D675F88CDDFF9DCBCF331820F4B8") # sha256(1)
+    const a = Eth2Digest.fromHex("0xD86E8112F3C4C4442126F8E9F44F16867DA487F29052BF91B810457DB34209A4") # sha256(2)
+    const b = Eth2Digest.fromHex("0x7C9FA136D4413FA6173637E883B6998D32E1D675F88CDDFF9DCBCF331820F4B8") # sha256(1)
 
     doAssert tiebreak(a, b)

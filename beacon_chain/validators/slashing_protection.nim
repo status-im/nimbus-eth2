@@ -1,11 +1,14 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   # stdlib
@@ -17,7 +20,6 @@ import
   # Internal
   ../spec/datatypes/base,
   ./slashing_protection_common,
-  ./slashing_protection_v1,
   ./slashing_protection_v2
 
 export slashing_protection_common, kvstore, kvstore_sqlite3
@@ -90,36 +92,13 @@ proc init*(
   result.db_v2 = db
 
   if requiresMigration:
-    var db_v1: SlashingProtectionDB_v1
-    let rawdb = kvstore result.db_v2.getRawDBHandle().openKvStore().get()
-    if not rawdb.checkOrPutGenesis_DbV1(genesis_validators_root):
-      fatal "The slashing database refers to another chain/mainnet/testnet",
-        path = basePath/dbname,
-        genesis_validators_root = genesis_validators_root
-      quit 1
-    db_v1.fromRawDB(rawdb)
+    fatal "The slashing database predates Altair hardfork from October 2021." &
+      " You can migrate to the new DB format using Nimbus 1.6.0" &
+      " for a few minutes at https://github.com/status-im/nimbus-eth2/releases/tag/v1.6.0" &
+      " until the messages \"Migrating local validators slashing DB from v1 to v2\"" &
+      " and \"Slashing DB migration successful.\""
 
-    info "Migrating local validators slashing DB from v1 to v2"
-    let spdir = try: db_v1.toSPDIR_lowWatermark()
-    except IOError as exc:
-      fatal "Cannot migrate v1 database", err = exc.msg
-      quit 1
-
-    let status = try: result.db_v2.inclSPDIR(spdir)
-    except CatchableError as exc:
-      fatal "Writing DB v2 failed", err = exc.msg
-      quit 1
-
-    case status
-    of siSuccess:
-      info "Slashing DB migration successful."
-    of siPartial:
-      warn "Slashing DB migration is a partial success."
-    of siFailure:
-      fatal "Slashing DB migration failure. Aborting to protect validators."
-      quit 1
-
-    db_v1.close()
+    quit 1
 
 proc init*(
        T: type SlashingProtectionDB,
@@ -230,7 +209,7 @@ proc registerAttestation*(
 
 proc pruneBlocks*(
        db: SlashingProtectionDB,
-       validator: ValidatorPubkey,
+       validator: ValidatorPubKey,
        newMinSlot: Slot) =
   ## Prune all blocks from a validator before the specified newMinSlot
   ## This is intended for interchange import to ensure
@@ -244,7 +223,7 @@ proc pruneBlocks*(
 
 proc pruneAttestations*(
        db: SlashingProtectionDB,
-       validator: ValidatorPubkey,
+       validator: ValidatorPubKey,
        newMinSourceEpoch: int64,
        newMinTargetEpoch: int64) =
   ## Prune all blocks from a validator before the specified newMinSlot
@@ -276,6 +255,9 @@ proc pruneAfterFinalization*(
     debug.logTime "Pruning slashing DB":
       db.db_v2.pruneAfterFinalization(finalizedEpoch)
 
+# Interchange
+# --------------------------------------------
+
 # The high-level import/export functions are
 # - importSlashingInterchange
 # - exportSlashingInterchange
@@ -283,6 +265,11 @@ proc pruneAfterFinalization*(
 #
 # That builds on a DB backend inclSPDIR and toSPDIR
 # SPDIR being a common Intermediate Representation
+
+proc registerSyntheticAttestation*(db: SlashingProtectionDB,
+       validator: ValidatorPubKey,
+       source, target: Epoch) =
+  db.db_v2.registerSyntheticAttestation(validator, source, target)
 
 proc inclSPDIR*(db: SlashingProtectionDB, spdir: SPDIR): SlashingImportStatus
              {.raises: [SerializationError, IOError, Defect].} =

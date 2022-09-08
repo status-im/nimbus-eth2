@@ -1,10 +1,13 @@
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import strutils
 
@@ -13,11 +16,11 @@ when not defined(nimscript):
   let copyrights* = "Copyright (c) 2019-" & $(now().utc.year) & " Status Research & Development GmbH"
 
 const
-  versionMajor* = 1
-  versionMinor* = 5
+  versionMajor* = 22
+  versionMinor* = 8
   versionBuild* = 2
 
-  versionBlob* = "stateofus" # Single word - ends up in the default graffitti
+  versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 
   gitRevision* = strip(staticExec("git rev-parse --short HEAD"))[0..5]
 

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,17 +12,17 @@ import
   std/sequtils,
   # Status lib
   unittest2,
-  chronicles, chronos,
+  chronos,
   eth/keys, taskpools,
   # Internal
   ../beacon_chain/[beacon_clock],
   ../beacon_chain/gossip_processing/[gossip_validation, batch_validation],
-  ../beacon_chain/fork_choice/[fork_choice_types, fork_choice],
+  ../beacon_chain/fork_choice/fork_choice,
   ../beacon_chain/consensus_object_pools/[
     block_quarantine, blockchain_dag, block_clearance, attestation_pool,
     sync_committee_msg_pool],
   ../beacon_chain/spec/datatypes/[phase0, altair],
-  ../beacon_chain/spec/[forks, state_transition, helpers, network],
+  ../beacon_chain/spec/[state_transition, helpers, network, validator],
   ../beacon_chain/validators/validator_pool,
   # Test utilities
   ./testutil, ./testdbutil, ./testblockutil
@@ -36,9 +36,13 @@ suite "Gossip validation " & preset():
   setup:
     # Genesis state that results in 3 members per committee
     var
-      dag = init(ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3), {})
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(
+        ChainDAGRef, defaultRuntimeConfig, makeTestDB(SLOTS_PER_EPOCH * 3),
+        validatorMonitor, {})
       taskpool = Taskpool.new()
-      quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+      quarantine = newClone(Quarantine.init())
       pool = newClone(AttestationPool.init(dag, quarantine))
       state = newClone(dag.headState)
       cache = StateCache()
@@ -47,65 +51,61 @@ suite "Gossip validation " & preset():
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(
-        defaultRuntimeConfig, state.data, getStateField(state.data, slot) + 1,
-        cache, info, {})
+        defaultRuntimeConfig, state[], getStateField(state[], slot) + 1,
+        cache, info, {}).isOk()
 
-  test "Any committee index is valid":
+  test "Empty committee when no committee for slot":
     template committee(idx: uint64): untyped =
       get_beacon_committee(
-        dag.headState.data, dag.head.slot, idx.CommitteeIndex, cache)
+        dag.headState, dag.head.slot, idx.CommitteeIndex, cache)
 
     template committeeLen(idx: uint64): untyped =
       get_beacon_committee_len(
-        dag.headState.data, dag.head.slot, idx.CommitteeIndex, cache)
+        dag.headState, dag.head.slot, idx.CommitteeIndex, cache)
 
     check:
       committee(0).len > 0
-      committee(10000).len == 0
-      committee(uint64.high).len == 0
+      committee(63).len == 0
 
     check:
       committeeLen(2) > 0
-      committeeLen(10000) == 0
-      committeeLen(uint64.high) == 0
+      committeeLen(63) == 0
 
-  test "Validation sanity":
-    # TODO: refactor tests to avoid skipping BLS validation
-    dag.updateFlags.incl {skipBLSValidation}
-
+  test "validateAttestation":
     var
       cache: StateCache
     for blck in makeTestBlocks(
-        dag.headState.data, dag.head.root, cache,
-        int(SLOTS_PER_EPOCH * 5), false):
-      let added = dag.addRawBlock(quarantine, blck.phase0Data) do (
+        dag.headState, cache, int(SLOTS_PER_EPOCH * 5), false):
+      let added = dag.addHeadBlock(verifier, blck.phase0Data) do (
           blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
-          epochRef: EpochRef):
+          epochRef: EpochRef, unrealized: FinalityCheckpoints):
         # Callback add to fork choice if valid
-        pool[].addForkChoice(epochRef, blckRef, signedBlock.message, blckRef.slot)
+        pool[].addForkChoice(
+          epochRef, blckRef, unrealized, signedBlock.message,
+          blckRef.slot.start_beacon_time)
 
       check: added.isOk()
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine[])
       pruneAtFinalization(dag, pool[])
 
     var
       # Create attestations for slot 1
       beacon_committee = get_beacon_committee(
-        dag.headState.data, dag.head.slot, 0.CommitteeIndex, cache)
+        dag.headState, dag.head.slot, 0.CommitteeIndex, cache)
       att_1_0 = makeAttestation(
-        dag.headState.data, dag.head.root, beacon_committee[0], cache)
+        dag.headState, dag.head.root, beacon_committee[0], cache)
       att_1_1 = makeAttestation(
-        dag.headState.data, dag.head.root, beacon_committee[1], cache)
+        dag.headState, dag.head.root, beacon_committee[1], cache)
 
       committees_per_slot =
-        get_committee_count_per_slot(dag.headState.data,
-          att_1_0.data.slot.epoch, cache)
+        get_committee_count_per_slot(
+          dag.headState, att_1_0.data.slot.epoch, cache)
 
       subnet = compute_subnet_for_attestation(
         committees_per_slot,
         att_1_0.data.slot, att_1_0.data.index.CommitteeIndex)
 
-      beaconTime = att_1_0.data.slot.toBeaconTime()
+      beaconTime = att_1_0.data.slot.start_beacon_time()
 
     check:
       validateAttestation(pool, batchCrypto, att_1_0, beaconTime, subnet, true).waitFor().isOk
@@ -183,61 +183,90 @@ suite "Gossip validation - Extra": # Not based on preset config
         var cfg = defaultRuntimeConfig
         cfg.ALTAIR_FORK_EPOCH = (GENESIS_EPOCH + 1).Epoch
         cfg
+      taskpool = Taskpool.new()
+      quarantine = newClone(Quarantine.init())
+      batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false, taskpool)
+    var
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
       dag = block:
         let
-          dag = ChainDAGRef.init(cfg, makeTestDB(num_validators), {})
-          taskpool = Taskpool.new()
-          quarantine = QuarantineRef.init(keys.newRng(), taskpool)
+          validatorMonitor = newClone(ValidatorMonitor.init())
+          dag = ChainDAGRef.init(
+            cfg, makeTestDB(num_validators), validatorMonitor, {})
         var cache = StateCache()
         for blck in makeTestBlocks(
-            dag.headState.data, dag.head.root, cache,
-            int(SLOTS_PER_EPOCH), false, cfg = cfg):
+            dag.headState, cache, int(SLOTS_PER_EPOCH), false, cfg = cfg):
           let added =
             case blck.kind
             of BeaconBlockFork.Phase0:
               const nilCallback = OnPhase0BlockAdded(nil)
-              dag.addRawBlock(quarantine, blck.phase0Data, nilCallback)
+              dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
             of BeaconBlockFork.Altair:
               const nilCallback = OnAltairBlockAdded(nil)
-              dag.addRawBlock(quarantine, blck.altairData, nilCallback)
-            of BeaconBlockFork.Merge:
-              const nilCallback = OnMergeBlockAdded(nil)
-              dag.addRawBlock(quarantine, blck.mergeData, nilCallback)
+              dag.addHeadBlock(verifier, blck.altairData, nilCallback)
+            of BeaconBlockFork.Bellatrix:
+              const nilCallback = OnBellatrixBlockAdded(nil)
+              dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
           check: added.isOk()
-          dag.updateHead(added[], quarantine)
+          dag.updateHead(added[], quarantine[])
         dag
-      state = newClone(dag.headState.data.altairData)
+      state = assignClone(dag.headState.altairData)
+      slot = state[].data.slot
 
-      syncCommitteeIdx = 0.SyncSubcommitteeIndex
-      syncCommittee = @(dag.syncCommitteeParticipants(state[].data.slot))
-      subcommittee = toSeq(syncCommittee.syncSubcommittee(syncCommitteeIdx))
+      subcommitteeIdx = 0.SyncSubcommitteeIndex
+      syncCommittee = @(dag.syncCommitteeParticipants(slot))
+      subcommittee = toSeq(syncCommittee.syncSubcommittee(subcommitteeIdx))
+      index = subcommittee[0]
+      expectedCount = subcommittee.count(index)
+      pubkey = state[].data.validators.item(index).pubkey
+      keystoreData = KeystoreData(kind: KeystoreKind.Local,
+                                  privateKey: MockPrivKeys[index])
+      validator = AttachedValidator(pubkey: pubkey,
+        kind: ValidatorKind.Local, data: keystoreData, index: Opt.some index)
+      resMsg = waitFor getSyncCommitteeMessage(
+        validator, state[].data.fork, state[].data.genesis_validators_root, slot,
+        state[].root)
+      msg = resMsg.get()
 
-      pubkey = subcommittee[0]
-      expectedCount = subcommittee.count(pubkey)
-      index = ValidatorIndex(
-        state[].data.validators.mapIt(it.pubkey).find(pubKey))
-      privateItem = ValidatorPrivateItem(privateKey: MockPrivKeys[index])
-      validator = AttachedValidator(pubKey: pubkey,
-        kind: ValidatorKind.Local, data: privateItem, index: some(index))
-      msg = waitFor signSyncCommitteeMessage(
-        validator, state[].data.slot,
-        state[].data.fork, state[].data.genesis_validators_root, state[].root)
+      syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init(keys.newRng()))
+      res = waitFor validateSyncCommitteeMessage(
+        dag, batchCrypto, syncCommitteeMsgPool, msg, subcommitteeIdx,
+        slot.start_beacon_time(), true)
+      (positions, cookedSig) = res.get()
 
-      syncCommitteeMsgPool = newClone(SyncCommitteeMsgPool.init())
-      res = validateSyncCommitteeMessage(
-        dag, syncCommitteeMsgPool, msg, syncCommitteeIdx,
-        state[].data.slot.toBeaconTime(), true)
+    syncCommitteeMsgPool[].addSyncCommitteeMessage(
+      msg.slot,
+      msg.beacon_block_root,
+      msg.validator_index,
+      cookedSig,
+      subcommitteeIdx,
+      positions)
+
+    let
       contribution = block:
-        var contribution: SyncCommitteeContribution
-        check: syncCommitteeMsgPool[].produceContribution(
-          state[].data.slot, state[].root, syncCommitteeIdx, contribution)
-        syncCommitteeMsgPool[].addSyncContribution(
-          contribution, contribution.signature.load.get)
+        let contribution = (ref SignedContributionAndProof)()
+        check:
+          syncCommitteeMsgPool[].produceContribution(
+            slot, state[].root, subcommitteeIdx,
+            contribution.message.contribution)
+        let addContributionRes = syncCommitteeMsgPool[].addContribution(
+          contribution[], contribution.message.contribution.signature.load.get)
+        check addContributionRes == newBest
+        let signRes = waitFor validator.getContributionAndProofSignature(
+          state[].data.fork, state[].data.genesis_validators_root,
+          contribution[].message)
+        doAssert(signRes.isOk())
+        contribution[].signature = signRes.get()
         contribution
       aggregate = syncCommitteeMsgPool[].produceSyncAggregate(state[].root)
 
     check:
       expectedCount > 1 # Cover edge case
       res.isOk
-      contribution.aggregation_bits.countOnes == expectedCount
+      contribution.message.contribution.aggregation_bits.countOnes == expectedCount
       aggregate.sync_committee_bits.countOnes == expectedCount
+
+      # Same message twice should be ignored
+      validateSyncCommitteeMessage(
+        dag, batchCrypto, syncCommitteeMsgPool, msg, subcommitteeIdx,
+        state[].data.slot.start_beacon_time(), true).waitFor().isErr()

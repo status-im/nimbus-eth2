@@ -1,17 +1,20 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   std/[os, strutils],
-  chronicles, stew/shims/net, stew/results, bearssl,
+  chronicles, stew/shims/net, stew/results,
   eth/keys, eth/p2p/discoveryv5/[enr, protocol, node],
-  ../conf
+  ".."/[conf, conf_light_client]
 
 export protocol, keys
 
@@ -23,24 +26,21 @@ export
   Eth2DiscoveryProtocol, open, start, close, closeWait, queryRandom,
     updateRecord, results
 
-proc parseBootstrapAddress*(address: TaintedString):
+proc parseBootstrapAddress*(address: string):
     Result[enr.Record, cstring] =
   logScope:
     address = string(address)
 
-  if address[0] == '/':
-    return err "MultiAddress bootstrap addresses are not supported"
+  let lowerCaseAddress = toLowerAscii(string address)
+  if lowerCaseAddress.startsWith("enr:"):
+    var enrRec: enr.Record
+    if enrRec.fromURI(string address):
+      return ok enrRec
+    return err "Invalid ENR bootstrap record"
+  elif lowerCaseAddress.startsWith("enode:"):
+    return err "ENode bootstrap addresses are not supported"
   else:
-    let lowerCaseAddress = toLowerAscii(string address)
-    if lowerCaseAddress.startsWith("enr:"):
-      var enrRec: enr.Record
-      if enrRec.fromURI(string address):
-        return ok enrRec
-      return err "Invalid ENR bootstrap record"
-    elif lowerCaseAddress.startsWith("enode:"):
-      return err "ENode bootstrap addresses are not supported"
-    else:
-      return err "Ignoring unrecognized bootstrap address type"
+    return err "Ignoring unrecognized bootstrap address type"
 
 iterator strippedLines(filename: string): string {.raises: [ref IOError].} =
   for line in lines(filename):
@@ -80,10 +80,10 @@ proc loadBootstrapFile*(bootstrapFile: string,
     quit 1
 
 proc new*(T: type Eth2DiscoveryProtocol,
-          config: BeaconNodeConf,
+          config: BeaconNodeConf | LightClientConf,
           enrIp: Option[ValidIpAddress], enrTcpPort, enrUdpPort: Option[Port],
           pk: PrivateKey,
-          enrFields: openArray[(string, seq[byte])], rng: ref BrHmacDrbgContext):
+          enrFields: openArray[(string, seq[byte])], rng: ref HmacDrbgContext):
           T =
   # TODO
   # Implement more configuration options:
@@ -94,9 +94,10 @@ proc new*(T: type Eth2DiscoveryProtocol,
     addBootstrapNode(node, bootstrapEnrs)
   loadBootstrapFile(string config.bootstrapNodesFile, bootstrapEnrs)
 
-  let persistentBootstrapFile = config.dataDir / "bootstrap_nodes.txt"
-  if fileExists(persistentBootstrapFile):
-    loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs)
+  when config is BeaconNodeConf:
+    let persistentBootstrapFile = config.dataDir / "bootstrap_nodes.txt"
+    if fileExists(persistentBootstrapFile):
+      loadBootstrapFile(persistentBootstrapFile, bootstrapEnrs)
 
   newProtocol(pk, enrIp, enrTcpPort, enrUdpPort, enrFields, bootstrapEnrs,
     bindPort = config.udpPort, bindIp = config.listenAddress,

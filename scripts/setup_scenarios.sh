@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright (c) 2018-2019 Status Research & Development GmbH. Licensed under
 # either of:

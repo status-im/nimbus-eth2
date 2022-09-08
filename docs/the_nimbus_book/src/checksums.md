@@ -1,6 +1,6 @@
-# Verify the integrity of Nimbus
+# Checksums
 
-We've recently added checksums to the end of our [release notes](https://github.com/status-im/nimbus-eth2/releases/) (a practice we will be continuing from now on). Please make sure you get into the habit of verifying these 🙏
+Checksums for each build are included in the [release notes](https://github.com/status-im/nimbus-eth2/releases/). Please make sure you get into the habit of verifying these 🙏
 
 For those of you who are unfamiliar, a [checksum](https://en.wikipedia.org/wiki/Checksum) is a special type of [hash](https://en.wikipedia.org/wiki/Hash_function) used to verify the integrity of a file. Verifying a checksum ensures there was no corruption or manipulation during the download and that the file was downloaded completely and correctly. For a short and simple guide on how to do so, [see here](https://www.devdungeon.com/content/how-verify-checksum).
 

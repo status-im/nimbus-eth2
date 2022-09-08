@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -21,7 +21,10 @@
 # A, B and C, and another with B, C and D, we cannot practically combine them
 # even if in theory it is possible to allow this in BLS.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   # Standard library
@@ -30,10 +33,12 @@ import
   stew/[endians2, objects, results, byteutils],
   blscurve,
   chronicles,
-  json_serialization,
-  nimcrypto/utils as ncrutils
+  bearssl/rand,
+  json_serialization
 
-export options, results, json_serialization, blscurve
+from nimcrypto/utils import burnMem
+
+export options, results, blscurve, rand, json_serialization
 
 # Type definitions
 # ----------------------------------------------------------------------
@@ -78,12 +83,20 @@ type
     ## ValidatorSig and are used to avoid expensive reloading as well as error
     ## checking
 
+  SignatureShare* = object
+    sign*: blscurve.Signature
+    id*: uint32
+
+  SecretShare* = object
+    key*: ValidatorPrivKey
+    id*: uint32
+
 export
   AggregateSignature
 
 # API
 # ----------------------------------------------------------------------
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#bls-signatures
 
 func toPubKey*(privkey: ValidatorPrivKey): CookedPubKey =
   ## Derive a public key from a private key
@@ -105,7 +118,7 @@ func toPubKey*(pubKey: CookedPubKey): ValidatorPubKey =
   # Un-specced in either hash-to-curve or Eth2
   ValidatorPubKey(blob: pubKey.toRaw())
 
-proc load*(v: ValidatorPubKey): Option[CookedPubKey] =
+func load*(v: ValidatorPubKey): Option[CookedPubKey] =
   ## Parse signature blob - this may fail
   var val: blscurve.PublicKey
   if fromBytes(val, v.blob):
@@ -113,7 +126,7 @@ proc load*(v: ValidatorPubKey): Option[CookedPubKey] =
   else:
     none CookedPubKey
 
-proc load*(v: UncompressedPubKey): Option[CookedPubKey] =
+func load*(v: UncompressedPubKey): Option[CookedPubKey] =
   ## Parse signature blob - this may fail
   var val: blscurve.PublicKey
   if fromBytes(val, v.blob):
@@ -149,7 +162,7 @@ proc loadWithCache*(v: ValidatorPubKey): Option[CookedPubKey] =
       cache[v.blob] = cooked.get()
     return cooked
 
-proc load*(v: ValidatorSig): Option[CookedSig] =
+func load*(v: ValidatorSig): Option[CookedSig] =
   ## Parse signature blob - this may fail
   var parsed: blscurve.Signature
   if fromBytes(parsed, v.blob):
@@ -164,7 +177,7 @@ func init*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
 func init*(T: type AggregatePublicKey, pubkey: CookedPubKey): T =
   result.init(pubkey)
 
-proc aggregate*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
+func aggregate*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
   ## Aggregate two valid Validator Public Keys
   agg.aggregate(blscurve.PublicKey(pubkey))
 
@@ -181,7 +194,7 @@ func init*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
 func init*(T: type AggregateSignature, sig: CookedSig): T =
   result.init(sig)
 
-proc aggregate*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
+func aggregate*(agg: var AggregateSignature, sig: CookedSig) {.inline.}=
   ## Aggregate two valid Validator Signatures
   agg.aggregate(blscurve.Signature(sig))
 
@@ -191,8 +204,8 @@ func finish*(agg: AggregateSignature): CookedSig {.inline.} =
   sig.finish(agg)
   CookedSig(sig)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
-proc blsVerify*(
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#bls-signatures
+func blsVerify*(
     pubkey: CookedPubKey, message: openArray[byte],
     signature: CookedSig): bool =
   ## Check that a signature is valid for a message
@@ -204,7 +217,7 @@ proc blsVerify*(
   ## to enforce correct usage.
   PublicKey(pubkey).verify(message, blscurve.Signature(signature))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.0.1/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#bls-signatures
 proc blsVerify*(
     pubkey: ValidatorPubKey, message: openArray[byte],
     signature: CookedSig): bool =
@@ -229,7 +242,7 @@ proc blsVerify*(
   # Guard against invalid signature blobs that fail to parse
   parsedSig.isSome() and blsVerify(pubkey, message, parsedSig.get())
 
-proc blsVerify*(sigSet: SignatureSet): bool =
+func blsVerify*(sigSet: SignatureSet): bool =
   ## Unbatched verification
   ## of 1 SignatureSet
   ## tuple[pubkey: blscurve.PublicKey, message: array[32, byte], blscurve.signature: Signature]
@@ -243,7 +256,7 @@ func blsSign*(privkey: ValidatorPrivKey, message: openArray[byte]): CookedSig =
   ## Computes a signature from a secret key and a message
   CookedSig(SecretKey(privkey).sign(message))
 
-proc blsFastAggregateVerify*(
+func blsFastAggregateVerify*(
        publicKeys: openArray[CookedPubKey],
        message: openArray[byte],
        signature: CookedSig
@@ -283,7 +296,7 @@ proc blsFastAggregateVerify*(
 
   fastAggregateVerify(unwrapped, message, blscurve.Signature(signature))
 
-proc blsFastAggregateVerify*(
+func blsFastAggregateVerify*(
        publicKeys: openArray[CookedPubKey],
        message: openArray[byte],
        signature: ValidatorSig
@@ -359,6 +372,8 @@ func fromHex*(T: type BlsCurveType, hexStr: string): BlsResult[T] {.inline.} =
 func `==`*(a, b: ValidatorPubKey | ValidatorSig): bool =
   equalMem(unsafeAddr a.blob[0], unsafeAddr b.blob[0], sizeof(a.blob))
 
+func `==`*(a, b: ValidatorPrivKey): bool {.error: "Secret keys should stay secret".}
+
 # Hashing
 # ----------------------------------------------------------------------
 
@@ -367,6 +382,12 @@ template hash*(x: ValidatorPubKey | ValidatorSig): Hash =
   # We use rough "middle" of blob for the hash, assuming this is where most of
   # the entropy is found
   cast[ptr Hash](unsafeAddr x.blob[x.blob.len div 2])[]
+
+# Comparison/Sorting
+# ----------------------------------------------------------------------
+
+template `<`*(x, y: ValidatorPubKey): bool =
+  x.blob < y.blob
 
 # Serialization
 # ----------------------------------------------------------------------
@@ -444,21 +465,21 @@ func shortLog*(x: TrustedSig): string =
 # TODO more specific exceptions? don't raise?
 
 # For confutils
-func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noInit, raises: [ValueError, Defect].} =
+func init*(T: typedesc[ValidatorPrivKey], hex: string): T {.noinit, raises: [ValueError, Defect].} =
   let v = T.fromHex(hex)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noInit, raises: [ValueError, Defect].} =
+func init*(T: typedesc[ValidatorPubKey], data: array[RawPubKeySize, byte]): T {.noinit, raises: [ValueError, Defect].} =
   let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
   v[]
 
 # For mainchain monitor
-func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit, raises: [ValueError, Defect].} =
+func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noinit, raises: [ValueError, Defect].} =
   let v = T.fromRaw(data)
   if v.isErr:
     raise (ref ValueError)(msg: $v.error)
@@ -467,5 +488,58 @@ func init*(T: typedesc[ValidatorSig], data: array[RawSigSize, byte]): T {.noInit
 func infinity*(T: type ValidatorSig): T =
   result.blob[0] = byte 0xC0
 
-proc burnMem*(key: var ValidatorPrivKey) =
-  ncrutils.burnMem(addr key, sizeof(ValidatorPrivKey))
+func burnMem*(key: var ValidatorPrivKey) =
+  burnMem(addr key, sizeof(ValidatorPrivKey))
+
+proc keyGen(rng: var HmacDrbgContext): BlsResult[blscurve.SecretKey] =
+  var
+    pubkey: blscurve.PublicKey
+  let bytes = rng.generate(array[32, byte])
+  result.ok default(blscurve.SecretKey)
+  if not keyGen(bytes, pubkey, result.value):
+    return err "key generation failed"
+
+proc secretShareId(x: uint32) : blscurve.ID =
+  let bytes: array[8, uint32] = [uint32 x, 0, 0, 0, 0, 0, 0, 0]
+  blscurve.ID.fromUint32(bytes)
+
+func generateSecretShares*(sk: ValidatorPrivKey,
+                           rng: var HmacDrbgContext,
+                           k: uint32, n: uint32): BlsResult[seq[SecretShare]] =
+  doAssert k > 0 and k <= n
+
+  var originPts: seq[blscurve.SecretKey]
+  originPts.add(blscurve.SecretKey(sk))
+  for i in 1 ..< k:
+    originPts.add(? keyGen(rng))
+
+  var shares: seq[SecretShare]
+  for i in uint32(0) ..< n:
+    let numericShareId = i + 1 # the share id must not be zero
+    let blsShareId = secretShareId(numericShareId)
+    let secret = genSecretShare(originPts, blsShareId)
+    let share = SecretShare(key: ValidatorPrivKey(secret), id: numericShareId)
+    shares.add(share)
+
+  return ok shares
+
+func toSignatureShare*(sig: CookedSig, id: uint32): SignatureShare =
+  result.sign = blscurve.Signature(sig)
+  result.id = id
+
+func recoverSignature*(sings: seq[SignatureShare]): CookedSig =
+  let signs = sings.mapIt(it.sign)
+  let ids = sings.mapIt(secretShareId(it.id))
+  CookedSig blscurve.recover(signs, ids).expect(
+    "valid shares (validated when loading the keystore)")
+
+proc confirmShares*(pubKey: ValidatorPubKey,
+                    shares: seq[SecretShare],
+                    rng: var HmacDrbgContext): bool =
+  let confirmationData = rng.generate(array[32, byte])
+  var signs: seq[SignatureShare]
+  for share in items(shares):
+    let signature = share.key.blsSign(confirmationData).toSignatureShare(share.id);
+    signs.add(signature)
+  let recovered = signs.recoverSignature()
+  return pubKey.blsVerify(confirmationData, recovered)

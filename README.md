@@ -1,14 +1,15 @@
 # Nimbus Eth2 (Beacon Chain)
 
-[![Github Actions CI](https://github.com/status-im/nimbus-eth2/workflows/Nimbus%20nimbus-eth2%20CI/badge.svg)](https://github.com/status-im/nim-blscurve/actions?query=workflow%3A%22BLSCurve+CI%22)
+[![Github Actions CI](https://github.com/status-im/nimbus-eth2/actions/workflows/ci.yml/badge.svg)](https://github.com/status-im/nimbus-eth2/actions/workflows/ci.yml)
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 ![Stability: experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
 
 [![Discord: Nimbus](https://img.shields.io/badge/discord-nimbus-orange.svg)](https://discord.gg/XRxWahP)
 [![Status: #nimbus-general](https://img.shields.io/badge/status-nimbus--general-orange.svg)](https://join.status.im/nimbus-general)
+[![gitpoap badge](https://public-api.gitpoap.io/v1/repo/status-im/nimbus-eth2/badge)](https://www.gitpoap.io/gh/status-im/nimbus-eth2)
 
-Nimbus-eth2 is an extremely efficient consensus layer (eth2) client implementation. It performs well on embedded systems and resource-restricted devices -- including Raspberry Pis and mobile devices. It's low resource usage also makes it an excellent choice for running together with an Ethereum client on a server or a desktop (where it simply takes up fewer resources).
+Nimbus-eth2 is an extremely efficient consensus layer (eth2) client implementation. While it's optimised for embedded systems and resource-restricted devices -- including Raspberry Pis, its low resource usage also makes it an excellent choice for any server or desktop (where it simply takes up fewer resources).
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -42,13 +43,17 @@ The [Quickstart](https://nimbus.guide/quick-start.html) in particular will help 
 * http://unstable.mainnet.beacon-api.nimbus.team/
 * http://unstable.prater.beacon-api.nimbus.team/
 
-
 Note that right now these are very much unstable testing instances. They may be unresponsive at times - so **please do not rely on them for validating**. We may also disable them at any time.
+
+## Migrate from another client
+
+This [guide](https://nimbus.guide/migration.html) will take you through the basics of how to migrate to Nimbus from another client. See [here](https://nimbus.guide/migration-options.html) for advanced options.
+
 
 ## Related projects
 
 * [status-im/nimbus-eth1](https://github.com/status-im/nimbus-eth1/): Nimbus for Ethereum 1
-* [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs/tree/v1.0.1#phase-0): Serenity specification that this project implements
+* [ethereum/consensus-specs](https://github.com/ethereum/consensus-specs/tree/v1.2.0-rc.1#phase-0): Consensus specification that this project implements
 
 You can check where the beacon chain fits in the Ethereum ecosystem in our Two-Point-Oh series: https://our.status.im/tag/two-point-oh/
 

@@ -1,52 +1,53 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   # Standard library
-  std/[sets, tables, hashes],
+  std/[options, sets, tables, hashes],
   # Status libraries
-  stew/endians2, chronicles,
-  eth/keys, taskpools,
+  chronicles,
   # Internals
-  ../spec/[signatures_batch, forks],
-  ../spec/datatypes/[phase0, altair, merge],
-  ".."/beacon_chain_db
+  ../spec/[signatures_batch, forks, helpers],
+  ../spec/datatypes/[phase0, altair, bellatrix],
+  ".."/[beacon_chain_db, era_db],
+  ../validators/validator_monitor,
+  ./block_dag, block_pools_types_light_client
 
-export sets, tables
+from "."/vanity_logs/pandas import VanityLogs
 
-# #############################################
-#
-#            Quarantine & DAG
-#
-# #############################################
-#
-# The Quarantine and DagChain data structures
-# keep track respectively of unsafe blocks coming from the network
-# and blocks that underwent verification and have a resolved path to
-# the last finalized block known.
+export
+  options, sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
+  block_pools_types_light_client, validator_monitor, VanityLogs
+
+# ChainDAG and types related to forming a DAG of blocks, keeping track of their
+# relationships and allowing various forms of lookups
 
 type
-  BlockError* = enum
-    MissingParent ##\
+  BlockError* {.pure.} = enum
+    Invalid
+      ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
+      ## we're buggy)
+
+    MissingParent
       ## We don't know the parent of this block so we can't tell if it's valid
       ## or not - it'll go into the quarantine and be reexamined when the parent
       ## appears or be discarded if finality obsoletes it
 
-    Unviable ##\
-      ## Block is from a different history / fork than the one we're interested
-      ## in (based on our finalized checkpoint)
+    UnviableFork
+      ## Block is from a history / fork that does not include our most current
+      ## finalized checkpoint
 
-    Invalid ##\
-      ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
-      ## we're buggy)
-    Old
     Duplicate
+      ## We've seen this block already, can't add again
 
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [Defect].}
@@ -55,122 +56,132 @@ type
   OnReorgCallback* =
     proc(data: ReorgInfoObject) {.gcsafe, raises: [Defect].}
   OnFinalizedCallback* =
-    proc(data: FinalizationInfoObject) {.gcsafe, raises: [Defect].}
-
-  QuarantineRef* = ref object
-    ## Keeps track of unsafe blocks coming from the network
-    ## and that cannot be added to the chain
-    ##
-    ## This only stores valid blocks that cannot be linked to the
-    ## ChainDAGRef DAG due to missing ancestor(s).
-    ##
-    ## Invalid blocks are dropped immediately.
-
-    orphansPhase0*: Table[(Eth2Digest, ValidatorSig), phase0.SignedBeaconBlock] ##\
-    ## Phase 0 Blocks that have passed validation but that we lack a link back
-    ## to tail for - when we receive a "missing link", we can use this data to
-    ## build an entire branch
-
-    orphansAltair*: Table[(Eth2Digest, ValidatorSig), altair.SignedBeaconBlock] ##\
-    ## Altair Blocks that have passed validation, but that we lack a link back
-    ## to tail for - when we receive a "missing link", we can use this data to
-    ## build an entire branch
-
-    orphansMerge*:  Table[(Eth2Digest, ValidatorSig), merge.SignedBeaconBlock] ##\
-    ## Merge Blocks which have passed validation, but that we lack a link back
-    ## to tail for - when we receive a "missing link", we can use this data to
-    ## build an entire branch
-
-    missing*: Table[Eth2Digest, MissingBlock] ##\
-    ## Roots of blocks that we would like to have (either parent_root of
-    ## unresolved blocks or block roots of attestations)
-
-    sigVerifCache*: BatchedBLSVerifierCache ##\
-    ## A cache for batch BLS signature verification contexts
-    rng*: ref BrHmacDrbgContext  ##\
-    ## A reference to the Nimbus application-wide RNG
-
-    inAdd*: bool
-
-    taskpool*: TaskPoolPtr
-
-  TaskPoolPtr* = TaskPool
-
-  MissingBlock* = object
-    tries*: int
-
-  FetchRecord* = object
-    root*: Eth2Digest
+    proc(dag: ChainDAGRef, data: FinalizationInfoObject) {.gcsafe, raises: [Defect].}
 
   KeyedBlockRef* = object
     # Special wrapper for BlockRef used in ChainDAG.blocks that allows lookup
     # by root without keeping a Table that keeps a separate copy of the digest
     # At the time of writing, a Table[Eth2Digest, BlockRef] adds about 100mb of
     # unnecessary overhead.
-    data: BlockRef
+    data*: BlockRef
 
   ChainDAGRef* = ref object
-    ## Pool of blocks responsible for keeping a DAG of resolved blocks.
+    ## ChainDAG validates, stores and serves chain history of valid blocks
+    ## according to the beacon chain state transtion. From genesis to the
+    ## finalization point, block history is linear - from there, it branches out
+    ## into a dag with several heads, one of which is considered canonical.
     ##
-    ## It is responsible for the following
+    ## As new blocks are added, new segments of the chain may finalize,
+    ## discarding now unviable candidate histories.
     ##
-    ## - Handle requests and updates to the "ColdDB" which
-    ##   holds the canonical chain.
-    ## - Maintain a direct acyclic graph (DAG) of
-    ##   candidate chains from the last
-    ##   finalized block.
+    ## In addition to storing blocks, the chaindag also is responsible for
+    ## storing intermediate states in the database that are used to recreate
+    ## chain history at any point in time through a rewinding process that loads
+    ## a snapshots and applies blocks until the desired point in history is
+    ## reached.
     ##
-    ## When a chain becomes finalized, it is saved in the ColdDB,
-    ## the rejected candidates are discarded and this pool
-    ## is pruned, only keeping the last finalized block.
+    ## Several indices are kept in memory and database to enable fast lookups -
+    ## their shape and contents somewhat depend on how the chain was
+    ## instantiated: sync from genesis or checkpoint, and therefore, what
+    ## features we can offer in terms of historical replay.
     ##
-    ## The last finalized block is called the tail block.
+    ## Beacuse the state transition is forwards-only, checkpoint sync generally
+    ## allows replaying states from that point onwards - anything earlier
+    ## would require a backfill of blocks and a subsequent replay from genesis.
+    ##
+    ## Era files contain state snapshots along the way, providing arbitrary
+    ## starting points for replay and can be used to frontfill the archive -
+    ## however, they are not used until the contents have been verified via
+    ## parent_root ancestry.
+    ##
+    ## The chain and the various pointers and indices we keep can be seen in
+    ## the following graph: depending on how the chain was instantiated, some
+    ## pointers may overlap and some indices might be empty as a result.
+    ##
+    ##                                              / heads
+    ##          | archive | history        /-------*     |
+    ## *--------*---------*---------------*--------------*
+    ## |        |         |               |              |
+    ## genesis  backfill  tail            finalizedHead  head
+    ##          |         |               |
+    ##          db.finalizedBlocks        dag.forkBlocks
+    ##
+    ## The archive is the the part of finalized history for which we no longer
+    ## recreate states quickly because we don't have a reasonable state to
+    ## start replay from - when starting from a checkpoint, this is the typical
+    ## case - recreating history requires either replaying from genesis or
+    ## providing an earlier checkpoint state.
+    ##
+    ## We do not keep an in-memory index for finalized blocks - instead, lookups
+    ## are made via `BeaconChainDB.finalizedBlocks` which covers the full range
+    ## from `backfill` to `finalizedHead`. Finalized blocks are generally not
+    ## needed for day-to-day validation work - rather, they're used for
+    ## auxiliary functionality such as historical state access and replays.
 
-    # -----------------------------------
-    # ColdDB - Canonical chain
+    db*: BeaconChainDB
+      ## Database of recent chain history as well as the state and metadata
+      ## needed to pick up where we left off after a restart - in particular,
+      ## the DAG and the canonical head are stored here, as well as several
+      ## caches.
 
-    db*: BeaconChainDB ##\
-      ## ColdDB - Stores the canonical chain
+    era*: EraDB
 
-    # -----------------------------------
-    # ChainDAGRef - DAG of candidate chains
+    validatorMonitor*: ref ValidatorMonitor
 
-    blocks*: HashSet[KeyedBlockRef] ##\
-    ## Directed acyclic graph of blocks pointing back to a finalized block on the chain we're
-    ## interested in - we call that block the tail
+    forkBlocks*: HashSet[KeyedBlockRef]
+      ## root -> BlockRef mapping of blocks relevant to fork choice, ie
+      ## those that have not yet been finalized - covers the slots
+      ## `finalizedHead.slot..head.slot` (inclusive) - dag.heads keeps track
+      ## of each potential head block in this table.
 
-    genesis*: BlockRef ##\
-    ## The genesis block of the network
+    genesis*: BlockId
+      ## The genesis block of the network
 
-    tail*: BlockRef ##\
-    ## The earliest finalized block we know about
+    tail*: BlockId
+      ## The earliest finalized block for which we have a corresponding state -
+      ## when making a replay of chain history, this is as far back as we can
+      ## go - the tail block is unique in that its parent is set to `nil`, even
+      ## in the case where an earlier genesis block exists.
 
-    heads*: seq[BlockRef] ##\
-    ## Candidate heads of candidate chains
+    head*: BlockRef
+      ## The most recently known head, as chosen by fork choice; might be
+      ## optimistic
 
-    finalizedHead*: BlockSlot ##\
-    ## The latest block that was finalized according to the block in head
-    ## Ancestors of this block are guaranteed to have 1 child only.
+    backfill*: BeaconBlockSummary
+      ## The backfill points to the oldest block with an unbroken ancestry from
+      ## dag.tail - when backfilling, we'll move backwards in time starting
+      ## with the parent of this block until we reach `frontfill`.
+
+    frontfillBlocks*: seq[Eth2Digest]
+      ## A temporary cache of blocks that we could load from era files, once
+      ## backfilling reaches this point - empty when not backfilling.
+
+    heads*: seq[BlockRef]
+      ## Candidate heads of candidate chains
+
+    finalizedHead*: BlockSlot
+      ## The latest block that was finalized according to the block in head
+      ## Ancestors of this block are guaranteed to have 1 child only.
 
     # -----------------------------------
     # Pruning metadata
 
-    lastPrunePoint*: BlockSlot ##\
-    ## The last prune point
-    ## We can prune up to finalizedHead
+    lastPrunePoint*: BlockSlotId
+      ## The last prune point
+      ## We can prune up to finalizedHead
 
     # -----------------------------------
     # Rewinder - Mutable state processing
 
-    headState*: StateData ##\
-    ## State given by the head block - must only be updated in `updateHead` -
-    ## always matches dag.head
+    headState*: ForkedHashedBeaconState
+      ## State given by the head block - must only be updated in `updateHead` -
+      ## always matches dag.head
 
-    epochRefState*: StateData ##\
+    epochRefState*: ForkedHashedBeaconState
       ## State used to produce epochRef instances - must only be used in
       ## `getEpochRef`
 
-    clearanceState*: StateData ##\
+    clearanceState*: ForkedHashedBeaconState
       ## Cached state used during block clearance - must only be used in
       ## clearance module
 
@@ -178,16 +189,33 @@ type
 
     cfg*: RuntimeConfig
 
-    epochRefs*: array[32, EpochRef] ##\
+    shufflingRefs*: array[16, ShufflingRef]
+
+    epochRefs*: array[32, EpochRef]
       ## Cached information about a particular epoch ending with the given
       ## block - we limit the number of held EpochRefs to put a cap on
       ## memory usage
 
-    forkDigests*: ForkDigestsRef
+    forkDigests*: ref ForkDigests
       ## Cached copy of the fork digests associated with the current
       ## database. We use a ref type to facilitate sharing this small
       ## value with other components which don't have access to the
       ## full ChainDAG.
+
+    vanityLogs*: VanityLogs
+      ## Upon the merge activating, these get displayed, at least once when the
+      ## head becomes post-merge and then when the merge is finalized. If chain
+      ## reorgs happen around the initial merge onMergeTransitionBlock might be
+      ## called several times.
+
+    # -----------------------------------
+    # Light client data
+
+    lcDataStore*: LightClientDataStore
+      # Data store to enable light clients to sync with the network
+
+    # -----------------------------------
+    # Callbacks
 
     onBlockAdded*: OnBlockCallback
       ## On block added callback
@@ -198,6 +226,15 @@ type
     onFinHappened*: OnFinalizedCallback
       ## On finalization callback
 
+    headSyncCommittees*: SyncCommitteeCache
+      ## A cache of the sync committees, as they appear in the head state -
+      ## using the head state is slightly wrong - if a reorg deeper than
+      ## EPOCHS_PER_SYNC_COMMITTEE_PERIOD is happening, some valid sync
+      ## committee messages will be rejected
+
+    optimisticRoots*: HashSet[Eth2Digest]
+      ## https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#helpers
+
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
     ## committees in a beacon state - the epoch level information in the state
@@ -206,69 +243,60 @@ type
     ## the epoch start - we call this block the "epoch ancestor" in other parts
     ## of the code.
     epoch*: Epoch
-    blck*: BlockRef
+    bid*: BlockId
+
+  ShufflingRef* = ref object
+    ## Attestation committee shuffling that determines when validators have
+    ## duties - determined with one epoch of look-ahead - the dependent root is
+    ## the block root that is the last to affect the shuffling outcome.
+    epoch*: Epoch
+    attester_dependent_root*: Eth2Digest
+      ## Root of the block that determined the shuffling - this is the last
+      ## block that was applied in (epoch - 2).
+
+    shuffled_active_validator_indices*: seq[ValidatorIndex]
 
   EpochRef* = ref object
-    dag*: ChainDAGRef
     key*: EpochKey
-    current_justified_checkpoint*: Checkpoint
-    finalized_checkpoint*: Checkpoint
+
     eth1_data*: Eth1Data
     eth1_deposit_index*: uint64
+
+    checkpoints*: FinalityCheckpoints
+
     beacon_proposers*: array[SLOTS_PER_EPOCH, Option[ValidatorIndex]]
-    shuffled_active_validator_indices*: seq[ValidatorIndex]
+    proposer_dependent_root*: Eth2Digest
+
+    shufflingRef*: ShufflingRef
+
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
 
-  BlockRef* = ref object
-    ## Node in object graph guaranteed to lead back to tail block, and to have
-    ## a corresponding entry in database.
-    ## Block graph should form a tree - in particular, there are no cycles.
-
-    root*: Eth2Digest ##\
-    ## Root that can be used to retrieve block data from database
-
-    parent*: BlockRef ##\
-    ## Not nil, except for the tail
-
-    slot*: Slot # could calculate this by walking to root, but..
-
-  BlockData* = object
-    ## Body and graph in one
-
-    data*: ForkedTrustedSignedBeaconBlock # We trust all blocks we have a ref for
-    refs*: BlockRef
-
-  StateData* = object
-    data*: ForkedHashedBeaconState
-
-    blck*: BlockRef ##\
-    ## The block associated with the state found in data
-
-  BlockSlot* = object
-    ## Unique identifier for a particular fork and time in the block chain -
-    ## normally, there's a block for every slot, but in the case a block is not
-    ## produced, the chain progresses anyway, producing a new state for every
-    ## slot.
-    blck*: BlockRef
-    slot*: Slot ##\
-      ## Slot time for this BlockSlot which may differ from blck.slot when time
-      ## has advanced without blocks
-
+  # TODO when Nim 1.2 support is dropped, make these generic. 1.2 generates
+  # invalid C code, which gcc refuses to compile. Example test case:
+  # type
+  #   OnBlockAdded[T] = proc(x: T)
+  #   OnPhase0BlockAdded = OnBlockAdded[int]
+  # proc f(x: OnPhase0BlockAdded) = discard
+  # const nilCallback = OnPhase0BlockAdded(nil)
+  # f(nilCallback)
   OnPhase0BlockAdded* = proc(
     blckRef: BlockRef,
     blck: phase0.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
   OnAltairBlockAdded* = proc(
     blckRef: BlockRef,
     blck: altair.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
-  OnMergeBlockAdded* = proc(
+  OnBellatrixBlockAdded* = proc(
     blckRef: BlockRef,
-    blck: merge.TrustedSignedBeaconBlock,
-    epochRef: EpochRef) {.gcsafe, raises: [Defect].}
+    blck: bellatrix.TrustedSignedBeaconBlock,
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
   HeadChangeInfoObject* = object
     slot*: Slot
@@ -277,6 +305,7 @@ type
     epoch_transition*: bool
     previous_duty_dependent_root*: Eth2Digest
     current_duty_dependent_root*: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
   ReorgInfoObject* = object
     slot*: Slot
@@ -285,35 +314,46 @@ type
     new_head_block*: Eth2Digest
     old_head_state*: Eth2Digest
     new_head_state*: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
   FinalizationInfoObject* = object
     block_root* {.serializedFieldName: "block".}: Eth2Digest
     state_root* {.serializedFieldName: "state".}: Eth2Digest
     epoch*: Epoch
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
+
+  EventBeaconBlockObject* = object
+    slot*: Slot
+    block_root* {.serializedFieldName: "block".}: Eth2Digest
+    optimistic* {.serializedFieldName: "execution_optimistic".}: Option[bool]
 
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
-template epoch*(e: EpochRef): Epoch = e.key.epoch
-
-func shortLog*(v: BlockRef): string =
-  # epoch:root when logging epoch, root:slot when logging slot!
-  if v.isNil():
-    "nil:0"
+template frontfill*(dagParam: ChainDAGRef): BlockId =
+  let dag = dagParam
+  if dag.frontfillBlocks.lenu64 > 0:
+    BlockId(
+      slot: Slot(dag.frontfillBlocks.lenu64 - 1), root: dag.frontfillBlocks[^1])
   else:
-    shortLog(v.root) & ":" & $v.slot
+    dag.genesis
 
-func shortLog*(v: BlockSlot): string =
-  # epoch:root when logging epoch, root:slot when logging slot!
-  if v.blck.isNil():
-    "nil:0@" & $v.slot
-  elif v.blck.slot == v.slot:
-    shortLog(v.blck)
-  else: # There was a gap - log it
-    shortLog(v.blck) & "@" & $v.slot
+template epoch*(e: EpochRef): Epoch = e.key.epoch
 
 func shortLog*(v: EpochKey): string =
   # epoch:root when logging epoch, root:slot when logging slot!
-  $v.epoch & ":" & shortLog(v.blck)
+  $v.epoch & ":" & shortLog(v.bid)
+
+template setFinalizationCb*(dag: ChainDAGRef, cb: OnFinalizedCallback) =
+  dag.onFinHappened = cb
+
+template setBlockCb*(dag: ChainDAGRef, cb: OnBlockCallback) =
+  dag.onBlockAdded = cb
+
+template setHeadCb*(dag: ChainDAGRef, cb: OnHeadCallback) =
+  dag.onHeadChanged = cb
+
+template setReorgCb*(dag: ChainDAGRef, cb: OnReorgCallback) =
+  dag.onReorgHappened = cb
 
 func shortLog*(v: EpochRef): string =
   # epoch:root when logging epoch, root:slot when logging slot!
@@ -322,8 +362,6 @@ func shortLog*(v: EpochRef): string =
   else:
     shortLog(v.key)
 
-chronicles.formatIt BlockSlot: shortLog(it)
-chronicles.formatIt BlockRef: shortLog(it)
 chronicles.formatIt EpochKey: shortLog(it)
 chronicles.formatIt EpochRef: shortLog(it)
 
@@ -335,7 +373,7 @@ func `==`*(a, b: KeyedBlockRef): bool =
 
 func asLookupKey*(T: type KeyedBlockRef, root: Eth2Digest): KeyedBlockRef =
   # Create a special, temporary BlockRef instance that just has the key set
-  KeyedBlockRef(data: BlockRef(root: root))
+  KeyedBlockRef(data: BlockRef(bid: BlockId(root: root)))
 
 func init*(T: type KeyedBlockRef, blck: BlockRef): KeyedBlockRef =
   KeyedBlockRef(data: blck)
@@ -376,3 +414,13 @@ func init*(t: typedesc[FinalizationInfoObject], blockRoot: Eth2Digest,
     state_root: stateRoot,
     epoch: epoch
   )
+
+func init*(t: typedesc[EventBeaconBlockObject],
+           v: ForkedTrustedSignedBeaconBlock,
+           optimistic: Option[bool]): EventBeaconBlockObject =
+  withBlck(v):
+    EventBeaconBlockObject(
+      slot: blck.message.slot,
+      block_root: blck.root,
+      optimistic: optimistic
+    )

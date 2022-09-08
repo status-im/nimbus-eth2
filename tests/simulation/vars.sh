@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # https://github.com/koalaman/shellcheck/wiki/SC2034
 # shellcheck disable=2034
@@ -46,6 +46,5 @@ else
 fi
 
 BASE_P2P_PORT=30000
-BASE_RPC_PORT=7000
 BASE_REST_PORT=5052
 BASE_METRICS_PORT=8008

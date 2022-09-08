@@ -6,7 +6,7 @@ See [here](./networking.md) for our networking related tips and tricks.
 
 ## Keep track of your attestation effectiveness
 
-Attestation effectiveness is a metric that directly affects your validator rewards. In simple terms, an attestation is more valuable the sooner it is put into a block and included in the chain. 
+Attestation effectiveness is a metric that directly affects your validator rewards. In simple terms, an attestation is more valuable the sooner it is put into a block and included in the chain.
 
 This interval is called the *inclusion distance* of an attestation. The smaller it is, the more profitable your validator will be. For a deeper understanding we highly recommend reading [Attestant's wonderful blog post](https://www.attestant.io/posts/defining-attestation-effectiveness/#:~:text=Stakers%20looking%20to%20maximize%20their,provide%20clear%20metrics%20for%20performance.) on the matter.
 
@@ -24,22 +24,11 @@ If you're a Linux user and want to track how much network I/O your system uses o
 
 To install, run:
 
-```
+```sh
 sudo apt install vnstat
 ```
 
 To run it:
 
-*TBC -See [here](https://github.com/jclapis/rp-pi-guide/blob/main/Native.md#monitoring-your-pis-performance) for more*
+*TBC -See [here](https://docs.rocketpool.net/guides/node/performance.html#beaconcha-in-website-using-the-beacon-chain-as-a-metric-source) for more*
 
-## Keep an eye on the logs
-
-## Keep an eye on the metrics
-
-## Grafana
-
-## Relevant REST API queries
-
-## External tools
-
-### beaconchain

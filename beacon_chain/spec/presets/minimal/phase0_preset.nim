@@ -1,5 +1,5 @@
 # Minimal preset - Phase0
-# https://github.com/ethereum/consensus-specs/blob/v1.1.2/presets/minimal/phase0.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/presets/minimal/phase0.yaml
 
 const
   #
@@ -70,7 +70,7 @@ const
   # Reward and penalty quotients
   # ---------------------------------------------------------------
   # 2**6 (= 64)
-  BASE_REWARD_FACTOR*: uint64 = 64
+  BASE_REWARD_FACTOR* {.intdefine.}: uint64 = 64
   # 2**9 (= 512)
   WHISTLEBLOWER_REWARD_QUOTIENT*: uint64 = 512
   # 2**3 (= 8)

@@ -1,20 +1,23 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
   std/[sequtils, strutils, os],
-  stew/shims/macros, nimcrypto/hash,
+  stew/byteutils, stew/shims/macros, nimcrypto/hash,
   eth/common/eth_types as commonEthTypes,
   web3/[ethtypes, conversions],
   chronicles,
   eth/common/eth_types_json_serialization,
-  ../ssz/[navigator],
+  ssz_serialization/navigator,
   ../spec/eth2_ssz_serialization,
   ../spec/datatypes/phase0
 
@@ -34,8 +37,10 @@ type
 
   Eth1Network* = enum
     mainnet
+    ropsten
     rinkeby
     goerli
+    sepolia
 
   Eth2NetworkMetadata* = object
     case incompatible*: bool
@@ -74,8 +79,62 @@ type
     else:
       incompatibilityDesc*: string
 
+type DeploymentPhase* {.pure.} = enum
+  None,
+  Devnet,
+  Testnet,
+  Mainnet
+
+func deploymentPhase*(genesisData: string): DeploymentPhase =
+  # SSZ processing at compile time does not work well.
+  #
+  # `BeaconState` layout:
+  # ```
+  # - genesis_time: uint64
+  # - genesis_validators_root: Eth2Digest
+  # - ...
+  # ```
+  #
+  # Comparing the first 40 bytes covers those two fields,
+  # which should identify the network with high likelihood.
+  # ''.join('%02X'%b for b in open("network_name/genesis.ssz", "rb").read()[:40])
+  if genesisData.len < 40:
+    return DeploymentPhase.None
+
+  const
+    mainnets = [
+      # Mainnet
+      "5730C65F000000004B363DB94E286120D76EB905340FDD4E54BFE9F06BF33FF6CF5AD27F511BFE95",
+    ]
+    testnets = [
+      # Kiln
+      "0C572B620000000099B09FCD43E5905236C370F184056BEC6E6638CFC31A323B304FC4AA789CB4AD",
+      # Ropsten
+      "F0DB94620000000044F1E56283CA88B35C789F7F449E52339BC1FEFE3A45913A43A6D16EDCD33CF1",
+      # Sepolia
+      "607DB06200000000D8EA171F3C94AEA21EBC42A1ED61052ACF3F9209C00E4EFBAADDAC09ED9B8078",
+      # Goerli
+      "60F4596000000000043DB0D9A83813551EE2F33450D23797757D430911A9320530AD8A0EABC43EFB",
+    ]
+    devnets = [
+      # Mainnet Shadow Fork 12
+      "6CAB0C630000000096BBD4D72A6B5901B3E9402FF565C80D3A067D3C81A97BF65DE07129ADA6A821",
+      # Mainnet Shadow Fork 13
+      "6C37176300000000061F583BEA1E10B0D77648E8186E05C07AD8A80892DF83B7F7D64AED43801C64",
+    ]
+
+  let data = (genesisData[0 ..< 40].toHex())
+  if data in mainnets:
+    return DeploymentPhase.Mainnet
+  if data in testnets:
+    return DeploymentPhase.Testnet
+  if data in devnets:
+    return DeploymentPhase.Devnet
+  DeploymentPhase.None
+
 const
   eth2NetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-networks"
+  mergeTestnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/merge-testnets"
 
 proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError, Defect].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
@@ -95,20 +154,20 @@ proc readBootEnr*(path: string): seq[string] {.raises: [IOError, Defect].} =
   else:
     @[]
 
-proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
+proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Eth2NetworkMetadata
                              {.raises: [CatchableError, Defect].} =
   # Load data in eth2-networks format
-  # https://github.com/eth2-clients/eth2-networks/
+  # https://github.com/eth-clients/eth2-networks
 
   try:
     let
       genesisPath = path & "/genesis.ssz"
       genesisDepositsSnapshotPath = path & "/genesis_deposit_contract_snapshot.ssz"
       configPath = path & "/config.yaml"
+      deployBlockPath = path & "/deploy_block.txt"
       depositContractBlockPath = path & "/deposit_contract_block.txt"
       bootstrapNodesPath = path & "/bootstrap_nodes.txt"
       bootEnrPath = path & "/boot_enr.yaml"
-
       runtimeConfig = if fileExists(configPath):
         let (cfg, unknowns) = readRuntimeConfig(configPath)
         if unknowns.len > 0:
@@ -126,8 +185,15 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
       else:
         ""
 
+      deployBlock = if fileExists(deployBlockPath):
+        readFile(deployBlockPath).strip
+      else:
+        ""
+
       depositContractDeployedAt = if depositContractBlock.len > 0:
         BlockHashOrNumber.init(depositContractBlock)
+      elif deployBlock.len > 0:
+        BlockHashOrNumber.init(deployBlock)
       else:
         BlockHashOrNumber(isHash: false, number: 1)
 
@@ -147,8 +213,7 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
 
     Eth2NetworkMetadata(
       incompatible: false,
-      eth1Network: some(
-        if "mainnet" in path: Eth1Network.mainnet else: Eth1Network.goerli),
+      eth1Network: eth1Network,
       cfg: runtimeConfig,
       bootstrapNodes: bootstrapNodes,
       depositContractDeployedAt: depositContractDeployedAt,
@@ -159,49 +224,97 @@ proc loadEth2NetworkMetadata*(path: string): Eth2NetworkMetadata
     Eth2NetworkMetadata(incompatible: true,
                         incompatibilityDesc: err.msg)
 
-template eth2Network(path: string): Eth2NetworkMetadata =
-  loadEth2NetworkMetadata(eth2NetworksDir & "/" & path)
+proc loadCompileTimeNetworkMetadata(
+    path: string,
+    eth1Network = none(Eth1Network)): Eth2NetworkMetadata {.raises: [Defect].} =
+  try:
+    result = loadEth2NetworkMetadata(path, eth1Network)
+    if result.incompatible:
+      macros.error "The current build is misconfigured. " &
+                   "Attempt to load an incompatible network metadata: " &
+                   result.incompatibilityDesc
+  except CatchableError as err:
+    macros.error "Failed to load network metadata at '" & path & "': " & err.msg
 
-const
-  mainnetMetadata* = eth2Network "shared/mainnet"
-  pyrmontMetadata* = eth2Network "shared/pyrmont"
-  praterMetadata* = eth2Network "shared/prater"
-  altairDevnet3Metadata* = eth2Network "shared/altair-devnet-3"
+template eth2Network(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
+  loadCompileTimeNetworkMetadata(eth2NetworksDir & "/" & path,
+                                 some eth1Network)
 
-proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
-  var
-    metadata = case toLowerAscii(networkName)
-      of "mainnet":
-        mainnetMetadata
-      of "pyrmont":
-        pyrmontMetadata
-      of "prater":
-        praterMetadata
-      of "altair-devnet-3":
-        altairDevnet3Metadata
-      else:
-        if fileExists(networkName / "config.yaml"):
-          try:
-            loadEth2NetworkMetadata(networkName)
-          except CatchableError as exc:
-            fatal "Cannot load network", msg = exc.msg, networkName
-            quit 1
-        else:
-          fatal "config.yaml not found for network", networkName
+template mergeTestnet(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
+  loadCompileTimeNetworkMetadata(mergeTestnetsDir & "/" & path,
+                                 some eth1Network)
+
+when not defined(gnosisChainBinary):
+  when const_preset == "mainnet":
+    const
+      mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
+      praterMetadata* = eth2Network("shared/prater", goerli)
+      ropstenMetadata* = mergeTestnet("ropsten-beacon-chain", ropsten)
+      sepoliaMetadata* = mergeTestnet("sepolia", sepolia)
+    static:
+      for network in [mainnetMetadata, praterMetadata, ropstenMetadata, sepoliaMetadata]:
+        checkForkConsistency(network.cfg)
+
+  proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
+    template loadRuntimeMetadata: auto =
+      if fileExists(networkName / "config.yaml"):
+        try:
+          loadEth2NetworkMetadata(networkName)
+        except CatchableError as exc:
+          fatal "Cannot load network", msg = exc.msg, networkName
           quit 1
+      else:
+        fatal "config.yaml not found for network", networkName
+        quit 1
 
-  if metadata.incompatible:
-    fatal "The selected network is not compatible with the current build",
-            reason = metadata.incompatibilityDesc
-    quit 1
-  return metadata
+    var
+      metadata = when const_preset == "mainnet":
+        case toLowerAscii(networkName)
+        of "mainnet":
+          mainnetMetadata
+        of "prater", "goerli":
+          praterMetadata
+        of "ropsten":
+          ropstenMetadata
+        of "sepolia":
+          sepoliaMetadata
+        else:
+          loadRuntimeMetadata()
+      else:
+        loadRuntimeMetadata()
 
-proc getRuntimeConfig*(
-    eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
-  if eth2Network.isSome:
-    return getMetadataForNetwork(eth2Network.get).cfg
-  return defaultRuntimeConfig
+    if metadata.incompatible:
+      fatal "The selected network is not compatible with the current build",
+              reason = metadata.incompatibilityDesc
+      quit 1
+    metadata
 
-proc extractGenesisValidatorRootFromSnapshop*(
+  proc getRuntimeConfig*(
+      eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
+    if eth2Network.isSome:
+      return getMetadataForNetwork(eth2Network.get).cfg
+    defaultRuntimeConfig
+
+else:
+  const
+    gnosisMetadata* = loadCompileTimeNetworkMetadata(
+      currentSourcePath.parentDir.replace('\\', '/') & "/../../media/gnosis")
+
+  static: checkForkConsistency(gnosisMetadata.cfg)
+
+  proc checkNetworkParameterUse*(eth2Network: Option[string]) =
+    # Support `gnosis-chain` as network name which was used in v22.3
+    if eth2Network.isSome and eth2Network.get notin ["gnosis", "gnosis-chain"]:
+      fatal "The only supported value for the --network parameter is 'gnosis'"
+      quit 1
+
+    if eth2Network.isSome and eth2Network.get == "gnosis-chain":
+      warn "`--network:gnosis-chain` is deprecated, use `--network:gnosis` instead"
+
+  proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
+    checkNetworkParameterUse eth2Network
+    gnosisMetadata.cfg
+
+proc extractGenesisValidatorRootFromSnapshot*(
     snapshot: string): Eth2Digest {.raises: [Defect, IOError, SszError].} =
   sszMount(snapshot, phase0.BeaconState).genesis_validators_root[]

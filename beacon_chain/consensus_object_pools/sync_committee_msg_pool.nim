@@ -1,16 +1,21 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 import
-  std/[hashes, sets, tables],
+  std/[sets, tables],
+  stew/shims/hashes,
+  eth/p2p/discoveryv5/random2,
   chronicles,
-  ../spec/digest,
+  ../spec/[crypto, digest],
   ../spec/datatypes/altair
 
 export hashes, sets, tables, altair
@@ -21,14 +26,14 @@ const
     ## messsages before discarding them.
 
 type
-  SyncCommitteeMsgKey* = object
-    originator*: ValidatorIndex
-    slot*: Slot
-    committeeIdx*: SyncSubcommitteeIndex
+  SyncCommitteeMsgKey = object
+    originator: uint64 # ValidatorIndex avoiding mess with invalid values
+    slot: Slot
+    subcommitteeIdx: uint64 # SyncSubcommitteeIndex avoiding mess with invalid values
 
   TrustedSyncCommitteeMsg* = object
     slot*: Slot
-    committeeIdx*: SyncSubcommitteeIndex
+    subcommitteeIdx*: SyncSubcommitteeIndex
     positionInCommittee*: uint64
     signature*: CookedSig
 
@@ -52,13 +57,17 @@ type
     bestContributions*: Table[Eth2Digest, BestSyncSubcommitteeContributions]
     onContributionReceived*: OnSyncContributionCallback
 
+    rng: ref HmacDrbgContext
+    syncCommitteeSubscriptions*: Table[ValidatorPubKey, Epoch]
+
 func hash*(x: SyncCommitteeMsgKey): Hash =
-  hashData(unsafeAddr x, sizeof(x))
+  hashAllFields(x)
 
 func init*(T: type SyncCommitteeMsgPool,
+           rng: ref HmacDrbgContext,
            onSyncContribution: OnSyncContributionCallback = nil
           ): SyncCommitteeMsgPool =
-  T(onContributionReceived: onSyncContribution)
+  T(rng: rng, onContributionReceived: onSyncContribution)
 
 func pruneData*(pool: var SyncCommitteeMsgPool, slot: Slot) =
   ## This should be called at the end of slot.
@@ -86,64 +95,95 @@ func pruneData*(pool: var SyncCommitteeMsgPool, slot: Slot) =
   for blockRoot in contributionsToDelete:
     pool.bestContributions.del blockRoot
 
-func addSyncCommitteeMsg*(
+func isSeen*(
+    pool: SyncCommitteeMsgPool,
+    msg: SyncCommitteeMessage,
+    subcommitteeIdx: SyncSubcommitteeIndex): bool =
+  let seenKey = SyncCommitteeMsgKey(
+    originator: msg.validator_index, # Might be unvalidated at this point
+    slot: msg.slot,
+    subcommitteeIdx: subcommitteeIdx.uint64)
+  seenKey in pool.seenSyncMsgByAuthor
+
+proc addSyncCommitteeMessage*(
     pool: var SyncCommitteeMsgPool,
     slot: Slot,
     blockRoot: Eth2Digest,
+    validatorIndex: uint64,
     signature: CookedSig,
-    committeeIdx: SyncSubcommitteeIndex,
-    positionInCommittee: uint64) =
-  pool.syncMessages.mgetOrPut(blockRoot, @[]).add TrustedSyncCommitteeMsg(
-    slot: slot,
-    committeeIdx: committeeIdx,
-    positionInCommittee: positionInCommittee,
-    signature: signature)
+    subcommitteeIdx: SyncSubcommitteeIndex,
+    positionsInCommittee: openArray[uint64]) =
+
+  let
+    seenKey = SyncCommitteeMsgKey(
+      originator: validatorIndex,
+      slot: slot,
+      subcommitteeIdx: subcommitteeIdx.uint64)
+
+  pool.seenSyncMsgByAuthor.incl seenKey
+
+  for position in positionsInCommittee:
+    pool.syncMessages.mgetOrPut(blockRoot, @[]).add TrustedSyncCommitteeMsg(
+      slot: slot,
+      subcommitteeIdx: subcommitteeIdx,
+      positionInCommittee: position,
+      signature: signature)
+
+  debug "Sync committee message resolved",
+    slot = slot, blockRoot = shortLog(blockRoot), validatorIndex
 
 func computeAggregateSig(votes: seq[TrustedSyncCommitteeMsg],
-                         committeeIdx: SyncSubcommitteeIndex,
+                         subcommitteeIdx: SyncSubcommitteeIndex,
                          contribution: var SyncCommitteeContribution): bool =
   var
-    aggregateSig {.noInit.}: AggregateSignature
+    aggregateSig {.noinit.}: AggregateSignature
     initialized = false
 
   for vote in votes:
-    if vote.committeeIdx != committeeIdx:
+    if vote.subcommitteeIdx != subcommitteeIdx:
       continue
 
-    if not initialized:
-      initialized = true
-      aggregateSig.init(vote.signature)
-    else:
-      aggregateSig.aggregate(vote.signature)
+    if not contribution.aggregation_bits[vote.positionInCommittee]:
+      if not initialized:
+        initialized = true
+        aggregateSig.init(vote.signature)
+      else:
+        aggregateSig.aggregate(vote.signature)
 
-    contribution.aggregation_bits.setBit vote.positionInCommittee
+      contribution.aggregation_bits.setBit vote.positionInCommittee
 
   if initialized:
     contribution.signature = aggregateSig.finish.toValidatorSig
 
-  return initialized
+  initialized
 
 func produceContribution*(
     pool: SyncCommitteeMsgPool,
     slot: Slot,
     headRoot: Eth2Digest,
-    committeeIdx: SyncSubcommitteeIndex,
+    subcommitteeIdx: SyncSubcommitteeIndex,
     outContribution: var SyncCommitteeContribution): bool =
   if headRoot in pool.syncMessages:
     outContribution.slot = slot
     outContribution.beacon_block_root = headRoot
-    outContribution.subcommittee_index = committeeIdx.asUInt64
+    outContribution.subcommittee_index = subcommitteeIdx.asUInt64
     try:
-      return computeAggregateSig(pool.syncMessages[headRoot],
-                                 committeeIdx,
-                                 outContribution)
+      computeAggregateSig(pool.syncMessages[headRoot],
+                          subcommitteeIdx,
+                          outContribution)
     except KeyError:
       raiseAssert "We have checked for the key upfront"
   else:
-    return false
+    false
+
+type
+  AddContributionResult* = enum
+    newBest
+    notBestButNotSubsetOfBest
+    strictSubsetOfTheBest
 
 func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
-                     contribution: SyncCommitteeContribution) =
+                     contribution: SyncCommitteeContribution): AddContributionResult =
   let
     currentBestTotalParticipants =
       bestVotes.subnets[contribution.subcommittee_index].totalParticipants
@@ -155,10 +195,31 @@ func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
         totalParticipants: newBestTotalParticipants,
         participationBits: contribution.aggregation_bits,
         signature: contribution.signature.load.get)
+    newBest
+  elif contribution.aggregation_bits.isSubsetOf(
+         bestVotes.subnets[contribution.subcommittee_index].participationBits):
+    strictSubsetOfTheBest
+  else:
+    notBestButNotSubsetOfBest
 
-proc addSyncContribution*(pool: var SyncCommitteeMsgPool,
-                          contribution: SyncCommitteeContribution,
-                          signature: CookedSig) =
+func isSeen*(
+    pool: SyncCommitteeMsgPool,
+    msg: ContributionAndProof): bool =
+  let seenKey = SyncCommitteeMsgKey(
+    originator: msg.aggregator_index,
+    slot: msg.contribution.slot,
+    subcommitteeIdx: msg.contribution.subcommittee_index)
+  seenKey in pool.seenContributionByAuthor
+
+proc addContribution(pool: var SyncCommitteeMsgPool,
+                     aggregator_index: uint64,
+                     contribution: SyncCommitteeContribution,
+                     signature: CookedSig): AddContributionResult =
+  let seenKey = SyncCommitteeMsgKey(
+    originator: aggregator_index,
+    slot: contribution.slot,
+    subcommitteeIdx: contribution.subcommittee_index)
+  pool.seenContributionByAuthor.incl seenKey
 
   template blockRoot: auto = contribution.beacon_block_root
 
@@ -174,40 +235,43 @@ proc addSyncContribution*(pool: var SyncCommitteeMsgPool,
         signature: signature)
 
     pool.bestContributions[blockRoot] = initialBestContributions
+    newBest
   else:
     try:
       addAggregateAux(pool.bestContributions[blockRoot], contribution)
     except KeyError:
       raiseAssert "We have checked for the key upfront"
 
-proc addSyncContribution*(pool: var SyncCommitteeMsgPool,
-                          scproof: SignedContributionAndProof,
-                          signature: CookedSig) =
-  pool.addSyncContribution(scproof.message.contribution, signature)
+proc addContribution*(pool: var SyncCommitteeMsgPool,
+                      scproof: SignedContributionAndProof,
+                      signature: CookedSig): AddContributionResult =
+  result = pool.addContribution(
+    scproof.message.aggregator_index, scproof.message.contribution, signature)
+
   if not(isNil(pool.onContributionReceived)):
     pool.onContributionReceived(scproof)
 
 proc produceSyncAggregateAux(
     bestContributions: BestSyncSubcommitteeContributions): SyncAggregate =
   var
-    aggregateSig {.noInit.}: AggregateSignature
+    aggregateSig {.noinit.}: AggregateSignature
     initialized = false
     startTime = Moment.now
 
-  for subnetId in allSyncSubcommittees():
-    if bestContributions.subnets[subnetId].totalParticipants == 0:
+  for subcommitteeIdx in SyncSubcommitteeIndex:
+    if bestContributions.subnets[subcommitteeIdx].totalParticipants == 0:
       continue
 
-    for pos, value in bestContributions.subnets[subnetId].participationBits:
+    for pos, value in bestContributions.subnets[subcommitteeIdx].participationBits:
       if value:
-        let globalPos = subnetId.asInt * SYNC_SUBCOMMITTEE_SIZE + pos
+        let globalPos = subcommitteeIdx.asInt * SYNC_SUBCOMMITTEE_SIZE + pos
         result.sync_committee_bits.setBit globalPos
 
     if not initialized:
       initialized = true
-      aggregateSig.init(bestContributions.subnets[subnetId].signature)
+      aggregateSig.init(bestContributions.subnets[subcommitteeIdx].signature)
     else:
-      aggregateSig.aggregate(bestContributions.subnets[subnetId].signature)
+      aggregateSig.aggregate(bestContributions.subnets[subcommitteeIdx].signature)
 
   if initialized:
     result.sync_committee_signature = aggregateSig.finish.toValidatorSig
@@ -228,3 +292,14 @@ proc produceSyncAggregate*(
       raiseAssert "We have checked for the key upfront"
   else:
     SyncAggregate.init()
+
+proc isEpochLeadTime*(
+    pool: SyncCommitteeMsgPool, epochsToSyncPeriod: uint64): bool =
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#sync-committee-subnet-stability
+  # This ensures a uniform distribution without requiring additional state:
+  # (1/4)                         = 1/4, 4 slots out
+  # (3/4) * (1/3)                 = 1/4, 3 slots out
+  # (3/4) * (2/3) * (1/2)         = 1/4, 2 slots out
+  # (3/4) * (2/3) * (1/2) * (1/1) = 1/4, 1 slot out
+  doAssert epochsToSyncPeriod > 0
+  epochsToSyncPeriod == 1 or pool.rng[].rand(epochsToSyncPeriod - 1) == 0

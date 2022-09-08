@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eo pipefail
 
@@ -49,7 +49,7 @@ mkdir -p "$SECRETS_DIR"
 
 cd "$GIT_ROOT"
 
-CUSTOM_NIMFLAGS="${NIMFLAGS} -d:useSysAsserts -d:chronicles_sinks:textlines,json[file] -d:const_preset=mainnet -d:local_testnet"
+CUSTOM_NIMFLAGS="${NIMFLAGS} -d:useSysAsserts -d:const_preset=mainnet -d:local_testnet"
 GANACHE_BLOCK_TIME=5
 
 # Run with "SLOTS_PER_EPOCH=8 ./start.sh" to change these
@@ -106,7 +106,7 @@ if [[ "$USE_PROMETHEUS" == "yes" ]]; then
   fi
 fi
 
-$MAKE -j2 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" nimbus_beacon_node nimbus_signing_process nimbus_validator_client
+$MAKE -j2 --no-print-directory NIMFLAGS="$CUSTOM_NIMFLAGS $DEFS" LOG_LEVEL="${LOG_LEVEL:-DEBUG}" nimbus_beacon_node nimbus_validator_client
 
 EXISTING_VALIDATORS=0
 if [[ -f "$DEPOSITS_FILE" ]]; then

@@ -13,11 +13,39 @@ SHELL ["/bin/bash", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive TZ="Etc/UTC"
 RUN \
  apt-get -qq update \
- && apt-get -qq -y install git gnupg software-properties-common lsb &>/dev/null \
- && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 86B72ED9 \
- && add-apt-repository "deb [arch=amd64] https://pkg.mxe.cc/repos/apt $(lsb_release -sc) main" \
- && apt-get -qq update \
- && apt-get -qq -y install mxe-x86-64-w64-mingw32.static-cc &>/dev/null \
+ && apt-get -qq -y install git gnupg software-properties-common lsb cmake &>/dev/null \
+ && apt-get -qq -y install \
+    autoconf \
+    automake \
+    autopoint \
+    bison \
+    bzip2 \
+    flex \
+    g++ \
+    g++-multilib \
+    gettext \
+    gperf \
+    intltool \
+    libc6-dev-i386 \
+    libltdl-dev \
+    libssl-dev \
+    libtool-bin \
+    lzip \
+    make \
+    openssl \
+    p7zip-full \
+    patch \
+    perl \
+    python \
+    ruby \
+    sed \
+    unzip \
+    wget \
+    xz-utils &>/dev/null \
  && apt-get -qq clean \
- && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
+ && git clone --depth 1 https://github.com/mxe/mxe.git /opt/mxe \
+ && cd /opt/mxe \
+ && make -j $(nproc) MXE_TARGETS='x86_64-w64-mingw32.static' MXE_USE_CCACHE='' DONT_CHECK_REQUIREMENTS=1 cc \
+ && rm -rf /opt/mxe/.log /opt/mxe/pkg
 
