@@ -554,8 +554,10 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
   # don't crash.
   if p.isNil:
     debug "exchangeTransitionConfiguration: nil Eth1Monitor"
+    return EtcStatus.exchangeError
 
-  if p.isNil or p.dataProvider.isNil:
+  let dataProvider = p.dataProvider
+  if dataProvider.isNil:
     return EtcStatus.exchangeError
 
   let consensusCfg = TransitionConfigurationV1(
@@ -573,7 +575,7 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
   let executionCfg =
     try:
       awaitWithRetries(
-        p.dataProvider.web3.provider.engine_exchangeTransitionConfigurationV1(
+        dataProvider.web3.provider.engine_exchangeTransitionConfigurationV1(
           consensusCfg),
         timeout = 1.seconds)
     except CatchableError as err:
@@ -1162,6 +1164,7 @@ func earliestBlockOfInterest(m: Eth1Monitor): Eth1BlockNumber =
 proc syncBlockRange(m: Eth1Monitor,
                     fromBlock, toBlock,
                     fullSyncFromBlock: Eth1BlockNumber) {.gcsafe, async.} =
+  doAssert m.dataProvider != nil, "close not called concurrently"
   doAssert m.depositsChain.blocks.len > 0
 
   var currentBlock = fromBlock
@@ -1350,6 +1353,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     await provider.close()
 
   await m.ensureDataProvider()
+  doAssert m.dataProvider != nil, "close not called concurrently"
 
   if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH:
     let status = await m.exchangeTransitionConfiguration()
@@ -1636,6 +1640,7 @@ when hasGenesisDetection:
 
   proc findGenesisBlockInRange(m: Eth1Monitor, startBlock, endBlock: Eth1Block):
                                Future[Eth1Block] {.async.} =
+    doAssert m.dataProvider != nil, "close not called concurrently"
     doAssert startBlock.timestamp != 0 and not m.isAfterMinGenesisTime(startBlock)
     doAssert endBlock.timestamp != 0 and m.isAfterMinGenesisTime(endBlock)
     doAssert m.hasEnoughValidators(startBlock)
