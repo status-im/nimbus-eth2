@@ -24,8 +24,9 @@ for GETH_NUM_NODE in $(seq 0 $(( GETH_NUM_NODES - 1 ))); do
     log "Starting geth node ${GETH_NUM_NODE} on net port ${GETH_NET_PORT} HTTP port ${GETH_HTTP_PORT} WS port ${GETH_WS_PORT}"
     GETHDATADIR=$(mktemp -d "${DATA_DIR}"/geth-data-XXX)
     GETH_DATA_DIRS+=(${GETHDATADIR})
+    openssl rand -hex 32 | tr -d "\n" > "${GETHDATADIR}/jwtsecret"
     ${GETH_BINARY} --http --ws -http.api "engine" --datadir "${GETHDATADIR}" init "${GENESISJSON}"
-    ${GETH_BINARY} --http --ws --http.corsdomain '*' --http.api "eth,net,engine" -ws.api "eth,net,engine" --datadir "${GETHDATADIR}" ${DISCOVER} --port ${GETH_NET_PORT} --http.port ${GETH_HTTP_PORT} --ws.port ${GETH_WS_PORT} --authrpc.port ${GETH_AUTH_RPC_PORT} --authrpc.jwtsecret /tmp/jwtsecret &> "${DATA_DIR}/geth-log${GETH_NUM_NODE}.txt" &
+    ${GETH_BINARY} --http --ws --http.corsdomain '*' --http.api "eth,net,engine" -ws.api "eth,net,engine" --datadir "${GETHDATADIR}" ${DISCOVER} --port ${GETH_NET_PORT} --http.port ${GETH_HTTP_PORT} --ws.port ${GETH_WS_PORT} --authrpc.port ${GETH_AUTH_RPC_PORT} --authrpc.jwtsecret "${GETHDATADIR}/jwtsecret" &> "${DATA_DIR}/geth-log${GETH_NUM_NODE}.txt" &
     sleep 5
     NODE_ID=$(${GETH_BINARY} attach --datadir "${GETHDATADIR}" --exec admin.nodeInfo.enode)
     GETH_ENODES+=("${NODE_ID}")
