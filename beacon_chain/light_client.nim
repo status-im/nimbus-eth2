@@ -14,7 +14,7 @@ import
   chronicles,
   eth/keys,
   ./gossip_processing/light_client_processor,
-  ./networking/[eth2_network, topic_params],
+  ./networking/eth2_network,
   ./spec/datatypes/altair,
   ./spec/helpers,
   ./sync/light_client_manager,
@@ -356,10 +356,8 @@ proc updateGossipStatus*(
     if gossipFork >= BeaconStateFork.Altair:
       let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
       lightClient.network.subscribe(
-        getLightClientFinalityUpdateTopic(forkDigest),
-        basicParams)
+        getLightClientFinalityUpdateTopic(forkDigest))
       lightClient.network.subscribe(
-        getLightClientOptimisticUpdateTopic(forkDigest),
-        basicParams)
+        getLightClientOptimisticUpdateTopic(forkDigest))
 
   lightClient.gossipState = targetGossipState
