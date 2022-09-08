@@ -209,22 +209,13 @@ jobs:
         run: |
           scripts/setup_scenarios.sh fixturesCache
 
-      - name: Smoke test the Beacon Node and Validator Client with all tracing enabled
+      - name: Build binaries (with trace logging enabled)
         run: |
           if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
             # change to "|| true" to hide the CI failures in GitHub's UI (escape hatch if a blocker is detected in 1.6)
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client || false
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE || false
           else
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE nimbus_beacon_node nimbus_validator_client
-          fi
-
-      - name: Build all tools
-        run: |
-          if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
-            # change to "|| true" to hide the CI failures in GitHub's UI (escape hatch if a blocker is detected in 1.6)
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} || false
-          else
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }}
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE
           fi
           # The Windows image runs out of disk space, so make some room
           rm -rf nimcache
