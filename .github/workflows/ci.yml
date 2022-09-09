@@ -18,8 +18,6 @@ jobs:
         target:
           - os: linux
             cpu: amd64
-          - os: linux
-            cpu: i386
           - os: macos
             cpu: amd64
           - os: windows
@@ -69,37 +67,6 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v2
-
-      - name: Install build dependencies (Linux i386)
-        if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
-        run: |
-          sudo dpkg --add-architecture i386
-          sudo apt-fast update -qq
-          sudo DEBIAN_FRONTEND='noninteractive' apt-fast install \
-            --no-install-recommends -yq gcc-multilib g++-multilib
-          mkdir -p external/bin
-          cat << EOF > external/bin/gcc
-          #!/bin/bash
-          exec $(which gcc) -m32 -mno-adx "\$@"
-          EOF
-          cat << EOF > external/bin/g++
-          #!/bin/bash
-          exec $(which g++) -m32 -mno-adx "\$@"
-          EOF
-          chmod 755 external/bin/gcc external/bin/g++
-          echo "${{ github.workspace }}/external/bin" >> $GITHUB_PATH
-
-      - name: MSYS2 (Windows i386)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
-        uses: msys2/setup-msys2@v2
-        with:
-          path-type: inherit
-          msystem: MINGW32
-          install: >-
-            base-devel
-            git
-            mingw-w64-i686-toolchain
-            mingw-w64-i686-cmake
 
       - name: MSYS2 (Windows amd64)
         if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
@@ -156,12 +123,6 @@ jobs:
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
             export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
             echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
-          fi
-
-          # libminiupnp / natpmp
-          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'i386' ]]; then
-            export CFLAGS="${CFLAGS} -m32 -mno-adx"
-            echo "CFLAGS=${CFLAGS}" >> $GITHUB_ENV
           fi
 
           ncpu=""
