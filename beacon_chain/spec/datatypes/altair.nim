@@ -108,7 +108,7 @@ type
     signature*: ValidatorSig
       ## Signature by the validator over the block root of `slot`
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#synccommitteecontribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/validator.md#synccommitteecontribution
   SyncCommitteeAggregationBits* =
     BitArray[SYNC_SUBCOMMITTEE_SIZE]
 
@@ -141,7 +141,7 @@ type
     message*: ContributionAndProof
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#syncaggregatorselectiondata
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/validator.md#syncaggregatorselectiondata
   SyncAggregatorSelectionData* = object
     slot*: Slot
     subcommittee_index*: uint64 # `SyncSubcommitteeIndex` after validation

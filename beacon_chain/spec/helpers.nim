@@ -308,7 +308,7 @@ template is_better_update*[A, B: SomeLightClientUpdate](
     new_update: A, old_update: B): bool =
   is_better_data(toMeta(new_update), toMeta(old_update))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(state: bellatrix.BeaconState): bool =
   const defaultExecutionPayloadHeader = default(ExecutionPayloadHeader)
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
@@ -338,7 +338,7 @@ func is_execution_enabled*(
           bellatrix.SigVerifiedBeaconBlockBody): bool =
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
 func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   # Note: This function is unsafe with respect to overflows and underflows.
   let slots_since_genesis = slot - GENESIS_SLOT
