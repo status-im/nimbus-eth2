@@ -28,7 +28,7 @@ import
   web3/ethtypes,
 
   # Local modules
-  ../spec/datatypes/[phase0, altair, bellatrix, capella],
+  ../spec/datatypes/[base, phase0, altair, bellatrix, capella],
   ../spec/[
     eth2_merkleization, forks, helpers, network, signatures, state_transition,
     validator],
@@ -328,7 +328,7 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
                         finalized_block_hash: Eth2Digest,
                         fee_recipient: ethtypes.Address,
                         execution_engine: Eth1Monitor):
-                        Future[Option[bellatrix.PayloadID]] {.async.} =
+                        Future[Option[base.PayloadID]] {.async.} =
   logScope:
     head_block_hash
     finalized_block_hash
@@ -352,16 +352,16 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
     payloadId = forkchoiceResponse.payloadId
 
   return if payloadId.isSome:
-    some(bellatrix.PayloadID(buf: payloadId.get()))
+    some(base.PayloadID(payloadId.get()))
   else:
-    none(bellatrix.PayloadID)
+    none(base.PayloadID)
 
 proc forkchoice_updated(state: capella.BeaconState,
                         head_block_hash: Eth2Digest,
                         finalized_block_hash: Eth2Digest,
                         fee_recipient: ethtypes.Address,
                         execution_engine: Eth1Monitor):
-                        Future[Option[capella.PayloadID]] {.async.} =
+                        Future[Option[base.PayloadID]] {.async.} =
   let
     timestamp = compute_timestamp_at_slot(state, state.slot)
     random = get_randao_mix(state, get_current_epoch(state))
@@ -376,31 +376,23 @@ proc forkchoice_updated(state: capella.BeaconState,
     payloadId = forkchoiceResponse.payloadId
 
   return if payloadId.isSome:
-    some(capella.PayloadID(buf: payloadId.get()))
+    some(base.PayloadID(payloadId.get()))
   else:
-    none(capella.PayloadID)
+    none(base.PayloadID)
 
-proc get_execution_payload(
-    payload_id: Option[bellatrix.PayloadID], execution_engine: Eth1Monitor):
-    Future[bellatrix.ExecutionPayload] {.async.} =
+
+proc get_execution_payload[T](payload_id: Option[base.PayloadID], execution_engine: Eth1Monitor):
+    Future[T] {.async.} =
+
   return if payload_id.isNone():
     # Pre-merge, empty payload
-    default(bellatrix.ExecutionPayload)
+    default(T)
   else:
-    asConsensusExecutionPayload(
-      payload_id.get(),
-      await execution_engine.getPayload(payload_id.get()))
+    when T is of bellatrix.ExecutionPayloadHeader:
+      asConsensusExecutionPayload(bellatrix, await execution_engine.getPayload(payload_id.get()))
+    elif T is of capella.ExecutionPayloadHeader:
+      asConsensusExecutionPayload(capella, await execution_engine.getPayload(payload_id.get()))
 
-proc get_execution_payload(
-    payload_id: Option[capella.PayloadID], execution_engine: Eth1Monitor):
-    Future[capella.ExecutionPayload] {.async.} =
-  return if payload_id.isNone():
-    # Pre-merge, empty payload
-    default(capella.ExecutionPayload)
-  else:
-    asConsensusExecutionPayload(
-      payload_id.get(),
-      await execution_engine.getPayload(payload_id.get))
 
 # TODO remove in favor of consensusManager copy
 proc getFeeRecipient(node: BeaconNode,
@@ -480,7 +472,7 @@ proc getExecutionPayload(
             lastFcU.get.finalizedBlockRoot == latestFinalized and
             lastFcU.get.timestamp == timestamp and
             lastFcU.get.feeRecipient == feeRecipient:
-          some bellatrix.PayloadID(lastFcU.get.payloadId)
+          some PayloadID(lastFcU.get.payloadId)
         else:
           debug "getExecutionPayload: didn't find payloadId, re-querying",
             latestHead, latestSafe, latestFinalized,
@@ -493,12 +485,19 @@ proc getExecutionPayload(
            latestHead, latestSafe, latestFinalized,
            feeRecipient, node.consensusManager.eth1Monitor))
       payload = try:
+          let execution_payload =
+            if Epoch == BeaconStateFork.Capella:
+              get_execution_payload(capella.ExecutionPayloadHeader, node.consensusManager.eth1Monitor)
+            else:
+              get_execution_payload(bellatrix.ExecutionPayloadHeader, node.consensusManager.eth1Monitor)
+
           awaitWithTimeout(
-            get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
+            execution_payload,
             GETPAYLOAD_TIMEOUT):
               beacon_block_payload_errors.inc()
               warn "Getting execution payload from Engine API timed out", payload_id
               empty_execution_payload
+
         except CatchableError as err:
           beacon_block_payload_errors.inc()
           warn "Getting execution payload from Engine API failed",

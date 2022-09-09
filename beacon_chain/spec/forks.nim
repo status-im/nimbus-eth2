@@ -394,6 +394,7 @@ template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
   case x.kind
   of BeaconStateFork.Capella:
     const stateFork {.inject, used.} = BeaconStateFork.Capella
+    template forkyState: untyped {.inject, used.} = x.capellaData
     template state: untyped {.inject, used.} = x.capellaData
     body
   of BeaconStateFork.Bellatrix:

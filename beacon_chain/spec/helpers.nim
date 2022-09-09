@@ -366,7 +366,7 @@ func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   let slots_since_genesis = slot - GENESIS_SLOT
   state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT
 
-proc emptyPayloadToBlockHeader*(payload: ExecutionPayload): ExecutionBlockHeader =
+proc emptyPayloadToBlockHeader*(payload: bellatrix.ExecutionPayload | capella.ExecutionPayload): ExecutionBlockHeader =
   ## This function assumes that the payload is empty!
   doAssert payload.transactions.len == 0
 

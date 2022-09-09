@@ -139,6 +139,9 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
 
+  # Used in capella and bellatrix
+  PayloadID* = array[8, byte]
+
   ValidatorIndex* = distinct uint32
     ## Each validator has an index that is used in lieu of the public key to
     ## identify the validator. The index is assigned according to the order of

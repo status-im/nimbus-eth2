@@ -756,7 +756,7 @@ proc process_attestation*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#get_next_sync_committee_indices
-func get_next_sync_committee_keys(state: altair.BeaconState | bellatrix.BeaconState):
+func get_next_sync_committee_keys(state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState):
     array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
   ## Return the sequence of sync committee indices, with possible duplicates,
   ## for the next sync committee.
@@ -792,7 +792,7 @@ func get_next_sync_committee_keys(state: altair.BeaconState | bellatrix.BeaconSt
   res
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#get_next_sync_committee
-func get_next_sync_committee*(state: altair.BeaconState | bellatrix.BeaconState):
+func get_next_sync_committee*(state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState):
     SyncCommittee =
   ## Return the *next* sync committee for a given ``state``.
   var res: SyncCommittee

@@ -228,9 +228,6 @@ type
   # NOTE: Duplicates from bellatrix
   #
 
-  PayloadID* = object
-    buf*: array[8, byte]
-
   MsgTrustedSignedBeaconBlock* = object
     message*: TrustedBeaconBlock
     signature*: ValidatorSig
