@@ -42,7 +42,7 @@ jobs:
 
     name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch }})'
     runs-on: ${{ matrix.builder }}
-    continue-on-error: ${{ matrix.branch == 'version-1-6' || matrix.branch == 'devel' }}
+    continue-on-error: ${{ matrix.branch == 'devel' }}
     steps:
       - name: Checkout
         if: ${{ github.event_name != 'pull_request' }}
