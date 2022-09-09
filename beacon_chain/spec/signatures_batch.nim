@@ -398,9 +398,9 @@ proc collectSignatureSets*(
           else:
             let
               current_sync_committee =
-                state.data.get_sync_committee_cache(cache).current_sync_committee
-              previous_slot = max(state.data.slot, Slot(1)) - 1
-              beacon_block_root = get_block_root_at_slot(state.data, previous_slot)
+                forkyState.data.get_sync_committee_cache(cache).current_sync_committee
+              previous_slot = max(forkyState.data.slot, Slot(1)) - 1
+              beacon_block_root = get_block_root_at_slot(forkyState.data, previous_slot)
               pubkey = ? aggregateAttesters(
                 current_sync_committee,
                 signed_block.message.body.sync_aggregate.sync_committee_bits,

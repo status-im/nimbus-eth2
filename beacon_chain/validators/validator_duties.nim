@@ -125,14 +125,15 @@ proc addLocalValidators*(node: BeaconNode,
   let slot = node.currentSlot()
   withState(node.dag.headState):
     for item in validators:
-      node.addLocalValidator(state.data.validators.asSeq(), item, slot)
+      node.addLocalValidator(forkyState.data.validators.asSeq(), item, slot)
 
 proc addRemoteValidators*(node: BeaconNode,
                           validators: openArray[KeystoreData]) =
   let slot = node.currentSlot()
   withState(node.dag.headState):
     for item in validators:
-      let index = findValidator(state.data.validators.asSeq(), item.pubkey)
+      let index = findValidator(
+        forkyState.data.validators.asSeq(), item.pubkey)
       node.attachedValidators[].addRemoteValidator(index, item, slot)
 
 proc addValidators*(node: BeaconNode) =
@@ -505,7 +506,7 @@ proc makeBeaconBlockForHeadAndSlot*(
 
     let
       exits = withState(state):
-        node.exitPool[].getBeaconBlockExits(node.dag.cfg, state.data)
+        node.exitPool[].getBeaconBlockExits(node.dag.cfg, forkyState.data)
       effectiveExecutionPayload =
         if executionPayload.isSome:
           executionPayload.get

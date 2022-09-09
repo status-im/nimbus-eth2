@@ -204,7 +204,8 @@ template validateBeaconBlockBellatrix(
     # compute_timestamp_at_slot(state, block.slot).
     let timestampAtSlot =
       withState(dag.headState):
-        compute_timestamp_at_slot(state.data, signed_beacon_block.message.slot)
+        compute_timestamp_at_slot(
+          forkyState.data, signed_beacon_block.message.slot)
     if not (signed_beacon_block.message.body.execution_payload.timestamp ==
         timestampAtSlot):
       quarantine[].addUnviable(signed_beacon_block.root)
