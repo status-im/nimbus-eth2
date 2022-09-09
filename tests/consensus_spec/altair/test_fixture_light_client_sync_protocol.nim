@@ -137,7 +137,7 @@ let full_sync_committee_bits = block:
   res.bytes.fill(byte.high)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L6-L15
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L20-L29
 func initialize_light_client_store(state: auto): LightClientStore =
   LightClientStore(
     finalized_header: BeaconBlockHeader(),

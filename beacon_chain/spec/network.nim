@@ -17,7 +17,7 @@ import
 export base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz_snappy"

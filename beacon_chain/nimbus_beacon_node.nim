@@ -1020,7 +1020,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
 
   var newSubcommittees: SyncnetBits
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/validator.md#sync-committee-subnet-stability
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if  (not node.network.metadata.syncnets[subcommitteeIdx]) and
         nextSyncCommitteeSubnets[subcommitteeIdx] and

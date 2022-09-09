@@ -38,7 +38,7 @@ const
   NEWPAYLOAD_TIMEOUT* = 8.seconds
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/bellatrix/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
   ExecutionAddress* = object
@@ -90,7 +90,7 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/fork-choice.md#powblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/bellatrix/fork-choice.md#powblock
   PowBlock* = object
     block_hash*: Eth2Digest
     parent_hash*: Eth2Digest
