@@ -21,7 +21,7 @@ jobs:
             cpu: amd64
           - os: windows
             cpu: i386
-        branch: [version-1-2, version-1-4, version-1-6, devel]
+        branch: [version-1-2, version-1-6, devel]
         include:
           - target:
               os: linux
