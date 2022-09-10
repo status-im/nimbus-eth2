@@ -241,7 +241,7 @@ proc storeBlock*(
         for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():
           vm[].registerSyncAggregateInBlock(
             trustedBlock.message.slot, trustedBlock.root,
-            state.data.current_sync_committee.pubkeys.data[i])
+            forkyState.data.current_sync_committee.pubkeys.data[i])
 
   self.dumpBlock(signedBlock, blck)
 

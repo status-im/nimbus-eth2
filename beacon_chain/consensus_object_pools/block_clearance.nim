@@ -105,9 +105,9 @@ proc addResolvedHeadBlock(
     if enableTestFeatures in dag.updateFlags:
       unrealized = withState(state):
         when stateFork >= BeaconStateFork.Altair:
-          state.data.compute_unrealized_finality()
+          forkyState.data.compute_unrealized_finality()
         else:
-          state.data.compute_unrealized_finality(cache)
+          forkyState.data.compute_unrealized_finality(cache)
     onBlockAdded(blockRef, trustedBlock, epochRef, unrealized)
   if not(isNil(dag.onBlockAdded)):
     dag.onBlockAdded(ForkedTrustedSignedBeaconBlock.init(trustedBlock))

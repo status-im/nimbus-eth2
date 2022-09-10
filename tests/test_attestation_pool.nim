@@ -125,14 +125,14 @@ suite "Attestation pool processing" & preset():
       att1 = makeAttestation(state[], root1, bc1[0], cache)
 
     check:
-      withState(state[]): state.latest_block_root == root1
+      withState(state[]): forkyState.latest_block_root == root1
 
       process_slots(
         defaultRuntimeConfig, state[],
         getStateField(state[], slot) + MIN_ATTESTATION_INCLUSION_DELAY, cache,
         info, {}).isOk()
 
-      withState(state[]): state.latest_block_root == root1
+      withState(state[]): forkyState.latest_block_root == root1
 
     check:
       # shouldn't include already-included attestations

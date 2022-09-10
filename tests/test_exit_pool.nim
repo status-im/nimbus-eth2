@@ -85,9 +85,11 @@ suite "Exit pool testing suite":
         check: pool[].isSeen(msg)
       withState(dag.headState):
         check:
-          pool[].getBeaconBlockExits(cfg, state.data).proposer_slashings.lenu64 ==
+          pool[].getBeaconBlockExits(
+              cfg, forkyState.data).proposer_slashings.lenu64 ==
             min(i + 1, MAX_PROPOSER_SLASHINGS)
-          pool[].getBeaconBlockExits(cfg, state.data).proposer_slashings.len == 0
+          pool[].getBeaconBlockExits(
+            cfg, forkyState.data).proposer_slashings.len == 0
 
   test "addExitMessage/getAttesterSlashingMessage":
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS + 5:
@@ -106,9 +108,11 @@ suite "Exit pool testing suite":
         check: pool[].isSeen(msg)
       withState(dag.headState):
         check:
-          pool[].getBeaconBlockExits(cfg, state.data).attester_slashings.lenu64 ==
+          pool[].getBeaconBlockExits(
+              cfg, forkyState.data).attester_slashings.lenu64 ==
             min(i + 1, MAX_ATTESTER_SLASHINGS)
-          pool[].getBeaconBlockExits(cfg, state.data).attester_slashings.len == 0
+          pool[].getBeaconBlockExits(
+            cfg, forkyState.data).attester_slashings.len == 0
 
   test "addExitMessage/getVoluntaryExitMessage":
     # Need to advance state or it will not accept voluntary exits
@@ -135,9 +139,11 @@ suite "Exit pool testing suite":
 
       withState(dag.headState):
         check:
-          pool[].getBeaconBlockExits(cfg, state.data).voluntary_exits.lenu64 ==
+          pool[].getBeaconBlockExits(
+              cfg, forkyState.data).voluntary_exits.lenu64 ==
             min(i + 1, MAX_VOLUNTARY_EXITS)
-          pool[].getBeaconBlockExits(cfg, state.data).voluntary_exits.len == 0
+          pool[].getBeaconBlockExits(
+            cfg, forkyState.data).voluntary_exits.len == 0
 
   test "pre-pre-fork voluntary exit":
     var
@@ -163,4 +169,5 @@ suite "Exit pool testing suite":
       check:
         # Message signed with a (fork-2) domain can no longer be added as that
         # fork is not present in the BeaconState and thus fails transition
-        pool[].getBeaconBlockExits(cfg, state.data).voluntary_exits.lenu64 == 0
+        pool[].getBeaconBlockExits(
+          cfg, forkyState.data).voluntary_exits.lenu64 == 0

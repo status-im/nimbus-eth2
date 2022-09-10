@@ -343,9 +343,9 @@ proc runProposalForkchoiceUpdated*(
   # opportunistically, so mismatches are fine if not too frequent.
   let
     timestamp = withState(self.dag.headState):
-      compute_timestamp_at_slot(state.data, nextWallSlot)
+      compute_timestamp_at_slot(forkyState.data, nextWallSlot)
     randomData = withState(self.dag.headState):
-      get_randao_mix(state.data, get_current_epoch(state.data)).data
+      get_randao_mix(forkyState.data, get_current_epoch(forkyState.data)).data
     feeRecipient = self.getFeeRecipient(
       nextProposer, validatorIndex, nextWallSlot.epoch)
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)

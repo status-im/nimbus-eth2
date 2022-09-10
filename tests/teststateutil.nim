@@ -81,7 +81,7 @@ proc getTestStates*(
 
     if i mod 3 == 0:
       withState(tmpState[]):
-        valid_deposit(state)
+        valid_deposit(forkyState)
     doAssert getStateField(tmpState[], slot) == slot
 
     if tmpState[].kind == stateFork:

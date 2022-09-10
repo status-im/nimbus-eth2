@@ -41,7 +41,7 @@ proc runTest(path: string, fork: BeaconStateFork) =
 
     withState(state[]):
       var computedProof = newSeq[Eth2Digest](log2trunc(proof.leaf_index))
-      build_proof(state.data, proof.leaf_index, computedProof).get
+      build_proof(forkyState.data, proof.leaf_index, computedProof).get
 
       check:
         computedProof == proof.branch.mapIt(Eth2Digest.fromHex(it))
@@ -50,7 +50,7 @@ proc runTest(path: string, fork: BeaconStateFork) =
           computedProof,
           log2trunc(proof.leaf_index),
           get_subtree_index(proof.leaf_index),
-          state.root)
+          forkyState.root)
 
 suite "EF - Light client - Single merkle proof" & preset():
   const presetPath = SszTestsDir/const_preset

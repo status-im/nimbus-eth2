@@ -118,7 +118,7 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
             attestation = Attestation(
               aggregation_bits: CommitteeValidatorsBits.init(committee.len),
               data: makeAttestationData(
-                state.data, slot, committee_index, latest_block_root),
+                forkyState.data, slot, committee_index, latest_block_root),
             )
             first = true
 
@@ -132,8 +132,8 @@ cli do(slots = SLOTS_PER_EPOCH * 5,
             if attestation.aggregation_bits.countOnes() > 0:
               if validate:
                 attestation.signature = makeAttestationSig(
-                  state.data.fork, genesis_validators_root, attestation.data,
-                  committee, attestation.aggregation_bits)
+                  forkyState.data.fork, genesis_validators_root,
+                  attestation.data, committee, attestation.aggregation_bits)
 
               # add the attestation if any of the validators attested, as given
               # by the randomness. We have to delay when the attestation is
