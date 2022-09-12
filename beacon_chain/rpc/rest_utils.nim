@@ -222,11 +222,11 @@ func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
     when stateFork >= BeaconStateFork.Altair:
       let
         epochPeriod = sync_committee_period(epoch)
-        curPeriod = sync_committee_period(state.data.slot)
+        curPeriod = sync_committee_period(forkyState.data.slot)
       if epochPeriod == curPeriod:
-        ok(@(state.data.current_sync_committee.pubkeys.data))
+        ok(@(forkyState.data.current_sync_committee.pubkeys.data))
       elif epochPeriod == curPeriod + 1:
-        ok(@(state.data.next_sync_committee.pubkeys.data))
+        ok(@(forkyState.data.next_sync_committee.pubkeys.data))
       else:
         err("Epoch is outside the sync committee period of the state")
     else:
@@ -268,12 +268,12 @@ proc getStateOptimistic*(node: BeaconNode,
       # A state is optimistic iff the block which created it is
       withState(state):
         # The block root which created the state at slot `n` is at slot `n-1`
-        if state.data.slot == GENESIS_SLOT:
+        if forkyState.data.slot == GENESIS_SLOT:
           some[bool](false)
         else:
-          doAssert state.data.slot > 0
+          doAssert forkyState.data.slot > 0
           some[bool](node.dag.is_optimistic(
-            get_block_root_at_slot(state.data, state.data.slot - 1)))
+            get_block_root_at_slot(forkyState.data, forkyState.data.slot - 1)))
   else:
     none[bool]()
 

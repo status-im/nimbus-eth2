@@ -141,12 +141,13 @@ proc doTrustedNodeSync*(
 
       withState(genesisState[]):
         info "Writing genesis state",
-          stateRoot = shortLog(state.root),
-          genesis_validators_root = shortLog(state.data.genesis_validators_root)
+          stateRoot = shortLog(forkyState.root),
+          genesis_validators_root =
+            shortLog(forkyState.data.genesis_validators_root)
 
-        db.putState(state)
+        db.putState(forkyState)
 
-        let blck = get_initial_beacon_block(state)
+        let blck = get_initial_beacon_block(forkyState)
 
         info "Writing genesis block",
           blockRoot = shortLog(blck.root),
@@ -254,7 +255,7 @@ proc doTrustedNodeSync*(
         quit 1
 
       withState(state[]):
-        let latest_block_root = state.latest_block_root
+        let latest_block_root = forkyState.latest_block_root
 
         if latest_block_root != checkpointBlock[].root:
           error "Checkpoint state does not match checkpoint block, server error?",
@@ -264,8 +265,8 @@ proc doTrustedNodeSync*(
           quit 1
 
         info "Writing checkpoint state",
-          stateRoot = shortLog(state.root)
-        db.putState(state)
+          stateRoot = shortLog(forkyState.root)
+        db.putState(forkyState)
 
       withBlck(checkpointBlock[]):
         info "Writing checkpoint block",

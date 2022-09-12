@@ -296,13 +296,13 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
           dbBenchmark.putBlock(b)
 
       withState(stateData[]):
-        if state.data.slot.is_epoch and conf.storeStates:
-          if state.data.slot.epoch < 2:
-            dbBenchmark.putState(state.root, state.data)
+        if forkyState.data.slot.is_epoch and conf.storeStates:
+          if forkyState.data.slot.epoch < 2:
+            dbBenchmark.putState(forkyState.root, forkyState.data)
             dbBenchmark.checkpoint()
           else:
             withTimer(timers[tDbStore]):
-              dbBenchmark.putState(state.root, state.data)
+              dbBenchmark.putState(forkyState.root, forkyState.data)
               dbBenchmark.checkpoint()
 
             withTimer(timers[tDbLoad]):

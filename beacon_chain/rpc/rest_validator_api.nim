@@ -248,8 +248,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let res = withState(node.dag.headState):
         when stateFork >= BeaconStateFork.Altair:
           produceResponse(indexList,
-                          state.data.current_sync_committee.pubkeys.data,
-                          state.data.validators.asSeq)
+                          forkyState.data.current_sync_committee.pubkeys.data,
+                          forkyState.data.validators.asSeq)
         else:
           emptyResponse()
       return RestApiResponse.jsonResponseWOpt(res, optimistic)
@@ -258,8 +258,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let res = withState(node.dag.headState):
         when stateFork >= BeaconStateFork.Altair:
           produceResponse(indexList,
-                          state.data.next_sync_committee.pubkeys.data,
-                          state.data.validators.asSeq)
+                          forkyState.data.next_sync_committee.pubkeys.data,
+                          forkyState.data.validators.asSeq)
         else:
           emptyResponse()
       return RestApiResponse.jsonResponseWOpt(res, optimistic)
@@ -289,8 +289,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res = withState(state):
           when stateFork >= BeaconStateFork.Altair:
             produceResponse(indexList,
-                            state.data.current_sync_committee.pubkeys.data,
-                            state.data.validators.asSeq)
+                            forkyState.data.current_sync_committee.pubkeys.data,
+                            forkyState.data.validators.asSeq)
           else:
             emptyResponse()
         return RestApiResponse.jsonResponseWOpt(res, optimistic)

@@ -1321,11 +1321,12 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
       # Builders should verify that `pubkey` corresponds to an active or
       # pending validator
       withState(node.dag.headState):
-        if distinctBase(validator.index.get) >= state.data.validators.lenu64:
+        if  distinctBase(validator.index.get) >=
+            forkyState.data.validators.lenu64:
           continue
 
         if node.currentSlot().epoch >=
-            state.data.validators.item(validator.index.get).exit_epoch:
+            forkyState.data.validators.item(validator.index.get).exit_epoch:
           continue
 
       if validator.externalBuilderRegistration.isSome:

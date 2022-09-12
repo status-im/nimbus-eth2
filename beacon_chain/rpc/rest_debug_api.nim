@@ -84,7 +84,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
         elif contentType == sszMediaType:
           let headers = [("eth-consensus-version", state.kind.toString())]
           withState(state):
-            RestApiResponse.sszResponse(state.data, headers)
+            RestApiResponse.sszResponse(forkyState.data, headers)
         else:
           RestApiResponse.jsonError(Http500, InvalidAcceptError)
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
