@@ -471,8 +471,7 @@ proc new*(T: type BeaconChainDB,
     lcData = db.initLightClientDataDB(LightClientDataDBNames(
       altairCurrentBranches: "lc_altair_current_branches",
       altairBestUpdates: "lc_altair_best_updates",
-      sealedPeriods: "lc_sealed_periods")
-    ).expectDb()
+      sealedPeriods: "lc_sealed_periods")).expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is

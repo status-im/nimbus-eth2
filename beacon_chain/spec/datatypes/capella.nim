@@ -37,25 +37,19 @@ const
   DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0A, 0x00, 0x00, 0x00])
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/bellatrix/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]
 
-  ExecutionAddress* = object
-    data*: array[20, byte]  # TODO there's a network_metadata type, but the import hierarchy's inconvenient
-
-  BloomLogs* = object
-    data*: array[BYTES_PER_LOGS_BLOOM, byte]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/capella/beacon-chain.md#custom-types
   WithdrawalIndex* = uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#withdrawal
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/capella/beacon-chain.md#withdrawal
   Withdrawal* = object
     index*: WithdrawalIndex
     address*: ExecutionAddress
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#blstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/capella/beacon-chain.md#blstoexecutionchange
   BLSToExecutionChange* = object
     # TODO: We should probably use ValidatorIndex here
     #       but I see that in Altair we have a workaround
@@ -64,7 +58,7 @@ type
     from_bls_pubkey*: ValidatorPubKey
     to_execution_address*: ExecutionAddress
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/capella/beacon-chain.md#signedblstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/capella/beacon-chain.md#signedblstoexecutionchange
   SignedBLSToExecutionChange* = object
     message*: BLSToExecutionChange
     signature*: ValidatorSig

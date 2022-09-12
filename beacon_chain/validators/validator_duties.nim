@@ -529,10 +529,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
-    execution_payload:
-      Opt[bellatrix.ExecutionPayload] | Opt[capella.ExecutionPayload]
-        = Opt.none(bellatrix.ExecutionPayload),
-
+    execution_payload: Opt[ExecutionPayload] = Opt.none(ExecutionPayload),
     transactions_root: Opt[Eth2Digest] = Opt.none(Eth2Digest),
     execution_payload_root: Opt[Eth2Digest] = Opt.none(Eth2Digest)):
     Future[ForkedBlockResult] {.async.} =
@@ -560,7 +557,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       warn "Eth1 deposits not available. Skipping block proposal", slot
       return ForkedBlockResult.err("Eth1 deposits not available")
 
-    # Only current hardforks with execution payloads are Bellatrix & Capella
+    # Only current hardfork with execution payloads is Bellatrix
     static: doAssert high(BeaconStateFork) == BeaconStateFork.Capella
 
     let
@@ -606,33 +603,6 @@ proc makeBeaconBlockForHeadAndSlot*(
       else:
         node.syncCommitteeMsgPool[].produceSyncAggregate(head.root),
       effectiveExecutionPayload,
-      if executionPayload.isSome:
-        executionPayload.get
-      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
-           not (
-             is_merge_transition_complete(proposalState.bellatrixData.data) or
-             ((not node.eth1Monitor.isNil) and
-              node.eth1Monitor.terminalBlockHash.isSome)):
-        # https://github.com/nim-lang/Nim/issues/19802
-        (static(default(bellatrix.ExecutionPayload)))
-
-      # TODO: @tavurth needs to be reviewed carefully
-      #       as this code will probably require changes
-      elif slot.epoch < node.dag.cfg.CAPELLA_FORK_EPOCH or
-           not (
-             is_merge_transition_complete(proposalState.capellaData.data) or
-             ((not node.eth1Monitor.isNil) and
-              node.eth1Monitor.terminalBlockHash.isSome)):
-        # https://github.com/nim-lang/Nim/issues/19802
-        (static(default(capella.ExecutionPayload)))
-      else:
-        let pubkey = node.dag.validatorKey(validator_index)
-        (await getExecutionPayload(
-          node, proposalState,
-          slot.epoch, validator_index,
-          # TODO https://github.com/nim-lang/Nim/issues/19802
-          if pubkey.isSome: pubkey.get.toPubKey else: default(ValidatorPubKey))),
->>>>>>> b97c30aa (Try to fix ambiguous calls)
       noRollback, # Temporary state - no need for rollback
       cache,
       transactions_root =
@@ -660,6 +630,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       head = shortLog(head),
       slot
     return err("Cannot create proposal state")
+
 
 proc getBlindedExecutionPayload(
     node: BeaconNode, slot: Slot, executionBlockRoot: Eth2Digest,

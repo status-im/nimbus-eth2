@@ -160,8 +160,12 @@ func get_whistleblower_reward*(validator_effective_balance: Gwei): Gwei =
 func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): Gwei =
   when state is phase0.BeaconState:
     whistleblower_reward div PROPOSER_REWARD_QUOTIENT
-  elif state is ForkyUpgradedBeaconState:
-    whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
+  elif state in [
+    altair.BeaconState,
+    bellatrix.BeaconState,
+    capella.BeaconState,
+  ]:
+   whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
   else:
     {.fatal: "invalid BeaconState type".}
 
@@ -370,7 +374,6 @@ func get_initial_beacon_block*(state: capella.HashedBeaconState):
   capella.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-
 func get_initial_beacon_block*(state: ForkedHashedBeaconState):
     ForkedTrustedSignedBeaconBlock =
   withState(state):
@@ -577,7 +580,7 @@ func check_attestation_index*(
     Result[CommitteeIndex, cstring] =
   check_attestation_index(data.index, committees_per_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(state: ForkyUpgradedBeaconState,
                                                 data: AttestationData,
                                                 inclusion_delay: uint64): seq[int] =
@@ -896,7 +899,7 @@ func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
   post
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/fork.md#upgrading-the-state
-proc upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
+func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
     ref bellatrix.BeaconState =
   let epoch = get_current_epoch(pre)
 

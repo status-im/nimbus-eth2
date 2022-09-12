@@ -330,7 +330,7 @@ macro asConsensusExecutionPayload*(kind: untyped, rpcExecutionPayload: Execution
     `kind`.ExecutionPayload(
       parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
       feeRecipient:
-      `kind`.ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
       state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
       receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
       logs_bloom: `kind`.BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
@@ -348,32 +348,9 @@ macro asConsensusExecutionPayload*(kind: untyped, rpcExecutionPayload: Execution
         mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
 
 
-func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
+func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload | capella.ExecutionPayload):
     ExecutionPayloadV1 =
-  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
-    TypedTransaction(tt.distinctBase)
-
-  engine_api.ExecutionPayloadV1(
-    parentHash: executionPayload.parent_hash.asBlockHash,
-    feeRecipient: Address(executionPayload.fee_recipient.data),
-    stateRoot: executionPayload.state_root.asBlockHash,
-    receiptsRoot: executionPayload.receipts_root.asBlockHash,
-    logsBloom:
-      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
-    prevRandao: executionPayload.prev_randao.asBlockHash,
-    blockNumber: Quantity(executionPayload.block_number),
-    gasLimit: Quantity(executionPayload.gas_limit),
-    gasUsed: Quantity(executionPayload.gas_used),
-    timestamp: Quantity(executionPayload.timestamp),
-    extraData:
-      DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
-    baseFeePerGas: executionPayload.base_fee_per_gas,
-    blockHash: executionPayload.block_hash.asBlockHash,
-    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
-
-func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
-    ExecutionPayloadV1 =
-  template getTypedTransaction(tt: capella.Transaction): TypedTransaction =
+  template getTypedTransaction(tt: Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
 
   engine_api.ExecutionPayloadV1(
@@ -540,7 +517,6 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
       safeBlockHash: safeBlock.asBlockHash,
       finalizedBlockHash: finalizedBlock.asBlockHash),
     none(engine_api.PayloadAttributesV1))
-
 
 proc forkchoiceUpdated*(p: Eth1Monitor,
                         headBlock, safeBlock, finalizedBlock: Eth2Digest,

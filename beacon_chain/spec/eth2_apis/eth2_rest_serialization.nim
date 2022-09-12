@@ -752,10 +752,8 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: Eth2Digest) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(value.data))
 
-type ForkyBloomLogs = bellatrix.BloomLogs | capella.BloomLogs
-
 ## BloomLogs
-proc readValue*(reader: var JsonReader[RestJson], value: var ForkyBloomLogs) {.
+proc readValue*(reader: var JsonReader[RestJson], value: var BloomLogs) {.
      raises: [IOError, SerializationError, Defect].} =
   try:
     hexToByteArray(reader.readValue(string), value.data)
@@ -763,7 +761,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ForkyBloomLogs) {.
     raiseUnexpectedValue(reader,
                          "BloomLogs value should be a valid hex string")
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: ForkyBloomLogs) {.
+proc writeValue*(writer: var JsonWriter[RestJson], value: BloomLogs) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(value.data))
 

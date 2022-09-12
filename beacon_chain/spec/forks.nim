@@ -730,7 +730,7 @@ func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   case cfg.stateForkAtEpoch(epoch)
   # TODO: Is Capella a FAR_FUTURE?
   of BeaconStateFork.Capella:   FAR_FUTURE_EPOCH
-  of BeaconStateFork.Bellatrix: FAR_FUTURE_EPOCH
+  of BeaconStateFork.Bellatrix: cfg.CAPELLA_FORK_EPOCH
   of BeaconStateFork.Altair:    cfg.BELLATRIX_FORK_EPOCH
   of BeaconStateFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
 
