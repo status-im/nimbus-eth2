@@ -1539,7 +1539,9 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
         BELLATRIX_FORK_EPOCH = m.cfg.BELLATRIX_FORK_EPOCH,
         totalDifficulty = $nextBlock.totalDifficulty,
         ttd = $m.cfg.TERMINAL_TOTAL_DIFFICULTY,
-        terminalBlockHash = m.terminalBlockHash
+        terminalBlockHash = m.terminalBlockHash,
+        candidateBlockHash = terminalBlockCandidate.hash,
+        candidateBlockNumber = distinctBase(terminalBlockCandidate.number)
 
       if terminalBlockCandidate.totalDifficulty >= m.cfg.TERMINAL_TOTAL_DIFFICULTY:
         while not terminalBlockCandidate.parentHash.isZeroMemory:
@@ -1550,6 +1552,15 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
           terminalBlockCandidate = parentBlock
         m.terminalBlockHash = some terminalBlockCandidate.hash
         m.terminalBlockNumber = some terminalBlockCandidate.number
+
+        debug "startEth1Syncing: found merge terminal block",
+          currentEpoch = m.currentEpoch,
+          BELLATRIX_FORK_EPOCH = m.cfg.BELLATRIX_FORK_EPOCH,
+          totalDifficulty = $nextBlock.totalDifficulty,
+          ttd = $m.cfg.TERMINAL_TOTAL_DIFFICULTY,
+          terminalBlockHash = m.terminalBlockHash,
+          candidateBlockHash = terminalBlockCandidate.hash,
+          candidateBlockNumber = distinctBase(terminalBlockCandidate.number)
 
     if shouldProcessDeposits:
       if m.latestEth1BlockNumber <= m.cfg.ETH1_FOLLOW_DISTANCE:

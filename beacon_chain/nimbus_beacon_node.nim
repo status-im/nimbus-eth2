@@ -742,7 +742,13 @@ proc init*(T: type BeaconNode,
     beaconClock: beaconClock,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache,
-    nextExchangeTransitionConfTime: Moment.now,
+    nextExchangeTransitionConfTime:
+      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#specification-3
+      # Consensus Layer client software **SHOULD** poll this endpoint every
+      # 60 seconds.
+      # Delay first call by that time to allow for EL syncing to begin; it can
+      # otherwise generate an EL warning by claiming a zero merge block.
+      Moment.now + chronos.seconds(60),
     dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()))
 
   node.initLightClient(
