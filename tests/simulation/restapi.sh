@@ -255,7 +255,7 @@ if [[ ${BEACON_NODE_STATUS} -eq 0 ]]; then
     --skip-topic=slow \
     --connections=4 \
     --rules-file="${RESTTEST_RULES}" \
-    http://${REST_ADDRESS}:${BASE_REST_PORT}/api \
+    http://${REST_ADDRESS}:${BASE_REST_PORT} \
     > ${LOG_TEST_FILE} 2>&1
   RESTTEST_STATUS=$?
 

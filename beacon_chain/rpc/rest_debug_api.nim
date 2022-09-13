@@ -178,26 +178,3 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
             bestDescendant: item.bestDescendant,
             invalid: item.invalid))
       return RestApiResponse.jsonResponse(responses)
-
-  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
-  # `/api` path component
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/debug/beacon/states/{state_id}",
-    "/eth/v1/debug/beacon/states/{state_id}"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v2/debug/beacon/states/{state_id}",
-    "/eth/v2/debug/beacon/states/{state_id}"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/debug/beacon/heads",
-    "/eth/v1/debug/beacon/heads"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v2/debug/beacon/heads",
-    "/eth/v2/debug/beacon/heads"
-  )
