@@ -598,6 +598,7 @@ proc process_block*(
 # copy of datatypes/altair.nim
 type SomeAltairBlock =
   altair.BeaconBlock | altair.SigVerifiedBeaconBlock | altair.TrustedBeaconBlock
+
 proc process_block*(
     cfg: RuntimeConfig,
     state: var altair.BeaconState, blck: SomeAltairBlock, flags: UpdateFlags,

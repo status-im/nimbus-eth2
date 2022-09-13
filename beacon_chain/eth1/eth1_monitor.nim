@@ -478,7 +478,8 @@ proc getBlockByNumber*(p: Web3DataProviderRef,
   except ValueError as exc: raiseAssert exc.msg # Never fails
   p.web3.provider.eth_getBlockByNumber(hexNumber, false)
 
-proc getPayload*(p: Eth1Monitor, payloadId: base.PayloadID): Future[engine_api.ExecutionPayloadV1] =
+proc getPayload*(p: Eth1Monitor, payloadId: bellatrix.PayloadID):
+    Future[engine_api.ExecutionPayloadV1] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil or p.dataProvider.isNil:

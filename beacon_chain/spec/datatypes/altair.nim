@@ -511,9 +511,6 @@ type
     BeaconBlockBody |
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
-  # NOTE: for nicer errors
-  SomeAltairBeaconBlock* =
-    SomeBeaconBlock
 
   SomeSyncAggregate* = SyncAggregate | TrustedSyncAggregate
 
@@ -610,7 +607,7 @@ template len*(epochFlags: EpochParticipationFlags): int =
 template data*(epochFlags: EpochParticipationFlags): untyped =
   asHashList(epochFlags).data
 
-func shortLog*(v: SomeAltairBeaconBlock): auto =
+func shortLog*(v: SomeBeaconBlock): auto =
   (
     slot: shortLog(v.slot),
     proposer_index: v.proposer_index,

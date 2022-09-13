@@ -320,7 +320,7 @@ proc runProposalForkchoiceUpdated*(self: ref ConsensusManager) {.async.} =
         return
 
       self.forkchoiceUpdatedInfo = Opt.some ForkchoiceUpdatedInformation(
-        payloadId: base.PayloadID(fcResult.payloadId.get),
+        payloadId: bellatrix.PayloadID(fcResult.payloadId.get),
         headBlockRoot: headBlockRoot,
         safeBlockRoot: beaconHead.safeExecutionPayloadHash,
         finalizedBlockRoot: beaconHead.finalizedExecutionPayloadHash,

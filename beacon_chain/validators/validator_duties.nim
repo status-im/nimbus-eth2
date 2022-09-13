@@ -318,9 +318,6 @@ from web3/engine_api import ForkchoiceUpdatedResponse
 from web3/engine_api_types import PayloadExecutionStatus, PayloadID
 
 
-converter to_buf(payload_id: engine_api_types.PayloadID): array[8, byte] =
-  return array[8, byte](payload_id)
-
 # TODO: This copies the entire BeaconState on each call
 proc forkchoice_updated(state: bellatrix.BeaconState,
                         head_block_hash: Eth2Digest,
@@ -328,7 +325,7 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
                         finalized_block_hash: Eth2Digest,
                         fee_recipient: ethtypes.Address,
                         execution_engine: Eth1Monitor):
-                        Future[Option[base.PayloadID]] {.async.} =
+                        Future[Option[bellatrix.PayloadID]] {.async.} =
   logScope:
     head_block_hash
     finalized_block_hash
@@ -352,16 +349,16 @@ proc forkchoice_updated(state: bellatrix.BeaconState,
     payloadId = forkchoiceResponse.payloadId
 
   return if payloadId.isSome:
-    some(base.PayloadID(payloadId.get()))
+    some(bellatrix.PayloadID(payloadId.get()))
   else:
-    none(base.PayloadID)
+    none(bellatrix.PayloadID)
 
 proc forkchoice_updated(state: capella.BeaconState,
                         head_block_hash: Eth2Digest,
                         finalized_block_hash: Eth2Digest,
                         fee_recipient: ethtypes.Address,
                         execution_engine: Eth1Monitor):
-                        Future[Option[base.PayloadID]] {.async.} =
+                        Future[Option[bellatrix.PayloadID]] {.async.} =
   let
     timestamp = compute_timestamp_at_slot(state, state.slot)
     random = get_randao_mix(state, get_current_epoch(state))
@@ -376,12 +373,12 @@ proc forkchoice_updated(state: capella.BeaconState,
     payloadId = forkchoiceResponse.payloadId
 
   return if payloadId.isSome:
-    some(base.PayloadID(payloadId.get()))
+    some(bellatrix.PayloadID(payloadId.get()))
   else:
-    none(base.PayloadID)
+    none(bellatrix.PayloadID)
 
 
-proc get_execution_payload[T](payload_id: Option[base.PayloadID], execution_engine: Eth1Monitor):
+proc get_execution_payload[T](payload_id: Option[bellatrix.PayloadID], execution_engine: Eth1Monitor):
     Future[T] {.async.} =
 
   return if payload_id.isNone():
@@ -408,15 +405,6 @@ proc getFeeRecipient(node: BeaconNode,
 
 from web3/engine_api_types import PayloadExecutionStatus
 
-
-template get_fork_data(epoch: Epoch): auto {.inline.} =
-  if epoch == BeaconStateFork.Capella:
-    proposalState.capellaData.data
-
-  else:
-    proposalState.bellatrixData.data
-
-
 proc getExecutionPayload(
     node: BeaconNode, proposalState: auto,
     epoch: Epoch,
@@ -427,8 +415,9 @@ proc getExecutionPayload(
 
   # Only current hardfork with execution payloads is Bellatrix & Capella
   static: doAssert high(BeaconStateFork) == BeaconStateFork.Capella
+
   template empty_execution_payload(): auto =
-    if Epoch == BeaconStateFork.Capella:
+    if epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
       build_empty_execution_payload(proposalState.capellaData.data)
     else:
       build_empty_execution_payload(proposalState.bellatrixData.data)
@@ -486,10 +475,12 @@ proc getExecutionPayload(
            feeRecipient, node.consensusManager.eth1Monitor))
       payload = try:
           let execution_payload =
-            if Epoch == BeaconStateFork.Capella:
+            if epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
               get_execution_payload(capella.ExecutionPayloadHeader, node.consensusManager.eth1Monitor)
-            else:
+            elif epoch >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
               get_execution_payload(bellatrix.ExecutionPayloadHeader, node.consensusManager.eth1Monitor)
+            else:
+              raise newException(ValueError, "Invalid execution payload")
 
           awaitWithTimeout(
             execution_payload,

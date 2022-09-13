@@ -47,6 +47,8 @@ type
   BloomLogs* = object
     data*: array[BYTES_PER_LOGS_BLOOM, byte]
 
+  PayloadID* = array[8, byte]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
@@ -339,9 +341,6 @@ type
     BeaconBlockBody |
     SigVerifiedBeaconBlockBody |
     TrustedBeaconBlockBody
-  # NOTE: for nicer errors
-  SomeBellatrixBeaconBlock =
-    SomeBeaconBlock
 
   BlockParams = object
     parentHash*: string
@@ -376,7 +375,7 @@ proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
     raiseUnexpectedValue(reader,
                          "ExecutionAddress value should be a valid hex string")
 
-func shortLog*(v: SomeBellatrixBeaconBlock): auto =
+func shortLog*(v: SomeBeaconBlock): auto =
   (
     slot: shortLog(v.slot),
     proposer_index: v.proposer_index,
