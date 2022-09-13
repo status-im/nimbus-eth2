@@ -282,21 +282,3 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/config/deposit_contract") do () -> RestApiResponse:
     return RestApiResponse.response(cachedDepositContract, Http200,
                                     "application/json")
-
-  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
-  # `/api` path component
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/config/fork_schedule",
-    "/eth/v1/config/fork_schedule"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/config/spec",
-    "/eth/v1/config/spec"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/config/deposit_contract",
-    "/eth/v1/config/deposit_contract"
-  )

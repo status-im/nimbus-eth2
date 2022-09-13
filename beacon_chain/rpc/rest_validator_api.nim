@@ -786,70 +786,29 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return RestApiResponse.response("", Http200, "text/plain")
 
-  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
-  # `/api` path component
-  router.redirect(
-    MethodPost,
-    "/api/eth/v1/validator/duties/attester/{epoch}",
-    "/eth/v1/validator/duties/attester/{epoch}"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/validator/duties/proposer/{epoch}",
-    "/eth/v1/validator/duties/proposer/{epoch}"
-  )
-  router.redirect(
-    MethodPost,
-    "/api/eth/v1/validator/duties/sync/{epoch}",
-    "/eth/v1/validator/duties/sync/{epoch}"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/validator/blocks/{slot}",
-    "/eth/v1/validator/blocks/{slot}"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v2/validator/blocks/{slot}",
-    "/eth/v2/validator/blocks/{slot}"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/validator/attestation_data",
-    "/eth/v1/validator/attestation_data"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/validator/aggregate_attestation",
-    "/eth/v1/validator/aggregate_attestation"
-  )
-  router.redirect(
-    MethodPost,
-    "/api/eth/v1/validator/aggregate_and_proofs",
-    "/eth/v1/validator/aggregate_and_proofs"
-  )
-  router.redirect(
-    MethodPost,
-    "/api/eth/v1/validator/beacon_committee_subscriptions",
-    "/eth/v1/validator/beacon_committee_subscriptions"
-  )
-  router.redirect(
-    MethodPost,
-    "/api/eth/v1/validator/sync_committee_subscriptions",
-    "/eth/v1/validator/sync_committee_subscriptions"
-  )
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/validator/sync_committee_contribution",
-    "/eth/v1/validator/sync_committee_contribution"
-  )
-  router.redirect(
-    MethodPost,
-    "/api/eth/v1/validator/contribution_and_proofs",
-    "/eth/v1/validator/contribution_and_proofs"
-  )
-  router.redirect(
-    MethodPost,
-    "/api/eth/v1/validator/prepare_beacon_proposer",
-    "/eth/v1/validator/prepare_beacon_proposer"
-  )
+  # https://ethereum.github.io/beacon-APIs/#/Validator/registerValidator
+  # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
+  router.api(MethodPost,
+             "/eth/v1/validator/register_validator") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      body =
+        block:
+          if contentBody.isNone():
+            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+          let dres = decodeBody(seq[SignedValidatorRegistrationV1], contentBody.get())
+          if dres.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                             InvalidPrepareBeaconProposerError)
+          dres.get()
+
+    for signedValidatorRegistration in body:
+      # Don't validate beyond syntactically, because
+      # "requests containing currently inactive or unknown validator pubkeys
+      # will be accepted, as they may become active at a later epoch". Along
+      # these lines, even if it's adding a validator the BN already has as a
+      # local validator, the keymanager API might remove that from the BN.
+      node.externalBuilderRegistrations[signedValidatorRegistration.message.pubkey] =
+        signedValidatorRegistration
+
+    return RestApiResponse.response("", Http200, "text/plain")

@@ -137,7 +137,7 @@ proc handleAddRemoteValidatorReq(host: KeymanagerHost,
 
 proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
   # https://ethereum.github.io/keymanager-APIs/#/Keymanager/ListKeys
-  router.api(MethodGet, "/api/eth/v1/keystores") do () -> RestApiResponse:
+  router.api(MethodGet, "/eth/v1/keystores") do () -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
       return authErrorResponse authStatus.error
@@ -146,7 +146,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     return RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Keymanager/ImportKeystores
-  router.api(MethodPost, "/api/eth/v1/keystores") do (
+  router.api(MethodPost, "/eth/v1/keystores") do (
       contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -198,7 +198,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     return RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Keymanager/DeleteKeys
-  router.api(MethodDelete, "/api/eth/v1/keystores") do (
+  router.api(MethodDelete, "/eth/v1/keystores") do (
       contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -263,7 +263,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     return RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ListRemoteKeys
-  router.api(MethodGet, "/api/eth/v1/remotekeys") do () -> RestApiResponse:
+  router.api(MethodGet, "/eth/v1/remotekeys") do () -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
       return authErrorResponse authStatus.error
@@ -272,7 +272,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     return RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/ImportRemoteKeys
-  router.api(MethodPost, "/api/eth/v1/remotekeys") do (
+  router.api(MethodPost, "/eth/v1/remotekeys") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -303,7 +303,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     return RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Remote%20Key%20Manager/DeleteRemoteKeys
-  router.api(MethodDelete, "/api/eth/v1/remotekeys") do (
+  router.api(MethodDelete, "/eth/v1/remotekeys") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -323,7 +323,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     return RestApiResponse.jsonResponsePlain(response)
 
   # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/ListFeeRecipient
-  router.api(MethodGet, "/api/eth/v1/validator/{pubkey}/feerecipient") do (
+  router.api(MethodGet, "/eth/v1/validator/{pubkey}/feerecipient") do (
              pubkey: ValidatorPubKey) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -345,7 +345,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         keymanagerApiError(Http500, "Error reading fee recipient file")
 
   # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/SetFeeRecipient
-  router.api(MethodPost, "/api/eth/v1/validator/{pubkey}/feerecipient") do (
+  router.api(MethodPost, "/eth/v1/validator/{pubkey}/feerecipient") do (
              pubkey: ValidatorPubKey,
              contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
@@ -372,7 +372,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         Http500, "Failed to set fee recipient: " & status.error)
 
   # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/DeleteFeeRecipient
-  router.api(MethodDelete, "/api/eth/v1/validator/{pubkey}/feerecipient") do (
+  router.api(MethodDelete, "/eth/v1/validator/{pubkey}/feerecipient") do (
              pubkey: ValidatorPubKey) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -389,8 +389,8 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
         Http500, "Failed to remove fee recipient file: " & res.error)
 
   # TODO: These URLs will be changed once we submit a proposal for
-  #       /api/eth/v2/remotekeys that supports distributed keys.
-  router.api(MethodGet, "/api/eth/v1/remotekeys/distributed") do () -> RestApiResponse:
+  #       /eth/v2/remotekeys that supports distributed keys.
+  router.api(MethodGet, "/eth/v1/remotekeys/distributed") do () -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
       return authErrorResponse authStatus.error
@@ -399,8 +399,8 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     return RestApiResponse.jsonResponsePlain(response)
 
   # TODO: These URLs will be changed once we submit a proposal for
-  #       /api/eth/v2/remotekeys that supports distributed keys.
-  router.api(MethodPost, "/api/eth/v1/remotekeys/distributed") do (
+  #       /eth/v2/remotekeys that supports distributed keys.
+  router.api(MethodPost, "/eth/v1/remotekeys/distributed") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -428,7 +428,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
 
     return RestApiResponse.jsonResponsePlain(response)
 
-  router.api(MethodDelete, "/api/eth/v1/remotekeys/distributed") do (
+  router.api(MethodDelete, "/eth/v1/remotekeys/distributed") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let authStatus = checkAuthorization(request, host)
     if authStatus.isErr():
@@ -447,63 +447,3 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
       response.data.add handleRemoveValidatorReq(host, key)
 
     return RestApiResponse.jsonResponsePlain(response)
-
-  router.redirect(
-    MethodGet,
-    "/eth/v1/keystores",
-    "/api/eth/v1/keystores")
-
-  router.redirect(
-    MethodPost,
-    "/eth/v1/keystores",
-    "/api/eth/v1/keystores")
-
-  router.redirect(
-    MethodDelete,
-    "/eth/v1/keystores",
-    "/api/eth/v1/keystores")
-
-  router.redirect(
-    MethodGet,
-    "/eth/v1/remotekeys",
-    "/api/eth/v1/remotekeys")
-
-  router.redirect(
-    MethodPost,
-    "/eth/v1/remotekeys",
-    "/api/eth/v1/remotekeys")
-
-  router.redirect(
-    MethodDelete,
-    "/eth/v1/remotekeys",
-    "/api/eth/v1/remotekeys")
-
-  router.redirect(
-    MethodGet,
-    "/eth/v1/validator/{pubkey}/feerecipient",
-    "/api/eth/v1/validator/{pubkey}/feerecipient")
-
-  router.redirect(
-    MethodPost,
-    "/eth/v1/validator/{pubkey}/feerecipient",
-    "/api/eth/v1/validator/{pubkey}/feerecipient")
-
-  router.redirect(
-    MethodDelete,
-    "/eth/v1/validator/{pubkey}/feerecipient",
-    "/api/eth/v1/validator/{pubkey}/feerecipient")
-
-  router.redirect(
-    MethodGet,
-    "/eth/v1/remotekeys/distributed",
-    "/api/eth/v1/remotekeys/distributed")
-
-  router.redirect(
-    MethodPost,
-    "/eth/v1/remotekeys/distributed",
-    "/api/eth/v1/remotekeys/distributed")
-
-  router.redirect(
-    MethodDelete,
-    "/eth/v1/remotekeys/distributed",
-    "/api/eth/v1/remotekeys/distributed")
