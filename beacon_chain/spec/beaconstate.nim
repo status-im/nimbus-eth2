@@ -966,7 +966,7 @@ func latest_block_root*(state: ForkyHashedBeaconState): Eth2Digest =
   latest_block_root(state.data, state.root)
 
 func latest_block_root*(state: ForkedHashedBeaconState): Eth2Digest =
-  withState(state): latest_block_root(state)
+  withState(state): latest_block_root(forkyState)
 
 func get_sync_committee_cache*(
     state: altair.BeaconState | bellatrix.BeaconState, cache: var StateCache):
@@ -1034,7 +1034,7 @@ func latest_block_id*(state: ForkyHashedBeaconState): BlockId =
 
 func latest_block_id*(state: ForkedHashedBeaconState): BlockId =
   ## Block id of the latest block applied to this state
-  withState(state): state.latest_block_id()
+  withState(state): forkyState.latest_block_id()
 
 func matches_block*(
     state: ForkyHashedBeaconState, block_root: Eth2Digest): bool =
@@ -1044,7 +1044,7 @@ func matches_block*(
 
 func matches_block*(
     state: ForkedHashedBeaconState, block_root: Eth2Digest): bool =
-  withState(state): state.matches_block(block_root)
+  withState(state): forkyState.matches_block(block_root)
 
 func matches_block_slot*(
     state: ForkyHashedBeaconState, block_root: Eth2Digest, slot: Slot): bool =
@@ -1053,7 +1053,7 @@ func matches_block_slot*(
   slot == state.data.slot and block_root == state.latest_block_root
 func matches_block_slot*(
     state: ForkedHashedBeaconState, block_root: Eth2Digest, slot: Slot): bool =
-  withState(state): state.matches_block_slot(block_root, slot)
+  withState(state): forkyState.matches_block_slot(block_root, slot)
 
 func can_advance_slots*(
     state: ForkyHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
@@ -1062,4 +1062,4 @@ func can_advance_slots*(
   target_slot >= state.data.slot and block_root == state.latest_block_root
 func can_advance_slots*(
     state: ForkedHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
-  withState(state): state.can_advance_slots(block_root, target_slot)
+  withState(state): forkyState.can_advance_slots(block_root, target_slot)

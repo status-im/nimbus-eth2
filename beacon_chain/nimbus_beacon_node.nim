@@ -681,7 +681,7 @@ proc init*(T: type BeaconNode,
 
   proc getValidatorIdx(pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
     withState(dag.headState):
-      findValidator(state().data.validators.asSeq(), pubkey)
+      findValidator(forkyState().data.validators.asSeq(), pubkey)
 
   let
     slashingProtectionDB =
@@ -906,7 +906,7 @@ func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
 func getCurrentSyncCommiteeSubnets(node: BeaconNode, slot: Slot): SyncnetBits =
   let syncCommittee = withState(node.dag.headState):
     when stateFork >= BeaconStateFork.Altair:
-      state.data.current_sync_committee
+      forkyState.data.current_sync_committee
     else:
       return static(default(SyncnetBits))
 
@@ -992,7 +992,7 @@ func getNextSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
   let syncCommittee = withState(node.dag.headState):
     when stateFork >= BeaconStateFork.Altair:
-      state.data.next_sync_committee
+      forkyState.data.next_sync_committee
     else:
       return static(default(SyncnetBits))
 
@@ -1106,13 +1106,14 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
     # We "know" the actions for the current and the next epoch
     withState(node.dag.headState):
-      if node.consensusManager[].actionTracker.needsUpdate(state, slot.epoch):
+      if node.consensusManager[].actionTracker.needsUpdate(
+          forkyState, slot.epoch):
         let epochRef = node.dag.getEpochRef(head, slot.epoch, false).expect(
           "Getting head EpochRef should never fail")
         node.consensusManager[].actionTracker.updateActions(epochRef)
 
       if node.consensusManager[].actionTracker.needsUpdate(
-          state, slot.epoch + 1):
+          forkyState, slot.epoch + 1):
         let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
           "Getting head EpochRef should never fail")
         node.consensusManager[].actionTracker.updateActions(epochRef)
@@ -1197,7 +1198,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   if node.isSynced(head):
     withState(node.dag.headState):
       if node.consensusManager[].actionTracker.needsUpdate(
-          state, slot.epoch + 1):
+          forkyState, slot.epoch + 1):
         let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
           "Getting head EpochRef should never fail")
         node.consensusManager[].actionTracker.updateActions(epochRef)
