@@ -1312,6 +1312,7 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
     var nonExitedVcPubkeys: HashSet[ValidatorPubKey]
     if node.externalBuilderRegistrations.len > 0:
       withState(node.dag.headState):
+        let currentEpoch = node.currentSlot().epoch
         for i in 0 ..< forkyState.data.validators.len:
           # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
           # "requests containing currently inactive or unknown validator
@@ -1321,8 +1322,7 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
           # a whole, to fail.
           let pubkey = forkyState.data.validators.item(i).pubkey
           if  pubkey in node.externalBuilderRegistrations and
-              forkyState.data.validators.item(i).exit_epoch >
-                node.currentSlot().epoch:
+              forkyState.data.validators.item(i).exit_epoch > currentEpoch:
             let signedValidatorRegistration =
               node.externalBuilderRegistrations[pubkey]
             nonExitedVcPubkeys.incl signedValidatorRegistration.message.pubkey
