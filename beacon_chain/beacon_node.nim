@@ -90,6 +90,8 @@ type
     nextExchangeTransitionConfTime*: Moment
     router*: ref MessageRouter
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
+    externalBuilderRegistrations*:
+      Table[ValidatorPubKey, SignedValidatorRegistrationV1]
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

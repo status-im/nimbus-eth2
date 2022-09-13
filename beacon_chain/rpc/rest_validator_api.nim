@@ -786,6 +786,33 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return RestApiResponse.response("", Http200, "text/plain")
 
+  # https://ethereum.github.io/beacon-APIs/#/Validator/registerValidator
+  # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
+  router.api(MethodPost,
+             "/eth/v1/validator/register_validator") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      body =
+        block:
+          if contentBody.isNone():
+            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+          let dres = decodeBody(seq[SignedValidatorRegistrationV1], contentBody.get())
+          if dres.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                             InvalidPrepareBeaconProposerError)
+          dres.get()
+
+    for signedValidatorRegistration in body:
+      # Don't validate beyond syntactically, because
+      # "requests containing currently inactive or unknown validator pubkeys
+      # will be accepted, as they may become active at a later epoch". Along
+      # these lines, even if it's adding a validator the BN already has as a
+      # local validator, the keymanager API might remove that from the BN.
+      node.externalBuilderRegistrations[signedValidatorRegistration.message.pubkey] =
+        signedValidatorRegistration
+
+    return RestApiResponse.response("", Http200, "text/plain")
+
   # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
   # `/api` path component
   router.redirect(

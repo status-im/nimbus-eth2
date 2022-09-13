@@ -1307,7 +1307,34 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
 
     # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#validator-registration
     var validatorRegistrations: seq[SignedValidatorRegistrationV1]
+
+    # First, check for VC-added keys; cheaper because provided pre-signed
+    var nonExitedVcPubkeys: HashSet[ValidatorPubKey]
+    if node.externalBuilderRegistrations.len > 0:
+      withState(node.dag.headState):
+        for i in 0 ..< forkyState.data.validators.len:
+          # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
+          # "requests containing currently inactive or unknown validator
+          # pubkeys will be accepted, as they may become active at a later
+          # epoch" which means filtering is needed here, because including
+          # any validators not pending or active may cause the request, as
+          # a whole, to fail.
+          let pubkey = forkyState.data.validators.item(i).pubkey
+          if  pubkey in node.externalBuilderRegistrations and
+              forkyState.data.validators.item(i).exit_epoch >
+                node.currentSlot().epoch:
+            let signedValidatorRegistration =
+              node.externalBuilderRegistrations[pubkey]
+            nonExitedVcPubkeys.incl signedValidatorRegistration.message.pubkey
+            validatorRegistrations.add signedValidatorRegistration
+
     for key in attachedValidatorPubkeys:
+      # Already included from VC
+      if key in nonExitedVcPubkeys:
+        warn "registerValidators: same validator registered by beacon node and validator client",
+          pubkey = shortLog(key)
+        continue
+
       # Time passed during awaits; REST keymanager API might have removed it
       if key notin node.attachedValidators[].validators:
         continue
