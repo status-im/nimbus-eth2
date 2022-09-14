@@ -77,7 +77,6 @@ type
     syncManager*: SyncManager[Peer, PeerId]
     backfiller*: SyncManager[Peer, PeerId]
     genesisSnapshotContent*: string
-    actionTracker*: ActionTracker
     processor*: ref Eth2Processor
     blockProcessor*: ref BlockProcessor
     consensusManager*: ref ConsensusManager
@@ -91,6 +90,8 @@ type
     nextExchangeTransitionConfTime*: Moment
     router*: ref MessageRouter
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
+    externalBuilderRegistrations*:
+      Table[ValidatorPubKey, SignedValidatorRegistrationV1]
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT

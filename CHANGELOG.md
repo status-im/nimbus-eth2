@@ -1,3 +1,46 @@
+2022-09-07 v22.9.0
+==================
+
+Nimbus `v22.9.0` is a `high-urgency` upgrade that fixes a critical pre-TTD block production issue affecting users that restarted their node after Bellatrix. It also improves compatibility with Besu, Prysm and slow block builders and provides a speed boost in block processing important for those running on Raspberry Pi and similar hardware.
+
+With the merge drawing near, the focus of this release has been to include low risk changes that improve stability and compatibility - if you are unsure whether to upgrade, do reach out to us in discord to discuss your particular deployment.
+
+A shout out to our great community for reporting and helping diagnose the issues that led up to this release - in particular Michael Sproul (Lighthouse) and Joe Clapis (Rocket Pool).
+
+### Improvements
+
+* Allow more time for block builder to deliver block
+  [#4088](https://github.com/status-im/nimbus-eth2/pull/4088)
+
+* Improve Bellatrix block processing performance
+  [#4085](https://github.com/status-im/nimbus-eth2/pull/4085) and [#4082](https://github.com/status-im/nimbus-eth2/pull/4082)
+
+* Optimize execution layer calls when not producing blocks, improving Besu performance and compatiblity
+  [#4055](https://github.com/status-im/nimbus-eth2/pull/4055)
+
+* Revise timing of execution layer configuration call, resolving warnings that no consensus client is present on Geth and Besu
+  [#4077](https://github.com/status-im/nimbus-eth2/pull/4077)
+
+* Log `Exchanged engine configuration` when first connected to correctly configured execution engine
+  [#4096](https://github.com/status-im/nimbus-eth2/pull/4096)
+
+* Switch to `nim-websock` for websocket connections, resolving delays when payloads exceed 1mb
+  [#4061](https://github.com/status-im/nimbus-eth2/pull/4061)
+
+### Fixes
+
+* Fix pre-TTD block proposals on nodes that (re-)started after Bellatrix
+  [#4094](https://github.com/status-im/nimbus-eth2/issues/4094)
+
+* Fix gossip message id, improving connectivity health with Prysm
+  [#4076](https://github.com/status-im/nimbus-eth2/pull/4076)
+
+* Improve handling of blocks deemed invalid by the execution layer
+  [#4081](https://github.com/status-im/nimbus-eth2/pull/4081)
+
+* Fix a rare crash that could happen when execution layer disconnected
+  [#4095](https://github.com/status-im/nimbus-eth2/pull/4095)
+
 2022-08-31 v22.8.2
 ==================
 

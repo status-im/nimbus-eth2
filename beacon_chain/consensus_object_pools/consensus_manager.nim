@@ -20,6 +20,7 @@ from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
 from ../validators/keystore_management import
   KeymanagerHost, getSuggestedFeeRecipient
+from ../validators/action_tracker import ActionTracker, getNextProposalSlot
 
 type
   ForkChoiceUpdatedInformation* = object
@@ -47,6 +48,10 @@ type
     # ----------------------------------------------------------------
     eth1Monitor*: Eth1Monitor
 
+    # Allow determination of whether there's an upcoming proposal
+    # ----------------------------------------------------------------
+    actionTracker*: ActionTracker
+
     # Allow determination of preferred fee recipient during proposals
     # ----------------------------------------------------------------
     dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore
@@ -66,6 +71,7 @@ func new*(T: type ConsensusManager,
           attestationPool: ref AttestationPool,
           quarantine: ref Quarantine,
           eth1Monitor: Eth1Monitor,
+          actionTracker: ActionTracker,
           dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
           keymanagerHost: ref KeymanagerHost,
           defaultFeeRecipient: Eth1Address
@@ -75,6 +81,7 @@ func new*(T: type ConsensusManager,
     attestationPool: attestationPool,
     quarantine: quarantine,
     eth1Monitor: eth1Monitor,
+    actionTracker: actionTracker,
     dynamicFeeRecipientsStore: dynamicFeeRecipientsStore,
     keymanagerHost: keymanagerHost,
     forkchoiceUpdatedInfo: Opt.none ForkchoiceUpdatedInformation,
@@ -204,17 +211,21 @@ proc runForkchoiceUpdatedDiscardResult*(
   discard await eth1Monitor.runForkchoiceUpdated(
     headBlockRoot, safeBlockRoot, finalizedBlockRoot)
 
-proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BeaconHead)
-    {.async.} =
+from ../beacon_clock import GetBeaconTimeFn
+from ../fork_choice/fork_choice import mark_root_invalid
+
+proc updateExecutionClientHead(
+    self: ref ConsensusManager, newHead: BeaconHead):
+    Future[Opt[void]] {.async.} =
   if self.eth1Monitor.isNil:
-    return
+    return Opt[void].ok()
 
   let headExecutionPayloadHash = self.dag.loadExecutionBlockRoot(newHead.blck)
 
   if headExecutionPayloadHash.isZero:
     # Blocks without execution payloads can't be optimistic.
     self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
-    return
+    return Opt[void].ok()
 
   # Can't use dag.head here because it hasn't been updated yet
   let payloadExecutionStatus = await self.eth1Monitor.runForkchoiceUpdated(
@@ -228,8 +239,11 @@ proc updateExecutionClientHead(self: ref ConsensusManager, newHead: BeaconHead)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
     self.dag.markBlockInvalid(newHead.blck.root)
     self.quarantine[].addUnviable(newHead.blck.root)
+    return Opt.none(void)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
     self.dag.optimisticRoots.incl newHead.blck.root
+
+  return Opt[void].ok()
 
 proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
   ## Trigger fork choice and update the DAG with the new head block
@@ -260,12 +274,49 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
 
   self.updateHead(newHead.blck)
 
-proc checkNextProposer(dag: ChainDAGRef, slot: Slot):
+func isSynced(dag: ChainDAGRef, wallSlot: Slot): bool =
+  # This is a tweaked version of the validator_duties isSynced. TODO, refactor
+  # that one so this becomes the default version, with the same information to
+  # work with. For the head slot, use the DAG head regardless of what head the
+  # proposer forkchoiceUpdated is using, because by the validator_duties might
+  # be ready to actually propose, it's going to do so from the DAG head. Given
+  # the defaultSyncHorizon, it will start triggering in time so that potential
+  # discrepancies between the head here, and the head the DAG has (which might
+  # not yet be updated) won't be visible.
+  const defaultSyncHorizon = 50
+
+  if dag.head.slot + defaultSyncHorizon < wallSlot:
+    false
+  else:
+    not dag.is_optimistic(dag.head.root)
+
+proc checkNextProposer(
+    dag: ChainDAGRef, actionTracker: ActionTracker,
+    dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
+    wallSlot: Slot):
     Opt[(ValidatorIndex, ValidatorPubKey)] =
-  let proposer = dag.getProposer(dag.head, slot + 1)
+  let nextWallSlot = wallSlot + 1
+
+  # Avoid long rewinds during syncing, when it's not going to propose. Though
+  # this is preparing for a proposal on `nextWallSlot`, it can't possibly yet
+  # be on said slot, so still check just `wallSlot`.
+  if not dag.isSynced(wallSlot):
+    return Opt.none((ValidatorIndex, ValidatorPubKey))
+
+  let proposer = dag.getProposer(dag.head, nextWallSlot)
   if proposer.isNone():
     return Opt.none((ValidatorIndex, ValidatorPubKey))
-  Opt.some((proposer.get, dag.validatorKey(proposer.get).get().toPubKey))
+  if  actionTracker.getNextProposalSlot(wallSlot) != nextWallSlot and
+      dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
+        proposer.get, nextWallSlot.epoch).isNone:
+    return Opt.none((ValidatorIndex, ValidatorPubKey))
+  let proposerKey = dag.validatorKey(proposer.get).get().toPubKey
+  Opt.some((proposer.get, proposerKey))
+
+proc checkNextProposer*(self: ref ConsensusManager, wallSlot: Slot):
+    Opt[(ValidatorIndex, ValidatorPubKey)] =
+  self.dag.checkNextProposer(
+    self.actionTracker, self.dynamicFeeRecipientsStore, wallSlot)
 
 proc getFeeRecipient*(
     self: ref ConsensusManager, pubkey: ValidatorPubKey, validatorIdx: ValidatorIndex,
@@ -279,57 +330,60 @@ proc getFeeRecipient*(
 
 from ../spec/datatypes/bellatrix import PayloadID
 
-proc runProposalForkchoiceUpdated*(self: ref ConsensusManager) {.async.} =
-  withState(self.dag.headState):
-    let
-      nextSlot = state.data.slot + 1
-      (validatorIndex, nextProposer) =
-        self.dag.checkNextProposer(nextSlot).valueOr:
-          return
+proc runProposalForkchoiceUpdated*(
+    self: ref ConsensusManager, wallSlot: Slot) {.async.} =
+  let
+    nextWallSlot = wallSlot + 1
+    (validatorIndex, nextProposer) = self.checkNextProposer(wallSlot).valueOr:
+      return
+  debug "runProposalForkchoiceUpdated: expected to be proposing next slot",
+    nextWallSlot, validatorIndex, nextProposer
 
-    # Approximately lines up with validator_duties version. Used optimistcally/
-    # opportunistically, so mismatches are fine if not too frequent.
-    let
-      timestamp = compute_timestamp_at_slot(state.data, nextSlot)
-      randomData =
-        get_randao_mix(state.data, get_current_epoch(state.data)).data
-      feeRecipient = self.getFeeRecipient(
-        nextProposer, validatorIndex, nextSlot.epoch)
-      beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
-      headBlockRoot = self.dag.loadExecutionBlockRoot(beaconHead.blck)
+  # Approximately lines up with validator_duties version. Used optimistcally/
+  # opportunistically, so mismatches are fine if not too frequent.
+  let
+    timestamp = withState(self.dag.headState):
+      compute_timestamp_at_slot(forkyState.data, nextWallSlot)
+    randomData = withState(self.dag.headState):
+      get_randao_mix(forkyState.data, get_current_epoch(forkyState.data)).data
+    feeRecipient = self.getFeeRecipient(
+      nextProposer, validatorIndex, nextWallSlot.epoch)
+    beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
+    headBlockRoot = self.dag.loadExecutionBlockRoot(beaconHead.blck)
 
-    if headBlockRoot.isZero:
+  if headBlockRoot.isZero:
+    return
+
+  try:
+    let fcResult = awaitWithTimeout(
+      forkchoiceUpdated(
+        self.eth1Monitor,
+        headBlockRoot,
+        beaconHead.safeExecutionPayloadHash,
+        beaconHead.finalizedExecutionPayloadHash,
+        timestamp, randomData, feeRecipient),
+      FORKCHOICEUPDATED_TIMEOUT):
+        debug "runProposalForkchoiceUpdated: forkchoiceUpdated timed out"
+        ForkchoiceUpdatedResponse(
+          payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing))
+
+    if  fcResult.payloadStatus.status != PayloadExecutionStatus.valid or
+        fcResult.payloadId.isNone:
       return
 
-    try:
-      let fcResult = awaitWithTimeout(
-        forkchoiceUpdated(
-          self.eth1Monitor,
-          headBlockRoot,
-          beaconHead.safeExecutionPayloadHash,
-          beaconHead.finalizedExecutionPayloadHash,
-          timestamp, randomData, feeRecipient),
-        FORKCHOICEUPDATED_TIMEOUT):
-          debug "runProposalForkchoiceUpdated: forkchoiceUpdated timed out"
-          ForkchoiceUpdatedResponse(
-            payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing))
+    self.forkchoiceUpdatedInfo = Opt.some ForkchoiceUpdatedInformation(
+      payloadId: bellatrix.PayloadID(fcResult.payloadId.get),
+      headBlockRoot: headBlockRoot,
+      safeBlockRoot: beaconHead.safeExecutionPayloadHash,
+      finalizedBlockRoot: beaconHead.finalizedExecutionPayloadHash,
+      timestamp: timestamp,
+      feeRecipient: feeRecipient)
+  except CatchableError as err:
+    error "Engine API fork-choice update failed", err = err.msg
 
-      if  fcResult.payloadStatus.status != PayloadExecutionStatus.valid or
-          fcResult.payloadId.isNone:
-        return
-
-      self.forkchoiceUpdatedInfo = Opt.some ForkchoiceUpdatedInformation(
-        payloadId: bellatrix.PayloadID(fcResult.payloadId.get),
-        headBlockRoot: headBlockRoot,
-        safeBlockRoot: beaconHead.safeExecutionPayloadHash,
-        finalizedBlockRoot: beaconHead.finalizedExecutionPayloadHash,
-        timestamp: timestamp,
-        feeRecipient: feeRecipient)
-    except CatchableError as err:
-      error "Engine API fork-choice update failed", err = err.msg
-
-proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BeaconHead)
-    {.async.} =
+proc updateHeadWithExecution*(
+    self: ref ConsensusManager, initialNewHead: BeaconHead,
+    getBeaconTimeFn: GetBeaconTimeFn) {.async.} =
   ## Trigger fork choice and update the DAG with the new head block
   ## This does not automatically prune the DAG after finalization
   ## `pruneFinalized` must be called for pruning.
@@ -337,15 +391,40 @@ proc updateHeadWithExecution*(self: ref ConsensusManager, newHead: BeaconHead)
   # Grab the new head according to our latest attestation data
   try:
     # Ensure dag.updateHead has most current information
-    await self.updateExecutionClientHead(newHead)
+    var
+      attempts = 0
+      newHead = initialNewHead
+    while (await self.updateExecutionClientHead(newHead)).isErr:
+      # This proc is called on every new block; guarantee timely return
+      inc attempts
+      const maxAttempts = 3
+      if attempts >= maxAttempts:
+        warn "updateHeadWithExecution: too many attempts to recover from invalid payload",
+          attempts, maxAttempts, newHead, initialNewHead
+        break
+
+      # Select new head for next attempt
+      let
+        wallTime = getBeaconTimeFn()
+        nextHead = self.attestationPool[].selectOptimisticHead(wallTime).valueOr:
+          warn "Head selection failed after invalid block, using previous head",
+            newHead, wallSlot = wallTime.slotOrZero
+          break
+      warn "updateHeadWithExecution: attempting to recover from invalid payload",
+        attempts, maxAttempts, newHead, initialNewHead, nextHead
+      newHead = nextHead
 
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized
     self.dag.updateHead(newHead.blck, self.quarantine[])
 
-    # TODO after things stabilize with this, check for upcoming proposal and
-    # don't bother sending first fcU, but initially, keep both in place
-    asyncSpawn self.runProposalForkchoiceUpdated()
+    # If this node should propose next slot, start preparing payload. Both
+    # fcUs are useful: the updateExecutionClientHead(newHead) call updates
+    # the head state (including optimistic status) that self.dagUpdateHead
+    # needs while runProposalForkchoiceUpdated requires RANDAO information
+    # from the head state corresponding to the `newHead` block, which only
+    # self.dag.updateHead(...) sets up.
+    await self.runProposalForkchoiceUpdated(getBeaconTimeFn().slotOrZero)
 
     self[].checkExpectedBlock()
   except CatchableError as exc:

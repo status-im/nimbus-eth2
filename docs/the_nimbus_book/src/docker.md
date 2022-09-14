@@ -12,7 +12,7 @@ The unpacked archive is in `/home/user/nimbus-eth2` which is also the default *W
 
 Before running Nimbus via docker, you need to prepare a data directory and mount it in docker.
 
-It is recommended that you mount the directory at `/home/user/nimbus-eth2/build/data` and pass `--data-dir=build/data/shared_mainnet_0` to all `nimbus_becaon_node` commands.
+It is recommended that you mount the directory at `/home/user/nimbus-eth2/build/data` and pass `--data-dir=build/data/shared_mainnet_0` to all `nimbus_beacon_node` commands.
 
 The wrapper script outlined below will set the data directory automatically.
 

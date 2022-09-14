@@ -57,8 +57,10 @@ func copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
   withState(forkedState):
     when stateFork > BeaconStateFork.Phase0:
       template flags: untyped = auxiliaryState.epochParticipationFlags
-      flags.currentEpochParticipation = state.data.current_epoch_participation
-      flags.previousEpochParticipation = state.data.previous_epoch_participation
+      flags.currentEpochParticipation =
+        forkyState.data.current_epoch_participation
+      flags.previousEpochParticipation =
+        forkyState.data.previous_epoch_participation
 
 proc getUnaggregatedFilesEpochRange*(dir: string):
     tuple[firstEpoch, lastEpoch: Epoch] =

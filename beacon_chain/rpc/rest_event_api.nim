@@ -173,11 +173,3 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     await allFutures(pending)
     return
-
-  # Legacy URLS - Nimbus <= 1.5.5 used to expose the REST API with an additional
-  # `/api` path component
-  router.redirect(
-    MethodGet,
-    "/api/eth/v1/events",
-    "/eth/v1/events"
-  )

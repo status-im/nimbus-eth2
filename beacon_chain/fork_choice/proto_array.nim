@@ -541,12 +541,14 @@ func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
     return false
 
   if self.hasLowParticipation:
-    if node.checkpoints.justified.epoch < self.checkpoints.justified.epoch:
-      return false
-    if self.isPreviousEpochJustified:
-      return true
-    return node.checkpoints.finalized == self.checkpoints.finalized or
-      self.checkpoints.finalized.epoch == GENESIS_EPOCH
+    return
+      if node.checkpoints.justified.epoch < self.checkpoints.justified.epoch:
+        false
+      elif self.isPreviousEpochJustified:
+        node.checkpoints.finalized.epoch >= self.checkpoints.finalized.epoch
+      else:
+        node.checkpoints.finalized == self.checkpoints.finalized or
+        self.checkpoints.finalized.epoch == GENESIS_EPOCH
 
   ## Any node that has a different finalized or justified epoch
   ## should not be viable for the head.

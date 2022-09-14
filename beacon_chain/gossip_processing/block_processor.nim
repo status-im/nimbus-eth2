@@ -17,9 +17,10 @@ import
   ../sszdump
 
 from ../consensus_object_pools/consensus_manager import
-  ConsensusManager, optimisticExecutionPayloadHash, runForkchoiceUpdated,
-  runForkchoiceUpdatedDiscardResult, runProposalForkchoiceUpdated,
-  shouldSyncOptimistically, updateHead, updateHeadWithExecution
+  ConsensusManager, checkNextProposer, optimisticExecutionPayloadHash,
+  runForkchoiceUpdated, runForkchoiceUpdatedDiscardResult,
+  runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
+  updateHeadWithExecution
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, slot
 from ../consensus_object_pools/block_pools_types import BlockError, EpochRef
@@ -240,7 +241,7 @@ proc storeBlock*(
         for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():
           vm[].registerSyncAggregateInBlock(
             trustedBlock.message.slot, trustedBlock.root,
-            state.data.current_sync_committee.pubkeys.data[i])
+            forkyState.data.current_sync_committee.pubkeys.data[i])
 
   self.dumpBlock(signedBlock, blck)
 
@@ -318,8 +319,10 @@ proc storeBlock*(
         safeBlockRoot = newHead.get.safeExecutionPayloadHash,
         finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
     else:
-      let headExecutionPayloadHash =
-        self.consensusManager.dag.loadExecutionBlockRoot(newHead.get.blck)
+      let
+        headExecutionPayloadHash =
+          self.consensusManager.dag.loadExecutionBlockRoot(newHead.get.blck)
+        wallSlot = self.getBeaconTime().slotOrZero
       if headExecutionPayloadHash.isZero:
         # Blocks without execution payloads can't be optimistic.
         self.consensusManager[].updateHead(newHead.get.blck)
@@ -328,15 +331,22 @@ proc storeBlock*(
         # be selected as head, so `VALID`. `forkchoiceUpdated` necessary for EL
         # client only.
         self.consensusManager[].updateHead(newHead.get.blck)
-        asyncSpawn eth1Monitor.expectValidForkchoiceUpdated(
-          headBlockRoot = headExecutionPayloadHash,
-          safeBlockRoot = newHead.get.safeExecutionPayloadHash,
-          finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
 
-        # TODO remove redundant fcU in case of proposal
-        asyncSpawn self.consensusManager.runProposalForkchoiceUpdated()
+        if self.consensusManager.checkNextProposer(wallSlot).isNone:
+          # No attached validator is next proposer, so use non-proposal fcU
+          asyncSpawn eth1Monitor.expectValidForkchoiceUpdated(
+            headBlockRoot = headExecutionPayloadHash,
+            safeBlockRoot = newHead.get.safeExecutionPayloadHash,
+            finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
+        else:
+          # Some attached validator is next proposer, so prepare payload. As
+          # updateHead() updated the DAG head, runProposalForkchoiceUpdated,
+          # which needs the state corresponding to that head block, can run.
+          asyncSpawn self.consensusManager.runProposalForkchoiceUpdated(
+            wallSlot)
       else:
-        asyncSpawn self.consensusManager.updateHeadWithExecution(newHead.get)
+        asyncSpawn self.consensusManager.updateHeadWithExecution(
+          newHead.get, self.getBeaconTime)
   else:
     warn "Head selection failed, using previous head",
       head = shortLog(self.consensusManager.dag.head), wallSlot

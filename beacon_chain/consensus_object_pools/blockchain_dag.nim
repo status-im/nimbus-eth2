@@ -965,7 +965,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     cfg, getStateField(dag.headState, genesis_validators_root))
 
   withState(dag.headState):
-    dag.validatorMonitor[].registerState(state.data)
+    dag.validatorMonitor[].registerState(forkyState.data)
 
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
 
@@ -1024,7 +1024,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   withState(dag.headState):
     when stateFork >= BeaconStateFork.Altair:
-      dag.headSyncCommittees = state.data.get_sync_committee_cache(cache)
+      dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
   info "Block DAG initialized",
     head = shortLog(dag.head),
@@ -1044,7 +1044,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   withState(dag.headState):
     when stateFork >= BeaconStateFork.Bellatrix:
       template executionPayloadHeader(): auto =
-        state().data.latest_execution_payload_header
+        forkyState().data.latest_execution_payload_header
       const emptyExecutionPayloadHeader =
         default(type(executionPayloadHeader))
       if executionPayloadHeader != emptyExecutionPayloadHeader:

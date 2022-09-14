@@ -385,31 +385,32 @@ proc collectSignatureSets*(
         "collectSignatureSets: cannot load voluntary exit signature"))
 
   block:
-    # 7. SyncAggregate
-    # ----------------------------------------------------
-    withState(state):
-      when stateFork >= BeaconStateFork.Altair and
-          (signed_block is altair.SignedBeaconBlock or
-            signed_block is bellatrix.SignedBeaconBlock):
-        if signed_block.message.body.sync_aggregate.sync_committee_bits.countOnes() == 0:
-          if signed_block.message.body.sync_aggregate.sync_committee_signature != ValidatorSig.infinity():
-            return err("collectSignatureSets: empty sync aggregates need signature of point at infinity")
-        else:
-          let
-            current_sync_committee =
-              state.data.get_sync_committee_cache(cache).current_sync_committee
-            previous_slot = max(state.data.slot, Slot(1)) - 1
-            beacon_block_root = get_block_root_at_slot(state.data, previous_slot)
-            pubkey = ? aggregateAttesters(
-              current_sync_committee,
-              signed_block.message.body.sync_aggregate.sync_committee_bits,
-              validatorKeys)
+    when signed_block is phase0.SignedBeaconBlock:
+      discard
+    else:
+      # 7. SyncAggregate
+      # ----------------------------------------------------
+      withState(state):
+        when stateFork >= BeaconStateFork.Altair:
+          if signed_block.message.body.sync_aggregate.sync_committee_bits.countOnes() == 0:
+            if signed_block.message.body.sync_aggregate.sync_committee_signature != ValidatorSig.infinity():
+              return err("collectSignatureSets: empty sync aggregates need signature of point at infinity")
+          else:
+            let
+              current_sync_committee =
+                forkyState.data.get_sync_committee_cache(cache).current_sync_committee
+              previous_slot = max(forkyState.data.slot, Slot(1)) - 1
+              beacon_block_root = get_block_root_at_slot(forkyState.data, previous_slot)
+              pubkey = ? aggregateAttesters(
+                current_sync_committee,
+                signed_block.message.body.sync_aggregate.sync_committee_bits,
+                validatorKeys)
 
-          sigs.add sync_committee_message_signature_set(
-            fork, genesis_validators_root, previous_slot, beacon_block_root,
-            pubkey,
-            signed_block.message.body.sync_aggregate.sync_committee_signature.loadOrExit(
-              "collectSignatureSets: cannot load signature"))
+            sigs.add sync_committee_message_signature_set(
+              fork, genesis_validators_root, previous_slot, beacon_block_root,
+              pubkey,
+              signed_block.message.body.sync_aggregate.sync_committee_signature.loadOrExit(
+                "collectSignatureSets: cannot load signature"))
 
   ok()
 

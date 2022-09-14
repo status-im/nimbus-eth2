@@ -292,6 +292,7 @@ proc initFullNode(
       ExitPool.init(dag, attestationPool, onVoluntaryExitAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.eth1Monitor,
+      ActionTracker.init(rng, config.subscribeAllSubnets),
       node.dynamicFeeRecipientsStore, node.keymanagerHost,
       config.defaultFeeRecipient)
     blockProcessor = BlockProcessor.new(
@@ -371,9 +372,10 @@ proc initFullNode(
         node.validatorMonitor[].addMonitor(validator.pubkey, validator.index)
 
       if validator.index.isSome():
-        node.actionTracker.knownValidators[validator.index.get()] = wallSlot
-    let
-      stabilitySubnets = node.actionTracker.stabilitySubnets(wallSlot)
+        node.consensusManager[].actionTracker.knownValidators[
+          validator.index.get()] = wallSlot
+    let stabilitySubnets =
+      node.consensusManager[].actionTracker.stabilitySubnets(wallSlot)
     # Here, we also set the correct ENR should we be in all subnets mode!
     node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
@@ -679,7 +681,7 @@ proc init*(T: type BeaconNode,
 
   proc getValidatorIdx(pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
     withState(dag.headState):
-      findValidator(state().data.validators.asSeq(), pubkey)
+      findValidator(forkyState().data.validators.asSeq(), pubkey)
 
   let
     slashingProtectionDB =
@@ -709,21 +711,6 @@ proc init*(T: type BeaconNode,
       else:
         nil
 
-    maxSecondsInMomentType = Moment.high.epochSeconds
-    # If the Bellatrix epoch is above this value, the calculation
-    # below will overflow. This happens in practice for networks
-    # where the `BELLATRIX_FORK_EPOCH` is not yet specified.
-    maxSupportedBellatrixEpoch = (maxSecondsInMomentType.uint64 - genesisTime) div
-                                 (SLOTS_PER_EPOCH * SECONDS_PER_SLOT)
-    bellatrixEpochTime = if cfg.BELLATRIX_FORK_EPOCH < maxSupportedBellatrixEpoch:
-      int64(genesisTime + cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH * SECONDS_PER_SLOT)
-    else:
-      maxSecondsInMomentType
-
-    nextExchangeTransitionConfTime =
-      max(Moment.init(bellatrixEpochTime, Second),
-          Moment.now)
-
   let payloadBuilderRestClient =
     if config.payloadBuilderEnable:
       RestClientRef.new(
@@ -750,13 +737,12 @@ proc init*(T: type BeaconNode,
     keymanagerHost: keymanagerHost,
     keymanagerServer: keymanagerInitResult.server,
     eventBus: eventBus,
-    actionTracker: ActionTracker.init(rng, config.subscribeAllSubnets),
     gossipState: {},
     blocksGossipState: {},
     beaconClock: beaconClock,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache,
-    nextExchangeTransitionConfTime: nextExchangeTransitionConfTime,
+    nextExchangeTransitionConfTime: Moment.now,
     dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()))
 
   node.initLightClient(
@@ -797,7 +783,7 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.bellatrix]
   forkDigestsArray
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState.card == 0:
     # When disconnected, updateGossipState is responsible for all things
@@ -806,20 +792,22 @@ proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
     return
 
   let
-    aggregateSubnets = node.actionTracker.aggregateSubnets(slot)
-    stabilitySubnets = node.actionTracker.stabilitySubnets(slot)
+    aggregateSubnets =
+      node.consensusManager[].actionTracker.aggregateSubnets(slot)
+    stabilitySubnets =
+      node.consensusManager[].actionTracker.stabilitySubnets(slot)
     subnets = aggregateSubnets + stabilitySubnets
 
   node.network.updateStabilitySubnetMetadata(stabilitySubnets)
 
   # Now we know what we should be subscribed to - make it so
   let
-    prevSubnets = node.actionTracker.subscribedSubnets
+    prevSubnets = node.consensusManager[].actionTracker.subscribedSubnets
     unsubscribeSubnets = prevSubnets - subnets
     subscribeSubnets = subnets - prevSubnets
 
   # Remember what we subscribed to, so we can unsubscribe later
-  node.actionTracker.subscribedSubnets = subnets
+  node.consensusManager[].actionTracker.subscribedSubnets = subnets
 
   let forkDigests = node.forkDigests()
 
@@ -903,7 +891,7 @@ proc removePhase0MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   for subnet_id in SubnetId:
     node.network.unsubscribe(getAttestationTopic(forkDigest, subnet_id))
 
-  node.actionTracker.subscribedSubnets = default(AttnetBits)
+  node.consensusManager[].actionTracker.subscribedSubnets = default(AttnetBits)
 
 func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
   # Only used to determine which gossip topics to which to subscribe
@@ -918,7 +906,7 @@ func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
 func getCurrentSyncCommiteeSubnets(node: BeaconNode, slot: Slot): SyncnetBits =
   let syncCommittee = withState(node.dag.headState):
     when stateFork >= BeaconStateFork.Altair:
-      state.data.current_sync_committee
+      forkyState.data.current_sync_committee
     else:
       return static(default(SyncnetBits))
 
@@ -1004,7 +992,7 @@ func getNextSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
   let syncCommittee = withState(node.dag.headState):
     when stateFork >= BeaconStateFork.Altair:
-      state.data.next_sync_committee
+      forkyState.data.next_sync_committee
     else:
       return static(default(SyncnetBits))
 
@@ -1032,7 +1020,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
 
   var newSubcommittees: SyncnetBits
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/validator.md#sync-committee-subnet-stability
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if  (not node.network.metadata.syncnets[subcommitteeIdx]) and
         nextSyncCommitteeSubnets[subcommitteeIdx] and
@@ -1118,15 +1106,17 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
     # We "know" the actions for the current and the next epoch
     withState(node.dag.headState):
-      if node.actionTracker.needsUpdate(state, slot.epoch):
+      if node.consensusManager[].actionTracker.needsUpdate(
+          forkyState, slot.epoch):
         let epochRef = node.dag.getEpochRef(head, slot.epoch, false).expect(
           "Getting head EpochRef should never fail")
-        node.actionTracker.updateActions(epochRef)
+        node.consensusManager[].actionTracker.updateActions(epochRef)
 
-      if node.actionTracker.needsUpdate(state, slot.epoch + 1):
+      if node.consensusManager[].actionTracker.needsUpdate(
+          forkyState, slot.epoch + 1):
         let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
           "Getting head EpochRef should never fail")
-        node.actionTracker.updateActions(epochRef)
+        node.consensusManager[].actionTracker.updateActions(epochRef)
 
   if node.gossipState.card > 0 and targetGossipState.card == 0:
     debug "Disabling topic subscriptions",
@@ -1207,14 +1197,17 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   let head = node.dag.head
   if node.isSynced(head):
     withState(node.dag.headState):
-      if node.actionTracker.needsUpdate(state, slot.epoch + 1):
+      if node.consensusManager[].actionTracker.needsUpdate(
+          forkyState, slot.epoch + 1):
         let epochRef = node.dag.getEpochRef(head, slot.epoch + 1, false).expect(
           "Getting head EpochRef should never fail")
-        node.actionTracker.updateActions(epochRef)
+        node.consensusManager[].actionTracker.updateActions(epochRef)
 
   let
-    nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot)
-    nextProposalSlot = node.actionTracker.getNextProposalSlot(slot)
+    nextAttestationSlot =
+      node.consensusManager[].actionTracker.getNextAttestationSlot(slot)
+    nextProposalSlot =
+      node.consensusManager[].actionTracker.getNextProposalSlot(slot)
     nextActionWaitTime = saturate(fromNow(
       node.beaconClock, min(nextAttestationSlot, nextProposalSlot)))
 
@@ -1278,7 +1271,7 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     node.dag.advanceClearanceState()
 
   # Prepare action tracker for the next slot
-  node.actionTracker.updateSlot(slot + 1)
+  node.consensusManager[].actionTracker.updateSlot(slot + 1)
 
   # The last thing we do is to perform the subscriptions and unsubscriptions for
   # the next slot, just before that slot starts - because of the advance cuttoff
@@ -1373,11 +1366,16 @@ proc onSecond(node: BeaconNode, time: Moment) =
   # Nim GC metrics (for the main thread)
   updateThreadMetrics()
 
-  ## This procedure will be called once per minute.
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#engine_exchangetransitionconfigurationv1
-  if time > node.nextExchangeTransitionConfTime and not node.eth1Monitor.isNil:
-    node.nextExchangeTransitionConfTime = time + chronos.minutes(1)
-    traceAsyncErrors node.eth1Monitor.exchangeTransitionConfiguration()
+  if time >= node.nextExchangeTransitionConfTime and not node.eth1Monitor.isNil:
+    # The EL client SHOULD log a warning when not receiving an exchange message
+    # at least once every 120 seconds. If we only attempt to exchange every 60
+    # seconds, the warning would be triggered if a single message is missed.
+    # To accommodate for that, exchange slightly more frequently.
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#engine_exchangetransitionconfigurationv1
+    node.nextExchangeTransitionConfTime = time + chronos.seconds(45)
+
+    if node.currentSlot.epoch >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+      traceAsyncErrors node.eth1Monitor.exchangeTransitionConfiguration()
 
   if node.config.stopAtSyncedEpoch != 0 and
       node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:

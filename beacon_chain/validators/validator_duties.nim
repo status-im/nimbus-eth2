@@ -49,7 +49,7 @@ const
   delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
                   0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
 
-  BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 1.seconds
+  BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 4.seconds
   BUILDER_STATUS_DELAY_TOLERANCE = 3.seconds
   BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 3.seconds
 
@@ -125,14 +125,15 @@ proc addLocalValidators*(node: BeaconNode,
   let slot = node.currentSlot()
   withState(node.dag.headState):
     for item in validators:
-      node.addLocalValidator(state.data.validators.asSeq(), item, slot)
+      node.addLocalValidator(forkyState.data.validators.asSeq(), item, slot)
 
 proc addRemoteValidators*(node: BeaconNode,
                           validators: openArray[KeystoreData]) =
   let slot = node.currentSlot()
   withState(node.dag.headState):
     for item in validators:
-      let index = findValidator(state.data.validators.asSeq(), item.pubkey)
+      let index = findValidator(
+        forkyState.data.validators.asSeq(), item.pubkey)
       node.attachedValidators[].addRemoteValidator(index, item, slot)
 
 proc addValidators*(node: BeaconNode) =
@@ -506,7 +507,7 @@ proc makeBeaconBlockForHeadAndSlot*(
 
     let
       exits = withState(state):
-        node.exitPool[].getBeaconBlockExits(node.dag.cfg, state.data)
+        node.exitPool[].getBeaconBlockExits(node.dag.cfg, forkyState.data)
       effectiveExecutionPayload =
         if executionPayload.isSome:
           executionPayload.get
@@ -1153,7 +1154,7 @@ proc signAndSendAggregate(
           return
         res.get()
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregation-selection
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#aggregation-selection
     if not is_aggregator(
         shufflingRef, slot, committee_index, selectionProof):
       return
@@ -1308,7 +1309,34 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
 
     # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#validator-registration
     var validatorRegistrations: seq[SignedValidatorRegistrationV1]
+
+    # First, check for VC-added keys; cheaper because provided pre-signed
+    var nonExitedVcPubkeys: HashSet[ValidatorPubKey]
+    if node.externalBuilderRegistrations.len > 0:
+      withState(node.dag.headState):
+        let currentEpoch = node.currentSlot().epoch
+        for i in 0 ..< forkyState.data.validators.len:
+          # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
+          # "requests containing currently inactive or unknown validator
+          # pubkeys will be accepted, as they may become active at a later
+          # epoch" which means filtering is needed here, because including
+          # any validators not pending or active may cause the request, as
+          # a whole, to fail.
+          let pubkey = forkyState.data.validators.item(i).pubkey
+          if  pubkey in node.externalBuilderRegistrations and
+              forkyState.data.validators.item(i).exit_epoch > currentEpoch:
+            let signedValidatorRegistration =
+              node.externalBuilderRegistrations[pubkey]
+            nonExitedVcPubkeys.incl signedValidatorRegistration.message.pubkey
+            validatorRegistrations.add signedValidatorRegistration
+
     for key in attachedValidatorPubkeys:
+      # Already included from VC
+      if key in nonExitedVcPubkeys:
+        warn "registerValidators: same validator registered by beacon node and validator client",
+          pubkey = shortLog(key)
+        continue
+
       # Time passed during awaits; REST keymanager API might have removed it
       if key notin node.attachedValidators[].validators:
         continue
@@ -1322,11 +1350,12 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
       # Builders should verify that `pubkey` corresponds to an active or
       # pending validator
       withState(node.dag.headState):
-        if distinctBase(validator.index.get) >= state.data.validators.lenu64:
+        if  distinctBase(validator.index.get) >=
+            forkyState.data.validators.lenu64:
           continue
 
         if node.currentSlot().epoch >=
-            state.data.validators.item(validator.index.get).exit_epoch:
+            forkyState.data.validators.item(validator.index.get).exit_epoch:
           continue
 
       if validator.externalBuilderRegistration.isSome:
@@ -1386,8 +1415,10 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
       doppelgangerDetection.nodeLaunchSlot > GENESIS_SLOT and
       node.config.doppelgangerDetection:
     let
-      nextAttestationSlot = node.actionTracker.getNextAttestationSlot(slot - 1)
-      nextProposalSlot = node.actionTracker.getNextProposalSlot(slot - 1)
+      nextAttestationSlot =
+        node.consensusManager[].actionTracker.getNextAttestationSlot(slot - 1)
+      nextProposalSlot =
+        node.consensusManager[].actionTracker.getNextProposalSlot(slot - 1)
 
     if slot in [nextAttestationSlot, nextProposalSlot]:
       notice "Doppelganger detection active - skipping validator duties while observing activity on the network",
@@ -1483,7 +1514,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:
@@ -1546,5 +1577,5 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
             continue
           let isAggregator = is_aggregator(committee.lenu64, slotSigRes.get())
 
-          node.actionTracker.registerDuty(
+          node.consensusManager[].actionTracker.registerDuty(
             slot, subnet_id, validator_index, isAggregator)

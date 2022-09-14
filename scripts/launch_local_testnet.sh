@@ -105,6 +105,7 @@ echo "${NIMBUSEL_BINARY}"
 
 EL_HTTP_PORTS=()
 EL_RPC_PORTS=()
+EL_DATA_DIRS=()
 PROCS_TO_KILL=("nimbus_beacon_node" "nimbus_validator_client" "nimbus_signing_node" "nimbus_light_client")
 PORTS_TO_KILL=()
 
@@ -522,6 +523,7 @@ if [[ "${RUN_GETH}" == "1" ]]; then
   . "./scripts/start_geth_nodes.sh"
   EL_HTTP_PORTS+=("${GETH_HTTP_PORTS[@]}")
   EL_RPC_PORTS+=("${GETH_RPC_PORTS[@]}")
+  EL_DATA_DIRS+=("${GETH_DATA_DIRS[@]}")
   PROCS_TO_KILL+=("${GETH_BINARY}")
   CLEANUP_DIRS+=("${GETH_DATA_DIRS[@]}")
 fi
@@ -535,6 +537,7 @@ if [[ "${RUN_NIMBUS}" == "1" ]]; then
   . "./scripts/start_nimbus_el_nodes.sh"
   EL_HTTP_PORTS+=("${NIMBUSEL_HTTP_PORTS[@]}")
   EL_RPC_PORTS+=("${NIMBUSEL_RPC_PORTS[@]}")
+  EL_DATA_DIRS+=("${NIMBUSEL_DATA_DIRS[@]}")
   PROCS_TO_KILL+=("${NIMBUSEL_BINARY}")
   CLEANUP_DIRS+=("${NIMBUSEL_DATA_DIRS[@]}")
 fi
@@ -772,6 +775,7 @@ DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
 ALTAIR_FORK_EPOCH: 1
 BELLATRIX_FORK_EPOCH: 2
+TERMINAL_TOTAL_DIFFICULTY: 0
 EOF
 
 if [[ "${LIGHTHOUSE_VC_NODES}" != "0" ]]; then
@@ -961,9 +965,14 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   fi
 
   if [ ${#EL_RPC_PORTS[@]} -eq 0 ]; then # check if the array is empty
-    WEB3_ARG=""
+    WEB3_ARG=(
+      "--require-engine-api-in-bellatrix=no"
+    )
   else
-    WEB3_ARG="--web3-url=http://127.0.0.1:${EL_RPC_PORTS[${NUM_NODE}]}"
+    WEB3_ARG=(
+      "--web3-url=http://127.0.0.1:${EL_RPC_PORTS[${NUM_NODE}]}"
+      "--jwt-secret=${EL_DATA_DIRS[${NUM_NODE}]}/jwtsecret"
+    )
   fi
 
   # We enabled the keymanager on half of the nodes
@@ -972,7 +981,6 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     KEYMANAGER_FLAG="--keymanager"
   fi
 
-  # TODO re-add --jwt-secret
   ${BEACON_NODE_COMMAND} \
     --config-file="${CLI_CONF_FILE}" \
     --tcp-port=$(( BASE_PORT + NUM_NODE )) \
@@ -980,7 +988,7 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
     --data-dir="${CONTAINER_NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
-    ${WEB3_ARG} \
+    "${WEB3_ARG[@]}" \
     ${STOP_AT_EPOCH_FLAG} \
     ${KEYMANAGER_FLAG} \
     --keymanager-token-file="${DATA_DIR}/keymanager-token" \
@@ -1064,12 +1072,14 @@ if [ "$LC_NODES" -ge "1" ]; then
     LC_DATA_DIR="${DATA_DIR}/lc${NUM_LC}"
 
     if [ ${#EL_RPC_PORTS[@]} -eq 0 ]; then # check if the array is empty
-      WEB3_ARG=""
+      WEB3_ARG=()
     else
-      WEB3_ARG="--web3-url=http://127.0.0.1:${EL_RPC_PORTS[$(( NUM_NODES + NUM_LC ))]}"
+      WEB3_ARG=(
+        "--web3-url=http://127.0.0.1:${EL_RPC_PORTS[$(( NUM_NODES + NUM_LC ))]}"
+        "--jwt-secret=${EL_DATA_DIRS[$(( NUM_NODES + NUM_LC ))]}/jwtsecret"
+      )
     fi
 
-    # TODO re-add --jwt-secret
     ./build/nimbus_light_client \
       --log-level="${LOG_LEVEL}" \
       --log-format="json" \
@@ -1081,7 +1091,7 @@ if [ "$LC_NODES" -ge "1" ]; then
       --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
       --nat="extip:127.0.0.1" \
       --trusted-block-root="${LC_TRUSTED_BLOCK_ROOT}" \
-      ${WEB3_ARG} \
+      "${WEB3_ARG[@]}" \
       ${STOP_AT_EPOCH_FLAG} \
       &> "${DATA_DIR}/log_lc${NUM_LC}.txt" &
     PIDS="${PIDS},$!"

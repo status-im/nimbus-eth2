@@ -276,7 +276,7 @@ proc routeSyncCommitteeMessages*(
       var statuses = newSeq[Option[SendResult]](len(msgs))
 
       let
-        curPeriod = sync_committee_period(state.data.slot)
+        curPeriod = sync_committee_period(forkyState.data.slot)
         nextPeriod = curPeriod + 1
 
       let (keysCur, keysNxt) =
@@ -285,7 +285,7 @@ proc routeSyncCommitteeMessages*(
           var resNxt: Table[uint64, int]
 
           for index, msg in msgs:
-            if msg.validator_index < lenu64(state.data.validators):
+            if msg.validator_index < lenu64(forkyState.data.validators):
               let msgPeriod = sync_committee_period(msg.slot + 1)
               if msgPeriod == curPeriod:
                 resCur[msg.validator_index] = index

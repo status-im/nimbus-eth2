@@ -134,6 +134,7 @@ type
     depositsChain: Eth1Chain
     eth1Progress: AsyncEvent
 
+    exchangedConfiguration*: bool
     terminalBlockHash*: Option[BlockHash]
     terminalBlockNumber*: Option[Quantity]
 
@@ -554,8 +555,10 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
   # don't crash.
   if p.isNil:
     debug "exchangeTransitionConfiguration: nil Eth1Monitor"
+    return EtcStatus.exchangeError
 
-  if p.isNil or p.dataProvider.isNil:
+  let dataProvider = p.dataProvider
+  if dataProvider.isNil:
     return EtcStatus.exchangeError
 
   let consensusCfg = TransitionConfigurationV1(
@@ -573,7 +576,7 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
   let executionCfg =
     try:
       awaitWithRetries(
-        p.dataProvider.web3.provider.engine_exchangeTransitionConfigurationV1(
+        dataProvider.web3.provider.engine_exchangeTransitionConfigurationV1(
           consensusCfg),
         timeout = 1.seconds)
     except CatchableError as err:
@@ -586,8 +589,17 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
          localValue = consensusCfg.terminalTotalDifficulty
     return EtcStatus.mismatch
 
+  if not p.exchangedConfiguration:
+    # Log successful engine configuration exchange once at startup
+    p.exchangedConfiguration = true
+    info "Exchanged engine configuration",
+      ttd = executionCfg.terminalTotalDifficulty,
+      terminalBlockHash = executionCfg.terminalBlockHash,
+      terminalBlockNumber = executionCfg.terminalBlockNumber.uint64
+
   if p.terminalBlockNumber.isSome and p.terminalBlockHash.isSome:
     var res = EtcStatus.match
+
     if consensusCfg.terminalBlockNumber != executionCfg.terminalBlockNumber:
       warn "Engine API reporting different terminal block number",
             engineAPI_value = executionCfg.terminalBlockNumber.uint64,
@@ -600,6 +612,13 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
       res = EtcStatus.mismatch
     return res
   else:
+    if executionCfg.terminalBlockHash == default BlockHash:
+      # If TERMINAL_BLOCK_HASH is stubbed with
+      # 0x0000000000000000000000000000000000000000000000000000000000000000 then
+      # TERMINAL_BLOCK_HASH and TERMINAL_BLOCK_NUMBER parameters MUST NOT take
+      # an effect.
+      return EtcStatus.match
+
     p.terminalBlockNumber = some executionCfg.terminalBlockNumber
     p.terminalBlockHash = some executionCfg.terminalBlockHash
     return EtcStatus.localConfigurationUpdated
@@ -1162,6 +1181,7 @@ func earliestBlockOfInterest(m: Eth1Monitor): Eth1BlockNumber =
 proc syncBlockRange(m: Eth1Monitor,
                     fromBlock, toBlock,
                     fullSyncFromBlock: Eth1BlockNumber) {.gcsafe, async.} =
+  doAssert m.dataProvider != nil, "close not called concurrently"
   doAssert m.depositsChain.blocks.len > 0
 
   var currentBlock = fromBlock
@@ -1350,6 +1370,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     await provider.close()
 
   await m.ensureDataProvider()
+  doAssert m.dataProvider != nil, "close not called concurrently"
 
   if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH:
     let status = await m.exchangeTransitionConfiguration()
@@ -1636,6 +1657,7 @@ when hasGenesisDetection:
 
   proc findGenesisBlockInRange(m: Eth1Monitor, startBlock, endBlock: Eth1Block):
                                Future[Eth1Block] {.async.} =
+    doAssert m.dataProvider != nil, "close not called concurrently"
     doAssert startBlock.timestamp != 0 and not m.isAfterMinGenesisTime(startBlock)
     doAssert endBlock.timestamp != 0 and m.isAfterMinGenesisTime(endBlock)
     doAssert m.hasEnoughValidators(startBlock)

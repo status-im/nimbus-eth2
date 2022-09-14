@@ -23,6 +23,7 @@ import
 
 from ../beacon_chain/spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, init
+from ../beacon_chain/validators/action_tracker import ActionTracker
 from ../beacon_chain/validators/keystore_management import KeymanagerHost
 
 proc pruneAtFinalization(dag: ChainDAGRef) =
@@ -40,9 +41,10 @@ suite "Block processor" & preset():
       quarantine = newClone(Quarantine.init())
       attestationPool = newClone(AttestationPool.init(dag, quarantine))
       eth1Monitor = new Eth1Monitor
+      actionTracker: ActionTracker
       keymanagerHost: ref KeymanagerHost
       consensusManager = ConsensusManager.new(
-        dag, attestationPool, quarantine, eth1Monitor,
+        dag, attestationPool, quarantine, eth1Monitor, actionTracker,
         newClone(DynamicFeeRecipientsStore.init()), keymanagerHost,
         default(Eth1Address))
       state = newClone(dag.headState)

@@ -401,7 +401,7 @@ type
     aggregate*: Attestation
     selection_proof*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#signedaggregateandproof
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#signedaggregateandproof
   SignedAggregateAndProof* = object
     message*: AggregateAndProof
     signature*: ValidatorSig
@@ -449,7 +449,7 @@ type
     withdrawable_epoch*: Epoch
       ## When validator can withdraw or transfer funds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#eth2-field
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object
     fork_digest*: ForkDigest
     next_fork_version*: Version
@@ -530,11 +530,9 @@ const
   DOMAIN_CONTRIBUTION_AND_PROOF* = DomainType([byte 0x09, 0x00, 0x00, 0x00])
 
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
-  let cookedKey = validator.pubkey.load() # Loading the pubkey is slow!
-  doAssert cookedKey.isSome,
-    "Cannot parse validator key: " & toHex(validator.pubkey)
+  let cookedKey = validator.pubkey.loadValid()  # `Validator` has valid key
   ImmutableValidatorData2(
-    pubkey: cookedKey.get(),
+    pubkey: cookedKey,
     withdrawal_credentials: validator.withdrawal_credentials)
 
 template makeLimitedUInt*(T: untyped, limit: SomeUnsignedInt) =

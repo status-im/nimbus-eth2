@@ -33,6 +33,7 @@ for NUM_NODE in $(seq 0 $(( NIMBUSEL_NUM_NODES - 1 ))); do
     log "Starting nimbus EL node ${NUM_NODE} on net port ${NIMBUSEL_NET_PORT} HTTP port ${NIMBUSEL_HTTP_PORT} WS port ${NIMBUSEL_WS_PORT}"
     NIMBUSEL_DATADIR=$(mktemp -d nimbusel-data-XXX)
     NIMBUSEL_DATA_DIRS+=("${NIMBUSEL_DATADIR}")
+    openssl rand -hex 32 | tr -d "\n" > "${NIMBUSEL_DATADIR}/jwtsecret"
     ${NIMBUSEL_BINARY} --data-dir="${NIMBUSEL_DATADIR}" --custom-network="${NIMBUSEL_GENESIS}" "${NIMBUSEL_DISCOVERY}" \
                        --tcp-port="${NIMBUSEL_NET_PORT}"  --engine-api --engine-api-port="${NIMBUSEL_AUTH_RPC_PORT}" \
                        --rpc --rpc-port="${NIMBUSEL_HTTP_PORT}" &> "${DATA_DIR}/nimbusel_log${NUM_NODE}.txt" &
