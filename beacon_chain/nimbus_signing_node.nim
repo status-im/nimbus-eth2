@@ -98,8 +98,9 @@ proc initValidators(sn: var SigningNode): bool =
   info "Initializaing validators", path = sn.config.validatorsDir()
   var publicKeyIdents: seq[string]
   for keystore in listLoadableKeystores(sn.config):
-    let feeRecipient = getSuggestedFeeRecipient(
-      sn.config.validatorsDir, keystore.pubkey, sn.config.defaultFeeRecipient)
+    # Not relevant in signing node
+    # TODO don't print when loading validators
+    let feeRecipient = default(Eth1Address)
     case keystore.kind
     of KeystoreKind.Local:
       # Signing node is not supposed to know genesis time, so we just set
