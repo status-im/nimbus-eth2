@@ -313,23 +313,14 @@ template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
   of BeaconStateFork.Bellatrix:
     const stateFork {.inject, used.} = BeaconStateFork.Bellatrix
     template forkyState: untyped {.inject, used.} = x.bellatrixData
-    template state: untyped {.inject, used.} =
-      static: doAssert false
-      x.bellatrixData
     body
   of BeaconStateFork.Altair:
     const stateFork {.inject, used.} = BeaconStateFork.Altair
     template forkyState: untyped {.inject, used.} = x.altairData
-    template state: untyped {.inject, used.} =
-      static: doAssert false
-      x.altairData
     body
   of BeaconStateFork.Phase0:
     const stateFork {.inject, used.} = BeaconStateFork.Phase0
     template forkyState: untyped {.inject, used.} = x.phase0Data
-    template state: untyped {.inject, used.} =
-      static: doAssert false
-      x.phase0Data
     body
 
 template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
