@@ -324,7 +324,7 @@ proc makeSyncAggregate(
     slot =
       getStateField(state, slot)
     latest_block_root =
-      withState(state): state.latest_block_root
+      withState(state): forkyState.latest_block_root
     syncCommitteePool = newClone(SyncCommitteeMsgPool.init(keys.newRng()))
 
   type

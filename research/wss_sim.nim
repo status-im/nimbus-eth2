@@ -66,7 +66,7 @@ cli do(validatorsDir: string, secretsDir: string,
       warn "Unkownn validator", pubkey
 
   var
-    blockRoot = withState(state[]): state.latest_block_root
+    blockRoot = withState(state[]): forkyState.latest_block_root
     cache: StateCache
     info: ForkedEpochInfo
     aggregates: seq[Attestation]
@@ -78,7 +78,8 @@ cli do(validatorsDir: string, secretsDir: string,
   block:
     let
       active = withState(state[]):
-        get_active_validator_indices_len(state.data, state.data.slot.epoch)
+        get_active_validator_indices_len(
+          forkyState.data, forkyState.data.slot.epoch)
 
     notice "Let's play",
       validators = validators.len(),
@@ -108,7 +109,7 @@ cli do(validatorsDir: string, secretsDir: string,
     if slot.epoch != (slot - 1).epoch:
       let
         active = withState(state[]):
-          get_active_validator_indices_len(state.data, slot.epoch)
+          get_active_validator_indices_len(forkyState.data, slot.epoch)
         balance = block:
           var b: uint64
           for k, _ in validators:
@@ -133,7 +134,7 @@ cli do(validatorsDir: string, secretsDir: string,
         avgBalance
 
       if slot.epoch mod 32 == 0:
-        withState(state[]): dump(".", state)
+        withState(state[]): dump(".", forkyState)
 
     let
       fork = getStateField(state[], fork)
@@ -198,14 +199,15 @@ cli do(validatorsDir: string, secretsDir: string,
 
     withState(state[]):
       let committees_per_slot = get_committee_count_per_slot(
-        state.data, slot.epoch, cache)
+        forkyState.data, slot.epoch, cache)
       for committee_index in get_committee_indices(committees_per_slot):
-        let committee = get_beacon_committee(state.data, slot, committee_index, cache)
+        let committee = get_beacon_committee(
+          forkyState.data, slot, committee_index, cache)
 
         var
           attestation = Attestation(
             data: makeAttestationData(
-              state.data, slot, committee_index, blockRoot),
+              forkyState.data, slot, committee_index, blockRoot),
             aggregation_bits: CommitteeValidatorsBits.init(committee.len))
           agg: AggregateSignature
 
@@ -236,9 +238,9 @@ cli do(validatorsDir: string, secretsDir: string,
           nextSlot = slot + 1
           pubkeys =
             if slot.sync_committee_period == nextSlot.sync_committee_period:
-              state.data.current_sync_committee.pubkeys
+              forkyState.data.current_sync_committee.pubkeys
             else:
-              state.data.next_sync_committee.pubkeys
+              forkyState.data.next_sync_committee.pubkeys
 
         var
           agg: AggregateSignature
