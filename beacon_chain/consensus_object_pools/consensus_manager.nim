@@ -319,10 +319,15 @@ proc checkNextProposer*(self: ref ConsensusManager, wallSlot: Slot):
     self.actionTracker, self.dynamicFeeRecipientsStore, wallSlot)
 
 proc getFeeRecipient*(
-    self: ConsensusManager, pubkey: ValidatorPubKey, validatorIdx: ValidatorIndex,
-    epoch: Epoch): Eth1Address =
-  self.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
-      validatorIdx, epoch).valueOr:
+    self: ConsensusManager, pubkey: ValidatorPubKey,
+    validatorIdx: Opt[ValidatorIndex], epoch: Epoch): Eth1Address =
+  let dynFeeRecipient = if validatorIdx.isSome:
+    self.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
+      validatorIdx.get(), epoch)
+  else:
+    Opt.none(Eth1Address)
+
+  dynFeeRecipient.valueOr:
     self.validatorsDir.getSuggestedFeeRecipient(
         pubkey, self.defaultFeeRecipient).valueOr:
       # Ignore errors and use default - errors are logged in gsfr
@@ -346,8 +351,8 @@ proc runProposalForkchoiceUpdated*(
       compute_timestamp_at_slot(forkyState.data, nextWallSlot)
     randomData = withState(self.dag.headState):
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data)).data
-    feeRecipient = self.getFeeRecipient(
-      nextProposer, validatorIndex, nextWallSlot.epoch)
+    feeRecipient = self[].getFeeRecipient(
+      nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
     headBlockRoot = self.dag.loadExecutionBlockRoot(beaconHead.blck)
 

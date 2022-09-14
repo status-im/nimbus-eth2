@@ -95,6 +95,7 @@ proc findValidator*(validators: auto, pubkey: ValidatorPubKey): Opt[ValidatorInd
 proc addRemoteValidator*(pool: var ValidatorPool,
                          keystore: KeystoreData,
                          index: Opt[ValidatorIndex],
+                         feeRecipient: Eth1Address,
                          slot: Slot) =
   var clients: seq[(RestClientRef, RemoteSignerInfo)]
   let httpFlags =
@@ -111,20 +112,25 @@ proc addRemoteValidator*(pool: var ValidatorPool,
       warn "Unable to resolve distributed signer address",
           remote_url = $remote.url, validator = $remote.pubkey
     clients.add((client.get(), remote))
-  pool.addRemoteValidator(keystore, clients, index, slot)
+  pool.addRemoteValidator(keystore, clients, index, feeRecipient, slot)
 
 proc addValidators*(node: BeaconNode) =
   debug "Loading validators", validatorsDir = node.config.validatorsDir()
   let slot = node.currentSlot()
   for keystore in listLoadableKeystores(node.config):
-    let index = withState(node.dag.headState):
-      findValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
+    let
+      index = withState(node.dag.headState):
+        findValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
+      feeRecipient = node.consensusManager[].getFeeRecipient(
+        keystore.pubkey, index, slot.epoch)
 
     case keystore.kind
     of KeystoreKind.Local:
-      node.attachedValidators[].addLocalValidator(keystore, index, slot)
+      node.attachedValidators[].addLocalValidator(
+        keystore, index, feeRecipient, slot)
     of KeystoreKind.Remote:
-      node.attachedValidators[].addRemoteValidator(keystore, index, slot)
+      node.attachedValidators[].addRemoteValidator(
+        keystore, index, feeRecipient, slot)
 
 proc getAttachedValidator(node: BeaconNode,
                           pubkey: ValidatorPubKey): AttachedValidator =
@@ -337,7 +343,7 @@ proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
                      validatorIdx: ValidatorIndex,
                      epoch: Epoch): Eth1Address =
-  node.consensusManager[].getFeeRecipient(pubkey, validatorIdx, epoch)
+  node.consensusManager[].getFeeRecipient(pubkey, Opt.some(validatorIdx), epoch)
 
 from web3/engine_api_types import PayloadExecutionStatus
 

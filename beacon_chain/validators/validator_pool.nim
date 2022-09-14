@@ -95,26 +95,33 @@ func init*(T: type ValidatorPool,
 template count*(pool: ValidatorPool): int =
   len(pool.validators)
 
-proc addLocalValidator*(pool: var ValidatorPool, keystore: KeystoreData,
-                        index: Opt[ValidatorIndex], slot: Slot) =
+proc addLocalValidator*(
+    pool: var ValidatorPool, keystore: KeystoreData, index: Opt[ValidatorIndex],
+    feeRecipient: Eth1Address, slot: Slot) =
   doAssert keystore.kind == KeystoreKind.Local
   let v = AttachedValidator(
     kind: ValidatorKind.Local, index: index, data: keystore,
     externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
     startSlot: slot)
   pool.validators[v.pubkey] = v
-  notice "Local validator attached", pubkey = v.pubkey,
-                                     validator = shortLog(v),
-                                     start_slot = slot
+
+  # Fee recipient may change after startup, but we log the initial value here
+  notice "Local validator attached",
+    pubkey = v.pubkey,
+    validator = shortLog(v),
+    initial_fee_recipient = feeRecipient.toHex(),
+    start_slot = slot
   validators.set(pool.count().int64)
 
-proc addLocalValidator*(pool: var ValidatorPool, keystore: KeystoreData,
-                        slot: Slot) =
-  addLocalValidator(pool, keystore, Opt.none ValidatorIndex, slot)
+proc addLocalValidator*(
+    pool: var ValidatorPool, keystore: KeystoreData, feeRecipient: Eth1Address,
+    slot: Slot) =
+  addLocalValidator(pool, keystore, feeRecipient, slot)
 
 proc addRemoteValidator*(pool: var ValidatorPool, keystore: KeystoreData,
                          clients: seq[(RestClientRef, RemoteSignerInfo)],
-                         index: Opt[ValidatorIndex], slot: Slot) =
+                         index: Opt[ValidatorIndex], feeRecipient: Eth1Address,
+                         slot: Slot) =
   doAssert keystore.kind == KeystoreKind.Remote
   let v = AttachedValidator(
     kind: ValidatorKind.Remote, index: index, data: keystore,
@@ -122,10 +129,12 @@ proc addRemoteValidator*(pool: var ValidatorPool, keystore: KeystoreData,
     externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
     startSlot: slot)
   pool.validators[v.pubkey] = v
-  notice "Remote validator attached", pubkey = v.pubkey,
-                                      validator = shortLog(v),
-                                      remote_signer = $keystore.remotes,
-                                      start_slot = slot
+  notice "Remote validator attached",
+    pubkey = v.pubkey,
+    validator = shortLog(v),
+    remote_signer = $keystore.remotes,
+    initial_fee_recipient = feeRecipient.toHex(),
+    start_slot = slot
   validators.set(pool.count().int64)
 
 proc getValidator*(pool: ValidatorPool,

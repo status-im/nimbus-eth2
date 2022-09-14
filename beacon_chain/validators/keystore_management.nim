@@ -115,13 +115,6 @@ proc getValidatorIdx*(host: KeymanagerHost,
   else:
     Opt.none ValidatorIndex
 
-proc addLocalValidator*(host: KeymanagerHost, keystore: KeystoreData) =
-  let
-    slot = host.getBeaconTimeFn().slotOrZero
-    validatorIdx = host.getValidatorIdx(keystore.pubkey)
-
-  host.validatorPool[].addLocalValidator(keystore, validatorIdx, slot)
-
 proc echoP*(msg: string) =
   ## Prints a paragraph aligned to 80 columns
   echo ""
@@ -1325,6 +1318,15 @@ proc getSuggestedFeeRecipient*(
     host: KeymanagerHost,
     pubkey: ValidatorPubKey): Result[Eth1Address, FeeRecipientStatus] =
   host.validatorsDir.getSuggestedFeeRecipient(pubkey, host.defaultFeeRecipient)
+
+proc addLocalValidator*(host: KeymanagerHost, keystore: KeystoreData) =
+  let
+    slot = host.getBeaconTimeFn().slotOrZero
+    validatorIdx = host.getValidatorIdx(keystore.pubkey)
+    feeRecipient = host.getSuggestedFeeRecipient(keystore.pubkey).valueOr(
+      host.defaultFeeRecipient)
+  host.validatorPool[].addLocalValidator(
+    keystore, validatorIdx, feeRecipient, slot)
 
 proc generateDeposits*(cfg: RuntimeConfig,
                        rng: var HmacDrbgContext,

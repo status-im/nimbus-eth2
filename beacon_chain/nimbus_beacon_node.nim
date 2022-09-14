@@ -1828,7 +1828,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
   # the db.
-
   var metadata = config.loadEth2Network()
 
   if config.terminalTotalDifficultyOverride.isSome:
