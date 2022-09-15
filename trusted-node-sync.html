@@ -1647,6 +1647,10 @@
 <p>To use trusted node sync, you must have access to a node that you trust that exposes the <a href="rest-api.html">Beacon API</a> (for example a locally running backup node).</p>
 <p>Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.</p>
 <p>It is possibly to use trusted node sync with a third-party API provider -- see <a href="trusted-node-sync.html#verify-you-synced-the-correct-chain">here</a> for how to verify that the chain you are given corresponds to the canonical chain at the time.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>A list of community-operated checkpoint sync nodes can be found <a href="https://eth-clients.github.io/checkpoint-sync-endpoints/">here</a> - always verify after after a checkpoint sync that the right chain was provided by the node.</p>
+</div>
 <h2 id="perform-a-trusted-node-sync">Perform a trusted node sync</h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>

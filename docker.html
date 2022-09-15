@@ -1587,7 +1587,7 @@
 <p>The unpacked archive is in <code>/home/user/nimbus-eth2</code> which is also the default <em>WORKDIR</em>. The default <em>ENTRYPOINT</em> is the binary itself: <code>/home/user/nimbus-eth2/build/nimbus_beacon_node</code></p>
 <h2 id="usage">Usage</h2>
 <p>Before running Nimbus via docker, you need to prepare a data directory and mount it in docker.</p>
-<p>It is recommended that you mount the directory at <code>/home/user/nimbus-eth2/build/data</code> and pass <code>--data-dir=build/data/shared_mainnet_0</code> to all <code>nimbus_becaon_node</code> commands.</p>
+<p>It is recommended that you mount the directory at <code>/home/user/nimbus-eth2/build/data</code> and pass <code>--data-dir=build/data/shared_mainnet_0</code> to all <code>nimbus_beacon_node</code> commands.</p>
 <p>The wrapper script outlined below will set the data directory automatically.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mkdir data
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>docker run -it --rm <span class="se">\</span>
