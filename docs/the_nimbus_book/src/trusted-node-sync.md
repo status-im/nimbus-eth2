@@ -13,6 +13,9 @@ Should this node, or your connection to it, be compromised, your node will not b
 
 It is possibly to use trusted node sync with a third-party API provider -- see [here](trusted-node-sync.md#verify-you-synced-the-correct-chain) for how to verify that the chain you are given corresponds to the canonical chain at the time.
 
+!!! tip
+    A list of community-operated checkpoint sync nodes can be found [here](https://eth-clients.github.io/checkpoint-sync-endpoints/) - always verify after after a checkpoint sync that the right chain was provided by the node.
+
 ## Perform a trusted node sync
 
 !!! tip
