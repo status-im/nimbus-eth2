@@ -165,7 +165,7 @@ when const_preset == "mainnet":
   # TODO Move this to RuntimeConfig
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/mainnet.yaml
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/configs/mainnet.yaml
   # TODO Read these from yaml file
   const defaultRuntimeConfig* = RuntimeConfig(
     # Mainnet config
@@ -186,7 +186,7 @@ when const_preset == "mainnet":
     # ---------------------------------------------------------------
     # TBD, 2**256-2**10 is a placeholder
     TERMINAL_TOTAL_DIFFICULTY:
-      u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
+      u256"58750000000000000000000",
     # By default, don't use these params
     TERMINAL_BLOCK_HASH: BlockHash.fromHex(
       "0x0000000000000000000000000000000000000000000000000000000000000000"),
@@ -217,7 +217,7 @@ when const_preset == "mainnet":
     ALTAIR_FORK_EPOCH: Epoch(74240), # Oct 27, 2021, 10:56:23am UTC
     # Bellatrix
     BELLATRIX_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x00],
-    BELLATRIX_FORK_EPOCH: Epoch(uint64.high),
+    BELLATRIX_FORK_EPOCH: Epoch(144896), # Sept 6, 2022, 11:34:47am UTC
     # Capella
     CAPELLA_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x00],
     CAPELLA_FORK_EPOCH: Epoch(uint64.high),
