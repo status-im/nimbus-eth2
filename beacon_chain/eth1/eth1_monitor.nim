@@ -136,7 +136,6 @@ type
 
     exchangedConfiguration*: bool
     terminalBlockHash*: Option[BlockHash]
-    terminalBlockNumber*: Option[Quantity]
 
     runFut: Future[void]
     stopFut: Future[void]
@@ -547,7 +546,6 @@ type
   EtcStatus {.pure.} = enum
     exchangeError
     mismatch
-    localConfigurationUpdated
     match
 
 proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async.} =
@@ -563,16 +561,8 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
 
   let consensusCfg = TransitionConfigurationV1(
     terminalTotalDifficulty: p.depositsChain.cfg.TERMINAL_TOTAL_DIFFICULTY,
-    terminalBlockHash:
-      if p.terminalBlockHash.isSome:
-        p.terminalBlockHash.get
-      else:
-        (static default BlockHash),
-    terminalBlockNumber:
-      if p.terminalBlockNumber.isSome:
-        p.terminalBlockNumber.get
-      else:
-        (static default Quantity))
+    terminalBlockHash: p.depositsChain.cfg.TERMINAL_BLOCK_HASH,
+    terminalBlockNumber: Quantity 0)
   let executionCfg =
     try:
       awaitWithRetries(
@@ -580,48 +570,34 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
           consensusCfg),
         timeout = 1.seconds)
     except CatchableError as err:
-      error "Failed to exchange transition configuration", err = err.msg
+      warn "Failed to exchange transition configuration", err = err.msg
       return EtcStatus.exchangeError
 
-  if consensusCfg.terminalTotalDifficulty != executionCfg.terminalTotalDifficulty:
-    warn "Engine API configured with different terminal total difficulty",
-         engineAPI_value = executionCfg.terminalTotalDifficulty,
-         localValue = consensusCfg.terminalTotalDifficulty
-    return EtcStatus.mismatch
-
-  if not p.exchangedConfiguration:
-    # Log successful engine configuration exchange once at startup
-    p.exchangedConfiguration = true
-    info "Exchanged engine configuration",
-      ttd = executionCfg.terminalTotalDifficulty,
-      terminalBlockHash = executionCfg.terminalBlockHash,
-      terminalBlockNumber = executionCfg.terminalBlockNumber.uint64
-
-  if p.terminalBlockNumber.isSome and p.terminalBlockHash.isSome:
-    var res = EtcStatus.match
-
-    if consensusCfg.terminalBlockNumber != executionCfg.terminalBlockNumber:
+  return
+    if consensusCfg.terminalTotalDifficulty != executionCfg.terminalTotalDifficulty:
+      error "Engine API configured with different terminal total difficulty",
+          engineAPI_value = executionCfg.terminalTotalDifficulty,
+          localValue = consensusCfg.terminalTotalDifficulty
+      EtcStatus.mismatch
+    elif consensusCfg.terminalBlockNumber != executionCfg.terminalBlockNumber:
       warn "Engine API reporting different terminal block number",
             engineAPI_value = executionCfg.terminalBlockNumber.uint64,
             localValue = consensusCfg.terminalBlockNumber.uint64
-      res = EtcStatus.mismatch
-    if consensusCfg.terminalBlockHash != executionCfg.terminalBlockHash:
+      EtcStatus.mismatch
+    elif consensusCfg.terminalBlockHash != executionCfg.terminalBlockHash:
       warn "Engine API reporting different terminal block hash",
             engineAPI_value = executionCfg.terminalBlockHash,
             localValue = consensusCfg.terminalBlockHash
-      res = EtcStatus.mismatch
-    return res
-  else:
-    if executionCfg.terminalBlockHash == default BlockHash:
-      # If TERMINAL_BLOCK_HASH is stubbed with
-      # 0x0000000000000000000000000000000000000000000000000000000000000000 then
-      # TERMINAL_BLOCK_HASH and TERMINAL_BLOCK_NUMBER parameters MUST NOT take
-      # an effect.
-      return EtcStatus.match
-
-    p.terminalBlockNumber = some executionCfg.terminalBlockNumber
-    p.terminalBlockHash = some executionCfg.terminalBlockHash
-    return EtcStatus.localConfigurationUpdated
+      EtcStatus.mismatch
+    else:
+      if not p.exchangedConfiguration:
+        # Log successful engine configuration exchange once at startup
+        p.exchangedConfiguration = true
+        info "Exchanged engine configuration",
+          terminalTotalDifficulty = executionCfg.terminalTotalDifficulty,
+          terminalBlockHash = executionCfg.terminalBlockHash,
+          terminalBlockNumber = executionCfg.terminalBlockNumber.uint64
+      EtcStatus.match
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType
@@ -1374,11 +1350,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
   if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH:
     let status = await m.exchangeTransitionConfiguration()
-    if status == EtcStatus.localConfigurationUpdated:
-      info "Obtained terminal block from Engine API",
-           terminalBlockNumber = m.terminalBlockNumber.get.uint64,
-           terminalBlockHash = m.terminalBlockHash.get
-    elif status != EtcStatus.match and isFirstRun and m.requireEngineAPI:
+    if status != EtcStatus.match and isFirstRun and m.requireEngineAPI:
       fatal "The Bellatrix hard fork requires the beacon node to be connected to a properly configured Engine API end-point. " &
             "See https://nimbus.guide/merge.html for more details. " &
             "If you want to temporarily continue operating Nimbus without configuring an Engine API end-point, " &
@@ -1531,6 +1503,10 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       doAssert m.latestEth1Block.isSome
       awaitWithRetries m.dataProvider.getBlockByHash(m.latestEth1Block.get.hash)
 
+    # TODO when a terminal block has is configured in cfg.TERMINAL_BLOCK_HASH,
+    #      we should try to fetch that block from the EL - this facility is not
+    #      in use on any current network, but should be implemented for full
+    #      compliance
     if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH and m.terminalBlockHash.isNone:
       var terminalBlockCandidate = nextBlock
 
@@ -1551,7 +1527,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
             break
           terminalBlockCandidate = parentBlock
         m.terminalBlockHash = some terminalBlockCandidate.hash
-        m.terminalBlockNumber = some terminalBlockCandidate.number
 
         debug "startEth1Syncing: found merge terminal block",
           currentEpoch = m.currentEpoch,
