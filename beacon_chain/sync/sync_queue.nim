@@ -697,7 +697,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           safeSlot = sq.getSafeSlot()
         case sq.kind
         of SyncQueueKind.Forward:
-          if safeSlot < req.slot:
+          if safeSlot < failSlot:
             let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
             debug "Unexpected missing parent, rewind happens",
                  request = req, rewind_to_slot = rewindSlot,
@@ -713,7 +713,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                   blocks_map = getShortMap(req, item.data)
             req.item.updateScore(PeerScoreBadBlocks)
         of SyncQueueKind.Backward:
-          if safeSlot > req.slot:
+          if safeSlot > failSlot:
             let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
             # It's quite common peers give us fewer blocks than we ask for
             info "Gap in block range response, rewinding", request = req,

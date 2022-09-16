@@ -17,6 +17,7 @@ import ../beacon_chain/gossip_processing/block_processor,
 
 type
   SomeTPeer = ref object
+    score: int
 
 proc `$`(peer: SomeTPeer): string =
   "SomeTPeer"
@@ -25,7 +26,7 @@ template shortLog(peer: SomeTPeer): string =
   $peer
 
 proc updateScore(peer: SomeTPeer, score: int) =
-  discard
+  peer[].score += score
 
 func getStaticSlotCb(slot: Slot): GetSlotCallback =
   proc getSlot(): Slot =
@@ -484,6 +485,7 @@ suite "SyncManager test suite":
 
     let p1 = SomeTPeer()
 
+    var expectedScore = 0
     proc runTest() {.async.} =
       while true:
         var request = queue.pop(finish, p1)
@@ -499,6 +501,7 @@ suite "SyncManager test suite":
             response.delete(response.len - 2)
           of SyncQueueKind.Backward:
             response.delete(1)
+          expectedScore += PeerScoreMissingBlocks
         if response.len >= 1:
           # Ensure requested values are past `safeSlot`
           case kkind
@@ -515,6 +518,7 @@ suite "SyncManager test suite":
       check (counter - 1) == int(finish)
     of SyncQueueKind.Backward:
       check (counter + 1) == int(start)
+    check p1.score >= expectedScore
 
   template outOfBandAdvancementTest(kkind: SyncQueueKind, start, finish: Slot,
                                     chunkSize: uint64) =
