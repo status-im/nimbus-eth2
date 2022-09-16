@@ -125,7 +125,6 @@ programMain:
       lightClient: LightClient, finalizedHeader: BeaconBlockHeader) =
     info "New LC finalized header",
       finalized_header = shortLog(finalizedHeader)
-    optimisticProcessor.setFinalizedHeader(finalizedHeader)
 
   proc onOptimisticHeader(
       lightClient: LightClient, optimisticHeader: BeaconBlockHeader) =

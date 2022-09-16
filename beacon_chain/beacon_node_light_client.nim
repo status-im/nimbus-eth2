@@ -82,15 +82,10 @@ proc initLightClient*(
       genesis_validators_root, LightClientFinalizationMode.Strict)
 
   if config.syncLightClient:
-    proc onFinalizedHeader(
-        lightClient: LightClient, finalizedHeader: BeaconBlockHeader) =
-      optimisticProcessor.setFinalizedHeader(finalizedHeader)
-
     proc onOptimisticHeader(
         lightClient: LightClient, optimisticHeader: BeaconBlockHeader) =
       optimisticProcessor.setOptimisticHeader(optimisticHeader)
 
-    lightClient.onFinalizedHeader = onFinalizedHeader
     lightClient.onOptimisticHeader = onOptimisticHeader
     lightClient.trustedBlockRoot = config.trustedBlockRoot
 

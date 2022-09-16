@@ -27,9 +27,6 @@ const
   # Maximum `blocks` to cache (not validated; deleted on new optimistic header)
   maxBlocks = 16  # <= `GOSSIP_MAX_SIZE_BELLATRIX` (10 MB) each
 
-  # Maximum `seenBlocks` to cache (only used until a finalized block was seen)
-  maxSeenBlocks = 1024  # `Eth2Digest` each
-
   # Minimum interval at which spam is logged
   minLogInterval = chronos.seconds(5)
 
@@ -41,7 +38,6 @@ type
   OptimisticProcessor* = ref object
     getBeaconTime: GetBeaconTimeFn
     optimisticVerifier: MsgTrustedBlockProcessor
-    seenBlocks: Option[HashSet[Eth2Digest]]
     blocks: Table[Eth2Digest, ref ForkedSignedBeaconBlock]
     latestOptimisticSlot: Slot
     processFut: Future[void]
@@ -52,8 +48,7 @@ proc initOptimisticProcessor*(
     optimisticVerifier: MsgTrustedBlockProcessor): OptimisticProcessor =
   OptimisticProcessor(
     getBeaconTime: getBeaconTime,
-    optimisticVerifier: optimisticVerifier,
-    seenBlocks: some(default(HashSet[Eth2Digest])))
+    optimisticVerifier: optimisticVerifier)
 
 proc validateBeaconBlock(
     self: OptimisticProcessor,
@@ -115,29 +110,8 @@ proc processSignedBeaconBlock*(
         body
         self.logMoment = now
 
-  # Update `seenBlocks` (this is only used until a finalized block is seen)
-  let parentSeen =
-    self.seenBlocks.isNone or
-    self.seenBlocks.get.contains(signedBlock.message.parent_root)
-  if self.seenBlocks.isSome:
-    # If `seenBlocks` is full, we got spammed with too many blocks,
-    # or the finalized epoch boundary blocks or finalized header advancements
-    # have been all withheld from us, in which case the `seenBlocks` mechanism
-    # could not be marked obsolete.
-    # Mitigation: Randomly delete half of `seenBlocks` and hope that the root
-    # of the next finalized header is still in there when it arrives.
-    if self.seenBlocks.get.len >= maxSeenBlocks:
-      logWithSpamProtection:
-        error "`seenBlocks` full - pruning", maxSeenBlocks
-      var rootsToDelete = newSeqOfCap[Eth2Digest](maxSeenBlocks div 2)
-      for root in self.seenBlocks.get:
-        rootsToDelete.add root
-      for root in rootsToDelete:
-        self.seenBlocks.get.excl root
-    self.seenBlocks.get.incl signedBlock.root
-
-  # Store block for later verification (only if parent has execution enabled)
-  if parentSeen and not self.blocks.hasKey(signedBlock.root):
+  # Store block for later verification
+  if not self.blocks.hasKey(signedBlock.root):
     # If `blocks` is full, we got spammed with multiple blocks for a slot,
     # of the optimistic header advancements have been all withheld from us.
     # Whenever the optimistic header advances, old blocks are cleared,
@@ -183,14 +157,6 @@ proc setOptimisticHeader*(
   if signedBlock == nil:
     return
 
-  # Parent must be execution block or block must be deep (irrelevant for gossip)
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#helpers
-  let parentIsExecutionBlock =
-    self.seenBlocks.isNone or
-    self.seenBlocks.get.contains(optimisticHeader.parent_root)
-  if not parentIsExecutionBlock:
-    return
-
   # If a block is already being processed, skip (backpressure)
   if self.processFut != nil:
     return
@@ -201,16 +167,3 @@ proc setOptimisticHeader*(
     self.processFut = nil
 
   self.processFut.addCallback(handleFinishedProcess)
-
-proc setFinalizedHeader*(
-    self: OptimisticProcessor, finalizedHeader: BeaconBlockHeader) =
-  # Once an execution block finalizes, all followup blocks are execution blocks
-  if self.seenBlocks.isNone:
-    return
-
-  # If the finalized block is an execution block, disable `seenBlocks` tracking
-  let blockRoot = finalizedHeader.hash_tree_root()
-  if self.seenBlocks.get.contains(blockRoot):
-    debug "Finalized execution block seen",
-      finalized_header = shortLog(finalizedHeader)
-    self.seenBlocks.reset()
