@@ -190,7 +190,7 @@ proc expectValidForkchoiceUpdated(
 from ../consensus_object_pools/attestation_pool import
   addForkChoice, selectOptimisticHead, BeaconHead
 from ../consensus_object_pools/blockchain_dag import
-  is_optimistic, loadExecutionBlockRoot, markBlockVerified
+  is_optimistic, loadExecutionBlockRoot, markBlockInvalid, markBlockVerified
 from ../consensus_object_pools/block_dag import shortLog
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
@@ -480,9 +480,6 @@ proc newExecutionPayload*(
   except CatchableError as err:
     error "newPayload failed", msg = err.msg
     return Opt.none PayloadExecutionStatus
-
-from ../consensus_object_pools/blockchain_dag import
-  getBlockRef, loadExecutionBlockRoot, markBlockInvalid
 
 proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
   while true:
