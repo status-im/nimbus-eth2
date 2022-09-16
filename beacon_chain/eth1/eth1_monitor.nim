@@ -580,11 +580,11 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
           consensusCfg),
         timeout = 1.seconds)
     except CatchableError as err:
-      error "Failed to exchange transition configuration", err = err.msg
+      error "Failed to exchange transition configuration witrh Execution Client", err = err.msg
       return EtcStatus.exchangeError
 
   if consensusCfg.terminalTotalDifficulty != executionCfg.terminalTotalDifficulty:
-    warn "Engine API configured with different terminal total difficulty",
+    warn "Execution Client configured with different terminal total difficulty",
          engineAPI_value = executionCfg.terminalTotalDifficulty,
          localValue = consensusCfg.terminalTotalDifficulty
     return EtcStatus.mismatch
@@ -602,19 +602,19 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
     # 0x0000000000000000000000000000000000000000000000000000000000000000 then
     # TERMINAL_BLOCK_HASH and TERMINAL_BLOCK_NUMBER parameters MUST NOT take
     # an effect.
-    trace "Engine API using stub hash"
+    trace "Execution Client using stub hash"
     return EtcStatus.match
 
   if p.terminalBlockNumber.isSome and p.terminalBlockHash.isSome:
     var res = EtcStatus.match
 
     if consensusCfg.terminalBlockNumber != executionCfg.terminalBlockNumber:
-      warn "Engine API reporting different terminal block number",
+      warn "Execution Client reporting different terminal block number",
             engineAPI_value = executionCfg.terminalBlockNumber.uint64,
             localValue = consensusCfg.terminalBlockNumber.uint64
       res = EtcStatus.mismatch
     if consensusCfg.terminalBlockHash != executionCfg.terminalBlockHash:
-      warn "Engine API reporting different terminal block hash",
+      warn "Execution Client reporting different terminal block hash",
             engineAPI_value = executionCfg.terminalBlockHash,
             localValue = consensusCfg.terminalBlockHash
       res = EtcStatus.mismatch
@@ -642,7 +642,7 @@ func depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
     raises: [Defect, CatchableError].} =
   if depositsList.kind != JArray:
     raise newException(CatchableError,
-      "Web3 provider didn't return a list of deposit events")
+      "Web3 provider or Execution Client didn't return a list of deposit events")
 
   var lastEth1Block: Eth1Block
 
@@ -682,7 +682,7 @@ func depositEventsToBlocks(depositsList: JsonNode): seq[Eth1Block] {.
        amount.len != 8 or
        signature.len != 96 or
        index.len != 8:
-      raise newException(CorruptDataProvider, "Web3 provider supplied invalid deposit logs")
+      raise newException(CorruptDataProvider, "Web3 provider or Execution Client supplied invalid deposit logs")
 
     lastEth1Block.deposits.add DepositData(
       pubkey: ValidatorPubKey.init(pubkey.toArray),
@@ -1415,7 +1415,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   if web3Url != m.web3Urls[0]:
     asyncSpawn m.detectPrimaryProviderComingOnline()
 
-  info "Starting Eth1 deposit contract monitoring",
+  info "Starting Execution Layer deposit contract monitoring",
     contract = $m.depositContractAddress
 
   if isFirstRun and m.eth1Network.isSome:
@@ -1432,7 +1432,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
           of goerli:  5.Quantity
           of sepolia: 11155111.Quantity   # https://chainid.network/
       if expectedChain != providerChain:
-        fatal "The specified Web3 provider serves data for a different chain",
+        fatal "The specified Execution Client or Web3 provider serves data for a different chain",
                expectedChain = distinctBase(expectedChain),
                providerChain = distinctBase(providerChain)
         quit 1
@@ -1487,7 +1487,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     eth1_finalized_deposits.set(
       m.depositsChain.finalizedDepositsMerkleizer.getChunkCount.toGaugeValue)
 
-    debug "Starting Eth1 syncing", `from` = shortLog(m.depositsChain.blocks[^1])
+    debug "Starting Execution Layer syncing", `from` = shortLog(m.depositsChain.blocks[^1])
 
   var didPollOnce = false
   while true:
@@ -1500,10 +1500,10 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       return
 
     if m.depositsChain.hasConsensusViolation:
-      raise newException(CorruptDataProvider, "Eth1 chain contradicts Eth2 consensus")
+      raise newException(CorruptDataProvider, "Execution Layer chain contradicts consensus on the Consensus Layer")
 
     if m.state == ReadyToRestartToPrimary:
-      info "Primary web3 provider is back online. Restarting the Eth1 monitor"
+      info "Primary Execution Client or web3 provider is back online. Restarting the Eth1 monitor"
       m.startIdx = 0
       return
 
@@ -1525,7 +1525,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       blk
     else:
       awaitWithTimeout(m.eth1Progress.wait(), 5.minutes):
-        raise newException(CorruptDataProvider, "No eth1 chain progress for too long")
+        raise newException(CorruptDataProvider, "No Execution Layer progress for too long")
 
       m.eth1Progress.clear()
 
@@ -1585,7 +1585,7 @@ proc start(m: Eth1Monitor, delayBeforeStart: Duration) {.gcsafe.} =
     runFut.addCallback do (p: pointer) {.gcsafe.}:
       if runFut.failed:
         if runFut == m.runFut:
-          warn "Eth1 chain monitoring failure, restarting", err = runFut.error.msg
+          warn "Execution Layer monitoring failure, restarting", err = runFut.error.msg
           m.state = Failed
 
       safeCancel m.runFut
