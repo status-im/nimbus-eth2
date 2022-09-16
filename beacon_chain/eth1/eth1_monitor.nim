@@ -559,7 +559,7 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
   if dataProvider.isNil:
     return EtcStatus.exchangeError
 
-  # https://github.com/ethereum/execution-apis/blob/main/src/engine/specification.md#engine_exchangetransitionconfigurationv1
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#engine_exchangetransitionconfigurationv1
   let consensusCfg = TransitionConfigurationV1(
     terminalTotalDifficulty: p.depositsChain.cfg.TERMINAL_TOTAL_DIFFICULTY,
     terminalBlockHash: p.depositsChain.cfg.TERMINAL_BLOCK_HASH,
