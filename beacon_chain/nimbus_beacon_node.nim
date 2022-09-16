@@ -1662,7 +1662,7 @@ proc start*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   if node.eth1Monitor != nil:
     node.eth1Monitor.start()
   else:
-    notice "Running without execution chain monitor, block producation partially disabled"
+    notice "Running without an execution client, block production partially disabled"
 
   node.run()
 
