@@ -11,8 +11,11 @@ else:
   {.push raises: [].}
 
 import
-  std/[macros, strutils, parseutils, tables],
-  stew/[byteutils], stint, web3/[ethtypes]
+  std/[strutils, parseutils, tables, typetraits],
+  stew/[byteutils], stint, web3/[ethtypes],
+  ./datatypes/constants
+
+export constants
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#withdrawal-prefixes
@@ -25,9 +28,6 @@ const
   EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64 = 256
 
 type
-  Slot* = distinct uint64
-  Epoch* = distinct uint64
-  SyncCommitteePeriod* = distinct uint64
   Version* = distinct array[4, byte]
   Eth1Address* = ethtypes.Address
 
@@ -87,75 +87,12 @@ type
   PresetIncompatibleError* = object of CatchableError
 
 const
-  FAR_FUTURE_EPOCH* = (not 0'u64).Epoch # 2^64 - 1 in spec
-
   const_preset* {.strdefine.} = "mainnet"
 
-  # These constants cannot really be overriden in a preset.
-  # If we encounter them, we'll just ignore the preset value.
-  # TODO verify the value against the constant instead
-  ignoredValues* = [
-    # TODO Once implemented as part of the RuntimeConfig,
-    #      this should be removed from here
-    "SECONDS_PER_SLOT",
-
-    "BLS_WITHDRAWAL_PREFIX",
-
-    "MAX_COMMITTEES_PER_SLOT",
-    "TARGET_COMMITTEE_SIZE",
-    "MAX_VALIDATORS_PER_COMMITTEE",
-    "SHUFFLE_ROUND_COUNT",
-    "HYSTERESIS_QUOTIENT",
-    "HYSTERESIS_DOWNWARD_MULTIPLIER",
-    "HYSTERESIS_UPWARD_MULTIPLIER",
-    "SAFE_SLOTS_TO_UPDATE_JUSTIFIED",
-    "MIN_DEPOSIT_AMOUNT",
-    "MAX_EFFECTIVE_BALANCE",
-    "EFFECTIVE_BALANCE_INCREMENT",
-    "MIN_ATTESTATION_INCLUSION_DELAY",
-    "SLOTS_PER_EPOCH",
-    "MIN_SEED_LOOKAHEAD",
-    "MAX_SEED_LOOKAHEAD",
-    "EPOCHS_PER_ETH1_VOTING_PERIOD",
-    "SLOTS_PER_HISTORICAL_ROOT",
-    "MIN_EPOCHS_TO_INACTIVITY_PENALTY",
-    "EPOCHS_PER_HISTORICAL_VECTOR",
-    "EPOCHS_PER_SLASHINGS_VECTOR",
-    "HISTORICAL_ROOTS_LIMIT",
-    "VALIDATOR_REGISTRY_LIMIT",
-    "BASE_REWARD_FACTOR",
-    "WHISTLEBLOWER_REWARD_QUOTIENT",
-    "PROPOSER_REWARD_QUOTIENT",
-    "INACTIVITY_PENALTY_QUOTIENT",
-    "MIN_SLASHING_PENALTY_QUOTIENT",
-    "PROPORTIONAL_SLASHING_MULTIPLIER",
-    "MAX_PROPOSER_SLASHINGS",
-    "MAX_ATTESTER_SLASHINGS",
-    "MAX_ATTESTATIONS",
-    "MAX_DEPOSITS",
-    "MAX_VOLUNTARY_EXITS",
-
-    "TARGET_AGGREGATORS_PER_COMMITTEE",
-    "RANDOM_SUBNETS_PER_VALIDATOR",
-    "EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION",
-    "ATTESTATION_SUBNET_COUNT",
-
-    "DOMAIN_BEACON_PROPOSER",
-    "DOMAIN_BEACON_ATTESTER",
-    "DOMAIN_RANDAO",
-    "DOMAIN_DEPOSIT",
-    "DOMAIN_VOLUNTARY_EXIT",
-    "DOMAIN_SELECTION_PROOF",
-    "DOMAIN_AGGREGATE_AND_PROOF",
-    "DOMAIN_SYNC_COMMITTEE",
-    "DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF",
-    "DOMAIN_CONTRIBUTION_AND_PROOF",
-
+  # No-longer used values from legacy config files
+  ignoredValues = [
     "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
     "MIN_ANCHOR_POW_BLOCK_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
-
-    "TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH", # Never pervasively implemented, still under discussion
-    "PROPOSER_SCORE_BOOST", # Isn't being used as a preset in the usual way: at any time, there's one correct value
   ]
 
 when const_preset == "mainnet":
@@ -428,13 +365,16 @@ template parse(T: type BlockHash, input: string): T =
 template parse(T: type UInt256, input: string): T =
   parse(input, UInt256, 10)
 
+func parse(T: type DomainType, input: string): T
+           {.raises: [ValueError, Defect].} =
+  DomainType hexToByteArray(input, 4)
+
 proc readRuntimeConfig*(
     path: string): (RuntimeConfig, seq[string]) {.
     raises: [IOError, PresetFileError, PresetIncompatibleError, Defect].} =
   var
     lineNum = 0
     cfg = defaultRuntimeConfig
-    unknowns: seq[string]
 
   template lineinfo: string =
     try: "$1($2) " % [path, $lineNum]
@@ -459,21 +399,107 @@ proc readRuntimeConfig*(
 
     if lineParts[0] in ignoredValues: continue
 
-    if lineParts[0] notin names:
-      unknowns.add(lineParts[0])
-
     values[lineParts[0]] = lineParts[1].strip
+
+  # Certain config keys are baked into the binary at compile-time
+  # and cannot be overridden via config.
+  template checkCompatibility(constValue: untyped): untyped =
+    block:
+      const name = astToStr(constValue)
+      if values.hasKey(name):
+        try:
+          let value = parse(typeof(constValue), values[name])
+          when constValue is distinct:
+            if distinctBase(value) != distinctBase(constValue):
+              raise (ref PresetFileError)(msg:
+                "Cannot override config" &
+                " (compiled: " & name & "=" & $distinctBase(constValue) &
+                " - config: " & name & "=" & values[name] & ")")
+          else:
+            if value != constValue:
+              raise (ref PresetFileError)(msg:
+                "Cannot override config" &
+                " (compiled: " & name & "=" & $constValue &
+                " - config: " & name & "=" & values[name] & ")")
+          values.del name
+        except ValueError:
+          raise (ref PresetFileError)(msg: "Unable to parse " & name)
+
+  checkCompatibility SECONDS_PER_SLOT
+
+  checkCompatibility BLS_WITHDRAWAL_PREFIX
+
+  checkCompatibility MAX_COMMITTEES_PER_SLOT
+  checkCompatibility TARGET_COMMITTEE_SIZE
+  checkCompatibility MAX_VALIDATORS_PER_COMMITTEE
+  checkCompatibility SHUFFLE_ROUND_COUNT
+  checkCompatibility HYSTERESIS_QUOTIENT
+  checkCompatibility HYSTERESIS_DOWNWARD_MULTIPLIER
+  checkCompatibility HYSTERESIS_UPWARD_MULTIPLIER
+  checkCompatibility SAFE_SLOTS_TO_UPDATE_JUSTIFIED
+  checkCompatibility MIN_DEPOSIT_AMOUNT
+  checkCompatibility MAX_EFFECTIVE_BALANCE
+  checkCompatibility EFFECTIVE_BALANCE_INCREMENT
+  checkCompatibility MIN_ATTESTATION_INCLUSION_DELAY
+  checkCompatibility SLOTS_PER_EPOCH
+  checkCompatibility MIN_SEED_LOOKAHEAD
+  checkCompatibility MAX_SEED_LOOKAHEAD
+  checkCompatibility EPOCHS_PER_ETH1_VOTING_PERIOD
+  checkCompatibility SLOTS_PER_HISTORICAL_ROOT
+  checkCompatibility MIN_EPOCHS_TO_INACTIVITY_PENALTY
+  checkCompatibility EPOCHS_PER_HISTORICAL_VECTOR
+  checkCompatibility EPOCHS_PER_SLASHINGS_VECTOR
+  checkCompatibility HISTORICAL_ROOTS_LIMIT
+  checkCompatibility VALIDATOR_REGISTRY_LIMIT
+  checkCompatibility BASE_REWARD_FACTOR
+  checkCompatibility WHISTLEBLOWER_REWARD_QUOTIENT
+  checkCompatibility PROPOSER_REWARD_QUOTIENT
+  checkCompatibility INACTIVITY_PENALTY_QUOTIENT
+  checkCompatibility MIN_SLASHING_PENALTY_QUOTIENT
+  checkCompatibility PROPORTIONAL_SLASHING_MULTIPLIER
+  checkCompatibility MAX_PROPOSER_SLASHINGS
+  checkCompatibility MAX_ATTESTER_SLASHINGS
+  checkCompatibility MAX_ATTESTATIONS
+  checkCompatibility MAX_DEPOSITS
+  checkCompatibility MAX_VOLUNTARY_EXITS
+
+  checkCompatibility TARGET_AGGREGATORS_PER_COMMITTEE
+  checkCompatibility RANDOM_SUBNETS_PER_VALIDATOR
+  checkCompatibility EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION
+  checkCompatibility ATTESTATION_SUBNET_COUNT
+
+  checkCompatibility DOMAIN_BEACON_PROPOSER
+  checkCompatibility DOMAIN_BEACON_ATTESTER
+  checkCompatibility DOMAIN_RANDAO
+  checkCompatibility DOMAIN_DEPOSIT
+  checkCompatibility DOMAIN_VOLUNTARY_EXIT
+  checkCompatibility DOMAIN_SELECTION_PROOF
+  checkCompatibility DOMAIN_AGGREGATE_AND_PROOF
+  checkCompatibility DOMAIN_SYNC_COMMITTEE
+  checkCompatibility DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF
+  checkCompatibility DOMAIN_CONTRIBUTION_AND_PROOF
+
+  # Never pervasively implemented, still under discussion
+  checkCompatibility TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH
+
+  # Isn't being used as a preset in the usual way: at any time, there's one correct value
+  checkCompatibility PROPOSER_SCORE_BOOST
 
   for name, field in cfg.fieldPairs():
     if name in values:
       try:
         field = parse(typeof(field), values[name])
+        values.del name
       except ValueError:
         raise (ref PresetFileError)(msg: "Unable to parse " & name)
 
   if cfg.PRESET_BASE != const_preset:
     raise (ref PresetIncompatibleError)(
       msg: "Config not compatible with binary, compile with -d:const_preset=" & cfg.PRESET_BASE)
+
+  var unknowns: seq[string]
+  for name in values.keys:
+    unknowns.add name
 
   (cfg, unknowns)
 

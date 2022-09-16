@@ -94,9 +94,6 @@ const
   DEPOSIT_CONTRACT_TREE_DEPTH* = 32
   BASE_REWARDS_PER_EPOCH* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#misc
-  ATTESTATION_SUBNET_COUNT* = 64
-
   DEPOSIT_CONTRACT_LIMIT* = Limit(1'u64 shl DEPOSIT_CONTRACT_TREE_DEPTH)
 
 template maxSize*(n: int) {.pragma.}
@@ -132,10 +129,6 @@ template maxSize*(n: int) {.pragma.}
 # - broke the compiler in SSZ and nim-serialization
 
 type
-  # Domains
-  # ---------------------------------------------------------------
-  DomainType* = distinct array[4, byte]
-
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
 
@@ -461,7 +454,7 @@ type
     attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
-  AttnetBits* = BitArray[ATTESTATION_SUBNET_COUNT]
+  AttnetBits* = BitArray[int ATTESTATION_SUBNET_COUNT]
 
 type
   # Caches for computing justificiation, rewards and penalties - based on
@@ -512,22 +505,6 @@ type
     delta*: RewardDelta
 
     flags*: set[RewardFlags]
-
-const
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#domain-types
-  DOMAIN_BEACON_PROPOSER* = DomainType([byte 0x00, 0x00, 0x00, 0x00])
-  DOMAIN_BEACON_ATTESTER* = DomainType([byte 0x01, 0x00, 0x00, 0x00])
-  DOMAIN_RANDAO* = DomainType([byte 0x02, 0x00, 0x00, 0x00])
-  DOMAIN_DEPOSIT* = DomainType([byte 0x03, 0x00, 0x00, 0x00])
-  DOMAIN_VOLUNTARY_EXIT* = DomainType([byte 0x04, 0x00, 0x00, 0x00])
-  DOMAIN_SELECTION_PROOF* = DomainType([byte 0x05, 0x00, 0x00, 0x00])
-  DOMAIN_AGGREGATE_AND_PROOF* = DomainType([byte 0x06, 0x00, 0x00, 0x00])
-  DOMAIN_APPLICATION_MASK* = DomainType([byte 0x00, 0x00, 0x00, 0x01])
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/beacon-chain.md#domain-types
-  DOMAIN_SYNC_COMMITTEE* = DomainType([byte 0x07, 0x00, 0x00, 0x00])
-  DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF* = DomainType([byte 0x08, 0x00, 0x00, 0x00])
-  DOMAIN_CONTRIBUTION_AND_PROOF* = DomainType([byte 0x09, 0x00, 0x00, 0x00])
 
 func getImmutableValidatorData*(validator: Validator): ImmutableValidatorData2 =
   let cookedKey = validator.pubkey.loadValid()  # `Validator` has valid key
@@ -902,7 +879,7 @@ static:
   # Sanity checks - these types should be trivial enough to copy with memcpy
   doAssert supportsCopyMem(Validator)
   doAssert supportsCopyMem(Eth2Digest)
-  doAssert ATTESTATION_SUBNET_COUNT <= high(distinctBase SubnetId).int
+  doAssert ATTESTATION_SUBNET_COUNT <= high(distinctBase SubnetId)
 
 func getSizeofSig(x: auto, n: int = 0): seq[(string, int, int)] =
   for name, value in x.fieldPairs:

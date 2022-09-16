@@ -1431,7 +1431,7 @@ proc getLowSubnets(node: Eth2Node, epoch: Epoch): (AttnetBits, SyncnetBits) =
       notHighOutgoingSubnets
 
   return (
-    findLowSubnets(getAttestationTopic, SubnetId, ATTESTATION_SUBNET_COUNT),
+    findLowSubnets(getAttestationTopic, SubnetId, ATTESTATION_SUBNET_COUNT.int),
     # We start looking one epoch before the transition in order to allow
     # some time for the gossip meshes to get healthy:
     if epoch + 1 >= node.cfg.ALTAIR_FORK_EPOCH:

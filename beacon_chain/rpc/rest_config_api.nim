@@ -1,3 +1,4 @@
+# beacon_chain
 # Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
@@ -8,7 +9,6 @@ import stew/[byteutils, base10], chronicles
 import ".."/beacon_node,
        ".."/spec/forks,
        "."/rest_utils
-from ../fork_choice/proto_array import PROPOSER_SCORE_BOOST
 
 export rest_utils
 
@@ -178,7 +178,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           CHURN_LIMIT_QUOTIENT:
             Base10.toString(cfg.CHURN_LIMIT_QUOTIENT),
           PROPOSER_SCORE_BOOST:
-            Base10.toString(uint64(PROPOSER_SCORE_BOOST)),
+            Base10.toString(PROPOSER_SCORE_BOOST),
           DEPOSIT_CHAIN_ID:
             Base10.toString(cfg.DEPOSIT_CHAIN_ID),
           DEPOSIT_NETWORK_ID:
@@ -248,7 +248,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION:
             Base10.toString(EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION),
           ATTESTATION_SUBNET_COUNT:
-            Base10.toString(uint64(ATTESTATION_SUBNET_COUNT)),
+            Base10.toString(ATTESTATION_SUBNET_COUNT),
 
           # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/validator.md#constants
           TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE:
