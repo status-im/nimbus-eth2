@@ -592,7 +592,7 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
   if not p.exchangedConfiguration:
     # Log successful engine configuration exchange once at startup
     p.exchangedConfiguration = true
-    info "Exchanged engine configuration",
+    notice "Successfully connected to Execution Layer. Exchanged engine configuration",
       ttd = executionCfg.terminalTotalDifficulty,
       terminalBlockHash = executionCfg.terminalBlockHash,
       terminalBlockNumber = executionCfg.terminalBlockNumber.uint64
