@@ -70,6 +70,7 @@ const
 
   ApplicationJsonMediaType* = MediaType.init("application/json")
   TextPlainMediaType* = MediaType.init("text/plain")
+  OctetStreamMediaType* = MediaType.init("application/octet-stream")
   UrlEncodedMediaType* = MediaType.init("application/x-www-form-urlencoded")
 
 type
@@ -2376,10 +2377,19 @@ proc encodeBytes*[T: EncodeArrays](value: T,
   else:
     err("Content-Type not supported")
 
-proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openArray[byte],
-                                  contentType: string): RestResult[T] =
-  case contentType
-  of "application/json":
+proc decodeBytes*[T: DecodeTypes](
+       t: typedesc[T],
+       value: openArray[byte],
+       contentType: Opt[ContentTypeData]
+     ): RestResult[T] =
+
+  let mediaType =
+    if contentType.isNone():
+      ApplicationJsonMediaType
+    else:
+      contentType.get().mediaType
+
+  if mediaType == ApplicationJsonMediaType:
     try:
       ok RestJson.decode(value, T,
                          requireAllFields = true,
@@ -2392,10 +2402,20 @@ proc decodeBytes*[T: DecodeTypes](t: typedesc[T], value: openArray[byte],
   else:
     err("Content-Type not supported")
 
-proc decodeBytes*[T: SszDecodeTypes](t: typedesc[T], value: openArray[byte],
-                                     contentType: string, updateRoot = true): RestResult[T] =
-  case contentType
-  of "application/octet-stream":
+proc decodeBytes*[T: SszDecodeTypes](
+       t: typedesc[T],
+       value: openArray[byte],
+       contentType: Opt[ContentTypeData],
+       updateRoot = true
+     ): RestResult[T] =
+
+  let mediaType =
+    if contentType.isNone():
+      OctetStreamMediaType
+    else:
+      contentType.get().mediaType
+
+  if mediaType == OctetStreamMediaType:
     try:
       var v: RestResult[T]
       v.ok(T()) # This optimistically avoids an expensive genericAssign

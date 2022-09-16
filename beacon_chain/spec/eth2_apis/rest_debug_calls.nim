@@ -32,27 +32,23 @@ proc getState*(client: RestClientRef, state_id: StateIdent,
   let data =
     case resp.status
     of 200:
-      case resp.contentType
-      of "application/json":
-        let state =
-          block:
-            let res = decodeBytes(GetStateResponse, resp.data,
-                                  resp.contentType)
-            if res.isErr():
-              raise newException(RestError, $res.error())
-            res.get()
-        state.data
-      of "application/octet-stream":
-        let state =
-          block:
-            let res = decodeBytes(GetPhase0StateSszResponse, resp.data,
-                                  resp.contentType)
-            if res.isErr():
-              raise newException(RestError, $res.error())
-            res.get()
-        state
+      if resp.contentType.isNone() or
+         isWildCard(resp.contentType.get().mediaType):
+        raise newException(RestError, "Missing or incorrect Content-Type")
       else:
-        raise newException(RestError, "Unsupported content-type")
+        let mediaType = resp.contentType.get().mediaType
+        if mediaType == ApplicationJsonMediaType:
+          let state = decodeBytes(GetStateResponse, resp.data,
+                                  resp.contentType).valueOr:
+            raise newException(RestError, $error)
+          state.data
+        elif mediaType == OctetStreamMediaType:
+          let state = decodeBytes(GetPhase0StateSszResponse, resp.data,
+                                  resp.contentType).valueOr:
+            raise newException(RestError, $error)
+          state
+        else:
+          raise newException(RestError, "Unsupported content-type")
     of 400, 404, 500:
       let error =
         block:
@@ -93,23 +89,27 @@ proc getStateV2*(client: RestClientRef, state_id: StateIdent,
   let data =
     case resp.status
     of 200:
-      case resp.contentType
-      of "application/json":
-        let state =
-          block:
-            let res = newClone(decodeBytes(GetStateV2Response, resp.data,
-                                  resp.contentType))
-            if res[].isErr():
-              raise newException(RestError, $res[].error())
-            newClone(res[].get())
-        state
-      of "application/octet-stream":
-        try:
-          newClone(readSszForkedHashedBeaconState(cfg, resp.data))
-        except CatchableError as exc:
-          raise newException(RestError, exc.msg)
+      if resp.contentType.isNone() or
+         isWildCard(resp.contentType.get().mediaType):
+        raise newException(RestError, "Missing or incorrect Content-Type")
       else:
-        raise newException(RestError, "Unsupported content-type")
+        let mediaType = resp.contentType.get().mediaType
+        if mediaType == ApplicationJsonMediaType:
+          let state =
+            block:
+              let res = newClone(decodeBytes(GetStateV2Response, resp.data,
+                                    resp.contentType))
+              if res[].isErr():
+                raise newException(RestError, $res[].error())
+              newClone(res[].get())
+          state
+        elif mediaType == OctetStreamMediaType:
+          try:
+            newClone(readSszForkedHashedBeaconState(cfg, resp.data))
+          except CatchableError as exc:
+            raise newException(RestError, exc.msg)
+        else:
+          raise newException(RestError, "Unsupported content-type")
     of 404:
       nil
     of 400, 500:
