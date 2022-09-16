@@ -202,14 +202,16 @@ programMain:
 
     blocksGossipState = targetGossipState
 
-  var nextExchangeTransitionConfTime: Moment
+  var nextExchangeTransitionConfTime = Moment.now + chronos.seconds(60)
   proc onSecond(time: Moment) =
+    let wallSlot = getBeaconTime().slotOrZero()
+
     # engine_exchangeTransitionConfigurationV1
     if time > nextExchangeTransitionConfTime and eth1Monitor != nil:
-      nextExchangeTransitionConfTime = time + chronos.minutes(1)
-      traceAsyncErrors eth1Monitor.exchangeTransitionConfiguration()
+      nextExchangeTransitionConfTime = time + chronos.seconds(45)
+      if wallSlot.epoch >= cfg.BELLATRIX_FORK_EPOCH:
+        traceAsyncErrors eth1Monitor.exchangeTransitionConfiguration()
 
-    let wallSlot = getBeaconTime().slotOrZero()
     if checkIfShouldStopAtEpoch(wallSlot, config.stopAtEpoch):
       quit(0)
 
