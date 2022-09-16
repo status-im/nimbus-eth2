@@ -597,6 +597,14 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
       terminalBlockHash = executionCfg.terminalBlockHash,
       terminalBlockNumber = executionCfg.terminalBlockNumber.uint64
 
+  if executionCfg.terminalBlockHash == default BlockHash:
+    # If TERMINAL_BLOCK_HASH is stubbed with
+    # 0x0000000000000000000000000000000000000000000000000000000000000000 then
+    # TERMINAL_BLOCK_HASH and TERMINAL_BLOCK_NUMBER parameters MUST NOT take
+    # an effect.
+    trace "Engine API using stub hash"
+    return EtcStatus.match
+
   if p.terminalBlockNumber.isSome and p.terminalBlockHash.isSome:
     var res = EtcStatus.match
 
@@ -612,13 +620,6 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
       res = EtcStatus.mismatch
     return res
   else:
-    if executionCfg.terminalBlockHash == default BlockHash:
-      # If TERMINAL_BLOCK_HASH is stubbed with
-      # 0x0000000000000000000000000000000000000000000000000000000000000000 then
-      # TERMINAL_BLOCK_HASH and TERMINAL_BLOCK_NUMBER parameters MUST NOT take
-      # an effect.
-      return EtcStatus.match
-
     p.terminalBlockNumber = some executionCfg.terminalBlockNumber
     p.terminalBlockHash = some executionCfg.terminalBlockHash
     return EtcStatus.localConfigurationUpdated
