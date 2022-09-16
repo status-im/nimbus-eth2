@@ -674,7 +674,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
                               state: ForkedHashedBeaconState,
                               cache: var StateCache): seq[Attestation] =
   withState(state):
-    pool.getAttestationsForBlock(state, cache)
+    pool.getAttestationsForBlock(forkyState, cache)
 
 func bestValidation(aggregates: openArray[Validation]): (int, int) =
   # Look for best validation based on number of votes in the aggregate

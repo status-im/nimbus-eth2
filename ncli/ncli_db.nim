@@ -309,20 +309,20 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               case stateFork
               of BeaconStateFork.Phase0:
                 doAssert dbBenchmark.getState(
-                  state.root, loadedState[0][].data, noRollback)
+                  forkyState.root, loadedState[0][].data, noRollback)
               of BeaconStateFork.Altair:
                 doAssert dbBenchmark.getState(
-                  state.root, loadedState[1][].data, noRollback)
+                  forkyState.root, loadedState[1][].data, noRollback)
               of BeaconStateFork.Bellatrix:
                 doAssert dbBenchmark.getState(
-                  state.root, loadedState[2][].data, noRollback)
+                  forkyState.root, loadedState[2][].data, noRollback)
 
-            if state.data.slot.epoch mod 16 == 0:
+            if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case stateFork
                 of BeaconStateFork.Phase0:    hash_tree_root(loadedState[0][].data)
                 of BeaconStateFork.Altair:    hash_tree_root(loadedState[1][].data)
                 of BeaconStateFork.Bellatrix: hash_tree_root(loadedState[2][].data)
-              doAssert hash_tree_root(state.data) == loadedRoot
+              doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])
   processBlocks(blocks[1])
@@ -366,7 +366,7 @@ proc cmdPutState(conf: DbConf, cfg: RuntimeConfig) =
     let state = newClone(readSszForkedHashedBeaconState(
         cfg, readAllBytes(file).tryGet()))
     withState(state[]):
-      db.putState(state)
+      db.putState(forkyState)
 
 proc cmdDumpBlock(conf: DbConf) =
   let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
@@ -432,7 +432,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
       tmpState[], dag.atSlot(bid, Slot(conf.slot)).expect("block found")) do:
     echo "Writing state..."
     withState(state):
-      dump("./", state)
+      dump("./", forkyState)
   do: raiseAssert "withUpdatedState failed"
 
 func atCanonicalSlot(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
@@ -494,7 +494,8 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
     let
       eraRoot = withState(dag.headState):
         eraRoot(
-          state.data.genesis_validators_root, state.data.historical_roots.asSeq,
+          forkyState.data.genesis_validators_root,
+          forkyState.data.historical_roots.asSeq,
           era).expect("have era root since we checked slot")
       name = eraFileName(cfg, era, eraRoot)
 
@@ -517,7 +518,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
       withTimer(timers[tState]):
         dag.withUpdatedState(tmpState[], eraBid) do:
           withState(state):
-            group.finish(e2, state.data).get()
+            group.finish(e2, forkyState.data).get()
         do: raiseAssert "withUpdatedState failed"
 
     era += 1
@@ -759,7 +760,7 @@ proc createInsertValidatorProc(db: SqStoreRef): auto =
 
 proc collectBalances(balances: var seq[uint64], forkedState: ForkedHashedBeaconState) =
   withState(forkedState):
-    balances = seq[uint64](state.data.balances.data)
+    balances = seq[uint64](forkyState.data.balances.data)
 
 proc calculateDelta(info: RewardsAndPenalties): int64 =
   info.source_outcome +
@@ -823,7 +824,7 @@ proc insertValidators(db: SqStoreRef, state: ForkedHashedBeaconState,
     db.inTransaction("DB"):
       for i in startIndex ..< endIndex:
         insertValidator.exec(
-          (i, state.data.validators[i].pubkey.toRaw)).expect("DB")
+          (i, forkyState.data.validators[i].pubkey.toRaw)).expect("DB")
 
 proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   # Create a database with performance information for every epoch
@@ -925,15 +926,16 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
     withState(tmpState[]):
       withEpochInfo(forkedInfo):
-        doAssert state.data.balances.len == info.validators.len
-        doAssert state.data.balances.len == previousEpochBalances.len
-        doAssert state.data.balances.len == rewardsAndPenalties.len
+        doAssert forkyState.data.balances.len == info.validators.len
+        doAssert forkyState.data.balances.len == previousEpochBalances.len
+        doAssert forkyState.data.balances.len == rewardsAndPenalties.len
 
         for index, validator in info.validators:
           template rp: untyped = rewardsAndPenalties[index]
 
-          checkBalance(index, validator, state.data.balances.item(index).int64,
-                       previousEpochBalances[index].int64, rp)
+          checkBalance(
+            index, validator, forkyState.data.balances.item(index).int64,
+            previousEpochBalances[index].int64, rp)
 
           when infoFork == EpochInfoFork.Phase0:
             rp.inclusion_delay = block:
@@ -970,7 +972,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
 
       if nextSlot.is_epoch:
         withState(tmpState[]):
-          var stateData = newClone(state.data)
+          var stateData = newClone(forkyState.data)
           rewardsAndPenalties.collectEpochRewardsAndPenalties(
             stateData[], cache, cfg, flags)
 
