@@ -484,35 +484,6 @@ proc newExecutionPayload*(
 from ../consensus_object_pools/blockchain_dag import
   getBlockRef, loadExecutionBlockRoot, markBlockInvalid
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#helpers
-proc is_optimistic_candidate_block(
-    self: BlockProcessor, blck: ForkedSignedBeaconBlock): bool =
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/sync/optimistic.md#when-to-optimistically-import-blocks
-  # The current slot (as per the system clock) is at least
-  # `SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY` ahead of the slot of the block being
-  # imported.
-  if  blck.slot + self.safeSlotsToImportOptimistically <=
-      self.getBeaconTime().slotOrZero:
-    return true
-
-  # Once merge is finalized, always true; in principle, should be caught by
-  # other checks, but sometimes blocks arrive out of order, triggering some
-  # spurious false negatives because the parent-block-check does not find a
-  # parent block. This can also occur under conditions where EL client RPCs
-  # cause processing delays. Either way, bound this risk to post-merge head
-  # and pre-merge finalization.
-  if not self.consensusManager.dag.loadExecutionBlockRoot(
-      self.consensusManager.dag.finalizedHead.blck).isZero:
-    return true
-
-  let
-    parentRoot = withBlck(blck): blck.message.parent_root
-    parentBlck = self.consensusManager.dag.getBlockRef(parentRoot).valueOr:
-      return false
-
-  # The parent of the block has execution enabled.
-  not self.consensusManager.dag.loadExecutionBlockRoot(parentBlck).isZero
-
 proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
   while true:
     # Cooperative concurrency: one block per loop iteration - because
@@ -594,14 +565,6 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       if not blck.resfut.isNil:
         blck.resfut.complete(Result[void, BlockError].err(BlockError.Invalid))
     else:
-      if  executionPayloadStatus == PayloadExecutionStatus.valid or
-          self[].is_optimistic_candidate_block(blck.blck):
-        self[].processBlock(
-          blck,
-          payloadValid = executionPayloadStatus == PayloadExecutionStatus.valid)
-      else:
-        debug "runQueueProcessingLoop: block cannot be optimistically imported",
-          blck = shortLog(blck.blck)
-        if not blck.resfut.isNil:
-          blck.resfut.complete(
-            Result[void, BlockError].err(BlockError.MissingParent))
+      self[].processBlock(
+        blck,
+        payloadValid = executionPayloadStatus == PayloadExecutionStatus.valid)
