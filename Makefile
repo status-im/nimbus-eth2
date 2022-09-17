@@ -175,6 +175,12 @@ restapi-test:
 		--resttest-delay 30 \
 		--kill-old-processes
 
+ifneq ($(shell uname -p), arm64)
+	TESTNET_EXTRA_FLAGS := --run-geth --dl-geth
+else
+	TESTNET_EXTRA_FLAGS :=
+endif
+
 local-testnet-minimal:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
@@ -194,8 +200,7 @@ local-testnet-minimal:
 		--el-port-offset 5 \
 		--timeout 600 \
 		--kill-old-processes \
-		--run-geth \
-		--dl-geth \
+		$$(( TESTNET_EXTRA_FLAGS )) \
 		-- \
 		--verify-finalization \
 		--discv5:no
@@ -218,8 +223,7 @@ local-testnet-mainnet:
 		--el-port-offset 5 \
 		--timeout 2400 \
 		--kill-old-processes \
-		--run-geth \
-		--dl-geth \
+		$$(( TESTNET_EXTRA_FLAGS )) \
 		-- \
 		--verify-finalization \
 		--discv5:no
