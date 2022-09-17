@@ -2387,6 +2387,8 @@ proc decodeBytes*[T: DecodeTypes](
     if contentType.isNone():
       ApplicationJsonMediaType
     else:
+      if isWildCard(contentType.get().mediaType):
+        return err("Incorrect Content-Type")
       contentType.get().mediaType
 
   if mediaType == ApplicationJsonMediaType:
@@ -2409,12 +2411,11 @@ proc decodeBytes*[T: SszDecodeTypes](
        updateRoot = true
      ): RestResult[T] =
 
-  let mediaType =
-    if contentType.isNone():
-      OctetStreamMediaType
-    else:
-      contentType.get().mediaType
+  if contentType.isNone() or
+     isWildCard(contentType.get().mediaType):
+    return err("Missing or incorrect Content-Type")
 
+  let mediaType = contentType.get().mediaType
   if mediaType == OctetStreamMediaType:
     try:
       var v: RestResult[T]
