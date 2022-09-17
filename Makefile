@@ -200,7 +200,7 @@ local-testnet-minimal:
 		--el-port-offset 5 \
 		--timeout 600 \
 		--kill-old-processes \
-		$$(( TESTNET_EXTRA_FLAGS )) \
+		$(TESTNET_EXTRA_FLAGS) \
 		-- \
 		--verify-finalization \
 		--discv5:no
@@ -223,7 +223,7 @@ local-testnet-mainnet:
 		--el-port-offset 5 \
 		--timeout 2400 \
 		--kill-old-processes \
-		$$(( TESTNET_EXTRA_FLAGS )) \
+		$(TESTNET_EXTRA_FLAGS) \
 		-- \
 		--verify-finalization \
 		--discv5:no
