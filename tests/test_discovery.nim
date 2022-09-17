@@ -71,10 +71,10 @@ procSuite "Eth2 specific discovery tests":
     await node2.closeWait()
 
   asyncTest "Invalid attnets field":
-    var invalidAttnets: BitArray[ATTESTATION_SUBNET_COUNT div 2]
+    var invalidAttnets: BitArray[ATTESTATION_SUBNET_COUNT.int div 2]
     invalidAttnets.setBit(15)
     # TODO: This doesn't fail actually.
-    # var invalidAttnets2: BitArray[ATTESTATION_SUBNET_COUNT * 2]
+    # var invalidAttnets2: BitArray[ATTESTATION_SUBNET_COUNT.int * 2]
     # invalidAttnets2.setBit(15)
     var attnets: AttnetBits
     attnets.setBit(15)
