@@ -1,6 +1,7 @@
 import
   std/tables,
   stew/results,
+  chronicles,
   web3/ethtypes,
   ../datatypes/base
 
@@ -15,10 +16,12 @@ type
 func init*(T: type DynamicFeeRecipientsStore): T =
   T(mappings: initTable[ValidatorIndex, Entry]())
 
-func addMapping*(store: var DynamicFeeRecipientsStore,
+proc addMapping*(store: var DynamicFeeRecipientsStore,
                  validator: ValidatorIndex,
                  feeRecipient: Eth1Address,
                  currentEpoch: Epoch) =
+  info "Updating fee recipient",
+    validator, feeRecipient = feeRecipient.toHex(), currentEpoch
   store.mappings[validator] = Entry(recipient: feeRecipient,
                                     addedAt: currentEpoch)
 

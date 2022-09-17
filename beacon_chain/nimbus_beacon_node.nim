@@ -293,7 +293,7 @@ proc initFullNode(
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.eth1Monitor,
       ActionTracker.init(rng, config.subscribeAllSubnets),
-      node.dynamicFeeRecipientsStore, node.keymanagerHost,
+      node.dynamicFeeRecipientsStore, config.validatorsDir,
       config.defaultFeeRecipient)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
@@ -358,8 +358,6 @@ proc initFullNode(
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.router = router
-
-  debug "Loading validators", validatorsDir = config.validatorsDir()
 
   node.addValidators()
 
@@ -1830,7 +1828,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
   # the db.
-
   var metadata = config.loadEth2Network()
 
   if config.terminalTotalDifficultyOverride.isSome:

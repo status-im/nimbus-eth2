@@ -14,6 +14,8 @@ import
   std/[macros, strutils, parseutils, tables],
   stew/[byteutils], stint, web3/[ethtypes]
 
+export stint, ethtypes.toHex
+
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0

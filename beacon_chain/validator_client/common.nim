@@ -413,11 +413,15 @@ proc removeDoppelganger*(vc: ValidatorClientRef, index: ValidatorIndex) =
     discard vc.doppelgangerDetection.validators.pop(index, state)
 
 proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
-  let slot = vc.currentSlot()
+  let
+    slot = vc.currentSlot()
+    feeRecipient = vc.config.validatorsDir.getSuggestedFeeRecipient(
+      keystore.pubkey, vc.config.defaultFeeRecipient).valueOr(
+        vc.config.defaultFeeRecipient)
   case keystore.kind
   of KeystoreKind.Local:
     vc.attachedValidators[].addLocalValidator(keystore, Opt.none ValidatorIndex,
-                                              slot)
+                                              feeRecipient, slot)
   of KeystoreKind.Remote:
     let
       httpFlags =
@@ -442,7 +446,8 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
           res
     if len(clients) > 0:
       vc.attachedValidators[].addRemoteValidator(keystore, clients,
-                                                 Opt.none ValidatorIndex, slot)
+                                                 Opt.none ValidatorIndex,
+                                                 feeRecipient, slot)
     else:
       warn "Unable to initialize remote validator",
            validator = $keystore.pubkey

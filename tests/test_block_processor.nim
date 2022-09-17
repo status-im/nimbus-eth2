@@ -45,7 +45,7 @@ suite "Block processor" & preset():
       keymanagerHost: ref KeymanagerHost
       consensusManager = ConsensusManager.new(
         dag, attestationPool, quarantine, eth1Monitor, actionTracker,
-        newClone(DynamicFeeRecipientsStore.init()), keymanagerHost,
+        newClone(DynamicFeeRecipientsStore.init()), "",
         default(Eth1Address))
       state = newClone(dag.headState)
       cache = StateCache()
