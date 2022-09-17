@@ -43,6 +43,7 @@ pipeline {
   stages {
     stage('Deps') {
       steps { timeout(20) {
+        sh 'uname -p'
         /* To allow the following parallel stages. */
         sh 'make QUICK_AND_DIRTY_COMPILER=1 update'
         /* Allow the following parallel stages. */
