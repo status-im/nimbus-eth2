@@ -177,7 +177,7 @@ restapi-test:
 		--resttest-delay 30 \
 		--kill-old-processes
 
-ifneq ($(shell uname -p), arm64)
+ifneq ($(shell uname -p), arm)
 TESTNET_EXTRA_FLAGS := --run-geth --dl-geth
 else
 TESTNET_EXTRA_FLAGS :=
