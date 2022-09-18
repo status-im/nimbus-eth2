@@ -96,7 +96,9 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	dist-win64 \
 	dist-macos \
 	dist-macos-arm64 \
-	dist
+	dist \
+	local-testnet-minimal \
+	local-testnet-mainnet
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
@@ -175,6 +177,12 @@ restapi-test:
 		--resttest-delay 30 \
 		--kill-old-processes
 
+ifneq ($(shell uname -p), arm)
+TESTNET_EXTRA_FLAGS := --run-geth --dl-geth
+else
+TESTNET_EXTRA_FLAGS :=
+endif
+
 local-testnet-minimal:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
@@ -194,6 +202,7 @@ local-testnet-minimal:
 		--el-port-offset 5 \
 		--timeout 600 \
 		--kill-old-processes \
+		$(TESTNET_EXTRA_FLAGS) \
 		-- \
 		--verify-finalization \
 		--discv5:no
@@ -216,6 +225,7 @@ local-testnet-mainnet:
 		--el-port-offset 5 \
 		--timeout 2400 \
 		--kill-old-processes \
+		$(TESTNET_EXTRA_FLAGS) \
 		-- \
 		--verify-finalization \
 		--discv5:no
@@ -347,7 +357,7 @@ GOERLI_TESTNETS_PARAMS := \
 	--metrics \
 	--metrics-port=$$(( $(BASE_METRICS_PORT) + $(NODE_ID) )) \
 	--rest \
-	--rest-port=$$(( $(BASE_REST_PORT) +$(NODE_ID) ))
+	--rest-port=$$(( $(BASE_REST_PORT) + $(NODE_ID) ))
 
 eth2_network_simulation: | build deps clean_eth2_network_simulation_all
 	+ GIT_ROOT="$$PWD" NIMFLAGS="$(NIMFLAGS)" LOG_LEVEL="$(LOG_LEVEL)" tests/simulation/start-in-tmux.sh
@@ -412,7 +422,7 @@ define CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT
 		--log-level="$(RUNTIME_LOG_LEVEL)" \
 		--log-file=build/data/shared_$(1)_$(NODE_ID)/nbc_vc_$$(date +"%Y%m%d%H%M%S").log \
 		--data-dir=build/data/shared_$(1)_$(NODE_ID) \
-		--rest-port=$$(( $(BASE_REST_PORT) +$(NODE_ID) ))
+		--rest-port=$$(( $(BASE_REST_PORT) + $(NODE_ID) ))
 endef
 
 define CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT
