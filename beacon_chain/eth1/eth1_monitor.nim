@@ -1322,7 +1322,7 @@ func init(T: type FullBlockId, blk: Eth1BlockHeader|BlockObject): T =
   FullBlockId(number: Eth1BlockNumber blk.number, hash: blk.hash)
 
 func isNewLastBlock(m: Eth1Monitor, blk: Eth1BlockHeader|BlockObject): bool =
-  blk.number.uint64 > m.latestEth1BlockNumber
+  m.latestEth1Block.isNone or blk.number.uint64 > m.latestEth1BlockNumber
 
 proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   if m.state == Started:
@@ -1461,6 +1461,11 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
     debug "Starting Eth1 syncing", `from` = shortLog(m.depositsChain.blocks[^1])
 
+  let shouldCheckForMergeTransition = block:
+    const FAR_FUTURE_TOTAL_DIFFICULTY =
+      u256"115792089237316195423570985008687907853269984665640564039457584007913129638912"
+    m.cfg.TERMINAL_TOTAL_DIFFICULTY != FAR_FUTURE_TOTAL_DIFFICULTY
+
   var didPollOnce = false
   while true:
     if bnStatus == BeaconNodeStatus.Stopping:
@@ -1508,7 +1513,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     #      we should try to fetch that block from the EL - this facility is not
     #      in use on any current network, but should be implemented for full
     #      compliance
-    if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH and m.terminalBlockHash.isNone:
+    if m.terminalBlockHash.isNone and shouldCheckForMergeTransition:
       var terminalBlockCandidate = nextBlock
 
       debug "startEth1Syncing: checking for merge terminal block",
