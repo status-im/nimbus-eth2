@@ -259,7 +259,7 @@ proc createAndSendAttestation(node: BeaconNode,
           fork, genesis_validators_root, data)
         if res.isErr():
           warn "Unable to sign attestation", validator = shortLog(validator),
-                data = shortLog(data), error_msg = res.error()
+                attestatingData = shortLog(data), error_msg = res.error()
           return
         res.get()
       attestation =
@@ -619,14 +619,16 @@ proc getBlindedBeaconBlock[T](
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
     blockRoot = hash_tree_root(blindedBlock.message)
-    signing_root = compute_block_signing_root(
+    signingRoot = compute_block_signing_root(
       fork, genesis_validators_root, slot, blockRoot)
     notSlashable = node.attachedValidators
       .slashingProtection
-      .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+      .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
 
   if notSlashable.isErr:
     warn "Slashing protection activated for MEV block",
+      blockRoot = shortLog(blockRoot), blck = shortLog(blindedBlock),
+      signingRoot = shortLog(signingRoot),
       validator = validator.pubkey,
       slot = slot,
       existingProposal = notSlashable.error
@@ -832,15 +834,17 @@ proc proposeBlock(node: BeaconNode,
   withBlck(forkedBlck):
     let
       blockRoot = hash_tree_root(blck)
-      signing_root = compute_block_signing_root(
+      signingRoot = compute_block_signing_root(
         fork, genesis_validators_root, slot, blockRoot)
 
       notSlashable = node.attachedValidators
         .slashingProtection
-        .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+        .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
 
     if notSlashable.isErr:
-      warn "Slashing protection activated",
+      warn "Slashing protection activated for block proposal",
+        blockRoot = shortLog(blockRoot), blck = shortLog(blck),
+        signingRoot = shortLog(signingRoot),
         validator = validator.pubkey,
         slot = slot,
         existingProposal = notSlashable.error
@@ -947,7 +951,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       let
         data = makeAttestationData(epochRef, attestationHead, committee_index)
         # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
-        signing_root = compute_attestation_signing_root(
+        signingRoot = compute_attestation_signing_root(
           fork, genesis_validators_root, data)
         registered = node.attachedValidators
           .slashingProtection
@@ -956,7 +960,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
             validator.pubkey,
             data.source.epoch,
             data.target.epoch,
-            signing_root)
+            signingRoot)
       if registered.isOk():
         let subnet_id = compute_subnet_for_attestation(
           committees_per_slot, data.slot, committee_index)
@@ -965,7 +969,10 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           committee.len(), index_in_committee, subnet_id)
       else:
         warn "Slashing protection activated for attestation",
-          validator = validator.pubkey,
+          attestationData = shortLog(data),
+          signingRoot = shortLog(signingRoot),
+          validator_index,
+          validator = shortLog(validator),
           badVoteDetails = $registered.error()
 
 proc createAndSendSyncCommitteeMessage(node: BeaconNode,
