@@ -103,8 +103,12 @@ when const_preset == "mainnet":
   # TODO Move this to RuntimeConfig
   const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 12
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/configs/mainnet.yaml
-  # TODO Read these from yaml file
+  # The default run-time config specifies the default configuration values
+  # that will be used if a particular run-time config is missing specific
+  # confugration values (which will be then taken from this config object).
+  # It mostly matches the mainnet config with the exception of few properties
+  # such as `CONFIG_NAME`, `TERMINAL_TOTAL_DIFFICULTY`, `*_FORK_EPOCH`, etc
+  # which must be effectively overriden in all network (including mainnet).
   const defaultRuntimeConfig* = RuntimeConfig(
     # Mainnet config
 
@@ -118,7 +122,7 @@ when const_preset == "mainnet":
     # * 'ropsten' - testnet
     # * 'sepolia' - testnet
     # Must match the regex: [a-z0-9\-]
-    CONFIG_NAME: "mainnet",
+    CONFIG_NAME: "",
 
     # Transition
     # ---------------------------------------------------------------
@@ -129,8 +133,6 @@ when const_preset == "mainnet":
     TERMINAL_BLOCK_HASH: BlockHash.fromHex(
       "0x0000000000000000000000000000000000000000000000000000000000000000"),
     # TODO TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH: Epoch(uint64.high),
-
-
 
     # Genesis
     # ---------------------------------------------------------------
@@ -143,7 +145,6 @@ when const_preset == "mainnet":
     # 604800 seconds (7 days)
     GENESIS_DELAY: 604800,
 
-
     # Forking
     # ---------------------------------------------------------------
     # Some forks are disabled for now:
@@ -152,17 +153,16 @@ when const_preset == "mainnet":
 
     # Altair
     ALTAIR_FORK_VERSION: Version [byte 0x01, 0x00, 0x00, 0x00],
-    ALTAIR_FORK_EPOCH: Epoch(74240), # Oct 27, 2021, 10:56:23am UTC
+    ALTAIR_FORK_EPOCH: FAR_FUTURE_EPOCH,
     # Bellatrix
     BELLATRIX_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x00],
-    BELLATRIX_FORK_EPOCH: Epoch(uint64.high),
+    BELLATRIX_FORK_EPOCH: FAR_FUTURE_EPOCH,
     # Capella
     CAPELLA_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x00],
-    CAPELLA_FORK_EPOCH: Epoch(uint64.high),
+    CAPELLA_FORK_EPOCH: FAR_FUTURE_EPOCH,
     # Sharding
     SHARDING_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x00],
-    SHARDING_FORK_EPOCH: Epoch(uint64.high),
-
+    SHARDING_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------

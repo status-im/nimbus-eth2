@@ -434,10 +434,14 @@ proc cacheLightClientData(
   if dag.lcDataStore.cache.data.hasKeyOrPut(bid, cachedData):
     doAssert false, "Redundant `cacheLightClientData` call"
 
+func shouldImportLcData(dag: ChainDAGref): bool =
+  dag.lcDataStore.importMode != LightClientDataImportMode.None and
+  dag.cfg.ALTAIR_FORK_EPOCH != FAR_FUTURE_EPOCH
+
 proc deleteLightClientData*(dag: ChainDAGRef, bid: BlockId) =
   ## Delete cached light client data for a given block. This needs to be called
   ## when a block becomes unreachable due to finalization of a different fork.
-  if dag.lcDataStore.importMode == LightClientDataImportMode.None:
+  if not dag.shouldImportLcData:
     return
 
   dag.lcDataStore.cache.data.del bid
@@ -604,7 +608,7 @@ proc createLightClientUpdates(
 
 proc initLightClientDataCache*(dag: ChainDAGRef) =
   ## Initialize cached light client data
-  if dag.lcDataStore.importMode == LightClientDataImportMode.None:
+  if not dag.shouldImportLcData:
     return
 
   # Prune non-finalized data
@@ -709,7 +713,7 @@ proc processNewBlockForLightClient*(
     signedBlock: ForkyTrustedSignedBeaconBlock,
     parentBid: BlockId) =
   ## Update light client data with information from a new block.
-  if dag.lcDataStore.importMode == LightClientDataImportMode.None:
+  if not dag.shouldImportLcData:
     return
   if signedBlock.message.slot < dag.lcDataStore.cache.tailSlot:
     return
@@ -731,7 +735,7 @@ proc processNewBlockForLightClient*(
 proc processHeadChangeForLightClient*(dag: ChainDAGRef) =
   ## Update light client data to account for a new head block.
   ## Note that `dag.finalizedHead` is not yet updated when this is called.
-  if dag.lcDataStore.importMode == LightClientDataImportMode.None:
+  if not dag.shouldImportLcData:
     return
   if dag.head.slot < dag.lcDataStore.cache.tailSlot:
     return
@@ -766,7 +770,7 @@ proc processFinalizationForLightClient*(
   ## Prune cached data that is no longer useful for creating future
   ## `LightClientUpdate` and `LightClientBootstrap` instances.
   ## This needs to be called whenever `finalized_checkpoint` changes.
-  if dag.lcDataStore.importMode == LightClientDataImportMode.None:
+  if not dag.shouldImportLcData:
     return
   let finalizedSlot = dag.finalizedHead.slot
   if finalizedSlot < dag.lcDataStore.cache.tailSlot:
