@@ -1987,7 +1987,8 @@ proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOErr
 
   var spdir: SPDIR
   try:
-    spdir = Json.loadFile(interchange, SPDIR)
+    spdir = Json.loadFile(interchange, SPDIR,
+                          requireAllFields = true)
   except SerializationError as err:
     writeStackTrace()
     stderr.write $Json & " load issue for file \"", interchange, "\"\n"

@@ -2034,100 +2034,23 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ScryptParams) {.
 
 ## Keystore
 proc writeValue*(writer: var JsonWriter[RestJson], value: Keystore) {.
-     raises: [IOError, Defect].} =
-  writer.beginRecord()
-  writer.writeField("crypto", value.crypto)
-  if value.description.isSome:
-    writer.writeField("description", value.description.get)
-  writer.writeField("pubkey", value.pubkey)
-  writer.writeField("path", string(value.path))
-  writer.writeField("uuid", value.uuid)
-  writer.writeField("version", JsonString(
-    Base10.toString(uint64(value.version))))
-  writer.endRecord()
+     error: "keystores must be converted to json with Json.encode(keystore). " &
+            "There is no REST-specific encoding" .}
 
 proc readValue*(reader: var JsonReader[RestJson], value: var Keystore) {.
-     raises: [SerializationError, IOError, Defect].} =
-  var
-    crypto: Option[Crypto]
-    description: Option[string]
-    pubkey: Option[ValidatorPubKey]
-    path: Option[KeyPath]
-    uuid: Option[string]
-    version: Option[int]
-
-  for fieldName in readObjectFields(reader):
-    case fieldName
-    of "crypto":
-      if crypto.isSome():
-        reader.raiseUnexpectedField("Multiple `crypto` fields found",
-                                    "Keystore")
-      crypto = some(reader.readValue(Crypto))
-    of "description":
-      let res = reader.readValue(string)
-      if description.isSome():
-        description = some(description.get() & "\n" & res)
-      else:
-        description = some(res)
-    of "pubkey":
-      if pubkey.isSome():
-        reader.raiseUnexpectedField("Multiple `pubkey` fields found",
-                                    "Keystore")
-      pubkey = some(reader.readValue(ValidatorPubKey))
-    of "path":
-      if path.isSome():
-        reader.raiseUnexpectedField("Multiple `path` fields found",
-                                    "Keystore")
-      let res = validateKeyPath(reader.readValue(string))
-      if res.isErr():
-        reader.raiseUnexpectedValue("Invalid `path` value")
-      path = some(res.get())
-    of "uuid":
-      if uuid.isSome():
-        reader.raiseUnexpectedField("Multiple `uuid` fields found",
-                                    "Keystore")
-      uuid = some(reader.readValue(string))
-    of "version":
-      if version.isSome():
-        reader.raiseUnexpectedField("Multiple `version` fields found",
-                                    "Keystore")
-      let res = reader.readValue(int)
-      if res < 0:
-        reader.raiseUnexpectedValue("Unexpected negative `version` value")
-      version = some(res)
-    else:
-      unrecognizedFieldWarning()
-
-  if crypto.isNone():
-    reader.raiseUnexpectedValue("Field `crypto` is missing")
-  if pubkey.isNone():
-    reader.raiseUnexpectedValue("Field `pubkey` is missing")
-  if path.isNone():
-    reader.raiseUnexpectedValue("Field `path` is missing")
-  if uuid.isNone():
-    reader.raiseUnexpectedValue("Field `uuid` is missing")
-  if version.isNone():
-    reader.raiseUnexpectedValue("Field `version` is missing")
-
-  value = Keystore(
-    crypto: crypto.get(),
-    pubkey: pubkey.get(),
-    path: path.get(),
-    uuid: uuid.get(),
-    description: description,
-    version: version.get(),
-  )
+     error: "Keystores must be loaded with `parseKeystore`. " &
+            "There is no REST-specific encoding".}
 
 ## KeystoresAndSlashingProtection
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: KeystoresAndSlashingProtection) {.
-     raises: [IOError, Defect].} =
+     raises: [IOError, SerializationError, Defect].} =
   writer.beginRecord()
   let keystores =
     block:
       var res: seq[string]
       for keystore in value.keystores:
-        let encoded = RestJson.encode(keystore)
+        let encoded = Json.encode(keystore)
         res.add(encoded)
       res
   writer.writeField("keystores", keystores)
@@ -2171,10 +2094,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       for item in strKeystores:
         let key =
           try:
-            RestJson.decode(item,
-                            Keystore,
-                            requireAllFields = true,
-                            allowUnknownFields = true)
+            parseKeystore(item)
           except SerializationError as exc:
             # TODO re-raise the exception by adjusting the column index, so the user
             # will get an accurate syntax error within the larger message
@@ -2247,7 +2167,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                            active: active.get())
 
 proc dump*(value: KeystoresAndSlashingProtection): string {.
-     raises: [IOError, Defect].} =
+     raises: [IOError, SerializationError, Defect].} =
   var stream = memoryOutput()
   var writer = JsonWriter[RestJson].init(stream)
   writer.writeValue(value)
