@@ -1023,8 +1023,7 @@ func proposer_dependent_root*(state: ForkyHashedBeaconState): Eth2Digest =
   state.dependent_root(state.data.slot.epoch)
 
 func attester_dependent_root*(state: ForkyHashedBeaconState): Eth2Digest =
-  let epoch = state.data.slot.epoch
-  state.dependent_root(if epoch == Epoch(0): epoch else: epoch - 1)
+  state.dependent_root(state.data.slot.epoch.get_previous_epoch)
 
 func latest_block_id*(state: ForkyHashedBeaconState): BlockId =
   ## Block id of the latest block applied to this state

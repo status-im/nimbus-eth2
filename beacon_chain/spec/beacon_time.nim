@@ -50,9 +50,6 @@ const
   INTERVALS_PER_SLOT* = 3
 
   FAR_FUTURE_BEACON_TIME* = BeaconTime(ns_since_genesis: int64.high())
-  FAR_FUTURE_SLOT* = Slot(not 0'u64)
-  # FAR_FUTURE_EPOCH* = Epoch(not 0'u64) # in presets
-  FAR_FUTURE_PERIOD* = SyncCommitteePeriod(not 0'u64)
 
   NANOSECONDS_PER_SLOT = SECONDS_PER_SLOT * 1_000_000_000'u64
 

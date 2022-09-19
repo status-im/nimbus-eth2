@@ -105,20 +105,29 @@ proc signData*(client: RestClientRef, identifier: ValidatorPubKey,
     case response.status
     of 200:
       inc(nbc_remote_signer_200_responses)
-      let sig = if response.contentType.contains("text/plain"):
-        let asStr = fromBytes(string, response.data)
-        let sigFromText = fromHex(ValidatorSig, asStr)
-        if sigFromText.isErr:
-          return Web3SignerDataResponse.err("Unable to decode signature from plain text")
-        sigFromText.get.load
-      else:
-        let res = decodeBytes(Web3SignerSignatureResponse, response.data,
-                              response.contentType)
-        if res.isErr:
-          let msg = "Unable to decode remote signer response [" & $res.error() & "]"
-          inc(nbc_remote_signer_failures)
-          return Web3SignerDataResponse.err(msg)
-        res.get.signature.load
+      let sig =
+        if response.contentType.isNone() or
+           isWildCard(response.contentType.get().mediaType):
+          return Web3SignerDataResponse.err(
+            "Unable to decode signature from missing or incorrect content")
+        else:
+          let mediaType = response.contentType.get().mediaType
+          if mediaType == TextPlainMediaType:
+            let asStr = fromBytes(string, response.data)
+            let sigFromText = fromHex(ValidatorSig, asStr)
+            if sigFromText.isErr:
+              return Web3SignerDataResponse.err(
+                "Unable to decode signature from plain text")
+            sigFromText.get.load
+          else:
+            let res = decodeBytes(Web3SignerSignatureResponse, response.data,
+                                  response.contentType)
+            if res.isErr:
+              let msg = "Unable to decode remote signer response [" &
+                        $res.error() & "]"
+              inc(nbc_remote_signer_failures)
+              return Web3SignerDataResponse.err(msg)
+            res.get.signature.load
 
       if sig.isNone:
         let msg = "Remote signer returns invalid signature"

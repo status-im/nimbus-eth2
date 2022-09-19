@@ -149,7 +149,7 @@ proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
 
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   let expectedSubnets =
-    min(ATTESTATION_SUBNET_COUNT, tracker.knownValidators.len)
+    min(ATTESTATION_SUBNET_COUNT.int, tracker.knownValidators.len)
 
   let epoch = wallSlot.epoch
   block:

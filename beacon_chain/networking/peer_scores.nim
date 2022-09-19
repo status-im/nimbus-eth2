@@ -44,3 +44,16 @@ const
   PeerScoreUnviableFork* = -200
     ## Peer responded with blocks from an unviable fork - are they on a
     ## different chain?
+
+type
+  SyncResponseKind* {.pure.} = enum
+    Good, Empty
+
+  SyncResponseStats* = array[int(high(SyncResponseKind)) + 1, uint64]
+
+template get*(a: SyncResponseStats, index: SyncResponseKind): uint64 =
+  a[int(index)]
+
+template update*(a: var SyncResponseStats, index: SyncResponseKind,
+                 value: uint64) =
+  a[int(index)] += value

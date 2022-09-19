@@ -125,13 +125,11 @@ iterator realizePendingCheckpoints*(
   if resetTipTracking:
     self.currentEpochTips.clear()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/fork-choice.md#configuration
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
-const PROPOSER_SCORE_BOOST* = 40
-func calculateProposerBoost(validatorBalances: openArray[Gwei]): int64 =
+func calculateProposerBoost(validatorBalances: openArray[Gwei]): uint64 =
   var
     total_balance: uint64
-    num_validators: int64
+    num_validators: uint64
   for balance in validatorBalances:
     # We need to filter zero balances here to get an accurate active validator
     # count. This is because we default inactive validator balances to zero
@@ -142,8 +140,8 @@ func calculateProposerBoost(validatorBalances: openArray[Gwei]): int64 =
   if num_validators == 0:
     return 0
   let
-    average_balance = int64(total_balance div num_validators.uint64)
-    committee_size = num_validators div SLOTS_PER_EPOCH.int64
+    average_balance = total_balance div num_validators.uint64
+    committee_size = num_validators div SLOTS_PER_EPOCH
     committee_weight = committee_size * average_balance
   (committee_weight * PROPOSER_SCORE_BOOST) div 100
 
@@ -188,7 +186,7 @@ func applyScoreChanges*(self: var ProtoArray,
     self.nodes.buf[nodePhysicalIdx]
 
   # Default value, if not otherwise set in first node loop
-  var proposerBoostScore: int64
+  var proposerBoostScore: uint64
 
   # Iterate backwards through all the indices in `self.nodes`
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
@@ -202,11 +200,11 @@ func applyScoreChanges*(self: var ProtoArray,
     if  (not self.previousProposerBoostRoot.isZero) and
         self.previousProposerBoostRoot == node.root:
           if  nodeDelta < 0 and
-              nodeDelta - low(Delta) < self.previousProposerBoostScore:
+              nodeDelta - low(Delta) < self.previousProposerBoostScore.int64:
             return err ForkChoiceError(
                 kind: fcDeltaUnderflow,
                 index: nodePhysicalIdx)
-          nodeDelta -= self.previousProposerBoostScore
+          nodeDelta -= self.previousProposerBoostScore.int64
 
     # If we find the node matching the current proposer boost root, increase
     # the delta by the new score amount.
@@ -215,7 +213,7 @@ func applyScoreChanges*(self: var ProtoArray,
     if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.root:
       proposerBoostScore = calculateProposerBoost(newBalances)
       if  nodeDelta >= 0 and
-          high(Delta) - nodeDelta < self.previousProposerBoostScore:
+          high(Delta) - nodeDelta < proposerBoostScore.int64:
         return err ForkChoiceError(
             kind: fcDeltaOverflow,
             index: nodePhysicalIdx)

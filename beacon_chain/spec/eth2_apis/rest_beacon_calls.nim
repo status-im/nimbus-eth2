@@ -132,27 +132,23 @@ proc getBlock*(client: RestClientRef, block_id: BlockIdent,
   let data =
     case resp.status
     of 200:
-      case resp.contentType
-      of "application/json":
-        let blck =
-          block:
-            let res = decodeBytes(GetBlockResponse, resp.data,
-                                  resp.contentType)
-            if res.isErr():
-              raise newException(RestError, $res.error())
-            res.get()
-        ForkedSignedBeaconBlock.init(blck.data)
-      of "application/octet-stream":
-        let blck =
-          block:
-            let res = decodeBytes(GetPhase0BlockSszResponse, resp.data,
-                                  resp.contentType)
-            if res.isErr():
-              raise newException(RestError, $res.error())
-            res.get()
-        ForkedSignedBeaconBlock.init(blck)
+      if resp.contentType.isNone() or
+         isWildCard(resp.contentType.get().mediaType):
+        raise newException(RestError, "Missing or incorrect Content-Type")
       else:
-        raise newException(RestError, "Unsupported content-type")
+        let mediaType = resp.contentType.get().mediaType
+        if mediaType == ApplicationJsonMediaType:
+          let blck = decodeBytes(GetBlockResponse, resp.data,
+                                 resp.contentType).valueOr:
+            raise newException(RestError, $error)
+          ForkedSignedBeaconBlock.init(blck.data)
+        elif mediaType == OctetStreamMediaType:
+          let blck = decodeBytes(GetPhase0BlockSszResponse, resp.data,
+                                 resp.contentType).valueOr:
+            raise newException(RestError, $error)
+          ForkedSignedBeaconBlock.init(blck)
+        else:
+          raise newException(RestError, "Unsupported Content-Type")
     of 400, 404, 500:
       raiseGenericError(resp)
     else:
@@ -180,35 +176,31 @@ proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
   return
     case resp.status
     of 200:
-      case resp.contentType
-      of "application/json":
-        let blck =
-          block:
-            let res = decodeBytes(GetBlockV2Response, resp.data,
-                                  resp.contentType)
-            if res.isErr():
-              raise newException(RestError, $res.error())
-            newClone(res.get())
-        some blck
-      of "application/octet-stream":
-        try:
-          some newClone(readSszForkedSignedBeaconBlock(cfg, resp.data))
-        except CatchableError as exc:
-          raise newException(RestError, exc.msg)
+      if resp.contentType.isNone() or
+         isWildCard(resp.contentType.get().mediaType):
+        raise newException(RestError, "Missing or incorrect Content-Type")
       else:
-        raise newException(RestError, "Unsupported content-type")
+        let mediaType = resp.contentType.get().mediaType
+        if mediaType == ApplicationJsonMediaType:
+          let blck = decodeBytes(GetBlockV2Response, resp.data,
+                                 resp.contentType).valueOr:
+            raise newException(RestError, $error)
+          some(newClone(blck))
+        elif mediaType == OctetStreamMediaType:
+          try:
+            some newClone(readSszForkedSignedBeaconBlock(cfg, resp.data))
+          except CatchableError as exc:
+            raise newException(RestError, exc.msg)
+        else:
+          raise newException(RestError, "Unsupported Content-Type")
     of 404:
       none(ref ForkedSignedBeaconBlock)
-
     of 400, 500:
-      let error =
-        block:
-          let res = decodeBytes(RestGenericError, resp.data, resp.contentType)
-          if res.isErr():
-            let msg = "Incorrect response error format (" & $resp.status &
-                      ") [" & $res.error() & "]"
-            raise newException(RestError, msg)
-          res.get()
+      let error = decodeBytes(RestGenericError, resp.data,
+                              resp.contentType).valueOr:
+        let msg = "Incorrect response error format (" & $resp.status &
+                  ") [" & $error & "]"
+        raise newException(RestError, msg)
       let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
       raise newException(RestError, msg)
     else:

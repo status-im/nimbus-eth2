@@ -98,7 +98,7 @@ type
     indices*: Table[Eth2Digest, Index]
     currentEpochTips*: Table[Index, FinalityCheckpoints]
     previousProposerBoostRoot*: Eth2Digest
-    previousProposerBoostScore*: int64
+    previousProposerBoostScore*: uint64
 
   ProtoNode* = object
     root*: Eth2Digest

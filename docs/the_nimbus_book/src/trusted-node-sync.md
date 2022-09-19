@@ -21,10 +21,12 @@ It is possibly to use trusted node sync with a third-party API provider -- see [
 !!! tip
     Make sure to replace `http://localhost:5052` in the commands below with the appropriate endpoint of the trusted beacon node. `http://localhost:5052` is the default endpoint exposed by Nimbus, but this is not consistent across all clients.
 
-!!! note ""
-    The path specified for data-dir must be an empty directory
-
     For example, if your trusted node is a [Prysm node](https://docs.prylabs.network/docs/how-prysm-works/ethereum-public-api#performing-requests-against-a-local-prysm-node), it exposes `127.0.0.1:3500` by default. Which means you would run the commands below with `--trusted-node-url=http://127.0.0.1:3500`
+
+!!! note
+    The path specified for `--data-dir` must be an empty directory as trusted node sync needs to be started from a fresh database.
+
+To start trusted node sync, run:
 
 === "Mainnet"
     ```sh
@@ -41,8 +43,22 @@ It is possibly to use trusted node sync with a third-party API provider -- see [
     --trusted-node-url=http://localhost:5052
     ```
 
+If the command was executed succesfully, following log lines will be visible:
+
+```
+Writing checkpoint state
+Writing checkpoint block
+```
+And eventually:
+```
+Done, your beacon node is ready to serve you! Don't forget to check that you're on the canonical chain by comparing the checkpoint root with other online sources. See https://nimbus.guide/trusted-node-sync.html for more information.
+```
+
+After this the application will terminate and you can now [start the `nimbus_beacon_node`](./quick-start.md) with your usual command.
+
 !!! note
     Because trusted node sync by default copies all blocks via REST, you may hit API limits if you are using a third-party provider. If this happens to you, you may need to use the `--backfill` option to [delay the backfill of the block history](./trusted-node-sync.md#delay-block-history-backfill).
+
 
 ## Verify you synced the correct chain
 
@@ -57,10 +73,10 @@ curl http://localhost:5052/eth/v1/beacon/blocks/head/root
 The `head` root is also printed in the log output at regular intervals.
 
 !!! note
-  The same [Beacon API](./rest-api.md) request works with any API provider.
+    The same [Beacon API](./rest-api.md) request works with any API provider.
 
-  For example, to compare it out with our mainnet [testing server](rest-api.md#test-your-tooling-against-our-servers), you can run:
-  `curl -X GET http://testing.mainnet.beacon-api.nimbus.team/eth/v1/beacon/blocks/head/root`
+    For example, to compare it out with our mainnet [testing server](rest-api.md#test-your-tooling-against-our-servers), you can run:
+    `curl -X GET http://testing.mainnet.beacon-api.nimbus.team/eth/v1/beacon/blocks/head/root`
 
 ## Advanced
 
@@ -73,7 +89,7 @@ It is possible to get started more quickly by delaying the backfill of the block
 You can also resume the trusted node backfill at any time by simply running the trusted node sync command again.
 
 !!! note
-  While backfilling blocks, your node will not be able to answer historical requests or sync requests. This might lead to you being de-scored, and eventually disconnected, by your peers.
+    While backfilling blocks, your node will not be able to answer historical requests or sync requests. This might lead to you being de-scored, and eventually disconnected, by your peers.
 
 ### Modify sync point
 
