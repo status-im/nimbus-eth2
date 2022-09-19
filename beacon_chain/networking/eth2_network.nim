@@ -109,6 +109,7 @@ type
     lastMetadataTime*: Moment
     direction*: PeerType
     disconnectedFut: Future[void]
+    statistics*: SyncResponseStats
 
   PeerAddr* = object
     peerId*: PeerId
@@ -366,6 +367,15 @@ func updateScore*(peer: Peer, score: int) {.inline.} =
   peer.score = peer.score + score
   if peer.score > PeerScoreHighLimit:
     peer.score = PeerScoreHighLimit
+
+func updateStats*(peer: Peer, index: SyncResponseKind,
+                  value: uint64) {.inline.} =
+  ## Update peer's ``peer`` specific ``index`` statistics with value ``value``.
+  peer.statistics.update(index, value)
+
+func getStats*(peer: Peer, index: SyncResponseKind): uint64 {.inline.} =
+  ## Returns current statistics value for peer ``peer`` and index ``index``.
+  peer.statistics.get(index)
 
 func calcThroughput(dur: Duration, value: uint64): float =
   let secs = float(chronos.seconds(1).nanoseconds)
