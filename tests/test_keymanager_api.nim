@@ -650,19 +650,19 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
       let
         r1 = decodeBytes(KeystoresAndSlashingProtection,
                          Vector1.toOpenArrayByte(0, len(Vector1) - 1),
-                         "application/json")
+                         Opt.some(getContentType("application/json").get()))
         r2 = decodeBytes(KeystoresAndSlashingProtection,
                          Vector2.toOpenArrayByte(0, len(Vector2) - 1),
-                         "application/json")
+                         Opt.some(getContentType("application/json").get()))
         r3 = decodeBytes(KeystoresAndSlashingProtection,
                          Vector3.toOpenArrayByte(0, len(Vector3) - 1),
-                         "application/json")
+                         Opt.some(getContentType("application/json").get()))
         r4 = decodeBytes(KeystoresAndSlashingProtection,
                          Vector4.toOpenArrayByte(0, len(Vector4) - 1),
-                         "application/json")
+                         Opt.some(getContentType("application/json").get()))
         r5 = decodeBytes(KeystoresAndSlashingProtection,
                          Vector5.toOpenArrayByte(0, len(Vector5) - 1),
-                         "application/json")
+                         Opt.some(getContentType("application/json").get()))
 
       check:
         r1.isOk() == true
