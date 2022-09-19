@@ -1832,8 +1832,8 @@ proc updateHead*(
         # TODO (cheatfate): Proper implementation required
         data = HeadChangeInfoObject.init(dag.head.slot, dag.head.root,
                                          getStateRoot(dag.headState),
-                                         epochTransition, depRoot,
-                                         prevDepRoot)
+                                         epochTransition, prevDepRoot,
+                                         depRoot)
       dag.onHeadChanged(data)
 
   withState(dag.headState):
