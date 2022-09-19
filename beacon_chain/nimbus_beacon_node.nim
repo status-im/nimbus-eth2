@@ -541,8 +541,7 @@ proc init*(T: type BeaconNode,
           getDepositContractSnapshot(),
           eth1Network,
           config.web3ForcePolling,
-          optJwtSecret,
-          config.requireEngineAPI)
+          optJwtSecret)
 
         eth1Monitor.loadPersistedDeposits()
 
@@ -643,8 +642,7 @@ proc init*(T: type BeaconNode,
       getDepositContractSnapshot(),
       eth1Network,
       config.web3ForcePolling,
-      optJwtSecret,
-      config.requireEngineAPI)
+      optJwtSecret)
 
   if config.rpcEnabled:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
@@ -1805,6 +1803,12 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
       bls_backend = $BLS_BACKEND,
       cmdParams = commandLineParams(),
       config
+
+  template ignoreDeprecatedOption(option: untyped): untyped =
+    if config.option.isSome:
+      warn "Config option is deprecated",
+        option = config.option.get
+  ignoreDeprecatedOption requireEngineAPI
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 

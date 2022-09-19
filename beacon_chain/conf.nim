@@ -173,9 +173,9 @@ type
       name: "web3-force-polling" .}: bool
 
     requireEngineAPI* {.
-      defaultValue: true
+      hidden  # Deprecated > 22.9
       desc: "Require Nimbus to be configured with an Engine API end-point after the Bellatrix fork epoch"
-      name: "require-engine-api-in-bellatrix" .}: bool
+      name: "require-engine-api-in-bellatrix" .}: Option[bool]
 
     nonInteractive* {.
       desc: "Do not display interative prompts. Quit on missing configuration"
