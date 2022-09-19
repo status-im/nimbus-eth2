@@ -69,13 +69,12 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
       return
 
   let blockRoot = withBlck(beaconBlock): hash_tree_root(blck)
-  # TODO: signing_root is recomputed in getBlockSignature just after
-  let signing_root = compute_block_signing_root(fork, genesisRoot, slot,
-                                                blockRoot)
+  # TODO: signingRoot is recomputed in getBlockSignature just after
+  let signingRoot = compute_block_signing_root(fork, genesisRoot, slot,
+                                               blockRoot)
   let notSlashable = vc.attachedValidators[]
     .slashingProtection
-    .registerBlock(ValidatorIndex(beaconBlock.proposer_index),
-                   validator.pubkey, slot, signing_root)
+    .registerBlock(vindex, validator.pubkey, slot, signingRoot)
 
   if notSlashable.isOk():
     let signature =
@@ -138,6 +137,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
   else:
     warn "Slashing protection activated for block proposal",
          blockRoot = shortLog(blockRoot), blck = shortLog(beaconBlock),
+         signingRoot = shortLog(signingRoot),
          validator = shortLog(validator),
          wall_slot = currentSlot,
          existingProposal = notSlashable.error

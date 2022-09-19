@@ -100,7 +100,7 @@ iterator get_attesting_indices*(
       slot =
         check_attestation_slot_target(attestation.data).valueOr:
           warn "Invalid attestation slot in trusted attestation",
-            attestation = shortLog(attestation.data)
+            attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags
           break
       blck =
@@ -112,14 +112,14 @@ iterator get_attesting_indices*(
         blck.atCheckpoint(attestation.data.target).valueOr:
           warn "Unknown attestation target in trusted attestation",
             blck = shortLog(blck),
-            attestation = shortLog(attestation.data)
+            attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags
           break
       shufflingRef =
         dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
           warn "Attestation shuffling not found",
             blck = shortLog(blck),
-            attestation = shortLog(attestation.data)
+            attestation = shortLog(attestation)
 
           doAssert strictVerification notin dag.updateFlags
           break
@@ -129,7 +129,7 @@ iterator get_attesting_indices*(
         CommitteeIndex.init(attestation.data.index, committeesPerSlot).valueOr:
           warn "Unexpected committee index in trusted attestation",
             blck = shortLog(blck),
-            attestation = shortLog(attestation.data)
+            attestation = shortLog(attestation)
 
           doAssert strictVerification notin dag.updateFlags
           break
