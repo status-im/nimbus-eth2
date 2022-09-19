@@ -63,10 +63,6 @@ const
     # Size of `ValidatorSig` hexadecimal value (without 0x)
   RootHashSize = sizeof(Eth2Digest) * 2
     # Size of `xxx_root` hexadecimal value (without 0x)
-  Phase0Version =
-    [byte('p'), byte('h'), byte('a'), byte('s'), byte('e'), byte('0')]
-  AltairVersion =
-    [byte('a'), byte('l'), byte('t'), byte('a'), byte('i'), byte('r')]
 
   ApplicationJsonMediaType* = MediaType.init("application/json")
   TextPlainMediaType* = MediaType.init("text/plain")
@@ -149,30 +145,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-proc writeValue*(writer: var JsonWriter[RestJson],
-                 epochFlags: EpochParticipationFlags)
-                {.raises: [IOError, Defect].} =
-  for e in writer.stepwiseArrayCreation(epochFlags.asHashList):
-    writer.writeValue $e
-
-proc readValue*(reader: var JsonReader[RestJson],
-                epochFlags: var EpochParticipationFlags)
-               {.raises: [SerializationError, IOError, Defect].} =
-  # Please note that this function won't compute the cached hash tree roots
-  # immediately. They will be computed on the first HTR attempt.
-
-  for e in reader.readArray(string):
-    let parsed = try:
-      parseBiggestUInt(e)
-    except ValueError as err:
-      reader.raiseUnexpectedValue("A string-encoded 8-bit usigned integer value expected")
-
-    if parsed > uint8.high:
-      reader.raiseUnexpectedValue("The usigned integer value should fit in 8 bits")
-
-    if not epochFlags.data.add(uint8(parsed)):
-      reader.raiseUnexpectedValue("The participation flags list size exceeds limit")
-
 proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =
     block:
@@ -246,35 +218,9 @@ proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
 
 proc jsonResponseBlock*(t: typedesc[RestApiResponse],
                         data: ForkedSignedBeaconBlock,
-                        execOpt: Option[bool],
-                        headers: openArray[tuple[key: string, value: string]]
-                       ): RestApiResponse =
-  let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("version", data.kind.toString())
-        if execOpt.isSome():
-          writer.writeField("execution_optimistic", execOpt.get())
-        withBlck(data):
-          writer.writeField("data", blck)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except SerializationError:
-        default
-      except IOError:
-        default
-  RestApiResponse.response(res, Http200, "application/json",
-                           headers = headers)
-
-proc jsonResponseState*(t: typedesc[RestApiResponse],
-                        forkedState: ForkedHashedBeaconState,
                         execOpt: Option[bool]): RestApiResponse =
   let
-    headers = [("eth-consensus-version", forkedState.kind.toString())]
+    headers = [("eth-consensus-version", data.kind.toString())]
     res =
       block:
         var default: seq[byte]
@@ -282,18 +228,36 @@ proc jsonResponseState*(t: typedesc[RestApiResponse],
           var stream = memoryOutput()
           var writer = JsonWriter[RestJson].init(stream)
           writer.beginRecord()
-          writer.writeField("version", forkedState.kind.toString())
+          writer.writeField("version", data.kind.toString())
           if execOpt.isSome():
             writer.writeField("execution_optimistic", execOpt.get())
-          # TODO (cheatfate): Unable to use `forks.withState()` template here
-          # because of compiler issues and some kind of generic sandwich.
-          case forkedState.kind
-          of BeaconStateFork.Bellatrix:
-            writer.writeField("data", forkedState.bellatrixData.data)
-          of BeaconStateFork.Altair:
-            writer.writeField("data", forkedState.altairData.data)
-          of BeaconStateFork.Phase0:
-            writer.writeField("data", forkedState.phase0Data.data)
+          withBlck(data):
+            writer.writeField("data", blck)
+          writer.endRecord()
+          stream.getOutput(seq[byte])
+        except SerializationError:
+          default
+        except IOError:
+          default
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
+
+proc jsonResponseState*(t: typedesc[RestApiResponse],
+                        data: ForkedHashedBeaconState,
+                        execOpt: Option[bool]): RestApiResponse =
+  let
+    headers = [("eth-consensus-version", data.kind.toString())]
+    res =
+      block:
+        var default: seq[byte]
+        try:
+          var stream = memoryOutput()
+          var writer = JsonWriter[RestJson].init(stream)
+          writer.beginRecord()
+          writer.writeField("version", data.kind.toString())
+          if execOpt.isSome():
+            writer.writeField("execution_optimistic", execOpt.get())
+          withState(data):
+            writer.writeField("data", forkyState.data)
           writer.endRecord()
           stream.getOutput(seq[byte])
         except SerializationError:
@@ -465,8 +429,14 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
         default
   RestApiResponse.error(status, data, "application/json")
 
+proc sszResponsePlain*(t: typedesc[RestApiResponse], res: seq[byte],
+                       headers: openArray[RestKeyValueTuple] = []
+                      ): RestApiResponse =
+  RestApiResponse.response(res, Http200, "application/octet-stream",
+                           headers = headers)
+
 proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
-                  headers: openArray[tuple[key: string, value: string]]
+                  headers: openArray[RestKeyValueTuple] = []
                  ): RestApiResponse =
   let res =
     block:
@@ -495,20 +465,7 @@ proc decodeJsonString*[T](t: typedesc[T],
   except SerializationError:
     err("Unable to deserialize data")
 
-## uint64
-proc writeValue*(w: var JsonWriter[RestJson], value: uint64) {.
-     raises: [IOError, Defect].} =
-  writeValue(w, Base10.toString(value))
-
-proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
-     raises: [IOError, SerializationError, Defect].} =
-  let svalue = reader.readValue(string)
-  let res = Base10.decode(uint64, svalue)
-  if res.isOk():
-    value = res.get()
-  else:
-    reader.raiseUnexpectedValue($res.error() & ": " & svalue)
-
+## uint8
 proc writeValue*(w: var JsonWriter[RestJson], value: uint8) {.
      raises: [IOError, Defect].} =
   writeValue(w, Base10.toString(value))
@@ -522,18 +479,19 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint8) {.
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
 
-proc writeValue*(w: var JsonWriter[RestJson], value: JustificationBits) {.
-    raises: [IOError, Defect].} =
-  w.writeValue hexOriginal([uint8(value)])
+## uint64
+proc writeValue*(w: var JsonWriter[RestJson], value: uint64) {.
+     raises: [IOError, Defect].} =
+  writeValue(w, Base10.toString(value))
 
-proc readValue*(reader: var JsonReader[RestJson], value: var JustificationBits) {.
-    raises: [IOError, SerializationError, Defect].} =
-  let hex = reader.readValue(string)
-  try:
-    value = JustificationBits(hexToByteArray(hex, 1)[0])
-  except ValueError:
-    raiseUnexpectedValue(reader,
-                        "The `justification_bits` value must be a hex string")
+proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
+     raises: [IOError, SerializationError, Defect].} =
+  let svalue = reader.readValue(string)
+  let res = Base10.decode(uint64, svalue)
+  if res.isOk():
+    value = res.get()
+  else:
+    reader.raiseUnexpectedValue($res.error() & ": " & svalue)
 
 ## UInt256
 proc writeValue*(w: var JsonWriter[RestJson], value: UInt256) {.
@@ -577,6 +535,48 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Epoch) {.
   else:
     reader.raiseUnexpectedValue($res.error())
 
+## JustificationBits
+proc writeValue*(w: var JsonWriter[RestJson], value: JustificationBits) {.
+    raises: [IOError, Defect].} =
+  w.writeValue hexOriginal([uint8(value)])
+
+proc readValue*(reader: var JsonReader[RestJson], value: var JustificationBits) {.
+    raises: [IOError, SerializationError, Defect].} =
+  let hex = reader.readValue(string)
+  try:
+    value = JustificationBits(hexToByteArray(hex, 1)[0])
+  except ValueError:
+    raiseUnexpectedValue(reader,
+                        "The `justification_bits` value must be a hex string")
+
+## EpochParticipationFlags
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 epochFlags: EpochParticipationFlags)
+                {.raises: [IOError, Defect].} =
+  for e in writer.stepwiseArrayCreation(epochFlags.asHashList):
+    writer.writeValue $e
+
+proc readValue*(reader: var JsonReader[RestJson],
+                epochFlags: var EpochParticipationFlags)
+               {.raises: [SerializationError, IOError, Defect].} =
+  # Please note that this function won't compute the cached hash tree roots
+  # immediately. They will be computed on the first HTR attempt.
+
+  for e in reader.readArray(string):
+    let parsed = try:
+      parseBiggestUInt(e)
+    except ValueError as err:
+      reader.raiseUnexpectedValue(
+        "A string-encoded 8-bit usigned integer value expected")
+
+    if parsed > uint8.high:
+      reader.raiseUnexpectedValue(
+        "The usigned integer value should fit in 8 bits")
+
+    if not epochFlags.data.add(uint8(parsed)):
+      reader.raiseUnexpectedValue(
+        "The participation flags list size exceeds limit")
+
 ## ValidatorIndex
 proc writeValue*(writer: var JsonWriter[RestJson], value: ValidatorIndex)
                 {.raises: [IOError, Defect].} =
@@ -596,6 +596,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorIndex)
   else:
     reader.raiseUnexpectedValue($res.error())
 
+## IndexInSyncCommittee
 proc writeValue*(writer: var JsonWriter[RestJson], value: IndexInSyncCommittee)
                 {.raises: [IOError, Defect].} =
   writeValue(writer, Base10.toString(distinctBase(value)))
@@ -795,27 +796,17 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: Eth1Address) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
+## GraffitiBytes
 proc writeValue*(writer: var JsonWriter[RestJson], value: GraffitiBytes)
                 {.raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
-proc readValue*(reader: var JsonReader[RestJson], T: type GraffitiBytes): T
-               {.raises: [IOError, SerializationError, Defect].} =
-  try:
-    init(GraffitiBytes, reader.readValue(string))
-  except ValueError as err:
-    reader.raiseUnexpectedValue err.msg
-
-## Version
-proc readValue*(
-    reader: var JsonReader[RestJson],
-    value: var (Version | ForkDigest | DomainType | GraffitiBytes)) {.
+proc readValue*(reader: var JsonReader[RestJson], value: var GraffitiBytes) {.
      raises: [IOError, SerializationError, Defect].} =
   try:
-    hexToByteArray(reader.readValue(string), distinctBase(value))
-  except ValueError:
-    raiseUnexpectedValue(
-      reader, "Expected a valid hex string with " & $value.len() & " bytes")
+    value = GraffitiBytes.init(reader.readValue(string))
+  except ValueError as err:
+    reader.raiseUnexpectedValue err.msg
 
 template unrecognizedFieldWarning =
   # TODO: There should be a different notification mechanism for informing the
@@ -1459,7 +1450,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
     writer.writeField("data", value.bellatrixData.data)
   writer.endRecord()
 
-# Web3SignerRequest
+## Web3SignerRequest
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: Web3SignerRequest) {.
      raises: [IOError, Defect].} =
@@ -2200,6 +2191,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     keystores: keystores, passwords: passwords, slashing_protection: slashing
   )
 
+## RestActivityItem
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: RestActivityItem) {.
      raises: [IOError, Defect].} =
@@ -2246,13 +2238,7 @@ proc readValue*(reader: var JsonReader[RestJson],
   value = RestActivityItem(index: index.get(), epoch: epoch.get(),
                            active: active.get())
 
-proc dump*(value: KeystoresAndSlashingProtection): string {.
-     raises: [IOError, Defect].} =
-  var stream = memoryOutput()
-  var writer = JsonWriter[RestJson].init(stream)
-  writer.writeValue(value)
-  stream.getOutput(string)
-
+## HeadChangeInfoObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: HeadChangeInfoObject) {.
      raises: [IOError, Defect].} =
@@ -2269,6 +2255,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## ReorgInfoObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: ReorgInfoObject) {.
      raises: [IOError, Defect].} =
@@ -2283,6 +2270,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## FinalizationInfoObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: FinalizationInfoObject) {.
      raises: [IOError, Defect].} =
@@ -2294,6 +2282,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## EventBeaconBlockObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: EventBeaconBlockObject) {.
      raises: [IOError, Defect].} =
@@ -2304,6 +2293,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## RestSyncInfo
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: RestSyncInfo) {.
      raises: [IOError, Defect].} =
