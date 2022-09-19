@@ -1223,21 +1223,27 @@ proc readValue*(r: var TomlReader, a: var Address)
 proc loadEth2Network*(
     eth2Network: Option[string]
 ): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
-  network_name.set(2, labelValues = [eth2Network.get(otherwise = "mainnet")])
-  when not defined(gnosisChainBinary):
-    if eth2Network.isSome:
-      getMetadataForNetwork(eth2Network.get)
+  const defaultName =
+    when defined(gnosisChainBinary) and const_preset == "mainnet":
+      "gnosis"
+    elif const_preset == "mainnet":
+      "mainnet"
     else:
-      when const_preset == "mainnet":
-        mainnetMetadata
-      else:
-        # Presumably other configurations can have other defaults, but for now
-        # this simplifies the flow
-        echo "Must specify network on non-mainnet node"
-        quit 1
+      "(unspecified)"
+  network_name.set(2, labelValues = [eth2Network.get(otherwise = defaultName)])
+
+  if eth2Network.isSome:
+    getMetadataForNetwork(eth2Network.get)
   else:
-    checkNetworkParameterUse eth2Network
-    gnosisMetadata
+    when defined(gnosisChainBinary) and const_preset == "mainnet":
+      gnosisMetadata
+    elif const_preset == "mainnet":
+      mainnetMetadata
+    else:
+      # Presumably other configurations can have other defaults, but for now
+      # this simplifies the flow
+      fatal "Must specify network on non-mainnet node"
+      quit 1
 
 template loadEth2Network*(config: BeaconNodeConf): Eth2NetworkMetadata =
   loadEth2Network(config.eth2Network)

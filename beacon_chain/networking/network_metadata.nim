@@ -200,76 +200,79 @@ template mergeTestnet(path: string, eth1Network: Eth1Network): Eth2NetworkMetada
   loadCompileTimeNetworkMetadata(mergeTestnetsDir & "/" & path,
                                  some eth1Network)
 
-when not defined(gnosisChainBinary):
-  when const_preset == "mainnet":
-    const
-      mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
-      praterMetadata* = eth2Network("shared/prater", goerli)
-      ropstenMetadata* = mergeTestnet("ropsten-beacon-chain", ropsten)
-      sepoliaMetadata* = mergeTestnet("sepolia", sepolia)
-    static:
-      for network in [mainnetMetadata, praterMetadata, ropstenMetadata, sepoliaMetadata]:
-        checkForkConsistency(network.cfg)
+when defined(gnosisChainBinary) and const_preset == "mainnet":
+  const
+    gnosisMetadata* = loadCompileTimeNetworkMetadata(
+      currentSourcePath.parentDir.replace('\\', '/') &
+      "/../../media/gnosis")
+  static:
+    for network in [gnosisMetadata]:
+      checkForkConsistency(network.cfg)
 
-  proc getMetadataForNetwork*(networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
-    template loadRuntimeMetadata: auto =
-      if fileExists(networkName / "config.yaml"):
-        try:
-          loadEth2NetworkMetadata(networkName)
-        except CatchableError as exc:
-          fatal "Cannot load network", msg = exc.msg, networkName
-          quit 1
-      else:
-        fatal "config.yaml not found for network", networkName
+elif const_preset == "mainnet":
+  const
+    mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
+    praterMetadata* = eth2Network("shared/prater", goerli)
+    ropstenMetadata* = mergeTestnet("ropsten-beacon-chain", ropsten)
+    sepoliaMetadata* = mergeTestnet("sepolia", sepolia)
+  static:
+    for network in [
+        mainnetMetadata, praterMetadata, ropstenMetadata, sepoliaMetadata]:
+      checkForkConsistency(network.cfg)
+
+proc getMetadataForNetwork*(
+    networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
+  template loadRuntimeMetadata(): auto =
+    if fileExists(networkName / "config.yaml"):
+      try:
+        loadEth2NetworkMetadata(networkName)
+      except CatchableError as exc:
+        fatal "Cannot load network", msg = exc.msg, networkName
         quit 1
+    else:
+      fatal "config.yaml not found for network", networkName
+      quit 1
 
-    var
-      metadata = when const_preset == "mainnet":
-        case toLowerAscii(networkName)
-        of "mainnet":
-          mainnetMetadata
-        of "prater", "goerli":
-          praterMetadata
-        of "ropsten":
-          ropstenMetadata
-        of "sepolia":
-          sepoliaMetadata
-        else:
-          loadRuntimeMetadata()
+  let metadata =
+    when defined(gnosisChainBinary) and const_preset == "mainnet":
+      case toLowerAscii(networkName)
+      of "gnosis":
+        gnosisMetadata
+      of "gnosis-chain":
+        warn "`--network:gnosis-chain` is deprecated, " &
+          "use `--network:gnosis` instead"
+        gnosisMetadata
       else:
         loadRuntimeMetadata()
 
-    if metadata.incompatible:
-      fatal "The selected network is not compatible with the current build",
-              reason = metadata.incompatibilityDesc
-      quit 1
-    metadata
+    elif const_preset == "mainnet":
+      case toLowerAscii(networkName)
+      of "mainnet":
+        mainnetMetadata
+      of "prater", "goerli":
+        praterMetadata
+      of "ropsten":
+        ropstenMetadata
+      of "sepolia":
+        sepoliaMetadata
+      else:
+        loadRuntimeMetadata()
 
-  proc getRuntimeConfig*(
-      eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
-    if eth2Network.isSome:
-      return getMetadataForNetwork(eth2Network.get).cfg
-    defaultRuntimeConfig
+    else:
+      loadRuntimeMetadata()
 
-else:
-  const
-    gnosisMetadata* = loadCompileTimeNetworkMetadata(
-      currentSourcePath.parentDir.replace('\\', '/') & "/../../media/gnosis")
+  if metadata.incompatible:
+    fatal "The selected network is not compatible with the current build",
+            reason = metadata.incompatibilityDesc
+    quit 1
 
-  static: checkForkConsistency(gnosisMetadata.cfg)
+  metadata
 
-  proc checkNetworkParameterUse*(eth2Network: Option[string]) =
-    # Support `gnosis-chain` as network name which was used in v22.3
-    if eth2Network.isSome and eth2Network.get notin ["gnosis", "gnosis-chain"]:
-      fatal "The only supported value for the --network parameter is 'gnosis'"
-      quit 1
-
-    if eth2Network.isSome and eth2Network.get == "gnosis-chain":
-      warn "`--network:gnosis-chain` is deprecated, use `--network:gnosis` instead"
-
-  proc getRuntimeConfig*(eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
-    checkNetworkParameterUse eth2Network
-    gnosisMetadata.cfg
+proc getRuntimeConfig*(
+    eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
+  if eth2Network.isSome:
+    return getMetadataForNetwork(eth2Network.get).cfg
+  defaultRuntimeConfig
 
 proc extractGenesisValidatorRootFromSnapshot*(
     snapshot: string): Eth2Digest {.raises: [Defect, IOError, SszError].} =
