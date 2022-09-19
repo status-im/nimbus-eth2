@@ -141,8 +141,6 @@ type
     stopFut: Future[void]
     getBeaconTime: GetBeaconTimeFn
 
-    requireEngineAPI: bool
-
     when hasGenesisDetection:
       genesisValidators: seq[ImmutableValidatorData]
       genesisValidatorKeyToIndex: Table[ValidatorPubKey, ValidatorIndex]
@@ -1041,8 +1039,7 @@ proc init*(T: type Eth1Monitor,
            depositContractSnapshot: Option[DepositContractSnapshot],
            eth1Network: Option[Eth1Network],
            forcePolling: bool,
-           jwtSecret: Option[seq[byte]],
-           requireEngineAPI: bool): T =
+           jwtSecret: Option[seq[byte]]): T =
   doAssert web3Urls.len > 0
   var web3Urls = web3Urls
   for url in mitems(web3Urls):
@@ -1060,8 +1057,7 @@ proc init*(T: type Eth1Monitor,
     eth1Progress: newAsyncEvent(),
     forcePolling: forcePolling,
     jwtSecret: jwtSecret,
-    blocksPerLogsRequest: targetBlocksPerLogsRequest,
-    requireEngineAPI: requireEngineAPI)
+    blocksPerLogsRequest: targetBlocksPerLogsRequest)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
@@ -1348,16 +1344,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
   await m.ensureDataProvider()
   doAssert m.dataProvider != nil, "close not called concurrently"
-
-  if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH:
-    let status = await m.exchangeTransitionConfiguration()
-    if status != EtcStatus.match and isFirstRun and m.requireEngineAPI:
-      fatal "The Bellatrix hard fork requires the beacon node to be connected to a properly configured Engine API end-point. " &
-            "See https://nimbus.guide/merge.html for more details. " &
-            "If you want to temporarily continue operating Nimbus without configuring an Engine API end-point, " &
-            "please specify the command-line option --require-engine-api-in-bellatrix=no when launching it. " &
-            "Please note that you MUST complete the migration before the network TTD is reached (estimated to happen near 13th of September)"
-      quit 1
 
   # We might need to reset the chain if the new provider disagrees
   # with the previous one regarding the history of the chain or if
