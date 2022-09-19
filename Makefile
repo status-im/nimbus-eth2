@@ -188,7 +188,7 @@ local-testnet-minimal:
 		--data-dir $@ \
 		--preset minimal \
 		--nodes 4 \
-		--stop-at-epoch 5 \
+		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
 		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
@@ -200,7 +200,7 @@ local-testnet-minimal:
 		--base-el-ws-port $$(( 6203 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-auth-rpc-port $$(( 6204 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
-		--timeout 600 \
+		--timeout 648 \
 		--kill-old-processes \
 		$(TESTNET_EXTRA_FLAGS) \
 		-- \
@@ -211,7 +211,7 @@ local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 4 \
-		--stop-at-epoch 5 \
+		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
 		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
@@ -223,7 +223,7 @@ local-testnet-mainnet:
 		--base-el-ws-port $$(( 7203 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-auth-rpc-port $$(( 7204 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
-		--timeout 2400 \
+		--timeout 2784 \
 		--kill-old-processes \
 		$(TESTNET_EXTRA_FLAGS) \
 		-- \
