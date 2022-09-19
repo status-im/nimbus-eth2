@@ -61,7 +61,7 @@ proc run() {.async.} =
     eth1Monitor = Eth1Monitor.init(
       defaultRuntimeConfig, db = nil, nil, @[web3Url],
       none(DepositContractSnapshot), none(Eth1Network),
-      false, jwtSecret, true)
+      false, jwtSecret)
     web3Provider = (await Web3DataProvider.new(
       default(Eth1Address), web3Url, jwtSecret)).get
 
