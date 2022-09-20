@@ -24,6 +24,7 @@ const
 
   gitRevision* = strip(staticExec("git rev-parse --short HEAD"))[0..5]
 
+  nimFullBanner* = staticExec("nim --version")
   nimBanner* = staticExec("nim --version | grep Version")
 
   versionAsStr* =
@@ -31,16 +32,18 @@ const
 
   fullVersionStr* = "v" & versionAsStr & "-" & gitRevision & "-" & versionBlob
 
-func shortNimBanner*(): string =
+func getNimGitHash*(): string =
   const gitPrefix = "git hash: "
-  let tmp = splitLines(nimBanner)
+  let tmp = splitLines(nimFullBanner)
   if tmp.len == 0:
     return
-  var gitHash = ""
   for line in tmp:
     if line.startsWith(gitPrefix) and line.len > 8 + gitPrefix.len:
-      gitHash = line[gitPrefix.len..<gitPrefix.len + 8]
+      result = line[gitPrefix.len..<gitPrefix.len + 8]
 
+func shortNimBanner*(): string =
+  let gitHash = getNimGitHash()
+  let tmp = splitLines(nimFullBanner)
   if gitHash.len > 0:
     tmp[0] & " (" & gitHash & ")"
   else:
