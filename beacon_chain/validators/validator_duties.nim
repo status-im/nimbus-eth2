@@ -373,18 +373,15 @@ proc getExecutionPayload[T](
     const GETPAYLOAD_TIMEOUT = 1.seconds
 
     let
-      terminalBlockHash =
-        if node.eth1Monitor.terminalBlockHash.isSome:
-          node.eth1Monitor.terminalBlockHash.get.asEth2Digest
-        else:
-          default(Eth2Digest)
       beaconHead = node.attestationPool[].getBeaconHead(node.dag.head)
       executionBlockRoot = node.dag.loadExecutionBlockRoot(beaconHead.blck)
       latestHead =
         if not executionBlockRoot.isZero:
           executionBlockRoot
+        elif node.eth1Monitor.terminalBlockHash.isSome:
+          node.eth1Monitor.terminalBlockHash.get.asEth2Digest
         else:
-          terminalBlockHash
+          default(Eth2Digest)
       latestSafe = beaconHead.safeExecutionPayloadHash
       latestFinalized = beaconHead.finalizedExecutionPayloadHash
       feeRecipient = node.getFeeRecipient(pubkey, validator_index, epoch)
@@ -489,8 +486,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
              not (
                is_merge_transition_complete(proposalState[]) or
-               ((not node.eth1Monitor.isNil) and
-                node.eth1Monitor.terminalBlockHash.isSome)):
+               ((not node.eth1Monitor.isNil) and node.eth1Monitor.ttdReached)):
           # https://github.com/nim-lang/Nim/issues/19802
           (static(default(bellatrix.ExecutionPayload)))
         else:

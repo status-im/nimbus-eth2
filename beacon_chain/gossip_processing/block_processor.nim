@@ -503,7 +503,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       executionPayloadStatus =
        if hasExecutionPayload:
          # Eth1 syncing is asynchronous from this
-         # TODO self.consensusManager.eth1Monitor.terminalBlockHash.isSome
+         # TODO self.consensusManager.eth1Monitor.ttdReached
          # should gate this when it works more reliably
          # TODO detect have-TTD-but-not-is_execution_block case, and where
          # execution payload was non-zero when TTD detection more reliable

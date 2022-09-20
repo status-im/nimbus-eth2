@@ -141,6 +141,8 @@ type
     stopFut: Future[void]
     getBeaconTime: GetBeaconTimeFn
 
+    ttdReachedField: bool
+
     when hasGenesisDetection:
       genesisValidators: seq[ImmutableValidatorData]
       genesisValidatorKeyToIndex: Table[ValidatorPubKey, ValidatorIndex]
@@ -195,6 +197,9 @@ declareGauge eth1_finalized_deposits,
 
 declareGauge eth1_chain_len,
   "The length of the in-memory chain of Eth1 blocks"
+
+func ttdReached*(m: Eth1Monitor): bool =
+  m.ttdReachedField
 
 template cfg(m: Eth1Monitor): auto =
   m.depositsChain.cfg
@@ -1039,7 +1044,8 @@ proc init*(T: type Eth1Monitor,
            depositContractSnapshot: Option[DepositContractSnapshot],
            eth1Network: Option[Eth1Network],
            forcePolling: bool,
-           jwtSecret: Option[seq[byte]]): T =
+           jwtSecret: Option[seq[byte]],
+           ttdReached: bool): T =
   doAssert web3Urls.len > 0
   var web3Urls = web3Urls
   for url in mitems(web3Urls):
@@ -1057,7 +1063,8 @@ proc init*(T: type Eth1Monitor,
     eth1Progress: newAsyncEvent(),
     forcePolling: forcePolling,
     jwtSecret: jwtSecret,
-    blocksPerLogsRequest: targetBlocksPerLogsRequest)
+    blocksPerLogsRequest: targetBlocksPerLogsRequest,
+    ttdReachedField: ttdReached)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
@@ -1450,7 +1457,8 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   let shouldCheckForMergeTransition = block:
     const FAR_FUTURE_TOTAL_DIFFICULTY =
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912"
-    m.cfg.TERMINAL_TOTAL_DIFFICULTY != FAR_FUTURE_TOTAL_DIFFICULTY
+    (not m.ttdReachedField) and
+    (m.cfg.TERMINAL_TOTAL_DIFFICULTY != FAR_FUTURE_TOTAL_DIFFICULTY)
 
   var didPollOnce = false
   while true:
@@ -1519,6 +1527,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
             break
           terminalBlockCandidate = parentBlock
         m.terminalBlockHash = some terminalBlockCandidate.hash
+        m.ttdReachedField = true
 
         debug "startEth1Syncing: found merge terminal block",
           currentEpoch = m.currentEpoch,
