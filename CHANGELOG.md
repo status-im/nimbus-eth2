@@ -1,3 +1,57 @@
+2022-09-20 v22.9.1
+==================
+
+Nimbus `v22.9.0` is a `medium-urgency` upgrade addressing several frequently reported issues after the merge and bringing minor performance improvements in the post-merge world.
+
+### Improvements
+
+* Implemented the `/eth/v1/validator/register_validator`, enabling the use of an external block builder when the Nimbus beacon node is used with a validator client:
+  https://github.com/status-im/nimbus-eth2/pull/4115
+
+* The expensive TTD block detection is no longer performed when the client is launched after the merge:
+  https://github.com/status-im/nimbus-eth2/pull/4152
+  https://github.com/status-im/nimbus-eth2/pull/4129
+
+* Peer scoring improvements will result in a more stable peer connectivity during syncing:
+  https://github.com/status-im/nimbus-eth2/pull/3381
+  https://github.com/status-im/nimbus-eth2/pull/4090
+
+* The Nimbus peer metrics can now properly track the number of Lodestar peers:
+  https://github.com/status-im/nimbus-eth2/pull/4108
+
+* Fee recipient configuration, applied through the Keymanager API remains active even after disabling the Keymanager API in a consecutive run:
+  https://github.com/status-im/nimbus-eth2/pull/4078
+
+* Improved support for working with custom networks:
+  https://github.com/status-im/nimbus-eth2/pull/4132
+  https://github.com/status-im/nimbus-eth2/pull/4134
+
+### Fixes
+
+* Using an HTTP connection to the EL client will no longer result in sporadic crashes:
+  https://github.com/status-im/nimbus-eth2/pull/4125
+
+* Nimbus will no longer trigger warnings or errors regarding an invalid terminal block hash during transition configuration exchanges:
+  https://github.com/status-im/nimbus-eth2/pull/4126
+
+* The initial transition configuration exchange is performed after a short delay to give more time for the EL client to initialize when all services are started at the same time:
+  https://github.com/status-im/nimbus-eth2/pull/4114
+
+* The Nimbus beacon node service installed by our DEB and RPM packages will now use the correct Engine API port by default (8551 instead of 8546):
+  https://github.com/status-im/nimbus-eth2/pull/4099
+
+* Nimbus has better compatibility now with various beacon API servers used for trusted node sync (such as Prysm and Alchemy):
+  https://github.com/status-im/nimbus-eth2/pull/4133
+  https://github.com/status-im/nimbus-eth2/pull/4139
+
+* Nimbus was delivering incorrect head block details through the events API:
+  https://github.com/status-im/nimbus-eth2/issues/4119
+  https://github.com/status-im/nimbus-eth2/pull/4141
+
+* Nimbus can now import keystores exported from ethdo or Prysm:
+  https://github.com/status-im/nimbus-eth2/pull/4149
+
+
 2022-09-07 v22.9.0
 ==================
 
