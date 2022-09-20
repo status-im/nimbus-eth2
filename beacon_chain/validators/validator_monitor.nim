@@ -670,7 +670,7 @@ proc registerAggregate*(
       delay.toGaugeValue(), [$src, metricId])
 
     if not self.totals:
-      info "Aggregated attestion seen",
+      info "Aggregated attestation seen",
         aggregate = shortLog(aggregate_and_proof.aggregate),
         src, epoch = slot.epoch, validator = id, delay
 
