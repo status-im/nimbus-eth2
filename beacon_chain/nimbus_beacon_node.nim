@@ -116,8 +116,8 @@ declareGauge next_action_wait,
 declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
 versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
 
-declareGauge nimVersionGauge, "Nim version info", ["nim_version"], name = "Nim_version"
-nimVersionGauge.set(1, labelValues=[NimVersion])
+declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], name = "nim_version"
+nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
 
 logScope: topics = "beacnde"
 
