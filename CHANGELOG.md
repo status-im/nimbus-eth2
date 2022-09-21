@@ -1,7 +1,12 @@
 2022-09-20 v22.9.1
 ==================
 
-Nimbus `v22.9.0` is a `medium-urgency` upgrade addressing several frequently reported issues after the merge and bringing minor performance improvements in the post-merge world.
+Nimbus `v22.9.1` is a `medium-urgency` upgrade addressing several frequently reported issues after the merge and bringing minor performance improvements in the post-merge world.
+
+### Breaking changes
+
+* Nimbus no longer supports the non-standard `/api/` prefix for the Beacon REST API. All users should migrate to the standardized `/eth/` prefix:
+  https://github.com/status-im/nimbus-eth2/pull/4115
 
 ### Improvements
 
