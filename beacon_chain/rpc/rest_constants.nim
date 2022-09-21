@@ -90,6 +90,8 @@ const
     "Missing `randao_reveal` value"
   InvalidRandaoRevealValue* =
     "Invalid randao reveal value"
+  InvalidSkipRandaoVerificationValue* =
+    "Invalid skip_randao_verification value"
   InvalidGraffitiBytesValue* =
     "Invalid graffiti bytes value"
   InvalidEpochValueError* =
