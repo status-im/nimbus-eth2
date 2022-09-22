@@ -390,7 +390,7 @@ kill_by_port() {
       echo -n "Found old process listening on port ${PORT}, with PID ${PID}. "
       if [[ "${KILL_OLD_PROCESSES}" == "1" ]]; then
         echo "Killing it."
-        kill -9 "${PID}" || true
+        kill -SIGKILL "${PID}" || true
       else
         echo "Aborting."
         exit 1
@@ -645,7 +645,7 @@ cleanup() {
 
   for proc in "${PROCS_TO_KILL[@]}"
   do
-    pkill -f -9 -P $$ "${proc}" || true
+    pkill -SIGKILL -f -P $$ "${proc}" || true
   done
 
   # Delete all binaries we just built, because these are unusable outside this
