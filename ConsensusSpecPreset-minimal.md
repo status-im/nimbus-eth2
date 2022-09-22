@@ -747,6 +747,8 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Altair - Operations - Deposit - invalid_sig_other_version                   OK
 + [Valid]   EF - Altair - Operations - Deposit - invalid_sig_top_up                          OK
 + [Valid]   EF - Altair - Operations - Deposit - invalid_withdrawal_credentials_top_up       OK
++ [Valid]   EF - Altair - Operations - Deposit - key_validate_invalid_decompression          OK
++ [Valid]   EF - Altair - Operations - Deposit - key_validate_invalid_subgroup               OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_eth1_withdrawal_credentials     OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_max                             OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_non_versioned_withdrawal_creden OK
@@ -761,6 +763,8 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Bellatrix - Operations - Deposit - invalid_sig_other_version                OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - invalid_sig_top_up                       OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - invalid_withdrawal_credentials_top_up    OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - key_validate_invalid_decompression       OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - key_validate_invalid_subgroup            OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_eth1_withdrawal_credentials  OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_max                          OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_non_versioned_withdrawal_cre OK
@@ -772,6 +776,8 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_sig_other_version                  OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_sig_top_up                         OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_withdrawal_credentials_top_up      OK
++ [Valid]   EF - Phase 0 - Operations - Deposit - key_validate_invalid_decompression         OK
++ [Valid]   EF - Phase 0 - Operations - Deposit - key_validate_invalid_subgroup              OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - new_deposit_eth1_withdrawal_credentials    OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - new_deposit_max                            OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - new_deposit_non_versioned_withdrawal_crede OK
@@ -780,7 +786,7 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up                             OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - valid_sig_but_forked_state                 OK
 ```
-OK: 42/42 Fail: 0/42 Skip: 0/42
+OK: 48/48 Fail: 0/48 Skip: 0/48
 ## EF - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1385,4 +1391,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 36/36 Fail: 0/36 Skip: 0/36
 
 ---TOTAL---
-OK: 1200/1207 Fail: 0/1207 Skip: 7/1207
+OK: 1206/1213 Fail: 0/1213 Skip: 7/1213
