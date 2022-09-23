@@ -787,7 +787,7 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.bellatrix]
   forkDigestsArray
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState.card == 0:
     # When disconnected, updateGossipState is responsible for all things
@@ -1024,7 +1024,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
 
   var newSubcommittees: SyncnetBits
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/validator.md#sync-committee-subnet-stability
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if  (not node.network.metadata.syncnets[subcommitteeIdx]) and
         nextSyncCommitteeSubnets[subcommitteeIdx] and
