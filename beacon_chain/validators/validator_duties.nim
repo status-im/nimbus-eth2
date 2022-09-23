@@ -69,6 +69,16 @@ declareCounter beacon_block_production_errors,
 declareCounter beacon_block_payload_errors,
   "Number of times execution client failed to produce block payload"
 
+# Metrics for tracking external block builder usage
+declareCounter beacon_block_builder_proposed,
+  "Number of beacon chain blocks produced using an external block builder"
+
+declareCounter beacon_block_builder_missed_with_fallback,
+  "Number of beacon chain blocks where an attempt to use an external block builder failed with fallback"
+
+declareCounter beacon_block_builder_missed_without_fallback,
+  "Number of beacon chain blocks where an attempt to use an external block builder failed without possible fallback"
+
 declareGauge(attached_validator_balance,
   "Validator balance at slot end of the first 64 validators, in Gwei",
   labels = ["pubkey"])
@@ -659,6 +669,7 @@ proc proposeBlockMEV(
     debug "proposeBlockMEV: getBlindedExecutionPayload failed",
       error = executionPayloadHeader.error
     # Haven't committed to the MEV block, so allow EL fallback.
+    beacon_block_builder_missed_with_fallback.inc()
     return Opt.none BlockRef
 
   # When creating this block, need to ensure it uses the MEV-provided execution
@@ -754,6 +765,7 @@ proc proposeBlockMEV(
         if newBlockRef.isNone():
           return Opt.some head # Validation errors logged in router
 
+        beacon_block_builder_proposed.inc()
         notice "Block proposed (MEV)",
           blockRoot = shortLog(signedBlock.root), blck = shortLog(signedBlock),
           signature = shortLog(signedBlock.signature), validator = shortLog(validator)
@@ -819,6 +831,9 @@ proc proposeBlock(node: BeaconNode,
       # This might be equivalent to the `head` passed in, but it signals that
       # `submitBlindedBlock` ran, so don't do anything else. Otherwise, it is
       # fine to try again with the local EL.
+      if newBlockMEV.get == head:
+        # Returning same block as head indicates failure to generate new block
+        beacon_block_builder_missed_without_fallback.inc()
       return newBlockMEV.get
 
   let newBlock = await makeBeaconBlockForHeadAndSlot(
