@@ -147,7 +147,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # in current version of database.
           return RestApiResponse.jsonError(Http500, NoImplementationError)
         return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                          $error)
+                                         $error)
 
     node.withStateForBlockSlotId(bslot):
       return RestApiResponse.jsonResponseWOpt(
@@ -820,7 +820,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if not node.dag.getBlockSSZ(bid, data):
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
-        RestApiResponse.response(data, Http200, $sszMediaType)
+        RestApiResponse.sszResponsePlain(data)
       elif contentType == jsonMediaType:
         let bdata = node.dag.getForkedBlock(bid).valueOr:
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
@@ -862,8 +862,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           fork = node.dag.cfg.blockForkAtEpoch(bid.slot.epoch)
           headers = [("eth-consensus-version", fork.toString())]
 
-        RestApiResponse.response(data, Http200, $sszMediaType,
-                                 headers = headers)
+        RestApiResponse.sszResponsePlain(data, headers)
       elif contentType == jsonMediaType:
         let bdata = node.dag.getForkedBlock(bid).valueOr:
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)

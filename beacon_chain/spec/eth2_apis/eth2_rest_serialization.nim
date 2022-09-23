@@ -454,8 +454,14 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
         default
   RestApiResponse.error(status, data, "application/json")
 
+proc sszResponsePlain*(t: typedesc[RestApiResponse], res: seq[byte],
+                       headers: openArray[RestKeyValueTuple] = []
+                      ): RestApiResponse =
+  RestApiResponse.response(res, Http200, "application/octet-stream",
+                           headers = headers)
+
 proc sszResponse*(t: typedesc[RestApiResponse], data: auto,
-                  headers: openArray[tuple[key: string, value: string]]
+                  headers: openArray[RestKeyValueTuple] = []
                  ): RestApiResponse =
   let res =
     block:
