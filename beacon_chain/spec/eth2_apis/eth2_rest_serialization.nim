@@ -267,10 +267,10 @@ proc jsonResponseBlock*(t: typedesc[RestApiResponse],
                            headers = headers)
 
 proc jsonResponseState*(t: typedesc[RestApiResponse],
-                        forkedState: ForkedHashedBeaconState,
+                        data: ForkedHashedBeaconState,
                         execOpt: Option[bool]): RestApiResponse =
   let
-    headers = [("eth-consensus-version", forkedState.kind.toString())]
+    headers = [("eth-consensus-version", data.kind.toString())]
     res =
       block:
         var default: seq[byte]
@@ -278,18 +278,11 @@ proc jsonResponseState*(t: typedesc[RestApiResponse],
           var stream = memoryOutput()
           var writer = JsonWriter[RestJson].init(stream)
           writer.beginRecord()
-          writer.writeField("version", forkedState.kind.toString())
+          writer.writeField("version", data.kind.toString())
           if execOpt.isSome():
             writer.writeField("execution_optimistic", execOpt.get())
-          # TODO (cheatfate): Unable to use `forks.withState()` template here
-          # because of compiler issues and some kind of generic sandwich.
-          case forkedState.kind
-          of BeaconStateFork.Bellatrix:
-            writer.writeField("data", forkedState.bellatrixData.data)
-          of BeaconStateFork.Altair:
-            writer.writeField("data", forkedState.altairData.data)
-          of BeaconStateFork.Phase0:
-            writer.writeField("data", forkedState.phase0Data.data)
+          withState(data):
+            writer.writeField("data", forkyState.data)
           writer.endRecord()
           stream.getOutput(seq[byte])
         except SerializationError:
