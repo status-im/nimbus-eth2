@@ -118,35 +118,11 @@ proc publishBlock*(body: bellatrix.SignedBeaconBlock): RestPlainResponse {.
 
 proc publishSszBlock*(
        client: RestClientRef,
-       blck: phase0.SignedBeaconBlock
+       blck: ForkySignedBeaconBlock
      ): Future[RestPlainResponse] {.async.} =
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
   let
-    consensus = BeaconBlockFork.Phase0.toString()
-    resp = await client.publishBlock(
-      blck, restContentType = $OctetStreamMediaType,
-      extraHeaders = @[("eth-consensus-version", consensus)])
-  return resp
-
-proc publishSszBlock*(
-       client: RestClientRef,
-       blck: altair.SignedBeaconBlock
-     ): Future[RestPlainResponse] {.async.} =
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
-  let
-    consensus = BeaconBlockFork.Altair.toString()
-    resp = await client.publishBlock(
-      blck, restContentType = $OctetStreamMediaType,
-      extraHeaders = @[("eth-consensus-version", consensus)])
-  return resp
-
-proc publishSszBlock*(
-       client: RestClientRef,
-       blck: bellatrix.SignedBeaconBlock
-     ): Future[RestPlainResponse] {.async.} =
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
-  let
-    consensus = BeaconBlockFork.Bellatrix.toString()
+    consensus = typeof(blck).toFork.toString()
     resp = await client.publishBlock(
       blck, restContentType = $OctetStreamMediaType,
       extraHeaders = @[("eth-consensus-version", consensus)])
