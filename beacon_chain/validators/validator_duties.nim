@@ -69,6 +69,16 @@ declareCounter beacon_block_production_errors,
 declareCounter beacon_block_payload_errors,
   "Number of times execution client failed to produce block payload"
 
+# Metrics for tracking external block builder usage
+declareCounter beacon_block_builder_proposed,
+  "Number of beacon chain blocks produced using an external block builder"
+
+declareCounter beacon_block_builder_missed_with_fallback,
+  "Number of beacon chain blocks where an attempt to use an external block builder failed with fallback"
+
+declareCounter beacon_block_builder_missed_without_fallback,
+  "Number of beacon chain blocks where an attempt to use an external block builder failed without possible fallback"
+
 declareGauge(attached_validator_balance,
   "Validator balance at slot end of the first 64 validators, in Gwei",
   labels = ["pubkey"])
@@ -259,7 +269,7 @@ proc createAndSendAttestation(node: BeaconNode,
           fork, genesis_validators_root, data)
         if res.isErr():
           warn "Unable to sign attestation", validator = shortLog(validator),
-                data = shortLog(data), error_msg = res.error()
+                attestatingData = shortLog(data), error_msg = res.error()
           return
         res.get()
       attestation =
@@ -373,18 +383,15 @@ proc getExecutionPayload[T](
     const GETPAYLOAD_TIMEOUT = 1.seconds
 
     let
-      terminalBlockHash =
-        if node.eth1Monitor.terminalBlockHash.isSome:
-          node.eth1Monitor.terminalBlockHash.get.asEth2Digest
-        else:
-          default(Eth2Digest)
       beaconHead = node.attestationPool[].getBeaconHead(node.dag.head)
       executionBlockRoot = node.dag.loadExecutionBlockRoot(beaconHead.blck)
       latestHead =
         if not executionBlockRoot.isZero:
           executionBlockRoot
+        elif node.eth1Monitor.terminalBlockHash.isSome:
+          node.eth1Monitor.terminalBlockHash.get.asEth2Digest
         else:
-          terminalBlockHash
+          default(Eth2Digest)
       latestSafe = beaconHead.safeExecutionPayloadHash
       latestFinalized = beaconHead.finalizedExecutionPayloadHash
       feeRecipient = node.getFeeRecipient(pubkey, validator_index, epoch)
@@ -449,6 +456,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
+    skip_randao_verification_bool: bool = false,
     execution_payload: Opt[ExecutionPayload] = Opt.none(ExecutionPayload),
     transactions_root: Opt[Eth2Digest] = Opt.none(Eth2Digest),
     execution_payload_root: Opt[Eth2Digest] = Opt.none(Eth2Digest)):
@@ -489,8 +497,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
              not (
                is_merge_transition_complete(proposalState[]) or
-               ((not node.eth1Monitor.isNil) and
-                node.eth1Monitor.terminalBlockHash.isSome)):
+               ((not node.eth1Monitor.isNil) and node.eth1Monitor.ttdReached)):
           # https://github.com/nim-lang/Nim/issues/19802
           (static(default(bellatrix.ExecutionPayload)))
         else:
@@ -525,6 +532,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       effectiveExecutionPayload,
       noRollback, # Temporary state - no need for rollback
       cache,
+      verificationFlags = if skip_randao_verification_bool: {skipRandaoVerification} else: {},
       transactions_root =
         if transactions_root.isSome:
           Opt.some transactions_root.get
@@ -619,14 +627,16 @@ proc getBlindedBeaconBlock[T](
     fork = node.dag.forkAtEpoch(slot.epoch)
     genesis_validators_root = node.dag.genesis_validators_root
     blockRoot = hash_tree_root(blindedBlock.message)
-    signing_root = compute_block_signing_root(
+    signingRoot = compute_block_signing_root(
       fork, genesis_validators_root, slot, blockRoot)
     notSlashable = node.attachedValidators
       .slashingProtection
-      .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+      .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
 
   if notSlashable.isErr:
     warn "Slashing protection activated for MEV block",
+      blockRoot = shortLog(blockRoot), blck = shortLog(blindedBlock),
+      signingRoot = shortLog(signingRoot),
       validator = validator.pubkey,
       slot = slot,
       existingProposal = notSlashable.error
@@ -659,6 +669,7 @@ proc proposeBlockMEV(
     debug "proposeBlockMEV: getBlindedExecutionPayload failed",
       error = executionPayloadHeader.error
     # Haven't committed to the MEV block, so allow EL fallback.
+    beacon_block_builder_missed_with_fallback.inc()
     return Opt.none BlockRef
 
   # When creating this block, need to ensure it uses the MEV-provided execution
@@ -754,6 +765,7 @@ proc proposeBlockMEV(
         if newBlockRef.isNone():
           return Opt.some head # Validation errors logged in router
 
+        beacon_block_builder_proposed.inc()
         notice "Block proposed (MEV)",
           blockRoot = shortLog(signedBlock.root), blck = shortLog(signedBlock),
           signature = shortLog(signedBlock.signature), validator = shortLog(validator)
@@ -819,6 +831,9 @@ proc proposeBlock(node: BeaconNode,
       # This might be equivalent to the `head` passed in, but it signals that
       # `submitBlindedBlock` ran, so don't do anything else. Otherwise, it is
       # fine to try again with the local EL.
+      if newBlockMEV.get == head:
+        # Returning same block as head indicates failure to generate new block
+        beacon_block_builder_missed_without_fallback.inc()
       return newBlockMEV.get
 
   let newBlock = await makeBeaconBlockForHeadAndSlot(
@@ -832,15 +847,17 @@ proc proposeBlock(node: BeaconNode,
   withBlck(forkedBlck):
     let
       blockRoot = hash_tree_root(blck)
-      signing_root = compute_block_signing_root(
+      signingRoot = compute_block_signing_root(
         fork, genesis_validators_root, slot, blockRoot)
 
       notSlashable = node.attachedValidators
         .slashingProtection
-        .registerBlock(validator_index, validator.pubkey, slot, signing_root)
+        .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
 
     if notSlashable.isErr:
-      warn "Slashing protection activated",
+      warn "Slashing protection activated for block proposal",
+        blockRoot = shortLog(blockRoot), blck = shortLog(blck),
+        signingRoot = shortLog(signingRoot),
         validator = validator.pubkey,
         slot = slot,
         existingProposal = notSlashable.error
@@ -947,7 +964,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       let
         data = makeAttestationData(epochRef, attestationHead, committee_index)
         # TODO signing_root is recomputed in produceAndSignAttestation/signAttestation just after
-        signing_root = compute_attestation_signing_root(
+        signingRoot = compute_attestation_signing_root(
           fork, genesis_validators_root, data)
         registered = node.attachedValidators
           .slashingProtection
@@ -956,7 +973,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
             validator.pubkey,
             data.source.epoch,
             data.target.epoch,
-            signing_root)
+            signingRoot)
       if registered.isOk():
         let subnet_id = compute_subnet_for_attestation(
           committees_per_slot, data.slot, committee_index)
@@ -965,7 +982,10 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
           committee.len(), index_in_committee, subnet_id)
       else:
         warn "Slashing protection activated for attestation",
-          validator = validator.pubkey,
+          attestationData = shortLog(data),
+          signingRoot = shortLog(signingRoot),
+          validator_index,
+          validator = shortLog(validator),
           badVoteDetails = $registered.error()
 
 proc createAndSendSyncCommitteeMessage(node: BeaconNode,
@@ -1128,12 +1148,12 @@ proc signAndSendAggregate(
           return
         res.get()
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#aggregation-selection
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#aggregation-selection
     if not is_aggregator(
         shufflingRef, slot, committee_index, selectionProof):
       return
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#construct-aggregate
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#construct-aggregate
     # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#aggregateandproof
     var
       msg = SignedAggregateAndProof(
@@ -1487,8 +1507,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

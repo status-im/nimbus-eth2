@@ -790,7 +790,9 @@ proc loadNetKeystore*(keystorePath: string,
 
   let keyStore =
     try:
-      Json.loadFile(keystorePath, NetKeystore)
+      Json.loadFile(keystorePath, NetKeystore,
+                    requireAllFields = true,
+                    allowUnknownFields = true)
     except IOError as err:
       error "Failed to read network keystore", err = err.msg,
             path = keystorePath
@@ -1483,7 +1485,9 @@ proc importKeystoresFromDir*(rng: var HmacDrbgContext,
 
       let keystore =
         try:
-          Json.loadFile(file, Keystore)
+          Json.loadFile(file, Keystore,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
         except SerializationError as e:
           warn "Invalid keystore", err = e.formatMsg(file)
           continue

@@ -28,7 +28,7 @@ logScope: topics = "spec_cache"
 func count_active_validators*(shufflingRef: ShufflingRef): uint64 =
   shufflingRef.shuffled_active_validator_indices.lenu64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(shufflingRef: ShufflingRef): uint64 =
   get_committee_count_per_slot(count_active_validators(shufflingRef))
 
@@ -41,7 +41,7 @@ func get_committee_index*(shufflingRef: ShufflingRef, index: uint64):
     Result[CommitteeIndex, cstring] =
   check_attestation_index(index, get_committee_count_per_slot(shufflingRef))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
     shufflingRef: ShufflingRef, slot: Slot, committee_index: CommitteeIndex):
     (int, ValidatorIndex) =
@@ -54,7 +54,7 @@ iterator get_beacon_committee*(
     committees_per_slot * SLOTS_PER_EPOCH
   ): yield (index_in_committee, idx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee*(
     shufflingRef: ShufflingRef, slot: Slot, committee_index: CommitteeIndex):
     seq[ValidatorIndex] =
@@ -67,7 +67,7 @@ func get_beacon_committee*(
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#get_beacon_committee
 func get_beacon_committee_len*(
     shufflingRef: ShufflingRef, slot: Slot, committee_index: CommitteeIndex): uint64 =
   ## Return the number of members in the beacon committee at ``slot`` for ``index``.
@@ -79,7 +79,7 @@ func get_beacon_committee_len*(
     committees_per_slot * SLOTS_PER_EPOCH
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#get_attesting_indices
 iterator get_attesting_indices*(shufflingRef: ShufflingRef,
                                 slot: Slot,
                                 committee_index: CommitteeIndex,
@@ -100,7 +100,7 @@ iterator get_attesting_indices*(
       slot =
         check_attestation_slot_target(attestation.data).valueOr:
           warn "Invalid attestation slot in trusted attestation",
-            attestation = shortLog(attestation.data)
+            attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags
           break
       blck =
@@ -112,14 +112,14 @@ iterator get_attesting_indices*(
         blck.atCheckpoint(attestation.data.target).valueOr:
           warn "Unknown attestation target in trusted attestation",
             blck = shortLog(blck),
-            attestation = shortLog(attestation.data)
+            attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags
           break
       shufflingRef =
         dag.getShufflingRef(target.blck, target.slot.epoch, false).valueOr:
           warn "Attestation shuffling not found",
             blck = shortLog(blck),
-            attestation = shortLog(attestation.data)
+            attestation = shortLog(attestation)
 
           doAssert strictVerification notin dag.updateFlags
           break
@@ -129,7 +129,7 @@ iterator get_attesting_indices*(
         CommitteeIndex.init(attestation.data.index, committeesPerSlot).valueOr:
           warn "Unexpected committee index in trusted attestation",
             blck = shortLog(blck),
-            attestation = shortLog(attestation.data)
+            attestation = shortLog(attestation)
 
           doAssert strictVerification notin dag.updateFlags
           break
@@ -152,7 +152,7 @@ func get_attesting_indices_one*(shufflingRef: ShufflingRef,
     res = some(validator_index)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#get_attesting_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#get_attesting_indices
 func get_attesting_indices*(shufflingRef: ShufflingRef,
                             slot: Slot,
                             committee_index: CommitteeIndex,
@@ -162,7 +162,7 @@ func get_attesting_indices*(shufflingRef: ShufflingRef,
   for idx in get_attesting_indices(shufflingRef, slot, committee_index, bits):
     result.add(idx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
 proc is_valid_indexed_attestation*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     dag: ChainDAGRef, shufflingRef: EpochRef,

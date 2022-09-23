@@ -47,7 +47,6 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
   let signingRoot =
     compute_attestation_signing_root(
       fork, vc.beaconGenesis.genesis_validators_root, adata)
-  let attestationRoot = adata.hash_tree_root()
 
   let notSlashable = vc.attachedValidators[].slashingProtection
                        .registerAttestation(vindex, validator.pubkey,
@@ -55,7 +54,8 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
                                             adata.target.epoch, signingRoot)
   if notSlashable.isErr():
     warn "Slashing protection activated for attestation",
-         slot = duty.data.slot,
+         attestationData = shortLog(adata),
+         signingRoot = shortLog(signingRoot),
          validator = shortLog(validator),
          validator_index = vindex, badVoteDetails = $notSlashable.error
     return false
@@ -85,7 +85,6 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
 
   debug "Sending attestation", attestation = shortLog(attestation),
         validator = shortLog(validator), validator_index = vindex,
-        attestation_root = shortLog(attestationRoot),
         delay = vc.getDelay(adata.slot.attestation_deadline())
 
   let res =
@@ -115,8 +114,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
     notice "Attestation published", attestation = shortLog(attestation),
                                     validator = shortLog(validator),
                                     validator_index = vindex,
-                                    delay = delay,
-                                    attestation_root = attestationRoot
+                                    delay = delay
   else:
     warn "Attestation was not accepted by beacon node",
          attestation = shortLog(attestation),

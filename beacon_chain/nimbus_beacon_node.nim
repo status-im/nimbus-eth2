@@ -116,8 +116,8 @@ declareGauge next_action_wait,
 declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
 versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
 
-declareGauge nimVersionGauge, "Nim version info", ["nim_version"], name = "Nim_version"
-nimVersionGauge.set(1, labelValues=[NimVersion])
+declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], name = "nim_version"
+nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
 
 logScope: topics = "beacnde"
 
@@ -542,7 +542,7 @@ proc init*(T: type BeaconNode,
           eth1Network,
           config.web3ForcePolling,
           optJwtSecret,
-          config.requireEngineAPI)
+          ttdReached = false)
 
         eth1Monitor.loadPersistedDeposits()
 
@@ -644,7 +644,7 @@ proc init*(T: type BeaconNode,
       eth1Network,
       config.web3ForcePolling,
       optJwtSecret,
-      config.requireEngineAPI)
+      ttdReached = not dag.loadExecutionBlockRoot(dag.finalizedHead.blck).isZero)
 
   if config.rpcEnabled:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
@@ -787,7 +787,7 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.bellatrix]
   forkDigestsArray
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState.card == 0:
     # When disconnected, updateGossipState is responsible for all things
@@ -1024,7 +1024,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
 
   var newSubcommittees: SyncnetBits
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/validator.md#sync-committee-subnet-stability
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if  (not node.network.metadata.syncnets[subcommitteeIdx]) and
         nextSyncCommitteeSubnets[subcommitteeIdx] and
@@ -1806,6 +1806,12 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
       cmdParams = commandLineParams(),
       config
 
+  template ignoreDeprecatedOption(option: untyped): untyped =
+    if config.option.isSome:
+      warn "Config option is deprecated",
+        option = config.option.get
+  ignoreDeprecatedOption requireEngineAPI
+
   createPidFile(config.dataDir.string / "beacon_node.pid")
 
   config.createDumpDirs()
@@ -1983,7 +1989,8 @@ proc doSlashingImport(conf: BeaconNodeConf) {.raises: [SerializationError, IOErr
 
   var spdir: SPDIR
   try:
-    spdir = Json.loadFile(interchange, SPDIR)
+    spdir = Json.loadFile(interchange, SPDIR,
+                          requireAllFields = true)
   except SerializationError as err:
     writeStackTrace()
     stderr.write $Json & " load issue for file \"", interchange, "\"\n"

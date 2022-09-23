@@ -141,7 +141,7 @@ type
     stopFut: Future[void]
     getBeaconTime: GetBeaconTimeFn
 
-    requireEngineAPI: bool
+    ttdReachedField: bool
 
     when hasGenesisDetection:
       genesisValidators: seq[ImmutableValidatorData]
@@ -197,6 +197,9 @@ declareGauge eth1_finalized_deposits,
 
 declareGauge eth1_chain_len,
   "The length of the in-memory chain of Eth1 blocks"
+
+func ttdReached*(m: Eth1Monitor): bool =
+  m.ttdReachedField
 
 template cfg(m: Eth1Monitor): auto =
   m.depositsChain.cfg
@@ -1042,7 +1045,7 @@ proc init*(T: type Eth1Monitor,
            eth1Network: Option[Eth1Network],
            forcePolling: bool,
            jwtSecret: Option[seq[byte]],
-           requireEngineAPI: bool): T =
+           ttdReached: bool): T =
   doAssert web3Urls.len > 0
   var web3Urls = web3Urls
   for url in mitems(web3Urls):
@@ -1061,7 +1064,7 @@ proc init*(T: type Eth1Monitor,
     forcePolling: forcePolling,
     jwtSecret: jwtSecret,
     blocksPerLogsRequest: targetBlocksPerLogsRequest,
-    requireEngineAPI: requireEngineAPI)
+    ttdReachedField: ttdReached)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
@@ -1349,16 +1352,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   await m.ensureDataProvider()
   doAssert m.dataProvider != nil, "close not called concurrently"
 
-  if m.currentEpoch >= m.cfg.BELLATRIX_FORK_EPOCH:
-    let status = await m.exchangeTransitionConfiguration()
-    if status != EtcStatus.match and isFirstRun and m.requireEngineAPI:
-      fatal "The Bellatrix hard fork requires the beacon node to be connected to a properly configured Engine API end-point. " &
-            "See https://nimbus.guide/merge.html for more details. " &
-            "If you want to temporarily continue operating Nimbus without configuring an Engine API end-point, " &
-            "please specify the command-line option --require-engine-api-in-bellatrix=no when launching it. " &
-            "Please note that you MUST complete the migration before the network TTD is reached (estimated to happen near 13th of September)"
-      quit 1
-
   # We might need to reset the chain if the new provider disagrees
   # with the previous one regarding the history of the chain or if
   # we have detected a conensus violation - our view disagreeing with
@@ -1464,7 +1457,8 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   let shouldCheckForMergeTransition = block:
     const FAR_FUTURE_TOTAL_DIFFICULTY =
       u256"115792089237316195423570985008687907853269984665640564039457584007913129638912"
-    m.cfg.TERMINAL_TOTAL_DIFFICULTY != FAR_FUTURE_TOTAL_DIFFICULTY
+    (not m.ttdReachedField) and
+    (m.cfg.TERMINAL_TOTAL_DIFFICULTY != FAR_FUTURE_TOTAL_DIFFICULTY)
 
   var didPollOnce = false
   while true:
@@ -1533,6 +1527,7 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
             break
           terminalBlockCandidate = parentBlock
         m.terminalBlockHash = some terminalBlockCandidate.hash
+        m.ttdReachedField = true
 
         debug "startEth1Syncing: found merge terminal block",
           currentEpoch = m.currentEpoch,

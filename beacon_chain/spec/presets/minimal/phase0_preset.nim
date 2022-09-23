@@ -1,5 +1,5 @@
 # Minimal preset - Phase0
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/presets/minimal/phase0.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/presets/minimal/phase0.yaml
 
 const
   #
@@ -7,11 +7,11 @@ const
   # ---------------------------------------------------------------
   # [customized] Just 4 committees for slot for testing purposes
   MAX_COMMITTEES_PER_SLOT* {.intdefine.}: uint64 = 4
-  # [customized] unsecure, but fast
+  # [customized] insecure, but fast
   TARGET_COMMITTEE_SIZE*: uint64 = 4
   # 2**11 (= 2,048)
   MAX_VALIDATORS_PER_COMMITTEE*: uint64 = 2048
-  # [customized] Faster, but unsecure.
+  # [customized] Faster, but insecure.
   SHUFFLE_ROUND_COUNT*: uint64 = 10
   # 4
   HYSTERESIS_QUOTIENT*: uint64 = 4

@@ -77,7 +77,7 @@ type
 func hash*(x: AggregatorDuty): Hash =
   hashAllFields(x)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func randomStabilitySubnet(
     self: ActionTracker, epoch: Epoch): tuple[subnet_id: SubnetId, expiration: Epoch] =
   (
@@ -147,7 +147,7 @@ proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
   # One stability subnet per known validator
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   let expectedSubnets =
     min(ATTESTATION_SUBNET_COUNT.int, tracker.knownValidators.len)
 
@@ -258,7 +258,7 @@ func updateActions*(
     # when there hasn't been a block substantially through an epoch, it might
     # prove misleading to claim that there aren't attestations known, when it
     # only might be known either way for 3 more slots. However, it's also not
-    # as important to attest when blocks aren't flowing as only attestions in
+    # as important to attest if blocks aren't flowing as only attestations in
     # blocks garner rewards.
     tracker.attestingSlots[epoch mod 2] =
       tracker.attestingSlots[epoch mod 2] or

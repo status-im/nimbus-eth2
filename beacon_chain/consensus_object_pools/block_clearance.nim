@@ -211,7 +211,7 @@ proc addHeadBlock*(
     # at this stage, but we can check if we've seen the parent block previously
     # and thus prevent requests for it to be downloaded again.
     let parentId = dag.getBlockId(blck.parent_root)
-    if parentId.isSome():
+    if parentId.isSome() and parentId.get.slot < dag.finalizedHead.slot:
       debug "Block unviable due to pre-finalized-checkpoint parent",
         parentId = parentId.get()
       return err(BlockError.UnviableFork)
