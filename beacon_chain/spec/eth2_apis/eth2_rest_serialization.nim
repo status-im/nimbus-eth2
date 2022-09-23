@@ -63,10 +63,6 @@ const
     # Size of `ValidatorSig` hexadecimal value (without 0x)
   RootHashSize = sizeof(Eth2Digest) * 2
     # Size of `xxx_root` hexadecimal value (without 0x)
-  Phase0Version =
-    [byte('p'), byte('h'), byte('a'), byte('s'), byte('e'), byte('0')]
-  AltairVersion =
-    [byte('a'), byte('l'), byte('t'), byte('a'), byte('i'), byte('r')]
 
   ApplicationJsonMediaType* = MediaType.init("application/json")
   TextPlainMediaType* = MediaType.init("text/plain")
