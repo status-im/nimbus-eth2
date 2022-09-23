@@ -429,10 +429,6 @@ proc process_justification_and_finalization*(
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return
 
-  # These ultimately differ from phase0 only in these lines, with the phase 0
-  # version effectively embedding weigh_justification_and_finalization(), for
-  # historical reasons.
-  # https://github.com/ethereum/consensus-specs/blob/v1.1.0-beta.2/specs/phase0/beacon-chain.md#justification-and-finalization
   weigh_justification_and_finalization(
     state, balances.current_epoch,
     balances.previous_epoch[TIMELY_TARGET_FLAG_INDEX],
@@ -724,7 +720,7 @@ iterator get_inactivity_penalty_deltas*(
           state.inactivity_scores[vidx]
       yield (vidx, Gwei(penalty_numerator div penalty_denominator))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#modified-get_inactivity_penalty_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#modified-get_inactivity_penalty_deltas
 iterator get_inactivity_penalty_deltas*(
     cfg: RuntimeConfig, state: bellatrix.BeaconState, info: altair.EpochInfo):
     (ValidatorIndex, Gwei) =

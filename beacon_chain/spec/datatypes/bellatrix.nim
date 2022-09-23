@@ -46,7 +46,7 @@ type
 
   PayloadID* = array[8, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
