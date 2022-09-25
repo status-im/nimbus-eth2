@@ -1898,6 +1898,45 @@ proc updateHead*(
         dag.finalizedHead.blck.root, stateRoot, dag.finalizedHead.slot.epoch)
       dag.onFinHappened(dag, data)
 
+proc getEarliestInvalidRoot*(
+    dag: ChainDAGRef, initialSearchRoot: Eth2Digest, lvh: Eth2Digest,
+    defaultEarliestInvalidRoot: Eth2Digest): Eth2Digest =
+  # Earliest within a chain/fork in question, per LVH definition. Intended to
+  # be called with `initialRoot` as the parent of the block regarding which a
+  # newPayload or forkchoiceUpdated execution_status has been received as the
+  # tests effectively require being able to access this before the BlockRef's
+  # made. Therefore, to accommodate the EF consensus spec sync tests, and the
+  # possibilities that the LVH might be an immediate parent or a more distant
+  # ancestor special-case handling of an earliest invalid root as potentially
+  # not being from this function's search, but being provided as a default by
+  # the caller with access to the block.
+  var curBlck = dag.getBlockRef(initialSearchRoot).valueOr:
+    # Being asked to traverse a chain which the DAG doesn't know about -- but
+    # that'd imply the block's otherwise invalid for CL as well as EL.
+    return static(default(Eth2Digest))
+
+  # Only allow this special case outside loop; it's when the LVH is the direct
+  # parent of the reported invalid block
+  if  curBlck.executionBlockRoot.isSome and
+      curBlck.executionBlockRoot.get == lvh:
+    return defaultEarliestInvalidRoot
+
+  while true:
+    # This was supposed to have been either caught by the pre-loop check or the
+    # parent check.
+    if  curBlck.executionBlockRoot.isSome and
+        curBlck.executionBlockRoot.get == lvh:
+      doAssert false, "getEarliestInvalidRoot: unexpected LVH in loop body"
+
+    if (curBlck.parent.isNil) or
+       curBlck.parent.executionBlockRoot.isNone or
+       (curBlck.parent.executionBlockRoot.isSome and
+        curBlck.parent.executionBlockRoot.get == lvh):
+      break
+    curBlck = curBlck.parent
+
+  curBlck.root
+
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
   # Lightweight check to see if we have the minimal information needed to
   # load up a database - we don't check head here - if something is wrong with

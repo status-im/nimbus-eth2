@@ -178,7 +178,7 @@ proc expectValidForkchoiceUpdated(
     eth1Monitor: Eth1Monitor,
     headBlockRoot, safeBlockRoot, finalizedBlockRoot: Eth2Digest
 ): Future[void] {.async.} =
-  let payloadExecutionStatus =
+  let (payloadExecutionStatus, _) =
     await eth1Monitor.runForkchoiceUpdated(
       headBlockRoot, safeBlockRoot, finalizedBlockRoot)
   if payloadExecutionStatus != PayloadExecutionStatus.valid:

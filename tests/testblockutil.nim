@@ -15,6 +15,10 @@ import
   ../beacon_chain/spec/[
     beaconstate, helpers, keystore, signatures, state_transition, validator]
 
+from eth/common/eth_types import EMPTY_ROOT_HASH
+from eth/common/eth_types_rlp import rlpHash
+from eth/eip1559 import EIP1559_INITIAL_BASE_FEE
+
 type
   MockPrivKeysT = object
   MockPubKeysT = object
@@ -74,6 +78,33 @@ func signBlock(
         ValidatorSig()
   ForkedSignedBeaconBlock.init(forked, root, signature)
 
+func build_empty_merge_execution_payload(state: bellatrix.BeaconState):
+    ExecutionPayload =
+  ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
+  ## without any transactions from a non-merged block.
+
+  doAssert not is_merge_transition_complete(state)
+
+  let
+    latest = state.latest_execution_payload_header
+    timestamp = compute_timestamp_at_slot(state, state.slot)
+    randao_mix = get_randao_mix(state, get_current_epoch(state))
+
+  var payload = ExecutionPayload(
+    parent_hash: latest.block_hash,
+    state_root: latest.state_root, # no changes to the state
+    receipts_root: EMPTY_ROOT_HASH,
+    block_number: latest.block_number + 1,
+    prev_randao: randao_mix,
+    gas_limit: 30000000, # retain same limit
+    gas_used: 0, # empty block, 0 gas
+    timestamp: timestamp,
+    base_fee_per_gas: EIP1559_INITIAL_BASE_FEE)
+
+  payload.block_hash = rlpHash emptyPayloadToBlockHeader(payload)
+
+  payload
+
 proc addTestBlock*(
     state: var ForkedHashedBeaconState,
     cache: var StateCache,
@@ -105,6 +136,21 @@ proc addTestBlock*(
       else:
         ValidatorSig()
 
+  let execution_payload =
+    withState(state):
+      when stateFork >= BeaconStateFork.Bellatrix:
+        # Merge shortly after Bellatrix
+        if  forkyState.data.slot >
+            cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH + 10:
+          if is_merge_transition_complete(forkyState.data):
+            build_empty_execution_payload(forkyState.data)
+          else:
+            build_empty_merge_execution_payload(forkyState.data)
+        else:
+          default(ExecutionPayload)
+      else:
+        default(ExecutionPayload)
+
   let
     message = makeBeaconBlock(
       cfg,
@@ -121,7 +167,7 @@ proc addTestBlock*(
       deposits,
       BeaconBlockExits(),
       sync_aggregate,
-      default(ExecutionPayload),
+      execution_payload,
       noRollback,
       cache,
       verificationFlags = {skipBlsValidation})

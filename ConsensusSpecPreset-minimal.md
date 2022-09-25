@@ -264,6 +264,7 @@ ConsensusSpecPreset-minimal
 + Slots - over_epoch_boundary                                                                OK
 + Slots - slots_1                                                                            OK
 + Slots - slots_2                                                                            OK
++ Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
 + [Invalid] EF - Altair - Sanity - Blocks - double_same_proposer_slashings_same_block [Prese OK
 + [Invalid] EF - Altair - Sanity - Blocks - double_similar_proposer_slashings_same_block [Pr OK
 + [Invalid] EF - Altair - Sanity - Blocks - double_validator_exit_same_block [Preset: minima OK
@@ -497,7 +498,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 487/494 Fail: 0/494 Skip: 7/494
+OK: 488/495 Fail: 0/495 Skip: 7/495
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -1391,4 +1392,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 36/36 Fail: 0/36 Skip: 0/36
 
 ---TOTAL---
-OK: 1206/1213 Fail: 0/1213 Skip: 7/1213
+OK: 1207/1214 Fail: 0/1214 Skip: 7/1214
