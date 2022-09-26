@@ -560,7 +560,8 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       # Every loop iteration ends with some version of blck.resfut.complete(),
       # including processBlock(), otherwise the sync manager stalls.
       if not blck.resfut.isNil:
-        blck.resfut.complete(Result[void, BlockError].err(BlockError.Invalid))
+        blck.resfut.complete(
+          Result[void, BlockError].err(BlockError.UnviableFork))
     else:
       self[].processBlock(
         blck,
