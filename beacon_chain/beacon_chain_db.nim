@@ -233,11 +233,6 @@ func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
 
   ret
 
-template panic =
-  # TODO(zah): Could we recover from a corrupted database?
-  #            Review all usages.
-  raiseAssert "The database should not be corrupted"
-
 template expectDb(x: auto): untyped =
   # There's no meaningful error handling implemented for a corrupt database or
   # full disk - this requires manual intervention, so we'll panic for now
@@ -296,11 +291,12 @@ proc get*[T](s: DbSeq[T], idx: int64): T =
   let queryRes = s.selectStmt.exec(idx + 1) do (recordBytes: openArray[byte]):
     try:
       resultAddr[] = decode(SSZ, recordBytes, T)
-    except SerializationError:
-      panic()
+    except SerializationError as exc:
+      raiseAssert "cannot decode " & $T & " at index " & $idx & ": " & exc.msg
 
   let found = queryRes.expectDb()
-  if not found: panic()
+  if not found:
+    raiseAssert $T & " not found at index " & $(idx)
 
 proc init*(T: type FinalizedBlocks, db: SqStoreRef, name: string,
            readOnly = false): KvResult[T] =

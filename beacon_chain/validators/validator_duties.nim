@@ -946,7 +946,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.epoch, false).valueOr:
         warn "Cannot construct EpochRef for attestation head, report bug",
-          attestationHead = shortLog(attestationHead), slot
+          attestationHead = shortLog(attestationHead), slot, error
         return
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)

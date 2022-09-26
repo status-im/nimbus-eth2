@@ -119,7 +119,7 @@ proc update_justified(
     epochRef = dag.getEpochRef(blck, epoch, false).valueOr:
       # Shouldn't happen for justified data unless out of sync with ChainDAG
       warn "Skipping justified checkpoint update, no EpochRef - report bug",
-        blck, epoch, best = self.best_justified.epoch
+        blck, epoch, best = self.best_justified.epoch, error
       return
     justified = Checkpoint(root: blck.root, epoch: epochRef.epoch)
 

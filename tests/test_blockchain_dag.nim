@@ -768,8 +768,19 @@ suite "Backfill":
       dag.getBlockIdAtSlot(Slot(0)).get() == dag.genesis.atSlot()
       dag.getBlockIdAtSlot(Slot(1)).isNone()
 
-      # No epochref for pre-tail epochs
+      # No EpochRef for pre-tail epochs
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch - 1, true).isErr()
+
+      # Should get EpochRef for the tail however
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch, true).isOk()
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
+
+      # Should not get EpochRef for random block
+      dag.getEpochRef(
+        BlockId(root: blocks[^2].root, slot: dag.tail.slot), # root/slot mismatch
+        dag.tail.slot.epoch, true).isErr()
+
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
 
       dag.getFinalizedEpochRef() != nil
 
