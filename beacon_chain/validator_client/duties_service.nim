@@ -16,7 +16,8 @@ logScope: service = ServiceName
 
 type
   DutiesServiceLoop* = enum
-    AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop
+    AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop,
+    ProposerPreparationLoop
 
 chronicles.formatIt(DutiesServiceLoop):
   case it
@@ -24,6 +25,7 @@ chronicles.formatIt(DutiesServiceLoop):
   of ProposerLoop: "proposer_loop"
   of IndicesLoop: "index_loop"
   of SyncCommitteeLoop: "sync_committee_loop"
+  of ProposerPreparationLoop: "proposer_prep_loop"
 
 proc checkDuty(duty: RestAttesterDuty): bool =
   (duty.committee_length <= MAX_VALIDATORS_PER_COMMITTEE) and
@@ -103,7 +105,7 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
     return 0
 
   var duties: seq[RestAttesterDuty]
-  var currentRoot: Option[Eth2Digest]
+  var currentRoot: Opt[Eth2Digest]
 
   var offset = 0
   while offset < len(validatorIndices):
@@ -133,7 +135,7 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
 
     if currentRoot.isNone():
       # First request
-      currentRoot = some(res.dependent_root)
+      currentRoot = Opt.some(res.dependent_root)
     else:
       if currentRoot.get() != res.dependent_root:
         # `dependent_root` must be equal for all requests/response, if it got
@@ -141,7 +143,7 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
         # should re-request all queries again.
         offset = 0
         duties.setLen(0)
-        currentRoot = none[Eth2Digest]()
+        currentRoot = Opt.none(Eth2Digest)
         continue
 
     for item in res.data:
@@ -207,13 +209,13 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
                   validator = shortLog(validators[index]),
                   error_msg = sigRes.error()
             DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                              none[ValidatorSig]())
+                              Opt.none(ValidatorSig))
           else:
             DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                              some(sigRes.get()))
+                              Opt.some(sigRes.get()))
         else:
           DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                            none[ValidatorSig]())
+                            Opt.none(ValidatorSig))
 
       var validatorDuties = vc.attesters.getOrDefault(item.duty.pubkey)
       validatorDuties.duties[item.epoch] = dap
@@ -316,13 +318,13 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
                   validator = shortLog(validators[index]),
                   error_msg = sigRes.error()
             SyncDutyAndProof.init(item.epoch, item.duty,
-                                  none[ValidatorSig]())
+                                  Opt.none(ValidatorSig))
           else:
             SyncDutyAndProof.init(item.epoch, item.duty,
-                                  some(sigRes.get()))
+                                  Opt.some(sigRes.get()))
         else:
           SyncDutyAndProof.init(item.epoch, item.duty,
-                                none[ValidatorSig]())
+                                Opt.none(ValidatorSig))
 
       var validatorDuties = vc.syncCommitteeDuties.getOrDefault(item.duty.pubkey)
       validatorDuties.duties[item.epoch] = dap
@@ -484,6 +486,37 @@ proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
 
     vc.pruneBeaconProposers(currentEpoch)
 
+proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  let sres = vc.getCurrentSlot()
+  if sres.isSome():
+    let
+      currentSlot = sres.get()
+      currentEpoch = currentSlot.epoch()
+      proposers = vc.prepareProposersList(currentEpoch)
+
+    if len(proposers) > 0:
+      let count =
+        try:
+          await prepareBeaconProposer(vc, proposers)
+        except ValidatorApiError as exc:
+          warn "Unable to prepare beacon proposers", slot = currentSlot,
+                epoch = currentEpoch, err_name = exc.name,
+                err_msg = exc.msg
+          0
+        except CancelledError as exc:
+          debug "Beacon proposer preparation processing was interrupted"
+          raise exc
+        except CatchableError as exc:
+          error "Unexpected error occured while preparing beacon proposers",
+                slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
+                err_msg = exc.msg
+          0
+      debug "Beacon proposers prepared",
+            validators_count = vc.attachedValidators[].count(),
+            proposers_count = len(proposers),
+            prepared_count = count
+
 proc waitForNextSlot(service: DutiesServiceRef,
                      serviceLoop: DutiesServiceLoop) {.async.} =
   let vc = service.client
@@ -515,6 +548,11 @@ proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
   while true:
     await vc.pollForValidatorIndices()
     await service.waitForNextSlot(IndicesLoop)
+
+proc proposerPreparationsLoop(service: DutiesServiceRef) {.async.} =
+  while true:
+    await service.prepareBeaconProposers()
+    await service.waitForNextSlot(ProposerPreparationLoop)
 
 proc syncCommitteeeDutiesLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client

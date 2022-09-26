@@ -126,7 +126,7 @@ proc initMetrics(vc: ValidatorClientRef): Future[bool] {.async.} =
                 error_msg = res.error()
           return false
         res.get()
-    vc.metricsServer = some(server)
+    vc.metricsServer = Opt.some(server)
     try:
       await server.start()
     except MetricsError as exc:
@@ -210,6 +210,7 @@ proc new*(T: type ValidatorClientRef,
       nodesAvailable: newAsyncEvent(),
       forksAvailable: newAsyncEvent(),
       gracefulExit: newAsyncEvent(),
+      dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
       sigintHandleFut: waitSignal(SIGINT),
       sigtermHandleFut: waitSignal(SIGTERM)
     )
@@ -222,6 +223,7 @@ proc new*(T: type ValidatorClientRef,
       nodesAvailable: newAsyncEvent(),
       forksAvailable: newAsyncEvent(),
       gracefulExit: newAsyncEvent(),
+      dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
       sigintHandleFut: newFuture[void]("sigint_placeholder"),
       sigtermHandleFut: newFuture[void]("sigterm_placeholder")
     )

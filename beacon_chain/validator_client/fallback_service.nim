@@ -166,8 +166,8 @@ proc checkCompatible(vc: ValidatorClientRef,
           genesis_flag = genesisFlag, config_flag = configFlag
   else:
     info "Beacon node has compatible configuration"
-    node.config = some(info)
-    node.genesis = some(genesis)
+    node.config = Opt.some(info)
+    node.genesis = Opt.some(genesis)
     node.status = RestBeaconNodeStatus.Online
 
 proc checkSync(vc: ValidatorClientRef,
@@ -192,7 +192,7 @@ proc checkSync(vc: ValidatorClientRef,
             error_message = exc.msg
       node.status = RestBeaconNodeStatus.Offline
       return
-  node.syncInfo = some(syncInfo)
+  node.syncInfo = Opt.some(syncInfo)
   node.status =
     block:
       let optimistic =
@@ -238,7 +238,7 @@ proc checkOnline(node: BeaconNodeServerRef) {.async.} =
       node.status = RestBeaconNodeStatus.Offline
       return
   info "Beacon node has been identified", agent = agent.version
-  node.ident = some(agent.version)
+  node.ident = Opt.some(agent.version)
   node.status = RestBeaconNodeStatus.Online
 
 proc checkNode(vc: ValidatorClientRef,

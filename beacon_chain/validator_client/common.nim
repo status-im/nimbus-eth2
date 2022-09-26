@@ -6,23 +6,25 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[tables, os, sets, sequtils, strutils, uri],
+  std/[tables, os, sets, sequtils, strutils, uri, options],
   stew/[base10, results, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
-  chronicles, confutils, json_serialization/std/[options, net],
+  chronicles, confutils, json_serialization/std/net,
   metrics, metrics/chronos_httpserver,
   ".."/spec/datatypes/[phase0, altair],
   ".."/spec/[eth2_merkleization, helpers, signatures, validator],
-  ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client],
+  ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
+                       dynamic_fee_recipients],
   ".."/validators/[keystore_management, validator_pool, slashing_protection],
   ".."/[conf, beacon_clock, version, nimbus_binary_common]
 
 export
   os, sets, sequtils, chronos, presto, chronicles, confutils,
-  nimbus_binary_common, version, conf, options, tables, results, base10,
+  nimbus_binary_common, version, conf, tables, results, base10,
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
-  beacon_clock, keystore_management, slashing_protection, validator_pool
+  beacon_clock, keystore_management, slashing_protection, validator_pool,
+  dynamic_fee_recipients
 
 const
   SYNC_TOLERANCE* = 4'u64
@@ -49,6 +51,8 @@ type
     client*: ValidatorClientRef
 
   DutiesServiceRef* = ref object of ClientServiceRef
+    lastBPEpoch: Opt[Epoch]
+    lastProposers: seq[PrepareBeaconProposer]
 
   FallbackServiceRef* = ref object of ClientServiceRef
     onlineEvent*: AsyncEvent
@@ -103,10 +107,10 @@ type
   BeaconNodeServer* = object
     client*: RestClientRef
     endpoint*: string
-    config*: Option[RestSpecVC]
-    ident*: Option[string]
-    genesis*: Option[RestGenesis]
-    syncInfo*: Option[RestSyncInfo]
+    config*: Opt[RestSpecVC]
+    ident*: Opt[string]
+    genesis*: Opt[RestGenesis]
+    syncInfo*: Opt[RestSyncInfo]
     status*: RestBeaconNodeStatus
     roles*: set[BeaconNodeRole]
     logIdent*: string
@@ -145,7 +149,7 @@ type
 
   ValidatorClient* = object
     config*: ValidatorClientConf
-    metricsServer*: Option[MetricsHttpServerRef]
+    metricsServer*: Opt[MetricsHttpServerRef]
     graffitiBytes*: GraffitiBytes
     beaconNodes*: seq[BeaconNodeServerRef]
     fallbackService*: FallbackServiceRef
@@ -172,6 +176,7 @@ type
     syncCommitteeDuties*: SyncCommitteeDutiesMap
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
+    dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     rng*: ref HmacDrbgContext
 
   ValidatorClientRef* = ref ValidatorClient
@@ -180,9 +185,13 @@ type
   ValidatorApiError* = object of ValidatorClientError
 
 const
-  DefaultDutyAndProof* = DutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
+  DefaultDutyAndProof* = DutyAndProof(
+    epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64),
+  )
   DefaultSyncDutyAndProof* =
-    SyncDutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
+    SyncDutyAndProof(
+      epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64),
+  )
   SlotDuration* = int64(SECONDS_PER_SLOT).seconds
   OneThirdDuration* = int64(SECONDS_PER_SLOT).seconds div INTERVALS_PER_SLOT
   AllBeaconNodeRoles* = {
@@ -365,31 +374,38 @@ proc getMissingRoles*(n: openArray[BeaconNodeServerRef]): set[BeaconNodeRole] =
 
 proc init*(t: typedesc[DutyAndProof], epoch: Epoch, dependentRoot: Eth2Digest,
            duty: RestAttesterDuty,
-           slotSig: Option[ValidatorSig]): DutyAndProof =
-  DutyAndProof(epoch: epoch, dependentRoot: dependentRoot, data: duty,
-               slotSig: slotSig)
+           slotSig: Opt[ValidatorSig]): DutyAndProof =
+  DutyAndProof(
+    epoch: epoch, dependentRoot: dependentRoot, data: duty,
+    slotSig: if slotSig.isSome():
+      options.some(slotSig.get()) else: options.none[ValidatorSig]()
+  )
 
 proc init*(t: typedesc[SyncDutyAndProof], epoch: Epoch,
            duty: SyncCommitteeDuty,
-           slotSig: Option[ValidatorSig]): SyncDutyAndProof =
-  SyncDutyAndProof(epoch: epoch, data: duty, slotSig: slotSig)
+           slotSig: Opt[ValidatorSig]): SyncDutyAndProof =
+  SyncDutyAndProof(
+    epoch: epoch, data: duty,
+    slotSig: if slotSig.isSome():
+      options.some(slotSig.get()) else: options.none[ValidatorSig]()
+  )
 
 proc init*(t: typedesc[ProposedData], epoch: Epoch, dependentRoot: Eth2Digest,
            data: openArray[ProposerTask]): ProposedData =
   ProposedData(epoch: epoch, dependentRoot: dependentRoot, duties: @data)
 
-proc getCurrentSlot*(vc: ValidatorClientRef): Option[Slot] =
+proc getCurrentSlot*(vc: ValidatorClientRef): Opt[Slot] =
   let
     wallTime = vc.beaconClock.now()
     wallSlot = wallTime.toSlot()
 
-  if not(wallSlot.afterGenesis):
+  if wallSlot.afterGenesis:
+    Opt.some(wallSlot.slot)
+  else:
     let checkGenesisTime = vc.beaconClock.fromNow(start_beacon_time(Slot(0)))
     warn "Jump in time detected, something wrong with wallclock",
          wall_time = wallTime, genesisIn = checkGenesisTime.offset
-    none[Slot]()
-  else:
-    some(wallSlot.slot)
+    Opt.none(Slot)
 
 proc getAttesterDutiesForSlot*(vc: ValidatorClientRef,
                                slot: Slot): seq[DutyAndProof] =
@@ -493,17 +509,17 @@ proc getDelay*(vc: ValidatorClientRef, deadline: BeaconTime): TimeDiff =
   vc.beaconClock.now() - deadline
 
 proc getValidator*(vc: ValidatorClientRef,
-                   key: ValidatorPubKey): Option[AttachedValidator] =
+                   key: ValidatorPubKey): Opt[AttachedValidator] =
   let validator = vc.attachedValidators[].getValidator(key)
   if isNil(validator):
     warn "Validator not in pool anymore", validator = shortLog(validator)
-    none[AttachedValidator]()
+    Opt.none(AttachedValidator)
   else:
     if validator.index.isNone():
       warn "Validator index is missing", validator = shortLog(validator)
-      none[AttachedValidator]()
+      Opt.none(AttachedValidator)
     else:
-      some(validator)
+      Opt.some(validator)
 
 proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
   # If schedule is present, it MUST not be empty.
@@ -639,3 +655,31 @@ proc doppelgangerCheck*(vc: ValidatorClientRef,
       true
   else:
     true
+
+proc getFeeRecipient*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
+                      validatorIdx: ValidatorIndex,
+                      epoch: Epoch): Opt[Eth1Address] =
+  let dynamicRecipient = vc.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
+                           validatorIdx, epoch)
+  if dynamicRecipient.isSome():
+    Opt.some(dynamicRecipient.get())
+  else:
+    let staticRecipient = getSuggestedFeeRecipient(
+      vc.config.validatorsDir, pubkey, vc.config.defaultFeeRecipient)
+    if staticRecipient.isOk():
+      Opt.some(staticRecipient.get())
+    else:
+      Opt.none(Eth1Address)
+
+proc prepareProposersList*(vc: ValidatorClientRef,
+                           epoch: Epoch): seq[PrepareBeaconProposer] =
+  var res: seq[PrepareBeaconProposer]
+  for validator in vc.attachedValidators[].items():
+    if validator.index.isSome():
+      let
+        index = validator.index.get()
+        feeRecipient = vc.getFeeRecipient(validator.pubkey, index, epoch)
+      if feeRecipient.isSome():
+        res.add(PrepareBeaconProposer(validator_index: index,
+                                      fee_recipient: feeRecipient.get()))
+  res
