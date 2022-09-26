@@ -225,7 +225,7 @@ proc stepOnBlock(
       # future.
       let lvh = invalidatedRoots.getOrDefault(
         executionPayloadHash, static(default(Eth2Digest)))
-      fkChoice[].mark_root_invalid(dag.getEarliestInvalidRoot(
+      fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
         signedBlock.message.parent_root, lvh, executionPayloadHash))
 
       return err BlockError.Invalid

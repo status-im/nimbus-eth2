@@ -898,7 +898,7 @@ suite "Latest valid hash" & preset():
       # but returns CL block hash, because that's what fork choice and other
       # Nimbus components mostly use as a coordinate system. Since b1 is set
       # to be valid here by being the LVH, it means that b2 must be invalid.
-      dag.getEarliestInvalidRoot(
+      dag.getEarliestInvalidBlockRoot(
         b2Add[].root, b1.message.body.execution_payload.block_hash,
           fallbackEarliestInvalid) == b2Add[].root
 
@@ -908,6 +908,6 @@ suite "Latest valid hash" & preset():
       # a manually specified fallback (CL) block root to use, because it does
       # not have access to this information otherwise, because the very first
       # newest block in the chain it's examining is already valid.
-      dag.getEarliestInvalidRoot(
+      dag.getEarliestInvalidBlockRoot(
         b2Add[].root, b2.message.body.execution_payload.block_hash,
           fallbackEarliestInvalid) == fallbackEarliestInvalid

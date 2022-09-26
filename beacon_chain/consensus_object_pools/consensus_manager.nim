@@ -241,7 +241,7 @@ proc updateExecutionClientHead(
     # This is a CL root, not EL hash
     let earliestKnownInvalidRoot =
       if latestValidHash.isSome:
-        self.dag.getEarliestInvalidRoot(
+        self.dag.getEarliestInvalidBlockRoot(
           newHead.blck.root, latestValidHash.get.asEth2Digest,
           newHead.blck.root)
       else:
