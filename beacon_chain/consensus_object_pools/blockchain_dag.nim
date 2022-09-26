@@ -1929,9 +1929,7 @@ proc getEarliestInvalidRoot*(
       doAssert false, "getEarliestInvalidRoot: unexpected LVH in loop body"
 
     if (curBlck.parent.isNil) or
-       curBlck.parent.executionBlockRoot.isNone or
-       (curBlck.parent.executionBlockRoot.isSome and
-        curBlck.parent.executionBlockRoot.get == lvh):
+       curBlck.parent.executionBlockRoot.get(lvh) == lvh:
       break
     curBlck = curBlck.parent
 
