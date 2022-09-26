@@ -198,6 +198,83 @@ suite "Block pool processing" & preset():
       # Getting an EpochRef should not result in states being stored
       db.getStateRoot(stateCheckpoint.bid.root, stateCheckpoint.slot).isOk()
 
+  test "Randao skip and non-skip":
+    let tmpState = assignClone(state[])
+    process_slots(
+      dag.cfg, tmpState[], getStateField(
+        tmpState[], slot) + 1, cache, info, {}).expect("can advance 1")
+
+    let
+      proposer_index = get_beacon_proposer_index(
+        tmpState[], cache, getStateField(tmpState[], slot))
+      privKey = MockPrivKeys[proposer_index.get]
+      randao_reveal = get_epoch_signature(
+        getStateField(tmpState[], fork),
+        getStateField(tmpState[], genesis_validators_root),
+        getStateField(tmpState[], slot).epoch, privKey).toValidatorSig()
+    var bad_randao_reveal = randao_reveal
+    bad_randao_reveal.blob[5] += 1
+
+    block: # No skip, invalid randao
+      let tmpState2 = assignClone(tmpState[])
+
+      let
+        message = makeBeaconBlock(
+          dag.cfg, tmpState2[], proposer_index.get(),
+          bad_randao_reveal,
+          # Keep deposit counts internally consistent.
+          Eth1Data(
+            deposit_root: Eth1Data().deposit_root,
+            deposit_count: getStateField(tmpState[], eth1_deposit_index),
+            block_hash: Eth1Data().block_hash),
+          default(GraffitiBytes), @[], @[], BeaconBlockExits(),
+          default(SyncAggregate), default(ExecutionPayload),
+          noRollback, cache)
+      # Fail with invalid randao
+      check: message.isErr
+
+    block:
+      let tmpState2 = assignClone(tmpState[])
+
+      let
+        message = makeBeaconBlock(
+          dag.cfg, tmpState2[], proposer_index.get(),
+          bad_randao_reveal,
+          getStateField(tmpState[], eth1_data),
+          default(GraffitiBytes), @[], @[], BeaconBlockExits(),
+          default(SyncAggregate), default(ExecutionPayload),
+          noRollback, cache, {skipRandaoVerification})
+      # Non-infinity skip randao
+      check: message.isErr
+
+    block:
+      let tmpState2 = assignClone(tmpState[])
+
+      let
+        message = makeBeaconBlock(
+          dag.cfg, tmpState2[], proposer_index.get(),
+          ValidatorSig.infinity(),
+          getStateField(tmpState[], eth1_data),
+          default(GraffitiBytes), @[], @[], BeaconBlockExits(),
+          default(SyncAggregate), default(ExecutionPayload),
+          noRollback, cache, {})
+      # Non-infinity skip randao
+      check: message.isErr
+
+    block:
+      let tmpState2 = assignClone(tmpState[])
+
+      let
+        message = makeBeaconBlock(
+          dag.cfg, tmpState2[], proposer_index.get(),
+          ValidatorSig.infinity(),
+          getStateField(tmpState[], eth1_data),
+          default(GraffitiBytes), @[], @[], BeaconBlockExits(),
+          default(SyncAggregate), default(ExecutionPayload),
+          noRollback, cache, {skipRandaoVerification})
+      # Non-infinity skip randao
+      check: message.isOk
+
   test "Adding the same block twice returns a Duplicate error" & preset():
     let
       b10 = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
