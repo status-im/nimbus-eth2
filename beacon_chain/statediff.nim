@@ -12,7 +12,7 @@ else:
 
 import
   stew/assign2,
-  ./spec/datatypes/altair,
+  ./spec/datatypes/bellatrix,
   ./spec/helpers
 
 func diffModIncEpoch[T, U](hl: HashArray[U, T], startSlot: uint64):
@@ -85,7 +85,7 @@ func replaceOrAddDecodeEth1Votes[T, U](
     if not votes0.add item:
       raiseAssert "same limit"
 
-func getMutableValidatorStatuses(state: altair.BeaconState):
+func getMutableValidatorStatuses(state: bellatrix.BeaconState):
     List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT] =
   if not result.setLen(state.validators.len):
     raiseAssert "same limt as validators"
@@ -100,7 +100,7 @@ func getMutableValidatorStatuses(state: altair.BeaconState):
     assign(result[i].exit_epoch, validator.exit_epoch)
     assign(result[i].withdrawable_epoch, validator.withdrawable_epoch)
 
-func diffStates*(state0, state1: altair.BeaconState): BeaconStateDiff =
+func diffStates*(state0, state1: bellatrix.BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
   doAssert state0.slot.is_epoch
   doAssert state1.slot == state0.slot + SLOTS_PER_EPOCH
@@ -158,7 +158,7 @@ func diffStates*(state0, state1: altair.BeaconState): BeaconStateDiff =
   )
 
 func applyDiff*(
-    state: var altair.BeaconState,
+    state: var bellatrix.BeaconState,
     immutableValidators: openArray[ImmutableValidatorData2],
     stateDiff: BeaconStateDiff) =
   template assign[T, U](tgt: var HashList[T, U], src: List[T, U]) =
