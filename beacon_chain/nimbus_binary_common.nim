@@ -25,7 +25,7 @@ import
   # Local modules
   ./spec/[helpers],
   ./spec/datatypes/base,
-  "."/[beacon_clock, beacon_node_status, conf, filepath]
+  "."/[beacon_clock, beacon_node_status, conf]
 
 when defined(posix):
   import termios
@@ -102,6 +102,7 @@ proc detectTTY*(stdoutKind: StdoutLogKind): StdoutLogKind =
 
 when defaultChroniclesStream.outputs.type.arity == 2:
   from std/os import splitFile
+  from "."/filepath import secureCreatePath
 
 proc setupLogging*(
     logLevel: string, stdoutKind: StdoutLogKind, logFile: Option[OutFile]) =
