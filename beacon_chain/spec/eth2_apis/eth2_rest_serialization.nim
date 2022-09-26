@@ -2165,13 +2165,6 @@ proc readValue*(reader: var JsonReader[RestJson],
   value = RestActivityItem(index: index.get(), epoch: epoch.get(),
                            active: active.get())
 
-proc dump*(value: KeystoresAndSlashingProtection): string {.
-     raises: [IOError, SerializationError, Defect].} =
-  var stream = memoryOutput()
-  var writer = JsonWriter[RestJson].init(stream)
-  writer.writeValue(value)
-  stream.getOutput(string)
-
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: HeadChangeInfoObject) {.
      raises: [IOError, Defect].} =
