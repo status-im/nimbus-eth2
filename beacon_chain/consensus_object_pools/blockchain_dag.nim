@@ -1899,8 +1899,9 @@ proc updateHead*(
       dag.onFinHappened(dag, data)
 
 proc getEarliestInvalidRoot*(
-    dag: ChainDAGRef, initialSearchRoot: Eth2Digest, lvh: Eth2Digest,
-    defaultEarliestInvalidRoot: Eth2Digest): Eth2Digest =
+    dag: ChainDAGRef, initialSearchRoot: Eth2Digest,
+    latestValidHash: Eth2Digest, defaultEarliestInvalidRoot: Eth2Digest):
+    Eth2Digest =
   # Earliest within a chain/fork in question, per LVH definition. Intended to
   # be called with `initialRoot` as the parent of the block regarding which a
   # newPayload or forkchoiceUpdated execution_status has been received as the
@@ -1918,18 +1919,19 @@ proc getEarliestInvalidRoot*(
   # Only allow this special case outside loop; it's when the LVH is the direct
   # parent of the reported invalid block
   if  curBlck.executionBlockRoot.isSome and
-      curBlck.executionBlockRoot.get == lvh:
+      curBlck.executionBlockRoot.get == latestValidHash:
     return defaultEarliestInvalidRoot
 
   while true:
     # This was supposed to have been either caught by the pre-loop check or the
     # parent check.
     if  curBlck.executionBlockRoot.isSome and
-        curBlck.executionBlockRoot.get == lvh:
+        curBlck.executionBlockRoot.get == latestValidHash:
       doAssert false, "getEarliestInvalidRoot: unexpected LVH in loop body"
 
     if (curBlck.parent.isNil) or
-       curBlck.parent.executionBlockRoot.get(lvh) == lvh:
+       curBlck.parent.executionBlockRoot.get(latestValidHash) ==
+         latestValidHash:
       break
     curBlck = curBlck.parent
 

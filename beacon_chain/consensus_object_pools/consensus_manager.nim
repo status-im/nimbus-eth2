@@ -247,12 +247,9 @@ proc updateExecutionClientHead(
       else:
         newHead.blck.root
 
-    self.attestationPool[].forkChoice.mark_root_invalid(
-      earliestKnownInvalidRoot)
+    self.attestationPool[].forkChoice.mark_root_invalid(newHead.blck.root)
     self.dag.markBlockInvalid(newHead.blck.root)
-    self.dag.markBlockInvalid(earliestKnownInvalidRoot)
     self.quarantine[].addUnviable(newHead.blck.root)
-    self.quarantine[].addUnviable(earliestKnownInvalidRoot)
     return Opt.none(void)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
     self.dag.optimisticRoots.incl newHead.blck.root
