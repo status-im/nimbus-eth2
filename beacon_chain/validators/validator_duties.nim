@@ -564,7 +564,7 @@ proc getBlindedExecutionPayload(
     pubkey: ValidatorPubKey):
     Future[Result[ExecutionPayloadHeader, cstring]] {.async.} =
   if node.payloadBuilderRestClient.isNil:
-    return err "getBlindedBeaconBlock: nil REST client"
+    return err "getBlindedExecutionPayload: nil REST client"
 
   let blindedHeader = awaitWithTimeout(
     node.payloadBuilderRestClient.getHeader(slot, executionBlockRoot, pubkey),

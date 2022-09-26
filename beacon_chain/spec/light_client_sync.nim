@@ -148,7 +148,7 @@ proc validate_light_client_update*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/sync-protocol.md#apply_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/sync-protocol.md#apply_light_client_update
 func apply_light_client_update(
     store: var LightClientStore,
     update: SomeLightClientUpdate): bool =
