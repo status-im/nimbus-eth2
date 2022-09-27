@@ -545,7 +545,6 @@ proc makeBeaconBlockForHeadAndSlot*(
           Opt.some execution_payload_root.get
         else:
           Opt.none Eth2Digest)
-
     if res.isErr():
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -554,21 +553,6 @@ proc makeBeaconBlockForHeadAndSlot*(
       error "Cannot create block for proposal",
         slot, head = shortLog(head), error = res.error()
       return err($res.error)
-
-    # Verify RANDAO, since block production otherwise doesn't verify signatures
-    if not skip_randao_verification_bool:
-      let proposer_pubkey = node.dag.validatorKey(validator_index)
-
-      if proposer_pubkey.isNone:
-        return ForkedBlockResult.err("makeBeaconBlockForHeadAndSlot: unable to find pubkey for validator index")
-
-      withStateAndBlck(state, res.get):
-        # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#randao
-        if not verify_epoch_signature(
-            forkyState.data.fork, forkyState.data.genesis_validators_root,
-            slot.epoch, proposer_pubkey.get, blck.body.randao_reveal):
-          return ForkedBlockResult.err("makeBeaconBlockForHeadAndSlot: invalid epoch signature")
-
     return ok(res.get())
   do:
     beacon_block_production_errors.inc()
