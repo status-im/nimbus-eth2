@@ -73,7 +73,7 @@ type
   EmptyBody* = object
 
   RestGenericError* = object
-    code*: uint64
+    code*: int
     message*: string
     stacktraces*: Option[seq[string]]
 
