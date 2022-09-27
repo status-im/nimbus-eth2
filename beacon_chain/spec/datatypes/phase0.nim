@@ -319,6 +319,10 @@ template asSigVerified*(
        TrustedSignedBeaconBlock): SigVerifiedSignedBeaconBlock =
   isomorphicCast[SigVerifiedSignedBeaconBlock](x)
 
+template asSigVerified*(
+    x: BeaconBlock | TrustedBeaconBlock): SigVerifiedBeaconBlock =
+  isomorphicCast[SigVerifiedBeaconBlock](x)
+
 template asMsgTrusted*(
     x: SignedBeaconBlock |
        SigVerifiedSignedBeaconBlock |

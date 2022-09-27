@@ -352,7 +352,9 @@ proc makeBeaconBlock*(
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, execution_payload)
 
-  let res = process_block(cfg, state.data, blck, verificationFlags, cache)
+  let res = process_block(
+    cfg, state.data, isomorphicCast[phase0.SigVerifiedBeaconBlock](blck),
+    verificationFlags, cache)
 
   if res.isErr:
     rollback(state)
@@ -421,7 +423,9 @@ proc makeBeaconBlock*(
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, execution_payload)
 
-  let res = process_block(cfg, state.data, blck, verificationFlags, cache)
+  let res = process_block(
+    cfg, state.data, isomorphicCast[altair.SigVerifiedBeaconBlock](blck),
+    verificationFlags, cache)
 
   if res.isErr:
     rollback(state)
@@ -491,7 +495,9 @@ proc makeBeaconBlock*(
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, execution_payload)
 
-  let res = process_block(cfg, state.data, blck, verificationFlags, cache)
+  let res = process_block(
+    cfg, state.data, isomorphicCast[bellatrix.SigVerifiedBeaconBlock](blck),
+    verificationFlags, cache)
 
   if res.isErr:
     rollback(state)
@@ -538,8 +544,9 @@ proc makeBeaconBlock*(
                            randao_reveal, eth1_data, graffiti, attestations, deposits,
                            exits, sync_aggregate, executionPayload))
 
-    let res = process_block(cfg, state.`kind Data`.data, blck.`kind Data`,
-                            verificationFlags, cache)
+    let res = process_block(
+      cfg, state.`kind Data`.data, blck.`kind Data`.asSigVerified(),
+      verificationFlags, cache)
     if res.isErr:
       rollback(state)
       return err(res.error())

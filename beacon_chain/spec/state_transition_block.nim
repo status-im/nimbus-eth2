@@ -85,8 +85,7 @@ proc process_randao(
     return err("process_randao: proposer index missing, probably along with any active validators")
 
   # Verify RANDAO reveal
-  let
-    epoch = state.get_current_epoch()
+  let epoch = state.get_current_epoch()
 
   if skipRandaoVerification in flags:
     if body.randao_reveal.toRaw != ValidatorSig.infinity.toRaw:

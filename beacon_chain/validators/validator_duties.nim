@@ -462,8 +462,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root: Opt[Eth2Digest] = Opt.none(Eth2Digest)):
     Future[ForkedBlockResult] {.async.} =
   # Advance state to the slot that we're proposing for
-  let
-    proposalState = assignClone(node.dag.headState)
+  let proposalState = assignClone(node.dag.headState)
 
   # TODO fails at checkpoint synced head
   node.dag.withUpdatedState(
@@ -532,11 +531,10 @@ proc makeBeaconBlockForHeadAndSlot*(
       effectiveExecutionPayload,
       noRollback, # Temporary state - no need for rollback
       cache,
+      # makeBeaconBlock doesn't verify BLS at all, but does have special case
+      # for skipRandoVerification separately
       verificationFlags =
-        if skip_randao_verification_bool:
-          {skipBlsValidation, skipRandaoVerification}
-        else:
-          {skipBlsValidation},
+        if skip_randao_verification_bool: {skipRandaoVerification} else: {},
       transactions_root =
         if transactions_root.isSome:
           Opt.some transactions_root.get
@@ -547,6 +545,7 @@ proc makeBeaconBlockForHeadAndSlot*(
           Opt.some execution_payload_root.get
         else:
           Opt.none Eth2Digest)
+
     if res.isErr():
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -555,6 +554,20 @@ proc makeBeaconBlockForHeadAndSlot*(
       error "Cannot create block for proposal",
         slot, head = shortLog(head), error = res.error()
       return err($res.error)
+
+    # Verify RANDAO, since block production otherwise doesn't verify signatures
+    if not skip_randao_verification_bool:
+      let proposer_pubkey = node.dag.validatorKey(validator_index)
+
+      if proposer_pubkey.isNone:
+        return ForkedBlockResult.err("makeBeaconBlockForHeadAndSlot: unable to find pubkey for validator index")
+
+      withStateAndBlck(state, res.get):
+        if not verify_epoch_signature(
+            forkyState.data.fork, forkyState.data.genesis_validators_root,
+            slot.epoch, proposer_pubkey.get, blck.body.randao_reveal):
+          return ForkedBlockResult.err("makeBeaconBlockForHeadAndSlot: invalid epoch signature")
+
     return ok(res.get())
   do:
     beacon_block_production_errors.inc()
