@@ -452,6 +452,9 @@ proc newExecutionPayload*(
     baseFeePerGas = $executionPayload.base_fee_per_gas,
     numTransactions = executionPayload.transactions.len
 
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#request
+  const NEWPAYLOAD_TIMEOUT = 8.seconds
+
   try:
     let
       payloadResponse =

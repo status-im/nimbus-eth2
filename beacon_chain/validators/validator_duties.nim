@@ -419,31 +419,17 @@ proc getExecutionPayload[T](
            latestHead, latestSafe, latestFinalized, timestamp, random,
            feeRecipient, node.consensusManager.eth1Monitor))
       payload = try:
-          awaitWithTimeout(
-            get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
-            GETPAYLOAD_TIMEOUT):
-              beacon_block_payload_errors.inc()
-              warn "Getting execution payload from Engine API timed out", payload_id
-              empty_execution_payload
-        except CatchableError as err:
-          beacon_block_payload_errors.inc()
-          warn "Getting execution payload from Engine API failed",
-                payload_id, err = err.msg
-          empty_execution_payload
-
-      executionPayloadStatus =
         awaitWithTimeout(
-          node.consensusManager.eth1Monitor.newExecutionPayload(payload),
-          NEWPAYLOAD_TIMEOUT):
-            info "getExecutionPayload: newPayload timed out"
-            Opt.none PayloadExecutionStatus
-
-    if executionPayloadStatus.isNone or executionPayloadStatus.get in [
-        PayloadExecutionStatus.invalid,
-        PayloadExecutionStatus.invalid_block_hash]:
-      info "getExecutionPayload: newExecutionPayload invalid",
-        executionPayloadStatus
-      return Opt.none ExecutionPayload
+          get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
+          GETPAYLOAD_TIMEOUT):
+            beacon_block_payload_errors.inc()
+            warn "Getting execution payload from Engine API timed out", payload_id
+            empty_execution_payload
+      except CatchableError as err:
+        beacon_block_payload_errors.inc()
+        warn "Getting execution payload from Engine API failed",
+              payload_id, err = err.msg
+        empty_execution_payload
 
     return Opt.some payload
   except CatchableError as err:
