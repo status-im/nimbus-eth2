@@ -463,7 +463,13 @@ proc makeBeaconBlockForHeadAndSlot*(
     Future[ForkedBlockResult] {.async.} =
   # Advance state to the slot that we're proposing for
   let
-    proposalState = assignClone(node.dag.headState)
+    startM = Moment.now()
+    proposalState =
+      if false and node.dag.clearanceState.latest_block_id().root == head.root:
+        info "Using clearance"
+        assignClone(node.dag.clearanceState)
+      else:
+        assignClone(node.dag.headState)
 
   # TODO fails at checkpoint synced head
   node.dag.withUpdatedState(
@@ -472,14 +478,14 @@ proc makeBeaconBlockForHeadAndSlot*(
     # Advance to the given slot without calculating state root - we'll only
     # need a state root _with_ the block applied
     var info: ForkedEpochInfo
-
+    let updateM = Moment.now()
     process_slots(
       node.dag.cfg, state, slot, cache, info,
       {skipLastStateRootCalculation}).expect("advancing 1 slot should not fail")
 
     let
       eth1Proposal = node.getBlockProposalEth1Data(state)
-
+    let e1pM = Moment.now()
     if eth1Proposal.hasMissingDeposits:
       beacon_block_production_errors.inc()
       warn "Eth1 deposits not available. Skipping block proposal", slot
@@ -489,8 +495,18 @@ proc makeBeaconBlockForHeadAndSlot*(
     static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
 
     let
+      attestations =
+        node.attestationPool[].getAttestationsForBlock(state, cache)
+      attM = Moment.now()
       exits = withState(state):
         node.exitPool[].getBeaconBlockExits(node.dag.cfg, forkyState.data)
+      exitM = Moment.now()
+      syncAggregate =
+        if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
+          SyncAggregate.init()
+        else:
+          node.syncCommitteeMsgPool[].produceSyncAggregate(head.root)
+      saM = Moment.now()
       effectiveExecutionPayload =
         if executionPayload.isSome:
           executionPayload.get
@@ -514,6 +530,7 @@ proc makeBeaconBlockForHeadAndSlot*(
               slot, validator_index
             return ForkedBlockResult.err("Unable to get execution payload")
           maybeExecutionPayload.get
+      epM = Moment.now()
 
     let res = makeBeaconBlock(
       node.dag.cfg,
@@ -522,13 +539,10 @@ proc makeBeaconBlockForHeadAndSlot*(
       randao_reveal,
       eth1Proposal.vote,
       graffiti,
-      node.attestationPool[].getAttestationsForBlock(state, cache),
+      attestations,
       eth1Proposal.deposits,
       exits,
-      if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
-        SyncAggregate.init()
-      else:
-        node.syncCommitteeMsgPool[].produceSyncAggregate(head.root),
+      syncAggregate,
       effectiveExecutionPayload,
       noRollback, # Temporary state - no need for rollback
       cache,
@@ -547,6 +561,7 @@ proc makeBeaconBlockForHeadAndSlot*(
           Opt.some execution_payload_root.get
         else:
           Opt.none Eth2Digest)
+    let mbbM = Moment.now()
     if res.isErr():
       # This is almost certainly a bug, but it's complex enough that there's a
       # small risk it might happen even when most proposals succeed - thus we
@@ -555,6 +570,15 @@ proc makeBeaconBlockForHeadAndSlot*(
       error "Cannot create block for proposal",
         slot, head = shortLog(head), error = res.error()
       return err($res.error)
+    info "Block prop",
+      updateDur = updateM - startM,
+      e1pDur = e1pM - updateM,
+      attDur = attM - e1pM,
+      exitDur = exitM - attM,
+      saDur = saM - exitM,
+      epDur = epM - saM,
+      mbbDur = mbbM - epM
+
     return ok(res.get())
   do:
     beacon_block_production_errors.inc()
@@ -1124,6 +1148,9 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
 
   return
     if validator == nil:
+      discard await makeBeaconBlockForHeadAndSlot(
+        node, ValidatorSig.infinity(), proposer.get(), node.graffitiBytes, head,
+        slot, true)
       debug "Expecting block proposal",
         headRoot = shortLog(head.root),
         slot = shortLog(slot),

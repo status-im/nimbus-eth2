@@ -527,7 +527,7 @@ proc makeBeaconBlock*(
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
   ## the block is to be created.
-
+  let startM = Moment.now()
   template makeBeaconBlock(kind: untyped): Result[ForkedBeaconBlock, cstring] =
     # To create a block, we'll first apply a partial block to the state, skipping
     # some validations.
@@ -537,9 +537,10 @@ proc makeBeaconBlock*(
         partialBeaconBlock(cfg, state.`kind Data`, proposer_index,
                            randao_reveal, eth1_data, graffiti, attestations, deposits,
                            exits, sync_aggregate, executionPayload))
-
+    let initM = Moment.now()
     let res = process_block(cfg, state.`kind Data`.data, blck.`kind Data`,
                             verificationFlags, cache)
+    let pbM = Moment.now()
     if res.isErr:
       rollback(state)
       return err(res.error())
@@ -568,8 +569,11 @@ proc makeBeaconBlock*(
              execution_payload_root.get])
 
     state.`kind Data`.root = hash_tree_root(state.`kind Data`.data)
+    let htrM = Moment.now()
     blck.`kind Data`.state_root = state.`kind Data`.root
-
+    info "XXX", initDur = initM - startM,
+      pbDur = pbM - initM,
+      htrDur = htrM - pbM
     ok(blck)
 
   case state.kind
