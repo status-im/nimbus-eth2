@@ -353,8 +353,7 @@ proc makeBeaconBlock*(
                                 exits, sync_aggregate, execution_payload)
 
   let res = process_block(
-    cfg, state.data, isomorphicCast[phase0.SigVerifiedBeaconBlock](blck),
-    verificationFlags, cache)
+    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
 
   if res.isErr:
     rollback(state)
@@ -424,8 +423,7 @@ proc makeBeaconBlock*(
                                 exits, sync_aggregate, execution_payload)
 
   let res = process_block(
-    cfg, state.data, isomorphicCast[altair.SigVerifiedBeaconBlock](blck),
-    verificationFlags, cache)
+    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
 
   if res.isErr:
     rollback(state)
@@ -496,8 +494,7 @@ proc makeBeaconBlock*(
                                 exits, sync_aggregate, execution_payload)
 
   let res = process_block(
-    cfg, state.data, isomorphicCast[bellatrix.SigVerifiedBeaconBlock](blck),
-    verificationFlags, cache)
+    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
 
   if res.isErr:
     rollback(state)
