@@ -1937,18 +1937,23 @@ proc getValidatorsActivity*(
   let resp = vc.onceToAll(RestPlainResponse, SlotDuration,
                           {BeaconNodeRole.Duties},
                           getValidatorsActivity(it, epoch, validators))
-  case resp.status
-  of ApiOperation.Timeout:
-    debug "Unable to perform validator's activity request in time",
-          timeout = SlotDuration
-    return GetValidatorsActivityResponse()
-  of ApiOperation.Interrupt:
-    debug "Validator's activity request was interrupted"
-    return GetValidatorsActivityResponse()
-  of ApiOperation.Failure:
-    debug "Unexpected error happened while receiving validator's activity"
-    return GetValidatorsActivityResponse()
-  of ApiOperation.Success:
+  if len(resp.data) == 0:
+    case resp.status
+    of ApiOperation.Success:
+      # This should not be happened, there should be present at least one
+      # successfull response.
+      return GetValidatorsActivityResponse()
+    of ApiOperation.Timeout:
+      debug "Unable to perform validator's activity request in time",
+            timeout = SlotDuration
+      return GetValidatorsActivityResponse()
+    of ApiOperation.Interrupt:
+      debug "Validator's activity request was interrupted"
+      return GetValidatorsActivityResponse()
+    of ApiOperation.Failure:
+      debug "Unexpected error happened while receiving validator's activity"
+      return GetValidatorsActivityResponse()
+  else:
     var activities: seq[RestActivityItem]
     for apiResponse in resp.data:
       if apiResponse.data.isErr():
