@@ -532,7 +532,11 @@ proc makeBeaconBlockForHeadAndSlot*(
       effectiveExecutionPayload,
       noRollback, # Temporary state - no need for rollback
       cache,
-      verificationFlags = if skip_randao_verification_bool: {skipRandaoVerification} else: {},
+      verificationFlags =
+        if skip_randao_verification_bool:
+          {skipBlsValidation, skipRandaoVerification}
+        else:
+          {skipBlsValidation},
       transactions_root =
         if transactions_root.isSome:
           Opt.some transactions_root.get
