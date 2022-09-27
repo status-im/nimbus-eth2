@@ -563,6 +563,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         return ForkedBlockResult.err("makeBeaconBlockForHeadAndSlot: unable to find pubkey for validator index")
 
       withStateAndBlck(state, res.get):
+        # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#randao
         if not verify_epoch_signature(
             forkyState.data.fork, forkyState.data.genesis_validators_root,
             slot.epoch, proposer_pubkey.get, blck.body.randao_reveal):

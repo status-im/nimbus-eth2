@@ -422,6 +422,7 @@ proc makeBeaconBlock*(
                                 randao_reveal, eth1_data, graffiti, attestations, deposits,
                                 exits, sync_aggregate, execution_payload)
 
+  # Signatures are verified elsewhere, so don't duplicate inefficiently here
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
 
