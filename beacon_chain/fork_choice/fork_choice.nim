@@ -442,6 +442,7 @@ func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
         self.backend.proto_array.nodes.offset
     if nodePhysicalIdx < self.backend.proto_array.nodes.buf.len:
       self.backend.proto_array.nodes.buf[nodePhysicalIdx].invalid = true
+    self.backend.proto_array.propagateInvalidity(nodePhysicalIdx)
   # Best-effort; attempts to mark unknown roots invalid harmlessly ignored
   except KeyError:
     discard

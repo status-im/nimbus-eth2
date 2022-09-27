@@ -278,6 +278,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SCRYPT] Network Keystore encryption                                                       OK
 ```
 OK: 12/12 Fail: 0/12 Skip: 0/12
+## Latest valid hash [Preset: mainnet]
+```diff
++ LVH searching                                                                              OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Light client [Preset: mainnet]
 ```diff
 + Init from checkpoint                                                                       OK

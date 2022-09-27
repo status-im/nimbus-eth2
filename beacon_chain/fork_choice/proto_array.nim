@@ -558,6 +558,28 @@ func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
     (self.checkpoints.finalized.epoch == GENESIS_EPOCH)
   )
 
+func propagateInvalidity*(
+    self: var ProtoArray, startPhysicalIdx: Index) =
+  # Called when startPhysicalIdx is updated in a parent role, so the pairs of
+  # indices generated of (parent, child) where both >= startPhysicalIdx, mean
+  # the loop in general from the child's perspective starts one index higher.
+  for nodePhysicalIdx in startPhysicalIdx + 1 ..< self.nodes.len:
+    let nodeParent = self.nodes.buf[nodePhysicalIdx].parent
+    if nodeParent.isNone:
+      continue
+
+    let
+      parentLogicalIdx = nodeParent.unsafeGet()
+      parentPhysicalIdx = parentLogicalIdx - self.nodes.offset
+
+    # Former case is orphaned, latter is invalid, but caught in score updates
+    if parentPhysicalIdx < 0 or parentPhysicalIdx >= self.nodes.len:
+      continue
+
+    # Invalidity transmits to all descendents
+    if self.nodes.buf[parentPhysicalIdx].invalid:
+      self.nodes.buf[nodePhysicalIdx].invalid = true
+
 # Diagnostics
 # ----------------------------------------------------------------------
 # Helpers to dump internal state
