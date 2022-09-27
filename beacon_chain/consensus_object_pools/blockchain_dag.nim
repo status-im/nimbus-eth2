@@ -265,7 +265,33 @@ func atSlot*(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   else:
     dag.getBlockIdAtSlot(slot)
 
-func epochAncestor*(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): EpochKey =
+func epochAncestor(dag: ChainDAGRef, bid: BlockId, epoch: Epoch):
+    Opt[BlockSlotId] =
+  ## The epoch ancestor is the last block that has an effect on the epoch-
+  ## related state data, as updated in `process_epoch` - this block determines
+  ## effective balances, validator addtions and removals etc and serves as a
+  ## base for `EpochRef` construction.
+  if epoch < dag.tail.slot.epoch or bid.slot < dag.tail.slot:
+    # Not enough information in database to meaningfully process pre-tail epochs
+    return Opt.none BlockSlotId
+
+  let
+    dependentSlot =
+      if epoch == dag.tail.slot.epoch:
+        # Use the tail as "dependent block" - this may be the genesis block, or,
+        # in the case of checkpoint sync, the checkpoint block
+        dag.tail.slot
+      else:
+        epoch.start_slot() - 1
+    bsi = ? dag.atSlot(bid, dependentSlot)
+    epochSlot =
+      if epoch == dag.tail.slot.epoch:
+        dag.tail.slot
+      else:
+        epoch.start_slot()
+  ok BlockSlotId(bid: bsi.bid, slot: epochSlot)
+
+func epochKey(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochKey] =
   ## The state transition works by storing information from blocks in a
   ## "working" area until the epoch transition, then batching work collected
   ## during the epoch. Thus, last block in the ancestor epochs is the block
@@ -274,18 +300,10 @@ func epochAncestor*(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): EpochKey =
   ## This function returns an epoch key pointing to that epoch boundary, i.e. the
   ## boundary where the last block has been applied to the state and epoch
   ## processing has been done.
-  if epoch < dag.tail.slot.epoch or bid.slot < dag.tail.slot:
-    return EpochKey() # We can't load these states
+  let bsi = dag.epochAncestor(bid, epoch).valueOr:
+    return Opt.none(EpochKey)
 
-  if epoch == dag.tail.slot.epoch:
-    return EpochKey(bid: dag.tail, epoch: epoch)
-
-  let bsi = dag.atSlot(bid, epoch.start_slot - 1).valueOr:
-    # If we lack history for the given slot, we can use the given bid as epoch
-    # ancestor
-    return EpochKey(epoch: epoch, bid: bid)
-
-  EpochKey(epoch: epoch, bid: bsi.bid)
+  Opt.some(EpochKey(bid: bsi.bid, epoch: epoch))
 
 func findShufflingRef*(
     dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[ShufflingRef] =
@@ -328,11 +346,11 @@ func findEpochRef*(
     dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochRef] =
   ## Lookup an EpochRef in the cache, returning `none` if it's not present - see
   ## `getEpochRef` for a version that creates a new instance if it's missing
-  let ancestor = dag.epochAncestor(bid, epoch)
+  let key = ? dag.epochKey(bid, epoch)
 
   for e in dag.epochRefs:
     if e == nil: continue
-    if e.key == ancestor:
+    if e.key == key:
       return Opt.some e
 
   Opt.none(EpochRef)
@@ -390,7 +408,8 @@ func init*(
     attester_dependent_root = withState(state):
       forkyState.attester_dependent_root
     epochRef = EpochRef(
-      key: dag.epochAncestor(state.latest_block_id, epoch),
+      key: dag.epochKey(state.latest_block_id, epoch).expect(
+        "Valid epoch ancestor when processing state"),
 
       eth1_data:
         getStateField(state, eth1_data),
@@ -1067,17 +1086,14 @@ func getEpochRef*(
     bid = state.latest_block_id
     epoch = state.get_current_epoch()
 
-  var epochRef = dag.findEpochRef(bid, epoch)
-  if epochRef.isErr:
+  dag.findEpochRef(bid, epoch).valueOr:
     let res = EpochRef.init(dag, state, cache)
     dag.putEpochRef(res)
     res
-  else:
-    epochRef.get()
 
 proc getEpochRef*(
     dag: ChainDAGRef, bid: BlockId, epoch: Epoch,
-    preFinalized: bool): Opt[EpochRef] =
+    preFinalized: bool): Result[EpochRef, cstring] =
   ## Return a cached EpochRef or construct one from the database, if possible -
   ## returns `none` on failure.
   ##
@@ -1093,37 +1109,33 @@ proc getEpochRef*(
   ## the search was limited by the `preFinalized` flag or because state history
   ## has been pruned - `none` will be returned in this case.
   if not preFinalized and epoch < dag.finalizedHead.slot.epoch:
-    return err()
+    return err("Requesting pre-finalized EpochRef")
 
   if bid.slot < dag.tail.slot or epoch < dag.tail.slot.epoch:
-    return err()
+    return err("Requesting EpochRef for pruned state")
 
   let epochRef = dag.findEpochRef(bid, epoch)
   if epochRef.isOk():
     beacon_state_data_cache_hits.inc
-    return epochRef
+    return ok epochRef.get()
 
   beacon_state_data_cache_misses.inc
 
-  # TODO instead of using the epoch ancestor, we should really be looking
-  #      for _any_ state in the desired epoch in the history of bid since the
-  #      epoch values remain unchanged: currently `epochAncestor` itself
-  #      contains a work-around for the tail state, but it would be better to
-  #      turn that work-around into a more efficient loading solution here
   let
-    ancestor = dag.epochAncestor(bid, epoch)
+    ancestor = dag.epochAncestor(bid, epoch).valueOr:
+      # If we got in here, the bid must be unknown or we would have gotten
+      # _some_ ancestor (like the tail)
+      return err("Requesting EpochRef for non-canonical block")
 
   var cache: StateCache
-  if not updateState(
-      dag, dag.epochRefState, ? dag.atSlot(ancestor.bid, epoch.start_slot),
-      false, cache):
-    return err()
+  if not updateState(dag, dag.epochRefState, ancestor, false, cache):
+    return err("Could not load requested state")
 
   ok(dag.getEpochRef(dag.epochRefState, cache))
 
 proc getEpochRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch,
-    preFinalized: bool): Opt[EpochRef] =
+    preFinalized: bool): Result[EpochRef, cstring] =
   dag.getEpochRef(blck.bid, epoch, preFinalized)
 
 proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
@@ -1333,7 +1345,8 @@ proc updateState*(
     # no longer recreate history - this happens for example when starting from
     # a checkpoint block
     let startEpoch = bsi.slot.epoch
-    while not canAdvance(state, cur) and not dag.db.getState(dag.cfg, cur.bid.root, cur.slot, state, noRollback):
+    while not canAdvance(state, cur) and
+        not dag.db.getState(dag.cfg, cur.bid.root, cur.slot, state, noRollback):
       # There's no state saved for this particular BlockSlot combination, and
       # the state we have can't trivially be advanced (in case it was older than
       # RewindBlockThreshold), keep looking..
@@ -1377,7 +1390,12 @@ proc updateState*(
     # again. Also, because we're applying blocks that were loaded from the
     # database, we can skip certain checks that have already been performed
     # before adding the block to the database.
-    if dag.applyBlock(state, ancestors[i], cache, info).isErr:
+    if (let res = dag.applyBlock(state, ancestors[i], cache, info); res.isErr):
+      warn "Failed to apply block from database",
+        blck = shortLog(ancestors[i]),
+        state_bid = shortLog(state.latest_block_id),
+        error = res.error()
+
       return false
 
   # ...and make sure to process empty slots as requested
@@ -2047,11 +2065,10 @@ proc preInit*(
 proc getProposer*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot): Option[ValidatorIndex] =
   let
-    epochRef = block:
-      let tmp = dag.getEpochRef(head.bid, slot.epoch(), false)
-      if tmp.isErr():
-        return none(ValidatorIndex)
-      tmp.get()
+    epochRef = dag.getEpochRef(head.bid, slot.epoch(), false).valueOr:
+      notice "Cannot load EpochRef for given head", head, slot, error
+      return none(ValidatorIndex)
+
     slotInEpoch = slot.since_epoch_start()
 
   let proposer = epochRef.beacon_proposers[slotInEpoch]
@@ -2213,7 +2230,9 @@ proc rebuildIndex*(dag: ChainDAGRef) =
       if bids.isProposed and getStateField(state[], latest_block_header).slot < bids.bid.slot:
         let res = dag.applyBlock(state[], bids.bid, cache, info)
         if res.isErr:
-          error "Failed to apply block while ", bids, slot
+          error "Failed to apply block while building index",
+            state_bid = shortLog(state[].latest_block_id()),
+            error = res.error()
           return
 
         if slot.is_epoch:

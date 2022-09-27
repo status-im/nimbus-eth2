@@ -107,10 +107,16 @@ iterator get_attesting_indices*(
         dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
           # Attestation block unknown - this is fairly common because we
           # discard alternative histories on restart
+          debug "Pruned block in trusted attestation",
+            attestation = shortLog(attestation)
           break
       target =
         blck.atCheckpoint(attestation.data.target).valueOr:
-          warn "Unknown attestation target in trusted attestation",
+          # This may happen when there's no block at the epoch boundary slot
+          # leading to the case where the attestation block root is the
+          # finalized head (exists as BlockRef) but its target vote has
+          # already been pruned
+          notice "Pruned target in trusted attestation",
             blck = shortLog(blck),
             attestation = shortLog(attestation)
           doAssert strictVerification notin dag.updateFlags
