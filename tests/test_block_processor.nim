@@ -54,7 +54,7 @@ suite "Block processor" & preset():
       getTimeFn = proc(): BeaconTime = b2.message.slot.start_beacon_time()
       processor = BlockProcessor.new(
         false, "", "", keys.newRng(), taskpool, consensusManager,
-        validatorMonitor, getTimeFn, safeSlotsToImportOptimistically = 128)
+        validatorMonitor, getTimeFn)
 
   test "Reverse order block add & get" & preset():
     let missing = processor[].storeBlock(

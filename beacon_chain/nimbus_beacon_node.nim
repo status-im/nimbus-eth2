@@ -297,8 +297,7 @@ proc initFullNode(
       config.defaultFeeRecipient)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime,
-      config.safeSlotsToImportOptimistically)
+      rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock):
         Future[Result[void, BlockError]] =
       # The design with a callback for block verification is unusual compared
@@ -646,7 +645,7 @@ proc init*(T: type BeaconNode,
       optJwtSecret,
       ttdReached = not dag.loadExecutionBlockRoot(dag.finalizedHead.blck).isZero)
 
-  if config.rpcEnabled:
+  if config.rpcEnabled.isSome:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
 
   let restServer = if config.restEnabled:
@@ -1811,6 +1810,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
       warn "Config option is deprecated",
         option = config.option.get
   ignoreDeprecatedOption requireEngineAPI
+  ignoreDeprecatedOption safeSlotsToImportOptimistically
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 

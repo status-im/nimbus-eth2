@@ -367,24 +367,22 @@ type
         name: "status-bar-contents" .}: string
 
       rpcEnabled* {.
+        # Deprecated > 1.7.0
         hidden
-        desc: "Enable the JSON-RPC server (deprecated for removal)"
-        defaultValue: false
-        name: "rpc" .}: bool
+        desc: "Deprecated for removal"
+        name: "rpc" .}: Option[bool]
 
       rpcPort* {.
+        # Deprecated > 1.7.0
         hidden
-        desc: "HTTP port for the JSON-RPC service (deprecated for removal)"
-        defaultValue: 9190
-        defaultValueDesc: "9190"
-        name: "rpc-port" .}: Port
+        desc: "Deprecated for removal"
+        name: "rpc-port" .}: Option[Port]
 
       rpcAddress* {.
+        # Deprecated > 1.7.0
         hidden
-        desc: "Listening address of the RPC server (deprecated for removal)"
-        defaultValue: defaultAdminListenAddress
-        defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "rpc-address" .}: ValidIpAddress
+        desc: "Deprecated for removal"
+        name: "rpc-address" .}: Option[ValidIpAddress]
 
       restEnabled* {.
         desc: "Enable the REST server"
@@ -538,13 +536,11 @@ type
         defaultValue: false
         name: "validator-monitor-totals" .}: bool
 
-      # https://github.com/ethereum/consensus-specs/blob/v1.2.0/sync/optimistic.md#fork-choice-poisoning
       safeSlotsToImportOptimistically* {.
+        # Never unhidden or documented, and deprecated > 22.9.1
         hidden
-        desc: "Modify SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY"
-        # https://github.com/ethereum/consensus-specs/blob/v1.2.0/sync/optimistic.md#constants
-        defaultValue: 128
-        name: "safe-slots-to-import-optimistically" .}: uint16
+        desc: "Deprecated for removal"
+        name: "safe-slots-to-import-optimistically" .}: Option[uint16]
 
       # Same option as appears in Lighthouse and Prysm
       # https://lighthouse-book.sigmaprime.io/suggested-fee-recipient.html

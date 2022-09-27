@@ -1498,7 +1498,7 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
     prunedHeads = hlen - dag.heads.len,
     dagPruneDur = Moment.now() - startTick
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/sync/optimistic.md#helpers
 template is_optimistic*(dag: ChainDAGRef, root: Eth2Digest): bool =
   root in dag.optimisticRoots
 
@@ -1516,7 +1516,7 @@ proc markBlockInvalid*(dag: ChainDAGRef, root: Eth2Digest) =
     return
 
   if blck.slot <= dag.finalizedHead.slot:
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#re-orgs
+    # https://github.com/ethereum/consensus-specs/blob/v1.2.0/sync/optimistic.md#re-orgs
     # "If the justified checkpoint transitions from `NOT_VALIDATED` ->
     # `INVALIDATED`, a consensus engine MAY choose to alert the user and force
     # the application to exit."
