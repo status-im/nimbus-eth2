@@ -532,7 +532,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       noRollback, # Temporary state - no need for rollback
       cache,
       # makeBeaconBlock doesn't verify BLS at all, but does have special case
-      # for skipRandoVerification separately
+      # for skipRandaoVerification separately
       verificationFlags =
         if skip_randao_verification_bool: {skipRandaoVerification} else: {},
       transactions_root =
