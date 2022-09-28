@@ -16,55 +16,6 @@ import
 
 export chronos, client, rest_types, eth2_rest_serialization
 
-proc getStatePlain*(state_id: StateIdent): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/debug/beacon/states/{state_id}",
-     accept: preferSSZ,
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getState
-
-proc getState*(client: RestClientRef, state_id: StateIdent,
-               restAccept = ""): Future[phase0.BeaconState] {.async.} =
-  let resp =
-    if len(restAccept) > 0:
-      await client.getStatePlain(state_id, restAcceptType = restAccept)
-    else:
-      await client.getStatePlain(state_id)
-  let data =
-    case resp.status
-    of 200:
-      if resp.contentType.isNone() or
-         isWildCard(resp.contentType.get().mediaType):
-        raise newException(RestError, "Missing or incorrect Content-Type")
-      else:
-        let mediaType = resp.contentType.get().mediaType
-        if mediaType == ApplicationJsonMediaType:
-          let state = decodeBytes(GetStateResponse, resp.data,
-                                  resp.contentType).valueOr:
-            raise newException(RestError, $error)
-          state.data
-        elif mediaType == OctetStreamMediaType:
-          let state = decodeBytes(GetPhase0StateSszResponse, resp.data,
-                                  resp.contentType).valueOr:
-            raise newException(RestError, $error)
-          state
-        else:
-          raise newException(RestError, "Unsupported content-type")
-    of 400, 404, 500:
-      let error =
-        block:
-          let res = decodeBytes(RestGenericError, resp.data, resp.contentType)
-          if res.isErr():
-            let msg = "Incorrect response error format (" & $resp.status &
-                      ") [" & $res.error() & "]"
-            raise newException(RestError, msg)
-          res.get()
-      let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
-      raise newException(RestError, msg)
-    else:
-      let msg = "Unknown response status error (" & $resp.status & ")"
-      raise newException(RestError, msg)
-  return data
-
 proc getDebugChainHeads*(): RestResponse[GetDebugChainHeadsResponse] {.
      rest, endpoint: "/eth/v1/debug/beacon/heads",
      meth: MethodGet.}
