@@ -83,7 +83,6 @@ template firstSuccessParallel*(
           await vc.waitOnlineNodes(timerFut, roles)
         vc.onlineNodes(roles)
       except CancelledError as exc:
-        var default: seq[BeaconNodeServerRef]
         if not(isNil(timerFut)) and not(timerFut.finished()):
           await timerFut.cancelAndWait()
         raise exc
@@ -215,7 +214,6 @@ template bestSuccess*(vc: ValidatorClientRef, responseType: typedesc,
         await vc.waitOnlineNodes(timerFut)
       vc.onlineNodes()
     except CancelledError as exc:
-      var default: seq[BeaconNodeServerRef]
       if not(isNil(timerFut)) and not(timerFut.finished()):
         await timerFut.cancelAndWait()
       raise exc
@@ -338,7 +336,6 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
         await vc.waitOnlineNodes(timerFut, roles)
       vc.onlineNodes(roles)
     except CancelledError as exc:
-      var default: seq[BeaconNodeServerRef]
       if not(isNil(timerFut)) and not(timerFut.finished()):
         await timerFut.cancelAndWait()
       raise exc
