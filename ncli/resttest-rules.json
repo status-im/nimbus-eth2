@@ -101,7 +101,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -150,7 +150,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -163,7 +163,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -265,7 +265,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -308,7 +308,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -321,7 +321,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -414,7 +414,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -427,7 +427,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -470,7 +470,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -483,7 +483,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -596,7 +596,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -609,7 +609,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -622,7 +622,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -635,7 +635,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -648,7 +648,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -661,7 +661,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -674,7 +674,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -687,7 +687,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -700,7 +700,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -947,7 +947,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -960,7 +960,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -973,7 +973,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -986,7 +986,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -999,7 +999,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1012,7 +1012,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1050,7 +1050,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -1063,7 +1063,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -1076,7 +1076,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1089,7 +1089,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1102,7 +1102,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1115,7 +1115,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1128,7 +1128,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1196,7 +1196,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -1209,7 +1209,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -1283,7 +1283,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -1296,7 +1296,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -1309,7 +1309,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1322,7 +1322,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1335,7 +1335,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
 {
@@ -1348,7 +1348,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1361,7 +1361,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1374,7 +1374,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1387,7 +1387,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1462,7 +1462,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1474,7 +1474,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1498,7 +1498,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1522,7 +1522,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1534,7 +1534,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1546,7 +1546,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1594,7 +1594,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -1606,7 +1606,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1618,7 +1618,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1630,7 +1630,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1642,7 +1642,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1654,7 +1654,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -1738,7 +1738,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -1750,7 +1750,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -1762,7 +1762,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1862,7 +1862,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -1874,7 +1874,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -1886,7 +1886,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -1898,7 +1898,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2037,7 +2037,7 @@
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
         {"key": "Eth-Consensus-Version", "operator": "notexists"}
       ],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -2052,7 +2052,7 @@
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
         {"key": "Eth-Consensus-Version", "operator": "notexists"}
       ],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2067,7 +2067,7 @@
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
         {"key": "Eth-Consensus-Version", "operator": "notexists"}
       ],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -2082,7 +2082,7 @@
         {"key": "Content-Type", "value": "application/json", "operator": "equals"},
         {"key": "Eth-Consensus-Version", "operator": "notexists"}
       ],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2206,7 +2206,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -2218,7 +2218,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2230,7 +2230,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -2242,7 +2242,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2366,7 +2366,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -2378,7 +2378,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2390,7 +2390,7 @@
     "response": {
       "status": {"operator": "equals", "value": "404"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 404, "message": ""}}]
     }
   },
   {
@@ -2502,7 +2502,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2514,7 +2514,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2538,7 +2538,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2550,7 +2550,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2562,7 +2562,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2586,7 +2586,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2598,7 +2598,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2610,7 +2610,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2853,7 +2853,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2865,7 +2865,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2964,7 +2964,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2976,7 +2976,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -2988,7 +2988,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3052,7 +3052,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3064,7 +3064,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3076,7 +3076,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3088,7 +3088,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3100,7 +3100,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3112,7 +3112,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3124,7 +3124,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3136,7 +3136,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
     {
@@ -3148,7 +3148,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3160,7 +3160,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3198,7 +3198,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3212,7 +3212,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3237,7 +3237,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3251,7 +3251,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3265,7 +3265,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3304,7 +3304,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -3318,7 +3318,7 @@
     "response": {
       "status": {"operator": "equals", "value": "500"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 500, "message": ""}}]
     }
   },
   {
@@ -3332,7 +3332,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3346,7 +3346,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {
@@ -3360,7 +3360,7 @@
     "response": {
       "status": {"operator": "equals", "value": "400"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmpns", "value": {"code": "", "message": ""}}]
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
     }
   },
   {

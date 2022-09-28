@@ -15,7 +15,7 @@ import
   ./testutil
 
 suite "Serialization/deserialization test suite":
-  test "RestGenericError tests":
+  test "RestGenericError parser tests":
     proc init(t: typedesc[RestGenericError], status: int,
               message: string): RestGenericError =
       RestGenericError(
@@ -138,3 +138,25 @@ suite "Serialization/deserialization test suite":
         RestGenericError, test.toOpenArrayByte(0, len(test) - 1),
         Opt.some(contentType))
       check res.isErr()
+  test "RestGenericError writer tests":
+    proc `==`(a: RestApiResponse, b: string): bool =
+      case a.kind
+      of RestApiResponseKind.Content:
+        a.content.data.bytesToString() == b
+      of RestApiResponseKind.Error:
+        a.errobj.message == b
+      else:
+        raiseAssert "Unsupported RestApiResponse kind"
+    check:
+      jsonMsgResponse(RestApiResponse, "data") ==
+          """{"code":200,"message":"data"}"""
+      jsonError(RestApiResponse, Http202, "data") ==
+        """{"code":202,"message":"data"}"""
+      jsonError(RestApiResponse, Http400, "data", "") ==
+        """{"code":400,"message":"data"}"""
+      jsonError(RestApiResponse, Http404, "data", "stacktrace") ==
+        """{"code":404,"message":"data","stacktraces":["stacktrace"]}"""
+      jsonError(RestApiResponse, Http500, "data", ["s1", "s2"]) ==
+        """{"code":500,"message":"data","stacktraces":["s1","s2"]}"""
+      jsonErrorList(RestApiResponse, Http408, "data", ["s1", "s2"]) ==
+        """{"code":408,"message":"data","failures":["s1","s2"]}"""

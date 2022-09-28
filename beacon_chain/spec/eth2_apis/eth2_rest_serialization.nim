@@ -328,13 +328,11 @@ proc jsonMsgResponse*(t: typedesc[RestApiResponse],
     block:
       var default: seq[byte]
       try:
-        var defstrings: seq[string]
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
-        writer.writeField("code", "200")
+        writer.writeField("code", 200)
         writer.writeField("message", msg)
-        writer.writeField("stacktraces", defstrings)
         writer.endRecord()
         stream.getOutput(seq[byte])
       except SerializationError:
@@ -349,13 +347,11 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
     block:
       var default: string
       try:
-        var defstrings: seq[string]
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
-        writer.writeField("code", Base10.toString(uint64(status.toInt())))
+        writer.writeField("code", int(status.toInt()))
         writer.writeField("message", msg)
-        writer.writeField("stacktraces", defstrings)
         writer.endRecord()
         stream.getOutput(string)
       except SerializationError:
@@ -370,16 +366,13 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
     block:
       var default: string
       try:
-        var defstrings: seq[string]
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
-        writer.writeField("code", Base10.toString(uint64(status.toInt())))
+        writer.writeField("code", int(status.toInt()))
         writer.writeField("message", msg)
         if len(stacktrace) > 0:
           writer.writeField("stacktraces", [stacktrace])
-        else:
-          writer.writeField("stacktraces", defstrings)
         writer.endRecord()
         stream.getOutput(string)
       except SerializationError:
@@ -398,7 +391,7 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
-        writer.writeField("code", Base10.toString(uint64(status.toInt())))
+        writer.writeField("code", int(status.toInt()))
         writer.writeField("message", msg)
         writer.writeField("stacktraces", stacktraces)
         writer.endRecord()
@@ -419,7 +412,7 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
-        writer.writeField("code", Base10.toString(uint64(status.toInt())))
+        writer.writeField("code", int(status.toInt()))
         writer.writeField("message", msg)
         writer.writeField("failures", failures)
         writer.endRecord()
