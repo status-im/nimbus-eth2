@@ -462,8 +462,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root: Opt[Eth2Digest] = Opt.none(Eth2Digest)):
     Future[ForkedBlockResult] {.async.} =
   # Advance state to the slot that we're proposing for
-  let
-    proposalState = assignClone(node.dag.headState)
+  let proposalState = assignClone(node.dag.headState)
 
   # TODO fails at checkpoint synced head
   node.dag.withUpdatedState(
@@ -532,11 +531,10 @@ proc makeBeaconBlockForHeadAndSlot*(
       effectiveExecutionPayload,
       noRollback, # Temporary state - no need for rollback
       cache,
+      # makeBeaconBlock doesn't verify BLS at all, but does have special case
+      # for skipRandaoVerification separately
       verificationFlags =
-        if skip_randao_verification_bool:
-          {skipBlsValidation, skipRandaoVerification}
-        else:
-          {skipBlsValidation},
+        if skip_randao_verification_bool: {skipRandaoVerification} else: {},
       transactions_root =
         if transactions_root.isSome:
           Opt.some transactions_root.get

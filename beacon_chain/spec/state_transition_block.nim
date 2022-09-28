@@ -85,8 +85,7 @@ proc process_randao(
     return err("process_randao: proposer index missing, probably along with any active validators")
 
   # Verify RANDAO reveal
-  let
-    epoch = state.get_current_epoch()
+  let epoch = state.get_current_epoch()
 
   if skipRandaoVerification in flags:
     if body.randao_reveal.toRaw != ValidatorSig.infinity.toRaw:
@@ -94,9 +93,15 @@ proc process_randao(
   elif skipBlsValidation notin flags:
     let proposer_pubkey = state.validators.item(proposer_index.get).pubkey
 
+    # `state_transition.makeBeaconBlock` ensures this is run with a trusted
+    # signature, but unless the full skipBlsValidation is specified, RANDAO
+    # epoch signatures still have to be verified.
     if not verify_epoch_signature(
         state.fork, state.genesis_validators_root, epoch, proposer_pubkey,
-        body.randao_reveal):
+        when body.randao_reveal is ValidatorSig:
+          body.randao_reveal
+        else:
+          isomorphicCast[ValidatorSig](body.randao_reveal)):
 
       return err("process_randao: invalid epoch signature")
 

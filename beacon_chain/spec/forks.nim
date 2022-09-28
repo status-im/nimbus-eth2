@@ -533,16 +533,19 @@ template withStateAndBlck*(
   of BeaconStateFork.Bellatrix:
     const stateFork {.inject.} = BeaconStateFork.Bellatrix
     template state: untyped {.inject.} = s.bellatrixData
+    template forkyState: untyped {.inject.} = s.bellatrixData
     template blck: untyped {.inject.} = b.bellatrixData
     body
   of BeaconStateFork.Altair:
     const stateFork {.inject.} = BeaconStateFork.Altair
     template state: untyped {.inject.} = s.altairData
+    template forkyState: untyped {.inject.} = s.altairData
     template blck: untyped {.inject.} = b.altairData
     body
   of BeaconStateFork.Phase0:
     const stateFork {.inject.} = BeaconStateFork.Phase0
     template state: untyped {.inject.} = s.phase0Data
+    template forkyState: untyped {.inject.} = s.phase0Data
     template blck: untyped {.inject.} = b.phase0Data
     body
 
