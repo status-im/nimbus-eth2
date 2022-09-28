@@ -964,6 +964,14 @@ suite "Latest valid hash" & preset():
       b3Add = dag.addHeadBlock(verifier, b3, nilBellatrixCallback)
 
     dag.updateHead(b3Add[], quarantine[])
+    check: dag.head.root == b3.root
+
+    # Ensure that head can go backwards in case of head being marked invalid
+    dag.updateHead(b2Add[], quarantine[])
+    check: dag.head.root == b2.root
+
+    dag.updateHead(b1Add[], quarantine[])
+    check: dag.head.root == b1.root
 
     const fallbackEarliestInvalid =
       Eth2Digest.fromHex("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
