@@ -190,7 +190,7 @@ proc expectValidForkchoiceUpdated(
 from ../consensus_object_pools/attestation_pool import
   addForkChoice, selectOptimisticHead, BeaconHead
 from ../consensus_object_pools/blockchain_dag import
-  is_optimistic, loadExecutionBlockRoot, markBlockInvalid, markBlockVerified
+  is_optimistic, loadExecutionBlockRoot, markBlockVerified
 from ../consensus_object_pools/block_dag import shortLog
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
@@ -555,7 +555,6 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
       debug "runQueueProcessingLoop: execution payload invalid",
         executionPayloadStatus,
         blck = shortLog(blck.blck)
-      self.consensusManager.dag.markBlockInvalid(blck.blck.root)
       self.consensusManager.quarantine[].addUnviable(blck.blck.root)
       # Every loop iteration ends with some version of blck.resfut.complete(),
       # including processBlock(), otherwise the sync manager stalls.

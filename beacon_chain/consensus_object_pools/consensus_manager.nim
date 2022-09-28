@@ -248,7 +248,6 @@ proc updateExecutionClientHead(
         newHead.blck.root
 
     self.attestationPool[].forkChoice.mark_root_invalid(newHead.blck.root)
-    self.dag.markBlockInvalid(newHead.blck.root)
     self.quarantine[].addUnviable(newHead.blck.root)
     return Opt.none(void)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:

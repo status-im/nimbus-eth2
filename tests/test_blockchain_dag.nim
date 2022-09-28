@@ -564,6 +564,11 @@ suite "chain DAG finalization tests" & preset():
         db.getStateRoot(finalizedCheckpoint.bid.root, finalizedCheckpoint.slot).isSome
         db.getStateRoot(prunedCheckpoint.bid.root, prunedCheckpoint.slot).isNone
 
+    # Roll back head block (e.g., because it was declared INVALID)
+    let parentRoot = dag.head.parent.root
+    dag.updateHead(dag.head.parent, quarantine)
+    check: dag.head.root == parentRoot
+
     let
       validatorMonitor2 = newClone(ValidatorMonitor.init())
       dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor2, {})
@@ -572,6 +577,7 @@ suite "chain DAG finalization tests" & preset():
     check:
       dag2.tail.root == dag.tail.root
       dag2.head.root == dag.head.root
+      dag2.head.root == parentRoot
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
       getStateRoot(dag2.headState) == getStateRoot(dag.headState)
@@ -964,6 +970,14 @@ suite "Latest valid hash" & preset():
       b3Add = dag.addHeadBlock(verifier, b3, nilBellatrixCallback)
 
     dag.updateHead(b3Add[], quarantine[])
+    check: dag.head.root == b3.root
+
+    # Ensure that head can go backwards in case of head being marked invalid
+    dag.updateHead(b2Add[], quarantine[])
+    check: dag.head.root == b2.root
+
+    dag.updateHead(b1Add[], quarantine[])
+    check: dag.head.root == b1.root
 
     const fallbackEarliestInvalid =
       Eth2Digest.fromHex("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
