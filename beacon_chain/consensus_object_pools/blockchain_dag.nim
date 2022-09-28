@@ -2083,6 +2083,39 @@ proc getProposer*(
 
   proposer
 
+proc getProposalState*(
+    dag: ChainDagRef, head: BlockRef, slot: Slot, cache: var StateCache):
+    Result[ref ForkedHashedBeaconState, cstring] =
+  ## Return a state suitable for making proposals for the given head and slot -
+  ## in particular, the state can be discarded after use and does not have a
+  ## state root set
+
+  # Start with the clearance state, since this one typically has been advanced
+  # and thus has a hot hash tree cache
+  let state = newClone(dag.clearanceState)
+
+  var
+    info = ForkedEpochInfo()
+  if not state[].can_advance_slots(head.root, slot):
+    # The last state root will be computed as part of block production, so skip
+    # it now
+    if not dag.updateState(
+        state[], head.atSlot(slot - 1).toBlockSlotId().expect("not nil"),
+        false, cache):
+      error "Cannot get proposal state - skipping block production, database corrupt?",
+        head = shortLog(head),
+        slot
+      return err("Cannot create proposal state")
+  else:
+    loadStateCache(dag, cache, head.bid, slot.epoch)
+
+  if getStateField(state[], slot) < slot:
+    process_slots(
+      dag.cfg, state[], slot, cache, info,
+      {skipLastStateRootCalculation}).expect("advancing 1 slot should not fail")
+
+  ok state
+
 proc aggregateAll*(
   dag: ChainDAGRef,
   validator_indices: openArray[ValidatorIndex]): Result[CookedPubKey, cstring] =
