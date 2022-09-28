@@ -1714,6 +1714,9 @@ proc updateHead*(
   ## now fall from grace, or no longer be considered resolved.
   doAssert not newHead.isNil()
 
+  # Could happen if enough blocks get invalidated and would corrupt database
+  doAssert newHead.slot >= dag.finalizedHead.slot
+
   let
     lastHead = dag.head
 
