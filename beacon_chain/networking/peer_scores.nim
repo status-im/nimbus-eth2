@@ -12,7 +12,7 @@ else:
 
 const
   NewPeerScore* = 300
-    ## Score which will be assigned to new connected Peer
+    ## Score which will be assigned to newly connected peer
   PeerScoreLowLimit* = 0
     ## Score after which peer will be kicked
   PeerScoreHighLimit* = 1000
@@ -23,26 +23,25 @@ const
   PeerScoreNoStatus* = -100
     ## Peer did not answer `status` request.
   PeerScoreStaleStatus* = -50
-    ## Peer's `status` answer do not progress in time.
+    ## Peer's `status` answer did not progress in time.
   PeerScoreUseless* = -10
     ## Peer's latest head is lower then ours.
   PeerScoreGoodStatus* = 50
     ## Peer's `status` answer is fine.
   PeerScoreNoBlocks* = -100
-    ## Peer did not respond in time on `blocksByRange` request.
+    ## Peer did not respond in time to a request.
   PeerScoreGoodBlocks* = 100
-    ## Peer's `blocksByRange` answer is fine.
+    ## Peer's answer to our request is fine.
   PeerScoreBadBlocks* = -1000
-    ## Peer's response contains incorrect blocks.
+    ## Peer's response contains incorrect data.
   PeerScoreBadResponse* = -1000
     ## Peer's response is not in requested range.
   PeerScoreMissingBlocks* = -25
-    ## Peer response contains too many empty blocks - this can happen either
+    ## Peer response contains too much missing data - this can happen either
     ## because a long reorg happened or the peer is falsely trying to convince
     ## us that a long reorg happened.
-    ## Peer's `blocksByRange` answer is fine.
   PeerScoreUnviableFork* = -200
-    ## Peer responded with blocks from an unviable fork - are they on a
+    ## Peer responded with data from an unviable fork - are they on a
     ## different chain?
 
 type
