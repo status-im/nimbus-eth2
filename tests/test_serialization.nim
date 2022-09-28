@@ -32,81 +32,87 @@ suite "Serialization/deserialization test suite":
 
     const GoodTestVectors = [
       (
-        "{\"code\":500,\"message\":\"block not found\"}",
+        """{"code": 500, "message": "block not found"}""",
         RestGenericError.init(500, "block not found")
       ),
       (
-        "{\"code\":\"600\",\"message\":\"block not found\"}",
+        """{"code": "600", "message": "block not found"}""",
         RestGenericError.init(600, "block not found")
       ),
       (
-        "{\"code\":\"700\",\"message\":\"block not found\", " &
-        "\"data\": \"data\", \"custom\": \"field\"}",
+        """{"code": "700", "message": "block not found",
+            "data": "data", "custom": "field"}""",
         RestGenericError.init(700, "block not found")
       ),
       (
-        "{\"code\":\"701\",\"message\":\"block not found\", " &
-        "\"data\": \"data\", \"custom\": 300}",
+        """{"code":"701", "message": "block not found",
+            "data": "data", "custom": 300}""",
         RestGenericError.init(701, "block not found")
       ),
       (
-        "{\"code\":\"702\",\"message\":\"block not found\", " &
-        "\"data\": \"data\", \"custom\": {\"field1\": \"value1\"}}",
+        """{"code": "702", "message": "block not found",
+            "data": "data", "custom": {"field1": "value1"}}""",
         RestGenericError.init(702, "block not found")
       ),
       (
-        "{\"code\":800,\"message\":\"block not found\", " &
-        "\"custom\": \"data\", \"stacktraces\": []}",
+        """{"code": 800, "message": "block not found",
+            "custom": "data", "stacktraces": []}""",
         RestGenericError.init(800, "block not found", [])
       ),
       (
-        "{\"code\":801,\"message\":\"block not found\", " &
-        "\"custom\": 100, \"stacktraces\": []}",
+        """{"code": 801, "message": "block not found",
+            "custom": 100, "stacktraces": []}""",
         RestGenericError.init(801, "block not found", [])
       ),
       (
-        "{\"code\":802,\"message\":\"block not found\", " &
-        "\"custom\": {\"field1\": \"value1\"}, \"stacktraces\": []}",
+        """{"code": 802, "message": "block not found",
+            "custom": {"field1": "value1"}, "stacktraces": []}""",
         RestGenericError.init(802, "block not found", [])
       ),
       (
-        "{\"code\":\"900\",\"message\":\"block not found\", " &
-        "\"stacktraces\": [\"line1\", \"line2\", \"line3\"], " &
-        "\"custom\": \"data\"}",
+        """{"code": "900", "message": "block not found",
+            "stacktraces": ["line1", "line2", "line3"], "custom": "data"}""",
         RestGenericError.init(900, "block not found",
                               ["line1", "line2", "line3"])
       ),
       (
-        "{\"code\":\"901\",\"message\":\"block not found\", " &
-        "\"stacktraces\": [\"line1\", \"line2\", \"line3\"], " &
-        "\"custom\": 2000}",
+        """{"code": "901", "message": "block not found",
+            "stacktraces": ["line1", "line2", "line3"], "custom": 2000}""",
         RestGenericError.init(901, "block not found",
                               ["line1", "line2", "line3"])
       ),
       (
-        "{\"code\":\"902\",\"message\":\"block not found\", " &
-        "\"stacktraces\": [\"line1\", \"line2\", \"line3\"], " &
-        "\"custom\": {\"field1\": \"value1\"}}",
+        """{"code": "902", "message": "block not found",
+            "stacktraces": ["line1", "line2", "line3"],
+            "custom": {"field1": "value1"}}""",
         RestGenericError.init(902, "block not found",
                               ["line1", "line2", "line3"])
       )
     ]
 
     const FailureTestVectors = [
-      "{\"code\":-1, \"message\":\"block not found\"}",
-      "{\"code\":\"-1\", \"message\":\"block not found\"}",
-      "{\"code\":{\"object\": \"value\"}, \"message\":\"block not found\"}",
-      "{\"code\":\"400\", \"message\":100}",
-      "{\"code\":\"400\", \"message\":{\"object\": \"value\"}}",
-      "{\"code\":\"400\", \"message\":\"block not found\", " &
-        "\"stacktraces\":{\"object\": \"value\"}}",
-      "{\"code\":\"400\", \"message\":\"block not found\", " &
-        "\"stacktraces\":[\"object\", 1]}",
-      "{\"code\":\"400\", \"message\":\"block not found\", " &
-        "\"stacktraces\":[\"object\", 1]",
+      # `code` has negative value.
+      """{"code":-1, "message": "block not found"}""",
+      # `code` has negative value encoded as string.
+      """{"code": "-1", "message": "block not found"}""",
+      # `code` field as an object.
+      """{"code":{"object": "value"}, "message": "block not found"}""",
+      # `message` field as number.
+      """{"code": "400", "message": 100}""",
+      # `message` field as an object.
+      """{"code": "400", "message": {"object": "value"}}""",
+      # `stacktraces` field as an object.
+      """{"code": "400", "message": "block not found",
+          "stacktraces":{"object": "value"}}""",
+      # Field `stacktraces` mixed array values.
+      """{"code": "400", "message": "block not found",
+          "stacktraces":["object", 1]""",
+      # missing required field `code` and `message`.
       "",
-      "{\"code\":\"400\"}",
-      "{\"message\":\"block not found\"}"
+      # missing required field `message`.
+      """{"code":"400"}""",
+      # missing required field `code`.
+      """{"message": "block not found"}"""
     ]
 
     let contentType = getContentType("application/json").get()
