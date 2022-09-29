@@ -306,9 +306,6 @@ func put[I, T](cache: var LRUCache[I, T], value: T) =
         lru = i
         if min == 0:
           break
-    if min != 0:
-      {.noSideEffect.}:
-        debug "Cache full - evicting LRU", cache = typeof(T).name, capacity = I
 
   template e: untyped = cache.entries[lru]
   e.value = value
