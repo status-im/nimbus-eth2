@@ -19,14 +19,14 @@ suite "Serialization/deserialization test suite":
     proc init(t: typedesc[RestErrorMessage], status: int,
               message: string): RestErrorMessage =
       RestErrorMessage(
-        code: uint64(status), message: message,
+        code: status, message: message,
         stacktraces: none[seq[string]]()
       )
     proc init(t: typedesc[RestErrorMessage], status: int,
               message: string,
               stacktraces: openArray[string]): RestErrorMessage =
       RestErrorMessage(
-        code: uint64(status), message: message,
+        code: status, message: message,
         stacktraces: some(@stacktraces)
       )
 
@@ -137,6 +137,7 @@ suite "Serialization/deserialization test suite":
       let res = decodeBytes(
         RestErrorMessage, test.toOpenArrayByte(0, len(test) - 1),
         Opt.some(contentType))
+      checkpoint test
       check res.isErr()
   test "RestErrorMessage writer tests":
     proc `==`(a: RestApiResponse, b: string): bool =

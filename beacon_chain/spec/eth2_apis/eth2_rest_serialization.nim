@@ -2238,6 +2238,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           try: parseInt(reader.readValue(string))
           except ValueError:
             reader.raiseUnexpectedValue("Invalid `code` field format")
+        if sres < 0:
+          reader.raiseUnexpectedValue("Invalid `code` field value")
         code = Opt.some(sres)
       else:
         code = ires
