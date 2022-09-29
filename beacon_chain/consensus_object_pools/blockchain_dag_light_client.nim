@@ -305,9 +305,7 @@ proc initLightClientUpdateForPeriod(
     if signatureBid.slot == FAR_FUTURE_SLOT:
       signatureBid = maxParticipantsBid
     else:
-      let
-        nextLowSlot = signatureBid.slot + 1
-        signatureRes = dag.maxParticipantsBlock(highBid, nextLowSlot)
+      let signatureRes = dag.maxParticipantsBlock(highBid, signatureBid.slot)
       if signatureRes.res.isErr:
         res.err()
       signatureBid = signatureRes.bid.valueOr:
@@ -337,7 +335,7 @@ proc initLightClientUpdateForPeriod(
             continue
         else:
           continue
-    if finalizedBid.slot >= lowSlot:
+    if finalizedBsi.bid.slot >= lowSlot:
       finalizedBid = finalizedBsi.bid
       break
     if signatureBid == maxParticipantsBid:
