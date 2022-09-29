@@ -37,7 +37,7 @@ proc getStateV2*(client: RestClientRef, state_id: StateIdent,
       await client.getStateV2Plain(state_id, restAcceptType = restAccept)
     else:
       await client.getStateV2Plain(state_id)
-  let data =
+  return
     case resp.status
     of 200:
       if resp.contentType.isNone() or
@@ -64,17 +64,13 @@ proc getStateV2*(client: RestClientRef, state_id: StateIdent,
     of 404:
       nil
     of 400, 500:
-      let error =
-        block:
-          let res = decodeBytes(RestGenericError, resp.data, resp.contentType)
-          if res.isErr():
-            let msg = "Incorrect response error format (" & $resp.status &
-                      ") [" & $res.error() & "]"
-            raise newException(RestError, msg)
-          res.get()
+      let error = decodeBytes(RestErrorMessage, resp.data,
+                              resp.contentType).valueOr:
+        let msg = "Incorrect response error format (" & $resp.status &
+                  ") [" & $error & "]"
+        raise (ref RestResponseError)(msg: msg, status: resp.status)
       let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
-      raise newException(RestError, msg)
+      raise (ref RestResponseError)(
+        msg: msg, status: error.code, message: error.message)
     else:
-      let msg = "Unknown response status error (" & $resp.status & ")"
-      raise newException(RestError, msg)
-  return data
+      raiseRestResponseError(resp)

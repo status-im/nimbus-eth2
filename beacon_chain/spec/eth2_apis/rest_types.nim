@@ -167,12 +167,20 @@ type
     slot*: Slot
     validators*: seq[ValidatorIndex]
 
-  RestFailureItem* = object
-    index*: uint64
+  RestErrorMessage* = object
+    ## https://github.com/ethereum/beacon-APIs/blob/v2.3.0/types/http.yaml#L86
+    code*: int
     message*: string
+    stacktraces*: Option[seq[string]]
 
-  RestAttestationsFailure* = object
-    index*: uint64
+  RestIndexedErrorMessage* = object
+    ## https://github.com/ethereum/beacon-APIs/blob/v2.3.0/types/http.yaml#L101
+    code*: int
+    message*: string
+    failures*: seq[RestIndexedErrorMessageItem]
+
+  RestIndexedErrorMessageItem* = object
+    index*: int
     message*: string
 
   RestValidator* = object

@@ -19,7 +19,7 @@ proc raiseGenericError*(resp: RestPlainResponse) {.
      noreturn, raises: [RestError, Defect].} =
   let error =
     block:
-      let res = decodeBytes(RestGenericError, resp.data, resp.contentType)
+      let res = decodeBytes(RestErrorMessage, resp.data, resp.contentType)
       if res.isErr():
         let msg = "Incorrect response error format (" & $resp.status &
                   ") [" & $res.error() & "]"
