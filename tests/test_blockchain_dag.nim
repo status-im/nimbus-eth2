@@ -525,8 +525,8 @@ suite "chain DAG finalization tests" & preset():
       not finalER.isErr()
 
     block:
-      for er in dag.epochRefs:
-        check: er == nil or er.epoch >= dag.finalizedHead.slot.epoch
+      for er in dag.epochRefs.items:
+        check: er.value == nil or er.value.epoch >= dag.finalizedHead.slot.epoch
 
     block:
       let tmpStateData = assignClone(dag.headState)
