@@ -89,7 +89,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
 
   let res =
     try:
-      await vc.submitPoolAttestations(@[attestation])
+      await vc.submitPoolAttestations(@[attestation], ApiStrategyKind.First)
     except ValidatorApiError:
       error "Unable to publish attestation",
             attestation = shortLog(attestation),
@@ -175,7 +175,7 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
 
   let res =
     try:
-      await vc.publishAggregateAndProofs(@[signedProof])
+      await vc.publishAggregateAndProofs(@[signedProof], ApiStrategyKind.First)
     except ValidatorApiError:
       error "Unable to publish aggregated attestation",
             attestation = shortLog(signedProof.message.aggregate),
@@ -215,7 +215,8 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
 
   # This call could raise ValidatorApiError, but it is handled in
   # publishAttestationsAndAggregates().
-  let ad = await vc.produceAttestationData(slot, committee_index)
+  let ad = await vc.produceAttestationData(slot, committee_index,
+                                           ApiStrategyKind.Best)
 
   let pendingAttestations =
     block:
@@ -298,7 +299,8 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
   if len(aggregateItems) > 0:
     let aggAttestation =
       try:
-        await vc.getAggregatedAttestation(slot, attestationRoot)
+        await vc.getAggregatedAttestation(slot, attestationRoot,
+                                          ApiStrategyKind.Best)
       except ValidatorApiError:
         error "Unable to get aggregated attestation data", slot = slot,
               attestation_root = shortLog(attestationRoot)

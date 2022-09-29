@@ -63,7 +63,7 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
 
   let res =
     try:
-      await vc.submitPoolSyncCommitteeSignature(message)
+      await vc.submitPoolSyncCommitteeSignature(message, ApiStrategyKind.First)
     except ValidatorApiError:
       error "Unable to publish sync committee message",
             message = shortLog(message),
@@ -177,7 +177,8 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
 
   let res =
     try:
-      await vc.publishContributionAndProofs(@[restSignedProof])
+      await vc.publishContributionAndProofs(@[restSignedProof],
+                                            ApiStrategyKind.First)
     except ValidatorApiError as err:
       error "Unable to publish sync contribution",
             contribution = shortLog(proof.contribution),
@@ -240,7 +241,8 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
             try:
               await vc.produceSyncCommitteeContribution(slot,
                                                         item.subcommitteeIdx,
-                                                        beaconBlockRoot)
+                                                        beaconBlockRoot,
+                                                        ApiStrategyKind.Best)
             except ValidatorApiError:
               error "Unable to get sync message contribution data", slot = slot,
                     beaconBlockRoot = shortLog(beaconBlockRoot)
@@ -322,7 +324,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
   let beaconBlockRoot =
     block:
       try:
-        let res = await vc.getHeadBlockRoot()
+        let res = await vc.getHeadBlockRoot(ApiStrategyKind.First)
         res.root
       except ValidatorApiError as exc:
         error "Unable to retrieve head block's root to sign", reason = exc.msg

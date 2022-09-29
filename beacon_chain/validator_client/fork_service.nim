@@ -51,7 +51,7 @@ proc pollForFork(vc: ValidatorClientRef) {.async.} =
 
     let forks =
       try:
-        await vc.getForkSchedule()
+        await vc.getForkSchedule(ApiStrategyKind.Best)
       except ValidatorApiError as exc:
         error "Unable to retrieve fork schedule", reason = exc.msg
         return
