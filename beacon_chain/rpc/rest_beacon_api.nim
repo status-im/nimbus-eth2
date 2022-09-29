@@ -769,14 +769,18 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-        let body = contentBody.get()
-        let res = decodeBody(RestPublishedSignedBeaconBlock, body)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
-                                           $res.error())
-        var forked = ForkedSignedBeaconBlock(res.get())
+        let
+          body = contentBody.get()
+          version = request.headers.getString("eth-consensus-version")
+        var
+          restBlock = decodeBody(RestPublishedSignedBeaconBlock, body,
+                                 version).valueOr:
+            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
+                                             $error)
+          forked = ForkedSignedBeaconBlock(restBlock)
+
         if forked.kind != node.dag.cfg.blockForkAtEpoch(
-            getForkedBlockField(forked, slot).epoch):
+             getForkedBlockField(forked, slot).epoch):
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
         withBlck(forked):
