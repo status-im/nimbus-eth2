@@ -15,17 +15,17 @@ import
   ./testutil
 
 suite "Serialization/deserialization test suite":
-  test "RestGenericError parser tests":
-    proc init(t: typedesc[RestGenericError], status: int,
-              message: string): RestGenericError =
-      RestGenericError(
+  test "RestErrorMessage parser tests":
+    proc init(t: typedesc[RestErrorMessage], status: int,
+              message: string): RestErrorMessage =
+      RestErrorMessage(
         code: uint64(status), message: message,
         stacktraces: none[seq[string]]()
       )
-    proc init(t: typedesc[RestGenericError], status: int,
+    proc init(t: typedesc[RestErrorMessage], status: int,
               message: string,
-              stacktraces: openArray[string]): RestGenericError =
-      RestGenericError(
+              stacktraces: openArray[string]): RestErrorMessage =
+      RestErrorMessage(
         code: uint64(status), message: message,
         stacktraces: some(@stacktraces)
       )
@@ -33,59 +33,59 @@ suite "Serialization/deserialization test suite":
     const GoodTestVectors = [
       (
         """{"code": 500, "message": "block not found"}""",
-        RestGenericError.init(500, "block not found")
+        RestErrorMessage.init(500, "block not found")
       ),
       (
         """{"code": "600", "message": "block not found"}""",
-        RestGenericError.init(600, "block not found")
+        RestErrorMessage.init(600, "block not found")
       ),
       (
         """{"code": "700", "message": "block not found",
             "data": "data", "custom": "field"}""",
-        RestGenericError.init(700, "block not found")
+        RestErrorMessage.init(700, "block not found")
       ),
       (
         """{"code":"701", "message": "block not found",
             "data": "data", "custom": 300}""",
-        RestGenericError.init(701, "block not found")
+        RestErrorMessage.init(701, "block not found")
       ),
       (
         """{"code": "702", "message": "block not found",
             "data": "data", "custom": {"field1": "value1"}}""",
-        RestGenericError.init(702, "block not found")
+        RestErrorMessage.init(702, "block not found")
       ),
       (
         """{"code": 800, "message": "block not found",
             "custom": "data", "stacktraces": []}""",
-        RestGenericError.init(800, "block not found", [])
+        RestErrorMessage.init(800, "block not found", [])
       ),
       (
         """{"code": 801, "message": "block not found",
             "custom": 100, "stacktraces": []}""",
-        RestGenericError.init(801, "block not found", [])
+        RestErrorMessage.init(801, "block not found", [])
       ),
       (
         """{"code": 802, "message": "block not found",
             "custom": {"field1": "value1"}, "stacktraces": []}""",
-        RestGenericError.init(802, "block not found", [])
+        RestErrorMessage.init(802, "block not found", [])
       ),
       (
         """{"code": "900", "message": "block not found",
             "stacktraces": ["line1", "line2", "line3"], "custom": "data"}""",
-        RestGenericError.init(900, "block not found",
+        RestErrorMessage.init(900, "block not found",
                               ["line1", "line2", "line3"])
       ),
       (
         """{"code": "901", "message": "block not found",
             "stacktraces": ["line1", "line2", "line3"], "custom": 2000}""",
-        RestGenericError.init(901, "block not found",
+        RestErrorMessage.init(901, "block not found",
                               ["line1", "line2", "line3"])
       ),
       (
         """{"code": "902", "message": "block not found",
             "stacktraces": ["line1", "line2", "line3"],
             "custom": {"field1": "value1"}}""",
-        RestGenericError.init(902, "block not found",
+        RestErrorMessage.init(902, "block not found",
                               ["line1", "line2", "line3"])
       )
     ]
@@ -119,7 +119,7 @@ suite "Serialization/deserialization test suite":
 
     for test in GoodTestVectors:
       let res = decodeBytes(
-        RestGenericError, test[0].toOpenArrayByte(0, len(test[0]) - 1),
+        RestErrorMessage, test[0].toOpenArrayByte(0, len(test[0]) - 1),
         Opt.some(contentType))
       check res.isOk()
       let response = res.get()
@@ -135,10 +135,10 @@ suite "Serialization/deserialization test suite":
 
     for test in FailureTestVectors:
       let res = decodeBytes(
-        RestGenericError, test.toOpenArrayByte(0, len(test) - 1),
+        RestErrorMessage, test.toOpenArrayByte(0, len(test) - 1),
         Opt.some(contentType))
       check res.isErr()
-  test "RestGenericError writer tests":
+  test "RestErrorMessage writer tests":
     proc `==`(a: RestApiResponse, b: string): bool =
       case a.kind
       of RestApiResponseKind.Content:

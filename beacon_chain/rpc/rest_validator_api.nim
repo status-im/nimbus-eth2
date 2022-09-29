@@ -742,20 +742,20 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let failures =
       block:
-        var res: seq[RestAttestationsFailure]
+        var res: seq[RestIndexedErrorMessageItem]
         await allFutures(pending)
         for index, future in pending:
           if future.done():
             let fres = future.read()
             if fres.isErr():
-              let failure = RestAttestationsFailure(index: uint64(index),
-                                                    message: $fres.error())
+              let failure = RestIndexedErrorMessageItem(index: index,
+                                                        message: $fres.error())
               res.add(failure)
           elif future.failed() or future.cancelled():
             # This is unexpected failure, so we log the error message.
             let exc = future.readError()
-            let failure = RestAttestationsFailure(index: uint64(index),
-                                                  message: $exc.msg)
+            let failure = RestIndexedErrorMessageItem(index: index,
+                                                      message: $exc.msg)
             res.add(failure)
         res
 

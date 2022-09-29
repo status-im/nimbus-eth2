@@ -72,16 +72,6 @@ const
 type
   EmptyBody* = object
 
-  RestGenericError* = object
-    code*: int
-    message*: string
-    stacktraces*: Option[seq[string]]
-
-  RestDutyError* = object
-    code*: uint64
-    message*: string
-    failures*: seq[RestFailureItem]
-
   EncodeTypes* =
     AttesterSlashing |
     DeleteKeystoresBody |
@@ -128,8 +118,8 @@ type
     ListFeeRecipientResponse |
     PrepareBeaconProposer |
     ProduceBlockResponseV2 |
-    RestDutyError |
-    RestGenericError |
+    RestIndexedErrorMessage |
+    RestErrorMessage |
     RestValidator |
     Web3SignerErrorResponse |
     Web3SignerKeysResponse |
@@ -2220,12 +2210,12 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("is_optimistic", value.is_optimistic.get())
   writer.endRecord()
 
-## RestGenericError
+## RestErrorMessage
 proc readValue*(reader: var JsonReader[RestJson],
-                value: var RestGenericError) {.
+                value: var RestErrorMessage) {.
      raises: [SerializationError, IOError, Defect].} =
   var
-    code: Opt[uint64]
+    code: Opt[int]
     message: Opt[string]
     stacktraces: Option[seq[string]]
 
@@ -2234,30 +2224,32 @@ proc readValue*(reader: var JsonReader[RestJson],
     of "code":
       if code.isSome():
         reader.raiseUnexpectedField("Multiple `code` fields found",
-                                    "RestGenericError")
+                                    "RestErrorMessage")
       let ires =
         try:
           let res = reader.readValue(int)
           if res < 0:
             reader.raiseUnexpectedValue("Invalid `code` field value")
-          Opt.some(uint64(res))
+          Opt.some(res)
         except SerializationError:
-          Opt.none(uint64)
+          Opt.none(int)
       if ires.isNone():
-        let sres = Base10.decode(uint64, reader.readValue(string)).valueOr:
-          reader.raiseUnexpectedValue("Invalid `code` field format")
+        let sres =
+          try: parseInt(reader.readValue(string))
+          except ValueError:
+            reader.raiseUnexpectedValue("Invalid `code` field format")
         code = Opt.some(sres)
       else:
         code = ires
     of "message":
       if message.isSome():
         reader.raiseUnexpectedField("Multiple `message` fields found",
-                                    "RestGenericError")
+                                    "RestErrorMessage")
       message = Opt.some(reader.readValue(string))
     of "stacktraces":
       if stacktraces.isSome():
         reader.raiseUnexpectedField("Multiple `stacktraces` fields found",
-                                    "RestGenericError")
+                                    "RestErrorMessage")
       stacktraces = some(reader.readValue(seq[string]))
     else:
       # We ignore all additional fields.
@@ -2268,7 +2260,7 @@ proc readValue*(reader: var JsonReader[RestJson],
   if message.isNone():
     reader.raiseUnexpectedValue("Missing or invalid `message` value")
 
-  value = RestGenericError(
+  value = RestErrorMessage(
     code: code.get(), message: message.get(),
     stacktraces: stacktraces
   )

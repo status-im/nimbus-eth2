@@ -557,19 +557,18 @@ template firstSuccessSequential*(vc: ValidatorClientRef, respType: typedesc,
     if exitNow:
       break
 
-proc getDutyErrorMessage(response: RestPlainResponse): string =
-  let res = decodeBytes(RestDutyError, response.data,
+proc getIndexedErrorMessage(response: RestPlainResponse): string =
+  let res = decodeBytes(RestIndexedErrorMessage, response.data,
                         response.contentType)
   if res.isOk():
     let errorObj = res.get()
-    let failures = errorObj.failures.mapIt(Base10.toString(it.index) & ": " &
-                                           it.message)
+    let failures = errorObj.failures.mapIt($it.index & ": " & it.message)
     errorObj.message & ": [" & failures.join(", ") & "]"
   else:
     "Unable to decode error response: [" & $res.error() & "]"
 
-proc getGenericErrorMessage(response: RestPlainResponse): string =
-  let res = decodeBytes(RestGenericError, response.data,
+proc getErrorMessage(response: RestPlainResponse): string =
+  let res = decodeBytes(RestErrorMessage, response.data,
                         response.contentType)
   if res.isOk():
     let errorObj = res.get()
@@ -1139,15 +1138,15 @@ proc submitPoolAttestations*(
           RestBeaconNodeStatus.Online
         of 400:
           debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, response_error = response.getDutyErrorMessage()
+                endpoint = node, response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
-                endpoint = node, response_error = response.getDutyErrorMessage()
+                endpoint = node, response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
         else:
           debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, response_error = response.getDutyErrorMessage()
+                endpoint = node, response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
     if res.isErr():
       raise newException(ValidatorApiError, res.error())
@@ -1168,15 +1167,15 @@ proc submitPoolAttestations*(
           return true
         of 400:
           debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, response_error = response.getDutyErrorMessage()
+                endpoint = node, response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
-                endpoint = node, response_error = response.getDutyErrorMessage()
+                endpoint = node, response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
         else:
           debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, response_error = response.getDutyErrorMessage()
+                endpoint = node, response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
 
     raise newException(ValidatorApiError, ErrorMessage)
@@ -1217,15 +1216,15 @@ proc submitPoolSyncCommitteeSignature*(
           RestBeaconNodeStatus.Online
         of 400:
           debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, response_error = response.getDutyErrorMessage()
+                endpoint = node, response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
-                endpoint = node, response_error = response.getDutyErrorMessage()
+                endpoint = node, response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
         else:
           debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, response_error = response.getDutyErrorMessage()
+                endpoint = node, response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
     if res.isErr():
       raise newException(ValidatorApiError, res.error())
@@ -1246,15 +1245,15 @@ proc submitPoolSyncCommitteeSignature*(
           return true
         of 400:
           debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, response_error = response.getDutyErrorMessage()
+                endpoint = node, response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
-                endpoint = node, response_error = response.getDutyErrorMessage()
+                endpoint = node, response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
         else:
           debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, response_error = response.getDutyErrorMessage()
+                endpoint = node, response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
 
     raise newException(ValidatorApiError, ErrorMessage)
@@ -1434,17 +1433,17 @@ proc publishAggregateAndProofs*(
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
         else:
           debug ResponseUnexpectedError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
     if res.isErr():
       raise newException(ValidatorApiError, res.error())
@@ -1466,17 +1465,17 @@ proc publishAggregateAndProofs*(
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
         else:
           debug ResponseUnexpectedError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
 
     raise newException(ValidatorApiError, ErrorMessage)
@@ -1511,17 +1510,17 @@ proc publishContributionAndProofs*(
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
         else:
           debug ResponseUnexpectedError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
 
     if res.isErr():
@@ -1544,17 +1543,17 @@ proc publishContributionAndProofs*(
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
         else:
           debug ResponseUnexpectedError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
     raise newException(ValidatorApiError, ErrorMessage)
 
@@ -1681,22 +1680,22 @@ proc publishBlock*(
           of 400:
             debug ResponseInvalidError, response_code = response.status,
                   endpoint = node,
-                  response_error = response.getGenericErrorMessage()
+                  response_error = response.getErrorMessage()
             RestBeaconNodeStatus.Incompatible
           of 500:
             debug ResponseInternalError, response_code = response.status,
                   endpoint = node,
-                  response_error = response.getGenericErrorMessage()
+                  response_error = response.getErrorMessage()
             RestBeaconNodeStatus.Offline
           of 503:
             debug ResponseNoSyncError, response_code = response.status,
                   endpoint = node,
-                  response_error = response.getGenericErrorMessage()
+                  response_error = response.getErrorMessage()
             RestBeaconNodeStatus.NotSynced
           else:
             debug ResponseUnexpectedError, response_code = response.status,
                   endpoint = node,
-                  response_error = response.getGenericErrorMessage()
+                  response_error = response.getErrorMessage()
             RestBeaconNodeStatus.Offline
     if res.isErr():
       raise newException(ValidatorApiError, res.error())
@@ -1728,22 +1727,22 @@ proc publishBlock*(
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.NotSynced
         else:
           debug ResponseUnexpectedError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
 
     raise newException(ValidatorApiError, ErrorMessage)
@@ -1780,22 +1779,22 @@ proc prepareBeaconCommitteeSubnet*(
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Online
         of 500:
           debug ResponseInternalError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.NotSynced
         else:
           debug ResponseUnexpectedError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
     if res.isErr():
       raise newException(ValidatorApiError, res.error())
@@ -1817,22 +1816,22 @@ proc prepareBeaconCommitteeSubnet*(
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           return false
         of 500:
           debug ResponseInternalError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.NotSynced
         else:
           debug ResponseUnexpectedError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
 
     raise newException(ValidatorApiError, ErrorMessage)
@@ -1869,22 +1868,22 @@ proc prepareSyncCommitteeSubnets*(
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Online
         of 500:
           debug ResponseInternalError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.NotSynced
         else:
           debug ResponseUnexpectedError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
     if res.isErr():
       raise newException(ValidatorApiError, res.error())
@@ -1906,22 +1905,22 @@ proc prepareSyncCommitteeSubnets*(
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           return false
         of 500:
           debug ResponseInternalError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.NotSynced
         else:
           debug ResponseUnexpectedError, response_code = response.status,
                 endpoint = node,
-                response_error = response.getGenericErrorMessage()
+                response_error = response.getErrorMessage()
           RestBeaconNodeStatus.Offline
 
     raise newException(ValidatorApiError, ErrorMessage)
@@ -1999,21 +1998,21 @@ proc getValidatorsActivity*(
                 debug "Server reports invalid request",
                       response_code = response.status,
                       endpoint = apiResponse.node,
-                      response_error = response.getGenericErrorMessage()
+                      response_error = response.getErrorMessage()
                 apiResponse.node.status = RestBeaconNodeStatus.Incompatible
                 default
               of 500:
                 debug "Server reports internal error",
                       response_code = response.status,
                       endpoint = apiResponse.node,
-                      response_error = response.getGenericErrorMessage()
+                      response_error = response.getErrorMessage()
                 apiResponse.node.status = RestBeaconNodeStatus.Offline
                 default
               else:
                 debug "Server reports unexpected error code",
                       response_code = response.status,
                       endpoint = apiResponse.node,
-                      response_error = response.getGenericErrorMessage()
+                      response_error = response.getErrorMessage()
                 apiResponse.node.status = RestBeaconNodeStatus.Offline
                 default
 

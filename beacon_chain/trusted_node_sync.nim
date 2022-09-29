@@ -106,11 +106,14 @@ proc doTrustedNodeSync*(
     for i in 0..<3:
       try:
         return await client.getBlockV2(BlockIdent.init(slot), cfg)
-      except CatchableError as exc:
+      except RestResponseError as exc:
         lastError = exc
-        if "(500)" in exc.msg:
-          notice "Server does not support block downloads", msg = exc.msg
-          break
+        notice "Server does not support block downloads / backfilling",
+          msg = exc.msg
+        break
+      except CatchableError as exc:
+        # We'll assume this may be a connectivity error or something similar
+        lastError = exc
 
         warn "Retrying download of block", slot, err = exc.msg
         client = RestClientRef.new(restUrl).valueOr:

@@ -369,8 +369,8 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Serialization/deserialization test suite
 ```diff
-+ RestGenericError parser tests                                                              OK
-+ RestGenericError writer tests                                                              OK
++ RestErrorMessage parser tests                                                              OK
++ RestErrorMessage writer tests                                                              OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Slashing Interchange tests  [Preset: mainnet]
