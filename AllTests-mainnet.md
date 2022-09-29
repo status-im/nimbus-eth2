@@ -367,6 +367,12 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Deserialization test vectors                                                               OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
+## Serialization/deserialization test suite
+```diff
++ RestGenericError parser tests                                                              OK
++ RestGenericError writer tests                                                              OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Slashing Interchange tests  [Preset: mainnet]
 ```diff
 + Slashing test: duplicate_pubkey_not_slashable.json                                         OK
@@ -591,4 +597,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 328/333 Fail: 0/333 Skip: 5/333
+OK: 330/335 Fail: 0/335 Skip: 5/335
