@@ -65,9 +65,9 @@ type
     # unnecessary overhead.
     data*: BlockRef
 
-  LRUCache*[I: static[uint8], T] = object
-    items*: array[I, tuple[value: T, next: uint8]]
-    mru*: uint8
+  LRUCache*[I: static[int], T] = object
+    entries*: array[I, tuple[value: T, lastUsed: uint32]]
+    timestamp*: uint32
 
   ChainDAGRef* = ref object
     ## ChainDAG validates, stores and serves chain history of valid blocks
@@ -193,9 +193,9 @@ type
 
     cfg*: RuntimeConfig
 
-    shufflingRefs*: LRUCache[16'u8, ShufflingRef]
+    shufflingRefs*: LRUCache[16, ShufflingRef]
 
-    epochRefs*: LRUCache[32'u8, EpochRef]
+    epochRefs*: LRUCache[32, EpochRef]
       ## Cached information about a particular epoch ending with the given
       ## block - we limit the number of held EpochRefs to put a cap on
       ## memory usage

@@ -525,7 +525,7 @@ suite "chain DAG finalization tests" & preset():
       not finalER.isErr()
 
     block:
-      for er in dag.epochRefs.items:
+      for er in dag.epochRefs.entries:
         check: er.value == nil or er.value.epoch >= dag.finalizedHead.slot.epoch
 
     block:

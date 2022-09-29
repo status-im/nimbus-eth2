@@ -265,66 +265,54 @@ func atSlot*(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   else:
     dag.getBlockIdAtSlot(slot)
 
+func nextTimestamp[I, T](cache: var LRUCache[I, T]): uint32 =
+  if cache.timestamp == uint32.high:
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      if e.lastUsed != 0:
+        e.lastUsed = 1
+    cache.timestamp = 1
+  inc cache.timestamp
+  cache.timestamp
+
 template findIt[I, T](cache: var LRUCache[I, T], predicate: untyped): Opt[T] =
   block:
-    var
-      prev = cache.mru
-      curr = prev
-      i = Opt[uint8].err()
-    while true:
-      template it: untyped {.inject, used.} = cache.items[curr].value
-      if i.isErr and it != nil and predicate:
-        i.ok curr
-        cache.items[prev].next = cache.items[curr].next
-        curr = prev
-      if cache.items[curr].next == cache.mru:
+    var res: Opt[T]
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      template it: untyped {.inject, used.} = e.value
+      if e.lastUsed != 0 and predicate:
+        e.lastUsed = cache.nextTimestamp
+        res.ok it
         break
-      prev = curr
-      curr = cache.items[curr].next
-    if i.isOk:
-      if i.get != cache.mru:
-        cache.items[curr].next = i.get
-        cache.items[i.get].next = cache.mru
-        cache.mru = i.get
-      Opt[T].ok cache.items[i.get].value
-    else:
-      Opt[T].err()
+    res
 
 template delIt[I, T](cache: var LRUCache[I, T], predicate: untyped) =
   block:
-    var
-      prev = cache.mru
-      curr = prev
-    while true:
-      template it: untyped {.inject, used.} = cache.items[curr].value
-      if it != nil and predicate:
-        cache.items[curr].value = nil
-        cache.items[prev].next = cache.items[curr].next
-        curr = prev
-      if cache.items[curr].next == cache.mru:
-        break
-      prev = curr
-      curr = cache.items[curr].next
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      template it: untyped {.inject, used.} = e.value
+      if e.lastUsed != 0 and predicate:
+        e.reset()
 
 func put[I, T](cache: var LRUCache[I, T], value: T) =
-  doAssert value != nil
-
-  var
-    lru = cache.mru
-    i = 0'u8
-  while cache.items[lru].next != cache.mru:
-    lru = cache.items[lru].next
-    inc i
-  if i < I:
-    for i in 0'u8 ..< I:
-      if cache.items[i].value == nil:
-        cache.items[lru].next = i
+  var lru = 0
+  block:
+    var min = uint32.high
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      if e.lastUsed < min:
+        min = e.lastUsed
         lru = i
-        break
+        if min == 0:
+          break
+    if min != 0:
+      {.noSideEffect.}:
+        debug "Cache full - evicting LRU", cache = typeof(T).name, capacity = I
 
-  cache.items[lru].value = value
-  cache.items[lru].next = cache.mru
-  cache.mru = lru
+  template e: untyped = cache.entries[lru]
+  e.value = value
+  e.lastUsed = cache.nextTimestamp
 
 func epochAncestor(dag: ChainDAGRef, bid: BlockId, epoch: Epoch):
     Opt[BlockSlotId] =
