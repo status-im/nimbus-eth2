@@ -70,7 +70,6 @@ type
     dumpEnabled: bool
     dumpDirInvalid: string
     dumpDirIncoming: string
-    safeSlotsToImportOptimistically: uint16
 
     # Producers
     # ----------------------------------------------------------------
@@ -100,8 +99,7 @@ proc new*(T: type BlockProcessor,
           rng: ref HmacDrbgContext, taskpool: TaskPoolPtr,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
-          getBeaconTime: GetBeaconTimeFn,
-          safeSlotsToImportOptimistically: uint16): ref BlockProcessor =
+          getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
@@ -110,7 +108,6 @@ proc new*(T: type BlockProcessor,
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
     getBeaconTime: getBeaconTime,
-    safeSlotsToImportOptimistically: safeSlotsToImportOptimistically,
     verifier: BatchVerifier(rng: rng, taskpool: taskpool)
   )
 
@@ -513,7 +510,7 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
            # - MUST NOT optimistically import the block.
            # - MUST NOT apply the block to the fork choice store.
            # - MAY queue the block for later processing.
-           # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#execution-engine-errors
+           # https://github.com/ethereum/consensus-specs/blob/v1.2.0/sync/optimistic.md#execution-engine-errors
            template reEnqueueBlock: untyped =
              await sleepAsync(chronos.seconds(1))
              self[].addBlock(
