@@ -2304,8 +2304,6 @@ proc decodeBody*(
     let blockFork = ? BeaconBlockFork.decodeString(version)
     case blockFork
     of BeaconBlockFork.Phase0:
-      if len(body.data) < sizeof(phase0.SignedBeaconBlock):
-        return err("Invalid beacon block object")
       let blck =
         try:
           SSZ.decode(body.data, phase0.SignedBeaconBlock)
@@ -2315,8 +2313,6 @@ proc decodeBody*(
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
     of BeaconBlockFork.Altair:
-      if len(body.data) < sizeof(altair.SignedBeaconBlock):
-        return err("Invalid beacon block object")
       let blck =
         try:
           SSZ.decode(body.data, altair.SignedBeaconBlock)
@@ -2326,8 +2322,6 @@ proc decodeBody*(
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
     of BeaconBlockFork.Bellatrix:
-      if len(body.data) < sizeof(bellatrix.SignedBeaconBlock):
-        return err("Invalid beacon block object")
       let blck =
         try:
           SSZ.decode(body.data, bellatrix.SignedBeaconBlock)
