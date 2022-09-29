@@ -275,7 +275,10 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400,
                                            InvalidValidatorIndexValueError,
                                            $dres.error())
-        var res: HashSet[ValidatorIndex]
+        var
+          res: seq[ValidatorIndex]
+          dupset: HashSet[ValidatorIndex]
+
         let items = dres.get()
         for item in items:
           let vres = item.toValidatorIndex()
@@ -287,7 +290,12 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
             of ValidatorIndexError.UnsupportedValue:
               return RestApiResponse.jsonError(Http500,
                                             UnsupportedValidatorIndexValueError)
-          res.incl(vres.get())
+          let index = vres.get()
+          if index in dupset:
+            return RestApiResponse.jsonError(Http400,
+                                             DuplicateValidatorIndexArrayError)
+          dupset.incl(index)
+          res.add(index)
         if len(res) == 0:
           return RestApiResponse.jsonError(Http400,
                                            EmptyValidatorIndexArrayError)

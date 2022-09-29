@@ -112,6 +112,8 @@ const
     "Invalid validator's index value(s)"
   EmptyValidatorIndexArrayError* =
     "Empty validator's index array"
+  DuplicateValidatorIndexArrayError* =
+    "Duplicate validator index found in array"
   InvalidSubscriptionRequestValueError* =
     "Invalid subscription request object(s)"
   ValidatorNotFoundError* =
