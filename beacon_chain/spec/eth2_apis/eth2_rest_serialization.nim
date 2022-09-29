@@ -328,13 +328,11 @@ proc jsonMsgResponse*(t: typedesc[RestApiResponse],
     block:
       var default: seq[byte]
       try:
-        var defstrings: seq[string]
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
-        writer.writeField("code", "200")
+        writer.writeField("code", 200)
         writer.writeField("message", msg)
-        writer.writeField("stacktraces", defstrings)
         writer.endRecord()
         stream.getOutput(seq[byte])
       except SerializationError:
@@ -349,13 +347,11 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
     block:
       var default: string
       try:
-        var defstrings: seq[string]
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
-        writer.writeField("code", Base10.toString(uint64(status.toInt())))
+        writer.writeField("code", int(status.toInt()))
         writer.writeField("message", msg)
-        writer.writeField("stacktraces", defstrings)
         writer.endRecord()
         stream.getOutput(string)
       except SerializationError:
@@ -370,16 +366,13 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
     block:
       var default: string
       try:
-        var defstrings: seq[string]
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
-        writer.writeField("code", Base10.toString(uint64(status.toInt())))
+        writer.writeField("code", int(status.toInt()))
         writer.writeField("message", msg)
         if len(stacktrace) > 0:
           writer.writeField("stacktraces", [stacktrace])
-        else:
-          writer.writeField("stacktraces", defstrings)
         writer.endRecord()
         stream.getOutput(string)
       except SerializationError:
@@ -398,7 +391,7 @@ proc jsonError*(t: typedesc[RestApiResponse], status: HttpCode = Http200,
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
-        writer.writeField("code", Base10.toString(uint64(status.toInt())))
+        writer.writeField("code", int(status.toInt()))
         writer.writeField("message", msg)
         writer.writeField("stacktraces", stacktraces)
         writer.endRecord()
@@ -419,7 +412,7 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         writer.beginRecord()
-        writer.writeField("code", Base10.toString(uint64(status.toInt())))
+        writer.writeField("code", int(status.toInt()))
         writer.writeField("message", msg)
         writer.writeField("failures", failures)
         writer.endRecord()
@@ -2226,6 +2219,59 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   if value.is_optimistic.isSome():
     writer.writeField("is_optimistic", value.is_optimistic.get())
   writer.endRecord()
+
+## RestGenericError
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var RestGenericError) {.
+     raises: [SerializationError, IOError, Defect].} =
+  var
+    code: Opt[uint64]
+    message: Opt[string]
+    stacktraces: Option[seq[string]]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "code":
+      if code.isSome():
+        reader.raiseUnexpectedField("Multiple `code` fields found",
+                                    "RestGenericError")
+      let ires =
+        try:
+          let res = reader.readValue(int)
+          if res < 0:
+            reader.raiseUnexpectedValue("Invalid `code` field value")
+          Opt.some(uint64(res))
+        except SerializationError:
+          Opt.none(uint64)
+      if ires.isNone():
+        let sres = Base10.decode(uint64, reader.readValue(string)).valueOr:
+          reader.raiseUnexpectedValue("Invalid `code` field format")
+        code = Opt.some(sres)
+      else:
+        code = ires
+    of "message":
+      if message.isSome():
+        reader.raiseUnexpectedField("Multiple `message` fields found",
+                                    "RestGenericError")
+      message = Opt.some(reader.readValue(string))
+    of "stacktraces":
+      if stacktraces.isSome():
+        reader.raiseUnexpectedField("Multiple `stacktraces` fields found",
+                                    "RestGenericError")
+      stacktraces = some(reader.readValue(seq[string]))
+    else:
+      # We ignore all additional fields.
+      discard reader.readValue(JsonString)
+
+  if code.isNone():
+    reader.raiseUnexpectedValue("Missing or invalid `code` value")
+  if message.isNone():
+    reader.raiseUnexpectedValue("Missing or invalid `message` value")
+
+  value = RestGenericError(
+    code: code.get(), message: message.get(),
+    stacktraces: stacktraces
+  )
 
 proc parseRoot(value: string): Result[Eth2Digest, cstring] =
   try:

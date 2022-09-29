@@ -265,7 +265,33 @@ func atSlot*(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   else:
     dag.getBlockIdAtSlot(slot)
 
-func epochAncestor*(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): EpochKey =
+func epochAncestor(dag: ChainDAGRef, bid: BlockId, epoch: Epoch):
+    Opt[BlockSlotId] =
+  ## The epoch ancestor is the last block that has an effect on the epoch-
+  ## related state data, as updated in `process_epoch` - this block determines
+  ## effective balances, validator addtions and removals etc and serves as a
+  ## base for `EpochRef` construction.
+  if epoch < dag.tail.slot.epoch or bid.slot < dag.tail.slot:
+    # Not enough information in database to meaningfully process pre-tail epochs
+    return Opt.none BlockSlotId
+
+  let
+    dependentSlot =
+      if epoch == dag.tail.slot.epoch:
+        # Use the tail as "dependent block" - this may be the genesis block, or,
+        # in the case of checkpoint sync, the checkpoint block
+        dag.tail.slot
+      else:
+        epoch.start_slot() - 1
+    bsi = ? dag.atSlot(bid, dependentSlot)
+    epochSlot =
+      if epoch == dag.tail.slot.epoch:
+        dag.tail.slot
+      else:
+        epoch.start_slot()
+  ok BlockSlotId(bid: bsi.bid, slot: epochSlot)
+
+func epochKey(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochKey] =
   ## The state transition works by storing information from blocks in a
   ## "working" area until the epoch transition, then batching work collected
   ## during the epoch. Thus, last block in the ancestor epochs is the block
@@ -274,18 +300,10 @@ func epochAncestor*(dag: ChainDAGRef, bid: BlockId, epoch: Epoch): EpochKey =
   ## This function returns an epoch key pointing to that epoch boundary, i.e. the
   ## boundary where the last block has been applied to the state and epoch
   ## processing has been done.
-  if epoch < dag.tail.slot.epoch or bid.slot < dag.tail.slot:
-    return EpochKey() # We can't load these states
+  let bsi = dag.epochAncestor(bid, epoch).valueOr:
+    return Opt.none(EpochKey)
 
-  if epoch == dag.tail.slot.epoch:
-    return EpochKey(bid: dag.tail, epoch: epoch)
-
-  let bsi = dag.atSlot(bid, epoch.start_slot - 1).valueOr:
-    # If we lack history for the given slot, we can use the given bid as epoch
-    # ancestor
-    return EpochKey(epoch: epoch, bid: bid)
-
-  EpochKey(epoch: epoch, bid: bsi.bid)
+  Opt.some(EpochKey(bid: bsi.bid, epoch: epoch))
 
 func findShufflingRef*(
     dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[ShufflingRef] =
@@ -328,11 +346,11 @@ func findEpochRef*(
     dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochRef] =
   ## Lookup an EpochRef in the cache, returning `none` if it's not present - see
   ## `getEpochRef` for a version that creates a new instance if it's missing
-  let ancestor = dag.epochAncestor(bid, epoch)
+  let key = ? dag.epochKey(bid, epoch)
 
   for e in dag.epochRefs:
     if e == nil: continue
-    if e.key == ancestor:
+    if e.key == key:
       return Opt.some e
 
   Opt.none(EpochRef)
@@ -390,7 +408,8 @@ func init*(
     attester_dependent_root = withState(state):
       forkyState.attester_dependent_root
     epochRef = EpochRef(
-      key: dag.epochAncestor(state.latest_block_id, epoch),
+      key: dag.epochKey(state.latest_block_id, epoch).expect(
+        "Valid epoch ancestor when processing state"),
 
       eth1_data:
         getStateField(state, eth1_data),
@@ -1067,17 +1086,14 @@ func getEpochRef*(
     bid = state.latest_block_id
     epoch = state.get_current_epoch()
 
-  var epochRef = dag.findEpochRef(bid, epoch)
-  if epochRef.isErr:
+  dag.findEpochRef(bid, epoch).valueOr:
     let res = EpochRef.init(dag, state, cache)
     dag.putEpochRef(res)
     res
-  else:
-    epochRef.get()
 
 proc getEpochRef*(
     dag: ChainDAGRef, bid: BlockId, epoch: Epoch,
-    preFinalized: bool): Opt[EpochRef] =
+    preFinalized: bool): Result[EpochRef, cstring] =
   ## Return a cached EpochRef or construct one from the database, if possible -
   ## returns `none` on failure.
   ##
@@ -1093,37 +1109,33 @@ proc getEpochRef*(
   ## the search was limited by the `preFinalized` flag or because state history
   ## has been pruned - `none` will be returned in this case.
   if not preFinalized and epoch < dag.finalizedHead.slot.epoch:
-    return err()
+    return err("Requesting pre-finalized EpochRef")
 
   if bid.slot < dag.tail.slot or epoch < dag.tail.slot.epoch:
-    return err()
+    return err("Requesting EpochRef for pruned state")
 
   let epochRef = dag.findEpochRef(bid, epoch)
   if epochRef.isOk():
     beacon_state_data_cache_hits.inc
-    return epochRef
+    return ok epochRef.get()
 
   beacon_state_data_cache_misses.inc
 
-  # TODO instead of using the epoch ancestor, we should really be looking
-  #      for _any_ state in the desired epoch in the history of bid since the
-  #      epoch values remain unchanged: currently `epochAncestor` itself
-  #      contains a work-around for the tail state, but it would be better to
-  #      turn that work-around into a more efficient loading solution here
   let
-    ancestor = dag.epochAncestor(bid, epoch)
+    ancestor = dag.epochAncestor(bid, epoch).valueOr:
+      # If we got in here, the bid must be unknown or we would have gotten
+      # _some_ ancestor (like the tail)
+      return err("Requesting EpochRef for non-canonical block")
 
   var cache: StateCache
-  if not updateState(
-      dag, dag.epochRefState, ? dag.atSlot(ancestor.bid, epoch.start_slot),
-      false, cache):
-    return err()
+  if not updateState(dag, dag.epochRefState, ancestor, false, cache):
+    return err("Could not load requested state")
 
   ok(dag.getEpochRef(dag.epochRefState, cache))
 
 proc getEpochRef*(
     dag: ChainDAGRef, blck: BlockRef, epoch: Epoch,
-    preFinalized: bool): Opt[EpochRef] =
+    preFinalized: bool): Result[EpochRef, cstring] =
   dag.getEpochRef(blck.bid, epoch, preFinalized)
 
 proc getFinalizedEpochRef*(dag: ChainDAGRef): EpochRef =
@@ -1333,7 +1345,8 @@ proc updateState*(
     # no longer recreate history - this happens for example when starting from
     # a checkpoint block
     let startEpoch = bsi.slot.epoch
-    while not canAdvance(state, cur) and not dag.db.getState(dag.cfg, cur.bid.root, cur.slot, state, noRollback):
+    while not canAdvance(state, cur) and
+        not dag.db.getState(dag.cfg, cur.bid.root, cur.slot, state, noRollback):
       # There's no state saved for this particular BlockSlot combination, and
       # the state we have can't trivially be advanced (in case it was older than
       # RewindBlockThreshold), keep looking..
@@ -1377,7 +1390,12 @@ proc updateState*(
     # again. Also, because we're applying blocks that were loaded from the
     # database, we can skip certain checks that have already been performed
     # before adding the block to the database.
-    if dag.applyBlock(state, ancestors[i], cache, info).isErr:
+    if (let res = dag.applyBlock(state, ancestors[i], cache, info); res.isErr):
+      warn "Failed to apply block from database",
+        blck = shortLog(ancestors[i]),
+        state_bid = shortLog(state.latest_block_id),
+        error = res.error()
+
       return false
 
   # ...and make sure to process empty slots as requested
@@ -1501,33 +1519,6 @@ proc pruneBlocksDAG(dag: ChainDAGRef) =
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/sync/optimistic.md#helpers
 template is_optimistic*(dag: ChainDAGRef, root: Eth2Digest): bool =
   root in dag.optimisticRoots
-
-proc markBlockInvalid*(dag: ChainDAGRef, root: Eth2Digest) =
-  let blck = dag.getBlockRef(root).valueOr:
-    return
-  logScope: blck = shortLog(blck)
-
-  if not dag.is_optimistic(root):
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#transitioning-from-valid---invalidated-or-invalidated---valid
-    # "These operations are purposefully omitted. It is outside of the scope of
-    # the specification since it's only possible with a faulty EE."
-    warn "markBlockInvalid: attempt to invalidate valid block"
-    doAssert strictVerification notin dag.updateFlags
-    return
-
-  if blck.slot <= dag.finalizedHead.slot:
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0/sync/optimistic.md#re-orgs
-    # "If the justified checkpoint transitions from `NOT_VALIDATED` ->
-    # `INVALIDATED`, a consensus engine MAY choose to alert the user and force
-    # the application to exit."
-    #
-    # But be slightly less aggressive, and only check finalized.
-    warn "markBlockInvalid: attempted to mark finalized block invalidated"
-    doAssert strictVerification notin dag.updateFlags
-    return
-
-  debug "markBlockInvalid"
-  dag.pruneBlockSlot(blck.atSlot())
 
 proc markBlockVerified*(
     dag: ChainDAGRef, quarantine: var Quarantine, root: Eth2Digest) =
@@ -1723,6 +1714,9 @@ proc updateHead*(
   ## now fall from grace, or no longer be considered resolved.
   doAssert not newHead.isNil()
 
+  # Could happen if enough blocks get invalidated and would corrupt database
+  doAssert newHead.slot >= dag.finalizedHead.slot
+
   let
     lastHead = dag.head
 
@@ -1898,6 +1892,45 @@ proc updateHead*(
         dag.finalizedHead.blck.root, stateRoot, dag.finalizedHead.slot.epoch)
       dag.onFinHappened(dag, data)
 
+proc getEarliestInvalidBlockRoot*(
+    dag: ChainDAGRef, initialSearchRoot: Eth2Digest,
+    latestValidHash: Eth2Digest, defaultEarliestInvalidBlockRoot: Eth2Digest):
+    Eth2Digest =
+  # Earliest within a chain/fork in question, per LVH definition. Intended to
+  # be called with `initialRoot` as the parent of the block regarding which a
+  # newPayload or forkchoiceUpdated execution_status has been received as the
+  # tests effectively require being able to access this before the BlockRef's
+  # made. Therefore, to accommodate the EF consensus spec sync tests, and the
+  # possibilities that the LVH might be an immediate parent or a more distant
+  # ancestor special-case handling of an earliest invalid root as potentially
+  # not being from this function's search, but being provided as a default by
+  # the caller with access to the block.
+  var curBlck = dag.getBlockRef(initialSearchRoot).valueOr:
+    # Being asked to traverse a chain which the DAG doesn't know about -- but
+    # that'd imply the block's otherwise invalid for CL as well as EL.
+    return static(default(Eth2Digest))
+
+  # Only allow this special case outside loop; it's when the LVH is the direct
+  # parent of the reported invalid block
+  if  curBlck.executionBlockRoot.isSome and
+      curBlck.executionBlockRoot.get == latestValidHash:
+    return defaultEarliestInvalidBlockRoot
+
+  while true:
+    # This was supposed to have been either caught by the pre-loop check or the
+    # parent check.
+    if  curBlck.executionBlockRoot.isSome and
+        curBlck.executionBlockRoot.get == latestValidHash:
+      doAssert false, "getEarliestInvalidBlockRoot: unexpected LVH in loop body"
+
+    if (curBlck.parent.isNil) or
+       curBlck.parent.executionBlockRoot.get(latestValidHash) ==
+         latestValidHash:
+      break
+    curBlck = curBlck.parent
+
+  curBlck.root
+
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
   # Lightweight check to see if we have the minimal information needed to
   # load up a database - we don't check head here - if something is wrong with
@@ -2008,11 +2041,10 @@ proc preInit*(
 proc getProposer*(
     dag: ChainDAGRef, head: BlockRef, slot: Slot): Option[ValidatorIndex] =
   let
-    epochRef = block:
-      let tmp = dag.getEpochRef(head.bid, slot.epoch(), false)
-      if tmp.isErr():
-        return none(ValidatorIndex)
-      tmp.get()
+    epochRef = dag.getEpochRef(head.bid, slot.epoch(), false).valueOr:
+      notice "Cannot load EpochRef for given head", head, slot, error
+      return none(ValidatorIndex)
+
     slotInEpoch = slot.since_epoch_start()
 
   let proposer = epochRef.beacon_proposers[slotInEpoch]
@@ -2174,7 +2206,9 @@ proc rebuildIndex*(dag: ChainDAGRef) =
       if bids.isProposed and getStateField(state[], latest_block_header).slot < bids.bid.slot:
         let res = dag.applyBlock(state[], bids.bid, cache, info)
         if res.isErr:
-          error "Failed to apply block while ", bids, slot
+          error "Failed to apply block while building index",
+            state_bid = shortLog(state[].latest_block_id()),
+            error = res.error()
           return
 
         if slot.is_epoch:

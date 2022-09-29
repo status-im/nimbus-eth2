@@ -39,6 +39,7 @@ type
     opOnBlock
     opOnMergeBlock
     opOnAttesterSlashing
+    opInvalidateRoot
     opChecks
 
   Operation = object
@@ -55,6 +56,9 @@ type
       powBlock: PowBlock
     of opOnAttesterSlashing:
       attesterSlashing: AttesterSlashing
+    of opInvalidateRoot:
+      invalidatedRoot: Eth2Digest
+      latestValidHash: Eth2Digest
     of opChecks:
       checks: JsonNode
 
@@ -156,6 +160,13 @@ proc loadOps(path: string, fork: BeaconStateFork): seq[Operation] =
       )
       result.add Operation(kind: opOnAttesterSlashing,
         attesterSlashing: attesterSlashing)
+    elif step.hasKey"payload_status":
+      if step["payload_status"]["status"].getStr() == "INVALID":
+        result.add Operation(kind: opInvalidateRoot,
+          valid: true,
+          invalidatedRoot: Eth2Digest.fromHex(step["block_hash"].getStr()),
+          latestValidHash: Eth2Digest.fromHex(
+            step["payload_status"]["latest_valid_hash"].getStr()))
     elif step.hasKey"checks":
       result.add Operation(kind: opChecks,
         checks: step["checks"])
@@ -165,7 +176,7 @@ proc loadOps(path: string, fork: BeaconStateFork): seq[Operation] =
     if step.hasKey"valid":
       doAssert step.len == 2
       result[^1].valid = step["valid"].getBool()
-    elif not step.hasKey"checks":
+    elif not step.hasKey"checks" and not step.hasKey"payload_status":
       doAssert step.len == 1
       result[^1].valid = true
 
@@ -176,7 +187,9 @@ proc stepOnBlock(
        state: var ForkedHashedBeaconState,
        stateCache: var StateCache,
        signedBlock: ForkySignedBeaconBlock,
-       time: BeaconTime): Result[BlockRef, BlockError] =
+       time: BeaconTime,
+       invalidatedRoots: Table[Eth2Digest, Eth2Digest]):
+       Result[BlockRef, BlockError] =
   # 1. Move state to proper slot.
   doAssert dag.updateState(
     state,
@@ -192,6 +205,30 @@ proc stepOnBlock(
     type TrustedBlock = altair.TrustedSignedBeaconBlock
   else:
     type TrustedBlock = bellatrix.TrustedSignedBeaconBlock
+
+  # In normal Nimbus flow, for this (effectively) newPayload-based INVALID, it
+  # is checked even before entering the DAG, by the block processor. Currently
+  # the optimistic sync test(s) don't include a later-fcU-INVALID case. Whilst
+  # this wouldn't be part of this check, presumably, their FC test vector step
+  # would also have `true` validity because it'd not be known they weren't, so
+  # adding this mock of the block processor is realistic and sufficient.
+  when not (
+      signedBlock is phase0.SignedBeaconBlock or
+      signedBlock is altair.SignedBeaconBlock):
+    let executionPayloadHash =
+      signedBlock.message.body.execution_payload.block_hash
+    if executionPayloadHash in invalidatedRoots:
+      # Mocks fork choice INVALID list application. These tests sequence this
+      # in a way the block processor does not, specifying each payload_status
+      # before the block itself, while Nimbus fork choice treats invalidating
+      # a non-existent block root as a no-op and does not remember it for the
+      # future.
+      let lvh = invalidatedRoots.getOrDefault(
+        executionPayloadHash, static(default(Eth2Digest)))
+      fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
+        signedBlock.message.parent_root, lvh, executionPayloadHash))
+
+      return err BlockError.Invalid
 
   let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: TrustedBlock,
@@ -278,6 +315,7 @@ proc doRunTest(path: string, fork: BeaconStateFork) =
 
   let steps = loadOps(path, fork)
   var time = stores.fkChoice.checkpoints.time
+  var invalidatedRoots: Table[Eth2Digest, Eth2Digest]
 
   let state = newClone(stores.dag.headState)
   var stateCache = StateCache()
@@ -298,7 +336,7 @@ proc doRunTest(path: string, fork: BeaconStateFork) =
         let status = stepOnBlock(
           stores.dag, stores.fkChoice,
           verifier, state[], stateCache,
-          blck, time)
+          blck, time, invalidatedRoots)
         doAssert status.isOk == step.valid
     of opOnAttesterSlashing:
       let indices =
@@ -307,12 +345,14 @@ proc doRunTest(path: string, fork: BeaconStateFork) =
         for idx in indices.get:
           stores.fkChoice[].process_equivocation(idx)
       doAssert indices.isOk == step.valid
+    of opInvalidateRoot:
+      invalidatedRoots[step.invalidatedRoot] = step.latestValidHash
     of opChecks:
       stepChecks(step.checks, stores.dag, stores.fkChoice, time)
     else:
       doAssert false, "Unsupported"
 
-proc runTest(path: string, fork: BeaconStateFork) =
+proc runTest(testType: static[string], path: string, fork: BeaconStateFork) =
   const SKIP = [
     # protoArray can handle blocks in the future gracefully
     # spec: https://github.com/ethereum/consensus-specs/blame/v1.1.3/specs/phase0/fork-choice.md#L349
@@ -327,7 +367,7 @@ proc runTest(path: string, fork: BeaconStateFork) =
     "all_valid",
   ]
 
-  test "ForkChoice - " & path.relativePath(SszTestsDir):
+  test testType & " - " & path.relativePath(SszTestsDir):
     when defined(windows):
       # Some test files have very long paths
       skip()
@@ -337,17 +377,21 @@ proc runTest(path: string, fork: BeaconStateFork) =
       else:
         doRunTest(path, fork)
 
-suite "EF - ForkChoice" & preset():
-  const presetPath = SszTestsDir/const_preset
-  for kind, path in walkDir(presetPath, relative = true, checkDir = true):
-    let testsPath = presetPath/path/"fork_choice"
-    if kind != pcDir or not dirExists(testsPath):
-      continue
-    let fork = forkForPathComponent(path).valueOr:
-      raiseAssert "Unknown test fork: " & testsPath
-    for kind, path in walkDir(testsPath, relative = true, checkDir = true):
-      let basePath = testsPath/path/"pyspec_tests"
-      if kind != pcDir:
+template fcSuite(suiteName: static[string], testPathElem: static[string]) =
+  suite "EF - " & suiteName & preset():
+    const presetPath = SszTestsDir/const_preset
+    for kind, path in walkDir(presetPath, relative = true, checkDir = true):
+      let testsPath = presetPath/path/testPathElem
+      if kind != pcDir or not dirExists(testsPath):
         continue
-      for kind, path in walkDir(basePath, relative = true, checkDir = true):
-        runTest(basePath/path, fork)
+      let fork = forkForPathComponent(path).valueOr:
+        raiseAssert "Unknown test fork: " & testsPath
+      for kind, path in walkDir(testsPath, relative = true, checkDir = true):
+        let basePath = testsPath/path/"pyspec_tests"
+        if kind != pcDir:
+          continue
+        for kind, path in walkDir(basePath, relative = true, checkDir = true):
+          runTest(suiteName, basePath/path, fork)
+
+fcSuite("ForkChoice", "fork_choice")
+fcSuite("Sync", "sync")

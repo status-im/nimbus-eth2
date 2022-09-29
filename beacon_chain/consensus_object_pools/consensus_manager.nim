@@ -167,7 +167,7 @@ func setOptimisticHead*(
 proc runForkchoiceUpdated*(
     eth1Monitor: Eth1Monitor,
     headBlockRoot, safeBlockRoot, finalizedBlockRoot: Eth2Digest):
-    Future[PayloadExecutionStatus] {.async.} =
+    Future[(PayloadExecutionStatus, Option[BlockHash])] {.async.} =
   # Allow finalizedBlockRoot to be 0 to avoid sync deadlocks.
   #
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3675.md#pos-events
@@ -199,11 +199,11 @@ proc runForkchoiceUpdated*(
       latestValidHash = $fcuR.payloadStatus.latestValidHash,
       validationError = $fcuR.payloadStatus.validationError
 
-    return fcuR.payloadStatus.status
+    return (fcuR.payloadStatus.status, fcuR.payloadStatus.latestValidHash)
   except CatchableError as err:
     error "runForkchoiceUpdated: forkchoiceUpdated failed",
       err = err.msg
-    return PayloadExecutionStatus.syncing
+    return (PayloadExecutionStatus.syncing, none BlockHash)
 
 proc runForkchoiceUpdatedDiscardResult*(
     eth1Monitor: Eth1Monitor,
@@ -228,16 +228,26 @@ proc updateExecutionClientHead(
     return Opt[void].ok()
 
   # Can't use dag.head here because it hasn't been updated yet
-  let payloadExecutionStatus = await self.eth1Monitor.runForkchoiceUpdated(
-    headExecutionPayloadHash,
-    newHead.safeExecutionPayloadHash,
-    newHead.finalizedExecutionPayloadHash)
+  let (payloadExecutionStatus, latestValidHash) =
+    await self.eth1Monitor.runForkchoiceUpdated(
+      headExecutionPayloadHash,
+      newHead.safeExecutionPayloadHash,
+      newHead.finalizedExecutionPayloadHash)
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
     self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
-    self.dag.markBlockInvalid(newHead.blck.root)
+    # This is a CL root, not EL hash
+    let earliestKnownInvalidRoot =
+      if latestValidHash.isSome:
+        self.dag.getEarliestInvalidBlockRoot(
+          newHead.blck.root, latestValidHash.get.asEth2Digest,
+          newHead.blck.root)
+      else:
+        newHead.blck.root
+
+    self.attestationPool[].forkChoice.mark_root_invalid(newHead.blck.root)
     self.quarantine[].addUnviable(newHead.blck.root)
     return Opt.none(void)
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:

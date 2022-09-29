@@ -132,7 +132,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
     let epochRef = node.dag.getEpochRef(qhead, qepoch, true).valueOr:
-      return RestApiResponse.jsonError(Http400, PrunedStateError)
+      return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
 
     let duties =
       block:
@@ -479,11 +479,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if res.isErr():
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
             res.get()
-        let epochRef = block:
-          let tmp = node.dag.getEpochRef(qhead, qslot.epoch, true)
-          if isErr(tmp):
-            return RestApiResponse.jsonError(Http400, PrunedStateError)
-          tmp.get()
+        let epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
+          return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
         makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
     return RestApiResponse.jsonResponse(adata)
 

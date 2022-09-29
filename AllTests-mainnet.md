@@ -64,12 +64,13 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool processing [Preset: mainnet]
 ```diff
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
++ Randao skip and non-skip                                                                   OK
 + Simple block add&get [Preset: mainnet]                                                     OK
 + basic ops                                                                                  OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
 + updateState sanity [Preset: mainnet]                                                       OK
 ```
-OK: 5/5 Fail: 0/5 Skip: 0/5
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Block processor [Preset: mainnet]
 ```diff
 + Reverse order block add & get [Preset: mainnet]                                            OK
@@ -277,6 +278,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SCRYPT] Network Keystore encryption                                                       OK
 ```
 OK: 12/12 Fail: 0/12 Skip: 0/12
+## Latest valid hash [Preset: mainnet]
+```diff
++ LVH searching                                                                              OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Light client [Preset: mainnet]
 ```diff
 + Init from checkpoint                                                                       OK
@@ -585,4 +591,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 326/331 Fail: 0/331 Skip: 5/331
+OK: 328/333 Fail: 0/333 Skip: 5/333

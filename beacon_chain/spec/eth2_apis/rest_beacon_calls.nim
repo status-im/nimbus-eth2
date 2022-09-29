@@ -116,45 +116,6 @@ proc publishBlock*(body: bellatrix.SignedBeaconBlock): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
 
-proc getBlockPlain*(block_id: BlockIdent): RestPlainResponse {.
-     rest, endpoint: "/eth/v1/beacon/blocks/{block_id}",
-     accept: preferSSZ,
-     meth: MethodGet.}
-  ## https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
-
-proc getBlock*(client: RestClientRef, block_id: BlockIdent,
-               restAccept = ""): Future[ForkedSignedBeaconBlock] {.async.} =
-  let resp =
-    if len(restAccept) > 0:
-      await client.getBlockPlain(block_id, restAcceptType = restAccept)
-    else:
-      await client.getBlockPlain(block_id)
-  let data =
-    case resp.status
-    of 200:
-      if resp.contentType.isNone() or
-         isWildCard(resp.contentType.get().mediaType):
-        raise newException(RestError, "Missing or incorrect Content-Type")
-      else:
-        let mediaType = resp.contentType.get().mediaType
-        if mediaType == ApplicationJsonMediaType:
-          let blck = decodeBytes(GetBlockResponse, resp.data,
-                                 resp.contentType).valueOr:
-            raise newException(RestError, $error)
-          ForkedSignedBeaconBlock.init(blck.data)
-        elif mediaType == OctetStreamMediaType:
-          let blck = decodeBytes(GetPhase0BlockSszResponse, resp.data,
-                                 resp.contentType).valueOr:
-            raise newException(RestError, $error)
-          ForkedSignedBeaconBlock.init(blck)
-        else:
-          raise newException(RestError, "Unsupported Content-Type")
-    of 400, 404, 500:
-      raiseGenericError(resp)
-    else:
-      raiseUnknownStatusError(resp)
-  return data
-
 proc getBlockV2Plain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v2/beacon/blocks/{block_id}",
      accept: preferSSZ,

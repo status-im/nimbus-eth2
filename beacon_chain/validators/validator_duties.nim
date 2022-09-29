@@ -462,8 +462,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root: Opt[Eth2Digest] = Opt.none(Eth2Digest)):
     Future[ForkedBlockResult] {.async.} =
   # Advance state to the slot that we're proposing for
-  let
-    proposalState = assignClone(node.dag.headState)
+  let proposalState = assignClone(node.dag.headState)
 
   # TODO fails at checkpoint synced head
   node.dag.withUpdatedState(
@@ -532,7 +531,10 @@ proc makeBeaconBlockForHeadAndSlot*(
       effectiveExecutionPayload,
       noRollback, # Temporary state - no need for rollback
       cache,
-      verificationFlags = if skip_randao_verification_bool: {skipRandaoVerification} else: {},
+      # makeBeaconBlock doesn't verify BLS at all, but does have special case
+      # for skipRandaoVerification separately
+      verificationFlags =
+        if skip_randao_verification_bool: {skipRandaoVerification} else: {},
       transactions_root =
         if transactions_root.isSome:
           Opt.some transactions_root.get
@@ -946,7 +948,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.epoch, false).valueOr:
         warn "Cannot construct EpochRef for attestation head, report bug",
-          attestationHead = shortLog(attestationHead), slot
+          attestationHead = shortLog(attestationHead), slot, error
         return
     committees_per_slot = get_committee_count_per_slot(epochRef.shufflingRef)
     fork = node.dag.forkAtEpoch(slot.epoch)

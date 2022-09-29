@@ -42,6 +42,7 @@ import # Unit test
   ./test_zero_signature,
   ./test_key_splitting,
   ./test_remote_keystore,
+  ./test_serialization,
   ./fork_choice/tests_fork_choice,
   ./consensus_spec/all_tests as consensus_all_tests,
   ./slashing_protection/test_fixtures,

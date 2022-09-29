@@ -22,6 +22,7 @@ func `$`(x: BlockRef): string = shortLog(x)
 const
   nilPhase0Callback = OnPhase0BlockAdded(nil)
   nilAltairCallback = OnAltairBlockAdded(nil)
+  nilBellatrixCallback = OnBellatrixBlockAdded(nil)
 
 proc pruneAtFinalization(dag: ChainDAGRef) =
   if dag.needStateCachesAndForkChoicePruning():
@@ -197,6 +198,70 @@ suite "Block pool processing" & preset():
     check:
       # Getting an EpochRef should not result in states being stored
       db.getStateRoot(stateCheckpoint.bid.root, stateCheckpoint.slot).isOk()
+
+  test "Randao skip and non-skip":
+    process_slots(
+      dag.cfg, state[], getStateField(
+        state[], slot) + 1, cache, info, {}).expect("can advance 1")
+
+    let
+      proposer_index = get_beacon_proposer_index(
+        state[], cache, getStateField(state[], slot))
+      privKey = MockPrivKeys[proposer_index.get]
+      randao_reveal = get_epoch_signature(
+        getStateField(state[], fork),
+        getStateField(state[], genesis_validators_root),
+        getStateField(state[], slot).epoch, privKey).toValidatorSig()
+    var bad_randao_reveal = randao_reveal
+    bad_randao_reveal.blob[5] += 1
+
+    block: # bad randao + no skip = bad
+      let
+        tmpState = assignClone(state[])
+        message = makeBeaconBlock(
+          dag.cfg, tmpState[], proposer_index.get(),
+          bad_randao_reveal,
+          getStateField(tmpState[], eth1_data),
+          default(GraffitiBytes), @[], @[], BeaconBlockExits(),
+          default(SyncAggregate), default(ExecutionPayload),
+          noRollback, cache)
+      check: message.isErr
+
+    block: # bad randao + skip = bad
+      let
+        tmpState = assignClone(state[])
+        message = makeBeaconBlock(
+          dag.cfg, tmpState[], proposer_index.get(),
+          bad_randao_reveal,
+          getStateField(tmpState[], eth1_data),
+          default(GraffitiBytes), @[], @[], BeaconBlockExits(),
+          default(SyncAggregate), default(ExecutionPayload),
+          noRollback, cache, {skipRandaoVerification})
+      check: message.isErr
+
+    block: # infinity + no skip = bad
+      let
+        tmpState = assignClone(state[])
+        message = makeBeaconBlock(
+          dag.cfg, tmpState[], proposer_index.get(),
+          ValidatorSig.infinity(),
+          getStateField(tmpState[], eth1_data),
+          default(GraffitiBytes), @[], @[], BeaconBlockExits(),
+          default(SyncAggregate), default(ExecutionPayload),
+          noRollback, cache, {})
+      check: message.isErr
+
+    block: # Infinity + skip = ok!
+      let
+        tmpState = assignClone(state[])
+        message = makeBeaconBlock(
+          dag.cfg, tmpState[], proposer_index.get(),
+          ValidatorSig.infinity(),
+          getStateField(tmpState[], eth1_data),
+          default(GraffitiBytes), @[], @[], BeaconBlockExits(),
+          default(SyncAggregate), default(ExecutionPayload),
+          noRollback, cache, {skipRandaoVerification})
+      check: message.isOk
 
   test "Adding the same block twice returns a Duplicate error" & preset():
     let
@@ -499,6 +564,11 @@ suite "chain DAG finalization tests" & preset():
         db.getStateRoot(finalizedCheckpoint.bid.root, finalizedCheckpoint.slot).isSome
         db.getStateRoot(prunedCheckpoint.bid.root, prunedCheckpoint.slot).isNone
 
+    # Roll back head block (e.g., because it was declared INVALID)
+    let parentRoot = dag.head.parent.root
+    dag.updateHead(dag.head.parent, quarantine)
+    check: dag.head.root == parentRoot
+
     let
       validatorMonitor2 = newClone(ValidatorMonitor.init())
       dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor2, {})
@@ -507,6 +577,7 @@ suite "chain DAG finalization tests" & preset():
     check:
       dag2.tail.root == dag.tail.root
       dag2.head.root == dag.head.root
+      dag2.head.root == parentRoot
       dag2.finalizedHead.blck.root == dag.finalizedHead.blck.root
       dag2.finalizedHead.slot == dag.finalizedHead.slot
       getStateRoot(dag2.headState) == getStateRoot(dag.headState)
@@ -768,8 +839,19 @@ suite "Backfill":
       dag.getBlockIdAtSlot(Slot(0)).get() == dag.genesis.atSlot()
       dag.getBlockIdAtSlot(Slot(1)).isNone()
 
-      # No epochref for pre-tail epochs
+      # No EpochRef for pre-tail epochs
       dag.getEpochRef(dag.tail, dag.tail.slot.epoch - 1, true).isErr()
+
+      # Should get EpochRef for the tail however
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch, true).isOk()
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
+
+      # Should not get EpochRef for random block
+      dag.getEpochRef(
+        BlockId(root: blocks[^2].root, slot: dag.tail.slot), # root/slot mismatch
+        dag.tail.slot.epoch, true).isErr()
+
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
 
       dag.getFinalizedEpochRef() != nil
 
@@ -855,3 +937,66 @@ suite "Backfill":
         blocks[^2].toBlockId().atSlot()
       dag2.getBlockIdAtSlot(dag.tail.slot - 2).isNone
       dag2.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
+
+suite "Latest valid hash" & preset():
+  setup:
+    var runtimeConfig = defaultRuntimeConfig
+    runtimeConfig.ALTAIR_FORK_EPOCH = 1.Epoch
+    runtimeConfig.BELLATRIX_FORK_EPOCH = 2.Epoch
+
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, runtimeConfig, db, validatorMonitor, {})
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      quarantine = newClone(Quarantine.init())
+      cache = StateCache()
+      info = ForkedEpochInfo()
+      state = newClone(dag.headState)
+
+  test "LVH searching":
+    # Reach Bellatrix, where execution payloads exist
+    check process_slots(
+      runtimeConfig, state[],
+      getStateField(state[], slot) + (3 * SLOTS_PER_EPOCH).uint64,
+      cache, info, {}).isOk()
+
+    var
+      b1 = addTestBlock(state[], cache, cfg = runtimeConfig).bellatrixData
+      b1Add = dag.addHeadBlock(verifier, b1, nilBellatrixCallback)
+      b2 = addTestBlock(state[], cache, cfg = runtimeConfig).bellatrixData
+      b2Add = dag.addHeadBlock(verifier, b2, nilBellatrixCallback)
+      b3 = addTestBlock(state[], cache, cfg = runtimeConfig).bellatrixData
+      b3Add = dag.addHeadBlock(verifier, b3, nilBellatrixCallback)
+
+    dag.updateHead(b3Add[], quarantine[])
+    check: dag.head.root == b3.root
+
+    # Ensure that head can go backwards in case of head being marked invalid
+    dag.updateHead(b2Add[], quarantine[])
+    check: dag.head.root == b2.root
+
+    dag.updateHead(b1Add[], quarantine[])
+    check: dag.head.root == b1.root
+
+    const fallbackEarliestInvalid =
+      Eth2Digest.fromHex("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+    check:
+      # Represents where LVH is two behind the invalid-marked block (because
+      # first param is parent). It searches using LVH (i.e. execution hash),
+      # but returns CL block hash, because that's what fork choice and other
+      # Nimbus components mostly use as a coordinate system. Since b1 is set
+      # to be valid here by being the LVH, it means that b2 must be invalid.
+      dag.getEarliestInvalidBlockRoot(
+        b2Add[].root, b1.message.body.execution_payload.block_hash,
+          fallbackEarliestInvalid) == b2Add[].root
+
+      # This simulates calling it based on b3 (child of b2), where there's no
+      # gap in detecting the invalid blocks. Because the API, due to testcase
+      # design, does not assume the block being tested is in the DAG, there's
+      # a manually specified fallback (CL) block root to use, because it does
+      # not have access to this information otherwise, because the very first
+      # newest block in the chain it's examining is already valid.
+      dag.getEarliestInvalidBlockRoot(
+        b2Add[].root, b2.message.body.execution_payload.block_hash,
+          fallbackEarliestInvalid) == fallbackEarliestInvalid

@@ -119,7 +119,7 @@ proc update_justified(
     epochRef = dag.getEpochRef(blck, epoch, false).valueOr:
       # Shouldn't happen for justified data unless out of sync with ChainDAG
       warn "Skipping justified checkpoint update, no EpochRef - report bug",
-        blck, epoch, best = self.best_justified.epoch
+        blck, epoch, best = self.best_justified.epoch, error
       return
     justified = Checkpoint(root: blck.root, epoch: epochRef.epoch)
 
@@ -442,6 +442,7 @@ func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
         self.backend.proto_array.nodes.offset
     if nodePhysicalIdx < self.backend.proto_array.nodes.buf.len:
       self.backend.proto_array.nodes.buf[nodePhysicalIdx].invalid = true
+    self.backend.proto_array.propagateInvalidity(nodePhysicalIdx)
   # Best-effort; attempts to mark unknown roots invalid harmlessly ignored
   except KeyError:
     discard
