@@ -491,7 +491,7 @@ proc process_sync_aggregate*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
     state: var bellatrix.BeaconState, payload: ExecutionPayload,
     notify_new_payload: ExecutePayload): Result[void, cstring] =

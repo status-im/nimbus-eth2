@@ -706,7 +706,7 @@ proc proposeBlockMEV(
         # From here on, including error paths, disallow local EL production by
         # returning Opt.some, regardless of whether on head or newBlock.
       except RestDecodingError as exc:
-        error "proposeBlockMEV: REST recoding error",
+        error "proposeBlockMEV: REST decoding error",
           slot, head = shortLog(head), validator_index, blindedBlock,
           error = exc.msg
         return Opt.some head
