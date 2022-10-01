@@ -63,7 +63,7 @@ After validation in `attestationValidator()` or `aggregateValidator()` in eth2_p
 - We jump into method `validate(PubSub, Message)` in libp2p/protocols/pubsub/pubsub.nim
 - which was called by `rpcHandler(GossipSub, PubSubPeer, RPCMsg)`
 
-### Eth2 RPC in
+### Consensus RPC in
 
 There is no RPC for attestations but attestations might be included in synced blocks.
 ### Comments
@@ -80,7 +80,7 @@ Verifying attestations only consumes a small share of block processing time. Att
 ##### Latency & Throughput sensitiveness
 
 We distinguish aggregation of attestations from batched validation:
-- aggregation of attestations is defined by the Eth2 specs. When multiple validators sign the same attestation, their individual signatures may be combined into an aggregate signature to save storage space and to reduce validation time. The aggregate signature is exchanged over the P2P network and included in blocks, but the aggregate public key is computed on-the-fly based on the individual validator public keys according to a participation bitfield.
+- aggregation of attestations is defined by the consensus specs. When multiple validators sign the same attestation, their individual signatures may be combined into an aggregate signature to save storage space and to reduce validation time. The aggregate signature is exchanged over the P2P network and included in blocks, but the aggregate public key is computed on-the-fly based on the individual validator public keys according to a participation bitfield.
 - batched validation is an opportunistic client side optimization. Multiple attestations of the same underlying data are collected and processed as a batch once a threshold of them has been received or after a time limit is exceeded. As part of this batched validation, both the aggregate signature as well as the aggregate public key are computed on-the-fly.
 
 Attestations are included in blocks during sync and do not require gossip validation.
