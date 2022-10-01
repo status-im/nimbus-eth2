@@ -1,6 +1,6 @@
 # Upgrade / downgrade
 
-Make sure you stay on the lookout for any critical updates to Nimbus. This best way to do so is through the **announcements** channel on our [discord](https://discord.com/invite/XRxWahP). The release page can be found [here](https://github.com/status-im/nimbus-eth2/releases/).
+Make sure you stay on the lookout for any critical updates to Nimbus. The best way to do so is through the **announcements** channel on our [discord](https://discord.com/invite/XRxWahP). The release page can be found [here](https://github.com/status-im/nimbus-eth2/releases/).
 
 !!! note
     If your beacon node is already running, you'll need to restart it for the changes to take effect.
@@ -59,9 +59,9 @@ As of `v1.4.0`, releases are marked with the following tags:
 
 *Occassionally you may need to either upgrade or downgrade to a specific version of Nimbus.*
 
-To pull a specific version of Nimbus (e.g. `v1.3.0`), run:
+To pull a specific version of Nimbus (e.g. `v22.9.1`), run:
 ```sh
-git checkout v1.3.0 && make update
+git checkout v22.9.1 && make update
 ```
 
 Followed by:
@@ -73,7 +73,7 @@ make nimbus_beacon_node
 Now, restart your node.
 
 !!! note
-    Alternatively, you can grab the appropriate binary release - create a backup of your `build` folder, then download the appropriate binary from here: [https://github.com/status-im/nimbus-eth2/releases/tag/v1.3.0](https://github.com/status-im/nimbus-eth2/releases/tag/v1.3.0)
+    Alternatively, you can grab the appropriate binary release - create a backup of your `build` folder, then download the appropriate binary from here: [https://github.com/status-im/nimbus-eth2/releases/tag/v22.9.1](https://github.com/status-im/nimbus-eth2/releases/tag/v22.9.1)
 
 ### Go back to stable
 
