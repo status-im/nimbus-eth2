@@ -89,3 +89,4 @@ make nimbus_beacon_node
 ```
 
 Don't forget to restart your node.
+
