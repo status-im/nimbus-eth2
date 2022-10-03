@@ -22,6 +22,14 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v0/beacon/light_client/bootstrap/{block_root}") do (
     block_root: Eth2Digest) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
+    let contentType =
+      block:
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
+
     let vroot = block:
       if block_root.isErr():
         return RestApiResponse.jsonError(Http400, InvalidBlockRootValueError,
@@ -29,10 +37,20 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block_root.get()
 
     let bootstrap = node.dag.getLightClientBootstrap(vroot)
-    if bootstrap.isOk:
-      return RestApiResponse.jsonResponse(bootstrap)
-    else:
+    if bootstrap.isNone:
       return RestApiResponse.jsonError(Http404, LCBootstrapUnavailable)
+
+    let
+      contextEpoch = bootstrap.get.contextEpoch
+      contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
+    return
+      if contentType == sszMediaType:
+        let headers = [("eth-consensus-version", contextFork.toString())]
+        RestApiResponse.sszResponse(bootstrap.get, headers)
+      elif contentType == jsonMediaType:
+        RestApiResponse.jsonResponseWVersion(bootstrap.get, contextFork)
+      else:
+        RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://github.com/ethereum/beacon-APIs/pull/181
   router.api(MethodGet,
@@ -40,6 +58,14 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
     start_period: Option[SyncCommitteePeriod], count: Option[uint64]
     ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
+    let contentType =
+      block:
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
+
     let vstart = block:
       if start_period.isNone():
         return RestApiResponse.jsonError(Http400, MissingStartPeriodValueError)
@@ -58,7 +84,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       rcount.get()
     let
       headPeriod = node.dag.head.slot.sync_committee_period
-       # Limit number of updates in response
+      # Limit number of updates in response
       maxSupportedCount =
         if vstart > headPeriod:
           0'u64
@@ -67,31 +93,80 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       numPeriods = min(vcount, maxSupportedCount)
       onePastPeriod = vstart + numPeriods
 
-    var updates = newSeqOfCap[LightClientUpdate](numPeriods)
+    var updates = newSeqOfCap[RestVersioned[LightClientUpdate]](numPeriods)
     for period in vstart..<onePastPeriod:
       let update = node.dag.getLightClientUpdateForPeriod(period)
       if update.isSome:
-        updates.add update.get
-    return RestApiResponse.jsonResponse(updates)
+        let
+          contextEpoch = update.get.contextEpoch
+          contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
+        updates.add RestVersioned[LightClientUpdate](
+          data: update.get,
+          jsonVersion: contextFork,
+          sszContext: node.dag.forkDigests[].atStateFork(contextFork))
+
+    return
+      if contentType == sszMediaType:
+        RestApiResponse.sszResponseVersionedList(updates)
+      elif contentType == jsonMediaType:
+        RestApiResponse.jsonResponseVersionedList(updates)
+      else:
+        RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://github.com/ethereum/beacon-APIs/pull/181
   router.api(MethodGet,
              "/eth/v0/beacon/light_client/finality_update") do (
     ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
+    let contentType =
+      block:
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
+
     let finality_update = node.dag.getLightClientFinalityUpdate()
-    if finality_update.isSome:
-      return RestApiResponse.jsonResponse(finality_update)
-    else:
+    if finality_update.isNone:
       return RestApiResponse.jsonError(Http404, LCFinUpdateUnavailable)
+
+    let
+      contextEpoch = finality_update.get.contextEpoch
+      contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
+    return
+      if contentType == sszMediaType:
+        let headers = [("eth-consensus-version", contextFork.toString())]
+        RestApiResponse.sszResponse(finality_update.get, headers)
+      elif contentType == jsonMediaType:
+        RestApiResponse.jsonResponseWVersion(finality_update.get, contextFork)
+      else:
+        RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
   # https://github.com/ethereum/beacon-APIs/pull/181
   router.api(MethodGet,
              "/eth/v0/beacon/light_client/optimistic_update") do (
     ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
+    let contentType =
+      block:
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
+
     let optimistic_update = node.dag.getLightClientOptimisticUpdate()
-    if optimistic_update.isSome:
-      return RestApiResponse.jsonResponse(optimistic_update)
-    else:
+    if optimistic_update.isNone:
       return RestApiResponse.jsonError(Http404, LCOptUpdateUnavailable)
+
+    let
+      contextEpoch = optimistic_update.get.contextEpoch
+      contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
+    return
+      if contentType == sszMediaType:
+        let headers = [("eth-consensus-version", contextFork.toString())]
+        RestApiResponse.sszResponse(optimistic_update.get, headers)
+      elif contentType == jsonMediaType:
+        RestApiResponse.jsonResponseWVersion(optimistic_update.get, contextFork)
+      else:
+        RestApiResponse.jsonError(Http500, InvalidAcceptError)
