@@ -214,7 +214,7 @@ template is_finality_update*(update: SomeLightClientUpdate): bool =
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
 template is_next_sync_committee_known*(store: LightClientStore): bool =
   not isZeroMemory(store.next_sync_committee)
 
@@ -313,7 +313,7 @@ func is_merge_transition_complete*(state: bellatrix.BeaconState): bool =
   const defaultExecutionPayloadHeader = default(ExecutionPayloadHeader)
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/sync/optimistic.md#helpers
 func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
   when typeof(blck).toFork >= BeaconBlockFork.Bellatrix:
     const defaultExecutionPayload =

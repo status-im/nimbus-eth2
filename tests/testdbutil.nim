@@ -34,3 +34,42 @@ proc makeTestDB*(validators: Natural): BeaconChainDB =
         {skipBlsValidation}))
     genBlock = get_initial_beacon_block(genState[])
   makeTestDB(genState[], genBlock)
+
+proc getEarliestInvalidBlockRoot*(
+    dag: ChainDAGRef, initialSearchRoot: Eth2Digest,
+    latestValidHash: Eth2Digest, defaultEarliestInvalidBlockRoot: Eth2Digest):
+    Eth2Digest =
+  # Earliest within a chain/fork in question, per LVH definition. Intended to
+  # be called with `initialRoot` as the parent of the block regarding which a
+  # newPayload or forkchoiceUpdated execution_status has been received as the
+  # tests effectively require being able to access this before the BlockRef's
+  # made. Therefore, to accommodate the EF consensus spec sync tests, and the
+  # possibilities that the LVH might be an immediate parent or a more distant
+  # ancestor special-case handling of an earliest invalid root as potentially
+  # not being from this function's search, but being provided as a default by
+  # the caller with access to the block.
+  var curBlck = dag.getBlockRef(initialSearchRoot).valueOr:
+    # Being asked to traverse a chain which the DAG doesn't know about -- but
+    # that'd imply the block's otherwise invalid for CL as well as EL.
+    return static(default(Eth2Digest))
+
+  # Only allow this special case outside loop; it's when the LVH is the direct
+  # parent of the reported invalid block
+  if  curBlck.executionBlockRoot.isSome and
+      curBlck.executionBlockRoot.get == latestValidHash:
+    return defaultEarliestInvalidBlockRoot
+
+  while true:
+    # This was supposed to have been either caught by the pre-loop check or the
+    # parent check.
+    if  curBlck.executionBlockRoot.isSome and
+        curBlck.executionBlockRoot.get == latestValidHash:
+      doAssert false, "getEarliestInvalidBlockRoot: unexpected LVH in loop body"
+
+    if (curBlck.parent.isNil) or
+       curBlck.parent.executionBlockRoot.get(latestValidHash) ==
+         latestValidHash:
+      break
+    curBlck = curBlck.parent
+
+  curBlck.root

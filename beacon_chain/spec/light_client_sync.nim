@@ -18,7 +18,7 @@ import
 from ../consensus_object_pools/block_pools_types import BlockError
 export block_pools_types.BlockError
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
 func initialize_light_client_store*(
     trusted_block_root: Eth2Digest,
     bootstrap: altair.LightClientBootstrap
@@ -39,7 +39,7 @@ func initialize_light_client_store*(
     current_sync_committee: bootstrap.current_sync_committee,
     optimistic_header: bootstrap.header))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/sync-protocol.md#validate_light_client_update
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/sync-protocol.md#validate_light_client_update
 proc validate_light_client_update*(
     store: LightClientStore,
     update: SomeLightClientUpdate,
