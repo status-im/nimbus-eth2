@@ -27,3 +27,5 @@ There exists a failure mode, intrinsic to the builder API, wherein the consensus
 ## Useful resources
 
 - [MEV relay list](https://github.com/remyroy/ethstaker/blob/main/MEV-relay-list.md)
+
+- [Goerli Relay Overview](https://goerli.beaconcha.in/relays)
