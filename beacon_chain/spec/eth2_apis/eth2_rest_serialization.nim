@@ -465,6 +465,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
 
+## uint8
 proc writeValue*(w: var JsonWriter[RestJson], value: uint8) {.
      raises: [IOError, Defect].} =
   writeValue(w, Base10.toString(value))
@@ -478,6 +479,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint8) {.
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
 
+## JustificationBits
 proc writeValue*(w: var JsonWriter[RestJson], value: JustificationBits) {.
     raises: [IOError, Defect].} =
   w.writeValue hexOriginal([uint8(value)])
@@ -580,6 +582,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorIndex)
   else:
     reader.raiseUnexpectedValue($res.error())
 
+## IndexInSyncCommittee
 proc writeValue*(writer: var JsonWriter[RestJson], value: IndexInSyncCommittee)
                 {.raises: [IOError, Defect].} =
   writeValue(writer, Base10.toString(distinctBase(value)))
@@ -779,6 +782,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: Eth1Address) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
+## GraffitiBytes
 proc writeValue*(writer: var JsonWriter[RestJson], value: GraffitiBytes)
                 {.raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
@@ -790,7 +794,7 @@ proc readValue*(reader: var JsonReader[RestJson], T: type GraffitiBytes): T
   except ValueError as err:
     reader.raiseUnexpectedValue err.msg
 
-## Version
+## Version | ForkDigest | DomainType | GraffitiBytes
 proc readValue*(
     reader: var JsonReader[RestJson],
     value: var (Version | ForkDigest | DomainType | GraffitiBytes)) {.
@@ -1443,7 +1447,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
     writer.writeField("data", value.bellatrixData.data)
   writer.endRecord()
 
-# Web3SignerRequest
+## Web3SignerRequest
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: Web3SignerRequest) {.
      raises: [IOError, Defect].} =
@@ -2104,6 +2108,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     keystores: keystores, passwords: passwords, slashing_protection: slashing
   )
 
+## RestActivityItem
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: RestActivityItem) {.
      raises: [IOError, Defect].} =
@@ -2150,6 +2155,7 @@ proc readValue*(reader: var JsonReader[RestJson],
   value = RestActivityItem(index: index.get(), epoch: epoch.get(),
                            active: active.get())
 
+## HeadChangeInfoObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: HeadChangeInfoObject) {.
      raises: [IOError, Defect].} =
@@ -2166,6 +2172,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## ReorgInfoObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: ReorgInfoObject) {.
      raises: [IOError, Defect].} =
@@ -2180,6 +2187,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## FinalizationInfoObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: FinalizationInfoObject) {.
      raises: [IOError, Defect].} =
@@ -2191,6 +2199,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## EventBeaconBlockObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: EventBeaconBlockObject) {.
      raises: [IOError, Defect].} =
@@ -2201,6 +2210,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## RestSyncInfo
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: RestSyncInfo) {.
      raises: [IOError, Defect].} =
