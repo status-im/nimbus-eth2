@@ -25,7 +25,7 @@ import
   # Third-party
   yaml,
   # Test
-  ../testutil,
+  ../testutil, ../testdbutil,
   ./fixtures_utils
 
 # Test format described at https://github.com/ethereum/consensus-specs/tree/v1.2.0-rc.1/tests/formats/fork_choice
