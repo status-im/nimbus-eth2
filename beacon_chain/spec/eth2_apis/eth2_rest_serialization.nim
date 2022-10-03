@@ -210,29 +210,28 @@ proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
 
 proc jsonResponseBlock*(t: typedesc[RestApiResponse],
                         data: ForkedSignedBeaconBlock,
-                        execOpt: Option[bool],
-                        headers: openArray[tuple[key: string, value: string]]
-                       ): RestApiResponse =
-  let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("version", data.kind.toString())
-        if execOpt.isSome():
-          writer.writeField("execution_optimistic", execOpt.get())
-        withBlck(data):
-          writer.writeField("data", blck)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except SerializationError:
-        default
-      except IOError:
-        default
-  RestApiResponse.response(res, Http200, "application/json",
-                           headers = headers)
+                        execOpt: Option[bool]): RestApiResponse =
+  let
+    headers = [("eth-consensus-version", data.kind.toString())]
+    res =
+      block:
+        var default: seq[byte]
+        try:
+          var stream = memoryOutput()
+          var writer = JsonWriter[RestJson].init(stream)
+          writer.beginRecord()
+          writer.writeField("version", data.kind.toString())
+          if execOpt.isSome():
+            writer.writeField("execution_optimistic", execOpt.get())
+          withBlck(data):
+            writer.writeField("data", blck)
+          writer.endRecord()
+          stream.getOutput(seq[byte])
+        except SerializationError:
+          default
+        except IOError:
+          default
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseState*(t: typedesc[RestApiResponse],
                         data: ForkedHashedBeaconState,

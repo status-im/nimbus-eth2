@@ -871,14 +871,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let bdata = node.dag.getForkedBlock(bid).valueOr:
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
-        let
-          fork = node.dag.cfg.blockForkAtEpoch(bid.slot.epoch)
-          headers = [("eth-consensus-version", fork.toString())]
-
         RestApiResponse.jsonResponseBlock(
           bdata.asSigned(),
-          node.getBlockOptimistic(bdata),
-          headers
+          node.getBlockOptimistic(bdata)
         )
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
