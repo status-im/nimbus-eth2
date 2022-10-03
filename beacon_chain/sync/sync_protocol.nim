@@ -274,9 +274,11 @@ p2pProtocol BeaconSync(version = 1,
       reqStep: uint64,
       response: MultipleChunksResponse[phase0.SignedBeaconBlock])
       {.async, libp2pProtocol("beacon_blocks_by_range", 1).} =
+    # https://github.com/tersec/consensus-specs/blob/deprecate-phase0-beacon-blocks-req-resp/specs/phase0/p2p-interface.md#beaconblocksbyrange
     # `/eth2/beacon_chain/req/beacon_blocks_by_range/1/` is deprecated. Clients
     # MAY respond with an empty list during the deprecation transition period.
-    discard
+    peer.updateRequestQuota(blockByRangeLookupCost)
+    peer.awaitNonNegativeRequestQuota()
 
   proc beaconBlocksByRoot(
       peer: Peer,
@@ -285,6 +287,7 @@ p2pProtocol BeaconSync(version = 1,
       blockRoots: BlockRootsList,
       response: MultipleChunksResponse[phase0.SignedBeaconBlock])
       {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
+    # https://github.com/tersec/consensus-specs/blob/deprecate-phase0-beacon-blocks-req-resp/specs/phase0/p2p-interface.md#beaconblocksbyroot
     # `/eth2/beacon_chain/req/beacon_blocks_by_root/1/` is deprecated. Clients
     # MAY respond with an empty list during the deprecation transition period.
     discard
