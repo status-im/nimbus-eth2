@@ -284,10 +284,13 @@ func collectFromProposerSlashings(
     forkedBlock: ForkedTrustedSignedBeaconBlock) =
   withStateAndBlck(forkedState, forkedBlock):
     for proposer_slashing in blck.message.body.proposer_slashings:
-      doAssert check_proposer_slashing(state.data, proposer_slashing, {}).isOk
-      let slashedIndex = proposer_slashing.signed_header_1.message.proposer_index
-      rewardsAndPenalties.collectFromSlashedValidator(state.data,
-        slashedIndex.ValidatorIndex, blck.message.proposer_index.ValidatorIndex)
+      doAssert check_proposer_slashing(
+        forkyState.data, proposer_slashing, {}).isOk
+      let slashedIndex =
+        proposer_slashing.signed_header_1.message.proposer_index
+      rewardsAndPenalties.collectFromSlashedValidator(
+        forkyState.data, slashedIndex.ValidatorIndex,
+        blck.message.proposer_index.ValidatorIndex)
 
 func collectFromAttesterSlashings(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
@@ -296,11 +299,12 @@ func collectFromAttesterSlashings(
   withStateAndBlck(forkedState, forkedBlock):
     for attester_slashing in blck.message.body.attester_slashings:
       let attester_slashing_validity = check_attester_slashing(
-        state.data, attester_slashing, {})
+        forkyState.data, attester_slashing, {})
       doAssert attester_slashing_validity.isOk
       for slashedIndex in attester_slashing_validity.value:
         rewardsAndPenalties.collectFromSlashedValidator(
-          state.data, slashedIndex, blck.message.proposer_index.ValidatorIndex)
+          forkyState.data, slashedIndex,
+          blck.message.proposer_index.ValidatorIndex)
 
 func collectFromAttestations(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
@@ -311,24 +315,26 @@ func collectFromAttestations(
   withStateAndBlck(forkedState, forkedBlock):
     when stateFork > BeaconStateFork.Phase0:
       let base_reward_per_increment = get_base_reward_per_increment(
-        get_total_active_balance(state.data, cache))
+        get_total_active_balance(forkyState.data, cache))
       doAssert base_reward_per_increment > 0
       for attestation in blck.message.body.attestations:
-        doAssert check_attestation(state.data, attestation, {}, cache).isOk
+        doAssert check_attestation(
+          forkyState.data, attestation, {}, cache).isOk
         let proposerReward =
-          if attestation.data.target.epoch == get_current_epoch(state.data):
+          if attestation.data.target.epoch == get_current_epoch(forkyState.data):
             get_proposer_reward(
-              state.data, attestation, base_reward_per_increment, cache,
+              forkyState.data, attestation, base_reward_per_increment, cache,
               epochParticipationFlags.currentEpochParticipation)
           else:
             get_proposer_reward(
-              state.data, attestation, base_reward_per_increment, cache,
+              forkyState.data, attestation, base_reward_per_increment, cache,
               epochParticipationFlags.previousEpochParticipation)
         rewardsAndPenalties[blck.message.proposer_index].proposer_outcome +=
           proposerReward.int64
-        let inclusionDelay = state.data.slot - attestation.data.slot
+        let inclusionDelay = forkyState.data.slot - attestation.data.slot
         for index in get_attesting_indices(
-            state.data, attestation.data, attestation.aggregation_bits, cache):
+            forkyState.data, attestation.data, attestation.aggregation_bits,
+            cache):
           rewardsAndPenalties[index].inclusion_delay = some(inclusionDelay.uint64)
 
 proc collectFromDeposits(
@@ -341,7 +347,7 @@ proc collectFromDeposits(
     for deposit in blck.message.body.deposits:
       let pubkey = deposit.data.pubkey
       let amount = deposit.data.amount
-      var index = findValidatorIndex(state.data, pubkey)
+      var index = findValidatorIndex(forkyState.data, pubkey)
       if index.isNone:
         if pubkey in pubkeyToIndex:
           index = Opt[ValidatorIndex].ok(pubkeyToIndex[pubkey])
@@ -359,17 +365,20 @@ func collectFromSyncAggregate(
     cache: var StateCache) =
   withStateAndBlck(forkedState, forkedBlock):
     when stateFork > BeaconStateFork.Phase0:
-      let total_active_balance = get_total_active_balance(state.data, cache)
-      let participant_reward = get_participant_reward(total_active_balance)
-      let proposer_reward =
-        state_transition_block.get_proposer_reward(participant_reward)
-      let indices = get_sync_committee_cache(state.data, cache).current_sync_committee
+      let
+        total_active_balance = get_total_active_balance(forkyState.data, cache)
+        participant_reward = get_participant_reward(total_active_balance)
+        proposer_reward =
+          state_transition_block.get_proposer_reward(participant_reward)
+        indices = get_sync_committee_cache(
+          forkyState.data, cache).current_sync_committee
 
       template aggregate: untyped = blck.message.body.sync_aggregate
 
       doAssert indices.len == SYNC_COMMITTEE_SIZE
       doAssert aggregate.sync_committee_bits.len == SYNC_COMMITTEE_SIZE
-      doAssert state.data.current_sync_committee.pubkeys.len == SYNC_COMMITTEE_SIZE
+      doAssert forkyState.data.current_sync_committee.pubkeys.len ==
+        SYNC_COMMITTEE_SIZE
 
       for i in 0 ..< SYNC_COMMITTEE_SIZE:
         rewardsAndPenalties[indices[i]].max_sync_committee_reward +=

@@ -353,14 +353,14 @@ proc initLightClientUpdateForPeriod(
     withStateAndBlck(state, bdata):
       when stateFork >= BeaconStateFork.Altair:
         update.attested_header = blck.toBeaconBlockHeader()
-        update.next_sync_committee = state.data.next_sync_committee
+        update.next_sync_committee = forkyState.data.next_sync_committee
         update.next_sync_committee_branch =
-           state.data.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get
+           forkyState.data.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get
         if finalizedBid.slot == FAR_FUTURE_SLOT:
           update.finality_branch.reset()
         else:
           update.finality_branch =
-             state.data.build_proof(altair.FINALIZED_ROOT_INDEX).get
+             forkyState.data.build_proof(altair.FINALIZED_ROOT_INDEX).get
       else: raiseAssert "Unreachable"
   do:
     dag.handleUnexpectedLightClientError(attestedBid.slot)
@@ -666,11 +666,12 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
       when stateFork >= BeaconStateFork.Altair:
         # Cache light client data (non-finalized blocks may refer to this)
         if i != blocks.low:
-          dag.cacheLightClientData(state, bid)  # `dag.head` already cached
+          dag.cacheLightClientData(forkyState, bid)  # `dag.head` already cached
 
         # Create `LightClientUpdate` instances
         if i < blocks.high:
-          dag.createLightClientUpdates(state, blck, parentBid = blocks[i + 1])
+          dag.createLightClientUpdates(
+            forkyState, blck, parentBid = blocks[i + 1])
       else: raiseAssert "Unreachable"
 
   let lightClientEndTick = Moment.now()
