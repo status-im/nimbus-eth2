@@ -92,8 +92,10 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
       list.add(validator)
 
   if len(updated) > 0:
-    info "Validator indices updated", missing_validators = missing,
-         updated_validators = updated
+    info "Validator indices updated", missing_validators = len(missing),
+         updated_validators = len(updated)
+    debug "Validator indices update dump", missing_validators = missing,
+          updated_validators = updated
     vc.addDoppelganger(list)
 
 proc pollForAttesterDuties*(vc: ValidatorClientRef,

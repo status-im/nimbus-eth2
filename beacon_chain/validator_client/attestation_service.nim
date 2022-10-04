@@ -403,11 +403,19 @@ proc spawnAttestationTasks(service: AttestationServiceRef,
       for item in attesters:
         res.mgetOrPut(item.data.committee_index, default).add(item)
       res
+
+  var dutiesSkipped: seq[string]
   for index, duties in dutiesByCommittee:
-    let protectedDuties = vc.doppelgangerFilter(duties)
+    let (protectedDuties, skipped) = vc.doppelgangerFilter(duties)
+    dutiesSkipped.add(skipped)
     if len(protectedDuties) > 0:
       asyncSpawn service.publishAttestationsAndAggregates(slot, index,
                                                           protectedDuties)
+  if len(dutiesSkipped) > 0:
+    info "Doppelganger protection disabled validator duties",
+         validators = len(dutiesSkipped)
+    debug "Doppelganger protection disabled validator duties dump",
+          validators = dutiesSkipped
 
 proc mainLoop(service: AttestationServiceRef) {.async.} =
   let vc = service.client

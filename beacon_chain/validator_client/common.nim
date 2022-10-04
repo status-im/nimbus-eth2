@@ -694,23 +694,20 @@ proc doppelgangerCheck*(vc: ValidatorClientRef,
   let validator = vc.getValidator(key).valueOr: return false
   vc.doppelgangerCheck(validator)
 
-proc doppelgangerFilter*(vc: ValidatorClientRef,
-                         duties: openArray[DutyAndProof]): seq[DutyAndProof] =
+proc doppelgangerFilter*(
+       vc: ValidatorClientRef,
+       duties: openArray[DutyAndProof]
+     ): tuple[filtered: seq[DutyAndProof], skipped: seq[string]] =
   let defstate = DoppelgangerState(status: DoppelgangerStatus.None)
-  var pending: seq[string]
-  var ready: seq[DutyAndProof]
-
+  var
+    pending: seq[string]
+    ready: seq[DutyAndProof]
   for duty in duties:
     let
       vindex = duty.data.validator_index
       vkey = duty.data.pubkey
-
     if vc.doppelgangerCheck(vkey):
       ready.add(duty)
     else:
       pending.add(validatorLog(vkey, vindex))
-
-  if len(pending) > 0:
-    info "Doppelganger protection disabled validator duties",
-         validators = pending
-  ready
+  (ready, pending)
