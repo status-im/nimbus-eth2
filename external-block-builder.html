@@ -802,6 +802,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#useful-resources" class="md-nav__link">
+    Useful resources
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1524,6 +1531,13 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#useful-resources" class="md-nav__link">
+    Useful resources
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1544,9 +1558,11 @@
 
 <h1 id="set-up-block-builders">Set up block builders</h1>
 <p><a href="https://ethereum.org/en/developers/docs/mev/">Maximal extractable value</a> involves consensus clients contacting an external block builder which might maximize profit or some other defined metric in ways hindered for a purely local consensus and execution client setup. This external builder network uses the <a href="https://ethereum.github.io/builder-specs/">builder API</a> which consensus clients use to access external block builder bundles found by searchers. In exchange, such searchers and builders might choose to retain some of the profit gained from such bundles. A builder API relay provides access to multiple searchers via a single URL.</p>
-<p>Nimbus supports this API to access these external block builders. If one is configured, the block production flow becomes modified:
-1. attempt to use the specified external block builder relay or builder to create an execution payload
-2. if the external block builder builder or relay doesn't function, and Nimbus has not signed a blinded beacon block, then fall back to existing local execution client to produce a block</p>
+<p>Nimbus supports this API to access these external block builders. If one is configured, the block production flow becomes modified:</p>
+<ol>
+<li>attempt to use the specified external block builder relay or builder to create an execution payload</li>
+<li>if the external block builder builder or relay doesn't function, and Nimbus has not signed a blinded beacon block, then fall back to existing local execution client to produce a block</li>
+</ol>
 <p>There exists a failure mode, intrinsic to the builder API, wherein the consensus client has signed a blinded proposal and therefore even if the external block builder relay or builder doesn't provide a full block, a consensus client such as Nimbus cannot safely proceed with step 2 and fall back on its local execution client.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1565,6 +1581,18 @@
 </div>
 </div>
 </div>
+<h2 id="useful-resources">Useful resources</h2>
+<ul>
+<li>
+<p><a href="https://github.com/remyroy/ethstaker/blob/main/MEV-relay-list.md">MEV relay list</a></p>
+</li>
+<li>
+<p><a href="https://beaconcha.in/relays">Mainnet Relay Overview</a></p>
+</li>
+<li>
+<p><a href="https://goerli.beaconcha.in/relays">Goerli Relay Overview</a></p>
+</li>
+</ul>
 
               
             </article>
