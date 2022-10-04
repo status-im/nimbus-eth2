@@ -856,7 +856,7 @@ func process_registry_updates*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#slashings
 func get_adjusted_total_slashing_balance*(
     state: ForkyBeaconState, total_balance: Gwei): Gwei =
   const multiplier =

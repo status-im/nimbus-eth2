@@ -793,7 +793,7 @@ func get_next_sync_committee*(state: altair.BeaconState | bellatrix.BeaconState)
   res.aggregate_pubkey = finish(attestersAgg).toPubKey()
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/altair/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/fork.md#upgrading-the-state
 func translate_participation(
     state: var altair.BeaconState,
     pending_attestations: openArray[phase0.PendingAttestation]) =
@@ -880,7 +880,7 @@ func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
 
   post
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/fork.md#upgrading-the-state
 func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
     ref bellatrix.BeaconState =
   let epoch = get_current_epoch(pre)
