@@ -351,7 +351,7 @@ SECRETS_DIR="${DATA_DIR}/secrets"
 scripts/makedir.sh "${SECRETS_DIR}"
 
 USER_VALIDATORS=8
-TOTAL_VALIDATORS=128
+TOTAL_VALIDATORS=1024
 
 # "Make" binary
 if [[ "${OS}" == "windows" ]]; then
