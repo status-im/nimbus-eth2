@@ -5,7 +5,7 @@
 
 The Nimbus Light Client is a light-weight alternative to running a full beacon node, when setting up an Ethereum execution client for read-only use cases after the merge.
 
-Execution layer (EL) clients provide the [web3 API](https://ethereum.github.io/execution-apis/api-documentation/) to expose information stored on the Ethereum blockchain. With [the merge 🐼](./merge.md), EL clients can no longer run standalone and require an external component to determine the latest state to sync to.
+Execution layer (EL) clients provide the [web3 API](https://ethereum.github.io/execution-apis/api-documentation/) to expose information stored on the Ethereum blockchain. Post-merge, EL clients can no longer run standalone and require an external component to determine the latest state to sync to.
 
 ## Comparison
 

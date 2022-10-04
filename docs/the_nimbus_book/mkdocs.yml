@@ -38,7 +38,6 @@ markdown_extensions:
 nav:
   - About:
     - 'index.md'
-    - 'merge.md'
     - 'philosophy.md'
     - 'preparation.md'
 
