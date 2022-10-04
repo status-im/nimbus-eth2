@@ -77,18 +77,24 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
 
     offset += arraySize
 
+  var
+    missing: seq[string]
+    updated: seq[string]
+    list: seq[AttachedValidator]
+
   for item in validators:
-    if item.validator.pubkey notin vc.attachedValidators[]:
-      warn "Beacon node returned missing validator",
-           pubkey = item.validator.pubkey, index = item.index
+    var validator = vc.attachedValidators[].getValidator(item.validator.pubkey)
+    if isNil(validator):
+      missing.add(validatorLog(item.validator.pubkey, item.index))
     else:
-      debug "Local validator updated with index",
-            pubkey = item.validator.pubkey, index = item.index
-      vc.attachedValidators[].updateValidator(item.validator.pubkey,
-                                              item.index)
-      # Adding validator for doppelganger detection.
-      vc.addDoppelganger(
-        vc.attachedValidators[].getValidator(item.validator.pubkey))
+      validator.index = Opt.some(item.index)
+      updated.add(validatorLog(item.validator.pubkey, item.index))
+      list.add(validator)
+
+  if len(updated) > 0:
+    info "Validator indices updated", missing_validators = missing,
+         updated_validators = updated
+    vc.addDoppelganger(list)
 
 proc pollForAttesterDuties*(vc: ValidatorClientRef,
                             epoch: Epoch): Future[int] {.async.} =
