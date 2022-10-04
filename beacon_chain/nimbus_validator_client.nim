@@ -171,6 +171,7 @@ proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
     slot = shortLog(wallSlot.slot),
     attestationIn = vc.getDurationToNextAttestation(wallSlot.slot),
     blockIn = vc.getDurationToNextBlock(wallSlot.slot),
+    validators = vc.attachedValidators[].count(),
     delay = shortLog(delay)
 
   return false

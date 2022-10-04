@@ -407,7 +407,7 @@ proc spawnAttestationTasks(service: AttestationServiceRef,
   var dutiesSkipped: seq[string]
   for index, duties in dutiesByCommittee:
     let (protectedDuties, skipped) = vc.doppelgangerFilter(duties)
-    dutiesSkipped.add(skipped)
+    if len(skipped) > 0: dutiesSkipped.add(skipped)
     if len(protectedDuties) > 0:
       asyncSpawn service.publishAttestationsAndAggregates(slot, index,
                                                           protectedDuties)
