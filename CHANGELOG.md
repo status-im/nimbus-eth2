@@ -1,7 +1,7 @@
 2022-10-03 v22.10.0
 ===================
 
-Nimbus `v22.10.0` is a `medium-urgency` release, continuing our accelerated release schedule and bringing further stability and performance improvements after the merge.
+Nimbus `v22.10.0` is a `medium-urgency` release, continuing our briefly accelerated release schedule and bringing further stability and performance improvements after the merge.
 
 ### Improvements
 
@@ -20,12 +20,12 @@ Nimbus `v22.10.0` is a `medium-urgency` release, continuing our accelerated rele
 * The `/eth/v1/beacon/blocks` API now supports SSZ-encoded payloads:
   https://github.com/status-im/nimbus-eth2/pull/4154 
 
-* The new metrics `beacon_block_builder_proposed`, `beacon_block_builder_missed_with_fallback` and `beacon_block_builder_missed_without_fallback` can help you the successful and failed attempts to use the configured external block builder:
+* The new metrics `beacon_block_builder_proposed`, `beacon_block_builder_missed_with_fallback` and `beacon_block_builder_missed_without_fallback` can help you track the successful and failed attempts to use the configured external block builder:
   https://github.com/status-im/nimbus-eth2/pull/4158
 
 ### Fixes
 
-* Rare, but critical conditions manifesting primarily in the Goerli network were leading to unrecoverable database corruption:
+* Rare, but critical conditions manifesting primarily in the Goerli network were leading to an unrecoverable database corruption:
   https://github.com/status-im/nimbus-eth2/pull/4174
   https://github.com/status-im/nimbus-eth2/pull/4192
 
