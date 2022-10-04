@@ -28,4 +28,6 @@ There exists a failure mode, intrinsic to the builder API, wherein the consensus
 
 - [MEV relay list](https://github.com/remyroy/ethstaker/blob/main/MEV-relay-list.md)
 
+- [Mainnet Relay Overview](https://beaconcha.in/relays)
+
 - [Goerli Relay Overview](https://goerli.beaconcha.in/relays)
