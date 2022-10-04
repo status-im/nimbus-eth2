@@ -826,6 +826,8 @@ suite "Backfill":
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
 
+    var cache = StateCache()
+
     check:
       dag.getBlockRef(tailBlock.root).get().bid == dag.tail
       dag.getBlockRef(blocks[^2].root).isNone()
@@ -856,6 +858,9 @@ suite "Backfill":
       dag.getFinalizedEpochRef() != nil
 
       dag.backfill == tailBlock.phase0Data.message.toBeaconBlockSummary()
+
+      # Check that we can propose right from the checkpoint state
+      dag.getProposalState(dag.head, dag.head.slot + 1, cache).isOk()
 
     var
       badBlock = blocks[^2].phase0Data
