@@ -51,6 +51,19 @@ type
     line*: int
     state*: string
 
+  RestChronosMetricsInfo* = object
+    tcp_transports*: uint64
+    udp_transports*: uint64
+    tcp_servers*: uint64
+    stream_readers*: uint64
+    stream_writers*: uint64
+    http_client_connections*: uint64
+    http_client_requests*: uint64
+    http_client_responses*: uint64
+    http_server_connections*: uint64
+    http_body_readers*: uint64
+    http_body_writers*: uint64
+
   RestPubSubPeer* = object
     peerId*: PeerId
     score*: float64
@@ -263,6 +276,33 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       return RestApiResponse.jsonError(Http503,
         "Compile with '-d:chronosFutureTracking' to get this request working")
+
+  router.api(MethodGet, "/nimbus/v1/debug/chronos/metrics") do (
+    ) -> RestApiResponse:
+
+    template getCount(ttype: untyped, name: string): uint64 =
+      let res = ttype(getTracker(name))
+      if res.isNil(): 0'u64 else: uint64(res.opened - res.closed)
+
+    let res = RestChronosMetricsInfo(
+      tcp_transports: getCount(StreamTransportTracker, "stream.transport"),
+      udp_transports: getCount(DgramTransportTracker, "datagram.transport"),
+      tcp_servers: getCount(StreamServerTracker, "stream.server"),
+      stream_readers: getCount(AsyncStreamTracker,
+                               AsyncStreamReaderTrackerName),
+      stream_writers: getCount(AsyncStreamTracker,
+                               AsyncStreamWriterTrackerName),
+      http_client_connections: getCount(HttpClientTracker,
+                                        HttpClientConnectionTrackerName),
+      http_client_requests: getCount(HttpClientTracker,
+                                     HttpClientRequestTrackerName),
+      http_client_responses: getCount(HttpClientTracker,
+                                      HttpClientResponseTrackerName),
+      http_server_connections: lenu64(node.restServer.server.connections),
+      http_body_readers: getCount(HttpBodyTracker, HttpBodyReaderTrackerName),
+      http_body_writers: getCount(HttpBodyTracker, HttpBodyWriterTrackerName)
+    )
+    return RestApiResponse.jsonResponse(res)
 
   router.api(MethodPost, "/nimbus/v1/validator/activity/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
