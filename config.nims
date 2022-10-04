@@ -1,5 +1,11 @@
 import strutils
 
+--noNimblePath
+
+if getEnv("NIMBUS_BUILD_SYSTEM") == "yes" and
+   system.fileExists("nimbus-build-system.paths"):
+  include "nimbus-build-system.paths"
+
 const nimCachePathOverride {.strdefine.} = ""
 when nimCachePathOverride == "":
   when defined(release):
