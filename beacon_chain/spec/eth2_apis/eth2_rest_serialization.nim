@@ -278,6 +278,53 @@ proc jsonResponseWOpt*(t: typedesc[RestApiResponse], data: auto,
         default
   RestApiResponse.response(res, Http200, "application/json")
 
+proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
+                           version: BeaconStateFork): RestApiResponse =
+  let
+    headers = [("eth-consensus-version", version.toString())]
+    res =
+      block:
+        var default: seq[byte]
+        try:
+          var stream = memoryOutput()
+          var writer = JsonWriter[RestJson].init(stream)
+          writer.beginRecord()
+          writer.writeField("version", version.toString())
+          writer.writeField("data", data)
+          writer.endRecord()
+          stream.getOutput(seq[byte])
+        except SerializationError:
+          default
+        except IOError:
+          default
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
+
+type RestVersioned*[T] = object
+  data*: T
+  jsonVersion*: BeaconStateFork
+  sszContext*: ForkDigest
+
+proc jsonResponseVersionedList*[T](t: typedesc[RestApiResponse],
+                                   entries: openArray[RestVersioned[T]]
+                                  ): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        for e in writer.stepwiseArrayCreation(entries):
+          writer.beginRecord()
+          writer.writeField("version", e.jsonVersion.toString())
+          writer.writeField("data", e.data)
+          writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json")
+
 proc jsonResponsePlain*(t: typedesc[RestApiResponse],
                         data: auto): RestApiResponse =
   let res =
@@ -413,6 +460,28 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
       except IOError:
         default
   RestApiResponse.error(status, data, "application/json")
+
+proc sszResponseVersionedList*[T](t: typedesc[RestApiResponse],
+                                  entries: openArray[RestVersioned[T]]
+                                 ): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        for e in entries:
+          var cursor = stream.delayFixedSizeWrite(sizeof(uint64))
+          let initPos = stream.pos
+          stream.write e.sszContext.data
+          var writer = SszWriter.init(stream)
+          writer.writeValue e.data
+          cursor.finalWrite (stream.pos - initPos).uint64.toBytesLE()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/octet-stream")
 
 proc sszResponsePlain*(t: typedesc[RestApiResponse], res: seq[byte],
                        headers: openArray[RestKeyValueTuple] = []
