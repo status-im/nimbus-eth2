@@ -660,16 +660,25 @@ proc proposeBlockMEV(
     Future[Opt[BlockRef]] {.async.} =
   let
     executionBlockRoot = node.dag.loadExecutionBlockRoot(head)
-    executionPayloadHeader = awaitWithTimeout(
-        node.getBlindedExecutionPayload(
-          slot, executionBlockRoot, validator.pubkey),
-        BUILDER_PROPOSAL_DELAY_TOLERANCE):
-      Result[ExecutionPayloadHeader, cstring].err(
-        "getBlindedExecutionPayload timed out")
+    executionPayloadHeader =
+      try:
+        awaitWithTimeout(
+            node.getBlindedExecutionPayload(
+              slot, executionBlockRoot, validator.pubkey),
+            BUILDER_PROPOSAL_DELAY_TOLERANCE):
+          Result[ExecutionPayloadHeader, cstring].err(
+            "getBlindedExecutionPayload timed out")
+      except RestDecodingError as exc:
+        Result[ExecutionPayloadHeader, cstring].err(
+          "getBlindedExecutionPayload REST decoding error")
+      except CatchableError as exc:
+        Result[ExecutionPayloadHeader, cstring].err(
+          "getBlindedExecutionPayload error")
 
   if executionPayloadHeader.isErr:
     debug "proposeBlockMEV: getBlindedExecutionPayload failed",
-      error = executionPayloadHeader.error
+      error = executionPayloadHeader.error, slot, validator_index,
+      head = shortLog(head)
     # Haven't committed to the MEV block, so allow EL fallback.
     beacon_block_builder_missed_with_fallback.inc()
     return Opt.none BlockRef
@@ -720,7 +729,7 @@ proc proposeBlockMEV(
         # From here on, including error paths, disallow local EL production by
         # returning Opt.some, regardless of whether on head or newBlock.
       except RestDecodingError as exc:
-        error "proposeBlockMEV: REST recoding error",
+        error "proposeBlockMEV: REST decoding error submitting blinded block",
           slot, head = shortLog(head), validator_index, blindedBlock,
           error = exc.msg
         return Opt.some head
