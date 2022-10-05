@@ -116,6 +116,18 @@ proc publishBlock*(body: bellatrix.SignedBeaconBlock): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
 
+proc publishSszBlock*(
+       client: RestClientRef,
+       blck: ForkySignedBeaconBlock
+     ): Future[RestPlainResponse] {.async.} =
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
+  let
+    consensus = typeof(blck).toFork.toString()
+    resp = await client.publishBlock(
+      blck, restContentType = $OctetStreamMediaType,
+      extraHeaders = @[("eth-consensus-version", consensus)])
+  return resp
+
 proc getBlockV2Plain*(block_id: BlockIdent): RestPlainResponse {.
      rest, endpoint: "/eth/v2/beacon/blocks/{block_id}",
      accept: preferSSZ,
@@ -157,16 +169,16 @@ proc getBlockV2*(client: RestClientRef, block_id: BlockIdent,
     of 404:
       none(ref ForkedSignedBeaconBlock)
     of 400, 500:
-      let error = decodeBytes(RestGenericError, resp.data,
+      let error = decodeBytes(RestErrorMessage, resp.data,
                               resp.contentType).valueOr:
         let msg = "Incorrect response error format (" & $resp.status &
                   ") [" & $error & "]"
-        raise newException(RestError, msg)
+        raise (ref RestResponseError)(msg: msg, status: resp.status)
       let msg = "Error response (" & $resp.status & ") [" & error.message & "]"
-      raise newException(RestError, msg)
+      raise (ref RestResponseError)(
+        msg: msg, status: error.code, message: error.message)
     else:
-      let msg = "Unknown response status error (" & $resp.status & ")"
-      raise newException(RestError, msg)
+      raiseRestResponseError(resp)
 
 proc getBlockRoot*(block_id: BlockIdent): RestResponse[GetBlockRootResponse] {.
      rest, endpoint: "/eth/v1/beacon/blocks/{block_id}/root",

@@ -400,7 +400,23 @@ template withManyWrites*(dbParam: BeaconChainDB, body: untyped) =
     if commit:
       expectDb db.db.exec("COMMIT TRANSACTION;")
     else:
-      expectDb db.db.exec("ROLLBACK TRANSACTION;")
+      # https://www.sqlite.org/lang_transaction.html
+      #
+      # For all of these errors, SQLite attempts to undo just the one statement
+      # it was working on and leave changes from prior statements within the same
+      # transaction intact and continue with the transaction. However, depending
+      # on the statement being evaluated and the point at which the error occurs,
+      # it might be necessary for SQLite to rollback and cancel the entire transaction.
+      # An application can tell which course of action SQLite took by using the
+      # sqlite3_get_autocommit() C-language interface.
+      #
+      # It is recommended that applications respond to the errors listed above by
+      # explicitly issuing a ROLLBACK command. If the transaction has already been
+      # rolled back automatically by the error response, then the ROLLBACK command
+      # will fail with an error, but no harm is caused by this.
+      #
+      if isInsideTransaction(db.db): # calls `sqlite3_get_autocommit`
+        expectDb db.db.exec("ROLLBACK TRANSACTION;")
 
 proc new*(T: type BeaconChainDB,
           dir: string,

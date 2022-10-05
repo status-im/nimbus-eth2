@@ -308,6 +308,16 @@ template is_better_update*[A, B: SomeLightClientUpdate](
     new_update: A, old_update: B): bool =
   is_better_data(toMeta(new_update), toMeta(old_update))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
+func contextEpoch*(bootstrap: altair.LightClientBootstrap): Epoch =
+  bootstrap.header.slot.epoch
+
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
+func contextEpoch*(update: SomeLightClientUpdate): Epoch =
+  update.attested_header.slot.epoch
+
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(state: bellatrix.BeaconState): bool =
   const defaultExecutionPayloadHeader = default(ExecutionPayloadHeader)

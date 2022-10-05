@@ -265,6 +265,52 @@ func atSlot*(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   else:
     dag.getBlockIdAtSlot(slot)
 
+func nextTimestamp[I, T](cache: var LRUCache[I, T]): uint32 =
+  if cache.timestamp == uint32.high:
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      if e.lastUsed != 0:
+        e.lastUsed = 1
+    cache.timestamp = 1
+  inc cache.timestamp
+  cache.timestamp
+
+template findIt[I, T](cache: var LRUCache[I, T], predicate: untyped): Opt[T] =
+  block:
+    var res: Opt[T]
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      template it: untyped {.inject, used.} = e.value
+      if e.lastUsed != 0 and predicate:
+        e.lastUsed = cache.nextTimestamp
+        res.ok it
+        break
+    res
+
+template delIt[I, T](cache: var LRUCache[I, T], predicate: untyped) =
+  block:
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      template it: untyped {.inject, used.} = e.value
+      if e.lastUsed != 0 and predicate:
+        e.reset()
+
+func put[I, T](cache: var LRUCache[I, T], value: T) =
+  var lru = 0
+  block:
+    var min = uint32.high
+    for i in 0 ..< I:
+      template e: untyped = cache.entries[i]
+      if e.lastUsed < min:
+        min = e.lastUsed
+        lru = i
+        if min == 0:
+          break
+
+  template e: untyped = cache.entries[lru]
+  e.value = value
+  e.lastUsed = cache.nextTimestamp
+
 func epochAncestor(dag: ChainDAGRef, bid: BlockId, epoch: Epoch):
     Opt[BlockSlotId] =
   ## The epoch ancestor is the last block that has an effect on the epoch-
@@ -314,11 +360,8 @@ func findShufflingRef*(
     dependent_bsi = dag.atSlot(bid, dependent_slot).valueOr:
       return Opt.none(ShufflingRef)
 
-  for s in dag.shufflingRefs:
-    if s == nil: continue
-    if s.epoch == epoch and dependent_bsi.bid.root == s.attester_dependent_root:
-      return Opt.some s
-  Opt.none(ShufflingRef)
+  dag.shufflingRefs.findIt(
+    it.epoch == epoch and dependent_bsi.bid.root == it.attester_dependent_root)
 
 func putShufflingRef*(dag: ChainDAGRef, shufflingRef: ShufflingRef) =
   ## Store shuffling in the cache
@@ -327,20 +370,7 @@ func putShufflingRef*(dag: ChainDAGRef, shufflingRef: ShufflingRef) =
     # are seldomly used (ie RPC), so no need to cache
     return
 
-  # Because we put a cap on the number of shufflingRef we store, we want to
-  # prune the least useful state - for now, we'll assume that to be the
-  # oldest shufflingRef we know about.
-  var
-    oldest = 0
-  for x in 0..<dag.shufflingRefs.len:
-    let candidate = dag.shufflingRefs[x]
-    if candidate == nil:
-      oldest = x
-      break
-    if candidate.epoch < dag.shufflingRefs[oldest].epoch:
-      oldest = x
-
-  dag.shufflingRefs[oldest] = shufflingRef
+  dag.shufflingRefs.put shufflingRef
 
 func findEpochRef*(
     dag: ChainDAGRef, bid: BlockId, epoch: Epoch): Opt[EpochRef] =
@@ -348,12 +378,7 @@ func findEpochRef*(
   ## `getEpochRef` for a version that creates a new instance if it's missing
   let key = ? dag.epochKey(bid, epoch)
 
-  for e in dag.epochRefs:
-    if e == nil: continue
-    if e.key == key:
-      return Opt.some e
-
-  Opt.none(EpochRef)
+  dag.epochRefs.findIt(it.key == key)
 
 func putEpochRef(dag: ChainDAGRef, epochRef: EpochRef) =
   if epochRef.epoch < dag.finalizedHead.slot.epoch():
@@ -361,21 +386,7 @@ func putEpochRef(dag: ChainDAGRef, epochRef: EpochRef) =
     # are seldomly used (ie RPC), so no need to cache
     return
 
-  # Because we put a cap on the number of epochRefs we store, we want to
-  # prune the least useful state - for now, we'll assume that to be the
-  # oldest epochRef we know about.
-
-  var
-    oldest = 0
-  for x in 0..<dag.epochRefs.len:
-    let candidate = dag.epochRefs[x]
-    if candidate == nil:
-      oldest = x
-      break
-    if candidate.key.epoch < dag.epochRefs[oldest].epoch:
-      oldest = x
-
-  dag.epochRefs[oldest] = epochRef
+  dag.epochRefs.put epochRef
 
 func init*(
     T: type ShufflingRef, state: ForkedHashedBeaconState,
@@ -1666,14 +1677,8 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
   block: # Clean up old EpochRef instances
     # After finalization, we can clear up the epoch cache and save memory -
     # it will be recomputed if needed
-    for i in 0..<dag.epochRefs.len:
-      if dag.epochRefs[i] != nil and
-          dag.epochRefs[i].epoch < dag.finalizedHead.slot.epoch:
-        dag.epochRefs[i] = nil
-    for i in 0..<dag.shufflingRefs.len:
-      if dag.shufflingRefs[i] != nil and
-          dag.shufflingRefs[i].epoch < dag.finalizedHead.slot.epoch:
-        dag.shufflingRefs[i] = nil
+    dag.epochRefs.delIt(it.epoch < dag.finalizedHead.slot.epoch)
+    dag.shufflingRefs.delIt(it.epoch < dag.finalizedHead.slot.epoch)
 
   let epochRefPruneTick = Moment.now()
 
@@ -1892,45 +1897,6 @@ proc updateHead*(
         dag.finalizedHead.blck.root, stateRoot, dag.finalizedHead.slot.epoch)
       dag.onFinHappened(dag, data)
 
-proc getEarliestInvalidBlockRoot*(
-    dag: ChainDAGRef, initialSearchRoot: Eth2Digest,
-    latestValidHash: Eth2Digest, defaultEarliestInvalidBlockRoot: Eth2Digest):
-    Eth2Digest =
-  # Earliest within a chain/fork in question, per LVH definition. Intended to
-  # be called with `initialRoot` as the parent of the block regarding which a
-  # newPayload or forkchoiceUpdated execution_status has been received as the
-  # tests effectively require being able to access this before the BlockRef's
-  # made. Therefore, to accommodate the EF consensus spec sync tests, and the
-  # possibilities that the LVH might be an immediate parent or a more distant
-  # ancestor special-case handling of an earliest invalid root as potentially
-  # not being from this function's search, but being provided as a default by
-  # the caller with access to the block.
-  var curBlck = dag.getBlockRef(initialSearchRoot).valueOr:
-    # Being asked to traverse a chain which the DAG doesn't know about -- but
-    # that'd imply the block's otherwise invalid for CL as well as EL.
-    return static(default(Eth2Digest))
-
-  # Only allow this special case outside loop; it's when the LVH is the direct
-  # parent of the reported invalid block
-  if  curBlck.executionBlockRoot.isSome and
-      curBlck.executionBlockRoot.get == latestValidHash:
-    return defaultEarliestInvalidBlockRoot
-
-  while true:
-    # This was supposed to have been either caught by the pre-loop check or the
-    # parent check.
-    if  curBlck.executionBlockRoot.isSome and
-        curBlck.executionBlockRoot.get == latestValidHash:
-      doAssert false, "getEarliestInvalidBlockRoot: unexpected LVH in loop body"
-
-    if (curBlck.parent.isNil) or
-       curBlck.parent.executionBlockRoot.get(latestValidHash) ==
-         latestValidHash:
-      break
-    curBlck = curBlck.parent
-
-  curBlck.root
-
 proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstring] =
   # Lightweight check to see if we have the minimal information needed to
   # load up a database - we don't check head here - if something is wrong with
@@ -2058,6 +2024,39 @@ proc getProposer*(
       return none(ValidatorIndex)
 
   proposer
+
+proc getProposalState*(
+    dag: ChainDagRef, head: BlockRef, slot: Slot, cache: var StateCache):
+    Result[ref ForkedHashedBeaconState, cstring] =
+  ## Return a state suitable for making proposals for the given head and slot -
+  ## in particular, the state can be discarded after use and does not have a
+  ## state root set
+
+  # Start with the clearance state, since this one typically has been advanced
+  # and thus has a hot hash tree cache
+  let state = newClone(dag.clearanceState)
+
+  var
+    info = ForkedEpochInfo()
+  if not state[].can_advance_slots(head.root, slot):
+    # The last state root will be computed as part of block production, so skip
+    # it now
+    if not dag.updateState(
+        state[], head.atSlot(slot - 1).toBlockSlotId().expect("not nil"),
+        false, cache):
+      error "Cannot get proposal state - skipping block production, database corrupt?",
+        head = shortLog(head),
+        slot
+      return err("Cannot create proposal state")
+  else:
+    loadStateCache(dag, cache, head.bid, slot.epoch)
+
+  if getStateField(state[], slot) < slot:
+    process_slots(
+      dag.cfg, state[], slot, cache, info,
+      {skipLastStateRootCalculation}).expect("advancing 1 slot should not fail")
+
+  ok state
 
 proc aggregateAll*(
   dag: ChainDAGRef,

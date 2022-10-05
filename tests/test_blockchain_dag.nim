@@ -525,8 +525,8 @@ suite "chain DAG finalization tests" & preset():
       not finalER.isErr()
 
     block:
-      for er in dag.epochRefs:
-        check: er == nil or er.epoch >= dag.finalizedHead.slot.epoch
+      for er in dag.epochRefs.entries:
+        check: er.value == nil or er.value.epoch >= dag.finalizedHead.slot.epoch
 
     block:
       let tmpStateData = assignClone(dag.headState)
@@ -826,6 +826,8 @@ suite "Backfill":
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
 
+    var cache = StateCache()
+
     check:
       dag.getBlockRef(tailBlock.root).get().bid == dag.tail
       dag.getBlockRef(blocks[^2].root).isNone()
@@ -856,6 +858,9 @@ suite "Backfill":
       dag.getFinalizedEpochRef() != nil
 
       dag.backfill == tailBlock.phase0Data.message.toBeaconBlockSummary()
+
+      # Check that we can propose right from the checkpoint state
+      dag.getProposalState(dag.head, dag.head.slot + 1, cache).isOk()
 
     var
       badBlock = blocks[^2].phase0Data

@@ -238,15 +238,6 @@ proc updateExecutionClientHead(
   of PayloadExecutionStatus.valid:
     self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
-    # This is a CL root, not EL hash
-    let earliestKnownInvalidRoot =
-      if latestValidHash.isSome:
-        self.dag.getEarliestInvalidBlockRoot(
-          newHead.blck.root, latestValidHash.get.asEth2Digest,
-          newHead.blck.root)
-      else:
-        newHead.blck.root
-
     self.attestationPool[].forkChoice.mark_root_invalid(newHead.blck.root)
     self.quarantine[].addUnviable(newHead.blck.root)
     return Opt.none(void)
@@ -412,7 +403,7 @@ proc updateHeadWithExecution*(
     while (await self.updateExecutionClientHead(newHead)).isErr:
       # This proc is called on every new block; guarantee timely return
       inc attempts
-      const maxAttempts = 3
+      const maxAttempts = 5
       if attempts >= maxAttempts:
         warn "updateHeadWithExecution: too many attempts to recover from invalid payload",
           attempts, maxAttempts, newHead, initialNewHead

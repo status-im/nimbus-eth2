@@ -561,7 +561,7 @@ p2pProtocol BeaconSync(version = 1,
     let bootstrap = dag.getLightClientBootstrap(blockRoot)
     if bootstrap.isOk:
       let
-        contextEpoch = bootstrap.get.header.slot.epoch
+        contextEpoch = bootstrap.get.contextEpoch
         contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
       await response.send(bootstrap.get, contextBytes)
     else:
@@ -605,7 +605,7 @@ p2pProtocol BeaconSync(version = 1,
       let update = dag.getLightClientUpdateForPeriod(period)
       if update.isSome:
         let
-          contextEpoch = update.get.attested_header.slot.epoch
+          contextEpoch = update.get.contextEpoch
           contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
         await response.write(update.get, contextBytes)
         inc found
@@ -629,7 +629,7 @@ p2pProtocol BeaconSync(version = 1,
     let finality_update = dag.getLightClientFinalityUpdate()
     if finality_update.isSome:
       let
-        contextEpoch = finality_update.get.attested_header.slot.epoch
+        contextEpoch = finality_update.get.contextEpoch
         contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
       await response.send(finality_update.get, contextBytes)
     else:
@@ -655,7 +655,7 @@ p2pProtocol BeaconSync(version = 1,
     let optimistic_update = dag.getLightClientOptimisticUpdate()
     if optimistic_update.isSome:
       let
-        contextEpoch = optimistic_update.get.attested_header.slot.epoch
+        contextEpoch = optimistic_update.get.contextEpoch
         contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
       await response.send(optimistic_update.get, contextBytes)
     else:

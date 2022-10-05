@@ -5,7 +5,7 @@ In order to run a beacon node, you need to also be running an execution client -
 Nimbus has been tested all major execution clients - see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
 
 !!! warning
-    You need to run your own execution client after [the merge](./merge.md) - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.
+    You need to run your own execution client - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.
 
 !!! info
     Syncing an execution client may take hours or even days, depending on your hardware! The backup providers will be synced only when the primary becomes unavailable, which may lead to a small gap in validation duties - this limitation may be lifted in future versions.
@@ -78,7 +78,7 @@ Select an execution client and install it, configuring it such that that WebSock
 
 ### 2. Leave the execution client running
 
-The execution client will be syncing the chain, up to [the merge](./merge.md). Once it reaches this point, it will wait for the beacon node to provide further sync instructions.
+The execution client will be syncing the chain through the merge transition block. Once it reaches this point, it will wait for the beacon node to provide further sync instructions.
 
 It is safe to start the beacon node even if the execution client is not yet fully synced and vice versa.
 

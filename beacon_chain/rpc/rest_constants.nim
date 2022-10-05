@@ -151,7 +151,7 @@ const
   InvalidLogLevelValueError* =
     "Invalid log level value error"
   ContentNotAcceptableError* =
-    "Could not find out accepted content type"
+    "Accepted media type not supported"
   InvalidAcceptError* =
     "Incorrect accept response type"
   MissingSubCommitteeIndexValueError* =

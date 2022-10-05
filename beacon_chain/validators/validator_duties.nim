@@ -359,8 +359,7 @@ from web3/engine_api_types import PayloadExecutionStatus
 
 proc getExecutionPayload[T](
     node: BeaconNode, proposalState: ref ForkedHashedBeaconState,
-    epoch: Epoch, validator_index: ValidatorIndex,
-    pubkey: ValidatorPubKey): Future[Opt[T]] {.async.} =
+    epoch: Epoch, validator_index: ValidatorIndex): Future[Opt[T]] {.async.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
 
   template empty_execution_payload(): auto =
@@ -394,7 +393,13 @@ proc getExecutionPayload[T](
           default(Eth2Digest)
       latestSafe = beaconHead.safeExecutionPayloadHash
       latestFinalized = beaconHead.finalizedExecutionPayloadHash
-      feeRecipient = node.getFeeRecipient(pubkey, validator_index, epoch)
+      feeRecipient = block:
+        let pubkey = node.dag.validatorKey(validator_index)
+        if pubkey.isNone():
+          error "Cannot get proposer pubkey, bug?", validator_index
+          default(Eth1Address)
+        else:
+          node.getFeeRecipient(pubkey.get().toPubKey(), validator_index, epoch)
       lastFcU = node.consensusManager.forkchoiceUpdatedInfo
       timestamp = withState(proposalState[]):
         compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
@@ -448,104 +453,87 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root: Opt[Eth2Digest] = Opt.none(Eth2Digest)):
     Future[ForkedBlockResult] {.async.} =
   # Advance state to the slot that we're proposing for
-  let proposalState = assignClone(node.dag.headState)
+  var
+    cache = StateCache()
 
-  # TODO fails at checkpoint synced head
-  node.dag.withUpdatedState(
-      proposalState[],
-      head.atSlot(slot - 1).toBlockSlotId().expect("not nil")):
-    # Advance to the given slot without calculating state root - we'll only
-    # need a state root _with_ the block applied
-    var info: ForkedEpochInfo
+  # Execution payload handling will need a review post-Bellatrix
+  static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
 
-    process_slots(
-      node.dag.cfg, state, slot, cache, info,
-      {skipLastStateRootCalculation}).expect("advancing 1 slot should not fail")
-
-    let
-      eth1Proposal = node.getBlockProposalEth1Data(state)
-
-    if eth1Proposal.hasMissingDeposits:
+  let
+    # The clearance state already typically sits at the right slot per
+    # `advanceClearanceState`
+    state = node.dag.getProposalState(head, slot, cache).valueOr:
       beacon_block_production_errors.inc()
-      warn "Eth1 deposits not available. Skipping block proposal", slot
-      return ForkedBlockResult.err("Eth1 deposits not available")
+      return err($error)
+    payloadFut =
+      if executionPayload.isSome:
+        let fut = newFuture[Opt[ExecutionPayload]]("given-payload")
+        fut.complete(executionPayload)
+        fut
+      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
+            not (
+              is_merge_transition_complete(state[]) or
+              ((not node.eth1Monitor.isNil) and node.eth1Monitor.ttdReached)):
+        let fut = newFuture[Opt[ExecutionPayload]]("empty-payload")
+        # https://github.com/nim-lang/Nim/issues/19802
+        fut.complete(Opt.some(default(bellatrix.ExecutionPayload)))
+        fut
+      else:
+        # Create execution payload while packing attestations
+        getExecutionPayload[bellatrix.ExecutionPayload](
+          node, state, slot.epoch, validator_index)
 
-    # Only current hardfork with execution payloads is Bellatrix
-    static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
+    eth1Proposal = node.getBlockProposalEth1Data(state[])
 
-    let
-      exits = withState(state):
-        node.exitPool[].getBeaconBlockExits(node.dag.cfg, forkyState.data)
-      effectiveExecutionPayload =
-        if executionPayload.isSome:
-          executionPayload.get
-        elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
-             not (
-               is_merge_transition_complete(proposalState[]) or
-               ((not node.eth1Monitor.isNil) and node.eth1Monitor.ttdReached)):
-          # https://github.com/nim-lang/Nim/issues/19802
-          (static(default(bellatrix.ExecutionPayload)))
-        else:
-          let
-            pubkey = node.dag.validatorKey(validator_index)
-            maybeExecutionPayload =
-              (await getExecutionPayload[bellatrix.ExecutionPayload](
-                node, proposalState, slot.epoch, validator_index,
-                # TODO https://github.com/nim-lang/Nim/issues/19802
-                if pubkey.isSome: pubkey.get.toPubKey else: default(ValidatorPubKey)))
-          if maybeExecutionPayload.isNone:
-            beacon_block_production_errors.inc()
-            warn "Unable to get execution payload. Skipping block proposal",
-              slot, validator_index
-            return ForkedBlockResult.err("Unable to get execution payload")
-          maybeExecutionPayload.get
+  if eth1Proposal.hasMissingDeposits:
+    beacon_block_production_errors.inc()
+    warn "Eth1 deposits not available. Skipping block proposal", slot
+    return err("Eth1 deposits not available")
 
-    let res = makeBeaconBlock(
+  let
+    attestations =
+      node.attestationPool[].getAttestationsForBlock(state[], cache)
+    exits = withState(state[]):
+      node.exitPool[].getBeaconBlockExits(node.dag.cfg, forkyState.data)
+    syncAggregate =
+      if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
+        SyncAggregate.init()
+      else:
+        node.syncCommitteeMsgPool[].produceSyncAggregate(head.root)
+    payload = (await payloadFut).valueOr:
+      beacon_block_production_errors.inc()
+      warn "Unable to get execution payload. Skipping block proposal",
+        slot, validator_index
+      return err("Unable to get execution payload")
+
+  return makeBeaconBlock(
       node.dag.cfg,
-      state,
+      state[],
       validator_index,
       randao_reveal,
       eth1Proposal.vote,
       graffiti,
-      node.attestationPool[].getAttestationsForBlock(state, cache),
+      attestations,
       eth1Proposal.deposits,
       exits,
-      if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
-        SyncAggregate.init()
-      else:
-        node.syncCommitteeMsgPool[].produceSyncAggregate(head.root),
-      effectiveExecutionPayload,
+      syncAggregate,
+      payload,
       noRollback, # Temporary state - no need for rollback
       cache,
       # makeBeaconBlock doesn't verify BLS at all, but does have special case
       # for skipRandaoVerification separately
       verificationFlags =
         if skip_randao_verification_bool: {skipRandaoVerification} else: {},
-      transactions_root =
-        if transactions_root.isSome:
-          Opt.some transactions_root.get
-        else:
-          Opt.none(Eth2Digest),
-      execution_payload_root =
-        if execution_payload_root.isSome:
-          Opt.some execution_payload_root.get
-        else:
-          Opt.none Eth2Digest)
-    if res.isErr():
-      # This is almost certainly a bug, but it's complex enough that there's a
-      # small risk it might happen even when most proposals succeed - thus we
-      # log instead of asserting
-      beacon_block_production_errors.inc()
-      error "Cannot create block for proposal",
-        slot, head = shortLog(head), error = res.error()
-      return err($res.error)
-    return ok(res.get())
-  do:
+      transactions_root = transactions_root,
+      execution_payload_root = execution_payload_root).mapErr do (error: cstring) -> string:
+    # This is almost certainly a bug, but it's complex enough that there's a
+    # small risk it might happen even when most proposals succeed - thus we
+    # log instead of asserting
     beacon_block_production_errors.inc()
-    error "Cannot get proposal state - skipping block production, database corrupt?",
-      head = shortLog(head),
-      slot
-    return err("Cannot create proposal state")
+    error "Cannot create block for proposal",
+      slot, head = shortLog(head)
+    $error
+
 
 proc getBlindedExecutionPayload(
     node: BeaconNode, slot: Slot, executionBlockRoot: Eth2Digest,
@@ -646,16 +634,25 @@ proc proposeBlockMEV(
     Future[Opt[BlockRef]] {.async.} =
   let
     executionBlockRoot = node.dag.loadExecutionBlockRoot(head)
-    executionPayloadHeader = awaitWithTimeout(
-        node.getBlindedExecutionPayload(
-          slot, executionBlockRoot, validator.pubkey),
-        BUILDER_PROPOSAL_DELAY_TOLERANCE):
-      Result[ExecutionPayloadHeader, cstring].err(
-        "getBlindedExecutionPayload timed out")
+    executionPayloadHeader =
+      try:
+        awaitWithTimeout(
+            node.getBlindedExecutionPayload(
+              slot, executionBlockRoot, validator.pubkey),
+            BUILDER_PROPOSAL_DELAY_TOLERANCE):
+          Result[ExecutionPayloadHeader, cstring].err(
+            "getBlindedExecutionPayload timed out")
+      except RestDecodingError as exc:
+        Result[ExecutionPayloadHeader, cstring].err(
+          "getBlindedExecutionPayload REST decoding error")
+      except CatchableError as exc:
+        Result[ExecutionPayloadHeader, cstring].err(
+          "getBlindedExecutionPayload error")
 
   if executionPayloadHeader.isErr:
     debug "proposeBlockMEV: getBlindedExecutionPayload failed",
-      error = executionPayloadHeader.error
+      error = executionPayloadHeader.error, slot, validator_index,
+      head = shortLog(head)
     # Haven't committed to the MEV block, so allow EL fallback.
     beacon_block_builder_missed_with_fallback.inc()
     return Opt.none BlockRef
@@ -706,7 +703,7 @@ proc proposeBlockMEV(
         # From here on, including error paths, disallow local EL production by
         # returning Opt.some, regardless of whether on head or newBlock.
       except RestDecodingError as exc:
-        error "proposeBlockMEV: REST decoding error",
+        error "proposeBlockMEV: REST decoding error submitting blinded block",
           slot, head = shortLog(head), validator_index, blindedBlock,
           error = exc.msg
         return Opt.some head

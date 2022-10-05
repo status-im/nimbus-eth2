@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/typetraits
+import std/[typetraits, strutils]
 import stew/[assign2, results, base10, byteutils], presto/common,
        libp2p/peerid, serialization, json_serialization,
        json_serialization/std/[options, net, sets],
@@ -72,16 +72,6 @@ const
 type
   EmptyBody* = object
 
-  RestGenericError* = object
-    code*: uint64
-    message*: string
-    stacktraces*: Option[seq[string]]
-
-  RestDutyError* = object
-    code*: uint64
-    message*: string
-    failures*: seq[RestFailureItem]
-
   EncodeTypes* =
     AttesterSlashing |
     DeleteKeystoresBody |
@@ -95,7 +85,9 @@ type
     SignedBlindedBeaconBlock |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
-    Web3SignerRequest |
+    Web3SignerRequest
+
+  EncodeOctetTypes* =
     altair.SignedBeaconBlock |
     bellatrix.SignedBeaconBlock |
     phase0.SignedBeaconBlock
@@ -128,8 +120,8 @@ type
     ListFeeRecipientResponse |
     PrepareBeaconProposer |
     ProduceBlockResponseV2 |
-    RestDutyError |
-    RestGenericError |
+    RestIndexedErrorMessage |
+    RestErrorMessage |
     RestValidator |
     Web3SignerErrorResponse |
     Web3SignerKeysResponse |
@@ -218,29 +210,28 @@ proc jsonResponse*(t: typedesc[RestApiResponse], data: auto): RestApiResponse =
 
 proc jsonResponseBlock*(t: typedesc[RestApiResponse],
                         data: ForkedSignedBeaconBlock,
-                        execOpt: Option[bool],
-                        headers: openArray[tuple[key: string, value: string]]
-                       ): RestApiResponse =
-  let res =
-    block:
-      var default: seq[byte]
-      try:
-        var stream = memoryOutput()
-        var writer = JsonWriter[RestJson].init(stream)
-        writer.beginRecord()
-        writer.writeField("version", data.kind.toString())
-        if execOpt.isSome():
-          writer.writeField("execution_optimistic", execOpt.get())
-        withBlck(data):
-          writer.writeField("data", blck)
-        writer.endRecord()
-        stream.getOutput(seq[byte])
-      except SerializationError:
-        default
-      except IOError:
-        default
-  RestApiResponse.response(res, Http200, "application/json",
-                           headers = headers)
+                        execOpt: Option[bool]): RestApiResponse =
+  let
+    headers = [("eth-consensus-version", data.kind.toString())]
+    res =
+      block:
+        var default: seq[byte]
+        try:
+          var stream = memoryOutput()
+          var writer = JsonWriter[RestJson].init(stream)
+          writer.beginRecord()
+          writer.writeField("version", data.kind.toString())
+          if execOpt.isSome():
+            writer.writeField("execution_optimistic", execOpt.get())
+          withBlck(data):
+            writer.writeField("data", blck)
+          writer.endRecord()
+          stream.getOutput(seq[byte])
+        except SerializationError:
+          default
+        except IOError:
+          default
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
 proc jsonResponseState*(t: typedesc[RestApiResponse],
                         data: ForkedHashedBeaconState,
@@ -280,6 +271,53 @@ proc jsonResponseWOpt*(t: typedesc[RestApiResponse], data: auto,
           writer.writeField("execution_optimistic", execOpt.get())
         writer.writeField("data", data)
         writer.endRecord()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/json")
+
+proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
+                           version: BeaconStateFork): RestApiResponse =
+  let
+    headers = [("eth-consensus-version", version.toString())]
+    res =
+      block:
+        var default: seq[byte]
+        try:
+          var stream = memoryOutput()
+          var writer = JsonWriter[RestJson].init(stream)
+          writer.beginRecord()
+          writer.writeField("version", version.toString())
+          writer.writeField("data", data)
+          writer.endRecord()
+          stream.getOutput(seq[byte])
+        except SerializationError:
+          default
+        except IOError:
+          default
+  RestApiResponse.response(res, Http200, "application/json", headers = headers)
+
+type RestVersioned*[T] = object
+  data*: T
+  jsonVersion*: BeaconStateFork
+  sszContext*: ForkDigest
+
+proc jsonResponseVersionedList*[T](t: typedesc[RestApiResponse],
+                                   entries: openArray[RestVersioned[T]]
+                                  ): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        for e in writer.stepwiseArrayCreation(entries):
+          writer.beginRecord()
+          writer.writeField("version", e.jsonVersion.toString())
+          writer.writeField("data", e.data)
+          writer.endRecord()
         stream.getOutput(seq[byte])
       except SerializationError:
         default
@@ -423,6 +461,28 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
         default
   RestApiResponse.error(status, data, "application/json")
 
+proc sszResponseVersionedList*[T](t: typedesc[RestApiResponse],
+                                  entries: openArray[RestVersioned[T]]
+                                 ): RestApiResponse =
+  let res =
+    block:
+      var default: seq[byte]
+      try:
+        var stream = memoryOutput()
+        for e in entries:
+          var cursor = stream.delayFixedSizeWrite(sizeof(uint64))
+          let initPos = stream.pos
+          stream.write e.sszContext.data
+          var writer = SszWriter.init(stream)
+          writer.writeValue e.data
+          cursor.finalWrite (stream.pos - initPos).uint64.toBytesLE()
+        stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  RestApiResponse.response(res, Http200, "application/octet-stream")
+
 proc sszResponsePlain*(t: typedesc[RestApiResponse], res: seq[byte],
                        headers: openArray[RestKeyValueTuple] = []
                       ): RestApiResponse =
@@ -473,6 +533,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint64) {.
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
 
+## uint8
 proc writeValue*(w: var JsonWriter[RestJson], value: uint8) {.
      raises: [IOError, Defect].} =
   writeValue(w, Base10.toString(value))
@@ -486,6 +547,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var uint8) {.
   else:
     reader.raiseUnexpectedValue($res.error() & ": " & svalue)
 
+## JustificationBits
 proc writeValue*(w: var JsonWriter[RestJson], value: JustificationBits) {.
     raises: [IOError, Defect].} =
   w.writeValue hexOriginal([uint8(value)])
@@ -588,6 +650,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ValidatorIndex)
   else:
     reader.raiseUnexpectedValue($res.error())
 
+## IndexInSyncCommittee
 proc writeValue*(writer: var JsonWriter[RestJson], value: IndexInSyncCommittee)
                 {.raises: [IOError, Defect].} =
   writeValue(writer, Base10.toString(distinctBase(value)))
@@ -787,6 +850,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: Eth1Address) {.
      raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
 
+## GraffitiBytes
 proc writeValue*(writer: var JsonWriter[RestJson], value: GraffitiBytes)
                 {.raises: [IOError, Defect].} =
   writeValue(writer, hexOriginal(distinctBase(value)))
@@ -798,7 +862,7 @@ proc readValue*(reader: var JsonReader[RestJson], T: type GraffitiBytes): T
   except ValueError as err:
     reader.raiseUnexpectedValue err.msg
 
-## Version
+## Version | ForkDigest | DomainType | GraffitiBytes
 proc readValue*(
     reader: var JsonReader[RestJson],
     value: var (Version | ForkDigest | DomainType | GraffitiBytes)) {.
@@ -1451,7 +1515,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
     writer.writeField("data", value.bellatrixData.data)
   writer.endRecord()
 
-# Web3SignerRequest
+## Web3SignerRequest
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: Web3SignerRequest) {.
      raises: [IOError, Defect].} =
@@ -2112,6 +2176,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     keystores: keystores, passwords: passwords, slashing_protection: slashing
   )
 
+## RestActivityItem
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: RestActivityItem) {.
      raises: [IOError, Defect].} =
@@ -2158,6 +2223,7 @@ proc readValue*(reader: var JsonReader[RestJson],
   value = RestActivityItem(index: index.get(), epoch: epoch.get(),
                            active: active.get())
 
+## HeadChangeInfoObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: HeadChangeInfoObject) {.
      raises: [IOError, Defect].} =
@@ -2174,6 +2240,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## ReorgInfoObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: ReorgInfoObject) {.
      raises: [IOError, Defect].} =
@@ -2188,6 +2255,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## FinalizationInfoObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: FinalizationInfoObject) {.
      raises: [IOError, Defect].} =
@@ -2199,6 +2267,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## EventBeaconBlockObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: EventBeaconBlockObject) {.
      raises: [IOError, Defect].} =
@@ -2209,6 +2278,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## RestSyncInfo
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: RestSyncInfo) {.
      raises: [IOError, Defect].} =
@@ -2220,12 +2290,12 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("is_optimistic", value.is_optimistic.get())
   writer.endRecord()
 
-## RestGenericError
+## RestErrorMessage
 proc readValue*(reader: var JsonReader[RestJson],
-                value: var RestGenericError) {.
+                value: var RestErrorMessage) {.
      raises: [SerializationError, IOError, Defect].} =
   var
-    code: Opt[uint64]
+    code: Opt[int]
     message: Opt[string]
     stacktraces: Option[seq[string]]
 
@@ -2234,30 +2304,34 @@ proc readValue*(reader: var JsonReader[RestJson],
     of "code":
       if code.isSome():
         reader.raiseUnexpectedField("Multiple `code` fields found",
-                                    "RestGenericError")
+                                    "RestErrorMessage")
       let ires =
         try:
           let res = reader.readValue(int)
           if res < 0:
             reader.raiseUnexpectedValue("Invalid `code` field value")
-          Opt.some(uint64(res))
+          Opt.some(res)
         except SerializationError:
-          Opt.none(uint64)
+          Opt.none(int)
       if ires.isNone():
-        let sres = Base10.decode(uint64, reader.readValue(string)).valueOr:
-          reader.raiseUnexpectedValue("Invalid `code` field format")
+        let sres =
+          try: parseInt(reader.readValue(string))
+          except ValueError:
+            reader.raiseUnexpectedValue("Invalid `code` field format")
+        if sres < 0:
+          reader.raiseUnexpectedValue("Invalid `code` field value")
         code = Opt.some(sres)
       else:
         code = ires
     of "message":
       if message.isSome():
         reader.raiseUnexpectedField("Multiple `message` fields found",
-                                    "RestGenericError")
+                                    "RestErrorMessage")
       message = Opt.some(reader.readValue(string))
     of "stacktraces":
       if stacktraces.isSome():
         reader.raiseUnexpectedField("Multiple `stacktraces` fields found",
-                                    "RestGenericError")
+                                    "RestErrorMessage")
       stacktraces = some(reader.readValue(seq[string]))
     else:
       # We ignore all additional fields.
@@ -2268,7 +2342,7 @@ proc readValue*(reader: var JsonReader[RestJson],
   if message.isNone():
     reader.raiseUnexpectedValue("Missing or invalid `message` value")
 
-  value = RestGenericError(
+  value = RestErrorMessage(
     code: code.get(), message: message.get(),
     stacktraces: stacktraces
   )
@@ -2278,6 +2352,58 @@ proc parseRoot(value: string): Result[Eth2Digest, cstring] =
     ok(Eth2Digest(data: hexToByteArray[32](value)))
   except ValueError:
     err("Unable to decode root value")
+
+proc decodeBody*(
+       t: typedesc[RestPublishedSignedBeaconBlock],
+       body: ContentBody,
+       version: string
+     ): Result[RestPublishedSignedBeaconBlock, cstring] =
+  if body.contentType == ApplicationJsonMediaType:
+    let data =
+      try:
+        RestJson.decode(body.data, RestPublishedSignedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError as exc:
+        debug "Failed to deserialize REST JSON data",
+              err = exc.formatMsg("<data>"),
+              data = string.fromBytes(body.data)
+        return err("Unable to deserialize data")
+      except CatchableError:
+        return err("Unexpected deserialization error")
+    ok(data)
+  elif body.contentType == OctetStreamMediaType:
+    let blockFork = ? BeaconBlockFork.decodeString(version)
+    case blockFork
+    of BeaconBlockFork.Phase0:
+      let blck =
+        try:
+          SSZ.decode(body.data, phase0.SignedBeaconBlock)
+        except SerializationError:
+          return err("Unable to deserialize data")
+        except CatchableError:
+          return err("Unexpected deserialization error")
+      ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
+    of BeaconBlockFork.Altair:
+      let blck =
+        try:
+          SSZ.decode(body.data, altair.SignedBeaconBlock)
+        except SerializationError:
+          return err("Unable to deserialize data")
+        except CatchableError:
+          return err("Unexpected deserialization error")
+      ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
+    of BeaconBlockFork.Bellatrix:
+      let blck =
+        try:
+          SSZ.decode(body.data, bellatrix.SignedBeaconBlock)
+        except SerializationError:
+          return err("Unable to deserialize data")
+        except CatchableError:
+          return err("Unexpected deserialization error")
+      ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
+  else:
+    return err("Unsupported or invalid content media type")
 
 proc decodeBody*[T](t: typedesc[T],
                     body: ContentBody): Result[T, cstring] =
@@ -2331,6 +2457,33 @@ proc encodeBytes*[T: EncodeArrays](value: T,
           return err("Input/output error")
         except SerializationError:
           return err("Serialization error")
+    ok(data)
+  else:
+    err("Content-Type not supported")
+
+proc encodeBytes*[T: EncodeOctetTypes](
+       value: T,
+       contentType: string
+     ): RestResult[seq[byte]] =
+  case contentType
+  of "application/json":
+    let data =
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        writer.writeValue(value)
+        stream.getOutput(seq[byte])
+      except IOError:
+        return err("Input/output error")
+      except SerializationError:
+        return err("Serialization error")
+    ok(data)
+  of "application/octet-stream":
+    let data =
+      try:
+        SSZ.encode(value)
+      except CatchableError:
+        return err("Serialization error")
     ok(data)
   else:
     err("Content-Type not supported")
@@ -2704,3 +2857,19 @@ proc decodeString*(t: typedesc[ValidatorFilter],
     })
   else:
     err("Incorrect validator state identifier value")
+
+proc decodeString*(t: typedesc[BeaconBlockFork],
+                   value: string): Result[BeaconBlockFork, cstring] =
+  case toLowerAscii(value)
+  of "phase0": ok(BeaconBlockFork.Phase0)
+  of "altair": ok(BeaconBlockFork.Altair)
+  of "bellatrix": ok(BeaconBlockFork.Bellatrix)
+  else: err("Unsupported or invalid beacon block fork version")
+
+proc decodeString*(t: typedesc[BeaconStateFork],
+                   value: string): Result[BeaconStateFork, cstring] =
+  case toLowerAscii(value)
+  of "phase0": ok(BeaconStateFork.Phase0)
+  of "altair": ok(BeaconStateFork.Altair)
+  of "bellatrix": ok(BeaconStateFork.Bellatrix)
+  else: err("Unsupported or invalid beacon state fork version")

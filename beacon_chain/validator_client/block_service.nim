@@ -55,7 +55,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
 
   let beaconBlock =
     try:
-      await vc.produceBlockV2(slot, randaoReveal, graffiti)
+      await vc.produceBlockV2(slot, randaoReveal, graffiti,
+                              ApiStrategyKind.Best)
     except ValidatorApiError:
       error "Unable to retrieve block data", slot = slot,
             wall_slot = currentSlot, validator = shortLog(validator)
@@ -103,7 +104,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
       try:
         let signedBlock = ForkedSignedBeaconBlock.init(beaconBlock, blockRoot,
                                                        signature)
-        await vc.publishBlock(signedBlock)
+        await vc.publishBlock(signedBlock, ApiStrategyKind.First)
       except ValidatorApiError:
         error "Unable to publish block",
               blockRoot = shortLog(blockRoot),

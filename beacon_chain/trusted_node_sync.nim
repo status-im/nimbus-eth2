@@ -106,17 +106,21 @@ proc doTrustedNodeSync*(
     for i in 0..<3:
       try:
         return await client.getBlockV2(BlockIdent.init(slot), cfg)
-      except CatchableError as exc:
+      except RestResponseError as exc:
         lastError = exc
+        notice "Server does not support block downloads / backfilling",
+          msg = exc.msg
+        break
+      except CatchableError as exc:
+        # We'll assume this may be a connectivity error or something similar
+        lastError = exc
+
         warn "Retrying download of block", slot, err = exc.msg
         client = RestClientRef.new(restUrl).valueOr:
           error "Cannot connect to server", url = restUrl, error = error
           quit 1
 
-    error "Unable to download block - backfill incomplete, but will resume when you start the beacon node",
-      slot, error = lastError.msg, url = client.address
-
-    quit 1
+    raise lastError
 
   let
     localGenesisRoot = db.getGenesisBlock().valueOr:
@@ -280,8 +284,8 @@ proc doTrustedNodeSync*(
         dbCache.update(blck)
     (checkpointSlot, checkpointBlock[].root)
   else:
-    notice "Skipping checkpoint download, database already exists",
-      head = shortLog(dbHead.get())
+    notice "Skipping checkpoint download, database already exists (remove db directory to get a fresh snapshot)",
+      databaseDir, head = shortLog(dbHead.get())
     (headSlot, dbHead.get())
 
   # Coming this far, we've done what ChainDAGRef.preInit would normally do -
@@ -383,23 +387,27 @@ proc doTrustedNodeSync*(
     # Download blocks backwards from the checkpoint slot, skipping the ones we
     # already have in the database. We'll do a few downloads in parallel which
     # risks having some redundant downloads going on, but speeds things up
-    for i in 0'u64..<(checkpointSlot.uint64 + gets.lenu64()):
-      if not isNil(gets[int(i mod gets.lenu64)]):
-        await processBlock(
-          gets[int(i mod gets.lenu64)],
-          checkpointSlot + gets.lenu64() - uint64(i))
-        gets[int(i mod gets.lenu64)] = nil
+    try:
+      for i in 0'u64..<(checkpointSlot.uint64 + gets.lenu64()):
+        if not isNil(gets[int(i mod gets.lenu64)]):
+          await processBlock(
+            gets[int(i mod gets.lenu64)],
+            checkpointSlot + gets.lenu64() - uint64(i))
+          gets[int(i mod gets.lenu64)] = nil
 
-      if i < checkpointSlot:
-        let slot = checkpointSlot - i
-        if dbCache.isKnown(slot):
-          continue
+        if i < checkpointSlot:
+          let slot = checkpointSlot - i
+          if dbCache.isKnown(slot):
+            continue
 
-        gets[int(i mod gets.lenu64)] = downloadBlock(slot)
+          gets[int(i mod gets.lenu64)] = downloadBlock(slot)
 
-      if i mod 1024 == 0:
-        db.checkpoint() # Transfer stuff from wal periodically
-    true
+        if i mod 1024 == 0:
+          db.checkpoint() # Transfer stuff from wal periodically
+      true
+    except CatchableError as exc: # Block download failed
+      notice "Backfilling incomplete - blocks will be downloaded when starting the node", msg = exc.msg
+      false
   else:
     notice "Database initialized, historical blocks will be backfilled when starting the node",
       missingSlots
