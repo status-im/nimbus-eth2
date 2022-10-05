@@ -290,7 +290,8 @@ p2pProtocol BeaconSync(version = 1,
     # https://github.com/tersec/consensus-specs/blob/deprecate-phase0-beacon-blocks-req-resp/specs/phase0/p2p-interface.md#beaconblocksbyroot
     # `/eth2/beacon_chain/req/beacon_blocks_by_root/1/` is deprecated. Clients
     # MAY respond with an empty list during the deprecation transition period.
-    discard
+    peer.updateRequestQuota(blockByRootLookupCost)
+    peer.awaitNonNegativeRequestQuota()
 
   proc beaconBlocksByRange_v2(
       peer: Peer,
