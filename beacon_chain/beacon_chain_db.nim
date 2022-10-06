@@ -563,20 +563,20 @@ proc decodeSZSSZ[T](data: openArray[byte], output: var T): bool =
       err = e.msg, typ = name(T), dataLen = data.len
     false
 
-proc encodeSSZ(v: auto): seq[byte] =
+func encodeSSZ(v: auto): seq[byte] =
   try:
     SSZ.encode(v)
   except IOError as err:
     raiseAssert err.msg
 
-proc encodeSnappySSZ(v: auto): seq[byte] =
+func encodeSnappySSZ(v: auto): seq[byte] =
   try:
     snappy.encode(SSZ.encode(v))
   except CatchableError as err:
     # In-memory encode shouldn't fail!
     raiseAssert err.msg
 
-proc encodeSZSSZ(v: auto): seq[byte] =
+func encodeSZSSZ(v: auto): seq[byte] =
   # https://github.com/google/snappy/blob/main/framing_format.txt
   try:
     encodeFramed(SSZ.encode(v))
