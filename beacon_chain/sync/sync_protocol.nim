@@ -274,7 +274,7 @@ p2pProtocol BeaconSync(version = 1,
       reqStep: uint64,
       response: MultipleChunksResponse[phase0.SignedBeaconBlock])
       {.async, libp2pProtocol("beacon_blocks_by_range", 1).} =
-    # https://github.com/tersec/consensus-specs/blob/deprecate-phase0-beacon-blocks-req-resp/specs/phase0/p2p-interface.md#beaconblocksbyrange
+    # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyrange
     # `/eth2/beacon_chain/req/beacon_blocks_by_range/1/` is deprecated. Clients
     # MAY respond with an empty list during the deprecation transition period.
     peer.updateRequestQuota(blockByRangeLookupCost)
@@ -282,12 +282,10 @@ p2pProtocol BeaconSync(version = 1,
 
   proc beaconBlocksByRoot(
       peer: Peer,
-      # Please note that the SSZ list here ensures that the
-      # spec constant MAX_REQUEST_BLOCKS is enforced:
       blockRoots: BlockRootsList,
       response: MultipleChunksResponse[phase0.SignedBeaconBlock])
       {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
-    # https://github.com/tersec/consensus-specs/blob/deprecate-phase0-beacon-blocks-req-resp/specs/phase0/p2p-interface.md#beaconblocksbyroot
+    # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyroot
     # `/eth2/beacon_chain/req/beacon_blocks_by_root/1/` is deprecated. Clients
     # MAY respond with an empty list during the deprecation transition period.
     peer.updateRequestQuota(blockByRootLookupCost)
