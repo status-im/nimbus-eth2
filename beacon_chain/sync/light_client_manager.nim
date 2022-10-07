@@ -382,7 +382,7 @@ func fetchTime(
       of NextPeriod:
         chronos.seconds(
           (SLOTS_PER_SYNC_COMMITTEE_PERIOD * SECONDS_PER_SLOT).int64)
-    minDelay = max(remainingTime div 8, chronos.seconds(30))
+    minDelay = max(remainingTime div 8, chronos.seconds(10))
     jitterSeconds = (minDelay * 2).seconds
     jitterDelay = chronos.seconds(self.rng[].rand(jitterSeconds).int64)
   return wallTime + minDelay + jitterDelay
