@@ -2,7 +2,6 @@ import
   std/tables,
   stew/results,
   chronicles,
-  web3/ethtypes,
   ../datatypes/base
 
 type
