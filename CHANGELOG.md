@@ -1,3 +1,11 @@
+2022-10-10 v22.10.1
+===================
+
+Nimbus `v22.10.1` is a `low-urgency` hotfix release addressing a frequently encountered crash when Nimbus has poor network connectivity to an external block builder:
+
+https://github.com/status-im/nimbus-eth2/pull/4222
+
+
 2022-10-03 v22.10.0
 ===================
 
