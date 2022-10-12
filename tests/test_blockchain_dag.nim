@@ -89,7 +89,7 @@ suite "Block pool processing" & preset():
       dag.parent(b2Add[].bid).get() == b1Add[].bid
       # head not updated yet - getBlockIdAtSlot won't give those blocks
       dag.getBlockIdAtSlot(b2Add[].slot).get() ==
-        BlockSlotId.init(dag.genesis, b2Add[].slot)
+        BlockSlotId.init(dag.getBlockIdAtSlot(GENESIS_SLOT).get().bid, b2Add[].slot)
 
       sr.isSome()
       er.isSome()
@@ -466,7 +466,7 @@ suite "chain DAG finalization tests" & preset():
 
     check:
       dag.heads.len() == 1
-      dag.getBlockIdAtSlot(0.Slot).get() == BlockSlotId.init(dag.genesis, 0.Slot)
+      dag.getBlockIdAtSlot(0.Slot).get().bid.slot == 0.Slot
       dag.getBlockIdAtSlot(2.Slot).get() ==
         BlockSlotId.init(dag.getBlockIdAtSlot(1.Slot).get().bid, 2.Slot)
 
@@ -478,7 +478,7 @@ suite "chain DAG finalization tests" & preset():
       not dag.containsForkBlock(dag.getBlockIdAtSlot(5.Slot).get().bid.root)
       dag.containsForkBlock(dag.finalizedHead.blck.root)
 
-      dag.getBlockRef(dag.genesis.root).isNone() # Finalized - no BlockRef
+      dag.getBlockRef(dag.getBlockIdAtSlot(0.Slot).get().bid.root).isNone() # Finalized - no BlockRef
 
       dag.getBlockRef(dag.finalizedHead.blck.root).isSome()
 
@@ -838,7 +838,7 @@ suite "Backfill":
       dag.getBlockIdAtSlot(dag.tail.slot).get().bid == dag.tail
       dag.getBlockIdAtSlot(dag.tail.slot - 1).isNone()
 
-      dag.getBlockIdAtSlot(Slot(0)).get() == dag.genesis.atSlot()
+      dag.getBlockIdAtSlot(Slot(0)).isSome() # genesis stored in db
       dag.getBlockIdAtSlot(Slot(1)).isNone()
 
       # No EpochRef for pre-tail epochs
@@ -901,6 +901,7 @@ suite "Backfill":
       check: dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
 
     check:
+      dag.addBackfillBlock(genBlock.phase0Data.asSigned).isOk()
       dag.addBackfillBlock(genBlock.phase0Data.asSigned).error == BlockError.Duplicate
 
       dag.backfill.slot == GENESIS_SLOT
@@ -942,6 +943,37 @@ suite "Backfill":
         blocks[^2].toBlockId().atSlot()
       dag2.getBlockIdAtSlot(dag.tail.slot - 2).isNone
       dag2.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
+
+  test "Init without genesis / block":
+    let
+      tailBlock = blocks[^1]
+
+    ChainDAGRef.preInit(db, tailState[])
+
+    let
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+
+    check:
+      dag.getFinalizedEpochRef() != nil
+      dag.addBackfillBlock(blocks[^2].phase0Data).isOk()
+
+    var
+      cache: StateCache
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      quarantine = newClone(Quarantine.init())
+
+    let
+      next = addTestBlock(tailState[], cache).phase0Data
+      nextAdd = dag.addHeadBlock(verifier, next, nilPhase0Callback).get()
+    dag.updateHead(nextAdd, quarantine[])
+
+    let
+      validatorMonitor2 = newClone(ValidatorMonitor.init())
+
+      dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor2, {})
+    check:
+      dag2.head.root == next.root
 
 suite "Latest valid hash" & preset():
   setup:

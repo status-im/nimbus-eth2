@@ -80,7 +80,9 @@ proc getBlockSlotId*(node: BeaconNode,
     of StateIdentType.Head:
       ok(node.dag.head.bid.atSlot())
     of StateIdentType.Genesis:
-      ok(node.dag.genesis.atSlot())
+      let bid = node.dag.getBlockIdAtSlot(GENESIS_SLOT).valueOr:
+        return err("Genesis state not available / pruned")
+      ok bid
     of StateIdentType.Finalized:
       ok(node.dag.finalizedHead.toBlockSlotId().expect("not nil"))
     of StateIdentType.Justified:
@@ -98,7 +100,7 @@ proc getBlockId*(node: BeaconNode, id: BlockIdent): Opt[BlockId] =
     of BlockIdentType.Head:
       ok(node.dag.head.bid)
     of BlockIdentType.Genesis:
-      ok(node.dag.genesis)
+      node.dag.getBlockIdAtSlot(GENESIS_SLOT).map(proc(x: auto): auto = x.bid)
     of BlockIdentType.Finalized:
       ok(node.dag.finalizedHead.blck.bid)
   of BlockQueryKind.Root:

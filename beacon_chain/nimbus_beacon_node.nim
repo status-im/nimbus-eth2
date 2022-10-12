@@ -277,7 +277,10 @@ proc initFullNode(
     dag.backfill.slot
 
   func getFrontfillSlot(): Slot =
-    dag.frontfill.slot
+    if dag.frontfill.isSome():
+      dag.frontfill.get().slot
+    else:
+      GENESIS_SLOT
 
   let
     quarantine = newClone(

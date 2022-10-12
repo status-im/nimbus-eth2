@@ -17,10 +17,11 @@ AllTests-mainnet
 OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Backfill
 ```diff
++ Init without genesis / block                                                               OK
 + backfill to genesis                                                                        OK
 + reload backfill position                                                                   OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + empty database [Preset: mainnet]                                                           OK
@@ -597,4 +598,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 330/335 Fail: 0/335 Skip: 5/335
+OK: 331/336 Fail: 0/336 Skip: 5/336

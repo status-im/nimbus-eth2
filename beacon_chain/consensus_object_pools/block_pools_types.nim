@@ -138,14 +138,15 @@ type
       ## `finalizedHead.slot..head.slot` (inclusive) - dag.heads keeps track
       ## of each potential head block in this table.
 
-    genesis*: BlockId
-      ## The genesis block of the network
+    genesis*: Opt[BlockId]
+      ## The root of the genesis block, iff it is known (ie if the database was
+      ## created with a genesis state available)
 
     tail*: BlockId
-      ## The earliest finalized block for which we have a corresponding state -
-      ## when making a replay of chain history, this is as far back as we can
-      ## go - the tail block is unique in that its parent is set to `nil`, even
-      ## in the case where an earlier genesis block exists.
+      ## The earliest block for which we can construct a state - we consider
+      ## the tail implicitly finalized no matter what fork choice and state
+      ## says - when starting from a trusted checkpoint, the tail is set to
+      ## the checkpoint block.
 
     head*: BlockRef
       ## The most recently known head, as chosen by fork choice; might be
@@ -333,10 +334,14 @@ type
 
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
-template frontfill*(dagParam: ChainDAGRef): BlockId =
+template frontfill*(dagParam: ChainDAGRef): Opt[BlockId] =
+  ## When there's a gap in the block database, this is the most recent block
+  ## that we know of _before_ the gap - after a checkpoint sync, this will
+  ## typically be the genesis block (iff available) - if we have era files,
+  ## this is the most recent era file block.
   let dag = dagParam
   if dag.frontfillBlocks.lenu64 > 0:
-    BlockId(
+    Opt.some BlockId(
       slot: Slot(dag.frontfillBlocks.lenu64 - 1), root: dag.frontfillBlocks[^1])
   else:
     dag.genesis
