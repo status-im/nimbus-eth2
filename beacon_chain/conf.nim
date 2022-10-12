@@ -113,6 +113,12 @@ type
     # migrateAll = "Export and remove the whole validator slashing protection DB."
     # migrate = "Export and remove specified validators from Nimbus."
 
+  DeploymentPhase* {.pure.} = enum
+    Devnet = "devnet"
+    Testnet = "testnet"
+    Mainnet = "mainnet"
+    None = "none"
+
   BeaconNodeConf* = object
     configFile* {.
       desc: "Loads the configuration from a TOML file"
@@ -514,6 +520,13 @@ type
         defaultValue: MaxEmptySlotCount
         defaultValueDesc: "50"
         name: "sync-horizon" .}: uint64
+
+      deploymentPhase* {.
+        hidden
+        desc: "Configures the deployment phase"
+        defaultValue: DeploymentPhase.Mainnet
+        defaultValueDesc: $DeploymentPhase.Mainnet
+        name: "deployment-phase" .}: DeploymentPhase
 
       # TODO nim-confutils on 32-bit platforms overflows decoding integers
       # requiring 64-bit representations and doesn't build when specifying
