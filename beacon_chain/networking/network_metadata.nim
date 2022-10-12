@@ -79,15 +79,6 @@ type
     else:
       incompatibilityDesc*: string
 
-type DeploymentPhase* {.pure.} = enum
-  None,
-  Devnet,
-  Testnet,
-  Mainnet
-
-func deploymentPhase*(genesisData: string): DeploymentPhase =
-  DeploymentPhase.Devnet
-
 const
   eth2NetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-networks"
   mergeTestnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/merge-testnets"
