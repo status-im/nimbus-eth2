@@ -19,7 +19,7 @@ const
                        $RestTesterPatch
   RestTesterIdent* = "RestTester/$1 ($2/$3)" % [RestTesterVersion,
                                                 hostCPU, hostOS]
-  RestTesterCopyright* = "Copyright(C) 2021" &
+  RestTesterCopyright* = "Copyright(C) 2021-2022" &
                         " Status Research & Development GmbH"
   RestTesterHeader* = RestTesterName & ", Version " & RestTesterVersion &
                       " [" & hostOS & ": " & hostCPU & "]\r\n" &
