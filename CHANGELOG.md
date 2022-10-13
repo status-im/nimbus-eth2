@@ -1,8 +1,22 @@
-2022-10-10 v22.10.1
+2022-10-13 v22.10.1
 ===================
 
-Nimbus `v22.10.1` is a `low-urgency` hotfix release addressing a frequently encountered crash when Nimbus has poor network connectivity to an external block builder:
+Nimbus `v22.10.1` is a `low-urgency` point release introducing support for the official light client REST API and improving the stability of Nimbus when paired with an external block builder.
 
+### Improvements
+
+* Support for the official light client REST API:
+  https://github.com/ethereum/beacon-APIs/pull/247
+  https://github.com/status-im/nimbus-eth2/pull/4213
+  https://github.com/status-im/nimbus-eth2/pull/4232
+
+### Fixes:
+
+* Nimbus was slowly leaking file descriptors when paired with an external builder:
+https://github.com/status-im/nim-chronos/pull/323
+
+
+* Nimbus could potentially crash under a poor network connectivity to an external builder:
 https://github.com/status-im/nimbus-eth2/pull/4222
 
 
