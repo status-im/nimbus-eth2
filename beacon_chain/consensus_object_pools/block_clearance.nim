@@ -316,6 +316,37 @@ proc addBackfillBlock*(
 
   template blck(): untyped = signedBlock.message # shortcuts without copy
   template blockRoot(): untyped = signedBlock.root
+  template checkSignature =
+    # If the hash is correct, the block itself must be correct, but the root does
+    # not cover the signature, which we check next
+    if blck.slot == GENESIS_SLOT:
+      # The genesis block must have an empty signature (since there's no proposer)
+      if signedBlock.signature != ValidatorSig():
+        info "Invalid genesis block signature"
+        return err(BlockError.Invalid)
+    else:
+      let proposerKey = dag.validatorKey(blck.proposer_index)
+      if proposerKey.isNone():
+        # We've verified that the block root matches our expectations by following
+        # the chain of parents all the way from checkpoint. If all those blocks
+        # were valid, the proposer_index in this block must also be valid, and we
+        # should have a key for it but we don't: this is either a bug on our from
+        # which we cannot recover, or an invalid checkpoint state was given in which
+        # case we're in trouble.
+        fatal "Invalid proposer in backfill block - checkpoint state corrupt?",
+          head = shortLog(dag.head), tail = shortLog(dag.tail)
+
+        quit 1
+
+      if not verify_block_signature(
+          dag.forkAtEpoch(blck.slot.epoch),
+          getStateField(dag.headState, genesis_validators_root),
+          blck.slot,
+          signedBlock.root,
+          proposerKey.get(),
+          signedBlock.signature):
+        info "Block signature verification failed"
+        return err(BlockError.Invalid)
 
   let startTick = Moment.now()
 
@@ -324,9 +355,16 @@ proc addBackfillBlock*(
     if existing.isSome:
       if existing.get().bid.slot == blck.slot and
           existing.get().bid.root == blockRoot:
-        # We should not call the block added callback for blocks that already
-        # existed in the pool, as that may confuse consumers such as the fork
-        # choice.
+
+        # Special case: when starting with only a checkpoint state, we will not
+        # have the head block data in the database
+        if dag.getForkedBlock(existing.get().bid).isNone():
+          checkSignature()
+
+          debug "Block backfilled (checkpoint)"
+          dag.putBlock(signedBlock.asTrusted())
+          return ok()
+
         debug "Duplicate block"
         return err(BlockError.Duplicate)
 
@@ -368,36 +406,7 @@ proc addBackfillBlock*(
     debug "Block does not match expected backfill root"
     return err(BlockError.MissingParent) # MissingChild really, but ..
 
-  # If the hash is correct, the block itself must be correct, but the root does
-  # not cover the signature, which we check next
-  if blck.slot == GENESIS_SLOT:
-    # The genesis block must have an empty signature (since there's no proposer)
-    if signedBlock.signature != ValidatorSig():
-      info "Invalid genesis block signature"
-      return err(BlockError.Invalid)
-  else:
-    let proposerKey = dag.validatorKey(blck.proposer_index)
-    if proposerKey.isNone():
-      # We've verified that the block root matches our expectations by following
-      # the chain of parents all the way from checkpoint. If all those blocks
-      # were valid, the proposer_index in this block must also be valid, and we
-      # should have a key for it but we don't: this is either a bug on our from
-      # which we cannot recover, or an invalid checkpoint state was given in which
-      # case we're in trouble.
-      fatal "Invalid proposer in backfill block - checkpoint state corrupt?",
-        head = shortLog(dag.head), tail = shortLog(dag.tail)
-
-      quit 1
-
-    if not verify_block_signature(
-        dag.forkAtEpoch(blck.slot.epoch),
-        getStateField(dag.headState, genesis_validators_root),
-        blck.slot,
-        signedBlock.root,
-        proposerKey.get(),
-        signedBlock.signature):
-      info "Block signature verification failed"
-      return err(BlockError.Invalid)
+  checkSignature()
 
   let sigVerifyTick = Moment.now
 

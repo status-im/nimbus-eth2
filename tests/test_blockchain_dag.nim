@@ -901,7 +901,6 @@ suite "Backfill":
       check: dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
 
     check:
-      dag.addBackfillBlock(genBlock.phase0Data.asSigned).isOk()
       dag.addBackfillBlock(genBlock.phase0Data.asSigned).error == BlockError.Duplicate
 
       dag.backfill.slot == GENESIS_SLOT
@@ -947,6 +946,7 @@ suite "Backfill":
   test "Init without genesis / block":
     let
       tailBlock = blocks[^1]
+      genBlock = get_initial_beacon_block(genState[])
 
     ChainDAGRef.preInit(db, tailState[])
 
@@ -956,7 +956,15 @@ suite "Backfill":
 
     check:
       dag.getFinalizedEpochRef() != nil
-      dag.addBackfillBlock(blocks[^2].phase0Data).isOk()
+
+    for i in 0..<blocks.len:
+      check: dag.addBackfillBlock(
+        blocks[blocks.len - i - 1].phase0Data).isOk()
+
+    check:
+      dag.addBackfillBlock(genBlock.phase0Data.asSigned).isOk()
+      dag.addBackfillBlock(
+        genBlock.phase0Data.asSigned).error == BlockError.Duplicate
 
     var
       cache: StateCache
