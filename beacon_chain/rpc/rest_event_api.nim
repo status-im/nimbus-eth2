@@ -86,7 +86,6 @@ proc eventHandler*[T](response: HttpResponseRef,
 
 proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Events/eventstream
-  # https://github.com/ethereum/beacon-APIs/pull/181
   router.api(MethodGet, "/eth/v1/events") do (
     topics: seq[EventTopic]) -> RestApiResponse:
     let eventTopics =
@@ -151,12 +150,12 @@ proc installEventApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if EventTopic.LightClientFinalityUpdate in eventTopics:
           doAssert node.dag.lcDataStore.serve
           let handler = response.eventHandler(node.eventBus.finUpdateQueue,
-                                              "light_client_finality_update_v0")
+                                              "light_client_finality_update")
           res.add(handler)
         if EventTopic.LightClientOptimisticUpdate in eventTopics:
           doAssert node.dag.lcDataStore.serve
           let handler = response.eventHandler(node.eventBus.optUpdateQueue,
-                                              "light_client_optimistic_update_v0")
+                                              "light_client_optimistic_update")
           res.add(handler)
         res
 
