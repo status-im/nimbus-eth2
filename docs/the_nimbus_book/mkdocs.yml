@@ -97,6 +97,7 @@ nav:
     - 'rest-api.md'
     - 'keymanager-api.md'
     - 'data-dir.md'
+    - 'era-store.md'
     - 'migration-options.md'
     - 'light-client-data.md'
     - 'troubleshooting.md'
