@@ -365,20 +365,6 @@
   
   
     <li class="md-nav__item">
-      <a href="merge.html" class="md-nav__link">
-        The Merge
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="philosophy.html" class="md-nav__link">
         Design goals
       </a>
@@ -1330,6 +1316,20 @@
   
   
     <li class="md-nav__item">
+      <a href="era-store.html" class="md-nav__link">
+        Era store
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="migration-options.html" class="md-nav__link">
         Client migration (advanced)
       </a>
@@ -1601,7 +1601,7 @@
 <p>Nimbus has been tested all major execution clients - see the <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients">execution client comparison</a> for more information.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>You need to run your own execution client after <a href="merge.html">the merge</a> - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.</p>
+<p>You need to run your own execution client - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.</p>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
@@ -1661,7 +1661,7 @@
 </div>
 </div>
 <h3 id="2-leave-the-execution-client-running">2. Leave the execution client running</h3>
-<p>The execution client will be syncing the chain, up to <a href="merge.html">the merge</a>. Once it reaches this point, it will wait for the beacon node to provide further sync instructions.</p>
+<p>The execution client will be syncing the chain through the merge transition block. Once it reaches this point, it will wait for the beacon node to provide further sync instructions.</p>
 <p>It is safe to start the beacon node even if the execution client is not yet fully synced and vice versa.</p>
 <h3 id="3-pass-the-url-and-jwt-secret-to-nimbus">3. Pass the URL and JWT secret to Nimbus</h3>
 <p>The <code>--web3-url</code> option informs the beacon node how to connect to the execution client - both <code>http://</code> and <code>ws://</code> URL:s are supported.</p>
