@@ -17,9 +17,9 @@ import ../beacon_node,
 logScope: topics = "rest_light_client"
 
 proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
-  # https://github.com/ethereum/beacon-APIs/pull/181
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientBootstrap
   router.api(MethodGet,
-             "/eth/v0/beacon/light_client/bootstrap/{block_root}") do (
+             "/eth/v1/beacon/light_client/bootstrap/{block_root}") do (
     block_root: Eth2Digest) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
     let contentType =
@@ -52,9 +52,9 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-  # https://github.com/ethereum/beacon-APIs/pull/181
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientUpdatesByRange
   router.api(MethodGet,
-             "/eth/v0/beacon/light_client/updates") do (
+             "/eth/v1/beacon/light_client/updates") do (
     start_period: Option[SyncCommitteePeriod], count: Option[uint64]
     ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
@@ -113,9 +113,9 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-  # https://github.com/ethereum/beacon-APIs/pull/181
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientFinalityUpdate
   router.api(MethodGet,
-             "/eth/v0/beacon/light_client/finality_update") do (
+             "/eth/v1/beacon/light_client/finality_update") do (
     ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
     let contentType =
@@ -142,9 +142,9 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-  # https://github.com/ethereum/beacon-APIs/pull/181
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientOptimisticUpdate
   router.api(MethodGet,
-             "/eth/v0/beacon/light_client/optimistic_update") do (
+             "/eth/v1/beacon/light_client/optimistic_update") do (
     ) -> RestApiResponse:
     doAssert node.dag.lcDataStore.serve
     let contentType =

@@ -2458,6 +2458,82 @@
     "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
+    "topics": ["beacon", "beacon_light_client_bootstrap_blockroot"],
+    "request": {
+      "url": "/eth/v1/beacon/light_client/bootstrap/0x0000000000000000000000000000000000000000000000000000000000000000",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "404"}}
+  },
+  {
+    "topics": ["beacon", "beacon_light_client_bootstrap_blockroot"],
+    "request": {
+      "url": "/eth/v1/beacon/light_client/bootstrap/head",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_light_client_updates"],
+    "request": {
+      "url": "/eth/v1/beacon/light_client/updates?start_period=0&count=50",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": [],"value": [[]]}]
+    }
+  },
+  {
+    "topics": ["beacon", "beacon_light_client_updates"],
+    "request": {
+      "url": "/eth/v1/beacon/light_client/updates?start_period=X&count=50",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_light_client_updates"],
+    "request": {
+      "url": "/eth/v1/beacon/light_client/updates?start_period=0&count=X",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_light_client_updates"],
+    "request": {
+      "url": "/eth/v1/beacon/light_client/updates?count=50",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_light_client_updates"],
+    "request": {
+      "url": "/eth/v1/beacon/light_client/updates?start_period=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "400"}}
+  },
+  {
+    "topics": ["beacon", "beacon_light_client_finality_update"],
+    "request": {
+      "url": "/eth/v1/beacon/light_client/finality_update",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "404"}}
+  },
+  {
+    "topics": ["beacon", "beacon_light_client_optimistic_update"],
+    "request": {
+      "url": "/eth/v1/beacon/light_client/optimistic_update",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {"status": {"operator": "equals", "value": "404"}}
+  },
+  {
     "topics": ["beacon", "pool_attestations"],
     "request": {
       "url": "/eth/v1/beacon/pool/attestations",
