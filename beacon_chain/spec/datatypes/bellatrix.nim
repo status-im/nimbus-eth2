@@ -31,9 +31,6 @@ const
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#request-1
   FORKCHOICEUPDATED_TIMEOUT* = 8.seconds
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#request
-  NEWPAYLOAD_TIMEOUT* = 8.seconds
-
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#custom-types
   Transaction* = List[byte, Limit MAX_BYTES_PER_TRANSACTION]

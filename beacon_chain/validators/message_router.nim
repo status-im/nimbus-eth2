@@ -121,8 +121,8 @@ proc routeSignedBeaconBlock*(
       signature = shortLog(blck.signature), error = res.error()
 
   let
-    newBlockRef = router[].blockProcessor[].storeBlock(
-      MsgSource.api, sendTime, blck, true)
+    newBlockRef = await router[].blockProcessor.storeBlock(
+      MsgSource.api, sendTime, blck)
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain

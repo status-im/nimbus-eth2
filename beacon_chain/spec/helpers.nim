@@ -207,7 +207,7 @@ template is_sync_committee_update*(update: SomeLightClientUpdate): bool =
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/sync-protocol.md#is_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/sync-protocol.md#is_finality_update
 template is_finality_update*(update: SomeLightClientUpdate): bool =
   when update is SomeLightClientUpdateWithFinality:
     not isZeroMemory(update.finality_branch)
