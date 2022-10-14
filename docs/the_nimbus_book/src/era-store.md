@@ -65,7 +65,7 @@ wget --no-parent  -A '*.era' -q --show-progress -nd -r -c https://provider/era
 
 ## Options
 
-You can pass a custom era store location to Nimbus using `--era-dir` - multiple Nimbus instances can share the same era store.
+You can pass a custom era store location to Nimbus using `--era-dir`:
 
 ```sh
 nimbus_beacon_node --era-dir:/path/to/era
