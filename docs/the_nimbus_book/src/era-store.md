@@ -36,7 +36,7 @@ cd era
 ../../../ncli_db exportEra --db:../db
 ```
 
-The first time the export is run, full history is exported which make take some time. Subsequent runs will top up the era store with new blocks.
+The first time the export is run, full history is exported which may take some time. Subsequent runs will top up the era store with new blocks.
 
 It is recommended to set up a cron job or a timer, and run the export command every hour - doing so will ensure that era files are created on a timely basis.
 
