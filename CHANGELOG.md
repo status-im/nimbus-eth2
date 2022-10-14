@@ -1,4 +1,4 @@
-2022-10-13 v22.10.1
+2022-10-14 v22.10.1
 ===================
 
 Nimbus `v22.10.1` is a `low-urgency` point release introducing support for the official light client REST API and improving the stability of Nimbus when paired with an external block builder.
@@ -13,11 +13,10 @@ Nimbus `v22.10.1` is a `low-urgency` point release introducing support for the o
 ### Fixes:
 
 * Nimbus was slowly leaking file descriptors when paired with an external builder:
-https://github.com/status-im/nim-chronos/pull/323
+  https://github.com/status-im/nimbus-eth2/pull/4235
 
-
-* Nimbus could potentially crash under a poor network connectivity to an external builder:
-https://github.com/status-im/nimbus-eth2/pull/4222
+* Nimbus could potentially crash under a poor network connectivity to the external builder:
+  https://github.com/status-im/nimbus-eth2/pull/4222
 
 
 2022-10-03 v22.10.0
