@@ -414,7 +414,7 @@ proc spawnAttestationTasks(service: AttestationServiceRef,
   if len(dutiesSkipped) > 0:
     info "Doppelganger protection disabled validator duties",
          validators = len(dutiesSkipped)
-    debug "Doppelganger protection disabled validator duties dump",
+    trace "Doppelganger protection disabled validator duties dump",
           validators = dutiesSkipped
 
 proc mainLoop(service: AttestationServiceRef) {.async.} =
