@@ -288,10 +288,8 @@ proc stepChecks(
       doAssert fkChoice.checkpoints.proposer_boost_root ==
         Eth2Digest.fromHex(val.getStr())
     elif check == "genesis_time":
-      # The fork choice is pruned regularly
-      # and does not store the genesis time,
-      # hence we check the DAG
-      doAssert dag.genesis.slot == Slot(val.getInt())
+      # We do not store genesis in fork choice..
+      discard
     else:
       doAssert false, "Unsupported check '" & $check & "'"
 

@@ -171,11 +171,12 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
   ## Retrieve the canonical block at the given slot, or the last block that
   ## comes before - similar to atSlot, but without the linear scan - may hit
   ## the database to look up early indices.
-  if slot == dag.genesis.slot:
-    return ok BlockSlotId.init(dag.genesis, slot)
-
   if slot > dag.finalizedHead.slot:
     return dag.head.atSlot(slot).toBlockSlotId() # iterate to the given slot
+
+  if dag.finalizedHead.blck == nil:
+    # Not initialized yet (in init)
+    return Opt.none(BlockSlotId)
 
   if slot >= dag.finalizedHead.blck.slot:
     # finalized head is still in memory
@@ -195,7 +196,35 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
 
       pos = pos - 1
 
-  err() # not backfilled yet, and not genesis
+  if slot == GENESIS_SLOT and dag.genesis.isSome():
+    return ok dag.genesis.get().atSlot()
+
+  err() # not backfilled yet
+
+proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
+    Opt[ForkedTrustedSignedBeaconBlock] {.gcsafe.}
+
+proc getBlockId(db: BeaconChainDB, root: Eth2Digest): Opt[BlockId] =
+  block: # We might have a summary in the database
+    let summary = db.getBeaconBlockSummary(root)
+    if summary.isOk():
+      return ok(BlockId(root: root, slot: summary.get().slot))
+
+  block:
+    # We might have a block without having written a summary - this can happen
+    # if there was a crash between writing the block and writing the summary,
+    # specially in databases written by older nimbus versions
+    let forked = db.getForkedBlock(root)
+    if forked.isSome():
+      # Shouldn't happen too often but..
+      let
+        blck = forked.get()
+        summary = withBlck(blck): blck.message.toBeaconBlockSummary()
+      debug "Writing summary", blck = shortLog(blck)
+      db.putBeaconBlockSummary(root, summary)
+      return ok(BlockId(root: root, slot: summary.slot))
+
+  err()
 
 proc getBlockId*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockId] =
   ## Look up block id by root in history - useful for turning a root into a
@@ -207,12 +236,7 @@ proc getBlockId*(dag: ChainDAGRef, root: Eth2Digest): Opt[BlockId] =
     if blck.isOk():
       return ok(blck.get().bid)
 
-  block: # We might have a summary in the database
-    let summary = dag.db.getBeaconBlockSummary(root)
-    if summary.isOk():
-      return ok(BlockId(root: root, slot: summary.get().slot))
-
-  err()
+  dag.db.getBlockId(root)
 
 func isCanonical*(dag: ChainDAGRef, bid: BlockId): bool =
   ## Return true iff the given `bid` is part of the history selected by `dag.head`
@@ -701,20 +725,6 @@ export
   blockchain_dag_light_client.getLightClientFinalityUpdate,
   blockchain_dag_light_client.getLightClientOptimisticUpdate
 
-proc getViableHead(cfg: RuntimeConfig, db: BeaconChainDB): Opt[BlockId] =
-  # When the database has been written with a pre-fork version of the
-  # software, it may happen that blocks produced using an "unforked"
-  # chain get written to the database - we need to skip such blocks
-  # when loading the database with a fork-compatible version
-  let
-    headRoot = ? db.getHeadBlock()
-
-  for blck in db.getAncestorSummaries(headRoot):
-    if containsBlock(cfg, db, blck.summary.slot, blck.root):
-      return ok(BlockId(slot: blck.summary.slot, root: blck.root))
-
-  err()
-
 proc putState(dag: ChainDAGRef, state: ForkedHashedBeaconState, bid: BlockId) =
   # Store a state and its root
   logScope:
@@ -816,21 +826,22 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # genesis or a checkpoint
   let
     startTick = Moment.now()
-    genesisRoot = db.getGenesisBlock().expect(
-      "preInit should have initialized the database with a genesis block root")
+    genesisRoot = db.getGenesisBlock()
     tailRoot = db.getTailBlock().expect(
       "preInit should have initialized the database with a tail block root")
-    tailBlock = db.getForkedBlock(tailRoot).expect(
-      "Tail block in database, corrupt?")
-    head = getViableHead(cfg, db).expect("Head root in database, corrupt?")
+    tail = db.getBlockId(tailRoot).expect(
+      "tail block summary in database, database corrupt?")
+    headRoot = db.getHeadBlock().expect("head root, database corrupt?")
+    head = db.getBlockId(headRoot).expect("head block id, database corrupt?")
 
     # Have to be careful with this instance, it is not yet fully initialized so
     # as to avoid having to allocate a separate "init" state
     dag = ChainDAGRef(
       db: db,
       validatorMonitor: validatorMonitor,
-      genesis: BlockId(root: genesisRoot, slot: GENESIS_SLOT),
-      tail: tailBlock.toBlockId(),
+      genesis: genesisRoot.map(
+        proc(x: auto): auto = BlockId(root: x, slot: GENESIS_SLOT)),
+      tail: tail,
 
       # The only allowed flag right now is strictVerification, as the others all
       # allow skipping some validation.
@@ -857,7 +868,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     # To know the finalized checkpoint of the head, we need to recreate its
     # state - the tail is implicitly finalized, and if we have a finalized block
     # table, that provides another hint
-    finalizedSlot = db.finalizedBlocks.high.get(dag.tail.slot)
+    finalizedSlot = db.finalizedBlocks.high.get(tail.slot)
     newFinalized: seq[BlockId]
     cache: StateCache
     foundHeadState = false
@@ -869,7 +880,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     # The execution block root gets filled in as needed
     let newRef = BlockRef.init(blck.root, none Eth2Digest, blck.summary.slot)
     if headRef == nil:
-      doAssert blck.root == head.root
       headRef = newRef
 
     if curRef != nil:
@@ -908,7 +918,21 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       slot += 1
 
       if not foundHeadState:
-        headBlocks.add curRef
+        # When the database has been written with a pre-fork version of the
+        # software, it may happen that blocks produced using an "unforked"
+        # chain get written to the database - we need to skip such blocks
+        # when loading the database with a fork-compatible version
+        if containsBlock(cfg, db, curRef.slot, curRef.root):
+          headBlocks.add curRef
+        else:
+          if headBlocks.len > 0:
+            fatal "Missing block needed to create head state, database corrupt?",
+              curRef = shortLog(curRef)
+            quit 1
+          # Without the block data we can't form a state for this root, so
+          # we'll need to move the head back
+          headRef = nil
+          dag.forkBlocks.excl(KeyedBlockRef.init(curRef))
 
     if curRef.slot <= finalizedSlot:
       # Only non-finalized slots get a `BlockRef`
@@ -918,8 +942,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   if not foundHeadState:
     fatal "Could not load head state, database corrupt?",
-      head = shortLog(head), tail = shortLog(dag.tail),
-      genesis = shortLog(dag.genesis)
+      head = shortLog(head), tail = shortLog(dag.tail)
     quit 1
 
   let
@@ -931,7 +954,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   if stateFork != configFork:
     error "State from database does not match network, check --network parameter",
-      genesis = dag.genesis, tail = dag.tail, headRef, stateFork, configFork
+      tail = dag.tail, headRef, stateFork, configFork
     quit 1
 
   # Need to load state to find genesis validators root, before loading era db
@@ -956,7 +979,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         db.finalizedBlocks.high.get() < dag.finalizedHead.blck.slot:
       info "Loading finalized blocks",
         finHigh = db.finalizedBlocks.high,
-          finalizedHead = shortLog(dag.finalizedHead)
+        finalizedHead = shortLog(dag.finalizedHead)
 
       for blck in db.getAncestorSummaries(dag.finalizedHead.blck.root):
         if db.finalizedBlocks.high.isSome and
@@ -989,7 +1012,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       db.getBeaconBlockSummary(backfillRoot).expect(
         "Backfill block must have a summary: " & $backfillRoot)
     else:
-      withBlck(tailBlock): blck.message.toBeaconBlockSummary()
+      db.getBeaconBlockSummary(dag.tail.root).expect(
+        "Tail block must have a summary: " & $dag.tail.root)
 
   dag.forkDigests = newClone ForkDigests.init(
     cfg, getStateField(dag.headState, genesis_validators_root))
@@ -1938,6 +1962,42 @@ proc isInitialized*(T: type ChainDAGRef, db: BeaconChainDB): Result[void, cstrin
   ok()
 
 proc preInit*(
+    T: type ChainDAGRef, db: BeaconChainDB, state: ForkedHashedBeaconState) =
+  ## Initialize a database using the given state, which potentially may be a
+  ## non-genesis state.
+  ##
+  ## Databases created like this are incompatible with versions prior to
+  ## 22.11.0.
+
+  logScope:
+    stateRoot = getStateRoot(state)
+    stateSlot = getStateField(state, slot)
+
+  withState(state):
+    db.putState(forkyState)
+    if forkyState.data.slot == GENESIS_SLOT:
+      let blck = get_initial_beacon_block(forkyState)
+      db.putBlock(blck)
+      db.putGenesisBlock(blck.root)
+      db.putHeadBlock(blck.root)
+      db.putTailBlock(blck.root)
+
+      notice "New genesis database initialized",
+        genesisBlockRoot = $blck.root
+
+    else:
+      let blockRoot = forkyState.latest_block_root()
+      db.putBeaconBlockSummary(blockRoot, BeaconBlockSummary(
+        slot: forkyState.data.latest_block_header.slot,
+        parent_root: forkyState.data.latest_block_header.parent_root
+      ))
+      db.putHeadBlock(blockRoot)
+      db.putTailBlock(blockRoot)
+
+      notice "New snapshot database initialized",
+        blockRoot = $blockRoot
+
+proc preInit*(
     T: type ChainDAGRef, db: BeaconChainDB,
     genesisState, tailState: ForkedHashedBeaconState,
     tailBlock: ForkedTrustedSignedBeaconBlock) =
@@ -2026,7 +2086,7 @@ proc getProposer*(
   proposer
 
 proc getProposalState*(
-    dag: ChainDagRef, head: BlockRef, slot: Slot, cache: var StateCache):
+    dag: ChainDAGRef, head: BlockRef, slot: Slot, cache: var StateCache):
     Result[ref ForkedHashedBeaconState, cstring] =
   ## Return a state suitable for making proposals for the given head and slot -
   ## in particular, the state can be discarded after use and does not have a
@@ -2115,16 +2175,17 @@ proc aggregateAll*(
     ok(finish(aggregateKey))
 
 func needsBackfill*(dag: ChainDAGRef): bool =
-  dag.backfill.slot > dag.genesis.slot
+  dag.backfill.slot > GENESIS_SLOT
 
 proc rebuildIndex*(dag: ChainDAGRef) =
   ## After a checkpoint sync, we lack intermediate states to replay from - this
   ## function rebuilds them so that historical replay can take place again
+  ## TODO handle databases without genesis state
   if dag.backfill.slot > 0:
     debug "Backfill not complete, cannot rebuild archive"
     return
 
-  if dag.tail.slot == dag.genesis.slot:
+  if dag.tail.slot == GENESIS_SLOT:
     # The tail is the earliest slot for which we're supposed to have states -
     # if it's sufficiently recent, don't do anything
     debug "Archive does not need rebuilding"
@@ -2226,9 +2287,12 @@ proc rebuildIndex*(dag: ChainDAGRef) =
   # Now that we have states all the way to genesis, we can adjust the tail
   # and readjust the in-memory indices to what they would look like if we had
   # started with an earlier tail
-  dag.db.putTailBlock(dag.genesis.root)
+  let
+    genesis =
+      dag.getBlockIdAtSlot(GENESIS_SLOT).expect("Genesis in database").bid
+  dag.db.putTailBlock(genesis.root)
 
-  dag.tail = dag.genesis
+  dag.tail = genesis
 
   if junk.len > 0:
     info "Dropping redundant states", states = junk.len

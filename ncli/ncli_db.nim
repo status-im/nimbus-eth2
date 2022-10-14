@@ -437,7 +437,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
 
 func atCanonicalSlot(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   if slot == 0:
-    ok dag.genesis.atSlot()
+    dag.getBlockIdAtSlot(GENESIS_SLOT)
   else:
     ok BlockSlotId.init((? dag.atSlot(bid, slot - 1)).bid, slot)
 
