@@ -3,7 +3,7 @@
 !!! warning
     This feature is currently in BETA - nodes using era files may need to be resynced as the data format is not yet considered stable.
 
-Era files are a long-term archival format for Ethereum data. They are used to provide an easy interchange medium that clients interested in deep ethereum history can use to recreate past state.
+Era files are a long-term archival format for Ethereum data. They are used to provide an easy interchange medium that clients interested in deep ethereum history can use to recreate past states.
 
 !!! tip
     For more information about era files, see [this post](https://ethresear.ch/t/era-archival-files-for-block-and-consensus-data/13526).
