@@ -33,18 +33,10 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
     vc = service.client
     fork = vc.forkAtEpoch(slot.epoch)
     genesisValidatorsRoot = vc.beaconGenesis.genesis_validators_root
-
     vindex = duty.data.validator_index
     subcommitteeIdx = getSubcommitteeIndex(
       duty.data.validator_sync_committee_index)
-
-    validator =
-      block:
-        let res = vc.getValidator(duty.data.pubkey)
-        if res.isNone():
-          return false
-        res.get()
-
+    validator = vc.getValidator(duty.data.pubkey).valueOr: return false
     message =
       block:
         let res = await getSyncCommitteeMessage(validator, fork,
