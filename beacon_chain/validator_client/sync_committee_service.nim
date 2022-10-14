@@ -360,10 +360,9 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
   await service.produceAndPublishContributions(slot, beaconBlockRoot, duties)
 
 proc spawnSyncCommitteeTasks(service: SyncCommitteeServiceRef, slot: Slot) =
-  let vc = service.client
-
-  removeOldSyncPeriodDuties(vc, slot)
-  let duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)
+  let
+    vc = service.client
+    duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)
 
   asyncSpawn service.publishSyncMessagesAndContributions(slot, duties)
 

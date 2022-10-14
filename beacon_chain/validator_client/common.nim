@@ -420,19 +420,6 @@ proc getSyncCommitteeDutiesForSlot*(vc: ValidatorClientRef,
       res.add(duty[])
   res
 
-proc removeOldSyncPeriodDuties*(vc: ValidatorClientRef,
-                                slot: Slot) =
-  if slot.is_sync_committee_period:
-    let epoch = slot.epoch()
-    var prunedDuties = SyncCommitteeDutiesMap()
-    for key, item in vc.syncCommitteeDuties:
-      var curPeriodDuties = EpochSyncDuties()
-      for epochKey, epochDuty in item.duties:
-        if epochKey >= epoch:
-          curPeriodDuties.duties[epochKey] = epochDuty
-      prunedDuties[key] = curPeriodDuties
-    vc.syncCommitteeDuties = prunedDuties
-
 proc getDurationToNextAttestation*(vc: ValidatorClientRef,
                                    slot: Slot): string =
   var minSlot = FAR_FUTURE_SLOT

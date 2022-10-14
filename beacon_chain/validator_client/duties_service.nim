@@ -230,6 +230,18 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
 
   return len(addOrReplaceItems)
 
+proc pruneSyncCommitteeDuties*(vc: ValidatorClientRef, slot: Slot) =
+  if slot.is_sync_committee_period():
+    var newSyncCommitteeDuties: SyncCommitteeDutiesMap
+    let epoch = slot.epoch()
+    for key, item in vc.syncCommitteeDuties:
+      var currentPeriodDuties = EpochSyncDuties()
+      for epochKey, epochDuty in item.duties:
+        if epochKey >= epoch:
+          currentPeriodDuties.duties[epochKey] = epochDuty
+      newSyncCommitteeDuties[key] = currentPeriodDuties
+    vc.syncCommitteeDuties = newSyncCommitteeDuties
+
 proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
                                  epoch: Epoch): Future[int] {.async.} =
   let validatorIndices = toSeq(vc.attachedValidators[].indices())
@@ -269,7 +281,8 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
       block:
         var res: seq[SyncCommitteeDuty]
         for duty in filteredDuties:
-          for validatorSyncCommitteeIndex in duty.validator_sync_committee_indices:
+          for validatorSyncCommitteeIndex in
+              duty.validator_sync_committee_indices:
             res.add(SyncCommitteeDuty(
               pubkey: duty.pubkey,
               validator_index: duty.validator_index,
@@ -282,12 +295,20 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
 
   let addOrReplaceItems =
     block:
+      var alreadyWarned = false
       var res: seq[tuple[epoch: Epoch, duty: SyncCommitteeDuty]]
       for duty in relevantDuties:
         let map = vc.syncCommitteeDuties.getOrDefault(duty.pubkey)
         let epochDuty = map.duties.getOrDefault(epoch, DefaultSyncDutyAndProof)
-        info "Received new sync committee duty", duty, epoch
-        res.add((epoch, duty))
+        if epochDuty.isDefault():
+          info "Received new sync committee duty", duty, epoch
+          res.add((epoch, duty))
+        else:
+          if epochDuty.data != duty:
+            if not(alreadyWarned):
+              info "Sync committee duties re-organization", duty, epoch
+              alreadyWarned = true
+            res.add((epoch, duty))
       res
 
   if len(addOrReplaceItems) > 0:
@@ -333,7 +354,8 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
           SyncDutyAndProof.init(item.epoch, item.duty,
                                 none[ValidatorSig]())
 
-      var validatorDuties = vc.syncCommitteeDuties.getOrDefault(item.duty.pubkey)
+      var validatorDuties =
+        vc.syncCommitteeDuties.getOrDefault(item.duty.pubkey)
       validatorDuties.duties[item.epoch] = dap
       vc.syncCommitteeDuties[item.duty.pubkey] = validatorDuties
 
@@ -448,6 +470,8 @@ proc pollForSyncCommitteeDuties* (vc: ValidatorClientRef) {.async.} =
                                                        ApiStrategyKind.First)
         if not(res):
           error "Failed to subscribe validators"
+
+      vc.pruneSyncCommitteeDuties(currentSlot)
 
 proc pruneBeaconProposers(vc: ValidatorClientRef, epoch: Epoch) =
   var proposers: ProposerMap
