@@ -88,6 +88,7 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
       missing.add(validatorLog(item.validator.pubkey, item.index))
     else:
       validator.index = Opt.some(item.index)
+      validator.activationEpoch = Opt.some(item.validator.activation_epoch)
       updated.add(validatorLog(item.validator.pubkey, item.index))
       list.add(validator)
 

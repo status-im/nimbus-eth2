@@ -548,11 +548,16 @@ proc addDoppelganger*(vc: ValidatorClientRef,
                               lastAttempt: DoppelgangerAttempt.None,
                               status: DoppelgangerStatus.Passed)
           else:
-            DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
-                              lastAttempt: DoppelgangerAttempt.None,
-                              status: DoppelgangerStatus.Checking)
+            if validator.activationEpoch.isSome() and
+               (validator.activationEpoch.get() >= startEpoch):
+              DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
+                                lastAttempt: DoppelgangerAttempt.None,
+                                status: DoppelgangerStatus.Passed)
+            else:
+              DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
+                                lastAttempt: DoppelgangerAttempt.None,
+                                status: DoppelgangerStatus.Checking)
         res = vc.doppelgangerDetection.validators.hasKeyOrPut(vindex, state)
-
       if res:
         exist.add(validatorLog(validator.pubkey, vindex))
       else:
@@ -677,15 +682,12 @@ proc doppelgangerCheck*(vc: ValidatorClientRef,
     if validator.index.isNone():
       false
     else:
-      if validator.startSlot > GENESIS_SLOT:
-        let
-          vindex = validator.index.get()
-          default = DoppelgangerState(status: DoppelgangerStatus.None)
-          state = vc.doppelgangerDetection.validators.getOrDefault(vindex,
-                                                                   default)
-        state.status == DoppelgangerStatus.Passed
-      else:
-        true
+      let
+        vindex = validator.index.get()
+        default = DoppelgangerState(status: DoppelgangerStatus.None)
+        state = vc.doppelgangerDetection.validators.getOrDefault(vindex,
+                                                                 default)
+      state.status == DoppelgangerStatus.Passed
   else:
     true
 
@@ -698,7 +700,6 @@ proc doppelgangerFilter*(
        vc: ValidatorClientRef,
        duties: openArray[DutyAndProof]
      ): tuple[filtered: seq[DutyAndProof], skipped: seq[string]] =
-  let defstate = DoppelgangerState(status: DoppelgangerStatus.None)
   var
     pending: seq[string]
     ready: seq[DutyAndProof]
