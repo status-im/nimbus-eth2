@@ -994,7 +994,6 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --keymanager-token-file="${DATA_DIR}/keymanager-token" \
     --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
-    --sync-light-client=on \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 
