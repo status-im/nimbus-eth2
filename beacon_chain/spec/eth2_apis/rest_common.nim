@@ -10,7 +10,7 @@ else:
   {.push raises: [].}
 
 import
-  chronos, presto/client, chronicles,
+  chronos, presto/client,
   "."/[rest_types, eth2_rest_serialization]
 
 export chronos, client, rest_types, eth2_rest_serialization

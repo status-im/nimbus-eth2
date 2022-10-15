@@ -4,7 +4,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/[tables, os, strutils, uri]
+import std/[tables, strutils, uri]
 import chronos, chronicles, confutils,
        stew/[base10, results, io2], blscurve
 import ".."/spec/[keystore, crypto]

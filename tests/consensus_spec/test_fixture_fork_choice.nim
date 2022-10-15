@@ -11,7 +11,7 @@ import
   # Standard library
   std/[json, os, sequtils, strutils, tables],
   # Status libraries
-  stew/[results, endians2], chronicles,
+  stew/results, chronicles,
   eth/keys, taskpools,
   # Internals
   ../../beacon_chain/spec/[helpers, forks, state_transition_block],

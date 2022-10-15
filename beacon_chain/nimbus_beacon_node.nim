@@ -1812,6 +1812,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
         option = config.option.get
   ignoreDeprecatedOption requireEngineAPI
   ignoreDeprecatedOption safeSlotsToImportOptimistically
+  ignoreDeprecatedOption terminalTotalDifficultyOverride
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 
@@ -1836,10 +1837,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # letting the default Ctrl+C handler exit is safe, since we only read from
   # the db.
   var metadata = config.loadEth2Network()
-
-  if config.terminalTotalDifficultyOverride.isSome:
-    metadata.cfg.TERMINAL_TOTAL_DIFFICULTY =
-      parse(config.terminalTotalDifficultyOverride.get, UInt256, 10)
 
   # Updating the config based on the metadata certainly is not beautiful but it
   # works
