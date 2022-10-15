@@ -207,9 +207,9 @@ proc runForkchoiceUpdated*(
 
 proc runForkchoiceUpdatedDiscardResult*(
     eth1Monitor: Eth1Monitor,
-    headBlockRoot, safeBlockRoot, finalizedBlockRoot: Eth2Digest) {.async.} =
+    headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest) {.async.} =
   discard await eth1Monitor.runForkchoiceUpdated(
-    headBlockRoot, safeBlockRoot, finalizedBlockRoot)
+    headBlockHash, safeBlockHash, finalizedBlockHash)
 
 from ../beacon_clock import GetBeaconTimeFn
 from ../fork_choice/fork_choice import mark_root_invalid
