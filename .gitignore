@@ -22,6 +22,7 @@ build/
 # Each developer can create a personal .env file with
 # local settings overrides (e.g. WEB3_URL)
 .env
+.direnv/
 
 # Ignore dynamic, static libs and libtool archive files
 *.so
