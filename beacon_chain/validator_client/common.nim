@@ -275,6 +275,11 @@ chronicles.expandIt(RestAttesterDuty):
   committees_at_slot = it.committees_at_slot
   validator_committee_index = it.validator_committee_index
 
+chronicles.expandIt(SyncCommitteeDuty):
+  pubkey = shortLog(it.pubkey)
+  validator_index = it.validator_index
+  validator_sync_committee_index = it.validator_sync_committee_index
+
 proc stop*(csr: ClientServiceRef) {.async.} =
   debug "Stopping service", service = csr.name
   if csr.state == ServiceState.Running:
