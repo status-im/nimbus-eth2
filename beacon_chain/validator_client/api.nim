@@ -57,6 +57,8 @@ proc lazyWaiter(node: BeaconNodeServerRef, request: FutureBase) {.async.} =
 proc lazyWait(nodes: seq[BeaconNodeServerRef], requests: seq[FutureBase],
               timerFut: Future[void]) {.async.} =
   doAssert(len(nodes) == len(requests))
+  if len(nodes) == 0:
+    return
 
   var futures: seq[Future[void]]
   for index in 0 ..< len(requests):
