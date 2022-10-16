@@ -45,7 +45,23 @@ proc `$`*(strategy: ApiStrategyKind): string =
   of ApiStrategyKind.Priority:
     "priority"
 
-proc lazyWait(futures: seq[FutureBase], timerFut: Future[void]) {.async.} =
+proc lazyWaiter(node: BeaconNodeServerRef, request: FutureBase) {.async.} =
+  try:
+    await allFutures(request)
+    if request.failed():
+      node.status = RestBeaconNodeStatus.Offline
+  except CancelledError as exc:
+    node.status = RestBeaconNodeStatus.Offline
+    await cancelAndWait(request)
+
+proc lazyWait(nodes: seq[BeaconNodeServerRef], requests: seq[FutureBase],
+              timerFut: Future[void]) {.async.} =
+  doAssert(len(nodes) == len(requests))
+
+  var futures: seq[Future[void]]
+  for index in 0 ..< len(requests):
+    futures.add(lazyWaiter(nodes[index], requests[index]))
+
   if not(isNil(timerFut)):
     await allFutures(futures) or timerFut
     if timerFut.finished():
@@ -151,6 +167,8 @@ template firstSuccessParallel*(
                 status =
                   try:
                     body2
+                  except CancelledError as exc:
+                    raise exc
                   except CatchableError:
                     raiseAssert("Response handler must not raise exceptions")
 
@@ -158,6 +176,7 @@ template firstSuccessParallel*(
               if apiResponse.isOk() and (status == RestBeaconNodeStatus.Online):
                 retRes = apiResponse
                 resultReady = true
+                asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut)
                 break
             else:
               # Timeout exceeded first.
