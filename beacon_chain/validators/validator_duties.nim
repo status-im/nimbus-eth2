@@ -101,29 +101,6 @@ proc findValidator*(validators: auto, pubkey: ValidatorPubKey): Opt[ValidatorInd
   else:
     Opt.some idx.ValidatorIndex
 
-# TODO: This should probably be moved to the validator_pool module
-proc addRemoteValidator*(pool: var ValidatorPool,
-                         keystore: KeystoreData,
-                         index: Opt[ValidatorIndex],
-                         feeRecipient: Eth1Address,
-                         slot: Slot) =
-  var clients: seq[(RestClientRef, RemoteSignerInfo)]
-  let httpFlags =
-    block:
-      var res: set[HttpClientFlag]
-      if RemoteKeystoreFlag.IgnoreSSLVerification in keystore.flags:
-        res.incl({HttpClientFlag.NoVerifyHost,
-                  HttpClientFlag.NoVerifyServerName})
-      res
-  let prestoFlags = {RestClientFlag.CommaSeparatedArray}
-  for remote in keystore.remotes:
-    let client = RestClientRef.new($remote.url, prestoFlags, httpFlags)
-    if client.isErr():
-      warn "Unable to resolve distributed signer address",
-          remote_url = $remote.url, validator = $remote.pubkey
-    clients.add((client.get(), remote))
-  pool.addRemoteValidator(keystore, clients, index, feeRecipient, slot)
-
 proc addValidators*(node: BeaconNode) =
   debug "Loading validators", validatorsDir = node.config.validatorsDir()
   let slot = node.currentSlot()
