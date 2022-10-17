@@ -10,7 +10,7 @@ import chronos, chronicles, confutils,
 import ".."/spec/[keystore, crypto]
 import ".."/spec/eth2_apis/rest_keymanager_types
 import ".."/validators/[slashing_protection, keystore_management,
-                        validator_pool, validator_duties]
+                        validator_pool]
 import ".."/rpc/rest_utils
 
 export rest_utils, results
