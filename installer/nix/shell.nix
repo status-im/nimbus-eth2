@@ -1,7 +1,8 @@
-{ pkgs ? import <nixpkgs> { } }: with pkgs;
+{ pkgs ? import <nixpkgs> {}}:
+with pkgs;
 mkShell {
+
   buildInputs = [
-    llvmPackages_14.clang-unwrapped
     figlet
     git
     gnumake
@@ -13,10 +14,10 @@ mkShell {
   ];
 
   shellHook = ''
-    # We use clang unwrapped because the compiler wrappers under Nix
-    # ignore -march=native in order to keep the build deterministic
-    export PATH=${llvmPackages_14.clang-unwrapped}/bin:$PATH
-    export CC=clang
+    # By default, the Nix wrapper scripts for executing the system compilers
+    # will erase `-march=native` because this introduces impurity in the build.
+    # For the purposes of compiling Nimbus, this behavior is not desired:
+    export NIX_ENFORCE_NO_NATIVE=0
 
     figlet "Welcome to Nimbus-eth2"
   '';
