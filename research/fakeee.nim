@@ -66,5 +66,8 @@ when isMainModule:
   server.setupEngineAPI()
   server.start()
 
-  waitFor waitSignal(SIGINT)
-  waitFor server.stop()
+  when compiles(waitFor waitSignal(SIGINT)):
+    waitFor waitSignal(SIGINT)
+    waitFor server.stop()
+  else:
+    runForever()
