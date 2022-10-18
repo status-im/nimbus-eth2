@@ -207,12 +207,12 @@ proc expectValidForkchoiceUpdated(
     # situation nominal
     discard
   of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
-    info "expectValidForkchoiceUpdate: forkChoiceUpdated ACCEPTED/SYNCING, not VALID",
+    info "execution payload forkChoiceUpdated status ACCEPTED/SYNCING, but was previously VALID",
       payloadExecutionStatus = $payloadExecutionStatus, headBlockHash,
       safeBlockHash, finalizedBlockHash,
       receivedBlock = shortLog(receivedBlock)
   of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
-    warn "expectValidForkchoiceUpdate: forkChoiceUpdated status INVALID",
+    warn "execution payload forkChoiceUpdated status INVALID, but was previously VALID",
       payloadExecutionStatus = $payloadExecutionStatus, headBlockHash,
       safeBlockHash, finalizedBlockHash,
       receivedBlock = shortLog(receivedBlock)
