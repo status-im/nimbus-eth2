@@ -632,7 +632,8 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
     # become safe to combine loops, breaks and exception handlers.
     let breakLoop =
       try:
-        discard await race(attestFut, proposeFut, indicesFut, syncFut)
+        discard await race(attestFut, proposeFut, indicesFut, syncFut,
+                           prepareFut)
         checkAndRestart(AttesterLoop, attestFut, service.attesterDutiesLoop())
         checkAndRestart(ProposerLoop, proposeFut, service.proposerDutiesLoop())
         checkAndRestart(IndicesLoop, indicesFut, service.validatorIndexLoop())
