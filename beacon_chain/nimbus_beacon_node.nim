@@ -645,8 +645,7 @@ proc init*(T: type BeaconNode,
       getDepositContractSnapshot(),
       eth1Network,
       config.web3ForcePolling,
-      optJwtSecret,
-      ttdReached = not dag.loadExecutionBlockRoot(dag.finalizedHead.blck).isZero)
+      optJwtSecret)
 
   if config.rpcEnabled.isSome:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
@@ -747,7 +746,8 @@ proc init*(T: type BeaconNode,
       # Delay first call by that time to allow for EL syncing to begin; it can
       # otherwise generate an EL warning by claiming a zero merge block.
       Moment.now + chronos.seconds(60),
-    dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()))
+    dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
+    mergeAtEpoch: config.mergeAtEpoch.Epoch)
 
   node.initLightClient(
     rng, cfg, dag.forkDigests, getBeaconTime, dag.genesis_validators_root)

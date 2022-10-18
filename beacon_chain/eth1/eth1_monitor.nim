@@ -135,13 +135,10 @@ type
     eth1Progress: AsyncEvent
 
     exchangedConfiguration*: bool
-    terminalBlockHash*: Option[BlockHash]
 
     runFut: Future[void]
     stopFut: Future[void]
     getBeaconTime: GetBeaconTimeFn
-
-    ttdReachedField: bool
 
     when hasGenesisDetection:
       genesisValidators: seq[ImmutableValidatorData]
@@ -197,9 +194,6 @@ declareGauge eth1_finalized_deposits,
 
 declareGauge eth1_chain_len,
   "The length of the in-memory chain of Eth1 blocks"
-
-func ttdReached*(m: Eth1Monitor): bool =
-  m.ttdReachedField
 
 template cfg(m: Eth1Monitor): auto =
   m.depositsChain.cfg
@@ -1044,8 +1038,7 @@ proc init*(T: type Eth1Monitor,
            depositContractSnapshot: Option[DepositContractSnapshot],
            eth1Network: Option[Eth1Network],
            forcePolling: bool,
-           jwtSecret: Option[seq[byte]],
-           ttdReached: bool): T =
+           jwtSecret: Option[seq[byte]]): T =
   doAssert web3Urls.len > 0
   var web3Urls = web3Urls
   for url in mitems(web3Urls):
@@ -1063,8 +1056,7 @@ proc init*(T: type Eth1Monitor,
     eth1Progress: newAsyncEvent(),
     forcePolling: forcePolling,
     jwtSecret: jwtSecret,
-    blocksPerLogsRequest: targetBlocksPerLogsRequest,
-    ttdReachedField: ttdReached)
+    blocksPerLogsRequest: targetBlocksPerLogsRequest)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
@@ -1454,12 +1446,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
     debug "Starting Eth1 syncing", `from` = shortLog(m.depositsChain.blocks[^1])
 
-  let shouldCheckForMergeTransition = block:
-    const FAR_FUTURE_TOTAL_DIFFICULTY =
-      u256"115792089237316195423570985008687907853269984665640564039457584007913129638912"
-    (not m.ttdReachedField) and
-    (m.cfg.TERMINAL_TOTAL_DIFFICULTY != FAR_FUTURE_TOTAL_DIFFICULTY)
-
   var didPollOnce = false
   while true:
     if bnStatus == BeaconNodeStatus.Stopping:
@@ -1502,41 +1488,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
       doAssert m.latestEth1Block.isSome
       awaitWithRetries m.dataProvider.getBlockByHash(m.latestEth1Block.get.hash)
-
-    # TODO when a terminal block has is configured in cfg.TERMINAL_BLOCK_HASH,
-    #      we should try to fetch that block from the EL - this facility is not
-    #      in use on any current network, but should be implemented for full
-    #      compliance
-    if m.terminalBlockHash.isNone and shouldCheckForMergeTransition:
-      var terminalBlockCandidate = nextBlock
-
-      debug "startEth1Syncing: checking for merge terminal block",
-        currentEpoch = m.currentEpoch,
-        BELLATRIX_FORK_EPOCH = m.cfg.BELLATRIX_FORK_EPOCH,
-        totalDifficulty = $nextBlock.totalDifficulty,
-        ttd = $m.cfg.TERMINAL_TOTAL_DIFFICULTY,
-        terminalBlockHash = m.terminalBlockHash,
-        candidateBlockHash = terminalBlockCandidate.hash,
-        candidateBlockNumber = distinctBase(terminalBlockCandidate.number)
-
-      if terminalBlockCandidate.totalDifficulty >= m.cfg.TERMINAL_TOTAL_DIFFICULTY:
-        while not terminalBlockCandidate.parentHash.isZeroMemory:
-          var parentBlock = awaitWithRetries(
-            m.dataProvider.getBlockByHash(terminalBlockCandidate.parentHash))
-          if parentBlock.totalDifficulty < m.cfg.TERMINAL_TOTAL_DIFFICULTY:
-            break
-          terminalBlockCandidate = parentBlock
-        m.terminalBlockHash = some terminalBlockCandidate.hash
-        m.ttdReachedField = true
-
-        debug "startEth1Syncing: found merge terminal block",
-          currentEpoch = m.currentEpoch,
-          BELLATRIX_FORK_EPOCH = m.cfg.BELLATRIX_FORK_EPOCH,
-          totalDifficulty = $nextBlock.totalDifficulty,
-          ttd = $m.cfg.TERMINAL_TOTAL_DIFFICULTY,
-          terminalBlockHash = m.terminalBlockHash,
-          candidateBlockHash = terminalBlockCandidate.hash,
-          candidateBlockNumber = distinctBase(terminalBlockCandidate.number)
 
     if shouldProcessDeposits:
       if m.latestEth1BlockNumber <= m.cfg.ETH1_FOLLOW_DISTANCE:

@@ -364,10 +364,8 @@ proc getExecutionPayload[T](
       latestHead =
         if not executionBlockRoot.isZero:
           executionBlockRoot
-        elif node.eth1Monitor.terminalBlockHash.isSome:
-          node.eth1Monitor.terminalBlockHash.get.asEth2Digest
         else:
-          default(Eth2Digest)
+          (static(default(Eth2Digest)))
       latestSafe = beaconHead.safeExecutionPayloadHash
       latestFinalized = beaconHead.finalizedExecutionPayloadHash
       feeRecipient = block:
@@ -430,8 +428,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     execution_payload_root: Opt[Eth2Digest] = Opt.none(Eth2Digest)):
     Future[ForkedBlockResult] {.async.} =
   # Advance state to the slot that we're proposing for
-  var
-    cache = StateCache()
+  var cache = StateCache()
 
   # Execution payload handling will need a review post-Bellatrix
   static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
@@ -447,10 +444,9 @@ proc makeBeaconBlockForHeadAndSlot*(
         let fut = newFuture[Opt[ExecutionPayload]]("given-payload")
         fut.complete(executionPayload)
         fut
-      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
-            not (
-              is_merge_transition_complete(state[]) or
-              ((not node.eth1Monitor.isNil) and node.eth1Monitor.ttdReached)):
+      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or not (
+          state[].is_merge_transition_complete or
+          slot.epoch >= node.mergeAtEpoch):
         let fut = newFuture[Opt[ExecutionPayload]]("empty-payload")
         # https://github.com/nim-lang/Nim/issues/19802
         fut.complete(Opt.some(default(bellatrix.ExecutionPayload)))

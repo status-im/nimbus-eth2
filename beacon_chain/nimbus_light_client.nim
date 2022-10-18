@@ -64,10 +64,7 @@ programMain:
           cfg, db = nil, getBeaconTime, config.web3Urls,
           none(DepositContractSnapshot), metadata.eth1Network,
           forcePolling = false,
-          rng[].loadJwtSecret(config, allowCreate = false),
-          # TTD is not relevant for the light client, so it's safe
-          # to assume that the TTD has been reached.
-          ttdReached = true)
+          rng[].loadJwtSecret(config, allowCreate = false))
         waitFor res.ensureDataProvider()
         res
       else:

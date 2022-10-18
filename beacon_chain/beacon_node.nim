@@ -92,6 +92,7 @@ type
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     externalBuilderRegistrations*:
       Table[ValidatorPubKey, SignedValidatorRegistrationV1]
+    mergeAtEpoch*: Epoch
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
