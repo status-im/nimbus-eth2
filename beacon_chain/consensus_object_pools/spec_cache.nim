@@ -168,35 +168,6 @@ func get_attesting_indices*(shufflingRef: ShufflingRef,
   for idx in get_attesting_indices(shufflingRef, slot, committee_index, bits):
     result.add(idx)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
-proc is_valid_indexed_attestation*(
-    fork: Fork, genesis_validators_root: Eth2Digest,
-    dag: ChainDAGRef, shufflingRef: EpochRef,
-    attestation: SomeAttestation, flags: UpdateFlags): Result[void, cstring] =
-  # This is a variation on `is_valid_indexed_attestation` that works directly
-  # with an attestation instead of first constructing an `IndexedAttestation`
-  # and then validating it - for the purpose of validating the signature, the
-  # order doesn't matter and we can proceed straight to validating the
-  # signature instead
-  let sigs = attestation.aggregation_bits.countOnes()
-  if sigs == 0:
-    return err("is_valid_indexed_attestation: no attesting indices")
-
-  # Verify aggregate signature
-  if not (skipBlsValidation in flags or attestation.signature is TrustedSig):
-    var
-      pubkeys = newSeqOfCap[CookedPubKey](sigs)
-    for index in get_attesting_indices(
-        shufflingRef, attestation.data, attestation.aggregation_bits):
-      pubkeys.add(dag.validatorKey(index).get())
-
-    if not verify_attestation_signature(
-        fork, genesis_validators_root, attestation.data,
-        pubkeys, attestation.signature):
-      return err("is_valid_indexed_attestation: signature verification failure")
-
-  ok()
-
 func makeAttestationData*(
     epochRef: EpochRef, bs: BlockSlot,
     committee_index: CommitteeIndex): AttestationData =
