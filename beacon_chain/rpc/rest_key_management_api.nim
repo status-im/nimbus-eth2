@@ -17,7 +17,7 @@ import ".."/validators/[slashing_protection, keystore_management,
                         validator_pool]
 import ".."/rpc/rest_constants
 
-export results
+export rest_constants, results
 
 func validateKeymanagerApiQueries*(key: string, value: string): int =
   # There are no queries to validate
