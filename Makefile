@@ -61,6 +61,7 @@ TOOLS := \
 	ncli \
 	ncli_db \
 	ncli_split_keystore \
+	fakeee \
 	wss_sim \
 	stack_sizes \
 	nimbus_light_client \
