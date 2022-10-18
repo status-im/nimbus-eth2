@@ -50,7 +50,6 @@ proc setupEngineAPI*(server: RpcServer) =
       update: ForkchoiceStateV1,
       payloadAttributes: Option[PayloadAttributesV1]) -> ForkchoiceUpdatedResponse:
     info "engine_forkchoiceUpdatedV1",
-      meth = "forkchoiceUpdatedV1",
       update,
       payloadAttributes
 
