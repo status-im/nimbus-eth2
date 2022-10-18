@@ -211,6 +211,8 @@ proc new*(T: type ValidatorClientRef,
       nodesAvailable: newAsyncEvent(),
       forksAvailable: newAsyncEvent(),
       gracefulExit: newAsyncEvent(),
+      indicesAvailable: newAsyncEvent(),
+      dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
       sigintHandleFut: waitSignal(SIGINT),
       sigtermHandleFut: waitSignal(SIGTERM)
     )
@@ -222,7 +224,9 @@ proc new*(T: type ValidatorClientRef,
       graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
       nodesAvailable: newAsyncEvent(),
       forksAvailable: newAsyncEvent(),
+      indicesAvailable: newAsyncEvent(),
       gracefulExit: newAsyncEvent(),
+      dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
       sigintHandleFut: newFuture[void]("sigint_placeholder"),
       sigtermHandleFut: newFuture[void]("sigterm_placeholder")
     )

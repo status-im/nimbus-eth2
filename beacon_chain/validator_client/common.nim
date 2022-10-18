@@ -13,7 +13,8 @@ import
   metrics, metrics/chronos_httpserver,
   ".."/spec/datatypes/[phase0, altair],
   ".."/spec/[eth2_merkleization, helpers, signatures, validator],
-  ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client],
+  ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
+                       dynamic_fee_recipients],
   ".."/validators/[keystore_management, validator_pool, slashing_protection],
   ".."/[conf, beacon_clock, version, nimbus_binary_common]
 
@@ -22,7 +23,8 @@ export
   nimbus_binary_common, version, conf, options, tables, results, base10,
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
-  beacon_clock, keystore_management, slashing_protection, validator_pool
+  beacon_clock, keystore_management, slashing_protection, validator_pool,
+  dynamic_fee_recipients
 
 const
   SYNC_TOLERANCE* = 4'u64
@@ -166,12 +168,14 @@ type
     forks*: seq[Fork]
     forksAvailable*: AsyncEvent
     nodesAvailable*: AsyncEvent
+    indicesAvailable*: AsyncEvent
     gracefulExit*: AsyncEvent
     attesters*: AttesterMap
     proposers*: ProposerMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
+    dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     rng*: ref HmacDrbgContext
 
   ValidatorClientRef* = ref ValidatorClient
@@ -704,3 +708,31 @@ proc doppelgangerFilter*(
     else:
       pending.add(validatorLog(vkey, vindex))
   (ready, pending)
+
+proc getFeeRecipient*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
+                      validatorIdx: ValidatorIndex,
+                      epoch: Epoch): Opt[Eth1Address] =
+  let dynamicRecipient = vc.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
+                           validatorIdx, epoch)
+  if dynamicRecipient.isSome():
+    Opt.some(dynamicRecipient.get())
+  else:
+    let staticRecipient = getSuggestedFeeRecipient(
+      vc.config.validatorsDir, pubkey, vc.config.defaultFeeRecipient)
+    if staticRecipient.isOk():
+      Opt.some(staticRecipient.get())
+    else:
+      Opt.none(Eth1Address)
+
+proc prepareProposersList*(vc: ValidatorClientRef,
+                           epoch: Epoch): seq[PrepareBeaconProposer] =
+  var res: seq[PrepareBeaconProposer]
+  for validator in vc.attachedValidators[].items():
+    if validator.index.isSome():
+      let
+        index = validator.index.get()
+        feeRecipient = vc.getFeeRecipient(validator.pubkey, index, epoch)
+      if feeRecipient.isSome():
+        res.add(PrepareBeaconProposer(validator_index: index,
+                                      fee_recipient: feeRecipient.get()))
+  res

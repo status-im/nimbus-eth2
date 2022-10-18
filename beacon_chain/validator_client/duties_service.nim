@@ -16,7 +16,8 @@ logScope: service = ServiceName
 
 type
   DutiesServiceLoop* = enum
-    AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop
+    AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop,
+    ProposerPreparationLoop
 
 chronicles.formatIt(DutiesServiceLoop):
   case it
@@ -24,6 +25,7 @@ chronicles.formatIt(DutiesServiceLoop):
   of ProposerLoop: "proposer_loop"
   of IndicesLoop: "index_loop"
   of SyncCommitteeLoop: "sync_committee_loop"
+  of ProposerPreparationLoop: "proposer_prepare_loop"
 
 proc checkDuty(duty: RestAttesterDuty): bool =
   (duty.committee_length <= MAX_VALIDATORS_PER_COMMITTEE) and
@@ -97,6 +99,7 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
          updated_validators = len(updated)
     trace "Validator indices update dump", missing_validators = missing,
           updated_validators = updated
+    vc.indicesAvailable.fire()
     vc.addDoppelganger(list)
 
 proc pollForAttesterDuties*(vc: ValidatorClientRef,
@@ -517,6 +520,37 @@ proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
 
     vc.pruneBeaconProposers(currentEpoch)
 
+proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  let sres = vc.getCurrentSlot()
+  if sres.isSome():
+    let
+      currentSlot = sres.get()
+      currentEpoch = currentSlot.epoch()
+      proposers = vc.prepareProposersList(currentEpoch)
+
+    if len(proposers) > 0:
+      let count =
+        try:
+          await prepareBeaconProposer(vc, proposers)
+        except ValidatorApiError as exc:
+          warn "Unable to prepare beacon proposers", slot = currentSlot,
+                epoch = currentEpoch, err_name = exc.name,
+                err_msg = exc.msg
+          0
+        except CancelledError as exc:
+          debug "Beacon proposer preparation processing was interrupted"
+          raise exc
+        except CatchableError as exc:
+          error "Unexpected error occured while preparing beacon proposers",
+                slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
+                err_msg = exc.msg
+          0
+      debug "Beacon proposers prepared",
+            validators_count = vc.attachedValidators[].count(),
+            proposers_count = len(proposers),
+            prepared_count = count
+
 proc waitForNextSlot(service: DutiesServiceRef,
                      serviceLoop: DutiesServiceLoop) {.async.} =
   let vc = service.client
@@ -549,7 +583,15 @@ proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
     await vc.pollForValidatorIndices()
     await service.waitForNextSlot(IndicesLoop)
 
-proc syncCommitteeeDutiesLoop(service: DutiesServiceRef) {.async.} =
+proc proposerPreparationsLoop(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  debug "Beacon proposer preparation loop waiting for validator indices update"
+  await vc.indicesAvailable.wait()
+  while true:
+    await service.prepareBeaconProposers()
+    await service.waitForNextSlot(ProposerPreparationLoop)
+
+proc syncCommitteeDutiesLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
 
   debug "Sync committee duties loop waiting for fork schedule update"
@@ -581,7 +623,8 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
     attestFut = service.attesterDutiesLoop()
     proposeFut = service.proposerDutiesLoop()
     indicesFut = service.validatorIndexLoop()
-    syncFut = service.syncCommitteeeDutiesLoop()
+    syncFut = service.syncCommitteeDutiesLoop()
+    prepareFut = service.proposerPreparationsLoop()
 
   while true:
     # This loop could look much more nicer/better, when
@@ -593,8 +636,10 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
         checkAndRestart(AttesterLoop, attestFut, service.attesterDutiesLoop())
         checkAndRestart(ProposerLoop, proposeFut, service.proposerDutiesLoop())
         checkAndRestart(IndicesLoop, indicesFut, service.validatorIndexLoop())
-        checkAndRestart(SyncCommitteeLoop,
-                        syncFut, service.syncCommitteeeDutiesLoop())
+        checkAndRestart(SyncCommitteeLoop, syncFut,
+                        service.syncCommitteeDutiesLoop())
+        checkAndRestart(ProposerPreparationLoop, prepareFut,
+                        service.proposerPreparationsLoop())
         false
       except CancelledError:
         debug "Service interrupted"
@@ -607,6 +652,8 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
           pending.add(indicesFut.cancelAndWait())
         if not(syncFut.finished()):
           pending.add(syncFut.cancelAndWait())
+        if not(prepareFut.finished()):
+          pending.add(prepareFut.cancelAndWait())
         await allFutures(pending)
         true
       except CatchableError as exc:
