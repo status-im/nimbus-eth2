@@ -4,6 +4,10 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+# NOTE: This module has been used in both `beacon_node` and `validator_client`,
+# please keep imports clear of `rest_utils` or any other module which imports
+# beacon node's specific networking code.
+
 import std/[tables, os, strutils, uri]
 import chronos, chronicles, confutils,
        stew/[base10, results, io2], blscurve, presto
