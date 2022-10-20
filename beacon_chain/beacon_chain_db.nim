@@ -1101,6 +1101,21 @@ proc getState*(
     db.immutableValidators, db.statesNoVal[T.toFork], key.data, output,
     rollback)
 
+proc getState*(
+    db: BeaconChainDB, fork: BeaconStateFork, state_root: Eth2Digest,
+    state: var ForkedHashedBeaconState, rollback: RollbackProc): bool =
+  if state.kind != fork:
+    # Avoid temporary (!)
+    state = (ref ForkedHashedBeaconState)(kind: fork)[]
+
+  withState(state):
+    if not db.getState(state_root, forkyState.data, rollback):
+      return false
+
+    forkyState.root = state_root
+
+  true
+
 proc getStateRoot(db: BeaconChainDBV0,
                    root: Eth2Digest,
                    slot: Slot): Opt[Eth2Digest] =

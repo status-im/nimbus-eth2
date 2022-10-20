@@ -449,6 +449,11 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + roundtrip                                                                                  OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Starting states
+```diff
++ Starting state without block                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Sync committee pool
 ```diff
 + Aggregating votes                                                                          OK
@@ -598,4 +603,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 331/336 Fail: 0/336 Skip: 5/336
+OK: 332/337 Fail: 0/337 Skip: 5/337

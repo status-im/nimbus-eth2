@@ -65,7 +65,6 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        replay = true):
   let
     (genesisState, depositContractSnapshot) = loadGenesis(validators, false)
-    genesisBlock = get_initial_beacon_block(genesisState[])
     genesisTime = float getStateField(genesisState[], genesis_time)
 
   var
@@ -79,7 +78,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   let db = BeaconChainDB.new("block_sim_db")
   defer: db.close()
 
-  ChainDAGRef.preInit(db, genesisState[], genesisState[], genesisBlock)
+  ChainDAGRef.preInit(db, genesisState[])
   putInitialDepositContractSnapshot(db, depositContractSnapshot)
 
   var

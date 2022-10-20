@@ -143,7 +143,7 @@ proc loadChainDag(
     db: BeaconChainDB,
     eventBus: EventBus,
     validatorMonitor: ref ValidatorMonitor,
-    networkGenesisValidatorsRoot: Option[Eth2Digest],
+    networkGenesisValidatorsRoot: Opt[Eth2Digest],
     shouldEnableTestFeatures: bool): ChainDAGRef =
   info "Loading block DAG from database", path = config.databaseDir
 
@@ -435,13 +435,12 @@ proc init*(T: type BeaconNode,
     )
     db = BeaconChainDB.new(config.databaseDir, inMemory = false)
 
-  var
-    genesisState, checkpointState: ref ForkedHashedBeaconState
-    checkpointBlock: ForkedTrustedSignedBeaconBlock
+  if config.finalizedCheckpointBlock.isSome:
+    warn "--finalized-checkpoint-block has been deprecated, ignoring"
 
-  if config.finalizedCheckpointState.isSome:
+  let checkpointState = if config.finalizedCheckpointState.isSome:
     let checkpointStatePath = config.finalizedCheckpointState.get.string
-    checkpointState = try:
+    let tmp = try:
       newClone(readSszForkedHashedBeaconState(
         cfg, readAllBytes(checkpointStatePath).tryGet()))
     except SszError as err:
@@ -452,40 +451,13 @@ proc init*(T: type BeaconNode,
       fatal "Failed to read checkpoint state file", err = err.msg
       quit 1
 
-    if not getStateField(checkpointState[], slot).is_epoch:
+    if not getStateField(tmp[], slot).is_epoch:
       fatal "--finalized-checkpoint-state must point to a state for an epoch slot",
-        slot = getStateField(checkpointState[], slot)
+        slot = getStateField(tmp[], slot)
       quit 1
-
-    if config.finalizedCheckpointBlock.isNone:
-      if getStateField(checkpointState[], slot) > 0:
-        fatal "Specifying a non-genesis --finalized-checkpoint-state requires specifying --finalized-checkpoint-block as well"
-        quit 1
-    else:
-      let checkpointBlockPath = config.finalizedCheckpointBlock.get.string
-      try:
-        # Checkpoint block might come from an earlier fork than the state with
-        # the state having empty slots processed past the fork epoch.
-        let tmp = readSszForkedSignedBeaconBlock(
-          cfg, readAllBytes(checkpointBlockPath).tryGet())
-        checkpointBlock = tmp.asTrusted()
-      except SszError as err:
-        fatal "Invalid checkpoint block", err = err.formatMsg(checkpointBlockPath)
-        quit 1
-      except IOError as err:
-        fatal "Failed to load the checkpoint block", err = err.msg
-        quit 1
-
-      if not checkpointBlock.slot.is_epoch:
-        fatal "--finalized-checkpoint-block must point to a block for an epoch slot",
-          slot = checkpointBlock.slot
-        quit 1
-
-  elif config.finalizedCheckpointBlock.isSome:
-    # TODO We can download the state from somewhere in the future relying
-    #      on the trusted `state_root` appearing in the checkpoint block.
-    fatal "--finalized-checkpoint-block cannot be specified without --finalized-checkpoint-state"
-    quit 1
+    tmp
+  else:
+    nil
 
   let optJwtSecret = rng[].loadJwtSecret(config, allowCreate = false)
 
@@ -516,12 +488,20 @@ proc init*(T: type BeaconNode,
       notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
 
   var eth1Monitor: Eth1Monitor
-  if not ChainDAGRef.isInitialized(db).isOk():
-    var
-      tailState: ref ForkedHashedBeaconState
-      tailBlock: ForkedTrustedSignedBeaconBlock
 
-    if genesisStateContents.len == 0 and checkpointState == nil:
+  var genesisState =
+    if genesisStateContents.len > 0:
+      try:
+        newClone(readSszForkedHashedBeaconState(
+          cfg,
+          genesisStateContents.toOpenArrayByte(0, genesisStateContents.high())))
+      except CatchableError as err:
+        raiseAssert "Invalid baked-in state: " & err.msg
+    else:
+      nil
+
+  if not ChainDAGRef.isInitialized(db).isOk():
+    if genesisState == nil and checkpointState == nil:
       when hasGenesisDetection:
         if depositContractSnapshotContents.len > 0:
           fatal "A deposits snapshot cannot be provided without also providing a matching beacon state snapshot"
@@ -560,9 +540,6 @@ proc init*(T: type BeaconNode,
         if bnStatus == BeaconNodeStatus.Stopping:
           return nil
 
-        tailState = genesisState
-        tailBlock = get_initial_beacon_block(genesisState[])
-
         notice "Eth2 genesis state detected",
           genesisTime = phase0Genesis.genesisTime,
           eth1Block = phase0Genesis.eth1_data.block_hash,
@@ -574,31 +551,27 @@ proc init*(T: type BeaconNode,
               "in order to support monitoring for genesis events"
         quit 1
 
-    elif genesisStateContents.len == 0:
-      if getStateField(checkpointState[], slot) == GENESIS_SLOT:
-        genesisState = checkpointState
-        tailState = checkpointState
-        tailBlock = get_initial_beacon_block(genesisState[])
-      else:
-        fatal "State checkpoints cannot be provided for a network without a known genesis state"
+    if not genesisState.isNil and not checkpointState.isNil:
+      if getStateField(genesisState[], genesis_validators_root) !=
+          getStateField(checkpointState[], genesis_validators_root):
+        fatal "Checkpoint state does not match genesis - check the --network parameter",
+          rootFromGenesis = getStateField(
+            genesisState[], genesis_validators_root),
+          rootFromCheckpoint = getStateField(
+            checkpointState[], genesis_validators_root)
         quit 1
-    else:
-      try:
-        genesisState = newClone(readSszForkedHashedBeaconState(
-          cfg,
-          genesisStateContents.toOpenArrayByte(0, genesisStateContents.high())))
-      except CatchableError as err:
-        raiseAssert "Invalid baked-in state: " & err.msg
-
-      if not checkpointState.isNil:
-        tailState = checkpointState
-        tailBlock = checkpointBlock
-      else:
-        tailState = genesisState
-        tailBlock = get_initial_beacon_block(genesisState[])
 
     try:
-      ChainDAGRef.preInit(db, genesisState[], tailState[], tailBlock)
+      # Always store genesis state if we have it - this allows reindexing and
+      # answering genesis queries
+      if not genesisState.isNil:
+        ChainDAGRef.preInit(db, genesisState[])
+
+      if not checkpointState.isNil:
+        if genesisState.isNil or
+            getStateField(checkpointState[], slot) != GENESIS_SLOT:
+          ChainDAGRef.preInit(db, checkpointState[])
+
       doAssert ChainDAGRef.isInitialized(db).isOk(), "preInit should have initialized db"
     except CatchableError as exc:
       error "Failed to initialize database", err = exc.msg
@@ -620,11 +593,12 @@ proc init*(T: type BeaconNode,
     validatorMonitor[].addMonitor(key, Opt.none(ValidatorIndex))
 
   let
-    networkGenesisValidatorsRoot: Option[Eth2Digest] =
-      if genesisStateContents.len != 0:
-        some(extractGenesisValidatorRootFromSnapshot(genesisStateContents))
+    networkGenesisValidatorsRoot =
+      if not genesisState.isNil:
+        Opt.some(getStateField(genesisState[], genesis_validators_root))
       else:
-        none(Eth2Digest)
+        Opt.none(Eth2Digest)
+
     dag = loadChainDag(
       config, cfg, db, eventBus,
       validatorMonitor, networkGenesisValidatorsRoot,
@@ -2044,11 +2018,15 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
             network.genesisData.toOpenArrayByte(0, network.genesisData.high())))
         else: nil
 
+    if config.blockId.isSome():
+      error "--blockId option has been removed - use --state-id instead!"
+      quit 1
+
     waitFor doTrustedNodeSync(
       cfg,
       config.databaseDir,
       config.trustedNodeUrl,
-      config.blockId,
+      config.stateId,
       config.backfillBlocks,
       config.reindex,
       genesis)

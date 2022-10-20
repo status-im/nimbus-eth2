@@ -178,9 +178,8 @@ suite "Light client" & preset():
 
     # Initialize new DAG from checkpoint
     let cpDb = BeaconChainDB.new("", inMemory = true)
-    ChainDAGRef.preInit(
-      cpDb, genesisState[],
-      dag.headState, dag.getForkedBlock(dag.head.bid).get)
+    ChainDAGRef.preInit(cpDb, genesisState[])
+    ChainDAGRef.preInit(cpDb, dag.headState) # dag.getForkedBlock(dag.head.bid).get)
     let cpDag = ChainDAGRef.init(
       cfg, cpDb, validatorMonitor, {},
       lcDataConfig = LightClientDataConfig(
