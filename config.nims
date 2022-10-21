@@ -2,8 +2,14 @@ import strutils
 
 --noNimblePath
 
+const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
+
 if getEnv("NIMBUS_BUILD_SYSTEM") == "yes" and
-   system.fileExists("nimbus-build-system.paths"):
+   # BEWARE
+   # In Nim 1.6, config files are evaluated with a working directory
+   # matching where the Nim command was invocated. This means that we
+   # must do all file existance checks with full absolute paths:
+   system.fileExists(currentDir & "nimbus-build-system.paths"):
   include "nimbus-build-system.paths"
 
 const nimCachePathOverride {.strdefine.} = ""
@@ -130,7 +136,6 @@ switch("passL", "-fno-omit-frame-pointer")
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
 
-const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("define", "withoutPCRE")
 
