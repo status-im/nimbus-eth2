@@ -59,9 +59,12 @@ proc setupEngineAPI*(server: RpcServer) =
 
 when isMainModule:
   let server = newRpcHttpServer(
-        [initTAddress("127.0.0.1", 8551)],
-        # authHooks = @[httpJwtAuthHook, httpCorsHook]
+        # authHooks = @[httpJwtAuthHook, httpCorsHook],
   )
+
+  server.addHttpServer(
+    initTAddress("127.0.0.1", 8551),
+    maxRequestBodySize = 16 * 1024 * 1024)
 
   server.setupEngineAPI()
   server.start()
