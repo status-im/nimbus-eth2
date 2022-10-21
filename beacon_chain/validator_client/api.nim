@@ -45,7 +45,25 @@ proc `$`*(strategy: ApiStrategyKind): string =
   of ApiStrategyKind.Priority:
     "priority"
 
-proc lazyWait(futures: seq[FutureBase], timerFut: Future[void]) {.async.} =
+proc lazyWaiter(node: BeaconNodeServerRef, request: FutureBase) {.async.} =
+  try:
+    await allFutures(request)
+    if request.failed():
+      node.status = RestBeaconNodeStatus.Offline
+  except CancelledError as exc:
+    node.status = RestBeaconNodeStatus.Offline
+    await cancelAndWait(request)
+
+proc lazyWait(nodes: seq[BeaconNodeServerRef], requests: seq[FutureBase],
+              timerFut: Future[void]) {.async.} =
+  doAssert(len(nodes) == len(requests))
+  if len(nodes) == 0:
+    return
+
+  var futures: seq[Future[void]]
+  for index in 0 ..< len(requests):
+    futures.add(lazyWaiter(nodes[index], requests[index]))
+
   if not(isNil(timerFut)):
     await allFutures(futures) or timerFut
     if timerFut.finished():
@@ -151,6 +169,8 @@ template firstSuccessParallel*(
                 status =
                   try:
                     body2
+                  except CancelledError as exc:
+                    raise exc
                   except CatchableError:
                     raiseAssert("Response handler must not raise exceptions")
 
@@ -158,6 +178,7 @@ template firstSuccessParallel*(
               if apiResponse.isOk() and (status == RestBeaconNodeStatus.Online):
                 retRes = apiResponse
                 resultReady = true
+                asyncSpawn lazyWait(pendingNodes, pendingRequests, timerFut)
                 break
             else:
               # Timeout exceeded first.
@@ -2026,3 +2047,43 @@ proc getValidatorsActivity*(
               if activity[index].active:
                 activities[index].active = true
     return GetValidatorsActivityResponse(data: activities)
+
+proc prepareBeaconProposer*(
+       vc: ValidatorClientRef,
+       data: seq[PrepareBeaconProposer]
+     ): Future[int] {.async.} =
+  logScope: request = "prepareBeaconProposer"
+  let resp = vc.onceToAll(RestPlainResponse, SlotDuration,
+                          {BeaconNodeRole.BlockProposalPublish},
+                          prepareBeaconProposer(it, data))
+  if len(resp.data) == 0:
+    # We did not get any response from beacon nodes.
+    case resp.status
+    of ApiOperation.Success:
+      # This should not be happened, there should be present at least one
+      # successfull response.
+      return 0
+    of ApiOperation.Timeout:
+      debug "Unable to perform beacon proposer preparation request in time",
+            timeout = SlotDuration
+      return 0
+    of ApiOperation.Interrupt:
+      debug "Beacon proposer's preparation request was interrupted"
+      return 0
+    of ApiOperation.Failure:
+      debug "Unexpected error happened while preparing beacon proposers"
+      return 0
+  else:
+    var count = 0
+    for apiResponse in resp.data:
+      if apiResponse.data.isErr():
+        debug "Unable to perform beacon proposer preparation request",
+              endpoint = apiResponse.node, error = apiResponse.data.error()
+      else:
+        let response = apiResponse.data.get()
+        if response.status == 200:
+          inc(count)
+        else:
+          debug "Beacon proposer preparation failed", status = response.status,
+                endpoint = apiResponse.node
+    return count

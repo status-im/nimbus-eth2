@@ -16,7 +16,8 @@ logScope: service = ServiceName
 
 type
   DutiesServiceLoop* = enum
-    AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop
+    AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop,
+    ProposerPreparationLoop
 
 chronicles.formatIt(DutiesServiceLoop):
   case it
@@ -24,6 +25,7 @@ chronicles.formatIt(DutiesServiceLoop):
   of ProposerLoop: "proposer_loop"
   of IndicesLoop: "index_loop"
   of SyncCommitteeLoop: "sync_committee_loop"
+  of ProposerPreparationLoop: "proposer_prepare_loop"
 
 proc checkDuty(duty: RestAttesterDuty): bool =
   (duty.committee_length <= MAX_VALIDATORS_PER_COMMITTEE) and
@@ -88,6 +90,7 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
       missing.add(validatorLog(item.validator.pubkey, item.index))
     else:
       validator.index = Opt.some(item.index)
+      validator.activationEpoch = Opt.some(item.validator.activation_epoch)
       updated.add(validatorLog(item.validator.pubkey, item.index))
       list.add(validator)
 
@@ -96,6 +99,7 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
          updated_validators = len(updated)
     trace "Validator indices update dump", missing_validators = missing,
           updated_validators = updated
+    vc.indicesAvailable.fire()
     vc.addDoppelganger(list)
 
 proc pollForAttesterDuties*(vc: ValidatorClientRef,
@@ -229,6 +233,18 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
 
   return len(addOrReplaceItems)
 
+proc pruneSyncCommitteeDuties*(vc: ValidatorClientRef, slot: Slot) =
+  if slot.is_sync_committee_period():
+    var newSyncCommitteeDuties: SyncCommitteeDutiesMap
+    let epoch = slot.epoch()
+    for key, item in vc.syncCommitteeDuties:
+      var currentPeriodDuties = EpochSyncDuties()
+      for epochKey, epochDuty in item.duties:
+        if epochKey >= epoch:
+          currentPeriodDuties.duties[epochKey] = epochDuty
+      newSyncCommitteeDuties[key] = currentPeriodDuties
+    vc.syncCommitteeDuties = newSyncCommitteeDuties
+
 proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
                                  epoch: Epoch): Future[int] {.async.} =
   let validatorIndices = toSeq(vc.attachedValidators[].indices())
@@ -268,7 +284,8 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
       block:
         var res: seq[SyncCommitteeDuty]
         for duty in filteredDuties:
-          for validatorSyncCommitteeIndex in duty.validator_sync_committee_indices:
+          for validatorSyncCommitteeIndex in
+              duty.validator_sync_committee_indices:
             res.add(SyncCommitteeDuty(
               pubkey: duty.pubkey,
               validator_index: duty.validator_index,
@@ -281,12 +298,20 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
 
   let addOrReplaceItems =
     block:
+      var alreadyWarned = false
       var res: seq[tuple[epoch: Epoch, duty: SyncCommitteeDuty]]
       for duty in relevantDuties:
         let map = vc.syncCommitteeDuties.getOrDefault(duty.pubkey)
         let epochDuty = map.duties.getOrDefault(epoch, DefaultSyncDutyAndProof)
-        info "Received new sync committee duty", duty, epoch
-        res.add((epoch, duty))
+        if epochDuty.isDefault():
+          info "Received new sync committee duty", duty, epoch
+          res.add((epoch, duty))
+        else:
+          if epochDuty.data != duty:
+            if not(alreadyWarned):
+              info "Sync committee duties re-organization", duty, epoch
+              alreadyWarned = true
+            res.add((epoch, duty))
       res
 
   if len(addOrReplaceItems) > 0:
@@ -332,7 +357,8 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
           SyncDutyAndProof.init(item.epoch, item.duty,
                                 none[ValidatorSig]())
 
-      var validatorDuties = vc.syncCommitteeDuties.getOrDefault(item.duty.pubkey)
+      var validatorDuties =
+        vc.syncCommitteeDuties.getOrDefault(item.duty.pubkey)
       validatorDuties.duties[item.epoch] = dap
       vc.syncCommitteeDuties[item.duty.pubkey] = validatorDuties
 
@@ -448,6 +474,8 @@ proc pollForSyncCommitteeDuties* (vc: ValidatorClientRef) {.async.} =
         if not(res):
           error "Failed to subscribe validators"
 
+      vc.pruneSyncCommitteeDuties(currentSlot)
+
 proc pruneBeaconProposers(vc: ValidatorClientRef, epoch: Epoch) =
   var proposers: ProposerMap
   for epochKey, data in vc.proposers:
@@ -492,6 +520,37 @@ proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
 
     vc.pruneBeaconProposers(currentEpoch)
 
+proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  let sres = vc.getCurrentSlot()
+  if sres.isSome():
+    let
+      currentSlot = sres.get()
+      currentEpoch = currentSlot.epoch()
+      proposers = vc.prepareProposersList(currentEpoch)
+
+    if len(proposers) > 0:
+      let count =
+        try:
+          await prepareBeaconProposer(vc, proposers)
+        except ValidatorApiError as exc:
+          warn "Unable to prepare beacon proposers", slot = currentSlot,
+                epoch = currentEpoch, err_name = exc.name,
+                err_msg = exc.msg
+          0
+        except CancelledError as exc:
+          debug "Beacon proposer preparation processing was interrupted"
+          raise exc
+        except CatchableError as exc:
+          error "Unexpected error occured while preparing beacon proposers",
+                slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
+                err_msg = exc.msg
+          0
+      debug "Beacon proposers prepared",
+            validators_count = vc.attachedValidators[].count(),
+            proposers_count = len(proposers),
+            prepared_count = count
+
 proc waitForNextSlot(service: DutiesServiceRef,
                      serviceLoop: DutiesServiceLoop) {.async.} =
   let vc = service.client
@@ -524,7 +583,15 @@ proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
     await vc.pollForValidatorIndices()
     await service.waitForNextSlot(IndicesLoop)
 
-proc syncCommitteeeDutiesLoop(service: DutiesServiceRef) {.async.} =
+proc proposerPreparationsLoop(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  debug "Beacon proposer preparation loop waiting for validator indices update"
+  await vc.indicesAvailable.wait()
+  while true:
+    await service.prepareBeaconProposers()
+    await service.waitForNextSlot(ProposerPreparationLoop)
+
+proc syncCommitteeDutiesLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
 
   debug "Sync committee duties loop waiting for fork schedule update"
@@ -556,7 +623,8 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
     attestFut = service.attesterDutiesLoop()
     proposeFut = service.proposerDutiesLoop()
     indicesFut = service.validatorIndexLoop()
-    syncFut = service.syncCommitteeeDutiesLoop()
+    syncFut = service.syncCommitteeDutiesLoop()
+    prepareFut = service.proposerPreparationsLoop()
 
   while true:
     # This loop could look much more nicer/better, when
@@ -564,12 +632,15 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
     # become safe to combine loops, breaks and exception handlers.
     let breakLoop =
       try:
-        discard await race(attestFut, proposeFut, indicesFut, syncFut)
+        discard await race(attestFut, proposeFut, indicesFut, syncFut,
+                           prepareFut)
         checkAndRestart(AttesterLoop, attestFut, service.attesterDutiesLoop())
         checkAndRestart(ProposerLoop, proposeFut, service.proposerDutiesLoop())
         checkAndRestart(IndicesLoop, indicesFut, service.validatorIndexLoop())
-        checkAndRestart(SyncCommitteeLoop,
-                        syncFut, service.syncCommitteeeDutiesLoop())
+        checkAndRestart(SyncCommitteeLoop, syncFut,
+                        service.syncCommitteeDutiesLoop())
+        checkAndRestart(ProposerPreparationLoop, prepareFut,
+                        service.proposerPreparationsLoop())
         false
       except CancelledError:
         debug "Service interrupted"
@@ -582,6 +653,8 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
           pending.add(indicesFut.cancelAndWait())
         if not(syncFut.finished()):
           pending.add(syncFut.cancelAndWait())
+        if not(prepareFut.finished()):
+          pending.add(prepareFut.cancelAndWait())
         await allFutures(pending)
         true
       except CatchableError as exc:

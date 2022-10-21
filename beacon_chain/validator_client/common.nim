@@ -13,7 +13,8 @@ import
   metrics, metrics/chronos_httpserver,
   ".."/spec/datatypes/[phase0, altair],
   ".."/spec/[eth2_merkleization, helpers, signatures, validator],
-  ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client],
+  ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
+                       dynamic_fee_recipients],
   ".."/validators/[keystore_management, validator_pool, slashing_protection],
   ".."/[conf, beacon_clock, version, nimbus_binary_common]
 
@@ -22,7 +23,8 @@ export
   nimbus_binary_common, version, conf, options, tables, results, base10,
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
-  beacon_clock, keystore_management, slashing_protection, validator_pool
+  beacon_clock, keystore_management, slashing_protection, validator_pool,
+  dynamic_fee_recipients
 
 const
   SYNC_TOLERANCE* = 4'u64
@@ -166,12 +168,14 @@ type
     forks*: seq[Fork]
     forksAvailable*: AsyncEvent
     nodesAvailable*: AsyncEvent
+    indicesAvailable*: AsyncEvent
     gracefulExit*: AsyncEvent
     attesters*: AttesterMap
     proposers*: ProposerMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
+    dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     rng*: ref HmacDrbgContext
 
   ValidatorClientRef* = ref ValidatorClient
@@ -274,6 +278,11 @@ chronicles.expandIt(RestAttesterDuty):
   committee_length = it.committee_length
   committees_at_slot = it.committees_at_slot
   validator_committee_index = it.validator_committee_index
+
+chronicles.expandIt(SyncCommitteeDuty):
+  pubkey = shortLog(it.pubkey)
+  validator_index = it.validator_index
+  validator_sync_committee_index = it.validator_sync_committee_index
 
 proc stop*(csr: ClientServiceRef) {.async.} =
   debug "Stopping service", service = csr.name
@@ -420,19 +429,6 @@ proc getSyncCommitteeDutiesForSlot*(vc: ValidatorClientRef,
       res.add(duty[])
   res
 
-proc removeOldSyncPeriodDuties*(vc: ValidatorClientRef,
-                                slot: Slot) =
-  if slot.is_sync_committee_period:
-    let epoch = slot.epoch()
-    var prunedDuties = SyncCommitteeDutiesMap()
-    for key, item in vc.syncCommitteeDuties:
-      var curPeriodDuties = EpochSyncDuties()
-      for epochKey, epochDuty in item.duties:
-        if epochKey >= epoch:
-          curPeriodDuties.duties[epochKey] = epochDuty
-      prunedDuties[key] = curPeriodDuties
-    vc.syncCommitteeDuties = prunedDuties
-
 proc getDurationToNextAttestation*(vc: ValidatorClientRef,
                                    slot: Slot): string =
   var minSlot = FAR_FUTURE_SLOT
@@ -548,11 +544,16 @@ proc addDoppelganger*(vc: ValidatorClientRef,
                               lastAttempt: DoppelgangerAttempt.None,
                               status: DoppelgangerStatus.Passed)
           else:
-            DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
-                              lastAttempt: DoppelgangerAttempt.None,
-                              status: DoppelgangerStatus.Checking)
+            if validator.activationEpoch.isSome() and
+               (validator.activationEpoch.get() >= startEpoch):
+              DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
+                                lastAttempt: DoppelgangerAttempt.None,
+                                status: DoppelgangerStatus.Passed)
+            else:
+              DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
+                                lastAttempt: DoppelgangerAttempt.None,
+                                status: DoppelgangerStatus.Checking)
         res = vc.doppelgangerDetection.validators.hasKeyOrPut(vindex, state)
-
       if res:
         exist.add(validatorLog(validator.pubkey, vindex))
       else:
@@ -677,15 +678,12 @@ proc doppelgangerCheck*(vc: ValidatorClientRef,
     if validator.index.isNone():
       false
     else:
-      if validator.startSlot > GENESIS_SLOT:
-        let
-          vindex = validator.index.get()
-          default = DoppelgangerState(status: DoppelgangerStatus.None)
-          state = vc.doppelgangerDetection.validators.getOrDefault(vindex,
-                                                                   default)
-        state.status == DoppelgangerStatus.Passed
-      else:
-        true
+      let
+        vindex = validator.index.get()
+        default = DoppelgangerState(status: DoppelgangerStatus.None)
+        state = vc.doppelgangerDetection.validators.getOrDefault(vindex,
+                                                                 default)
+      state.status == DoppelgangerStatus.Passed
   else:
     true
 
@@ -698,7 +696,6 @@ proc doppelgangerFilter*(
        vc: ValidatorClientRef,
        duties: openArray[DutyAndProof]
      ): tuple[filtered: seq[DutyAndProof], skipped: seq[string]] =
-  let defstate = DoppelgangerState(status: DoppelgangerStatus.None)
   var
     pending: seq[string]
     ready: seq[DutyAndProof]
@@ -711,3 +708,31 @@ proc doppelgangerFilter*(
     else:
       pending.add(validatorLog(vkey, vindex))
   (ready, pending)
+
+proc getFeeRecipient*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
+                      validatorIdx: ValidatorIndex,
+                      epoch: Epoch): Opt[Eth1Address] =
+  let dynamicRecipient = vc.dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
+                           validatorIdx, epoch)
+  if dynamicRecipient.isSome():
+    Opt.some(dynamicRecipient.get())
+  else:
+    let staticRecipient = getSuggestedFeeRecipient(
+      vc.config.validatorsDir, pubkey, vc.config.defaultFeeRecipient)
+    if staticRecipient.isOk():
+      Opt.some(staticRecipient.get())
+    else:
+      Opt.none(Eth1Address)
+
+proc prepareProposersList*(vc: ValidatorClientRef,
+                           epoch: Epoch): seq[PrepareBeaconProposer] =
+  var res: seq[PrepareBeaconProposer]
+  for validator in vc.attachedValidators[].items():
+    if validator.index.isSome():
+      let
+        index = validator.index.get()
+        feeRecipient = vc.getFeeRecipient(validator.pubkey, index, epoch)
+      if feeRecipient.isSome():
+        res.add(PrepareBeaconProposer(validator_index: index,
+                                      fee_recipient: feeRecipient.get()))
+  res

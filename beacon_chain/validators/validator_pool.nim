@@ -55,6 +55,9 @@ type
     # assumed that a valid index is stored here!
     index*: Opt[ValidatorIndex]
 
+    # Epoch when validator activated.
+    activationEpoch*: Opt[Epoch]
+
     # Cache the latest slot signature - the slot signature is used to determine
     # if the validator will be aggregating (in the near future)
     slotSignature*: Opt[tuple[slot: Slot, signature: ValidatorSig]]
