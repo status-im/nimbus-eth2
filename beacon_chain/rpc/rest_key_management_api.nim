@@ -8,7 +8,7 @@
 # please keep imports clear of `rest_utils` or any other module which imports
 # beacon node's specific networking code.
 
-import std/[tables, os, strutils, uri]
+import std/[tables, strutils, uri]
 import chronos, chronicles, confutils,
        stew/[base10, results, io2], blscurve, presto
 import ".."/spec/[keystore, crypto]

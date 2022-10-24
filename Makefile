@@ -28,7 +28,6 @@ BASE_METRICS_PORT := 8008
 # WARNING: Use lazy assignment to allow CI to override.
 EXECUTOR_NUMBER ?= 0
 
-ROPSTEN_WEB3_URL := "--web3-url=wss://ropsten.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
 GOERLI_WEB3_URL := "--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 GNOSIS_WEB3_URLS := "--web3-url=wss://rpc.gnosischain.com/wss --web3-url=wss://xdai.poanetwork.dev/wss"
@@ -530,35 +529,6 @@ goerli-dev-deposit: | goerli-build deposit_contract
 clean-goerli:
 	$(call CLEAN_NETWORK,goerli)
 
-
-###
-### Ropsten
-###
-ropsten-build: | nimbus_beacon_node nimbus_signing_node
-
-# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-ropsten: | ropsten-build
-	$(call CONNECT_TO_NETWORK,ropsten,nimbus_beacon_node,$(ROPSTEN_WEB3_URL))
-
-ropsten-vc: | ropsten-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,ropsten,nimbus_beacon_node,$(ROPSTEN_WEB3_URL))
-
-ropsten-lc: | nimbus_light_client
-	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,ropsten)
-
-ifneq ($(LOG_LEVEL), TRACE)
-ropsten-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
-else
-ropsten-dev: | ropsten-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,ropsten,nimbus_beacon_node,$(ROPSTEN_WEB3_URL))
-endif
-
-ropsten-dev-deposit: | ropsten-build deposit_contract
-	$(call MAKE_DEPOSIT,ropsten,$(ROPSTEN_WEB3_URL))
-
-clean-ropsten:
-	$(call CLEAN_NETWORK,ropsten)
 
 ###
 ### Sepolia
