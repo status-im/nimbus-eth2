@@ -736,3 +736,13 @@ proc prepareProposersList*(vc: ValidatorClientRef,
         res.add(PrepareBeaconProposer(validator_index: index,
                                       fee_recipient: feeRecipient.get()))
   res
+
+proc prepareRegistrationList*(vc: ValidatorClientRef,
+                              fork: Fork): seq[SignedValidatorRegistrationV1] =
+  var res: seq[SignedValidatorRegistrationV1]
+  for validator in vc.attachedValidators[].items():
+    if validator.index.isSome() and
+       validator.externalBuilderRegistration.isSome():
+      let
+
+
