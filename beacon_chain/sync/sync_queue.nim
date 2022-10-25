@@ -15,7 +15,7 @@ import stew/[results, base10], chronos, chronicles
 import
   ../spec/datatypes/[base, phase0, altair],
   ../spec/[helpers, forks],
-  ../networking/[peer_pool, eth2_network],
+  ../networking/[peer_pool, consensus_network],
   ../gossip_processing/block_processor,
   ../consensus_object_pools/block_pools_types
 

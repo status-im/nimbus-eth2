@@ -17,7 +17,7 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[helpers, forks, network],
   ".."/[beacon_clock],
-  ../networking/eth2_network,
+  ../networking/consensus_network,
   ../consensus_object_pools/blockchain_dag,
   ../rpc/rest_constants
 
@@ -129,7 +129,8 @@ proc readChunkPayload*(
 
   let res =
     if stateFork >= BeaconStateFork.Altair:
-      await eth2_network.readChunkPayload(conn, peer, maxChunkSize, MsgType)
+      await consensus_network.readChunkPayload(
+        conn, peer, maxChunkSize, MsgType)
     else:
       doAssert stateFork == BeaconStateFork.Phase0
       return neterr InvalidContextBytes

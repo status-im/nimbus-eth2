@@ -16,7 +16,7 @@ import
   ../spec/datatypes/[phase0, altair],
   ../spec/eth2_apis/rest_types,
   ../spec/[helpers, forks, network],
-  ../networking/[peer_pool, peer_scores, eth2_network],
+  ../networking/[peer_pool, peer_scores, consensus_network],
   ../beacon_clock,
   "."/[sync_protocol, sync_queue]
 

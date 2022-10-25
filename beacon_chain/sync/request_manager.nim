@@ -15,7 +15,7 @@ import chronos, chronicles
 import
   ../spec/datatypes/[phase0],
   ../spec/forks,
-  ../networking/eth2_network,
+  ../networking/consensus_network,
   ../consensus_object_pools/block_quarantine,
   "."/sync_protocol, "."/sync_manager
 export block_quarantine, sync_manager

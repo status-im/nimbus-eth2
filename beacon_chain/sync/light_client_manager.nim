@@ -14,7 +14,7 @@ import chronos, chronicles, stew/base10
 import
   eth/p2p/discoveryv5/random2,
   ../spec/datatypes/[altair],
-  ../networking/eth2_network,
+  ../networking/consensus_network,
   ../beacon_clock,
   "."/sync_protocol, "."/sync_manager
 export sync_manager

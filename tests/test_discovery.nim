@@ -11,7 +11,7 @@ import
   testutils/unittests,
   chronos, stew/shims/net, eth/keys, eth/p2p/discoveryv5/enr,
   ../beacon_chain/spec/[forks, network],
-  ../beacon_chain/networking/[eth2_network, eth2_discovery],
+  ../beacon_chain/networking/[consensus_network, eth2_discovery],
   ./testutil
 
 proc new(T: type Eth2DiscoveryProtocol,

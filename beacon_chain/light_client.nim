@@ -14,13 +14,13 @@ import
   chronicles,
   eth/keys,
   ./gossip_processing/light_client_processor,
-  ./networking/[eth2_network, topic_params],
+  ./networking/[consensus_network, topic_params],
   ./spec/datatypes/altair,
   ./spec/helpers,
   ./sync/light_client_manager,
   "."/[beacon_clock, conf_light_client]
 
-export LightClientFinalizationMode, eth2_network, conf_light_client
+export LightClientFinalizationMode, consensus_network, conf_light_client
 
 logScope: topics = "lightcl"
 

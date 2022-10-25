@@ -16,7 +16,7 @@ import
   # Local modules
   "."/[beacon_clock, beacon_chain_db, conf, light_client],
   ./gossip_processing/[eth2_processor, block_processor, optimistic_processor],
-  ./networking/eth2_network,
+  ./networking/consensus_network,
   ./eth1/eth1_monitor,
   ./consensus_object_pools/[
     blockchain_dag, block_quarantine, consensus_manager, exit_pool,
@@ -33,9 +33,9 @@ export
   osproc, chronos, httpserver, presto, action_tracker,
   beacon_clock, beacon_chain_db, conf, light_client,
   attestation_pool, sync_committee_msg_pool, validator_pool,
-  eth2_network, eth1_monitor, request_manager, sync_manager,
-  eth2_processor, optimistic_processor, blockchain_dag, block_quarantine,
-  base, exit_pool,  message_router, validator_monitor,
+  consensus_network, eth1_monitor, request_manager,
+  sync_manager, eth2_processor, optimistic_processor, blockchain_dag,
+  block_quarantine, base, exit_pool,  message_router, validator_monitor,
   consensus_manager, dynamic_fee_recipients
 
 type

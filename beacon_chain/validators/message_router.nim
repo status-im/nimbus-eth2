@@ -17,10 +17,10 @@ import
   ../spec/network,
   ../consensus_object_pools/spec_cache,
   ../gossip_processing/eth2_processor,
-  ../networking/eth2_network,
+  ../networking/consensus_network,
   ./activity_metrics
 
-export eth2_processor, eth2_network
+export eth2_processor, consensus_network
 
 declareCounter beacon_voluntary_exits_sent,
   "Number of beacon voluntary sent by this node"

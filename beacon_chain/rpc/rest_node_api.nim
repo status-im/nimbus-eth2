@@ -4,7 +4,7 @@ import
   eth/p2p/discoveryv5/enr,
   libp2p/[multiaddress, multicodec, peerstore],
   ../version, ../beacon_node, ../sync/sync_manager,
-  ../networking/[eth2_network, peer_pool],
+  ../networking/[consensus_network, peer_pool],
   ../spec/datatypes/base,
   ./rest_utils
 

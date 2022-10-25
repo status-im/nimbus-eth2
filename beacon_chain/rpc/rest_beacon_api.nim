@@ -10,7 +10,7 @@ import
   stew/[results, base10],
   chronicles,
   ./rest_utils,
-  ../beacon_node, ../networking/eth2_network,
+  ../beacon_node, ../networking/consensus_network,
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
   ../spec/[eth2_merkleization, forks, network, validator],
   ../spec/datatypes/[phase0, altair],

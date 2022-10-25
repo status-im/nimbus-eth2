@@ -7,7 +7,7 @@
 import std/[typetraits, sets]
 import stew/[results, base10], chronicles
 import ".."/[beacon_chain_db, beacon_node],
-       ".."/networking/eth2_network,
+       ".."/networking/consensus_network,
        ".."/consensus_object_pools/[blockchain_dag, spec_cache,
                                     attestation_pool, sync_committee_msg_pool],
        ".."/validators/validator_duties,

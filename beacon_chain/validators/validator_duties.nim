@@ -36,7 +36,7 @@ import
     spec_cache, blockchain_dag, block_clearance, attestation_pool, exit_pool,
     sync_committee_msg_pool, consensus_manager],
   ../eth1/eth1_monitor,
-  ../networking/eth2_network,
+  ../networking/consensus_network,
   ../sszdump, ../sync/sync_manager,
   ../gossip_processing/block_processor,
   ".."/[conf, beacon_clock, beacon_node],
