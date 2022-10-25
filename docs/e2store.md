@@ -13,6 +13,7 @@ The `e2store` (extension: `.e2s`) is a simple linear [Type-Length-Value](https:/
 The type and length are encoded in an 8-byte header which is directly followed by data.
 
 The header corresponds to an SSZ object defined as such:
+
 ```python
 class Header(Container):
     type: Vector[byte, 2]
