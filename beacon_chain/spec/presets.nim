@@ -17,7 +17,7 @@ import
 
 export constants
 
-export stint, ethtypes.toHex
+export stint, ethtypes.toHex, ethtypes.`==`
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#withdrawal-prefixes
