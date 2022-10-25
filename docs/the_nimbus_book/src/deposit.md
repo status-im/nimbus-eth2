@@ -6,7 +6,7 @@ To make a deposit, you will need to generate keys then submit a deposit transact
     The process of setting up a validator is also documented at the Ethereum launchpad site:
 
     * [Mainnet](https://launchpad.ethereum.org/)
-    * [Prater](https://prater.launchpad.ethereum.org/)
+    * [Goerli/Prater EthStaker Launchpad](https://goerli.launchpad.ethstaker.cc/en/) or [Goerli/Prater EF Launchpad](https://prater.launchpad.ethereum.org/)
 
 !!! tip
     Use Prater to stress test / future proof  your set up against peak mainnet load. See [here](./prater.md) for all you need to know
