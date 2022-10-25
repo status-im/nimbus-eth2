@@ -12,14 +12,14 @@ The `e2store` (extension: `.e2s`) is a simple linear [Type-Length-Value](https:/
 
 The type and length are encoded in an 8-byte header which is directly followed by data.
 
-```
-record = header | data
-header = type | length
-type = Vector[byte, 2]
-length = Vector[byte, 6]
+The header corresponds to an SSZ object defined as such:
+```python
+class Header(Container):
+    type: Vector[byte, 2]
+    length: uint48
 ```
 
-The `length` is the first 6 bytes of a little-endian encoded `uint64`, not including the header itself. For example, the entry with header type `[0x22, 0x32]`, the length `4` and the bytes `[0x01, 0x02, 0x03, 0x04]` will be stored as the byte sequence `[0x22, 0x32, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04]`.
+The `length` is the length of the data that follows the header, not including the length of the header itself. For example, the entry with header type `[0x22, 0x32]`, the length `4` and the bytes `[0x01, 0x02, 0x03, 0x04]` will be stored as the byte sequence `[0x22, 0x32, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04]`.
 
 `.e2s` files may freely be concatenated, and may contain out-of-order records.
 
