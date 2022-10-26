@@ -2087,3 +2087,43 @@ proc prepareBeaconProposer*(
           debug "Beacon proposer preparation failed", status = response.status,
                 endpoint = apiResponse.node
     return count
+
+proc registerValidator*(
+       vc: ValidatorClientRef,
+       data: seq[SignedValidatorRegistrationV1]
+     ): Future[int] {.async.} =
+  logScope: request = "registerValidators"
+  let resp = vc.onceToAll(RestPlainResponse, SlotDuration,
+                          {BeaconNodeRole.BlockProposalPublish},
+                          registerValidator(it, data))
+  if len(resp.data) == 0:
+    # We did not get any response from beacon nodes.
+    case resp.status
+    of ApiOperation.Success:
+      # This should not be happened, there should be present at least one
+      # successfull response.
+      return 0
+    of ApiOperation.Timeout:
+      debug "Unable to register validators in time",
+            timeout = SlotDuration
+      return 0
+    of ApiOperation.Interrupt:
+      debug "Validator registration was interrupted"
+      return 00
+    of ApiOperation.Failure:
+      debug "Unexpected error happened while registering validators"
+      return 0
+  else:
+    var count = 0
+    for apiResponse in resp.data:
+      if apiResponse.data.isErr():
+        debug "Unable to register validator with beacon node",
+              endpoint = apiResponse.node, error = apiResponse.data.error()
+      else:
+        let response = apiResponse.data.get()
+        if response.status == 200:
+          inc(count)
+        else:
+          debug "Unable to register validators with beacon node",
+                status = response.status, endpoint = apiResponse.node
+    return count
