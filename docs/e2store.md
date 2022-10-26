@@ -336,3 +336,7 @@ The alternative that was considered is to store the state without the block appl
 * no special case is needed when replaying blocks from era files - all are applied in the order they appear in the era file
 
 In the end though, the applied block state is used throughout in the protocol - given a block, the state root in the block is computed with the data from the block applied and this later gets stored in `state_roots` which forms the basis for `historical_roots`. In API:s such as the beacon API, the canonical state root of a slot is the state with the block of that slot applied, if it is part of the canonical history given by the head.
+
+## How can block roots be accessed without computing them?
+
+Each era file contains a full `BeaconState` object whose `block_roots` field corresponds to the block contents of the file. The easiest way to access the roots is to read the "header" of the `BeaconState` without reading all fields.
