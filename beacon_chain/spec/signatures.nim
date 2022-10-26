@@ -23,6 +23,8 @@ import
   ./datatypes/[phase0, altair, bellatrix], ./mev/bellatrix_mev, ./helpers,
   ./eth2_merkleization
 
+from ./datatypes/capella import BLSToExecutionChange, SignedBLSToExecutionChange
+
 export phase0, altair
 
 template withTrust(sig: SomeSig, body: untyped): bool =
@@ -367,4 +369,20 @@ proc verify_builder_signature*(
     fork: Fork, msg: BuilderBid,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_builder_signing_root(fork, msg)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/53b63cedc586c3e1cc2ff737e85c1ed8a3eb45c6/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
+func compute_bls_to_execution_change_signing_root(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    epoch: Epoch, msg: BLSToExecutionChange): Eth2Digest =
+  let domain = get_domain(
+    fork, DOMAIN_BLS_TO_EXECUTION_CHANGE, epoch, genesis_validators_root)
+  compute_signing_root(msg, domain)
+
+proc verify_bls_to_execution_change_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
+    msg: SignedBLSToExecutionChange,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_bls_to_execution_change_signing_root(
+    fork, genesis_validators_root, epoch, msg.message)
   blsVerify(pubkey, signing_root.data, signature)

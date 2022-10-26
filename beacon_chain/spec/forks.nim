@@ -15,7 +15,7 @@ import
   chronicles,
   ../extras,
   "."/[block_id, eth2_merkleization, eth2_ssz_serialization, presets],
-  ./datatypes/[phase0, altair, bellatrix],
+  ./datatypes/[phase0, altair, bellatrix, capella],
   ./mev/bellatrix_mev
 
 export
@@ -47,7 +47,8 @@ type
   ForkyBeaconState* =
     phase0.BeaconState |
     altair.BeaconState |
-    bellatrix.BeaconState
+    bellatrix.BeaconState |
+    capella.BeaconState
 
   ForkyHashedBeaconState* =
     phase0.HashedBeaconState |
@@ -88,7 +89,8 @@ type
   ForkyBeaconBlock* =
     phase0.BeaconBlock |
     altair.BeaconBlock |
-    bellatrix.BeaconBlock
+    bellatrix.BeaconBlock |
+    capella.BeaconBlock
 
   ForkySigVerifiedBeaconBlock* =
     phase0.SigVerifiedBeaconBlock |

@@ -14,18 +14,28 @@ else:
 
 import
   ssz_serialization/[merkleization, proofs],
-  ./ssz_codec,
-  ./datatypes/[phase0, altair]
+  ./ssz_codec
+
+from ./datatypes/phase0 import HashedBeaconState, SignedBeaconBlock
+from ./datatypes/altair import HashedBeaconState, SignedBeaconBlock
+from ./datatypes/bellatrix import HashedBeaconState, SignedBeaconBlock
+from ./datatypes/capella import HashedBeaconState, SignedBeaconBlock
 
 export ssz_codec, merkleization, proofs
 
 type
   DepositsMerkleizer* = SszMerkleizer[DEPOSIT_CONTRACT_LIMIT]
 
-func hash_tree_root*(x: phase0.HashedBeaconState | altair.HashedBeaconState) {.
+# Can't use `ForkyHashedBeaconState`/`ForkyHashedSignedBeaconBlock` without
+# creating recursive module dependency through `forks`.
+func hash_tree_root*(
+    x: phase0.HashedBeaconState | altair.HashedBeaconState |
+       bellatrix.HashedBeaconState | capella.HashedBeaconState) {.
   error: "HashedBeaconState should not be hashed".}
 
-func hash_tree_root*(x: phase0.SomeSignedBeaconBlock | altair.SomeSignedBeaconBlock) {.
+func hash_tree_root*(
+    x: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+       bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock) {.
   error: "SignedBeaconBlock should not be hashed".}
 
 func depositCountU64(s: DepositContractState): uint64 =

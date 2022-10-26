@@ -20,7 +20,7 @@ import
   chronicles,
   eth/eip1559, eth/common/[eth_types, eth_types_rlp],
   # Internal
-  ./datatypes/[phase0, altair, bellatrix],
+  ./datatypes/[phase0, altair, bellatrix, capella],
   "."/[eth2_merkleization, forks, ssz_codec]
 
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
@@ -319,8 +319,10 @@ func contextEpoch*(update: SomeLightClientUpdate): Epoch =
   update.attested_header.slot.epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
-func is_merge_transition_complete*(state: bellatrix.BeaconState): bool =
-  const defaultExecutionPayloadHeader = default(ExecutionPayloadHeader)
+func is_merge_transition_complete*(
+    state: bellatrix.BeaconState | capella.BeaconState): bool =
+  const defaultExecutionPayloadHeader =
+    default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/sync/optimistic.md#helpers
@@ -354,7 +356,8 @@ func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   let slots_since_genesis = slot - GENESIS_SLOT
   state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT
 
-proc emptyPayloadToBlockHeader*(payload: ExecutionPayload): ExecutionBlockHeader =
+proc emptyPayloadToBlockHeader*(
+    payload: bellatrix.ExecutionPayload): ExecutionBlockHeader =
   ## This function assumes that the payload is empty!
   doAssert payload.transactions.len == 0
 
@@ -377,7 +380,8 @@ proc emptyPayloadToBlockHeader*(payload: ExecutionPayload): ExecutionBlockHeader
     fee           : some payload.base_fee_per_gas
   )
 
-func build_empty_execution_payload*(state: bellatrix.BeaconState): ExecutionPayload =
+func build_empty_execution_payload*(
+    state: bellatrix.BeaconState): bellatrix.ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.
   let
@@ -388,7 +392,7 @@ func build_empty_execution_payload*(state: bellatrix.BeaconState): ExecutionPayl
                                   GasInt.saturate latest.gas_used,
                                   latest.base_fee_per_gas)
 
-  var payload = ExecutionPayload(
+  var payload = bellatrix.ExecutionPayload(
     parent_hash: latest.block_hash,
     state_root: latest.state_root, # no changes to the state
     receipts_root: EMPTY_ROOT_HASH,
