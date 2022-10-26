@@ -85,6 +85,10 @@ type
 
     verifier: BatchVerifier
 
+    optimistic: bool
+      ## Run block processor in optimistic mode allowing it to progress even
+      ## though execution client is offline
+
   NewPayloadStatus {.pure.} = enum
     valid
     notValid
@@ -109,7 +113,8 @@ proc new*(T: type BlockProcessor,
           rng: ref HmacDrbgContext, taskpool: TaskPoolPtr,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
-          getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
+          getBeaconTime: GetBeaconTimeFn,
+          optimistic: bool = false): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
@@ -118,7 +123,8 @@ proc new*(T: type BlockProcessor,
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
     getBeaconTime: getBeaconTime,
-    verifier: BatchVerifier(rng: rng, taskpool: taskpool)
+    verifier: BatchVerifier(rng: rng, taskpool: taskpool),
+    optimistic: optimistic
   )
 
 # Sync callbacks
@@ -322,7 +328,8 @@ proc storeBlock*(
   if NewPayloadStatus.invalid == payloadStatus:
     self.consensusManager.quarantine[].addUnviable(signedBlock.root)
     return err((BlockError.UnviableFork, BlockProcessingCompleted.completed))
-  elif NewPayloadStatus.noResponse == payloadStatus:
+
+  if NewPayloadStatus.noResponse == payloadStatus and not self[].optimistic:
     # Disallow the `MissingParent` from leaking to the sync/request managers
     # as it will be descored. However sync and request managers interact via
     # `processBlock` (indirectly). `validator_duties` does call `storeBlock`

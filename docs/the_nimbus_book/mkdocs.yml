@@ -91,6 +91,7 @@ nav:
     - 'hardware.md'
     - 'options.md'
     - 'networking.md'
+    - 'optimistic-sync.md'
     - 'logging.md'
     - 'validator-monitor.md'
     - 'attestation-performance.md'
