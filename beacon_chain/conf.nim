@@ -179,6 +179,11 @@ type
       desc: "Force the use of polling when determining the head block of Eth1"
       name: "web3-force-polling" .}: bool
 
+    optimistic* {.
+      defaultValue: false
+      desc: "Run the node in optimistic mode, allowing it to optimistically sync without an execution client"
+      name: "optimistic".}: bool
+
     requireEngineAPI* {.
       hidden  # Deprecated > 22.9
       desc: "Require Nimbus to be configured with an Engine API end-point after the Bellatrix fork epoch"

@@ -1,11 +1,11 @@
 # Run an execution client
 
-In order to run a beacon node, you need to also be running an execution client - one for each beacon node.
+In order to run a beacon node, you need to also be running an execution client - at least one for each beacon node.
 
 Nimbus has been tested all major execution clients - see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
 
 !!! warning
-    You need to run your own execution client - relying on third-party services such as Infura, Alchemy and Pocket will not be possible.
+    You need to run your own execution client - relying on third-party services such as Infura, Alchemy and Pocket is no longer possible.
 
 !!! info
     Syncing an execution client may take hours or even days, depending on your hardware! The backup providers will be synced only when the primary becomes unavailable, which may lead to a small gap in validation duties - this limitation may be lifted in future versions.

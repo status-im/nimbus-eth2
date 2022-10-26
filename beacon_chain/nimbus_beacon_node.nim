@@ -300,7 +300,8 @@ proc initFullNode(
       config.defaultFeeRecipient)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime)
+      rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime,
+      optimistic = config.optimistic)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock):
         Future[Result[void, BlockError]] =
       # The design with a callback for block verification is unusual compared
