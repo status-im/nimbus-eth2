@@ -189,16 +189,39 @@ from ../eth1/eth1_monitor import
 
 proc expectValidForkchoiceUpdated(
     eth1Monitor: Eth1Monitor,
-    headBlockRoot, safeBlockRoot, finalizedBlockRoot: Eth2Digest
-): Future[void] {.async.} =
-  let (payloadExecutionStatus, _) =
-    await eth1Monitor.runForkchoiceUpdated(
-      headBlockRoot, safeBlockRoot, finalizedBlockRoot)
-  if payloadExecutionStatus != PayloadExecutionStatus.valid:
-    # Only called when expecting this to be valid because `newPayload` or some
-    # previous `forkchoiceUpdated` had already marked it as valid.
-    warn "expectValidForkchoiceUpdate: forkChoiceUpdated not `VALID`",
-      payloadExecutionStatus, headBlockRoot, safeBlockRoot, finalizedBlockRoot
+    headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
+    receivedBlock: ForkySignedBeaconBlock): Future[void] {.async.} =
+  let
+    (payloadExecutionStatus, _) = await eth1Monitor.runForkchoiceUpdated(
+      headBlockHash, safeBlockHash, finalizedBlockHash)
+    receivedExecutionBlockHash =
+      when typeof(receivedBlock).toFork >= BeaconBlockFork.Bellatrix:
+        receivedBlock.message.body.execution_payload.block_hash
+      else:
+        # https://github.com/nim-lang/Nim/issues/19802
+        (static(default(Eth2Digest)))
+
+  # Only called when expecting this to be valid because `newPayload` or some
+  # previous `forkchoiceUpdated` had already marked it as valid. However, if
+  # it's not the block that was received, don't info/warn either way given a
+  # relative lack of immediate evidence.
+  if receivedExecutionBlockHash != headBlockHash:
+    return
+
+  case payloadExecutionStatus
+  of PayloadExecutionStatus.valid:
+    # situation nominal
+    discard
+  of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
+    info "execution payload forkChoiceUpdated status ACCEPTED/SYNCING, but was previously VALID",
+      payloadExecutionStatus = $payloadExecutionStatus, headBlockHash,
+      safeBlockHash, finalizedBlockHash,
+      receivedBlock = shortLog(receivedBlock)
+  of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
+    warn "execution payload forkChoiceUpdated status INVALID, but was previously VALID",
+      payloadExecutionStatus = $payloadExecutionStatus, headBlockHash,
+      safeBlockHash, finalizedBlockHash,
+      receivedBlock = shortLog(receivedBlock)
 
 from ../consensus_object_pools/attestation_pool import
   addForkChoice, selectOptimisticHead, BeaconHead
@@ -256,7 +279,7 @@ proc newExecutionPayload*(
       parentHash = executionPayload.parent_hash,
       blockHash = executionPayload.block_hash,
       blockNumber = executionPayload.block_number,
-      payloadStatus
+      payloadStatus = $payloadStatus
 
     return Opt.some payloadStatus
   except CatchableError as err:
@@ -439,9 +462,9 @@ proc storeBlock*(
       # - followed by "Beacon chain reorged" from optimistic head back to DAG.
       self.consensusManager[].updateHead(newHead.get.blck)
       asyncSpawn eth1Monitor.runForkchoiceUpdatedDiscardResult(
-        headBlockRoot = self.consensusManager[].optimisticExecutionPayloadHash,
-        safeBlockRoot = newHead.get.safeExecutionPayloadHash,
-        finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
+        headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
+        safeBlockHash = newHead.get.safeExecutionPayloadHash,
+        finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash)
     else:
       let
         headExecutionPayloadHash =
@@ -459,9 +482,10 @@ proc storeBlock*(
         if self.consensusManager.checkNextProposer(wallSlot).isNone:
           # No attached validator is next proposer, so use non-proposal fcU
           asyncSpawn eth1Monitor.expectValidForkchoiceUpdated(
-            headBlockRoot = headExecutionPayloadHash,
-            safeBlockRoot = newHead.get.safeExecutionPayloadHash,
-            finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
+            headBlockHash = headExecutionPayloadHash,
+            safeBlockHash = newHead.get.safeExecutionPayloadHash,
+            finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+            receivedBlock = signedBlock)
         else:
           # Some attached validator is next proposer, so prepare payload. As
           # updateHead() updated the DAG head, runProposalForkchoiceUpdated,
