@@ -91,6 +91,11 @@ logScope: topics = "beacval"
 type
   ForkedBlockResult* = Result[ForkedBeaconBlock, string]
 
+  SyncStatus* {.pure.} = enum
+    synced
+    unsynced
+    optimistic
+
 proc findValidator*(validators: auto, pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
   let idx = validators.findIt(it.pubkey == pubkey)
   if idx == -1:
@@ -153,7 +158,7 @@ proc getAttachedValidator(node: BeaconNode,
       idx, head = shortLog(node.dag.head)
     nil
 
-proc isSynced*(node: BeaconNode, head: BlockRef): bool =
+proc isSynced*(node: BeaconNode, head: BlockRef): SyncStatus =
   ## TODO This function is here as a placeholder for some better heurestics to
   ##      determine if we're in sync and should be producing blocks and
   ##      attestations. Generally, the problem is that slot time keeps advancing
@@ -176,9 +181,12 @@ proc isSynced*(node: BeaconNode, head: BlockRef): bool =
   #      else to do it
   if  wallSlot.afterGenesis and
       head.slot + node.config.syncHorizon < wallSlot.slot:
-    false
+    SyncStatus.unsynced
   else:
-    not node.dag.is_optimistic(head.root)
+    if node.dag.is_optimistic(head.root):
+      SyncStatus.optimistic
+    else:
+      SyncStatus.synced
 
 proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
   static: doAssert lightClientFinalityUpdateSlotOffset ==
@@ -1353,14 +1361,26 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   # The dag head might be updated by sync while we're working due to the
   # await calls, thus we use a local variable to keep the logic straight here
   var head = node.dag.head
-  if not node.isSynced(head):
-    info "Syncing in progress; skipping validator duties for now",
+  case node.isSynced(head)
+  of SyncStatus.unsynced:
+    info "Beacon node not in sync; skipping validator duties for now",
       slot, headSlot = head.slot
 
     # Rewards will be growing though, as we sync..
     updateValidatorMetrics(node)
 
     return
+
+  of SyncStatus.optimistic:
+    info "Execution client not in sync; skipping validator duties for now",
+      slot, headSlot = head.slot
+
+    # Rewards will be growing though, as we sync..
+    updateValidatorMetrics(node)
+
+    return
+  of SyncStatus.synced:
+    discard # keep going
 
   var curSlot = lastSlot + 1
 
@@ -1495,7 +1515,7 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
   ## Register upcoming duties of attached validators with the duty tracker
 
   if node.attachedValidators[].count() == 0 or
-      not node.isSynced(node.dag.head):
+      node.isSynced(node.dag.head) != SyncStatus.synced:
     # Nothing to do because we have no validator attached
     return
 

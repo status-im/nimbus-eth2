@@ -36,7 +36,7 @@ func match(data: openArray[char], charset: set[char]): int =
 proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
   let head = node.dag.head
 
-  if slot > head.slot and not node.isSynced(head):
+  if slot > head.slot and node.isSynced(head) != SyncStatus.synced:
     return err("Requesting way ahead of the current head")
 
   ok(head)
