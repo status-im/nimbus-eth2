@@ -30,6 +30,8 @@ import
   ./datatypes/[phase0, altair, bellatrix],
   "."/[beaconstate, eth2_merkleization, helpers, validator]
 
+from ./datatypes/capella import BeaconState
+
 export extras, phase0, altair
 
 # Logging utilities
@@ -173,7 +175,7 @@ func is_eligible_validator*(validator: ParticipationInfo): bool =
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#get_unslashed_participating_indices
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#get_total_balance
 func get_unslashed_participating_balances*(
-    state: altair.BeaconState | bellatrix.BeaconState
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState
 ): UnslashedParticipatingBalances =
   let
     previous_epoch = get_previous_epoch(state)
@@ -224,8 +226,8 @@ func get_unslashed_participating_balances*(
   res
 
 func is_unslashed_participating_index(
-    state: altair.BeaconState | bellatrix.BeaconState, flag_index: int, epoch: Epoch,
-    validator_index: ValidatorIndex): bool =
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState,
+    flag_index: int, epoch: Epoch, validator_index: ValidatorIndex): bool =
   doAssert epoch in [get_previous_epoch(state), get_current_epoch(state)]
   # TODO hoist this conditional
   let epoch_participation =
@@ -420,7 +422,7 @@ proc compute_unrealized_finality*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#justification-and-finalization
 proc process_justification_and_finalization*(
-    state: var (altair.BeaconState | bellatrix.BeaconState),
+    state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
     balances: UnslashedParticipatingBalances,
     flags: UpdateFlags = {}) =
   # Initial FFG checkpoint values have a `0x00` stub for `root`.
@@ -624,8 +626,8 @@ func get_attestation_deltas(state: phase0.BeaconState, info: var phase0.EpochInf
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward_increment*(
-    state: altair.BeaconState | bellatrix.BeaconState, index: ValidatorIndex,
-    base_reward_per_increment: Gwei): Gwei =
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState,
+    index: ValidatorIndex, base_reward_per_increment: Gwei): Gwei =
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
   let increments =
@@ -633,10 +635,11 @@ func get_base_reward_increment*(
   increments * base_reward_per_increment
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#get_flag_index_deltas
-func get_flag_index_reward*(state: altair.BeaconState | bellatrix.BeaconState,
-                            base_reward: Gwei, active_increments: Gwei,
-                            unslashed_participating_increments: Gwei,
-                            weight, finality_delay: uint64): Gwei =
+func get_flag_index_reward*(
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState,
+    base_reward: Gwei, active_increments: Gwei,
+    unslashed_participating_increments: Gwei,
+    weight, finality_delay: uint64): Gwei =
   if not is_in_inactivity_leak(finality_delay):
     let reward_numerator =
       base_reward * weight * unslashed_participating_increments
@@ -655,10 +658,9 @@ func get_active_increments*(info: altair.EpochInfo | bellatrix.BeaconState): Gwe
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#get_flag_index_deltas
 iterator get_flag_index_deltas*(
-    state: altair.BeaconState | bellatrix.BeaconState, flag_index: int,
-    base_reward_per_increment: Gwei,
-    info: var altair.EpochInfo,
-    finality_delay: uint64):
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState,
+    flag_index: int, base_reward_per_increment: Gwei,
+    info: var altair.EpochInfo, finality_delay: uint64):
     (ValidatorIndex, RewardDelta) =
   ## Return the deltas for a given ``flag_index`` by scanning through the
   ## participation flags.
@@ -722,8 +724,8 @@ iterator get_inactivity_penalty_deltas*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#modified-get_inactivity_penalty_deltas
 iterator get_inactivity_penalty_deltas*(
-    cfg: RuntimeConfig, state: bellatrix.BeaconState, info: altair.EpochInfo):
-    (ValidatorIndex, Gwei) =
+    cfg: RuntimeConfig, state: bellatrix.BeaconState | capella.BeaconState,
+    info: altair.EpochInfo): (ValidatorIndex, Gwei) =
   ## Return the inactivity penalty deltas by considering timely target
   ## participation flags and inactivity scores.
   let
@@ -768,7 +770,7 @@ func process_rewards_and_penalties(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#rewards-and-penalties
 func process_rewards_and_penalties(
-    cfg: RuntimeConfig, state: var (altair.BeaconState | bellatrix.BeaconState),
+    cfg: RuntimeConfig, state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
     info: var altair.EpochInfo)
     =
   if get_current_epoch(state) == GENESIS_EPOCH:
@@ -867,6 +869,8 @@ func get_adjusted_total_slashing_balance*(
     elif state is altair.BeaconState:
       PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR
     elif state is bellatrix.BeaconState:
+      PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX
+    elif state is capella.BeaconState:
       PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX
     else:
       {.fatal: "process_slashings: incorrect BeaconState type".}
@@ -983,7 +987,8 @@ func process_participation_record_updates*(state: var phase0.BeaconState) =
   swap(state.previous_epoch_attestations, state.current_epoch_attestations)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#participation-flags-updates
-func process_participation_flag_updates*(state: var (altair.BeaconState | bellatrix.BeaconState)) =
+func process_participation_flag_updates*(
+    state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState)) =
   state.previous_epoch_participation = state.current_epoch_participation
 
   const zero = 0.ParticipationFlags
@@ -998,7 +1003,7 @@ func process_participation_flag_updates*(state: var (altair.BeaconState | bellat
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#sync-committee-updates
 func process_sync_committee_updates*(
-    state: var (altair.BeaconState | bellatrix.BeaconState)) =
+    state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState)) =
   let next_epoch = get_current_epoch(state) + 1
   if next_epoch.is_sync_committee_period():
     state.current_sync_committee = state.next_sync_committee
@@ -1006,7 +1011,8 @@ func process_sync_committee_updates*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#inactivity-scores
 func process_inactivity_updates*(
-    cfg: RuntimeConfig, state: var (altair.BeaconState | bellatrix.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
     info: altair.EpochInfo) =
   # Score updates based on previous epoch participation, skip genesis epoch
   if get_current_epoch(state) == GENESIS_EPOCH:
@@ -1076,7 +1082,7 @@ proc process_epoch*(
 
 func init*(
     info: var altair.EpochInfo,
-    state: altair.BeaconState | bellatrix.BeaconState) =
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState) =
   # init participation, overwriting the full structure
   info.balances = get_unslashed_participating_balances(state)
   info.validators.setLen(state.validators.len())
@@ -1092,7 +1098,8 @@ func init*(
     )
 
 func init*(
-    T: type altair.EpochInfo, state: altair.BeaconState | bellatrix.BeaconState): T =
+    T: type altair.EpochInfo,
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState): T =
   init(result, state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#epoch-processing
