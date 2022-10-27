@@ -265,7 +265,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonResponseWOpt(res, optimistic)
     elif qSyncPeriod > headSyncPeriod:
       # The requested epoch may still be too far in the future.
-      if not(node.isSynced(node.dag.head)):
+      if node.isSynced(node.dag.head) != SyncStatus.synced:
         return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
       else:
         return RestApiResponse.jsonError(Http400, EpochFromFutureError)
@@ -566,7 +566,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            InvalidSubscriptionRequestValueError,
                                            $dres.error())
         dres.get()
-    if not(node.isSynced(node.dag.head)):
+    if node.isSynced(node.dag.head) != SyncStatus.synced:
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     let

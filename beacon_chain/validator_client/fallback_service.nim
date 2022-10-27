@@ -207,7 +207,7 @@ proc checkSync(vc: ValidatorClientRef,
                head_slot = syncInfo.head_slot, is_opimistic = optimistic
           RestBeaconNodeStatus.Online
         else:
-          warn "Beacon node is optimistically synced only",
+          warn "Execution client not in sync (beacon node optimistically synced)",
                sync_distance = syncInfo.sync_distance,
                head_slot = syncInfo.head_slot, is_opimistic = optimistic
           RestBeaconNodeStatus.NotSynced
