@@ -697,7 +697,9 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_non_versioned_withdrawal_creden OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_over_max                        OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_under_max                       OK
-+ [Valid]   EF - Altair - Operations - Deposit - success_top_up                              OK
++ [Valid]   EF - Altair - Operations - Deposit - success_top_up__less_effective_balance      OK
++ [Valid]   EF - Altair - Operations - Deposit - success_top_up__max_effective_balance       OK
++ [Valid]   EF - Altair - Operations - Deposit - success_top_up__zero_balance                OK
 + [Valid]   EF - Altair - Operations - Deposit - valid_sig_but_forked_state                  OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - deposit_with_bad_fork_version__valid_ine OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - deposit_with_genesis_fork_version__valid OK
@@ -713,7 +715,9 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_non_versioned_withdrawal_cre OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_over_max                     OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_under_max                    OK
-+ [Valid]   EF - Bellatrix - Operations - Deposit - success_top_up                           OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - success_top_up__less_effective_balance   OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - success_top_up__max_effective_balance    OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - success_top_up__zero_balance             OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - valid_sig_but_forked_state               OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_sig_new_deposit                    OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_sig_other_version                  OK
@@ -726,10 +730,12 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Phase 0 - Operations - Deposit - new_deposit_non_versioned_withdrawal_crede OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - new_deposit_over_max                       OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - new_deposit_under_max                      OK
-+ [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up                             OK
++ [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up__less_effective_balance     OK
++ [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up__max_effective_balance      OK
++ [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up__zero_balance               OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - valid_sig_but_forked_state                 OK
 ```
-OK: 48/48 Fail: 0/48 Skip: 0/48
+OK: 54/54 Fail: 0/54 Skip: 0/54
 ## EF - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -1293,4 +1299,4 @@ OK: 44/44 Fail: 0/44 Skip: 0/44
 OK: 33/33 Fail: 0/33 Skip: 0/33
 
 ---TOTAL---
-OK: 1116/1123 Fail: 0/1123 Skip: 7/1123
+OK: 1122/1129 Fail: 0/1129 Skip: 7/1129

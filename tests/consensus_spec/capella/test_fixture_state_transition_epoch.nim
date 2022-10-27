@@ -136,6 +136,9 @@ runSuite(ParticipationFlagDir, "Participation flag updates"):
 
 # These are only for minimal, not mainnet
 const SyncCommitteeDir = RootDir/"sync_committee_updates"/"pyspec_tests"
-runSuite(SyncCommitteeDir, "Sync committee updates"):
-  process_sync_committee_updates(state)
-  Result[void, cstring].ok()
+when const_preset == "minimal":
+  runSuite(SyncCommitteeDir, "Sync committee updates"):
+    process_sync_committee_updates(state)
+    Result[void, cstring].ok()
+else:
+  doAssert not dirExists(SyncCommitteeDir)

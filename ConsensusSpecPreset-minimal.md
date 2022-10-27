@@ -259,6 +259,7 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/supply_sync_committ OK
 + Light client - Update ranking - minimal/altair/light_client/update_ranking/pyspec_tests/up OK
 + Light client - Update ranking - minimal/bellatrix/light_client/update_ranking/pyspec_tests OK
++ Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u OK
 + Slots - double_empty_epoch                                                                 OK
 + Slots - empty_epoch                                                                        OK
 + Slots - over_epoch_boundary                                                                OK
@@ -498,7 +499,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 488/495 Fail: 0/495 Skip: 7/495
+OK: 489/496 Fail: 0/496 Skip: 7/496
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -755,7 +756,9 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_non_versioned_withdrawal_creden OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_over_max                        OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_under_max                       OK
-+ [Valid]   EF - Altair - Operations - Deposit - success_top_up                              OK
++ [Valid]   EF - Altair - Operations - Deposit - success_top_up__less_effective_balance      OK
++ [Valid]   EF - Altair - Operations - Deposit - success_top_up__max_effective_balance       OK
++ [Valid]   EF - Altair - Operations - Deposit - success_top_up__zero_balance                OK
 + [Valid]   EF - Altair - Operations - Deposit - valid_sig_but_forked_state                  OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - deposit_with_bad_fork_version__valid_ine OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - deposit_with_genesis_fork_version__valid OK
@@ -771,7 +774,9 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_non_versioned_withdrawal_cre OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_over_max                     OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_under_max                    OK
-+ [Valid]   EF - Bellatrix - Operations - Deposit - success_top_up                           OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - success_top_up__less_effective_balance   OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - success_top_up__max_effective_balance    OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - success_top_up__zero_balance             OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - valid_sig_but_forked_state               OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_sig_new_deposit                    OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_sig_other_version                  OK
@@ -784,10 +789,12 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Phase 0 - Operations - Deposit - new_deposit_non_versioned_withdrawal_crede OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - new_deposit_over_max                       OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - new_deposit_under_max                      OK
-+ [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up                             OK
++ [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up__less_effective_balance     OK
++ [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up__max_effective_balance      OK
++ [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up__zero_balance               OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - valid_sig_but_forked_state                 OK
 ```
-OK: 48/48 Fail: 0/48 Skip: 0/48
+OK: 54/54 Fail: 0/54 Skip: 0/54
 ## EF - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1392,4 +1399,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 36/36 Fail: 0/36 Skip: 0/36
 
 ---TOTAL---
-OK: 1207/1214 Fail: 0/1214 Skip: 7/1214
+OK: 1214/1221 Fail: 0/1221 Skip: 7/1221
