@@ -317,7 +317,7 @@ proc startValidatorClient {.async, thread.} =
     "--keymanager=true",
     "--keymanager-address=127.0.0.1",
     "--keymanager-port=" & $keymanagerPortVC,
-    "--keymanager-token-file=" & tokenFilePath], TaintedString it))
+    "--keymanager-token-file=" & tokenFilePath], it))
   except:
     quit 1
 

@@ -52,6 +52,8 @@ proc runTest(path: string, fork: BeaconStateFork) =
           get_subtree_index(proof.leaf_index),
           forkyState.root)
 
+from strutils import contains
+
 suite "EF - Light client - Single merkle proof" & preset():
   const presetPath = SszTestsDir/const_preset
   for kind, path in walkDir(presetPath, relative = true, checkDir = true):
@@ -60,6 +62,9 @@ suite "EF - Light client - Single merkle proof" & preset():
       continue
     let
       fork = forkForPathComponent(path).valueOr:
+        if path.contains("capella"):
+          # TODO forkForPathComponent relies on ForkedFoo
+          continue
         raiseAssert "Unknown test fork: " & testsPath
       basePath = testsPath/"pyspec_tests"
     for kind, path in walkDir(basePath, relative = true, checkDir = true):

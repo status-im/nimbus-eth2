@@ -116,6 +116,8 @@ proc runTest(path: string) =
         store.optimistic_header.slot == step.checks.optimistic_slot
         hash_tree_root(store.optimistic_header) == step.checks.optimistic_root
 
+from strutils import contains
+
 suite "EF - Light client - Sync" & preset():
   const presetPath = SszTestsDir/const_preset
   for kind, path in walkDir(presetPath, relative = true, checkDir = true):
@@ -124,4 +126,8 @@ suite "EF - Light client - Sync" & preset():
     if kind != pcDir or not dirExists(basePath):
       continue
     for kind, path in walkDir(basePath, relative = true, checkDir = true):
+      let combinedPath = basePath/path
+      if combinedPath.contains("capella"):
+        # TODO
+        continue
       runTest(basePath/path)
