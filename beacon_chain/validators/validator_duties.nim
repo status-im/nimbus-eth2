@@ -508,7 +508,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     # log instead of asserting
     beacon_block_production_errors.inc()
     error "Cannot create block for proposal",
-      slot, head = shortLog(head)
+      slot, head = shortLog(head), error
     $error
 
 
