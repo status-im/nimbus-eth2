@@ -126,7 +126,8 @@ proc doRequest(
   peer.lightClientBootstrap(blockRoot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
-type LightClientUpdatesByRangeResponse = NetRes[seq[altair.LightClientUpdate]]
+type LightClientUpdatesByRangeResponse =
+  NetRes[List[altair.LightClientUpdate, MAX_REQUEST_LIGHT_CLIENT_UPDATES]]
 proc doRequest(
     e: typedesc[UpdatesByRange],
     peer: Peer,
@@ -198,7 +199,7 @@ template valueVerifier[E](
 iterator values(v: auto): auto =
   ## Local helper for `workerTask` to share the same implementation for both
   ## scalar and aggregate values, by treating scalars as 1-length aggregates.
-  when v is seq:
+  when v is List:
     for i in v:
       yield i
   else:
@@ -221,7 +222,7 @@ proc workerTask[E](
         await E.doRequest(peer, key)
     if value.isOk:
       var applyReward = false
-      for val in value.get.values:
+      for val in value.get().values:
         let res = await self.valueVerifier(E)(val)
         if res.isErr:
           case res.error
