@@ -78,7 +78,7 @@ type
     slots*: uint64
 
   SyncManagerError* = object of CatchableError
-  BeaconBlocksRes* = NetRes[seq[ref ForkedSignedBeaconBlock]]
+  BeaconBlocksRes* = NetRes[List[ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS]]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)
@@ -168,13 +168,7 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
   doAssert(not(req.isEmpty()), "Request must not be empty!")
   debug "Requesting blocks from peer", request = req
   try:
-    let res =
-      if peer.useSyncV2():
-        await beaconBlocksByRange_v2(peer, req.slot, req.count, 1'u64)
-      else:
-        (await beaconBlocksByRange(peer, req.slot, req.count, 1'u64)).map(
-          proc(blcks: seq[phase0.SignedBeaconBlock]): auto =
-            blcks.mapIt(newClone(ForkedSignedBeaconBlock.init(it))))
+    let res = await beaconBlocksByRange_v2(peer, req.slot, req.count, 1'u64)
 
     if res.isErr():
       debug "Error, while reading getBlocks response", request = req,
@@ -336,7 +330,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
   try:
     let blocks = await man.getBlocks(peer, req)
     if blocks.isOk():
-      let data = blocks.get()
+      let data = blocks.get().asSeq()
       let smap = getShortMap(req, data)
       debug "Received blocks on request", blocks_count = len(data),
             blocks_map = smap, request = req

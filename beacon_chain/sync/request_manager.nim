@@ -77,16 +77,11 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
     debug "Requesting blocks by root", peer = peer, blocks = shortLog(items),
                                        peer_score = peer.getScore()
 
-    let blocks = if peer.useSyncV2():
-      await beaconBlocksByRoot_v2(peer, BlockRootsList items)
-    else:
-      (await beaconBlocksByRoot(peer, BlockRootsList items)).map(
-        proc(blcks: seq[phase0.SignedBeaconBlock]): auto =
-          blcks.mapIt(newClone(ForkedSignedBeaconBlock.init(it))))
+    let blocks = (await beaconBlocksByRoot_v2(peer, BlockRootsList items))
 
     if blocks.isOk:
       let ublocks = blocks.get()
-      if checkResponse(items, ublocks):
+      if checkResponse(items, ublocks.asSeq()):
         var
           gotGoodBlock = false
           gotUnviableBlock = false

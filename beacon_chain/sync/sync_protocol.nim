@@ -25,7 +25,7 @@ logScope:
   topics = "sync"
 
 const
-  MAX_REQUEST_BLOCKS = 1024
+  MAX_REQUEST_BLOCKS* = 1024
   blockByRootLookupCost = allowedOpsPerSecondCost(50)
   blockResponseCost = allowedOpsPerSecondCost(100)
   blockByRangeLookupCost = allowedOpsPerSecondCost(20)
@@ -79,11 +79,10 @@ type
 template readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type ForkySignedBeaconBlock):
     Future[NetRes[MsgType]] =
-  readChunkPayload(conn, peer, maxChunkSize(MsgType), MsgType)
+  readChunkPayload(conn, peer, MsgType)
 
 proc readChunkPayload*(
-    conn: Connection, peer: Peer, maxChunkSize: uint32,
-    MsgType: type (ref ForkedSignedBeaconBlock)):
+    conn: Connection, peer: Peer, MsgType: type (ref ForkedSignedBeaconBlock)):
     Future[NetRes[MsgType]] {.async.} =
   var contextBytes: ForkDigest
   try:
@@ -91,8 +90,6 @@ proc readChunkPayload*(
   except CatchableError:
     return neterr UnexpectedEOF
 
-  # Ignores maxChunkSize; needs to be consistent formal parameters,
-  # but this function is where that's determined.
   if contextBytes == peer.network.forkDigests.phase0:
     let res = await readChunkPayload(conn, peer, phase0.SignedBeaconBlock)
     if res.isOk:
@@ -115,8 +112,7 @@ proc readChunkPayload*(
     return neterr InvalidContextBytes
 
 proc readChunkPayload*(
-    conn: Connection, peer: Peer, maxChunkSize: uint32,
-    MsgType: type SomeLightClientObject):
+    conn: Connection, peer: Peer, MsgType: type SomeLightClientObject):
     Future[NetRes[MsgType]] {.async.} =
   var contextBytes: ForkDigest
   try:
@@ -129,7 +125,7 @@ proc readChunkPayload*(
 
   let res =
     if stateFork >= BeaconStateFork.Altair:
-      await eth2_network.readChunkPayload(conn, peer, maxChunkSize, MsgType)
+      await eth2_network.readChunkPayload(conn, peer, MsgType)
     else:
       doAssert stateFork == BeaconStateFork.Phase0
       return neterr InvalidContextBytes
@@ -272,7 +268,8 @@ p2pProtocol BeaconSync(version = 1,
       startSlot: Slot,
       reqCount: uint64,
       reqStep: uint64,
-      response: MultipleChunksResponse[phase0.SignedBeaconBlock])
+      response: MultipleChunksResponse[
+        phase0.SignedBeaconBlock, MAX_REQUEST_BLOCKS])
       {.async, libp2pProtocol("beacon_blocks_by_range", 1).} =
     # TODO Semantically, this request should return a non-ref, but doing so
     #      runs into extreme inefficiency due to the compiler introducing
@@ -351,7 +348,8 @@ p2pProtocol BeaconSync(version = 1,
       # Please note that the SSZ list here ensures that the
       # spec constant MAX_REQUEST_BLOCKS is enforced:
       blockRoots: BlockRootsList,
-      response: MultipleChunksResponse[phase0.SignedBeaconBlock])
+      response: MultipleChunksResponse[
+        phase0.SignedBeaconBlock, MAX_REQUEST_BLOCKS])
       {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
     # TODO Semantically, this request should return a non-ref, but doing so
     #      runs into extreme inefficiency due to the compiler introducing
@@ -416,7 +414,8 @@ p2pProtocol BeaconSync(version = 1,
       startSlot: Slot,
       reqCount: uint64,
       reqStep: uint64,
-      response: MultipleChunksResponse[ref ForkedSignedBeaconBlock])
+      response: MultipleChunksResponse[
+        ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS])
       {.async, libp2pProtocol("beacon_blocks_by_range", 2).} =
     # TODO Semantically, this request should return a non-ref, but doing so
     #      runs into extreme inefficiency due to the compiler introducing
@@ -486,7 +485,8 @@ p2pProtocol BeaconSync(version = 1,
       # Please note that the SSZ list here ensures that the
       # spec constant MAX_REQUEST_BLOCKS is enforced:
       blockRoots: BlockRootsList,
-      response: MultipleChunksResponse[ref ForkedSignedBeaconBlock])
+      response: MultipleChunksResponse[
+        ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS])
       {.async, libp2pProtocol("beacon_blocks_by_root", 2).} =
     # TODO Semantically, this request should return a non-ref, but doing so
     #      runs into extreme inefficiency due to the compiler introducing
@@ -577,7 +577,8 @@ p2pProtocol BeaconSync(version = 1,
       peer: Peer,
       startPeriod: SyncCommitteePeriod,
       reqCount: uint64,
-      response: MultipleChunksResponse[altair.LightClientUpdate])
+      response: MultipleChunksResponse[
+        altair.LightClientUpdate, MAX_REQUEST_LIGHT_CLIENT_UPDATES])
       {.async, libp2pProtocol("light_client_updates_by_range", 1,
                               isLightClientRequest = true).} =
     trace "Received LC updates by range request", peer, startPeriod, reqCount
@@ -670,15 +671,6 @@ p2pProtocol BeaconSync(version = 1,
                reason: uint64)
     {.async, libp2pProtocol("goodbye", 1, isRequired = true).} =
     debug "Received Goodbye message", reason = disconnectReasonName(reason), peer
-
-proc useSyncV2*(state: BeaconSyncNetworkState): bool =
-  let
-    wallTimeSlot = state.getBeaconTime().slotOrZero
-
-  wallTimeSlot.epoch >= state.cfg.ALTAIR_FORK_EPOCH
-
-proc useSyncV2*(peer: Peer): bool =
-  peer.networkState(BeaconSync).useSyncV2()
 
 proc setStatusMsg(peer: Peer, statusMsg: StatusMsg) =
   debug "Peer status", peer, statusMsg

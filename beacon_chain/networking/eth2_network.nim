@@ -131,9 +131,9 @@ type
     ## Protocol requests using this type will produce request-making
     ## client-side procs that return `NetRes[MsgType]`
 
-  MultipleChunksResponse*[MsgType] = distinct UntypedResponse
+  MultipleChunksResponse*[MsgType; maxLen: static Limit] = distinct UntypedResponse
     ## Protocol requests using this type will produce request-making
-    ## client-side procs that return `NetRes[seq[MsgType]]`.
+    ## client-side procs that return `NetRes[List[MsgType, maxLen]]`.
     ## In the future, such procs will return an `InputStream[NetRes[MsgType]]`.
 
   MessageInfo* = object
@@ -200,6 +200,7 @@ type
     ZeroSizePrefix
     SizePrefixOverflow
     InvalidContextBytes
+    ResponseChunkOverflow
 
   Eth2NetworkingError = object
     case kind*: Eth2NetworkingErrorKind
@@ -760,8 +761,43 @@ proc uncompressFramedStream(conn: Connection,
 
   return ok output
 
+func chunkMaxSize[T](): uint32 =
+  # compiler error on (T: type) syntax...
+  when T is ForkySignedBeaconBlock:
+    when T is phase0.SignedBeaconBlock or T is altair.SignedBeaconBlock:
+      MAX_CHUNK_SIZE
+    elif T is bellatrix.SignedBeaconBlock:
+      MAX_CHUNK_SIZE_BELLATRIX
+    else:
+      {.fatal: "what's the chunk size here?".}
+  elif isFixedSize(T):
+    uint32 fixedPortionSize(T)
+  else:
+    MAX_CHUNK_SIZE
+
+func maxGossipMaxSize(): auto {.compileTime.} =
+  max(GOSSIP_MAX_SIZE, GOSSIP_MAX_SIZE_BELLATRIX)
+
+template gossipMaxSize(T: untyped): uint32 =
+  const maxSize = static:
+    when isFixedSize(T):
+      fixedPortionSize(T)
+    elif T is bellatrix.SignedBeaconBlock:
+      GOSSIP_MAX_SIZE_BELLATRIX
+    # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
+    # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
+    # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
+    # having max sizes significantly smaller than GOSSIP_MAX_SIZE.
+    elif T is Attestation or T is AttesterSlashing or
+         T is SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
+         T is altair.SignedBeaconBlock:
+      GOSSIP_MAX_SIZE
+    else:
+      {.fatal: "unknown type " & name(T).}
+  static: doAssert maxSize <= maxGossipMaxSize()
+  maxSize.uint32
+
 proc readChunkPayload*(conn: Connection, peer: Peer,
-                       maxChunkSize: uint32,
                        MsgType: type): Future[NetRes[MsgType]] {.async.} =
   let sm = now(chronos.Moment)
   let size =
@@ -775,7 +811,8 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
     except InvalidVarintError:
       return neterr UnexpectedEOF
 
-  if size > maxChunkSize:
+  const maxSize = chunkMaxSize[MsgType]()
+  if size > maxSize:
     return neterr SizePrefixOverflow
   if size == 0:
     return neterr ZeroSizePrefix
@@ -792,8 +829,9 @@ proc readChunkPayload*(conn: Connection, peer: Peer,
     debug "Snappy decompression/read failed", msg = $data.error, conn
     return neterr InvalidSnappyBytes
 
-proc readResponseChunk(conn: Connection, peer: Peer, maxChunkSize: uint32,
-                       MsgType: typedesc): Future[NetRes[MsgType]] {.async.} =
+proc readResponseChunk(
+    conn: Connection, peer: Peer, MsgType: typedesc):
+    Future[NetRes[MsgType]] {.async.} =
   mixin readChunkPayload
 
   try:
@@ -811,8 +849,7 @@ proc readResponseChunk(conn: Connection, peer: Peer, maxChunkSize: uint32,
     case responseCode:
     of InvalidRequest, ServerError, ResourceUnavailable:
       let
-        errorMsgChunk = await readChunkPayload(
-          conn, peer, maxChunkSize, ErrorMsg)
+        errorMsgChunk = await readChunkPayload(conn, peer, ErrorMsg)
         errorMsg = if errorMsgChunk.isOk: errorMsgChunk.value
                    else: return err(errorMsgChunk.error)
         errorMsgStr = toPrettyString(errorMsg.asSeq)
@@ -823,15 +860,15 @@ proc readResponseChunk(conn: Connection, peer: Peer, maxChunkSize: uint32,
     of Success:
       discard
 
-    return await readChunkPayload(conn, peer, maxChunkSize, MsgType)
+    return await readChunkPayload(conn, peer, MsgType)
 
   except LPStreamEOFError, LPStreamIncompleteError:
     return neterr UnexpectedEOF
 
-proc readResponse(conn: Connection, peer: Peer, maxChunkSize: uint32,
+proc readResponse(conn: Connection, peer: Peer,
                   MsgType: type, timeout: Duration): Future[NetRes[MsgType]] {.async.} =
-  when MsgType is seq:
-    type E = ElemType(MsgType)
+  when MsgType is List:
+    type E = MsgType.T
     var results: MsgType
     while true:
       # Because we interleave networking with response processing, it may
@@ -840,7 +877,7 @@ proc readResponse(conn: Connection, peer: Peer, maxChunkSize: uint32,
       # The problem is exacerbated by the large number of round-trips to the
       # poll loop that each future along the way causes.
       trace "reading chunk", conn
-      let nextFut = conn.readResponseChunk(peer, maxChunkSize, E)
+      let nextFut = conn.readResponseChunk(peer, E)
       if not await nextFut.withTimeout(timeout):
         return neterr(ReadResponseTimeout)
       let nextRes = nextFut.read()
@@ -854,18 +891,13 @@ proc readResponse(conn: Connection, peer: Peer, maxChunkSize: uint32,
         return err nextRes.error
       else:
         trace "Got chunk", conn
-        results.add nextRes.value
+        if not results.add nextRes.value:
+          return neterr(ResponseChunkOverflow)
   else:
-    let nextFut = conn.readResponseChunk(peer, maxChunkSize, MsgType)
+    let nextFut = conn.readResponseChunk(peer, MsgType)
     if not await nextFut.withTimeout(timeout):
       return neterr(ReadResponseTimeout)
     return nextFut.read()
-
-func maxChunkSize*(t: typedesc[bellatrix.SignedBeaconBlock]): uint32 =
-  MAX_CHUNK_SIZE_BELLATRIX
-
-func maxChunkSize*(t: typedesc): uint32 =
-  MAX_CHUNK_SIZE
 
 proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
@@ -886,27 +918,25 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
     await stream.close()
 
     # Read the response
-    return await readResponse(
-      stream, peer, maxChunkSize(ResponseMsg), ResponseMsg, timeout)
+    return await readResponse(stream, peer, ResponseMsg, timeout)
   finally:
     await stream.closeWithEOF()
 
-proc init*[MsgType](T: type MultipleChunksResponse[MsgType],
-                    peer: Peer, conn: Connection): T =
+proc init*(T: type MultipleChunksResponse, peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
 
 proc init*[MsgType](T: type SingleChunkResponse[MsgType],
                     peer: Peer, conn: Connection): T =
   T(UntypedResponse(peer: peer, stream: conn))
 
-template write*[M](
-    r: MultipleChunksResponse[M], val: M,
+template write*[M; maxLen: static Limit](
+    r: MultipleChunksResponse[M, maxLen], val: M,
     contextBytes: openArray[byte] = []): untyped =
   mixin sendResponseChunk
   sendResponseChunk(UntypedResponse(r), val, contextBytes)
 
-template writeBytesSZ*[M](
-    r: MultipleChunksResponse[M], uncompressedLen: uint64,
+template writeBytesSZ*(
+    r: MultipleChunksResponse, uncompressedLen: uint64,
     bytes: openArray[byte], contextBytes: openArray[byte]): untyped =
   sendResponseChunkBytesSZ(UntypedResponse(r), uncompressedLen, bytes, contextBytes)
 
@@ -1034,7 +1064,7 @@ proc handleIncomingStream(network: Eth2Node,
     else:
       try:
         awaitWithTimeout(
-          readChunkPayload(conn, peer, maxChunkSize(MsgRec), MsgRec), deadline):
+          readChunkPayload(conn, peer, MsgRec), deadline):
             # Timeout, e.g., cancellation due to fulfillment by different peer.
             # Treat this similarly to `UnexpectedEOF`, `PotentiallyExpectedEOF`.
             await sendErrorResponse(
@@ -1077,6 +1107,9 @@ proc handleIncomingStream(network: Eth2Node,
 
         of BrokenConnection:
           return
+
+        of ResponseChunkOverflow:
+          (InvalidRequest, errorMsgLit "Too many chunks in response")
 
       await sendErrorResponse(peer, conn, responseCode, errMsg)
       return
@@ -1911,7 +1944,7 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
 
         let isChunkStream = eqIdent(OutputParamType[0], "MultipleChunksResponse")
         msg.response.recName = if isChunkStream:
-          newTree(nnkBracketExpr, ident"seq", OutputParamType[1])
+          newTree(nnkBracketExpr, ident"List", OutputParamType[1], OutputParamType[2])
         else:
           OutputParamType[1]
 
@@ -2166,27 +2199,6 @@ proc newBeaconSwitch(config: BeaconNodeConf | LightClientConf,
     .withTcpTransport({ServerFlags.ReuseAddr})
     .build()
 
-func maxGossipMaxSize(): auto {.compileTime.} =
-  max(GOSSIP_MAX_SIZE, GOSSIP_MAX_SIZE_BELLATRIX)
-
-template gossipMaxSize(T: untyped): uint32 =
-  const maxSize = static:
-    when isFixedSize(T):
-      fixedPortionSize(T)
-    elif T is bellatrix.SignedBeaconBlock:
-      GOSSIP_MAX_SIZE_BELLATRIX
-    # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
-    # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
-    # have lists bounded at MAX_VALIDATORS_PER_COMMITTEE (2048) items, thus
-    # having max sizes significantly smaller than GOSSIP_MAX_SIZE.
-    elif T is Attestation or T is AttesterSlashing or
-         T is SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
-         T is altair.SignedBeaconBlock:
-      GOSSIP_MAX_SIZE
-    else:
-      {.fatal: "unknown type " & name(T).}
-  static: doAssert maxSize <= maxGossipMaxSize()
-  maxSize.uint32
 
 proc createEth2Node*(rng: ref HmacDrbgContext,
                      config: BeaconNodeConf | LightClientConf,
