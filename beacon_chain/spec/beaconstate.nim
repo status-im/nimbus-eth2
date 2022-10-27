@@ -945,7 +945,7 @@ func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
     latest_execution_payload_header: default(bellatrix.ExecutionPayloadHeader)
   )
 
-# https://github.com/ethereum/consensus-specs/blob/b90436c98837924c3a929652b57b07ac9d3c2254/specs/capella/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/fork.md#upgrading-the-state
 func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
     ref capella.BeaconState =
   let

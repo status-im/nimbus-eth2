@@ -30,7 +30,7 @@ import
   ./datatypes/[phase0, altair, bellatrix],
   "."/[beaconstate, eth2_merkleization, helpers, validator]
 
-from ./datatypes/capella import BeaconState
+from ./datatypes/capella import BeaconState, Withdrawal, WithdrawalIndex
 
 export extras, phase0, altair
 
@@ -746,7 +746,7 @@ iterator get_inactivity_penalty_deltas*(
       yield (vidx, Gwei(penalty_numerator div penalty_denominator))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#rewards-and-penalties-1
-func process_rewards_and_penalties(
+func process_rewards_and_penalties*(
     state: var phase0.BeaconState, info: var phase0.EpochInfo) =
   # No rewards are applied at the end of `GENESIS_EPOCH` because rewards are
   # for work done in the previous epoch
@@ -769,7 +769,7 @@ func process_rewards_and_penalties(
     state.balances.asSeq()[idx] = balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#rewards-and-penalties
-func process_rewards_and_penalties(
+func process_rewards_and_penalties*(
     cfg: RuntimeConfig, state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
     info: var altair.EpochInfo)
     =
@@ -1044,6 +1044,83 @@ func process_inactivity_updates*(
     # Most inactivity scores remain at 0 - avoid invalidating cache
     if pre_inactivity_score != inactivity_score:
       state.inactivity_scores[index] = inactivity_score
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#has_eth1_withdrawal_credential
+func has_eth1_withdrawal_credential(validator: Validator): bool =
+  ## Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
+  validator.withdrawal_credentials.data[0] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
+func is_fully_withdrawable_validator(
+    validator: Validator, balance: Gwei, epoch: Epoch): bool =
+  ## Check if ``validator`` is fully withdrawable.
+  has_eth1_withdrawal_credential(validator) and
+    validator.withdrawable_epoch <= epoch and balance > 0
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
+func is_partially_withdrawable_validator(
+    validator: Validator, balance: Gwei): bool =
+  ## Check if ``validator`` is partially withdrawable.
+  let
+    has_max_effective_balance =
+      validator.effective_balance == MAX_EFFECTIVE_BALANCE
+    has_excess_balance = balance > MAX_EFFECTIVE_BALANCE
+  has_eth1_withdrawal_credential(validator) and
+    has_max_effective_balance and has_excess_balance
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#withdraw_balance
+func withdraw_balance(
+    state: var capella.BeaconState, validator_index: ValidatorIndex,
+    amount: Gwei) =
+  # Decrease the validator's balance
+  decrease_balance(state, validator_index, amount)
+
+  # Create a corresponding withdrawal receipt
+  var withdrawal = Withdrawal(
+    index: state.next_withdrawal_index,
+    validator_index: validator_index.uint64,
+    amount: amount)
+  withdrawal.address.data[0 .. 19] =
+      state.validators.item(
+        validator_index).withdrawal_credentials.data.toOpenArray(12, 31)
+  state.next_withdrawal_index = WithdrawalIndex(state.next_withdrawal_index + 1)
+  #TODO TODO don't just discard, check if full
+  discard state.withdrawal_queue.add(withdrawal)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#full-withdrawals
+func process_full_withdrawals*(state: var capella.BeaconState) =
+  let current_epoch = get_current_epoch(state)
+  for index in 0 ..< len(state.validators):
+    let
+      balance = state.balances.item(index)
+      validator = state.validators.item(index)
+    if is_fully_withdrawable_validator(validator, balance, current_epoch):
+      withdraw_balance(state, ValidatorIndex(index), balance)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#partial-withdrawals
+func process_partial_withdrawals*(state: var capella.BeaconState) =
+  var partial_withdrawals_count = 0
+
+  # Begin where we left off last time
+  var validator_index = state.next_partial_withdrawal_validator_index
+
+  for _ in 0 ..< len(state.validators):
+    let
+      balance = state.balances.item(validator_index)
+      validator = state.validators.item(validator_index)
+    if is_partially_withdrawable_validator(validator, balance):
+      withdraw_balance(
+        state, validator_index.ValidatorIndex, balance - MAX_EFFECTIVE_BALANCE)
+      partial_withdrawals_count += 1
+
+    # Iterate to next validator to check for partial withdrawal
+    validator_index = (validator_index + 1) mod lenu64(state.validators)
+
+    # Exit if performed maximum allowable withdrawals
+    if partial_withdrawals_count == MAX_PARTIAL_WITHDRAWALS_PER_EPOCH:
+      break
+
+  state.next_partial_withdrawal_validator_index = validator_index
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(

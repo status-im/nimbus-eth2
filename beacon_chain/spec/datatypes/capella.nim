@@ -28,28 +28,25 @@ import
 export json_serialization, base
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/53b63cedc586c3e1cc2ff737e85c1ed8a3eb45c6/specs/capella/beacon-chain.md#custom-types
-  WithdrawalIndex = uint64
-
-  # https://github.com/ethereum/consensus-specs/blob/53b63cedc586c3e1cc2ff737e85c1ed8a3eb45c6/specs/capella/beacon-chain.md#withdrawal
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#withdrawal
   Withdrawal* = object
     index*: WithdrawalIndex
     validator_index*: uint64
     address*: ExecutionAddress
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/53b63cedc586c3e1cc2ff737e85c1ed8a3eb45c6/specs/capella/beacon-chain.md#blstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#blstoexecutionchange
   BLSToExecutionChange* = object
     validator_index*: uint64
     from_bls_pubkey*: ValidatorPubKey
     to_execution_address*: ExecutionAddress
 
-  # https://github.com/ethereum/consensus-specs/blob/53b63cedc586c3e1cc2ff737e85c1ed8a3eb45c6/specs/capella/beacon-chain.md#signedblstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#signedblstoexecutionchange
   SignedBLSToExecutionChange* = object
     message*: BLSToExecutionChange
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/consensus-specs/blob/53b63cedc586c3e1cc2ff737e85c1ed8a3eb45c6/specs/capella/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
@@ -69,7 +66,7 @@ type
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]  # [New in Capella]
 
-  # https://github.com/ethereum/consensus-specs/blob/53b63cedc586c3e1cc2ff737e85c1ed8a3eb45c6/specs/capella/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -92,7 +89,7 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/53b63cedc586c3e1cc2ff737e85c1ed8a3eb45c6/specs/capella/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -222,7 +219,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/53b63cedc586c3e1cc2ff737e85c1ed8a3eb45c6/specs/capella/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data

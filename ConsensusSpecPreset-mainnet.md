@@ -967,6 +967,25 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
 OK: 11/11 Fail: 0/11 Skip: 0/11
+## EF - Altair - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Altair - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -1118,6 +1137,25 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
 OK: 11/11 Fail: 0/11 Skip: 0/11
+## EF - Bellatrix - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Bellatrix - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -1188,6 +1226,22 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## EF - Capella - Epoch Processing - Full withdrawals [Preset: mainnet]
+```diff
++ Full withdrawals - all_withdrawal [Preset: mainnet]                                        OK
++ Full withdrawals - multi_withdrawal [Preset: mainnet]                                      OK
++ Full withdrawals - no_withdrawable_validators [Preset: mainnet]                            OK
++ Full withdrawals - no_withdrawals_but_some_next_epoch [Preset: mainnet]                    OK
++ Full withdrawals - random_withdrawals_0 [Preset: mainnet]                                  OK
++ Full withdrawals - random_withdrawals_1 [Preset: mainnet]                                  OK
++ Full withdrawals - random_withdrawals_2 [Preset: mainnet]                                  OK
++ Full withdrawals - random_withdrawals_3 [Preset: mainnet]                                  OK
++ Full withdrawals - single_withdrawal [Preset: mainnet]                                     OK
++ Full withdrawals - withdrawable_epoch_but_0_balance [Preset: mainnet]                      OK
++ Full withdrawals - withdrawable_epoch_but_0_effective_balance_0_balance [Preset: mainnet]  OK
++ Full withdrawals - withdrawable_epoch_but_0_effective_balance_nonzero_balance [Preset: mai OK
+```
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Capella - Epoch Processing - Historical roots update [Preset: mainnet]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
@@ -1230,6 +1284,28 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
 ```
 OK: 10/10 Fail: 0/10 Skip: 0/10
+## EF - Capella - Epoch Processing - Partial withdrawals [Preset: mainnet]
+```diff
++ Partial withdrawals - random_0 [Preset: mainnet]                                           OK
++ Partial withdrawals - random_1 [Preset: mainnet]                                           OK
++ Partial withdrawals - random_2 [Preset: mainnet]                                           OK
++ Partial withdrawals - random_3 [Preset: mainnet]                                           OK
++ Partial withdrawals - random_4 [Preset: mainnet]                                           OK
++ Partial withdrawals - random_5 [Preset: mainnet]                                           OK
++ Partial withdrawals - success_excess_balance_but_no_max_effective_balance [Preset: mainnet OK
++ Partial withdrawals - success_max_partial_withdrawable [Preset: mainnet]                   OK
++ Partial withdrawals - success_no_excess_balance [Preset: mainnet]                          OK
++ Partial withdrawals - success_no_max_effective_balance [Preset: mainnet]                   OK
++ Partial withdrawals - success_no_withdrawable [Preset: mainnet]                            OK
++ Partial withdrawals - success_one_partial_withdrawable [Preset: mainnet]                   OK
++ Partial withdrawals - success_one_partial_withdrawable_active_and_slashed [Preset: mainnet OK
++ Partial withdrawals - success_one_partial_withdrawable_exited [Preset: mainnet]            OK
++ Partial withdrawals - success_one_partial_withdrawable_exited_and_slashed [Preset: mainnet OK
++ Partial withdrawals - success_one_partial_withdrawable_in_exit_queue [Preset: mainnet]     OK
++ Partial withdrawals - success_one_partial_withdrawable_not_yet_active [Preset: mainnet]    OK
++ Partial withdrawals - success_two_partial_withdrawable [Preset: mainnet]                   OK
+```
+OK: 18/18 Fail: 0/18 Skip: 0/18
 ## EF - Capella - Epoch Processing - Participation flag updates [Preset: mainnet]
 ```diff
 + Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
@@ -1264,6 +1340,25 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
 OK: 11/11 Fail: 0/11 Skip: 0/11
+## EF - Capella - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Capella - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -1381,6 +1476,29 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
 ```
 OK: 11/11 Fail: 0/11 Skip: 0/11
+## EF - Phase 0 - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - duplicate_participants_different_attestation_1 [Preset: mainnet]   OK
++ Rewards and penalties - duplicate_participants_different_attestation_2 [Preset: mainnet]   OK
++ Rewards and penalties - duplicate_participants_different_attestation_3 [Preset: mainnet]   OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - full_attestations_random_incorrect_fields [Preset: mainnet]        OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Phase 0 - Epoch Processing - Slashings [Preset: mainnet]
 ```diff
 + Slashings - low_penalty [Preset: mainnet]                                                  OK
@@ -1688,4 +1806,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 14/14 Fail: 0/14 Skip: 0/14
 
 ---TOTAL---
-OK: 1459/1466 Fail: 0/1466 Skip: 7/1466
+OK: 1553/1560 Fail: 0/1560 Skip: 7/1560

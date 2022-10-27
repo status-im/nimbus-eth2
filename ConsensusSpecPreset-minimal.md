@@ -1032,6 +1032,25 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
 OK: 15/15 Fail: 0/15 Skip: 0/15
+## EF - Altair - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Altair - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -1198,6 +1217,25 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
 OK: 15/15 Fail: 0/15 Skip: 0/15
+## EF - Bellatrix - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Bellatrix - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -1277,6 +1315,22 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## EF - Capella - Epoch Processing - Full withdrawals [Preset: minimal]
+```diff
++ Full withdrawals - all_withdrawal [Preset: minimal]                                        OK
++ Full withdrawals - multi_withdrawal [Preset: minimal]                                      OK
++ Full withdrawals - no_withdrawable_validators [Preset: minimal]                            OK
++ Full withdrawals - no_withdrawals_but_some_next_epoch [Preset: minimal]                    OK
++ Full withdrawals - random_withdrawals_0 [Preset: minimal]                                  OK
++ Full withdrawals - random_withdrawals_1 [Preset: minimal]                                  OK
++ Full withdrawals - random_withdrawals_2 [Preset: minimal]                                  OK
++ Full withdrawals - random_withdrawals_3 [Preset: minimal]                                  OK
++ Full withdrawals - single_withdrawal [Preset: minimal]                                     OK
++ Full withdrawals - withdrawable_epoch_but_0_balance [Preset: minimal]                      OK
++ Full withdrawals - withdrawable_epoch_but_0_effective_balance_0_balance [Preset: minimal]  OK
++ Full withdrawals - withdrawable_epoch_but_0_effective_balance_nonzero_balance [Preset: min OK
+```
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## EF - Capella - Epoch Processing - Historical roots update [Preset: minimal]
 ```diff
 + Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
@@ -1319,6 +1373,29 @@ OK: 19/19 Fail: 0/19 Skip: 0/19
 + Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
 ```
 OK: 10/10 Fail: 0/10 Skip: 0/10
+## EF - Capella - Epoch Processing - Partial withdrawals [Preset: minimal]
+```diff
++ Partial withdrawals - random_0 [Preset: minimal]                                           OK
++ Partial withdrawals - random_1 [Preset: minimal]                                           OK
++ Partial withdrawals - random_2 [Preset: minimal]                                           OK
++ Partial withdrawals - random_3 [Preset: minimal]                                           OK
++ Partial withdrawals - random_4 [Preset: minimal]                                           OK
++ Partial withdrawals - random_5 [Preset: minimal]                                           OK
++ Partial withdrawals - success_excess_balance_but_no_max_effective_balance [Preset: minimal OK
++ Partial withdrawals - success_max_partial_withdrawable [Preset: minimal]                   OK
++ Partial withdrawals - success_max_plus_one_withdrawable [Preset: minimal]                  OK
++ Partial withdrawals - success_no_excess_balance [Preset: minimal]                          OK
++ Partial withdrawals - success_no_max_effective_balance [Preset: minimal]                   OK
++ Partial withdrawals - success_no_withdrawable [Preset: minimal]                            OK
++ Partial withdrawals - success_one_partial_withdrawable [Preset: minimal]                   OK
++ Partial withdrawals - success_one_partial_withdrawable_active_and_slashed [Preset: minimal OK
++ Partial withdrawals - success_one_partial_withdrawable_exited [Preset: minimal]            OK
++ Partial withdrawals - success_one_partial_withdrawable_exited_and_slashed [Preset: minimal OK
++ Partial withdrawals - success_one_partial_withdrawable_in_exit_queue [Preset: minimal]     OK
++ Partial withdrawals - success_one_partial_withdrawable_not_yet_active [Preset: minimal]    OK
++ Partial withdrawals - success_two_partial_withdrawable [Preset: minimal]                   OK
+```
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Capella - Epoch Processing - Participation flag updates [Preset: minimal]
 ```diff
 + Participation flag updates - all_zeroed [Preset: minimal]                                  OK
@@ -1357,6 +1434,25 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
+## EF - Capella - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
 ```
 OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Capella - Epoch Processing - Slashings [Preset: minimal]
@@ -1489,6 +1585,29 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
 OK: 15/15 Fail: 0/15 Skip: 0/15
+## EF - Phase 0 - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - duplicate_participants_different_attestation_1 [Preset: minimal]   OK
++ Rewards and penalties - duplicate_participants_different_attestation_2 [Preset: minimal]   OK
++ Rewards and penalties - duplicate_participants_different_attestation_3 [Preset: minimal]   OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - full_attestations_random_incorrect_fields [Preset: minimal]        OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Phase 0 - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -1806,4 +1925,4 @@ OK: 52/52 Fail: 0/52 Skip: 0/52
 OK: 14/14 Fail: 0/14 Skip: 0/14
 
 ---TOTAL---
-OK: 1565/1572 Fail: 0/1572 Skip: 7/1572
+OK: 1660/1667 Fail: 0/1667 Skip: 7/1667
