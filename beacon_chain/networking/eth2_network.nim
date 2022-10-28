@@ -415,7 +415,6 @@ const
   maxGlobalQuota = 2 * maxRequestQuota
     ## Roughly, this means we allow 2 peers to sync from us at a time
   fullReplenishTime = 5.seconds
-  replenishRate = (maxRequestQuota / fullReplenishTime.nanoseconds.float)
 
 template awaitQuota*(peerParam: Peer, costParam: float) =
   let
@@ -436,6 +435,7 @@ template awaitQuota*(networkParam: Eth2Node, costParam: float) =
     await network.quota.consume(cost.int)
 
 func allowedOpsPerSecondCost*(n: int): float =
+  const replenishRate = (maxRequestQuota / fullReplenishTime.nanoseconds.float)
   (replenishRate * 1000000000'f / n.float)
 
 const
@@ -1760,7 +1760,7 @@ proc new(T: type Eth2Node,
     rng: rng,
     connectTimeout: connectTimeout,
     seenThreshold: seenThreshold,
-    quota: TokenBucket.new(maxGlobalQuota, int(replenishRate / 1000))
+    quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
   )
 
   newSeq node.protocolStates, allProtocols.len
@@ -1880,7 +1880,7 @@ proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
     lastReqTime: now(chronos.Moment),
     lastMetadataTime: now(chronos.Moment),
     protocolStates: newSeq[RootRef](len(allProtocols)),
-    quota: TokenBucket.new(maxRequestQuota.int, int(replenishRate / 1000))
+    quota: TokenBucket.new(maxRequestQuota.int, fullReplenishTime)
   )
   for i in 0 ..< len(allProtocols):
     let proto = allProtocols[i]
