@@ -328,8 +328,9 @@ p2pProtocol BeaconSync(version = 1,
             bytes = bytes.len(), blck = shortLog(blocks[i])
           continue
 
-        peer.awaitQuota(blockResponseCost)
-        peer.network.awaitQuota(blockResponseCost)
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(blockResponseCost, "beacon_blocks_by_range/1")
+        peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_range/1")
 
         await response.writeBytesSZ(uncompressedLen, bytes, []) # phase0 bytes
 
@@ -392,8 +393,9 @@ p2pProtocol BeaconSync(version = 1,
             bytes = bytes.len(), blck = shortLog(blockRef)
           continue
 
-        peer.awaitQuota(blockResponseCost)
-        peer.network.awaitQuota(blockResponseCost)
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(blockResponseCost, "beacon_blocks_by_root/1")
+        peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_root/1")
 
         await response.writeBytesSZ(uncompressedLen, bytes, []) # phase0
         inc found
@@ -457,8 +459,9 @@ p2pProtocol BeaconSync(version = 1,
             bytes = bytes.len(), blck = shortLog(blocks[i])
           continue
 
-        peer.awaitQuota(blockResponseCost)
-        peer.network.awaitQuota(blockResponseCost)
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(blockResponseCost, "beacon_blocks_by_range/2")
+        peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_range/2")
 
         await response.writeBytesSZ(
           uncompressedLen, bytes,
@@ -518,8 +521,9 @@ p2pProtocol BeaconSync(version = 1,
             bytes = bytes.len(), blck = shortLog(blockRef)
           continue
 
-        peer.awaitQuota(blockResponseCost)
-        peer.network.awaitQuota(blockResponseCost)
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(blockResponseCost, "beacon_blocks_by_root/2")
+        peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_root/2")
 
         await response.writeBytesSZ(
           uncompressedLen, bytes,
@@ -546,7 +550,10 @@ p2pProtocol BeaconSync(version = 1,
       let
         contextEpoch = bootstrap.get.contextEpoch
         contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
-      peer.awaitQuota(lightClientBootstrapResponseCost)
+
+      # TODO extract from libp2pProtocol
+      peer.awaitQuota(
+        lightClientBootstrapResponseCost, "light_client_bootstrap/1")
       await response.send(bootstrap.get, contextBytes)
     else:
       raise newException(ResourceUnavailableError, LCBootstrapUnavailable)
@@ -585,7 +592,9 @@ p2pProtocol BeaconSync(version = 1,
           contextEpoch = update.get.contextEpoch
           contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
 
-        peer.awaitQuota(lightClientUpdateResponseCost)
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(
+          lightClientUpdateResponseCost, "light_client_updates_by_range/1")
         await response.write(update.get, contextBytes)
         inc found
 
@@ -607,7 +616,9 @@ p2pProtocol BeaconSync(version = 1,
         contextEpoch = finality_update.get.contextEpoch
         contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
 
-      peer.awaitQuota(lightClientFinalityUpdateResponseCost)
+      # TODO extract from libp2pProtocol
+      peer.awaitQuota(
+        lightClientFinalityUpdateResponseCost, "light_client_finality_update/1")
       await response.send(finality_update.get, contextBytes)
     else:
       raise newException(ResourceUnavailableError, LCFinUpdateUnavailable)
@@ -631,7 +642,9 @@ p2pProtocol BeaconSync(version = 1,
         contextEpoch = optimistic_update.get.contextEpoch
         contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
 
-      peer.awaitQuota(lightClientOptimisticUpdateResponseCost)
+      # TODO extract from libp2pProtocol
+      peer.awaitQuota(
+        lightClientOptimisticUpdateResponseCost, "light_client_optimistic_update/1")
       await response.send(optimistic_update.get, contextBytes)
     else:
       raise newException(ResourceUnavailableError, LCOptUpdateUnavailable)
