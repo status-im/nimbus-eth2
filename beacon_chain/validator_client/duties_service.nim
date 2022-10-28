@@ -643,7 +643,7 @@ proc proposerPreparationsLoop(service: DutiesServiceRef) {.async.} =
 
 proc validatorRegisterLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
-  doAssert(vc.config.builderRegistration)
+  doAssert(vc.config.payloadBuilderEnable)
 
   debug "Validator registration loop is waiting for initialization"
   await allFutures(vc.indicesAvailable.wait(), vc.forksAvailable.wait())
@@ -688,7 +688,7 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
     syncFut = service.syncCommitteeDutiesLoop()
     prepareFut = service.proposerPreparationsLoop()
     registerFut =
-      if vc.config.builderRegistration:
+      if vc.config.payloadBuilderEnable:
         service.validatorRegisterLoop()
       else:
         nil

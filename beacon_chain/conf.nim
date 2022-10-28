@@ -903,11 +903,10 @@ type
       defaultValue: 0
       name: "stop-at-epoch" .}: uint64
 
-    builderRegistration* {.
-      desc: "Provide beacon node with registrations for the given validators " &
-            "to the external builder network"
+    payloadBuilderEnable* {.
+      desc: "Enable usage of beacon node with external payload builder"
       defaultValue: false
-      name: "builder-api-registration" .}: bool
+      name: "payload-builder" .}: bool
 
     beaconNodes* {.
       desc: "URL addresses to one or more beacon node HTTP REST APIs",
