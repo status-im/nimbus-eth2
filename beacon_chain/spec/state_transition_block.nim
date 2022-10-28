@@ -536,7 +536,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/53b63cedc586c3e1cc2ff737e85c1ed8a3eb45c6/specs/capella/beacon-chain.md#modified-process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
     state: var capella.BeaconState, payload: capella.ExecutionPayload,
     notify_new_payload: capella.ExecutePayload): Result[void, cstring] =
@@ -579,7 +579,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/53b63cedc586c3e1cc2ff737e85c1ed8a3eb45c6/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 proc process_bls_to_execution_change*(
     state: var capella.BeaconState,
     signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
@@ -614,7 +614,7 @@ proc process_bls_to_execution_change*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/53b63cedc586c3e1cc2ff737e85c1ed8a3eb45c6/specs/capella/beacon-chain.md#new-process_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
     state: var capella.BeaconState, payload: capella.ExecutionPayload):
     Result[void, cstring] =
