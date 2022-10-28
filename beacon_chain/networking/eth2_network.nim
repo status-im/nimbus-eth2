@@ -28,11 +28,14 @@ import
   libp2p/stream/connection,
   eth/[keys, async_utils], eth/p2p/p2p_protocol_dsl,
   eth/net/nat, eth/p2p/discoveryv5/[enr, node, random2],
+
+  # Local files
   ".."/[version, conf, beacon_clock, conf_light_client],
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[eth2_ssz_serialization, network, helpers, forks],
   ../validators/keystore_management,
-  "."/[eth2_discovery, libp2p_json_serialization, peer_pool, peer_scores]
+  "."/[eth2_discovery, libp2p_json_serialization, peer_pool, peer_scores,
+    topic_scoring]
 
 export
   tables, chronos, version, multiaddress, peerinfo, p2pProtocol, connection,
@@ -2265,17 +2268,17 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       historyGossip: 3,
       fanoutTTL: chronos.seconds(60),
       seenTTL: chronos.seconds(385),
-      gossipThreshold: -4000,
-      publishThreshold: -8000,
-      graylistThreshold: -16000, # also disconnect threshold
+      gossipThreshold: -40,
+      publishThreshold: -80,
+      graylistThreshold: -160, # also disconnect threshold
       opportunisticGraftThreshold: 0,
-      decayInterval: chronos.seconds(12),
+      decayInterval: chronos.seconds(4),
       decayToZero: 0.01,
       retainScore: chronos.seconds(385),
       appSpecificWeight: 0.0,
-      ipColocationFactorWeight: -53.75,
+      ipColocationFactorWeight: -5,
       ipColocationFactorThreshold: 3.0,
-      behaviourPenaltyWeight: -15.9,
+      behaviourPenaltyWeight: -5,
       behaviourPenaltyDecay: 0.986,
       disconnectBadPeers: true,
       directPeers:
@@ -2322,13 +2325,71 @@ func announcedENR*(node: Eth2Node): enr.Record =
 func shortForm*(id: NetKeyPair): string =
   $PeerId.init(id.pubkey)
 
+proc getTopicParams(
+  heartbeatPeriod: Duration,
+  slotPeriod: Duration,
+  peersPerTopic: int,
+  topicType: TopicScoringType): TopicParams =
+  case topicType:
+    of BlockTopic:
+      getTopicParams(
+        topicWeight = 0.1,
+        heartbeatPeriod = heartbeatPeriod,
+        period = slotPeriod,
+        averageOverNPeriods = 10, # Average over 10 slots, to smooth missing proposals
+        peersPerTopic = peersPerTopic,
+        expectedMessagesPerPeriod = 1, # One proposal per slot
+        timeInMeshQuantum = chronos.seconds(15) # Stable topic
+      )
+    of AggregateTopic:
+      getTopicParams(
+        topicWeight = 0.1,
+        heartbeatPeriod = heartbeatPeriod,
+        period = slotPeriod,
+        averageOverNPeriods = 2,
+        peersPerTopic = peersPerTopic,
+        expectedMessagesPerPeriod = (TARGET_AGGREGATORS_PER_COMMITTEE * ATTESTATION_SUBNET_COUNT).int,
+        timeInMeshQuantum = chronos.seconds(15) # Stable topic
+      )
+    of SubnetTopic:
+      getTopicParams(
+        topicWeight = 0.8 / ATTESTATION_SUBNET_COUNT,
+        heartbeatPeriod = heartbeatPeriod,
+        period = slotPeriod,
+        averageOverNPeriods = ATTESTATION_SUBNET_COUNT, # Smooth out empty committees
+        peersPerTopic = peersPerTopic,
+        expectedMessagesPerPeriod = TARGET_COMMITTEE_SIZE.int, #TODO use current number
+        timeInMeshQuantum = chronos.seconds(6) # Flaky topic
+      )
+    of OtherTopic:
+      TopicParams.init()
+
+static:
+  for topicType in ord(low(TopicScoringType))..ord(high(TopicScoringType)):
+    getTopicParams(
+        heartbeatPeriod = chronos.milliseconds(700),
+        slotPeriod = chronos.seconds(12),
+        peersPerTopic = 8,
+        TopicScoringType(topicType)
+      ).validateParameters().tryGet()
+
+
+proc getTopicParams(node: Eth2Node, topicType: TopicScoringType): TopicParams =
+  let
+    heartbeatPeriod = node.pubsub.parameters.decayInterval
+    slotPeriod = chronos.seconds(SECONDS_PER_SLOT.int)
+    peersPerTopic = node.pubsub.parameters.d
+
+  getTopicParams(heartbeatPeriod, slotPeriod, peersPerTopic, topicType)
+
 proc subscribe*(
-    node: Eth2Node, topic: string, topicParams: TopicParams,
+    node: Eth2Node, topic: string,
     enableTopicMetrics: bool = false) =
   if enableTopicMetrics:
     node.pubsub.knownTopics.incl(topic)
 
-  node.pubsub.topicParams[topic] = topicParams
+  #TODO
+  #node.pubsub.topicParams[topic] = node.getTopicParams(topicType)
 
   # Passing in `nil` because we do all message processing in the validator
   node.pubsub.subscribe(topic, nil)
@@ -2440,7 +2501,7 @@ proc subscribeAttestationSubnets*(
   for subnet_id, enabled in subnets:
     if enabled:
       node.subscribe(getAttestationTopic(
-        forkDigest, SubnetId(subnet_id)), TopicParams.init()) # don't score attestation subnets for now
+        forkDigest, SubnetId(subnet_id)))
 
 proc unsubscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =

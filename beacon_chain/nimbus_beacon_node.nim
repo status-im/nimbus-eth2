@@ -18,7 +18,6 @@ import
   eth/p2p/discoveryv5/[enr, random2],
   eth/keys,
   ./consensus_object_pools/vanity_logs/pandas,
-  ./networking/topic_params,
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
   ./spec/[engine_authentication, weak_subjectivity],
@@ -29,11 +28,6 @@ import
 
 when defined(posix):
   import system/ansi_c
-
-from
-  libp2p/protocols/pubsub/gossipsub
-import
-  TopicParams, validateParameters, init
 
 when defined(windows):
   import winlean
@@ -871,18 +865,18 @@ proc updateBlocksGossipStatus*(
   for gossipFork in newGossipForks:
     let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
     node.network.subscribe(
-      getBeaconBlocksTopic(forkDigest), blocksTopicParams,
+      getBeaconBlocksTopic(forkDigest),
       enableTopicMetrics = true)
 
   node.blocksGossipState = targetGossipState
 
 proc addPhase0MessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.network.subscribe(getAttesterSlashingsTopic(forkDigest), basicParams)
-  node.network.subscribe(getProposerSlashingsTopic(forkDigest), basicParams)
-  node.network.subscribe(getVoluntaryExitsTopic(forkDigest), basicParams)
+  node.network.subscribe(getAttesterSlashingsTopic(forkDigest))
+  node.network.subscribe(getProposerSlashingsTopic(forkDigest))
+  node.network.subscribe(getVoluntaryExitsTopic(forkDigest))
   node.network.subscribe(
-    getAggregateAndProofsTopic(forkDigest), aggregateTopicParams,
+    getAggregateAndProofsTopic(forkDigest),
     enableTopicMetrics = true)
 
   # updateAttestationSubnetHandlers subscribes attestation subnets
@@ -927,10 +921,10 @@ proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Sl
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if currentSyncCommitteeSubnets[subcommitteeIdx]:
       node.network.subscribe(
-        getSyncCommitteeTopic(forkDigest, subcommitteeIdx), basicParams)
+        getSyncCommitteeTopic(forkDigest, subcommitteeIdx))
 
   node.network.subscribe(
-    getSyncCommitteeContributionAndProofTopic(forkDigest), basicParams)
+    getSyncCommitteeContributionAndProofTopic(forkDigest))
 
   node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
 
@@ -980,7 +974,7 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
       if oldSyncSubnets[subcommitteeIdx]:
         node.network.unsubscribe(topic)
       elif newSyncSubnets[subcommitteeIdx]:
-        node.network.subscribe(topic, basicParams)
+        node.network.subscribe(topic)
 
   node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
 
@@ -1032,7 +1026,7 @@ proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
         node.syncCommitteeMsgPool[].isEpochLeadTime(epochsToSyncPeriod.get):
       for gossipFork in node.gossipState:
         node.network.subscribe(getSyncCommitteeTopic(
-          forkDigests[gossipFork], subcommitteeIdx), basicParams)
+          forkDigests[gossipFork], subcommitteeIdx))
       newSubcommittees.setBit(distinctBase(subcommitteeIdx))
 
   debug "trackNextSyncCommitteeTopics: subscribing to sync committee subnets",
