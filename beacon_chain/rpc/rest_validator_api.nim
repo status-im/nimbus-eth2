@@ -433,6 +433,79 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
     return RestApiResponse.jsonResponsePlain(message)
 
+  # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
+  # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/blinded_block.yaml
+  router.api(MethodGet, "/eth/v2/validator/blinded_blocks/{slot}") do (
+    slot: Slot, randao_reveal: Option[ValidatorSig],
+    graffiti: Option[GraffitiBytes]) -> RestApiResponse:
+    ## Requests a beacon node to produce a valid blinded block, which can then
+    ## be signed by a validator. A blinded block is a block with only a
+    ## transactions root, rather than a full transactions list.
+    ##
+    ## Metadata in the response indicates the type of block produced, and the
+    ## supported types of block will be added to as forks progress.
+    let qslot = block:
+      if slot.isErr():
+        return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                          $slot.error())
+      let res = slot.get()
+
+      if res <= node.dag.finalizedHead.slot:
+        return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                         "Slot already finalized")
+      let
+        wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
+      if res > wallTime.slotOrZero:
+        return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
+                                         "Slot cannot be in the future")
+      res
+    let qrandao =
+      if randao_reveal.isNone():
+        return RestApiResponse.jsonError(Http400, MissingRandaoRevealValue)
+      else:
+        let res = randao_reveal.get()
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidRandaoRevealValue,
+                                           $res.error())
+        res.get()
+    let qgraffiti =
+      if graffiti.isNone():
+        defaultGraffitiBytes()
+      else:
+        let res = graffiti.get()
+        if res.isErr():
+          return RestApiResponse.jsonError(Http400,
+                                           InvalidGraffitiBytesValue,
+                                           $res.error())
+        res.get()
+    let qhead =
+      block:
+        let res = node.getSyncedHead(qslot)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                           $res.error())
+        res.get()
+    let proposer = node.dag.getProposer(qhead, qslot)
+    if proposer.isNone():
+      return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
+
+    if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+      let res = await makeBlindedBeaconBlockForHeadAndSlot(
+        node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
+      if res.isErr():
+        return RestApiResponse.jsonError(Http400, res.error())
+      return RestApiResponse.jsonResponsePlain(ForkedBlindedBeaconBlock(
+        kind: BeaconBlockFork.Bellatrix,
+        bellatrixData: res.get()))
+    else:
+      # Pre-Bellatrix, this endpoint will return a BeaconBlock
+      let res = await makeBeaconBlockForHeadAndSlot(
+        node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
+      if res.isErr():
+        return RestApiResponse.jsonError(Http400, res.error())
+      return RestApiResponse.jsonResponsePlain(res.get())
+
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
   router.api(MethodGet, "/eth/v1/validator/attestation_data") do (
     slot: Option[Slot],

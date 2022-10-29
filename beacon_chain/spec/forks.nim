@@ -119,6 +119,12 @@ type
     of BeaconBlockFork.Altair:    altairData*:    altair.BeaconBlock
     of BeaconBlockFork.Bellatrix: bellatrixData*: BeaconBlockHeader
 
+  ForkedBlindedBeaconBlock* = object
+    case kind*: BeaconBlockFork
+    of BeaconBlockFork.Phase0:    phase0Data*:    phase0.BeaconBlock
+    of BeaconBlockFork.Altair:    altairData*:    altair.BeaconBlock
+    of BeaconBlockFork.Bellatrix: bellatrixData*: BlindedBeaconBlock
+
   ForkedTrustedBeaconBlock* = object
     case kind*: BeaconBlockFork
     of BeaconBlockFork.Phase0:    phase0Data*:     phase0.TrustedBeaconBlock
