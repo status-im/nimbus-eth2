@@ -17,7 +17,7 @@ logScope: service = ServiceName
 type
   DutiesServiceLoop* = enum
     AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop,
-    ProposerPreparationLoop
+    ProposerPreparationLoop, ValidatorRegisterLoop
 
 chronicles.formatIt(DutiesServiceLoop):
   case it
@@ -26,6 +26,7 @@ chronicles.formatIt(DutiesServiceLoop):
   of IndicesLoop: "index_loop"
   of SyncCommitteeLoop: "sync_committee_loop"
   of ProposerPreparationLoop: "proposer_prepare_loop"
+  of ValidatorRegisterLoop: "validator_register_loop"
 
 proc checkDuty(duty: RestAttesterDuty): bool =
   (duty.committee_length <= MAX_VALIDATORS_PER_COMMITTEE) and
@@ -551,6 +552,54 @@ proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
             proposers_count = len(proposers),
             prepared_count = count
 
+proc registerValidators*(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  let sres = vc.getCurrentSlot()
+
+  var default: seq[SignedValidatorRegistrationV1]
+  if sres.isSome():
+    let
+      genesisFork = vc.forks[0]
+      currentSlot = sres.get()
+      registrations =
+        try:
+          await vc.prepareRegistrationList(getTime(), genesisFork)
+        except CancelledError as exc:
+          debug "Validator registration preparation was interrupted",
+                slot = currentSlot, fork = genesisFork
+          raise exc
+        except CatchableError as exc:
+          error "Unexpected error occured while preparing validators " &
+                "registration data", slot = currentSlot, fork = genesisFork,
+                err_name = exc.name, err_msg = exc.msg
+          default
+
+    let count =
+      if len(registrations) > 0:
+        try:
+          await registerValidator(vc, registrations)
+        except ValidatorApiError as exc:
+          warn "Unable to register validators", slot = currentSlot,
+                fork = genesisFork, err_name = exc.name,
+                err_msg = exc.msg
+          0
+        except CancelledError as exc:
+          debug "Validator registration was interrupted", slot = currentSlot,
+                fork = genesisFork
+          raise exc
+        except CatchableError as exc:
+          error "Unexpected error occured while registering validators",
+                slot = currentSlot, fork = genesisFork, err_name = exc.name,
+                err_msg = exc.msg
+          0
+      else:
+        0
+
+    if count > 0:
+      debug "Validators registered", slot = currentSlot,
+            beacon_nodes_count = count, registrations = len(registrations),
+            validators_count = vc.attachedValidators[].count()
+
 proc waitForNextSlot(service: DutiesServiceRef,
                      serviceLoop: DutiesServiceLoop) {.async.} =
   let vc = service.client
@@ -585,11 +634,22 @@ proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
 
 proc proposerPreparationsLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
+
   debug "Beacon proposer preparation loop waiting for validator indices update"
   await vc.indicesAvailable.wait()
   while true:
     await service.prepareBeaconProposers()
     await service.waitForNextSlot(ProposerPreparationLoop)
+
+proc validatorRegisterLoop(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  doAssert(vc.config.payloadBuilderEnable)
+
+  debug "Validator registration loop is waiting for initialization"
+  await allFutures(vc.indicesAvailable.wait(), vc.forksAvailable.wait())
+  while true:
+    await service.registerValidators()
+    await service.waitForNextSlot(ValidatorRegisterLoop)
 
 proc syncCommitteeDutiesLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
@@ -616,6 +676,8 @@ template checkAndRestart(serviceLoop: DutiesServiceLoop,
     future = body
 
 proc mainLoop(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+
   service.state = ServiceState.Running
   debug "Service started"
 
@@ -625,6 +687,11 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
     indicesFut = service.validatorIndexLoop()
     syncFut = service.syncCommitteeDutiesLoop()
     prepareFut = service.proposerPreparationsLoop()
+    registerFut =
+      if vc.config.payloadBuilderEnable:
+        service.validatorRegisterLoop()
+      else:
+        nil
 
   while true:
     # This loop could look much more nicer/better, when
@@ -632,8 +699,11 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
     # become safe to combine loops, breaks and exception handlers.
     let breakLoop =
       try:
-        discard await race(attestFut, proposeFut, indicesFut, syncFut,
-                           prepareFut)
+        var futures = @[FutureBase(attestFut), FutureBase(proposeFut),
+                        FutureBase(indicesFut), FutureBase(syncFut),
+                        FutureBase(prepareFut)]
+        if not(isNil(registerFut)): futures.add(FutureBase(registerFut))
+        discard await race(futures)
         checkAndRestart(AttesterLoop, attestFut, service.attesterDutiesLoop())
         checkAndRestart(ProposerLoop, proposeFut, service.proposerDutiesLoop())
         checkAndRestart(IndicesLoop, indicesFut, service.validatorIndexLoop())
@@ -641,6 +711,9 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
                         service.syncCommitteeDutiesLoop())
         checkAndRestart(ProposerPreparationLoop, prepareFut,
                         service.proposerPreparationsLoop())
+        if not(isNil(registerFut)):
+          checkAndRestart(ValidatorRegisterLoop, registerFut,
+                          service.validatorRegisterLoop())
         false
       except CancelledError:
         debug "Service interrupted"
@@ -655,6 +728,8 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
           pending.add(syncFut.cancelAndWait())
         if not(prepareFut.finished()):
           pending.add(prepareFut.cancelAndWait())
+        if not(isNil(registerFut)) and not(registerFut.finished()):
+          pending.add(registerFut.cancelAndWait())
         await allFutures(pending)
         true
       except CatchableError as exc:

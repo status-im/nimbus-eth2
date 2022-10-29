@@ -905,6 +905,11 @@ type
       defaultValue: 0
       name: "stop-at-epoch" .}: uint64
 
+    payloadBuilderEnable* {.
+      desc: "Enable usage of beacon node with external payload builder"
+      defaultValue: false
+      name: "payload-builder" .}: bool
+
     beaconNodes* {.
       desc: "URL addresses to one or more beacon node HTTP REST APIs",
       defaultValue: @[defaultBeaconNodeUri]

@@ -18,13 +18,15 @@ import
   ".."/validators/[keystore_management, validator_pool, slashing_protection],
   ".."/[conf, beacon_clock, version, nimbus_binary_common]
 
+from std/times import Time, toUnix, fromUnix, getTime
+
 export
   os, sets, sequtils, chronos, presto, chronicles, confutils,
   nimbus_binary_common, version, conf, options, tables, results, base10,
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
   beacon_clock, keystore_management, slashing_protection, validator_pool,
-  dynamic_fee_recipients
+  dynamic_fee_recipients, Time, toUnix, fromUnix, getTime
 
 const
   SYNC_TOLERANCE* = 4'u64
@@ -32,6 +34,8 @@ const
   HISTORICAL_DUTIES_EPOCHS* = 2'u64
   TIME_DELAY_FROM_SLOT* = 79.milliseconds
   SUBSCRIPTION_BUFFER_SLOTS* = 2'u64
+  VALIDATOR_DEFAULT_GAS_LIMIT* = 30_000_000'u64 # Stand-in, reasonable default
+  EPOCHS_BETWEEN_VALIDATOR_REGISTRATION* = 1
 
   DelayBuckets* = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
                    0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
@@ -43,6 +47,13 @@ type
   BlockServiceEventRef* = ref object of RootObj
     slot*: Slot
     proposers*: seq[ValidatorPubKey]
+
+  RegistrationKind* {.pure.} = enum
+    Cached, IncorrectTime, MissingIndex, MissingFee, ErrorSignature, NoSignature
+
+  PendingValidatorRegistration* = object
+    registration*: SignedValidatorRegistrationV1
+    future*: Future[SignatureResult]
 
   ClientServiceRef* = ref object of RootObj
     name*: string
@@ -176,6 +187,7 @@ type
     beaconGenesis*: RestGenesis
     proposerTasks*: Table[Slot, seq[ProposerTask]]
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
+    validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
     rng*: ref HmacDrbgContext
 
   ValidatorClientRef* = ref ValidatorClient
@@ -736,3 +748,160 @@ proc prepareProposersList*(vc: ValidatorClientRef,
         res.add(PrepareBeaconProposer(validator_index: index,
                                       fee_recipient: feeRecipient.get()))
   res
+
+proc isDefault*(reg: SignedValidatorRegistrationV1): bool =
+  (reg.message.timestamp == 0'u64) or (reg.message.gas_limit == 0'u64)
+
+proc isExpired*(vc: ValidatorClientRef,
+                reg: SignedValidatorRegistrationV1, slot: Slot): bool =
+  let
+    regTime = fromUnix(int64(reg.message.timestamp))
+    regSlot =
+      block:
+        let res = vc.beaconClock.toSlot(regTime)
+        if not(res.afterGenesis):
+          # This case should not be happend, but it could in case of time jumps
+          # (time could be modified by admin or ntpd).
+          return false
+        uint64(res.slot)
+
+  if regSlot > slot:
+    # This case should not be happened, but if it happens (time could be
+    # modified by admin or ntpd).
+    false
+  else:
+    if (slot - regSlot) div SLOTS_PER_EPOCH >=
+      EPOCHS_BETWEEN_VALIDATOR_REGISTRATION:
+      false
+    else:
+      true
+
+proc getValidatorRegistraion(
+       vc: ValidatorClientRef,
+       validator: AttachedValidator,
+       timestamp: Time,
+       fork: Fork
+     ): Result[PendingValidatorRegistration, RegistrationKind] =
+  if validator.index.isNone():
+    debug "Validator registration missing validator index",
+          validator = shortLog(validator)
+    return err(RegistrationKind.MissingIndex)
+
+  let
+    vindex = validator.index.get()
+    cached = vc.validatorsRegCache.getOrDefault(validator.pubkey)
+    currentSlot =
+      block:
+        let res = vc.beaconClock.toSlot(timestamp)
+        if not(res.afterGenesis):
+          return err(RegistrationKind.IncorrectTime)
+        res.slot
+
+  if cached.isDefault() or vc.isExpired(cached, currentSlot):
+    let feeRecipient = vc.getFeeRecipient(validator.pubkey, vindex,
+                                          currentSlot.epoch())
+    if feeRecipient.isNone():
+      debug "Could not get fee recipient for registration data",
+            validator = shortLog(validator)
+      return err(RegistrationKind.MissingFee)
+
+    var registration =
+      SignedValidatorRegistrationV1(
+        message: ValidatorRegistrationV1(
+          fee_recipient:
+            ExecutionAddress(data: distinctBase(feeRecipient.get())),
+          gas_limit: VALIDATOR_DEFAULT_GAS_LIMIT,
+          timestamp: uint64(timestamp.toUnix()),
+          pubkey: validator.pubkey
+        )
+      )
+
+    let sigfut = validator.getBuilderSignature(fork, registration.message)
+    if sigfut.finished():
+      # This is short-path if we able to create signature locally.
+      if not(sigfut.done()):
+        let exc = sigfut.readError()
+        debug "Got unexpected exception while signing validator registration",
+              validator = shortLog(validator), error_name = $exc.name,
+              error_msg = $exc.msg
+        return err(RegistrationKind.ErrorSignature)
+      let sigres = sigfut.read()
+      if sigres.isErr():
+        debug "Failed to get signature for validator registration",
+              validator = shortLog(validator), error = sigres.error()
+        return err(RegistrationKind.NoSignature)
+      registration.signature = sigres.get()
+      # Updating cache table with new signed registration data
+      vc.validatorsRegCache[registration.message.pubkey] = registration
+      ok(PendingValidatorRegistration(registration: registration, future: nil))
+    else:
+      # Remote signature service involved, cache will be updated later.
+      ok(PendingValidatorRegistration(registration: registration,
+                                      future: sigfut))
+  else:
+    # Returning cached result.
+    err(RegistrationKind.Cached)
+
+proc prepareRegistrationList*(
+       vc: ValidatorClientRef,
+       timestamp: Time,
+       fork: Fork
+     ): Future[seq[SignedValidatorRegistrationV1]] {.async.} =
+
+  var
+    messages: seq[SignedValidatorRegistrationV1]
+    futures: seq[Future[SignatureResult]]
+    registrations: seq[SignedValidatorRegistrationV1]
+    total = vc.attachedValidators[].count()
+    succeed = 0
+    bad = 0
+    errors = 0
+    indexMissing = 0
+    feeMissing = 0
+    cached = 0
+    timed = 0
+
+  for validator in vc.attachedValidators[].items():
+    let res = vc.getValidatorRegistraion(validator, timestamp, fork)
+    if res.isOk():
+      let preg = res.get()
+      if preg.future.isNil():
+        registrations.add(preg.registration)
+      else:
+        messages.add(preg.registration)
+        futures.add(preg.future)
+    else:
+      case res.error()
+      of RegistrationKind.Cached: inc(cached)
+      of RegistrationKind.IncorrectTime: inc(timed)
+      of RegistrationKind.NoSignature: inc(bad)
+      of RegistrationKind.ErrorSignature: inc(errors)
+      of RegistrationKind.MissingIndex: inc(indexMissing)
+      of RegistrationKind.MissingFee: inc(feeMissing)
+
+  succeed = len(registrations)
+
+  if len(futures) > 0:
+    await allFutures(futures)
+
+  for index, future in futures.pairs():
+    if future.done():
+      let sres = future.read()
+      if sres.isOk():
+        var reg = messages[index]
+        reg.signature = sres.get()
+        registrations.add(reg)
+        # Updating cache table
+        vc.validatorsRegCache[reg.message.pubkey] = reg
+        inc(succeed)
+      else:
+        inc(bad)
+    else:
+      inc(errors)
+
+  debug "Validator registrations prepared", total = total, succeed = succeed,
+        cached = cached, bad = bad, errors = errors,
+        index_missing = indexMissing, fee_missing = feeMissing,
+        incorrect_time = timed
+
+  return registrations
