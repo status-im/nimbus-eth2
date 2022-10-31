@@ -444,6 +444,13 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     ##
     ## Metadata in the response indicates the type of block produced, and the
     ## supported types of block will be added to as forks progress.
+    let contentType =
+      block:
+        let res = preferredContentType(jsonMediaType,
+                                       sszMediaType)
+        if res.isErr():
+          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
+        res.get()
     let qslot = block:
       if slot.isErr():
         return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
@@ -490,12 +497,20 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if proposer.isNone():
       return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
 
+    template responsePlain(response: untyped): untyped =
+      if contentType == sszMediaType:
+        RestApiResponse.sszResponse(response)
+      elif contentType == jsonMediaType:
+        RestApiResponse.jsonResponsePlain(response)
+      else:
+        RestApiResponse.jsonError(Http500, InvalidAcceptError)
+
     if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
       let res = await makeBlindedBeaconBlockForHeadAndSlot(
         node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
-      return RestApiResponse.jsonResponsePlain(ForkedBlindedBeaconBlock(
+      return responsePlain(ForkedBlindedBeaconBlock(
         kind: BeaconBlockFork.Bellatrix,
         bellatrixData: res.get()))
     else:
@@ -504,7 +519,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
-      return RestApiResponse.jsonResponsePlain(res.get())
+      return responsePlain(res.get())
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
   router.api(MethodGet, "/eth/v1/validator/attestation_data") do (
