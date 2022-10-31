@@ -1013,7 +1013,8 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
       kind: BeaconBlockFork.Bellatrix,
       bellatrixData: res.get())
 
-proc writeValue*[BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock](
+proc writeValue*[
+    BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock|ForkedBlindedBeaconBlock](
     writer: var JsonWriter[RestJson],
     value: BlockType) {.raises: [IOError, Defect].} =
 
