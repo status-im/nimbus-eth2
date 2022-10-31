@@ -3100,7 +3100,7 @@
   {
     "topics": ["validator", "blinded_blocks"],
     "request": {
-      "url": "/eth/v2/validator/blinded_blocks/0",
+      "url": "/eth/v1/validator/blinded_blocks/0",
       "headers": {"Accept": "application/json"}
     },
     "response": {
