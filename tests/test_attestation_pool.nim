@@ -150,7 +150,7 @@ suite "Attestation pool processing" & preset():
         check_attestation(forkyState.data, att1, {}, cache2).isErr
         check_attestation(forkyState.data, att2, {}, cache2).isOk
 
-    # If signature checks are skipped, state compatibility is not detected
+    # If signature checks are skipped, state incompatibility is not detected
     let flags = {skipBlsValidation}
     withState(state[]):
       check:
