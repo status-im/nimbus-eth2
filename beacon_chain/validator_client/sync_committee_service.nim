@@ -15,6 +15,7 @@ import
 
 const
   ServiceName = "sync_committee_service"
+  SUBSCRIPTION_LOOKAHEAD_EPOCHS = 4'u64
 
 logScope: service = ServiceName
 
@@ -359,11 +360,43 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     debug "Producing contribution and proofs", delay = delay
   await service.produceAndPublishContributions(slot, beaconBlockRoot, duties)
 
+  # RestSyncCommitteeSubscription* = object
+  #   validator_index*: ValidatorIndex
+  #   sync_committee_indices*: seq[IndexInSyncCommittee]
+  #   until_epoch*: Epoch
+
+proc subscribeSyncCommitteeSubnets(service: SyncCommitteeServiceRef,
+                                   currentSlot: Slot) {.async.} =
+  let
+    vc = service.client
+    dutySlots =
+      block:
+        var res: seq[tuple[slot: Slot, period: SyncCommitteePeriod]]
+        let currentPeriod = sync_committee_period(currentSlot)
+        if currentSlot.since_epoch_start() == 0'u64:
+          res.add((currentSlot, currentPeriod))
+        let
+          lookAheadSlot = currentSlot +
+                      SUBSCRIPTION_LOOKAHEAD_EPOCHS * SLOTS_PER_EPOCH
+          lookAheadPeriod = sync_committee_period(lookAheadSlot)
+        if lookAheadPeriod > currentPeriod:
+          res.add((lookAheadSlot, lookAheadPeriod))
+        res
+    subscriptions =
+      block:
+        var res: seq[RestSyncCommitteeSubscription]
+        for (slot, period) in dutySlots.items():
+          let untilEpoch = (period + 1'u64)
+          let duties = vc.getSyncCommitteeDutiesForSlot(slot)
+        res
+
+
 proc spawnSyncCommitteeTasks(service: SyncCommitteeServiceRef, slot: Slot) =
   let
     vc = service.client
     duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)
 
+  asyncSpawn service.subscribeSyncCommitteeSubnets(slot)
   asyncSpawn service.publishSyncMessagesAndContributions(slot, duties)
 
 proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
