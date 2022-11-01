@@ -301,70 +301,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/validator/blocks/{slot}") do (
     slot: Slot, randao_reveal: Option[ValidatorSig],
     graffiti: Option[GraffitiBytes]) -> RestApiResponse:
-    let message =
-      block:
-        let qslot = block:
-          if slot.isErr():
-            return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                              $slot.error())
-          let res = slot.get()
-
-          if res <= node.dag.finalizedHead.slot:
-            return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                             "Slot already finalized")
-          let
-            wallTime = node.beaconClock.now() + MAXIMUM_GOSSIP_CLOCK_DISPARITY
-          if res > wallTime.slotOrZero:
-            return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                             "Slot cannot be in the future")
-
-          if node.dag.cfg.blockForkAtEpoch(res.epoch) != BeaconBlockFork.Phase0:
-            return RestApiResponse.jsonError(Http400,
-                                             "Use v2 for Altair+ slots")
-
-          res
-        let qrandao =
-          if randao_reveal.isNone():
-            return RestApiResponse.jsonError(Http400, MissingRandaoRevealValue)
-          else:
-            let res = randao_reveal.get()
-            if res.isErr():
-              return RestApiResponse.jsonError(Http400,
-                                               InvalidRandaoRevealValue,
-                                               $res.error())
-            res.get()
-        let qgraffiti =
-          if graffiti.isNone():
-            defaultGraffitiBytes()
-          else:
-            let res = graffiti.get()
-            if res.isErr():
-              return RestApiResponse.jsonError(Http400,
-                                               InvalidGraffitiBytesValue,
-                                               $res.error())
-            res.get()
-        let qhead =
-          block:
-            let res = node.getSyncedHead(qslot)
-            if res.isErr():
-              return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
-                                               $res.error())
-            res.get()
-        let proposer = node.dag.getProposer(qhead, qslot)
-        if proposer.isNone():
-          return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
-        let res = await makeBeaconBlockForHeadAndSlot(
-          node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http400, res.error())
-        res.get()
-    return
-      case message.kind
-      of BeaconBlockFork.Phase0:
-        RestApiResponse.jsonResponse(message.phase0Data)
-      else:
-        RestApiResponse.jsonError(Http400,
-                                  "Use v2 for Altair+ slots")
+    return RestApiResponse.jsonError(
+      Http410, DeprecatedRemovalValidatorBlocksV1)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2
   router.api(MethodGet, "/eth/v2/validator/blocks/{slot}") do (

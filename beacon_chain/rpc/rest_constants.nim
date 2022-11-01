@@ -27,7 +27,7 @@ const
     "Beacon node is currently syncing and not serving request on that endpoint"
   BlockNotFoundError* =
     "Block header/data has not been found"
-  BlockProduceError* =
+  BlockProduceError =
     "Could not produce the block"
   EmptyRequestBodyError* =
     "Empty request's body"
@@ -126,7 +126,7 @@ const
     "Validator index exceeds maximum supported number of validators"
   StateNotFoundError* =
     "Could not get requested state"
-  SlotNotFoundError* =
+  SlotNotFoundError =
     "Slot number is too far away"
   SlotNotInNextWallSlotEpochError* =
     "Requested slot not in next wall-slot epoch"
@@ -138,7 +138,7 @@ const
     "Requested epoch is from incorrect fork"
   ProposerNotFoundError* =
     "Could not find proposer for the head and slot"
-  NoHeadForSlotError* =
+  NoHeadForSlotError =
     "Cound not find head for slot"
   EpochOverflowValueError* =
     "Requesting epoch for which slot would overflow"
@@ -164,7 +164,7 @@ const
     "Missing `beacon_block_root` value"
   InvalidBeaconBlockRootValueError* =
     "Invalid `beacon_block_root` value"
-  EpochOutsideSyncCommitteePeriodError* =
+  EpochOutsideSyncCommitteePeriodError =
     "Epoch is outside the sync committee period of the state"
   InvalidSyncCommitteeSignatureMessageError* =
     "Unable to decode sync committee message(s)"
@@ -188,23 +188,23 @@ const
     "Internal server error"
   NoImplementationError* =
     "Not implemented yet"
-  KeystoreAdditionFailure* =
+  KeystoreAdditionFailure =
     "Could not add some keystores"
   InvalidKeystoreObjects* =
     "Invalid keystore objects found"
-  KeystoreAdditionSuccess* =
+  KeystoreAdditionSuccess =
     "All keystores has been added"
-  KeystoreModificationFailure* =
+  KeystoreModificationFailure =
     "Could not change keystore(s) state"
-  KeystoreModificationSuccess* =
+  KeystoreModificationSuccess =
     "Keystore(s) state was successfully modified"
-  KeystoreRemovalSuccess* =
+  KeystoreRemovalSuccess =
     "Keystore(s) was successfully removed"
-  KeystoreRemovalFailure* =
+  KeystoreRemovalFailure =
     "Could not remove keystore(s)"
   InvalidValidatorPublicKey* =
     "Invalid validator's public key(s) found"
-  BadRequestFormatError* =
+  BadRequestFormatError =
     "Bad request format"
   InvalidAuthorizationError* =
     "Invalid Authorization Header"
@@ -226,3 +226,10 @@ const
     "LC finality update unavailable"
   LCOptUpdateUnavailable* =
     "LC optimistic update unavailable"
+  DeprecatedRemovalBeaconBlocksDebugStateV1* =
+    "v1/beacon/blocks/{block_id} and v1/debug/beacon/states/{state_id} " &
+      "endpoints were deprecated and removed by " &
+      "https://github.com/ethereum/beacon-APIs/pull/218"
+  DeprecatedRemovalValidatorBlocksV1* =
+    "v1/validator/blocks/{slot} endpoint was deprecated and removed by " &
+      "https://github.com/ethereum/beacon-APIs/pull/220"
