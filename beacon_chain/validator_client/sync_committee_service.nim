@@ -373,7 +373,8 @@ proc subscribeSyncCommitteeSubnets(service: SyncCommitteeServiceRef,
       block:
         var res: seq[tuple[slot: Slot, period: SyncCommitteePeriod]]
         let currentPeriod = sync_committee_period(currentSlot)
-        if currentSlot.since_epoch_start() == 0'u64:
+        if service.firstSubscription or
+           currentSlot.since_epoch_start() == 0'u64:
           res.add((currentSlot, currentPeriod))
         let
           lookAheadSlot = currentSlot +
@@ -386,8 +387,15 @@ proc subscribeSyncCommitteeSubnets(service: SyncCommitteeServiceRef,
       block:
         var res: seq[RestSyncCommitteeSubscription]
         for (slot, period) in dutySlots.items():
-          let untilEpoch = (period + 1'u64)
-          let duties = vc.getSyncCommitteeDutiesForSlot(slot)
+          let
+            untilEpoch = start_epoch(period + 1'u64)
+            duties = vc.getSyncCommitteeDutiesForSlot(slot)
+          for duty in duties:
+            res.add(RestSyncCommitteeSubscription(
+              validator_index: duty.validator_index
+              sync_committee_indices: duty.validator_sync_committee_indices
+              until_epoch: untilEpoch
+            ))
         res
 
 
@@ -433,8 +441,9 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
 proc init*(t: typedesc[SyncCommitteeServiceRef],
            vc: ValidatorClientRef): Future[SyncCommitteeServiceRef] {.async.} =
   logScope: service = ServiceName
-  let res = SyncCommitteeServiceRef(name: ServiceName,
-                                    client: vc, state: ServiceState.Initialized)
+  let res = SyncCommitteeServiceRef(name: ServiceName, client: vc,
+                                    state: ServiceState.Initialized,
+                                    firstSubscription: true)
   debug "Initializing service"
   return res
 
