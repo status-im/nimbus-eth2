@@ -20,6 +20,8 @@ import
   ./spec/datatypes/[phase0, altair, bellatrix],
   "."/[beacon_chain_db_light_client, filepath]
 
+from ./spec/datatypes/capella import BeaconState
+
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
   kvstore_sqlite3
@@ -445,6 +447,12 @@ proc new*(T: type BeaconChainDB,
     if db.exec("DROP TABLE IF EXISTS validatorIndexFromPubKey;").isErr:
       debug "Failed to drop the validatorIndexFromPubKey table"
 
+  const capellaImplementationMissingDb: KvStoreRef =
+    if capellaImplementationMissing:
+      default(KvStoreRef)
+    else:
+      default(KvStoreRef)
+
   var
     # V0 compatibility tables - these were created WITHOUT ROWID which is slow
     # for large blobs
@@ -463,14 +471,16 @@ proc new*(T: type BeaconChainDB,
     blocks = [
       kvStore db.openKvStore("blocks").expectDb(),
       kvStore db.openKvStore("altair_blocks").expectDb(),
-      kvStore db.openKvStore("bellatrix_blocks").expectDb()]
+      kvStore db.openKvStore("bellatrix_blocks").expectDb(),
+      capellaImplementationMissingDb]
 
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
     statesNoVal = [
       kvStore db.openKvStore("state_no_validators2").expectDb(),
       kvStore db.openKvStore("altair_state_no_validators").expectDb(),
-      kvStore db.openKvStore("bellatrix_state_no_validators").expectDb()]
+      kvStore db.openKvStore("bellatrix_state_no_validators").expectDb(),
+      capellaImplementationMissingDb]
 
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
@@ -668,9 +678,17 @@ proc close*(db: BeaconChainDB) =
   db.finalizedBlocks.close()
   discard db.summaries.close()
   discard db.stateDiffs.close()
-  for kv in db.statesNoVal: discard kv.close()
+  for kv in db.statesNoVal:
+    # The scaffolding currently creates nil databases
+    if  (capellaImplementationMissing == capellaImplementationMissing) and
+        not (kv.isNil):
+      discard kv.close()
   discard db.stateRoots.close()
-  for kv in db.blocks: discard kv.close()
+  for kv in db.blocks:
+    # The scaffolding currently creates nil databases
+    if  (capellaImplementationMissing == capellaImplementationMissing) and
+        not (kv.isNil):
+      discard kv.close()
   discard db.keyValues.close()
 
   db.immutableValidatorsDb.close()
@@ -704,6 +722,11 @@ proc putBlock*(
   db.withManyWrites:
     db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
+
+proc putBlock*(
+    db: BeaconChainDB,
+    value: capella.TrustedSignedBeaconBlock) =
+  raiseAssert $capellaImplementationMissing
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
@@ -743,6 +766,9 @@ proc putState*(db: BeaconChainDB, key: Eth2Digest, value: bellatrix.BeaconState)
   db.statesNoVal[type(value).toFork()].putSZSSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
 
+proc putState*(db: BeaconChainDB, key: Eth2Digest, value: capella.BeaconState) =
+  raiseAssert $capellaImplementationMissing
+
 proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
   db.withManyWrites:
     db.putStateRoot(state.latest_block_root, state.data.slot, state.root)
@@ -770,12 +796,20 @@ proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) 
 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.withManyWrites:
-    for kv in db.blocks: kv.del(key.data).expectDb()
+    for kv in db.blocks:
+      # The scaffolding currently creates nil databases
+      if  (capellaImplementationMissing == capellaImplementationMissing) and
+          not (kv.isNil):
+        kv.del(key.data).expectDb()
     db.summaries.del(key.data).expectDb()
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.withManyWrites:
-    for kv in db.statesNoVal: kv.del(key.data).expectDb()
+    for kv in db.statesNoVal:
+      # The scaffolding currently creates nil databases
+      if  (capellaImplementationMissing == capellaImplementationMissing) and
+          not (kv.isNil):
+        kv.del(key.data).expectDb()
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.stateRoots.del(stateRootKey(root, slot)).expectDb()
@@ -842,6 +876,12 @@ proc getBlock*[
   else:
     result.err()
 
+proc getBlock*[
+    X: capella.TrustedSignedBeaconBlock](
+    db: BeaconChainDB, key: Eth2Digest,
+    T: type X): Opt[T] =
+  raiseAssert $capellaImplementationMissing
+
 proc getPhase0BlockSSZ(
     db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
   let dataPtr = addr data # Short-lived
@@ -905,6 +945,8 @@ proc getBlockSSZ*(
     getBlockSSZ(db, key, data, altair.TrustedSignedBeaconBlock)
   of BeaconBlockFork.Bellatrix:
     getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.Capella:
+    raiseAssert $capellaImplementationMissing
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
@@ -948,6 +990,8 @@ proc getBlockSZ*(
     getBlockSZ(db, key, data, altair.TrustedSignedBeaconBlock)
   of BeaconBlockFork.Bellatrix:
     getBlockSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.Capella:
+    raiseAssert $capellaImplementationMissing
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
@@ -1100,6 +1144,12 @@ proc getState*(
   getStateOnlyMutableValidators(
     db.immutableValidators, db.statesNoVal[T.toFork], key.data, output,
     rollback)
+
+proc getState*(
+    db: BeaconChainDB, key: Eth2Digest,
+    output: var capella.BeaconState,
+    rollback: RollbackProc): bool =
+  raiseAssert $capellaImplementationMissing
 
 proc getState*(
     db: BeaconChainDB, fork: BeaconStateFork, state_root: Eth2Digest,

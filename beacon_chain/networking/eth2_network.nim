@@ -2625,6 +2625,14 @@ proc broadcastBeaconBlock*(
   let topic = getBeaconBlocksTopic(node.forkDigests.bellatrix)
   node.broadcast(topic, blck)
 
+# TODO when forks re-exports this, use that instead and rm this
+from ../spec/datatypes/capella import SignedBeaconBlock
+
+proc broadcastBeaconBlock*(
+    node: Eth2Node, blck: capella.SignedBeaconBlock): Future[SendResult] =
+  let topic = getBeaconBlocksTopic(node.forkDigests.capella)
+  node.broadcast(topic, blck)
+
 proc broadcastBeaconBlock*(
     node: Eth2Node, forked: ForkedSignedBeaconBlock): Future[SendResult] =
   withBlck(forked): node.broadcastBeaconBlock(blck)

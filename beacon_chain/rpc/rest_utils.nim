@@ -276,6 +276,9 @@ proc getStateOptimistic*(node: BeaconNode,
           doAssert forkyState.data.slot > 0
           some[bool](node.dag.is_optimistic(
             get_block_root_at_slot(forkyState.data, forkyState.data.slot - 1)))
+    of BeaconStateFork.Capella:
+      if true: raiseAssert $capellaImplementationMissing
+      none[bool]()
   else:
     none[bool]()
 
@@ -288,6 +291,9 @@ proc getBlockOptimistic*(node: BeaconNode,
       some[bool](false)
     of BeaconBlockFork.Bellatrix:
       some[bool](node.dag.is_optimistic(blck.root))
+    of BeaconBlockFork.Capella:
+      if true: raiseAssert $capellaImplementationMissing
+      none[bool]()
   else:
     none[bool]()
 
@@ -298,6 +304,9 @@ proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
     false
   of BeaconBlockFork.Bellatrix:
     node.dag.is_optimistic(blck.root)
+  of BeaconBlockFork.Capella:
+    if true: raiseAssert $capellaImplementationMissing
+    true
 
 const
   jsonMediaType* = MediaType.init("application/json")

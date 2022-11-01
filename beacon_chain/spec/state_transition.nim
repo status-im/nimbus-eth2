@@ -581,3 +581,5 @@ proc makeBeaconBlock*(
   of BeaconStateFork.Phase0:    makeBeaconBlock(phase0)
   of BeaconStateFork.Altair:    makeBeaconBlock(altair)
   of BeaconStateFork.Bellatrix: makeBeaconBlock(bellatrix)
+  of BeaconStateFork.Capella:
+    raiseAssert $capellaImplementationMissing

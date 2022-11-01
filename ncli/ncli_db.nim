@@ -252,6 +252,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of BeaconBlockFork.Bellatrix:
         blocks[2].add dag.db.getBlock(
           blck.root, bellatrix.TrustedSignedBeaconBlock).get()
+      of BeaconBlockFork.Capella:
+        raiseAssert $capellaImplementationMissing
 
   let stateData = newClone(dag.headState)
 
@@ -316,12 +318,15 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of BeaconStateFork.Bellatrix:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[2][].data, noRollback)
+              of BeaconStateFork.Capella:
+                raiseAssert $capellaImplementationMissing
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case stateFork
                 of BeaconStateFork.Phase0:    hash_tree_root(loadedState[0][].data)
                 of BeaconStateFork.Altair:    hash_tree_root(loadedState[1][].data)
                 of BeaconStateFork.Bellatrix: hash_tree_root(loadedState[2][].data)
+                of BeaconStateFork.Capella:   raiseAssert $capellaImplementationMissing
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])

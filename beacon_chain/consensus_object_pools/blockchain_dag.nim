@@ -20,6 +20,8 @@ import
   ".."/[beacon_chain_db, era_db],
   "."/[block_pools_types, block_quarantine]
 
+from ../spec/datatypes/capella import shortLog
+
 export
   eth2_merkleization, eth2_ssz_serialization,
   block_pools_types, results, beacon_chain_db
@@ -842,6 +844,8 @@ proc applyBlock(
     state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
+  of BeaconBlockFork.Capella:
+    raiseAssert $capellaImplementationMissing
 
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
@@ -998,6 +1002,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of BeaconStateFork.Phase0: genesisFork(cfg)
       of BeaconStateFork.Altair: altairFork(cfg)
       of BeaconStateFork.Bellatrix: bellatrixFork(cfg)
+      of BeaconStateFork.Capella: capellaFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   if stateFork != configFork:

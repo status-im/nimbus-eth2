@@ -286,6 +286,14 @@ proc newExecutionPayload*(
     error "newPayload failed", msg = err.msg
     return Opt.none PayloadExecutionStatus
 
+# TODO when forks re-exports this, remove
+from ../spec/datatypes/capella import ExecutionPayload
+
+proc newExecutionPayload*(
+    eth1Monitor: Eth1Monitor, executionPayload: capella.ExecutionPayload):
+    Future[Opt[PayloadExecutionStatus]] {.async.} =
+  raiseAssert $capellaImplementationMissing
+
 proc getExecutionValidity(
     eth1Monitor: Eth1Monitor,
     blck: phase0.SignedBeaconBlock | altair.SignedBeaconBlock):
@@ -326,6 +334,15 @@ proc getExecutionValidity(
   except CatchableError as err:
     error "getExecutionValidity: newPayload failed", err = err.msg
     return NewPayloadStatus.noResponse
+
+# TODO drop when forks re-exports all this
+from ../spec/datatypes/capella import SignedBeaconBlock, asTrusted, shortLog
+
+proc getExecutionValidity(
+    eth1Monitor: Eth1Monitor,
+    blck: capella.SignedBeaconBlock):
+    Future[NewPayloadStatus] {.async.} =
+  raiseAssert $capellaImplementationMissing
 
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,

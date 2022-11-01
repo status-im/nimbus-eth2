@@ -159,7 +159,7 @@ cli do(validatorsDir: string, secretsDir: string,
           @[],
           BeaconBlockExits(),
           syncAggregate,
-          default(ExecutionPayload),
+          default(bellatrix.ExecutionPayload),
           noRollback,
           cache).get()
 
@@ -191,6 +191,8 @@ cli do(validatorsDir: string, secretsDir: string,
             fork, genesis_validators_root, slot, blockRoot,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
+      of BeaconBlockFork.Capella:
+        raiseAssert $capellaImplementationMissing
       notice "Block proposed", message, blockRoot
 
       aggregates.setLen(0)

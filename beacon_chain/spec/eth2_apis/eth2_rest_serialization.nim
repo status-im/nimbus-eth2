@@ -959,6 +959,8 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect bellatrix block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
+  of BeaconBlockFork.Capella:
+    reader.raiseUnexpectedValue($capellaImplementationMissing)
 
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
@@ -1012,6 +1014,8 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     value = Web3SignerForkedBeaconBlock(
       kind: BeaconBlockFork.Bellatrix,
       bellatrixData: res.get())
+  of BeaconBlockFork.Capella:
+    reader.raiseUnexpectedValue($capellaImplementationMissing)
 
 proc writeValue*[
     BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock|ForkedBlindedBeaconBlock](
@@ -1035,6 +1039,8 @@ proc writeValue*[
   of BeaconBlockFork.Bellatrix:
     writer.writeField("version", forkIdentifier "bellatrix")
     writer.writeField("data", value.bellatrixData)
+  of BeaconBlockFork.Capella:
+    raiseAssert $capellaImplementationMissing
   writer.endRecord()
 
 ## RestPublishedBeaconBlockBody
@@ -1054,7 +1060,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     voluntary_exits: Option[
       List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]]
     sync_aggregate: Option[SyncAggregate]
-    execution_payload: Option[ExecutionPayload]
+    execution_payload: Option[bellatrix.ExecutionPayload]
 
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -1113,7 +1119,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       if execution_payload.isSome():
         reader.raiseUnexpectedField("Multiple `execution_payload` fields found",
                                     "RestPublishedBeaconBlockBody")
-      execution_payload = some(reader.readValue(ExecutionPayload))
+      execution_payload = some(reader.readValue(bellatrix.ExecutionPayload))
     else:
       unrecognizedFieldWarning()
 
@@ -1188,6 +1194,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         execution_payload: execution_payload.get()
       )
     )
+  of BeaconBlockFork.Capella:
+    reader.raiseUnexpectedValue($capellaImplementationMissing)
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
@@ -1274,6 +1282,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           body: body.bellatrixBody
         )
       )
+    of BeaconBlockFork.Capella:
+      reader.raiseUnexpectedValue($capellaImplementationMissing)
   )
 
 ## RestPublishedSignedBeaconBlock
@@ -1326,6 +1336,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           signature: signature.get()
         )
       )
+    of BeaconBlockFork.Capella:
+      reader.raiseUnexpectedValue($capellaImplementationMissing)
   )
 
 ## ForkedSignedBeaconBlock
@@ -1402,6 +1414,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect bellatrix block format")
     value = ForkedSignedBeaconBlock.init(res.get())
+  of BeaconBlockFork.Capella:
+    reader.raiseUnexpectedValue($capellaImplementationMissing)
   withBlck(value):
     blck.root = hash_tree_root(blck.message)
 
@@ -1419,6 +1433,8 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   of BeaconBlockFork.Bellatrix:
     writer.writeField("version", "bellatrix")
     writer.writeField("data", value.bellatrixData)
+  of BeaconBlockFork.Capella:
+    raiseAssert $capellaImplementationMissing
   writer.endRecord()
 
 # ForkedHashedBeaconState is used where a `ForkedBeaconState` normally would
@@ -1500,6 +1516,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     except SerializationError:
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
     toValue(bellatrixData)
+  of BeaconStateFork.Capella:
+    reader.raiseUnexpectedValue($capellaImplementationMissing)
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState)
                 {.raises: [IOError, Defect].} =
@@ -1514,6 +1532,8 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
   of BeaconStateFork.Bellatrix:
     writer.writeField("version", "bellatrix")
     writer.writeField("data", value.bellatrixData.data)
+  of BeaconStateFork.Capella:
+    raiseAssert $capellaImplementationMissing
   writer.endRecord()
 
 ## Web3SignerRequest
@@ -2403,6 +2423,8 @@ proc decodeBody*(
         except CatchableError:
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
+    of BeaconBlockFork.Capella:
+      return err($capellaImplementationMissing)
   else:
     return err("Unsupported or invalid content media type")
 

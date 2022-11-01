@@ -350,7 +350,9 @@ proc getExecutionPayload[T](
 
   template empty_execution_payload(): auto =
     withState(proposalState[]):
-      when stateFork >= BeaconStateFork.Bellatrix:
+      when stateFork >= BeaconStateFork.Capella:
+        raiseAssert $capellaImplementationMissing
+      elif stateFork >= BeaconStateFork.Bellatrix:
         build_empty_execution_payload(forkyState.data)
       else:
         default(T)
@@ -434,7 +436,7 @@ proc makeBeaconBlockForHeadAndSlot*(
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
     skip_randao_verification_bool: bool = false,
-    execution_payload: Opt[ExecutionPayload] = Opt.none(ExecutionPayload),
+    execution_payload: Opt[bellatrix.ExecutionPayload] = Opt.none(bellatrix.ExecutionPayload),
     transactions_root: Opt[Eth2Digest] = Opt.none(Eth2Digest),
     execution_payload_root: Opt[Eth2Digest] = Opt.none(Eth2Digest)):
     Future[ForkedBlockResult] {.async.} =
@@ -443,7 +445,8 @@ proc makeBeaconBlockForHeadAndSlot*(
     cache = StateCache()
 
   # Execution payload handling will need a review post-Bellatrix
-  static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
+  if slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
+    raiseAssert $capellaImplementationMissing
 
   let
     # The clearance state already typically sits at the right slot per
@@ -453,14 +456,14 @@ proc makeBeaconBlockForHeadAndSlot*(
       return err($error)
     payloadFut =
       if executionPayload.isSome:
-        let fut = newFuture[Opt[ExecutionPayload]]("given-payload")
+        let fut = newFuture[Opt[bellatrix.ExecutionPayload]]("given-payload")
         fut.complete(executionPayload)
         fut
       elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
             not (
               is_merge_transition_complete(state[]) or
               ((not node.eth1Monitor.isNil) and node.eth1Monitor.ttdReached)):
-        let fut = newFuture[Opt[ExecutionPayload]]("empty-payload")
+        let fut = newFuture[Opt[bellatrix.ExecutionPayload]]("empty-payload")
         # https://github.com/nim-lang/Nim/issues/19802
         fut.complete(Opt.some(default(bellatrix.ExecutionPayload)))
         fut
@@ -524,7 +527,7 @@ proc makeBeaconBlockForHeadAndSlot*(
 proc getBlindedExecutionPayload(
     node: BeaconNode, slot: Slot, executionBlockRoot: Eth2Digest,
     pubkey: ValidatorPubKey):
-    Future[Result[ExecutionPayloadHeader, string]] {.async.} =
+    Future[Result[bellatrix.ExecutionPayloadHeader, string]] {.async.} =
   if node.payloadBuilderRestClient.isNil:
     return err "getBlindedExecutionPayload: nil REST client"
 
@@ -568,8 +571,7 @@ macro copyFields(
 
 func constructSignableBlindedBlock[T](
     forkedBlock: ForkedBeaconBlock,
-    executionPayloadHeader: ExecutionPayloadHeader): T =
-  static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
+    executionPayloadHeader: bellatrix.ExecutionPayloadHeader): T =
   const
     blckFields = getFieldNames(typeof(forkedBlock.bellatrixData))
     blckBodyFields = getFieldNames(typeof(forkedBlock.bellatrixData.body))
@@ -586,8 +588,7 @@ func constructSignableBlindedBlock[T](
 
 func constructPlainBlindedBlock[T](
     forkedBlock: ForkedBeaconBlock,
-    executionPayloadHeader: ExecutionPayloadHeader): T =
-  static: doAssert high(BeaconStateFork) == BeaconStateFork.Bellatrix
+    executionPayloadHeader: bellatrix.ExecutionPayloadHeader): T =
   const
     blckFields = getFieldNames(typeof(forkedBlock.bellatrixData))
     blckBodyFields = getFieldNames(typeof(forkedBlock.bellatrixData.body))
@@ -639,7 +640,7 @@ proc blindedBlockCheckSlashingAndSign[T](
 proc getBlindedBeaconBlock[T](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
-    executionPayloadHeader: ExecutionPayloadHeader):
+    executionPayloadHeader: bellatrix.ExecutionPayloadHeader):
     Future[Result[T, string]] {.async.} =
   return await blindedBlockCheckSlashingAndSign(
     node, slot, validator, validator_index, constructSignableBlindedBlock[T](
@@ -648,7 +649,7 @@ proc getBlindedBeaconBlock[T](
 proc getBlindedBlockParts(
     node: BeaconNode, head: BlockRef, validator: AttachedValidator,
     slot: Slot, randao: ValidatorSig, validator_index: ValidatorIndex):
-    Future[Result[(ExecutionPayloadHeader, ForkedBeaconBlock), string]]
+    Future[Result[(bellatrix.ExecutionPayloadHeader, ForkedBeaconBlock), string]]
     {.async.} =
   let
     executionBlockRoot = node.dag.loadExecutionBlockRoot(head)
@@ -658,13 +659,13 @@ proc getBlindedBlockParts(
             node.getBlindedExecutionPayload(
               slot, executionBlockRoot, validator.pubkey),
             BUILDER_PROPOSAL_DELAY_TOLERANCE):
-          Result[ExecutionPayloadHeader, string].err(
+          Result[bellatrix.ExecutionPayloadHeader, string].err(
             "getBlindedExecutionPayload timed out")
       except RestDecodingError as exc:
-        Result[ExecutionPayloadHeader, string].err(
+        Result[bellatrix.ExecutionPayloadHeader, string].err(
           "getBlindedExecutionPayload REST decoding error")
       except CatchableError as exc:
-        Result[ExecutionPayloadHeader, string].err(
+        Result[bellatrix.ExecutionPayloadHeader, string].err(
           "getBlindedExecutionPayload error")
 
   if executionPayloadHeader.isErr:
@@ -680,10 +681,10 @@ proc getBlindedBlockParts(
   # processing does not work directly using blinded blocks, fix up transactions
   # root after running the state transition function on an otherwise equivalent
   # non-blinded block without transactions.
-  var shimExecutionPayload: ExecutionPayload
+  var shimExecutionPayload: bellatrix.ExecutionPayload
   copyFields(
     shimExecutionPayload, executionPayloadHeader.get,
-    getFieldNames(ExecutionPayloadHeader))
+    getFieldNames(bellatrix.ExecutionPayloadHeader))
 
   let newBlock = await makeBeaconBlockForHeadAndSlot(
     node, randao, validator_index, node.graffitiBytes, head, slot,
@@ -849,6 +850,9 @@ proc makeBlindedBeaconBlockForHeadAndSlot*(
   return ok constructPlainBlindedBlock[BlindedBeaconBlock](
     forkedBlck, executionPayloadHeader)
 
+# TODO once forks re-exports these, use that instead
+from ../spec/datatypes/capella import BeaconBlock
+
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
                   validator_index: ValidatorIndex,
@@ -940,6 +944,9 @@ proc proposeBlock(node: BeaconNode,
             message: blck, signature: signature, root: blockRoot)
         elif blck is bellatrix.BeaconBlock:
           bellatrix.SignedBeaconBlock(
+            message: blck, signature: signature, root: blockRoot)
+        elif blck is capella.BeaconBlock:
+          capella.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
         else:
           static: doAssert "Unknown SignedBeaconBlock type"

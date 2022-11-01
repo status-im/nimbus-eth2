@@ -23,7 +23,9 @@ import
   ".."/datatypes/[phase0, altair, bellatrix],
   ".."/mev/bellatrix_mev
 
-export forks, phase0, altair, bellatrix, bellatrix_mev
+from ".."/datatypes/capella import BeaconBlockBody
+
+export forks, phase0, altair, bellatrix, capella, bellatrix_mev
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -263,6 +265,7 @@ type
     of BeaconBlockFork.Phase0:    phase0Body*: phase0.BeaconBlockBody
     of BeaconBlockFork.Altair:    altairBody*: altair.BeaconBlockBody
     of BeaconBlockFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
+    of BeaconBlockFork.Capella:   cappellaBody*: capella.BeaconBlockBody
 
   RestSpec* = object
     # https://github.com/ethereum/consensus-specs/blob/v1.2.0/presets/mainnet/phase0.yaml

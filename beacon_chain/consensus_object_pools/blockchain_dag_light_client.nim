@@ -18,6 +18,8 @@ import
   ../beacon_chain_db_light_client,
   "."/[block_pools_types, blockchain_dag]
 
+from ../spec/datatypes/capella import TrustedSignedBeaconBlock
+
 logScope: topics = "chaindag_lc"
 
 type
@@ -118,7 +120,9 @@ proc syncCommitteeRootForPeriod(
     bsi = ? dag.getExistingBlockIdAtSlot(syncCommitteeSlot)
   dag.withUpdatedExistingState(tmpState, bsi) do:
     withState(state):
-      when stateFork >= BeaconStateFork.Altair:
+      when stateFork >= BeaconStateFork.Capella:
+        raiseAssert $capellaImplementationMissing
+      elif stateFork >= BeaconStateFork.Altair:
         ok forkyState.syncCommitteeRoot
       else: raiseAssert "Unreachable"
   do: err()
@@ -351,7 +355,9 @@ proc initLightClientUpdateForPeriod(
       dag.handleUnexpectedLightClientError(bid.slot)
       return err()
     withStateAndBlck(state, bdata):
-      when stateFork >= BeaconStateFork.Altair:
+      when stateFork >= BeaconStateFork.Capella:
+        raiseAssert $capellaImplementationMissing
+      elif stateFork >= BeaconStateFork.Altair:
         update.attested_header = blck.toBeaconBlockHeader()
         update.next_sync_committee = forkyState.data.next_sync_committee
         update.next_sync_committee_branch =
@@ -377,7 +383,9 @@ proc initLightClientUpdateForPeriod(
     dag.handleUnexpectedLightClientError(signatureBid.slot)
     return err()
   withBlck(bdata):
-    when stateFork >= BeaconStateFork.Altair:
+    when stateFork >= BeaconStateFork.Capella:
+      raiseAssert $capellaImplementationMissing
+    elif stateFork >= BeaconStateFork.Altair:
       update.sync_aggregate = blck.asSigned().message.body.sync_aggregate
     else: raiseAssert "Unreachable"
   update.signature_slot = signatureBid.slot
@@ -612,7 +620,9 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
   if dag.head.slot < dag.lcDataStore.cache.tailSlot:
     return
   withState(dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
+    when stateFork >= BeaconStateFork.Capella:
+      raiseAssert $capellaImplementationMissing
+    elif stateFork >= BeaconStateFork.Altair:
       dag.cacheLightClientData(forkyState, dag.head.bid)
     else: raiseAssert "Unreachable" # `tailSlot` cannot be before Altair
   if dag.lcDataStore.importMode == LightClientDataImportMode.OnlyNew:
@@ -663,7 +673,9 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
       res.err()
       continue
     withStateAndBlck(dag.headState, bdata):
-      when stateFork >= BeaconStateFork.Altair:
+      when stateFork >= BeaconStateFork.Capella:
+        raiseAssert $capellaImplementationMissing
+      elif stateFork >= BeaconStateFork.Altair:
         # Cache light client data (non-finalized blocks may refer to this)
         if i != blocks.low:
           dag.cacheLightClientData(forkyState, bid)  # `dag.head` already cached
@@ -708,7 +720,9 @@ proc processNewBlockForLightClient*(
   if signedBlock.message.slot < dag.lcDataStore.cache.tailSlot:
     return
 
-  when signedBlock is bellatrix.TrustedSignedBeaconBlock:
+  when signedBlock is capella.TrustedSignedBeaconBlock:
+    raiseAssert $capellaImplementationMissing
+  elif signedBlock is bellatrix.TrustedSignedBeaconBlock:
     dag.cacheLightClientData(state.bellatrixData, signedBlock.toBlockId())
     dag.createLightClientUpdates(state.bellatrixData, signedBlock, parentBid)
   elif signedBlock is altair.TrustedSignedBeaconBlock:
@@ -746,7 +760,9 @@ proc processHeadChangeForLightClient*(dag: ChainDAGRef) =
         dag.lcDataStore.db.putBestUpdate(
           period, dag.lcDataStore.cache.pendingBest.getOrDefault(key))
     withState(dag.headState): # Common case separate to avoid `tmpState` copy
-      when stateFork >= BeaconStateFork.Altair:
+      when stateFork >= BeaconStateFork.Capella:
+        raiseAssert $capellaImplementationMissing
+      elif stateFork >= BeaconStateFork.Altair:
         let key = (headPeriod, forkyState.syncCommitteeRoot)
         dag.lcDataStore.db.putBestUpdate(
           headPeriod, dag.lcDataStore.cache.pendingBest.getOrDefault(key))

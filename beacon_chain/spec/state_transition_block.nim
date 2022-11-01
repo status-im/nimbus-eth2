@@ -715,3 +715,12 @@ proc process_block*(
     state, blck.body.sync_aggregate, total_active_balance, cache)
 
   ok()
+
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+type SomeCapellaBlock =
+  capella.BeaconBlock | capella.SigVerifiedBeaconBlock | capella.TrustedBeaconBlock
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var capella.BeaconState, blck: SomeCapellaBlock,
+    flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
+  raiseAssert $capellaImplementationMissing

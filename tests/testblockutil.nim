@@ -138,7 +138,9 @@ proc addTestBlock*(
 
   let execution_payload =
     withState(state):
-      when stateFork >= BeaconStateFork.Bellatrix:
+      when stateFork >= BeaconStateFork.Capella:
+        raiseAssert $capellaImplementationMissing
+      elif stateFork >= BeaconStateFork.Bellatrix:
         # Merge shortly after Bellatrix
         if  forkyState.data.slot >
             cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH + 10:
