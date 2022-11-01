@@ -76,6 +76,101 @@ suite "Attestation pool processing" & preset():
         dag.cfg, state[], getStateField(state[], slot) + 1, cache, info,
         {}).isOk()
 
+  test "Attestation from different branch" & preset():
+    # Create two alternate histories with different shufflings
+    check process_slots(
+      dag.cfg, state[], (SLOTS_PER_EPOCH - 2).Slot, cache, info, {}).isOk
+    var state2 = newClone(state[])
+
+    const epoch = 3.Epoch
+    template fillToEpoch(
+        state: ref ForkedHashedBeaconState, cache: var StateCache) =
+      while getStateField(state[], slot).epoch <= epoch:
+        check process_slots(
+          dag.cfg, state[], getStateField(state[], slot) + 1, cache, info,
+          {}).isOk
+        let
+          parent_root = withState(state[]): forkyState.latest_block_root
+          attestations = makeFullAttestations(
+            state[], parent_root, getStateField(state[], slot), cache)
+          blck = addTestBlock(
+            state[], cache, attestations = attestations, cfg = dag.cfg)
+        check dag.addHeadBlock(
+          verifier, blck.phase0Data, OnPhase0BlockAdded(nil)).isOk
+
+    # History 1 contains all odd blocks
+    state.fillToEpoch(cache)
+
+    # History 2 contains all even blocks
+    var cache2 = StateCache()
+    check process_slots(
+      dag.cfg, state2[], getStateField(state2[], slot) + 1, cache2, info,
+      {}).isOk
+    state2.fillToEpoch(cache2)
+
+    # The shuffling for epoch 3 among both chains should now be different
+    let
+      dependent_root1 = withState(state[]): forkyState.attester_dependent_root
+      dependent_root2 = withState(state2[]): forkyState.attester_dependent_root
+    check dependent_root1 != dependent_root2
+
+    # Fill pool with attestations from both chains
+    let
+      cIndex = 0.CommitteeIndex
+      att1 = block:
+        let
+          slot = getStateField(state[], slot)
+          parent_root = withState(state[]): forkyState.latest_block_root
+          committee = get_beacon_committee(state[], slot, cIndex, cache)
+        makeAttestation(state[], parent_root, committee[0], cache)
+      att2 = block:
+        let
+          slot = getStateField(state2[], slot)
+          parent_root = withState(state2[]): forkyState.latest_block_root
+          committee = get_beacon_committee(state2[], slot, cIndex, cache2)
+        makeAttestation(state2[], parent_root, committee[0], cache2)
+      maxSlot = max(att1.data.slot, att2.data.slot)
+
+    # Advance time so attestations become valid
+    check:
+      process_slots(
+        dag.cfg, state[], maxSlot + MIN_ATTESTATION_INCLUSION_DELAY,
+        cache, info, {}).isOk
+      process_slots(
+        dag.cfg, state2[], maxSlot + MIN_ATTESTATION_INCLUSION_DELAY,
+        cache2, info, {}).isOk
+
+    # They should remain valid only within a compatible state
+    withState(state[]):
+      check:
+        check_attestation(forkyState.data, att1, {}, cache).isOk
+        check_attestation(forkyState.data, att2, {}, cache).isErr
+    withState(state2[]):
+      check:
+        check_attestation(forkyState.data, att1, {}, cache2).isErr
+        check_attestation(forkyState.data, att2, {}, cache2).isOk
+
+    # If signature checks are skipped, state incompatibility is not detected
+    let flags = {skipBlsValidation}
+    withState(state[]):
+      check:
+        check_attestation(forkyState.data, att1, flags, cache).isOk
+        check_attestation(forkyState.data, att2, flags, cache).isOk
+    withState(state2[]):
+      check:
+        check_attestation(forkyState.data, att1, flags, cache2).isOk
+        check_attestation(forkyState.data, att2, flags, cache2).isOk
+
+    # An additional compatibility check catches that (used in block production)
+    withState(state[]):
+      check:
+        check_attestation_compatible(dag, forkyState.data, att1).isOk
+        check_attestation_compatible(dag, forkyState.data, att2).isErr
+    withState(state2[]):
+      check:
+        check_attestation_compatible(dag, forkyState.data, att1).isErr
+        check_attestation_compatible(dag, forkyState.data, att2).isOk
+
   test "Can add and retrieve simple attestations" & preset():
     let
       # Create an attestation for slot 1!

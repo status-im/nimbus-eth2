@@ -531,6 +531,30 @@ func score(
   # Not found in cache - fresh vote meaning all attestations count
   bitsScore
 
+proc check_attestation_compatible*(
+    dag: ChainDAGRef,
+    state: ForkyBeaconState,
+    attestation: SomeAttestation): Result[void, cstring] =
+  let targetEpoch = attestation.data.target.epoch
+  if targetEpoch <= MIN_SEED_LOOKAHEAD:
+    return ok()
+
+  let
+    attestedBlck =
+      dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
+        return err("Unknown `beacon_block_root`")
+
+    dependentSlot = (targetEpoch - MIN_SEED_LOOKAHEAD).start_slot - 1
+    dependentBid = dag.atSlot(attestedBlck.bid, dependentSlot).valueOr:
+      return err("Dependent root not found")
+
+    dependentRoot = dependentBid.bid.root
+    compatibleRoot = state.get_block_root_at_slot(dependentSlot)
+  if dependentRoot != compatibleRoot:
+    return err("Incompatible shuffling")
+
+  ok()
+
 proc getAttestationsForBlock*(pool: var AttestationPool,
                               state: ForkyHashedBeaconState,
                               cache: var StateCache): seq[Attestation] =
@@ -578,6 +602,12 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       for j in 0..<entry.aggregates.len():
         let
           attestation = entry.toAttestation(entry.aggregates[j])
+
+        # Filter out attestations that were created with a different shuffling.
+        # As we don't re-check signatures, this needs to be done separately
+        if not check_attestation_compatible(
+              pool.dag, state.data, attestation).isOk():
+          continue
 
         # Attestations are checked based on the state that we're adding the
         # attestation to - there might have been a fork between when we first
