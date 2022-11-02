@@ -24,7 +24,7 @@ type
     slots: seq[Option[Eth2Digest]]
 
 proc updateSlots(cache: var DbCache, slot: Slot) =
-  if cache.slots.len() < slot.int + 1:
+  if cache.slots.lenu64() < slot:
     cache.slots.setLen(slot.int + 1)
 
 proc updateSlots(cache: var DbCache, root: Eth2Digest, slot: Slot) =
