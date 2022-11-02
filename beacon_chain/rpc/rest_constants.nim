@@ -231,5 +231,5 @@ const
       "endpoints were deprecated and removed by " &
       "https://github.com/ethereum/beacon-APIs/pull/218"
   DeprecatedRemovalValidatorBlocksV1* =
-    "v1/validator/blocks/{slot} endpoint was deprecated and removed by " &
+    "v1/validator/blocks/{slot} endpoint was deprecated and replaced by v2, see " &
       "https://github.com/ethereum/beacon-APIs/pull/220"
