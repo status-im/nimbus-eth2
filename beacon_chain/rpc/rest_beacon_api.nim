@@ -798,46 +798,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
   router.api(MethodGet, "/eth/v1/beacon/blocks/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:
-    let
-      blockIdent = block_id.valueOr:
-        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
-                                         $error)
-      bid = node.getBlockId(blockIdent).valueOr:
-        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-
-    if node.dag.cfg.blockForkAtEpoch(bid.slot.epoch) !=
-        BeaconBlockFork.Phase0:
-      return RestApiResponse.jsonError(
-        Http404, BlockNotFoundError, "v1 API supports only phase 0 blocks")
-
-    let contentType =
-      block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
-
-    return
-      if contentType == sszMediaType:
-        var data: seq[byte]
-        if not node.dag.getBlockSSZ(bid, data):
-          return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-
-        RestApiResponse.sszResponsePlain(data)
-      elif contentType == jsonMediaType:
-        let bdata = node.dag.getForkedBlock(bid).valueOr:
-          return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-
-        if bdata.kind == BeaconBlockFork.Phase0:
-          RestApiResponse.jsonResponse(bdata.phase0Data.asSigned())
-        else:
-          # Shouldn't happen, but in case there's some weird block database
-          # issue..
-          RestApiResponse.jsonError(
-            Http404, BlockNotFoundError, "v1 API supports only phase 0 blocks")
-      else:
-        RestApiResponse.jsonError(Http500, InvalidAcceptError)
+    return RestApiResponse.jsonError(
+      Http410, DeprecatedRemovalBeaconBlocksDebugStateV1)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
   router.api(MethodGet, "/eth/v2/beacon/blocks/{block_id}") do (

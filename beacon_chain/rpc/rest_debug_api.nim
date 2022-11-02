@@ -22,36 +22,8 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet,
              "/eth/v1/debug/beacon/states/{state_id}") do (
     state_id: StateIdent) -> RestApiResponse:
-    let bslot =
-      block:
-        if state_id.isErr():
-          return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
-                                           $state_id.error())
-        let bres = node.getBlockSlotId(state_id.get())
-        if bres.isErr():
-          return RestApiResponse.jsonError(Http404, StateNotFoundError,
-                                           $bres.error())
-        bres.get()
-    let contentType =
-      block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
-    node.withStateForBlockSlotId(bslot):
-      return
-        case state.kind
-        of BeaconStateFork.Phase0:
-          if contentType == sszMediaType:
-            RestApiResponse.sszResponse(state.phase0Data.data, [])
-          elif contentType == jsonMediaType:
-            RestApiResponse.jsonResponse(state.phase0Data.data)
-          else:
-            RestApiResponse.jsonError(Http500, InvalidAcceptError)
-        of BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
-          RestApiResponse.jsonError(Http404, StateNotFoundError)
-    return RestApiResponse.jsonError(Http404, StateNotFoundError)
+    return RestApiResponse.jsonError(
+      Http410, DeprecatedRemovalBeaconBlocksDebugStateV1)
 
   # https://ethereum.github.io/beacon-APIs/#/Debug/getStateV2
   router.api(MethodGet,
