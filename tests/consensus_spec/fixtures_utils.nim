@@ -125,8 +125,7 @@ proc loadForkedState*(
   let forkedState = new ForkedHashedBeaconState
   case fork
   of BeaconStateFork.Capella:
-    doAssert capellaImplementationMissing
-    raiseAssert "capellaImplementationMissing"
+    raiseAssert $capellaImplementationMissing
   of BeaconStateFork.Bellatrix:
     let state = newClone(parseTest(path, SSZ, bellatrix.BeaconState))
     forkedState.kind = BeaconStateFork.Bellatrix
