@@ -95,10 +95,7 @@ proc initialLoad(
     ))
   else: {.error: "Unknown block fork: " & name(BlockType).}
 
-  ChainDAGRef.preInit(
-    db,
-    forkedState[], forkedState[],
-    asTrusted(signedBlock))
+  ChainDAGRef.preInit(db, forkedState[])
 
   let
     validatorMonitor = newClone(ValidatorMonitor.init())

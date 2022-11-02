@@ -93,31 +93,27 @@ You can also resume the trusted node backfill at any time by simply running the 
 
 ### Modify sync point
 
-By default, the node will sync up to the latest finalized checkpoint of the node that you're syncing with. While you can choose a different sync point using a block hash or a slot number, this block must fall on an epoch boundary:
+By default, the node will sync up to the latest finalized checkpoint of the node that you're syncing with. While you can choose a different sync point using a state hash or a slot number, this state must fall on an epoch boundary:
 
 ```sh
 build/nimbus_beacon_node trustedNodeSync \
   --network:mainnet \
   --data-dir=build/data/shared_mainnet_0 \
-  --blockId:0x239940f2537f5bbee1a3829f9058f4c04f49897e4d325145153ca89838dfc9e2
+  --state-id:1024
 ```
 
 ### Sync from checkpoint files
 
-If you have a state and a block file available, you can start the node using the finalized checkpoint options:
+If you have a state file available, you can start the node using the `--finalized-checkpoint-state`:
 
 ```sh
 # Obtain a state and a block from a Beacon API - these must be in SSZ format:
 curl -o state.32000.ssz \
   -H 'Accept: application/octet-stream' \
   http://localhost:5052/eth/v2/debug/beacon/states/32000
-curl -o block.32000.ssz \
-  -H 'Accept: application/octet-stream' \
-  http://localhost:5052/eth/v2/beacon/blocks/32000
 
-# Start the beacon node using the downloaded state and block as starting point
+# Start the beacon node using the downloaded state as starting point
 ./run-mainnet-beacon-node.sh \
-  --finalized-checkpoint-block=block.32000.ssz \
   --finalized-checkpoint-state=state.32000.ssz
 ```
 

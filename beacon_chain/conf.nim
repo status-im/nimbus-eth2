@@ -312,6 +312,7 @@ type
         name: "finalized-checkpoint-state" .}: Option[InputFile]
 
       finalizedCheckpointBlock* {.
+        hidden
         desc: "SSZ file specifying a recent finalized block"
         name: "finalized-checkpoint-block" .}: Option[InputFile]
 
@@ -763,10 +764,16 @@ type
         name: "trusted-node-url"
       .}: string
 
-      blockId* {.
-        desc: "Block id to sync to - this can be a block root, slot number, \"finalized\" or \"head\""
-        defaultValue: "finalized"
+      stateId* {.
+        desc: "State id to sync to - this can be \"finalized\", a slot number or state hash or \"head\""
+        defaultValue: "finalized",
+        name: "state-id"
       .}: string
+
+      blockId* {.
+        hidden
+        desc: "Block id to sync to - this can be a block root, slot number, \"finalized\" or \"head\" (deprecated)"
+      .}: Option[string]
 
       backfillBlocks* {.
         desc: "Backfill blocks directly from REST server instead of fetching via API"

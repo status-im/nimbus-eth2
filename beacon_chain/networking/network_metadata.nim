@@ -17,7 +17,6 @@ import
   web3/[ethtypes, conversions],
   chronicles,
   eth/common/eth_types_json_serialization,
-  ssz_serialization/navigator,
   ../spec/eth2_ssz_serialization,
   ../spec/datatypes/phase0
 
@@ -264,7 +263,3 @@ proc getRuntimeConfig*(
   if eth2Network.isSome:
     return getMetadataForNetwork(eth2Network.get).cfg
   defaultRuntimeConfig
-
-proc extractGenesisValidatorRootFromSnapshot*(
-    snapshot: string): Eth2Digest {.raises: [Defect, IOError, SszError].} =
-  sszMount(snapshot, phase0.BeaconState).genesis_validators_root[]
