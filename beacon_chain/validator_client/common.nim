@@ -73,7 +73,6 @@ type
   BlockServiceRef* = ref object of ClientServiceRef
 
   SyncCommitteeServiceRef* = ref object of ClientServiceRef
-    firstSubscription*: bool
 
   DoppelgangerServiceRef* = ref object of ClientServiceRef
     enabled*: bool

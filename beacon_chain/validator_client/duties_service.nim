@@ -425,7 +425,7 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef) {.async.} =
           res
 
       if len(subscriptions) > 0:
-        let res = await vc.prepareBeaconCommitteeSubnet(subscriptions),
+        let res = await vc.prepareBeaconCommitteeSubnet(subscriptions)
         if res == 0:
           error "Failed to subscribe validators to beacon committee subnets",
                 slot = currentSlot, epoch = currentEpoch,
