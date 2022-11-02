@@ -311,6 +311,10 @@ type
     epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
+  OnForkyBlockAdded* =
+    OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
+    OnCapellaBlockAdded
+
   HeadChangeInfoObject* = object
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
