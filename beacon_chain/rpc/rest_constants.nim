@@ -228,7 +228,7 @@ const
     "LC optimistic update unavailable"
   DeprecatedRemovalBeaconBlocksDebugStateV1* =
     "v1/beacon/blocks/{block_id} and v1/debug/beacon/states/{state_id} " &
-      "endpoints were deprecated and removed by " &
+      "endpoints were deprecated and replaced by v2, see " &
       "https://github.com/ethereum/beacon-APIs/pull/218"
   DeprecatedRemovalValidatorBlocksV1* =
     "v1/validator/blocks/{slot} endpoint was deprecated and replaced by v2, see " &
