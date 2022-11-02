@@ -19,7 +19,6 @@ else:
   {.push raises: [].}
 
 import
-  stew/byteutils,
   json_serialization,
   ssz_serialization/types as sszTypes,
   ../digest,
@@ -364,26 +363,6 @@ type
 
   BoolReturnSuccessRPC = object
     success*: bool
-
-func fromHex*(T: typedesc[BloomLogs], s: string): T {.
-     raises: [Defect, ValueError].} =
-  hexToByteArray(s, result.data)
-
-func fromHex*(T: typedesc[ExecutionAddress], s: string): T {.
-     raises: [Defect, ValueError].} =
-  hexToByteArray(s, result.data)
-
-proc writeValue*(writer: var JsonWriter, value: ExecutionAddress) {.
-     raises: [Defect, IOError].} =
-  writer.writeValue to0xHex(value.data)
-
-proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
-     raises: [Defect, IOError, SerializationError].} =
-  try:
-    hexToByteArray(reader.readValue(string), value.data)
-  except ValueError:
-    raiseUnexpectedValue(reader,
-                         "ExecutionAddress value should be a valid hex string")
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

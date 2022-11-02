@@ -149,6 +149,8 @@ proc loadOps(path: string, fork: BeaconStateFork): seq[Operation] =
         )
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
+      of BeaconStateFork.Capella:
+        raiseAssert $capellaImplementationMissing
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       let attesterSlashing = parseTest(
@@ -297,6 +299,8 @@ proc doRunTest(path: string, fork: BeaconStateFork) =
 
   let stores =
     case fork
+    of BeaconStateFork.Capella:
+      raiseAssert $capellaImplementationMissing
     of BeaconStateFork.Bellatrix:
       initialLoad(path, db, bellatrix.BeaconState, bellatrix.BeaconBlock)
     of BeaconStateFork.Altair:
@@ -328,11 +332,14 @@ proc doRunTest(path: string, fork: BeaconStateFork) =
       doAssert status.isOk == step.valid
     of opOnBlock:
       withBlck(step.blck):
-        let status = stepOnBlock(
-          stores.dag, stores.fkChoice,
-          verifier, state[], stateCache,
-          blck, time, invalidatedRoots)
-        doAssert status.isOk == step.valid
+        when stateFork != BeaconStateFork.Capella:
+          let status = stepOnBlock(
+            stores.dag, stores.fkChoice,
+            verifier, state[], stateCache,
+            blck, time, invalidatedRoots)
+          doAssert status.isOk == step.valid
+        else:
+          raiseAssert $capellaImplementationMissing
     of opOnAttesterSlashing:
       let indices =
         check_attester_slashing(state[], step.attesterSlashing, flags = {})
@@ -369,6 +376,8 @@ proc runTest(testType: static[string], path: string, fork: BeaconStateFork) =
     else:
       if os.splitPath(path).tail in SKIP:
         skip()
+      elif capellaImplementationMissing or path.contains("/capella/"):
+        skip()
       else:
         doRunTest(path, fork)
 
@@ -380,9 +389,6 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       if kind != pcDir or not dirExists(testsPath):
         continue
       let fork = forkForPathComponent(path).valueOr:
-        if path.contains("capella"):
-          # TODO forkForPathComponent relies on ForkedFoo
-          continue
         raiseAssert "Unknown test fork: " & testsPath
       for kind, path in walkDir(testsPath, relative = true, checkDir = true):
         let basePath = testsPath/path/"pyspec_tests"

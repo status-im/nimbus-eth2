@@ -1223,3 +1223,51 @@ proc process_epoch*(
   process_sync_committee_updates(state)  # [New in Altair]
 
   ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#epoch-processing
+proc process_epoch*(
+    cfg: RuntimeConfig, state: var capella.BeaconState,
+    flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
+    Result[void, cstring] =
+  let currentEpoch = get_current_epoch(state)
+  trace "process_epoch",
+    current_epoch = currentEpoch
+
+  info.init(state)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#justification-and-finalization
+  process_justification_and_finalization(state, info.balances, flags)
+
+  # state.slot hasn't been incremented yet.
+  if strictVerification in flags and currentEpoch >= 2:
+    doAssert state.current_justified_checkpoint.epoch + 2 >= currentEpoch
+
+  if strictVerification in flags and currentEpoch >= 3:
+    # Rule 2/3/4 finalization results in the most pessimal case. The other
+    # three finalization rules finalize more quickly as long as the any of
+    # the finalization rules triggered.
+    doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
+
+  process_inactivity_updates(cfg, state, info)  # [New in Altair]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#process_rewards_and_penalties
+  process_rewards_and_penalties(cfg, state, info)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#registry-updates
+  ? process_registry_updates(cfg, state, cache)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#slashings
+  process_slashings(state, info.balances.current_epoch)
+
+  process_eth1_data_reset(state)
+  process_effective_balance_updates(state)
+  process_slashings_reset(state)
+  process_randao_mixes_reset(state)
+  process_historical_roots_update(state)
+  process_participation_flag_updates(state)
+  process_sync_committee_updates(state)
+
+  process_full_withdrawals(state)  # [New in Capella]
+  process_partial_withdrawals(state)  # [New in Capella]
+
+  ok()

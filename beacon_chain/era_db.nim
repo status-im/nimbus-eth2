@@ -365,6 +365,8 @@ iterator getBlockIds*(
       let stateSlot = (slot.era() + 1).start_slot()
       if not getPartialState(db, historical_roots, stateSlot, state[]):
         state = nil # No `return` in iterators
+    of BeaconStateFork.Capella:
+      raiseAssert $capellaImplementationMissing
 
     if state == nil:
       break

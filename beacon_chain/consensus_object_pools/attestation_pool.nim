@@ -25,6 +25,8 @@ import
   ../fork_choice/fork_choice,
   ../beacon_clock
 
+from ../spec/datatypes/capella import HashedBeaconState, shortLog
+
 export tables, results, phase0, altair, bellatrix, blockchain_dag, fork_choice
 
 const
@@ -144,7 +146,9 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
           var unrealized: FinalityCheckpoints
           if enableTestFeatures in dag.updateFlags and blckRef == dag.head:
             unrealized = withState(dag.headState):
-              when stateFork >= BeaconStateFork.Altair:
+              when stateFork >= BeaconStateFork.Capella:
+                raiseAssert $capellaImplementationMissing
+              elif stateFork >= BeaconStateFork.Altair:
                 forkyState.data.compute_unrealized_finality()
               else:
                 var cache: StateCache
@@ -580,6 +584,9 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
         AttestationCache.init(state)
       elif state is altair.HashedBeaconState or state is bellatrix.HashedBeaconState:
         AttestationCache.init(state, cache)
+      elif state is capella.HashedBeaconState:
+        if true: raiseAssert $capellaImplementationMissing
+        default(AttestationCache)
       else:
         static: doAssert false
 
@@ -644,6 +651,9 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       elif state is phase0.HashedBeaconState:
         state.data.previous_epoch_attestations.maxLen -
           state.data.previous_epoch_attestations.len()
+      elif state is capella.HashedBeaconState:
+        if true: raiseAssert $capellaImplementationMissing
+        int(capellaImplementationMissing)
       else:
         raiseAssert "invalid HashedBeaconState fork"
 

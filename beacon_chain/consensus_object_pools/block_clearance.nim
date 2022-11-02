@@ -18,6 +18,9 @@ import
     state_transition, state_transition_epoch],
   "."/[block_dag, blockchain_dag, blockchain_dag_light_client]
 
+# TODO remove when forks re-exports this
+from ../spec/datatypes/capella import asSigVerified, asTrusted, shortLog
+
 export results, signatures_batch, block_dag, blockchain_dag
 
 # Clearance
@@ -36,7 +39,7 @@ proc addResolvedHeadBlock(
        trustedBlock: ForkyTrustedSignedBeaconBlock,
        blockVerified: bool,
        parent: BlockRef, cache: var StateCache,
-       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded,
+       onBlockAdded: OnForkyBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
      ): BlockRef =
   doAssert state.matches_block_slot(
@@ -104,7 +107,9 @@ proc addResolvedHeadBlock(
     var unrealized: FinalityCheckpoints
     if enableTestFeatures in dag.updateFlags:
       unrealized = withState(state):
-        when stateFork >= BeaconStateFork.Altair:
+        when stateFork >= BeaconStateFork.Capella:
+          raiseAssert $capellaImplementationMissing
+        elif stateFork >= BeaconStateFork.Altair:
           forkyState.data.compute_unrealized_finality()
         else:
           forkyState.data.compute_unrealized_finality(cache)
@@ -161,8 +166,7 @@ proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
     blockVerified: bool,
-    onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
-                  OnBellatrixBlockAdded
+    onBlockAdded: OnForkyBlockAdded
     ): Result[BlockRef, BlockError] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
@@ -291,8 +295,7 @@ proc addHeadBlock*(
 proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
-    onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
-                  OnBellatrixBlockAdded
+    onBlockAdded: OnForkyBlockAdded
     ): Result[BlockRef, BlockError] =
   addHeadBlock(
     dag, verifier, signedBlock, blockVerified = true, onBlockAdded)

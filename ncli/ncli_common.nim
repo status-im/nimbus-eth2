@@ -19,6 +19,8 @@ import
     signatures],
   ../beacon_chain/consensus_object_pools/blockchain_dag
 
+from ../beacon_chain/spec/datatypes/capella import BeaconState
+
 type
   RewardsAndPenalties* = object
     source_outcome*: int64
@@ -266,7 +268,7 @@ proc collectEpochRewardsAndPenalties*(
 
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
-    state: var (altair.BeaconState | bellatrix.BeaconState),
+    state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
     cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return

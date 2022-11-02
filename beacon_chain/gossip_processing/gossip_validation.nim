@@ -24,6 +24,8 @@ import
   ".."/[beacon_clock],
   ./batch_validation
 
+from ../spec/datatypes/capella import SignedBeaconBlock
+
 from libp2p/protocols/pubsub/pubsub import ValidationResult
 
 export results, ValidationResult
@@ -384,6 +386,12 @@ proc validateBeaconBlock*(
     return errReject("BeaconBlock: Invalid proposer signature")
 
   ok()
+
+proc validateBeaconBlock*(
+    dag: ChainDAGRef, quarantine: ref Quarantine,
+    signed_beacon_block: capella.SignedBeaconBlock,
+    wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
+  raiseAssert $capellaImplementationMissing
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(

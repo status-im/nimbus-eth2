@@ -1685,6 +1685,8 @@ proc publishBlock*(
           publishBlock(it, data.altairData)
         of BeaconBlockFork.Bellatrix:
           publishBlock(it, data.bellatrixData)
+        of BeaconBlockFork.Capella:
+          raiseAssert $capellaImplementationMissing
       do:
         if apiResponse.isErr():
           debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1732,6 +1734,8 @@ proc publishBlock*(
         publishBlock(it, data.altairData)
       of BeaconBlockFork.Bellatrix:
         publishBlock(it, data.bellatrixData)
+      of BeaconBlockFork.Capella:
+        raiseAssert $capellaImplementationMissing
     do:
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()

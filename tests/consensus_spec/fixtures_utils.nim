@@ -44,6 +44,10 @@ func readValue*(r: var JsonReader, a: var seq[byte]) =
 func genesisTestRuntimeConfig*(stateFork: BeaconStateFork): RuntimeConfig =
   var res = defaultRuntimeConfig
   case stateFork
+  of BeaconStateFork.Capella:
+    res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
+    res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
   of BeaconStateFork.Bellatrix:
     res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
     res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
@@ -120,6 +124,8 @@ proc loadForkedState*(
   # prevent temporaries created by case objects
   let forkedState = new ForkedHashedBeaconState
   case fork
+  of BeaconStateFork.Capella:
+    raiseAssert $capellaImplementationMissing
   of BeaconStateFork.Bellatrix:
     let state = newClone(parseTest(path, SSZ, bellatrix.BeaconState))
     forkedState.kind = BeaconStateFork.Bellatrix

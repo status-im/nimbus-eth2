@@ -15,6 +15,9 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/forks
 
+# TODO remove once forks re-exports these
+from ../spec/datatypes/capella import SomeBeaconBlock, TrustedBeaconBlock
+
 export chronicles, forks
 
 type
@@ -67,7 +70,8 @@ func init*(
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
-    blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock): BlockRef =
+    blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock |
+          capella.SomeBeaconBlock | capella.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
     root, some Eth2Digest(blck.body.execution_payload.block_hash), blck.slot)
 

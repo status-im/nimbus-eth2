@@ -759,7 +759,8 @@ func forkDigests(node: BeaconNode): auto =
   let forkDigestsArray: array[BeaconStateFork, auto] = [
     node.dag.forkDigests.phase0,
     node.dag.forkDigests.altair,
-    node.dag.forkDigests.bellatrix]
+    node.dag.forkDigests.bellatrix,
+    node.dag.forkDigests.capella]
   forkDigestsArray
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
@@ -1108,7 +1109,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   const removeMessageHandlers: array[BeaconStateFork, auto] = [
     removePhase0MessageHandlers,
     removeAltairMessageHandlers,
-    removeAltairMessageHandlers  # with different forkDigest
+    removeAltairMessageHandlers,  # with different forkDigest
+    if capellaImplementationMissing: removeAltairMessageHandlers else: removeAltairMessageHandlers
   ]
 
   for gossipFork in oldGossipForks:
@@ -1117,7 +1119,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   const addMessageHandlers: array[BeaconStateFork, auto] = [
     addPhase0MessageHandlers,
     addAltairMessageHandlers,
-    addAltairMessageHandlers  # with different forkDigest
+    addAltairMessageHandlers,  # with different forkDigest
+    if capellaImplementationMissing: addAltairMessageHandlers else: addAltairMessageHandlers
   ]
 
   for gossipFork in newGossipForks:

@@ -255,6 +255,30 @@ ConsensusSpecPreset-minimal
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/block_lookup_failed Skip
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_early_for_merge Skip
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_late_for_merge  Skip
+  ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest Skip
+  ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att Skip
+  ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              Skip
+  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/chain_no_attestations       Skip
+  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/discard_equivocations       Skip
+  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/filtered_block_tree         Skip
+  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/genesis                     Skip
+  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head Skip
+  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w Skip
+  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/basic                       Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justi Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_j Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_justified_is_later_than Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_before_finalized   Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_checkpoints        Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_update_justified_c Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost              Skip
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl Skip
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
@@ -285,6 +309,9 @@ ConsensusSpecPreset-minimal
 + Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
 + Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
 + Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
+  Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp Skip
+  Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp Skip
+  Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp Skip
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/advance_finality_witho OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync      OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/supply_sync_committee_ OK
@@ -300,6 +327,7 @@ ConsensusSpecPreset-minimal
 + Slots - slots_1                                                                            OK
 + Slots - slots_2                                                                            OK
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
+  Sync - minimal/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                Skip
 + [Invalid] EF - Altair - Sanity - Blocks - double_same_proposer_slashings_same_block [Prese OK
 + [Invalid] EF - Altair - Sanity - Blocks - double_similar_proposer_slashings_same_block [Pr OK
 + [Invalid] EF - Altair - Sanity - Blocks - double_validator_exit_same_block [Preset: minima OK
@@ -533,7 +561,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 523/530 Fail: 0/530 Skip: 7/530
+OK: 523/558 Fail: 0/558 Skip: 35/558
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -1925,4 +1953,4 @@ OK: 52/52 Fail: 0/52 Skip: 0/52
 OK: 14/14 Fail: 0/14 Skip: 0/14
 
 ---TOTAL---
-OK: 1660/1667 Fail: 0/1667 Skip: 7/1667
+OK: 1660/1695 Fail: 0/1695 Skip: 35/1695

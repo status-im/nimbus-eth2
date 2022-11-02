@@ -22,6 +22,8 @@ import
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
 
+from ../spec/datatypes/capella import TrustedSignedBeaconBlock
+
 from "."/vanity_logs/pandas import VanityLogs
 
 export
@@ -302,6 +304,16 @@ type
     blck: bellatrix.TrustedSignedBeaconBlock,
     epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
+
+  OnCapellaBlockAdded* = proc(
+    blckRef: BlockRef,
+    blck: capella.TrustedSignedBeaconBlock,
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
+
+  OnForkyBlockAdded* =
+    OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
+    OnCapellaBlockAdded
 
   HeadChangeInfoObject* = object
     slot*: Slot
