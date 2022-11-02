@@ -179,12 +179,9 @@ proc doTrustedNodeSync*(
           let tmp = StateIdent.decodeString(stateId).valueOr:
             error "Cannot decode checkpoint state id, must be a slot, hash, 'finalized' or 'head'"
             quit 1
-          if tmp.kind == StateQueryKind.Slot:
-            if not tmp.slot.is_epoch():
-              notice "Rounding given slot to epoch"
-              StateIdent.init(tmp.slot.epoch().start_slot)
-            else:
-              tmp
+          if tmp.kind == StateQueryKind.Slot and not tmp.slot.is_epoch():
+            notice "Rounding given slot to epoch"
+            StateIdent.init(tmp.slot.epoch().start_slot)
           else:
             tmp
         await client.getStateV2(id, cfg)
@@ -244,8 +241,8 @@ proc doTrustedNodeSync*(
   let
     missingSlots = block:
       var total = 0
-      for i in 0..<checkpointSlot.int:
-        if not dbCache.isKnown(Slot(i)):
+      for slot in Slot(0)..<checkpointSlot:
+        if not dbCache.isKnown(slot):
           total += 1
       total
 
