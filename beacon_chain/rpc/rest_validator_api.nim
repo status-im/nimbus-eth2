@@ -716,24 +716,31 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodPost,
              "/eth/v1/validator/sync_committee_subscriptions") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
-    if contentBody.isNone():
-      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
-    let dres = decodeBody(seq[RestSyncCommitteeSubscription],
-                          contentBody.get())
-    if dres.isErr():
-      return RestApiResponse.jsonError(Http400,
+    let subscriptions =
+      block:
+        var res: seq[RestSyncCommitteeSubscription]
+        if contentBody.isNone():
+          return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+        let dres = decodeBody(seq[RestSyncCommitteeSubscription],
+                              contentBody.get())
+        if dres.isErr():
+          return RestApiResponse.jsonError(Http400,
                                    InvalidSyncCommitteeSubscriptionRequestError)
-    let subs = dres.get()
-    for item in subs:
-      if item.until_epoch > MaxEpoch:
-        return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
-      if item.until_epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
-        return RestApiResponse.jsonError(Http400,
-                                         EpochFromTheIncorrectForkError)
-      if uint64(item.validator_index) >=
-        lenu64(getStateField(node.dag.headState, validators)):
-        return RestApiResponse.jsonError(Http400,
-                                         InvalidValidatorIndexValueError)
+        let subs = dres.get()
+        for item in subs:
+          if item.until_epoch > MaxEpoch:
+            return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
+          if item.until_epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
+            return RestApiResponse.jsonError(Http400,
+                                             EpochFromTheIncorrectForkError)
+          if uint64(item.validator_index) >=
+            lenu64(getStateField(node.dag.headState, validators)):
+            return RestApiResponse.jsonError(Http400,
+                                             InvalidValidatorIndexValueError)
+          res.add(item)
+        res
+
+    for item in subscriptions:
       let validator_pubkey =
         getStateField(node.dag.headState, validators).item(
           item.validator_index).pubkey
