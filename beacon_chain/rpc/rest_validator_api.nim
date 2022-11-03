@@ -656,6 +656,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     contentBody: Option[ContentBody]) -> RestApiResponse:
     let subscriptions =
       block:
+        var res: seq[RestSyncCommitteeSubscription]
         if contentBody.isNone():
           return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
         let dres = decodeBody(seq[RestSyncCommitteeSubscription],
@@ -671,20 +672,22 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(Http400,
                                              EpochFromTheIncorrectForkError)
           if uint64(item.validator_index) >=
-             lenu64(getStateField(node.dag.headState, validators)):
+            lenu64(getStateField(node.dag.headState, validators)):
             return RestApiResponse.jsonError(Http400,
                                              InvalidValidatorIndexValueError)
-          let validator_pubkey =
-            getStateField(node.dag.headState, validators).item(
-              item.validator_index).pubkey
+          res.add(item)
+        res
 
-          node.syncCommitteeMsgPool
+    for item in subscriptions:
+      let validator_pubkey =
+        getStateField(node.dag.headState, validators).item(
+          item.validator_index).pubkey
+
+      node.syncCommitteeMsgPool
             .syncCommitteeSubscriptions[validator_pubkey] = item.until_epoch
 
-          node.validatorMonitor[].addAutoMonitor(
-            validator_pubkey, ValidatorIndex(item.validator_index))
-
-        subs
+      node.validatorMonitor[].addAutoMonitor(
+        validator_pubkey, ValidatorIndex(item.validator_index))
 
     return RestApiResponse.jsonMsgResponse(SyncCommitteeSubscriptionSuccess)
 
