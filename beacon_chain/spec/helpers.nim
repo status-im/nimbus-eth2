@@ -334,20 +334,24 @@ func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#is_merge_transition_block
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
-    state: bellatrix.BeaconState,
+    state: bellatrix.BeaconState | capella.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
-          bellatrix.SigVerifiedBeaconBlockBody): bool =
-  const defaultBellatrixExecutionPayload = default(bellatrix.ExecutionPayload)
+          bellatrix.SigVerifiedBeaconBlockBody |
+          capella.BeaconBlockBody | capella.TrustedBeaconBlockBody |
+          capella.SigVerifiedBeaconBlockBody): bool =
+  const defaultExecutionPayload = default(typeof(body.execution_payload))
   not is_merge_transition_complete(state) and
-    body.execution_payload != defaultBellatrixExecutionPayload
+    body.execution_payload != defaultExecutionPayload
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
-    state: bellatrix.BeaconState,
+    state: bellatrix.BeaconState | capella.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
-          bellatrix.SigVerifiedBeaconBlockBody): bool =
+          bellatrix.SigVerifiedBeaconBlockBody |
+          capella.BeaconBlockBody | capella.TrustedBeaconBlockBody |
+          capella.SigVerifiedBeaconBlockBody): bool =
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot

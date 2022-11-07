@@ -307,6 +307,20 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Bellatrix - Sanity - Blocks - same_slot_block_transition [Preset: mainnet]  OK
 + [Invalid] EF - Bellatrix - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]   OK
 + [Invalid] EF - Bellatrix - Sanity - Blocks - zero_block_sig [Preset: mainnet]              OK
++ [Invalid] EF - Capella - Sanity - Blocks - double_same_proposer_slashings_same_block [Pres OK
++ [Invalid] EF - Capella - Sanity - Blocks - double_similar_proposer_slashings_same_block [P OK
++ [Invalid] EF - Capella - Sanity - Blocks - double_validator_exit_same_block [Preset: mainn OK
++ [Invalid] EF - Capella - Sanity - Blocks - duplicate_attester_slashing [Preset: mainnet]   OK
++ [Invalid] EF - Capella - Sanity - Blocks - expected_deposit_in_block [Preset: mainnet]     OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_block_sig [Preset: mainnet]             OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_proposer_index_sig_from_expected_propos OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_proposer_index_sig_from_proposer_index  OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_state_root [Preset: mainnet]            OK
++ [Invalid] EF - Capella - Sanity - Blocks - parent_from_same_slot [Preset: mainnet]         OK
++ [Invalid] EF - Capella - Sanity - Blocks - prev_slot_block_transition [Preset: mainnet]    OK
++ [Invalid] EF - Capella - Sanity - Blocks - same_slot_block_transition [Preset: mainnet]    OK
++ [Invalid] EF - Capella - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]     OK
++ [Invalid] EF - Capella - Sanity - Blocks - zero_block_sig [Preset: mainnet]                OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - double_same_proposer_slashings_same_block [Pres OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - double_similar_proposer_slashings_same_block [P OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - double_validator_exit_same_block [Preset: mainn OK
@@ -429,6 +443,66 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Bellatrix - Sanity - Blocks - skipped_slots [Preset: mainnet]               OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]   OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - voluntary_exit [Preset: mainnet]              OK
++ [Valid]   EF - Capella - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
++ [Valid]   EF - Capella - Finality - finality_rule_1 [Preset: mainnet]                      OK
++ [Valid]   EF - Capella - Finality - finality_rule_2 [Preset: mainnet]                      OK
++ [Valid]   EF - Capella - Finality - finality_rule_3 [Preset: mainnet]                      OK
++ [Valid]   EF - Capella - Finality - finality_rule_4 [Preset: mainnet]                      OK
++ [Valid]   EF - Capella - Random - randomized_0 [Preset: mainnet]                           OK
++ [Valid]   EF - Capella - Random - randomized_1 [Preset: mainnet]                           OK
++ [Valid]   EF - Capella - Random - randomized_10 [Preset: mainnet]                          OK
++ [Valid]   EF - Capella - Random - randomized_11 [Preset: mainnet]                          OK
++ [Valid]   EF - Capella - Random - randomized_12 [Preset: mainnet]                          OK
++ [Valid]   EF - Capella - Random - randomized_13 [Preset: mainnet]                          OK
++ [Valid]   EF - Capella - Random - randomized_14 [Preset: mainnet]                          OK
++ [Valid]   EF - Capella - Random - randomized_15 [Preset: mainnet]                          OK
++ [Valid]   EF - Capella - Random - randomized_2 [Preset: mainnet]                           OK
++ [Valid]   EF - Capella - Random - randomized_3 [Preset: mainnet]                           OK
++ [Valid]   EF - Capella - Random - randomized_4 [Preset: mainnet]                           OK
++ [Valid]   EF - Capella - Random - randomized_5 [Preset: mainnet]                           OK
++ [Valid]   EF - Capella - Random - randomized_6 [Preset: mainnet]                           OK
++ [Valid]   EF - Capella - Random - randomized_7 [Preset: mainnet]                           OK
++ [Valid]   EF - Capella - Random - randomized_8 [Preset: mainnet]                           OK
++ [Valid]   EF - Capella - Random - randomized_9 [Preset: mainnet]                           OK
++ [Valid]   EF - Capella - Sanity - Blocks - attestation [Preset: mainnet]                   OK
++ [Valid]   EF - Capella - Sanity - Blocks - attester_slashing [Preset: mainnet]             OK
++ [Valid]   EF - Capella - Sanity - Blocks - balance_driven_status_transitions [Preset: main OK
++ [Valid]   EF - Capella - Sanity - Blocks - deposit_in_block [Preset: mainnet]              OK
++ [Valid]   EF - Capella - Sanity - Blocks - deposit_top_up [Preset: mainnet]                OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition [Preset: mainnet]        OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_no_tx [Preset: mainnet]  OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_randomized_payload [Pres OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]        OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_sync_committee_committee [Preset: mainnet OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_sync_committee_committee_genesis [Preset: OK
++ [Valid]   EF - Capella - Sanity - Blocks - exit_and_bls_change [Preset: mainnet]           OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]      OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]      OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]      OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_3 [Preset: mainnet]      OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_sync_committee_committee [Preset: mainnet] OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_sync_committee_committee_genesis [Preset:  OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: ma OK
++ [Valid]   EF - Capella - Sanity - Blocks - half_sync_committee_committee [Preset: mainnet] OK
++ [Valid]   EF - Capella - Sanity - Blocks - half_sync_committee_committee_genesis [Preset:  OK
++ [Valid]   EF - Capella - Sanity - Blocks - high_proposer_index [Preset: mainnet]           OK
++ [Valid]   EF - Capella - Sanity - Blocks - historical_batch [Preset: mainnet]              OK
++ [Valid]   EF - Capella - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
++ [Valid]   EF - Capella - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]     OK
++ [Valid]   EF - Capella - Sanity - Blocks - is_execution_enabled_false [Preset: mainnet]    OK
++ [Valid]   EF - Capella - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
++ [Valid]   EF - Capella - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: OK
++ [Valid]   EF - Capella - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pr OK
++ [Valid]   EF - Capella - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
++ [Valid]   EF - Capella - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
++ [Valid]   EF - Capella - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
++ [Valid]   EF - Capella - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet] OK
++ [Valid]   EF - Capella - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]        OK
++ [Valid]   EF - Capella - Sanity - Blocks - proposer_slashing [Preset: mainnet]             OK
++ [Valid]   EF - Capella - Sanity - Blocks - skipped_slots [Preset: mainnet]                 OK
++ [Valid]   EF - Capella - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
++ [Valid]   EF - Capella - Sanity - Blocks - successful_bls_change [Preset: mainnet]         OK
++ [Valid]   EF - Capella - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 + [Valid]   EF - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
 + [Valid]   EF - Phase 0 - Finality - finality_rule_1 [Preset: mainnet]                      OK
 + [Valid]   EF - Phase 0 - Finality - finality_rule_2 [Preset: mainnet]                      OK
@@ -494,7 +568,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 464/491 Fail: 0/491 Skip: 27/491
+OK: 538/565 Fail: 0/565 Skip: 27/565
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -1826,4 +1900,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 14/14 Fail: 0/14 Skip: 0/14
 
 ---TOTAL---
-OK: 1553/1580 Fail: 0/1580 Skip: 27/1580
+OK: 1627/1654 Fail: 0/1654 Skip: 27/1654
