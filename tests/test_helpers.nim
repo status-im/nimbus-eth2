@@ -66,15 +66,13 @@ suite "Spec helpers":
     cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
     cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
 
-    const
-      rec1 = default(Eth1Address)
-      rec2 = Eth1Address.fromHex("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    let
-      state = newClone(initGenesisState(cfg = cfg).bellatrixData)
-      payload1 = build_empty_execution_payload(state[].data, rec1)
-      payload2 = build_empty_execution_payload(state[].data, rec2)
-    check:
-      payload1.fee_recipient ==
-        bellatrix.ExecutionAddress(data: distinctBase(rec1))
-      payload2.fee_recipient ==
-        bellatrix.ExecutionAddress(data: distinctBase(rec2))
+    let state = newClone(initGenesisState(cfg = cfg).bellatrixData)
+
+    template testCase(recipient: Eth1Address): untyped =
+      block:
+        let payload = build_empty_execution_payload(state[].data, recipient)
+        check payload.fee_recipient ==
+          bellatrix.ExecutionAddress(data: distinctBase(recipient))
+
+    testCase default(Eth1Address)
+    testCase Eth1Address.fromHex("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
