@@ -431,7 +431,7 @@ func toValidationError(
       # `attested_header.slot` was already forwarded on the network.
       errIgnore($r.error)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     finality_update: altair.LightClientFinalityUpdate
@@ -444,7 +444,7 @@ proc processLightClientFinalityUpdate*(
     self.latestFinalityUpdate = finality_update.toOptimistic
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientOptimisticUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     optimistic_update: altair.LightClientOptimisticUpdate
