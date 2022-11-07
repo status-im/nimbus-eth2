@@ -49,7 +49,6 @@ const
   delayBuckets = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
                   0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
 
-  BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 4.seconds
   BUILDER_STATUS_DELAY_TOLERANCE = 3.seconds
   BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 3.seconds
 
@@ -70,9 +69,6 @@ declareCounter beacon_block_payload_errors,
   "Number of times execution client failed to produce block payload"
 
 # Metrics for tracking external block builder usage
-declareCounter beacon_block_builder_proposed,
-  "Number of beacon chain blocks produced using an external block builder"
-
 declareCounter beacon_block_builder_missed_with_fallback,
   "Number of beacon chain blocks where an attempt to use an external block builder failed with fallback"
 
@@ -548,26 +544,8 @@ proc getBlindedExecutionPayload(
 
     return ok blindedHeader.data.data.message.header
 
-import std/macros
-
-func getFieldNames(x: typedesc[auto]): seq[string] {.compileTime.} =
-  var res: seq[string]
-  for name, _ in fieldPairs(default(x)):
-    res.add name
-  res
-
-macro copyFields(
-    dst: untyped, src: untyped, fieldNames: static[seq[string]]): untyped =
-  result = newStmtList()
-  for name in fieldNames:
-    if name notin [
-        # These fields are the ones which vary between the blinded and
-        # unblinded objects, and can't simply be copied.
-        "transactions_root", "execution_payload",
-        "execution_payload_header", "body"]:
-      # TODO use stew/assign2
-      result.add newAssignment(
-        newDotExpr(dst, ident(name)), newDotExpr(src, ident(name)))
+from ./message_router_mev import
+  copyFields, getFieldNames, unblindAndRouteBlockMEV
 
 func constructSignableBlindedBlock[T](
     forkedBlock: ForkedBeaconBlock,
@@ -724,92 +702,33 @@ proc proposeBlockMEV(
       500.milliseconds):
     Result[SignedBlindedBeaconBlock, string].err "getBlindedBlock timed out"
 
-  if blindedBlock.isOk:
-    # By time submitBlindedBlock is called, must already have done slashing
-    # protection check
-    let unblindedPayload =
-      try:
-        awaitWithTimeout(
-          node.payloadBuilderRestClient.submitBlindedBlock(blindedBlock.get),
-          BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE):
-            error "Submitting blinded block timed out",
-                  blk = shortLog(blindedBlock.get)
-            return Opt.some head
-        # From here on, including error paths, disallow local EL production by
-        # returning Opt.some, regardless of whether on head or newBlock.
-      except RestDecodingError as exc:
-        error "proposeBlockMEV: REST decoding error submitting blinded block",
-          slot, head = shortLog(head), validator_index, blindedBlock,
-          error = exc.msg
-        return Opt.some head
-      except CatchableError as exc:
-        error "proposeBlockMEV: exception in submitBlindedBlock",
-          slot, head = shortLog(head), validator_index, blindedBlock,
-          error = exc.msg
-        return Opt.some head
-
-    const httpOk = 200
-    if unblindedPayload.status == httpOk:
-      if  hash_tree_root(
-            blindedBlock.get.message.body.execution_payload_header) !=
-          hash_tree_root(unblindedPayload.data.data):
-        debug "proposeBlockMEV: unblinded payload doesn't match blinded payload",
-          blindedPayload =
-            blindedBlock.get.message.body.execution_payload_header
-      else:
-        # Signature provided is consistent with unblinded execution payload,
-        # so construct full beacon block
-        # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#block-proposal
-        var signedBlock = bellatrix.SignedBeaconBlock(
-          signature: blindedBlock.get.signature)
-        copyFields(
-          signedBlock.message, blindedBlock.get.message,
-          getFieldNames(typeof(signedBlock.message)))
-        copyFields(
-          signedBlock.message.body, blindedBlock.get.message.body,
-          getFieldNames(typeof(signedBlock.message.body)))
-        signedBlock.message.body.execution_payload = unblindedPayload.data.data
-
-        signedBlock.root = hash_tree_root(signedBlock.message)
-
-        doAssert signedBlock.root == hash_tree_root(blindedBlock.get.message)
-
-        debug "proposeBlockMEV: proposing unblinded block",
-          blck = shortLog(signedBlock)
-
-        let newBlockRef =
-          (await node.router.routeSignedBeaconBlock(signedBlock)).valueOr:
-            # submitBlindedBlock has run, so don't allow fallback to run
-            return Opt.some head # Errors logged in router
-
-        if newBlockRef.isNone():
-          return Opt.some head # Validation errors logged in router
-
-        beacon_block_builder_proposed.inc()
-        notice "Block proposed (MEV)",
-          blockRoot = shortLog(signedBlock.root), blck = shortLog(signedBlock),
-          signature = shortLog(signedBlock.signature), validator = shortLog(validator)
-
-        beacon_blocks_proposed.inc()
-
-        return Opt.some newBlockRef.get()
-    else:
-      debug "proposeBlockMEV: submitBlindedBlock failed",
-        slot, head = shortLog(head), validator_index, blindedBlock,
-        payloadStatus = unblindedPayload.status
-
-    # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#proposer-slashing
-    # This means if a validator publishes a signature for a
-    # `BlindedBeaconBlock` (via a dissemination of a
-    # `SignedBlindedBeaconBlock`) then the validator **MUST** not use the
-    # local build process as a fallback, even in the event of some failure
-    # with the external buildernetwork.
-    return Opt.some head
-  else:
+  if blindedBlock.isErr:
     info "proposeBlockMEV: getBlindedBeaconBlock failed",
       slot, head = shortLog(head), validator_index, blindedBlock,
       error = blindedBlock.error
     return Opt.none BlockRef
+
+  # Before unblindAndRouteBlockMEV, can fall back to EL; after, cannot
+  let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
+      blindedBlock.get)
+  return if unblindedBlockRef.isOk and unblindedBlockRef.get.isSome:
+    beacon_blocks_proposed.inc()
+    unblindedBlockRef.get
+  else:
+    # Signal to the caller that a signed, blinded beacon block was sent to the
+    # builder API server, at which point no local EL fallback can occur. Using
+    # non-`none` opt with the same head indicates this to proposeBlock(), with
+    # any non-`none` return value indicating this in general.
+    #
+    # unblindedBlockRef.isOk and unblindedBlockRef.get.isNone indicates that
+    # the block failed to validate and integrate into the DAG, which for the
+    # purpose of this return value, is equivalent. It's used to drive Beacon
+    # REST API output.
+    warn "proposeBlockMEV: blinded block not successfully unblinded and proposed",
+      head = shortLog(head), slot, validator_index,
+      validator = shortLog(validator),
+      err = unblindedBlockRef.error, blindedBlck = shortLog(blindedBlock.get)
+    Opt.some head
 
 proc makeBlindedBeaconBlockForHeadAndSlot*(
     node: BeaconNode, randao_reveal: ValidatorSig,

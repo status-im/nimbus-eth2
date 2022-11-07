@@ -233,3 +233,5 @@ const
   DeprecatedRemovalValidatorBlocksV1* =
     "v1/validator/blocks/{slot} endpoint was deprecated and replaced by v2, see " &
       "https://github.com/ethereum/beacon-APIs/pull/220"
+  BlockIncorrectFork* =
+    "Block has incorrect fork"
