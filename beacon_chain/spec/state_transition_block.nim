@@ -393,7 +393,43 @@ proc process_voluntary_exit*(
   ? initiate_validator_exit(cfg, state, exited_validator, cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
+proc process_bls_to_execution_change*(
+    state: var capella.BeaconState,
+    signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
+  let address_change = signed_address_change.message
+
+  if not (address_change.validator_index < state.validators.lenu64):
+    return err("process_bls_to_execution_change: invalid validator index")
+
+  var withdrawal_credentials =
+    state.validators.item(address_change.validator_index).withdrawal_credentials
+
+  if not (withdrawal_credentials.data[0] == BLS_WITHDRAWAL_PREFIX):
+    return err("process_bls_to_execution_change: invalid withdrawal prefix")
+
+  # TODO what's usual convention here re 32 hardcoded constant?
+  if not (withdrawal_credentials.data.toOpenArray(1, 31) ==
+      eth2digest(address_change.from_bls_pubkey.blob).data.toOpenArray(1, 31)):
+    return err("process_bls_to_execution_change: invalid withdrawal credentials")
+
+  if not verify_bls_to_execution_change_signature(
+      state.fork, state.genesis_validators_root, state.get_current_epoch,
+      signed_address_change, address_change.from_bls_pubkey,
+      signed_address_change.signature):
+    return err("process_bls_to_execution_change: invalid signature")
+
+  withdrawal_credentials.data[0] = ETH1_ADDRESS_WITHDRAWAL_PREFIX
+  withdrawal_credentials.data.fill(1, 11, 0)
+  withdrawal_credentials.data[12..31] =
+    address_change.to_execution_address.data
+  state.validators.mitem(address_change.validator_index).withdrawal_credentials =
+    withdrawal_credentials
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#modified-process_operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var ForkyBeaconState,
                         body: SomeForkyBeaconBlockBody,
@@ -420,6 +456,10 @@ proc process_operations(cfg: RuntimeConfig,
     ? process_deposit(cfg, state, op, flags)
   for op in body.voluntary_exits:
     ? process_voluntary_exit(cfg, state, op, flags, cache)
+  for fieldName, _ in body.fieldPairs:
+    when fieldName == "bls_to_execution_changes":
+      for op in body.bls_to_execution_changes:
+        ? process_bls_to_execution_change(state, op)
 
   ok()
 
@@ -579,41 +619,6 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
-proc process_bls_to_execution_change*(
-    state: var capella.BeaconState,
-    signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
-  let address_change = signed_address_change.message
-
-  if not (address_change.validator_index < state.validators.lenu64):
-    return err("process_bls_to_execution_change: invalid validator index")
-
-  var withdrawal_credentials =
-    state.validators.item(address_change.validator_index).withdrawal_credentials
-
-  if not (withdrawal_credentials.data[0] == BLS_WITHDRAWAL_PREFIX):
-    return err("process_bls_to_execution_change: invalid withdrawal prefix")
-
-  # TODO what's usual convention here re 32 hardcoded constant?
-  if not (withdrawal_credentials.data.toOpenArray(1, 31) ==
-      eth2digest(address_change.from_bls_pubkey.blob).data.toOpenArray(1, 31)):
-    return err("process_bls_to_execution_change: invalid withdrawal credentials")
-
-  if not verify_bls_to_execution_change_signature(
-      state.fork, state.genesis_validators_root, state.get_current_epoch,
-      signed_address_change, address_change.from_bls_pubkey,
-      signed_address_change.signature):
-    return err("process_bls_to_execution_change: invalid signature")
-
-  withdrawal_credentials.data[0] = ETH1_ADDRESS_WITHDRAWAL_PREFIX
-  withdrawal_credentials.data.fill(1, 11, 0)
-  withdrawal_credentials.data[12..31] =
-    address_change.to_execution_address.data
-  state.validators.mitem(address_change.validator_index).withdrawal_credentials =
-    withdrawal_credentials
-
-  ok()
-
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
     state: var capella.BeaconState, payload: capella.ExecutionPayload):
@@ -686,6 +691,7 @@ proc process_block*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock
@@ -716,6 +722,7 @@ proc process_block*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeCapellaBlock =
   capella.BeaconBlock | capella.SigVerifiedBeaconBlock | capella.TrustedBeaconBlock
@@ -723,4 +730,26 @@ proc process_block*(
     cfg: RuntimeConfig,
     state: var capella.BeaconState, blck: SomeCapellaBlock,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
-  raiseAssert $capellaImplementationMissing
+  ## When there's a new block, we need to verify that the block is sane and
+  ## update the state accordingly - the state is left in an unknown state when
+  ## block application fails (!)
+
+  ? process_block_header(state, blck, flags, cache)
+  if is_execution_enabled(state, blck.body):
+    ? process_withdrawals(state, blck.body.execution_payload)  # [New in Capella]
+    ? process_execution_payload(
+        state, blck.body.execution_payload,
+        func(_: capella.ExecutionPayload): bool = true)
+  ? process_randao(state, blck.body, flags, cache)
+  ? process_eth1_data(state, blck.body)
+
+  let
+    total_active_balance = get_total_active_balance(state, cache)
+    base_reward_per_increment =
+      get_base_reward_per_increment(total_active_balance)
+  ? process_operations(
+    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  ? process_sync_aggregate(
+    state, blck.body.sync_aggregate, total_active_balance, cache)
+
+  ok()
