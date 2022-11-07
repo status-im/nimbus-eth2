@@ -69,6 +69,7 @@ suite "Spec helpers":
     const recipient1 = default(Eth1Address)
 
     var recipient2: Eth1Address
+    randomize(123)
     let p = cast[ptr UncheckedArray[byte]](addr recipient2)
     for i in 0 ..< sizeof(recipient2):
       p[i] = byte.rand()
