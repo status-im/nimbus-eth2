@@ -8,13 +8,12 @@
 {.used.}
 
 import
-  # Standard library
-  std/random,
   # Status libraries
   stew/bitops2,
+  web3/ethtypes,
   # Beacon chain internals
   ../beacon_chain/spec/[forks, helpers, state_transition],
-  ../beacon_chain/spec/datatypes/bellatrix,
+  ../beacon_chain/eth1/eth1_monitor,
   # Test utilities
   ./unittest2, mocking/mock_genesis
 
@@ -67,20 +66,15 @@ suite "Spec helpers":
     cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
     cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
 
-    const recipient1 = default(Eth1Address)
-
-    var recipient2: Eth1Address
-    randomize(123)
-    let p = cast[ptr UncheckedArray[byte]](addr recipient2)
-    for i in 0 ..< sizeof(recipient2):
-      p[i] = byte.rand()
-
+    const
+      rec1 = default(Eth1Address)
+      rec2 = Eth1Address.fromHex("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     let
       state = newClone(initGenesisState(cfg = cfg).bellatrixData)
-      payload1 = build_empty_execution_payload(state[].data, recipient1)
-      payload2 = build_empty_execution_payload(state[].data, recipient2)
+      payload1 = build_empty_execution_payload(state[].data, rec1)
+      payload2 = build_empty_execution_payload(state[].data, rec2)
     check:
       payload1.fee_recipient ==
-        bellatrix.ExecutionAddress(data: distinctBase(recipient1))
+        bellatrix.ExecutionAddress(data: distinctBase(rec1))
       payload2.fee_recipient ==
-        bellatrix.ExecutionAddress(data: distinctBase(recipient2))
+        bellatrix.ExecutionAddress(data: distinctBase(rec2))
