@@ -298,7 +298,9 @@ func shortLog*(v: SomeBeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
-    sync_committee_participants: -1 # Altair logging compatibility
+    sync_committee_participants: -1, # Altair logging compatibility
+    block_number: 0'u64, # Bellatrix compat
+    fee_recipient: "",
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
