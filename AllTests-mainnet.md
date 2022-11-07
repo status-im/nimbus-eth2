@@ -2,6 +2,7 @@ AllTests-mainnet
 ===
 ## Attestation pool processing [Preset: mainnet]
 ```diff
++ Attestation from different branch [Preset: mainnet]                                        OK
 + Attestations may arrive in any order [Preset: mainnet]                                     OK
 + Attestations may overlap, bigger first [Preset: mainnet]                                   OK
 + Attestations may overlap, smaller first [Preset: mainnet]                                  OK
@@ -14,7 +15,7 @@ AllTests-mainnet
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
 + Working with aggregates [Preset: mainnet]                                                  OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Backfill
 ```diff
 + Init without genesis / block                                                               OK
@@ -439,10 +440,11 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
++ build_empty_execution_payload                                                              OK
 + build_proof - BeaconState                                                                  OK
 + integer_squareroot                                                                         OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Specific field types
 ```diff
 + root update                                                                                OK
@@ -603,4 +605,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 332/337 Fail: 0/337 Skip: 5/337
+OK: 334/339 Fail: 0/339 Skip: 5/339

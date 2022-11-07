@@ -145,7 +145,8 @@ proc addTestBlock*(
         if  forkyState.data.slot >
             cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH + 10:
           if is_merge_transition_complete(forkyState.data):
-            build_empty_execution_payload(forkyState.data)
+            const feeRecipient = default(Eth1Address)
+            build_empty_execution_payload(forkyState.data, feeRecipient)
           else:
             build_empty_merge_execution_payload(forkyState.data)
         else:

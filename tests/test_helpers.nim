@@ -8,6 +8,8 @@
 {.used.}
 
 import
+  # Standard library
+  std/random,
   # Status libraries
   stew/bitops2,
   # Beacon chain internals
@@ -58,3 +60,25 @@ suite "Spec helpers":
           process(fieldVar, i shl childDepth)
         i += 1
     process(state, state.numLeaves)
+
+  test "build_empty_execution_payload":
+    var cfg = defaultRuntimeConfig
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+
+    const recipient1 = default(Eth1Address)
+
+    var recipient2: Eth1Address
+    let p = cast[ptr UncheckedArray[byte]](addr recipient2)
+    for i in 0 ..< sizeof(recipient2):
+      p[i] = byte.rand()
+
+    let
+      state = newClone(initGenesisState(cfg = cfg).bellatrixData)
+      payload1 = build_empty_execution_payload(state[].data, recipient1)
+      payload2 = build_empty_execution_payload(state[].data, recipient2)
+    check:
+      payload1.fee_recipient ==
+        bellatrix.ExecutionAddress(data: distinctBase(recipient1))
+      payload2.fee_recipient ==
+        bellatrix.ExecutionAddress(data: distinctBase(recipient2))
