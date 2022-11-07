@@ -631,7 +631,8 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
   case keystore.kind
   of KeystoreKind.Local:
     vc.attachedValidators[].addLocalValidator(keystore, Opt.none ValidatorIndex,
-                                              feeRecipient, slot)
+                                              feeRecipient, slot,
+                                              Opt.none(Epoch))
   of KeystoreKind.Remote:
     let
       httpFlags =
@@ -656,8 +657,9 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
           res
     if len(clients) > 0:
       vc.attachedValidators[].addRemoteValidator(keystore, clients,
-                                                 Opt.none ValidatorIndex,
-                                                 feeRecipient, slot)
+                                                 Opt.none(ValidatorIndex),
+                                                 feeRecipient, slot,
+                                                 Opt.none(Epoch))
     else:
       warn "Unable to initialize remote validator",
            validator = $keystore.pubkey

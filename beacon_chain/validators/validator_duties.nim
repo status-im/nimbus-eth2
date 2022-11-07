@@ -93,33 +93,45 @@ type
     unsynced
     optimistic
 
-proc findValidator*(validators: auto, pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
+proc getValidator*(validators: auto,
+                   pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
   let idx = validators.findIt(it.pubkey == pubkey)
   if idx == -1:
     # We allow adding a validator even if its key is not in the state registry:
     # it might be that the deposit for this validator has not yet been processed
     notice "Validator deposit not yet processed, monitoring", pubkey
-    Opt.none ValidatorIndex
+    Opt.none ValidatorAndIndex
   else:
-    Opt.some idx.ValidatorIndex
+    Opt.some ValidatorAndIndex(index: ValidatorIndex(idx),
+                               validator: validators[idx])
 
 proc addValidators*(node: BeaconNode) =
   debug "Loading validators", validatorsDir = node.config.validatorsDir()
   let slot = node.currentSlot()
   for keystore in listLoadableKeystores(node.config):
     let
-      index = withState(node.dag.headState):
-        findValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
+      data = withState(node.dag.headState):
+        getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
+      index =
+        if data.isSome():
+          Opt.some(data.get().index)
+        else:
+          Opt.none(ValidatorIndex)
       feeRecipient = node.consensusManager[].getFeeRecipient(
         keystore.pubkey, index, slot.epoch)
+      activationEpoch =
+        if data.isSome():
+          Opt.some(data.get().validator.activation_epoch)
+        else:
+          Opt.none(Epoch)
 
     case keystore.kind
     of KeystoreKind.Local:
       node.attachedValidators[].addLocalValidator(
-        keystore, index, feeRecipient, slot)
+        keystore, index, feeRecipient, slot, activationEpoch)
     of KeystoreKind.Remote:
       node.attachedValidators[].addRemoteValidator(
-        keystore, index, feeRecipient, slot)
+        keystore, index, feeRecipient, slot, activationEpoch)
 
 proc getAttachedValidator(node: BeaconNode,
                           pubkey: ValidatorPubKey): AttachedValidator =

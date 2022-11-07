@@ -100,12 +100,16 @@ template count*(pool: ValidatorPool): int =
 
 proc addLocalValidator*(
     pool: var ValidatorPool, keystore: KeystoreData, index: Opt[ValidatorIndex],
-    feeRecipient: Eth1Address, slot: Slot) =
+    feeRecipient: Eth1Address, slot: Slot, activationEpoch: Opt[Epoch]) =
   doAssert keystore.kind == KeystoreKind.Local
   let v = AttachedValidator(
-    kind: ValidatorKind.Local, index: index, data: keystore,
+    kind: ValidatorKind.Local,
+    index: index,
+    data: keystore,
     externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
-    startSlot: slot)
+    startSlot: slot,
+    activationEpoch: activationEpoch
+  )
   pool.validators[v.pubkey] = v
 
   # Fee recipient may change after startup, but we log the initial value here
@@ -124,13 +128,17 @@ proc addLocalValidator*(
 proc addRemoteValidator*(pool: var ValidatorPool, keystore: KeystoreData,
                          clients: seq[(RestClientRef, RemoteSignerInfo)],
                          index: Opt[ValidatorIndex], feeRecipient: Eth1Address,
-                         slot: Slot) =
+                         slot: Slot, activationEpoch: Opt[Epoch]) =
   doAssert keystore.kind == KeystoreKind.Remote
   let v = AttachedValidator(
-    kind: ValidatorKind.Remote, index: index, data: keystore,
+    kind: ValidatorKind.Remote,
+    index: index,
+    data: keystore,
     clients: clients,
     externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
-    startSlot: slot)
+    startSlot: slot,
+    activationEpoch: activationEpoch
+  )
   pool.validators[v.pubkey] = v
   notice "Remote validator attached",
     pubkey = v.pubkey,
@@ -184,7 +192,8 @@ proc addRemoteValidator*(pool: var ValidatorPool,
                          keystore: KeystoreData,
                          index: Opt[ValidatorIndex],
                          feeRecipient: Eth1Address,
-                         slot: Slot) =
+                         slot: Slot,
+                         activationEpoch: Opt[Epoch]) =
   var clients: seq[(RestClientRef, RemoteSignerInfo)]
   let httpFlags =
     block:
@@ -200,7 +209,8 @@ proc addRemoteValidator*(pool: var ValidatorPool,
       warn "Unable to resolve distributed signer address",
           remote_url = $remote.url, validator = $remote.pubkey
     clients.add((client.get(), remote))
-  pool.addRemoteValidator(keystore, clients, index, feeRecipient, slot)
+  pool.addRemoteValidator(keystore, clients, index, feeRecipient, slot,
+                          activationEpoch)
 
 iterator publicKeys*(pool: ValidatorPool): ValidatorPubKey =
   for item in pool.validators.keys():
@@ -214,6 +224,16 @@ iterator indices*(pool: ValidatorPool): ValidatorIndex =
 iterator items*(pool: ValidatorPool): AttachedValidator =
   for item in pool.validators.values():
     yield item
+
+proc doppelgangerCheck*(validator: AttachedValidator,
+                        wallSlot: Slot, seenEpoch: Epoch): bool =
+  let vindex =
+    if validator.index.isSome():
+      validator.index.get()
+    else:
+      # If `validator` do not have index assigned yet it should not participate.
+      return false
+
 
 proc signWithDistributedKey(v: AttachedValidator,
                             request: Web3SignerRequest): Future[SignatureResult]

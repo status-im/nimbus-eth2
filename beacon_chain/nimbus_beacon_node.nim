@@ -654,9 +654,9 @@ proc init*(T: type BeaconNode,
   info "Loading slashing protection database (v2)",
     path = config.validatorsDir()
 
-  proc getValidatorIdx(pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
+  proc getValidatorAndIdx(pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
     withState(dag.headState):
-      findValidator(forkyState().data.validators.asSeq(), pubkey)
+      getValidator(forkyState().data.validators.asSeq(), pubkey)
 
   let
     slashingProtectionDB =
@@ -674,7 +674,7 @@ proc init*(T: type BeaconNode,
         config.validatorsDir,
         config.secretsDir,
         config.defaultFeeRecipient,
-        getValidatorIdx,
+        getValidatorAndIdx,
         getBeaconTime)
     else: nil
 
