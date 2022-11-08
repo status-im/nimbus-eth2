@@ -22,7 +22,7 @@ import
   # Test utilities
   ../../testutil, ../../testblockutil
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
 proc compute_aggregate_sync_committee_signature(
     cfg: RuntimeConfig,
     forked: ForkedHashedBeaconState,
@@ -53,7 +53,7 @@ proc compute_aggregate_sync_committee_signature(
       aggregateSig.aggregate(signature)
   aggregateSig.finish.toValidatorSig
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L32-L62
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L32-L62
 proc get_sync_aggregate(
     cfg: RuntimeConfig,
     forked: ForkedHashedBeaconState,
@@ -137,7 +137,7 @@ let full_sync_committee_bits = block:
   res.bytes.fill(byte.high)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L20-L29
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L20-L29
 func initialize_light_client_store(state: auto): LightClientStore =
   LightClientStore(
     finalized_header: BeaconBlockHeader(),
@@ -157,7 +157,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
       res
     genesisState = newClone(initGenesisState(cfg = cfg))
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L23-L60
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L23-L60
   test "test_process_light_client_update_not_timeout":
     let forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
@@ -203,7 +203,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
       store.optimistic_header == update.attested_header
       store.current_max_active_participants > 0
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L63-L104
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L63-L104
   test "test_process_light_client_update_at_period_boundary":
     var forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
@@ -256,7 +256,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
       store.optimistic_header == update.attested_header
       store.current_max_active_participants > 0
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L107-L149
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L107-L149
   test "process_light_client_update_timeout":
     let forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
@@ -312,7 +312,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
       store.optimistic_header == update.attested_header
       store.current_max_active_participants > 0
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L152-L201
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/tests/core/pyspec/eth2spec/test/altair/unittests/light_client/test_sync_protocol.py#L152-L201
   test "process_light_client_update_finality_updated":
     let forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
