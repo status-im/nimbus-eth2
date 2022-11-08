@@ -29,7 +29,7 @@ import
   std/hashes,
   # Status libraries
   chronicles,
-  nimcrypto/hash,
+  nimcrypto/[sha2, hash],
   stew/[arrayops, byteutils, endians2, objects],
   json_serialization
 
