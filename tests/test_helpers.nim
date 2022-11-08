@@ -10,8 +10,10 @@
 import
   # Status libraries
   stew/bitops2,
+  web3/ethtypes,
   # Beacon chain internals
   ../beacon_chain/spec/[forks, helpers, state_transition],
+  ../beacon_chain/spec/datatypes/bellatrix,
   # Test utilities
   ./unittest2, mocking/mock_genesis
 
@@ -58,3 +60,19 @@ suite "Spec helpers":
           process(fieldVar, i shl childDepth)
         i += 1
     process(state, state.numLeaves)
+
+  test "build_empty_execution_payload":
+    var cfg = defaultRuntimeConfig
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+
+    let state = newClone(initGenesisState(cfg = cfg).bellatrixData)
+
+    template testCase(recipient: Eth1Address): untyped =
+      block:
+        let payload = build_empty_execution_payload(state[].data, recipient)
+        check payload.fee_recipient ==
+          bellatrix.ExecutionAddress(data: distinctBase(recipient))
+
+    testCase default(Eth1Address)
+    testCase Eth1Address.fromHex("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")

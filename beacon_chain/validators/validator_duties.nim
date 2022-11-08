@@ -348,12 +348,20 @@ proc getExecutionPayload[T](
     epoch: Epoch, validator_index: ValidatorIndex): Future[Opt[T]] {.async.} =
   # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/bellatrix/validator.md#executionpayload
 
+  let feeRecipient = block:
+    let pubkey = node.dag.validatorKey(validator_index)
+    if pubkey.isNone():
+      error "Cannot get proposer pubkey, bug?", validator_index
+      default(Eth1Address)
+    else:
+      node.getFeeRecipient(pubkey.get().toPubKey(), validator_index, epoch)
+
   template empty_execution_payload(): auto =
     withState(proposalState[]):
       when stateFork >= BeaconStateFork.Capella:
         raiseAssert $capellaImplementationMissing
       elif stateFork >= BeaconStateFork.Bellatrix:
-        build_empty_execution_payload(forkyState.data)
+        build_empty_execution_payload(forkyState.data, feeRecipient)
       else:
         default(T)
 
@@ -381,13 +389,6 @@ proc getExecutionPayload[T](
           default(Eth2Digest)
       latestSafe = beaconHead.safeExecutionPayloadHash
       latestFinalized = beaconHead.finalizedExecutionPayloadHash
-      feeRecipient = block:
-        let pubkey = node.dag.validatorKey(validator_index)
-        if pubkey.isNone():
-          error "Cannot get proposer pubkey, bug?", validator_index
-          default(Eth1Address)
-        else:
-          node.getFeeRecipient(pubkey.get().toPubKey(), validator_index, epoch)
       lastFcU = node.consensusManager.forkchoiceUpdatedInfo
       timestamp = withState(proposalState[]):
         compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)

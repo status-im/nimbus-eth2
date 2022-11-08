@@ -385,7 +385,8 @@ proc emptyPayloadToBlockHeader*(
   )
 
 func build_empty_execution_payload*(
-    state: bellatrix.BeaconState): bellatrix.ExecutionPayload =
+    state: bellatrix.BeaconState,
+    feeRecipient: Eth1Address): bellatrix.ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.
   let
@@ -398,6 +399,7 @@ func build_empty_execution_payload*(
 
   var payload = bellatrix.ExecutionPayload(
     parent_hash: latest.block_hash,
+    fee_recipient: bellatrix.ExecutionAddress(data: distinctBase(feeRecipient)),
     state_root: latest.state_root, # no changes to the state
     receipts_root: EMPTY_ROOT_HASH,
     block_number: latest.block_number + 1,
