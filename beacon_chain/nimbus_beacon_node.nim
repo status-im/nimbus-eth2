@@ -879,35 +879,61 @@ func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
     (func(pubkey: ValidatorPubKey): bool {.closure.} = true)
   else:
     (func(pubkey: ValidatorPubKey): bool =
-       node.syncCommitteeMsgPool.syncCommitteeSubscriptions.getOrDefault(
-           pubkey, GENESIS_EPOCH) >= epoch or
+      node.consensusManager[].actionTracker.hasSyncDuty(pubkey, epoch) or
          pubkey in node.attachedValidators[].validators)
 
-func getCurrentSyncCommiteeSubnets(node: BeaconNode, slot: Slot): SyncnetBits =
+func getCurrentSyncCommiteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   let syncCommittee = withState(node.dag.headState):
     when stateFork >= BeaconStateFork.Altair:
       forkyState.data.current_sync_committee
     else:
       return static(default(SyncnetBits))
 
-  getSyncSubnets(node.hasSyncPubKey(slot.epoch), syncCommittee)
+  getSyncSubnets(node.hasSyncPubKey(epoch), syncCommittee)
+
+func getNextSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
+  let syncCommittee = withState(node.dag.headState):
+    when stateFork >= BeaconStateFork.Altair:
+      forkyState.data.next_sync_committee
+    else:
+      return static(default(SyncnetBits))
+
+  getSyncSubnets(
+    node.hasSyncPubKey((epoch.sync_committee_period + 1).start_slot().epoch),
+    syncCommittee)
+
+func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
+  let
+    subnets = node.getCurrentSyncCommiteeSubnets(epoch)
+    epochsToSyncPeriod = nearSyncCommitteePeriod(epoch)
+
+  # The end-slot tracker might call this when it's theoretically applicable,
+  # but more than SYNC_COMMITTEE_SUBNET_COUNT epochs from when the next sync
+  # committee period begins, in which case `epochsToNextSyncPeriod` is none.
+  if  epochsToSyncPeriod.isNone or
+      node.dag.cfg.stateForkAtEpoch(epoch + epochsToSyncPeriod.get) <
+        BeaconStateFork.Altair:
+    return subnets
+
+  subnets + node.getNextSyncCommitteeSubnets(epoch)
 
 proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addPhase0MessageHandlers(forkDigest, slot)
 
   # If this comes online near sync committee period, it'll immediately get
   # replaced as usual by trackSyncCommitteeTopics, which runs at slot end.
-  let currentSyncCommitteeSubnets = node.getCurrentSyncCommiteeSubnets(slot)
+  let
+    syncnets = node.getSyncCommitteeSubnets(slot.epoch)
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
-    if currentSyncCommitteeSubnets[subcommitteeIdx]:
+    if syncnets[subcommitteeIdx]:
       node.network.subscribe(
         getSyncCommitteeTopic(forkDigest, subcommitteeIdx), basicParams)
 
   node.network.subscribe(
     getSyncCommitteeContributionAndProofTopic(forkDigest), basicParams)
 
-  node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
+  node.network.updateSyncnetsMetadata(syncnets)
 
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
@@ -920,15 +946,22 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.network.unsubscribe(
     getSyncCommitteeContributionAndProofTopic(forkDigest))
 
-proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
-  # Unlike trackNextSyncCommitteeTopics, just snap to the currently correct
-  # set of subscriptions, and use current_sync_committee. Furthermore, this
-  # is potentially useful at arbitrary times, so don't guard it by checking
-  # for epoch alignment.
-  let currentSyncCommitteeSubnets = node.getCurrentSyncCommiteeSubnets(slot)
+proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
+  template lastSyncUpdate: untyped =
+    node.consensusManager[].actionTracker.lastSyncUpdate
+  if lastSyncUpdate == Opt.some(slot.sync_committee_period()) and
+      nearSyncCommitteePeriod(slot.epoch).isNone():
+    # No need to update unless we're close to the next sync committee period or
+    # new validators were registered with the action tracker
+    # TODO we _could_ skip running this in some of the "near" slots, but..
+    return
 
-  debug "trackCurrentSyncCommitteeTopics: aligning with sync committee subnets",
-    currentSyncCommitteeSubnets,
+  lastSyncUpdate = Opt.some(slot.sync_committee_period())
+
+  let syncnets = node.getSyncCommitteeSubnets(slot.epoch)
+
+  debug "Updating sync committee subnets",
+    syncnets,
     metadata_syncnets = node.network.metadata.syncnets,
     gossipState = node.gossipState
 
@@ -936,89 +969,28 @@ proc trackCurrentSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   # only remains relevant, currently, for one gossip transition epoch, so the
   # consequences of this not being true aren't exceptionally dire, while this
   # allows for bookkeeping simplication.
-  if currentSyncCommitteeSubnets == node.network.metadata.syncnets:
+  if syncnets == node.network.metadata.syncnets:
     return
 
   let
-    newSyncSubnets =
-      currentSyncCommitteeSubnets - node.network.metadata.syncnets
-    oldSyncSubnets =
-      node.network.metadata.syncnets - currentSyncCommitteeSubnets
+    newSyncnets =
+      syncnets - node.network.metadata.syncnets
+    oldSyncnets =
+      node.network.metadata.syncnets - syncnets
     forkDigests = node.forkDigests()
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
-    doAssert not (newSyncSubnets[subcommitteeIdx] and
-                  oldSyncSubnets[subcommitteeIdx])
+    doAssert not (newSyncnets[subcommitteeIdx] and
+                  oldSyncnets[subcommitteeIdx])
     for gossipFork in node.gossipState:
       template topic(): auto =
         getSyncCommitteeTopic(forkDigests[gossipFork], subcommitteeIdx)
-      if oldSyncSubnets[subcommitteeIdx]:
+      if oldSyncnets[subcommitteeIdx]:
         node.network.unsubscribe(topic)
-      elif newSyncSubnets[subcommitteeIdx]:
+      elif newSyncnets[subcommitteeIdx]:
         node.network.subscribe(topic, basicParams)
 
-  node.network.updateSyncnetsMetadata(currentSyncCommitteeSubnets)
-
-func getNextSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
-  let epochsToSyncPeriod = nearSyncCommitteePeriod(epoch)
-
-  # The end-slot tracker might call this when it's theoretically applicable,
-  # but more than SYNC_COMMITTEE_SUBNET_COUNT epochs from when the next sync
-  # committee period begins, in which case `epochsToNextSyncPeriod` is none.
-  if  epochsToSyncPeriod.isNone or
-      node.dag.cfg.stateForkAtEpoch(epoch + epochsToSyncPeriod.get) <
-        BeaconStateFork.Altair:
-    return static(default(SyncnetBits))
-
-  let syncCommittee = withState(node.dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
-      forkyState.data.next_sync_committee
-    else:
-      return static(default(SyncnetBits))
-
-  getSyncSubnets(
-    node.hasSyncPubKey(epoch + epochsToSyncPeriod.get), syncCommittee)
-
-proc trackNextSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
-  let
-    epoch = slot.epoch
-    epochsToSyncPeriod = nearSyncCommitteePeriod(epoch)
-
-  if  epochsToSyncPeriod.isNone or
-      node.dag.cfg.stateForkAtEpoch(epoch + epochsToSyncPeriod.get) <
-        BeaconStateFork.Altair:
-    return
-
-  # No lookahead required
-  if epochsToSyncPeriod.get == 0:
-    node.trackCurrentSyncCommitteeTopics(slot)
-    return
-
-  let nextSyncCommitteeSubnets = node.getNextSyncCommitteeSubnets(epoch)
-
-  let forkDigests = node.forkDigests()
-
-  var newSubcommittees: SyncnetBits
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/validator.md#sync-committee-subnet-stability
-  for subcommitteeIdx in SyncSubcommitteeIndex:
-    if  (not node.network.metadata.syncnets[subcommitteeIdx]) and
-        nextSyncCommitteeSubnets[subcommitteeIdx] and
-        node.syncCommitteeMsgPool[].isEpochLeadTime(epochsToSyncPeriod.get):
-      for gossipFork in node.gossipState:
-        node.network.subscribe(getSyncCommitteeTopic(
-          forkDigests[gossipFork], subcommitteeIdx), basicParams)
-      newSubcommittees.setBit(distinctBase(subcommitteeIdx))
-
-  debug "trackNextSyncCommitteeTopics: subscribing to sync committee subnets",
-    metadata_syncnets = node.network.metadata.syncnets,
-    nextSyncCommitteeSubnets,
-    gossipState = node.gossipState,
-    epochsToSyncPeriod = epochsToSyncPeriod.get,
-    newSubcommittees
-
-  node.network.updateSyncnetsMetadata(
-    node.network.metadata.syncnets + newSubcommittees)
+  node.network.updateSyncnetsMetadata(syncnets)
 
 proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   ## Subscribe to subnets that we are providing stability for or aggregating
@@ -1172,7 +1144,6 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
 
   node.syncCommitteeMsgPool[].pruneData(slot)
   if slot.is_epoch:
-    node.trackNextSyncCommitteeTopics(slot)
     node.dynamicFeeRecipientsStore[].pruneOldMappings(slot.epoch)
 
   # Update upcoming actions - we do this every slot in case a reorg happens
@@ -1208,11 +1179,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
     # int64 conversion is safe
     doAssert slotsToNextSyncCommitteePeriod <= SLOTS_PER_SYNC_COMMITTEE_PERIOD
 
-    if not node.getCurrentSyncCommiteeSubnets(slot).isZeros:
+    if not node.getCurrentSyncCommiteeSubnets(slot.epoch).isZeros:
       "current"
-    # if 0 => fallback is getCurrentSyncCommitttee so avoid duplicate effort
-    elif since_sync_committee_period_start(slot) > 0 and
-         not node.getNextSyncCommitteeSubnets(slot.epoch).isZeros:
+    elif not node.getNextSyncCommitteeSubnets(slot.epoch).isZeros:
       "in " & toTimeLeftString(
         SECONDS_PER_SLOT.int64.seconds * slotsToNextSyncCommitteePeriod.int64)
     else:
@@ -1258,6 +1227,8 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # The last thing we do is to perform the subscriptions and unsubscriptions for
   # the next slot, just before that slot starts - because of the advance cuttoff
   # above, this will be done just before the next slot starts
+  node.updateSyncCommitteeTopics(slot + 1)
+
   await node.updateGossipStatus(slot + 1)
 
 func syncStatus(node: BeaconNode, wallSlot: Slot): string =

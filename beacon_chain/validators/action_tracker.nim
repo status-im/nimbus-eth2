@@ -74,6 +74,9 @@ type
       ## duty, we'll subscribe to the corresponding subnet to collect
       ## attestations for the aggregate
 
+    lastSyncUpdate*: Opt[SyncCommitteePeriod]
+    syncDuties*: Table[ValidatorPubKey, Epoch]
+
 func hash*(x: AggregatorDuty): Hash =
   hashAllFields(x)
 
@@ -106,6 +109,26 @@ proc registerDuty*(
     debug "Registering aggregation duty", slot, subnet_id, vidx
     tracker.duties.incl(newDuty)
 
+proc registerSyncDuty*(
+    tracker: var ActionTracker, pubkey: ValidatorPubKey, until_epoch: Epoch) =
+  if tracker.currentSlot.epoch >= until_epoch:
+    return
+
+  tracker.syncDuties.withValue(pubkey, entry) do:
+    if entry[] < until_epoch:
+      debug "Updating sync duty",
+        pubkey = shortLog(pubkey), prev_until_epoch = entry[], until_epoch
+      entry[] = until_epoch
+      reset(tracker.lastSyncUpdate)
+  do:
+    debug "Registering sync duty", pubkey = shortLog(pubkey), until_epoch
+    tracker.syncDuties[pubkey] = until_epoch
+    reset(tracker.lastSyncUpdate)
+
+proc hasSyncDuty*(
+    tracker: ActionTracker, pubkey: ValidatorPubKey, epoch: Epoch): bool =
+  epoch < tracker.syncDuties.getOrDefault(pubkey, GENESIS_EPOCH)
+
 const allSubnetBits = block:
   var res: AttnetBits
   for i in 0..<res.len: res[i] = true
@@ -135,6 +158,14 @@ proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
   # are only so many slot/subnet combos - prune both internal and API-supplied
   # duties at the same time
   tracker.duties.keepItIf(it.slot >= wallSlot)
+
+  block:
+    var dels: seq[ValidatorPubKey]
+    for k, v in tracker.syncDuties:
+      if wallSlot.epoch >= v:
+        dels.add k
+    for k in dels:
+      tracker.syncDuties.del(k)
 
   # Keep stability subnets for as long as validators are validating
   var toPrune: seq[ValidatorIndex]
