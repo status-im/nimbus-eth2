@@ -2446,6 +2446,34 @@ proc decodeBody*[T](t: typedesc[T],
       return err("Unexpected deserialization error")
   ok(data)
 
+proc decodeBodyJsonOrSsz*[T](t: typedesc[T],
+                             body: ContentBody): Result[T, cstring] =
+  if body.contentType == ApplicationJsonMediaType:
+    let data =
+      try:
+        RestJson.decode(body.data, T,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError as exc:
+        debug "Failed to deserialize REST JSON data",
+              err = exc.formatMsg("<data>"),
+              data = string.fromBytes(body.data)
+        return err("Unable to deserialize data")
+      except CatchableError:
+        return err("Unexpected deserialization error")
+    ok(data)
+  elif body.contentType == OctetStreamMediaType:
+    let blck =
+      try:
+        SSZ.decode(body.data, T)
+      except SerializationError:
+        return err("Unable to deserialize data")
+      except CatchableError:
+        return err("Unexpected deserialization error")
+    ok(blck)
+  else:
+    return err("Unsupported content type")
+
 proc encodeBytes*[T: EncodeTypes](value: T,
                                   contentType: string): RestResult[seq[byte]] =
   case contentType
