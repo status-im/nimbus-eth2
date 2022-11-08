@@ -51,20 +51,14 @@ proc unblindAndRouteBlockMEV*(
   let unblindedPayload =
     try:
       awaitWithTimeout(
-        node.payloadBuilderRestClient.submitBlindedBlock(blindedBlock),
-        BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE):
-          error "Submitting blinded block timed out",
-            blk = shortLog(blindedBlock)
-          return err("Submitting blinded block timed out")
+          node.payloadBuilderRestClient.submitBlindedBlock(blindedBlock),
+          BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE):
+        return err("Submitting blinded block timed out")
       # From here on, including error paths, disallow local EL production by
       # returning Opt.some, regardless of whether on head or newBlock.
     except RestDecodingError as exc:
-      error "REST decoding error submitting blinded block",
-        blindedBlock, error = exc.msg
       return err("REST decoding error submitting blinded block: " & exc.msg)
     except CatchableError as exc:
-      error "exception in submitBlindedBlock",
-        blindedBlock, error = exc.msg
       return err("exception in submitBlindedBlock: " & exc.msg)
 
   const httpOk = 200
