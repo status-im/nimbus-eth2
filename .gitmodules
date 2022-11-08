@@ -133,31 +133,6 @@
 	url = https://github.com/status-im/nim-snappy.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/asynctools"]
-	path = vendor/asynctools
-	url = https://github.com/cheatfate/asynctools.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/karax"]
-	path = vendor/karax
-	url = https://github.com/pragmagic/karax.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/jswebsockets"]
-	path = vendor/jswebsockets
-	url = https://github.com/stisa/jswebsockets.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/websocket.nim"]
-	path = vendor/websocket.nim
-	url = https://github.com/niv/websocket.nim.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/nim-chronicles-tail"]
-	path = vendor/nim-chronicles-tail
-	url = https://github.com/status-im/nim-chronicles-tail.git
-	ignore = untracked
-	branch = master
 [submodule "vendor/nimbus-security-resources"]
 	path = vendor/nimbus-security-resources
 	url = https://github.com/status-im/nimbus-security-resources.git
