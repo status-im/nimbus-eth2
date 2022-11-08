@@ -279,7 +279,7 @@ proc getForkedBlock*(
           result.err()
           return
 
-proc getBlockId(db: BeaconChainDB, root: Eth2Digest): Opt[BlockId] =
+proc getBlockId*(db: BeaconChainDB, root: Eth2Digest): Opt[BlockId] =
   block: # We might have a summary in the database
     let summary = db.getBeaconBlockSummary(root)
     if summary.isOk():
@@ -623,6 +623,23 @@ proc getState(
 
   db.getState(cfg.stateForkAtEpoch(slot.epoch), state_root, state, rollback)
 
+proc getState*(
+    db: BeaconChainDB, cfg: RuntimeConfig, block_root: Eth2Digest,
+    slots: Slice[Slot], state: var ForkedHashedBeaconState,
+    rollback: RollbackProc): bool =
+  var slot = slots.b
+  while slot >= slots.a:
+    let state_root = db.getStateRoot(block_root, slot)
+    if state_root.isSome() and
+        db.getState(
+          cfg.stateForkAtEpoch(slot.epoch), state_root.get(), state, rollback):
+      return true
+
+    if slot == slots.a: # avoid underflow at genesis
+      break
+    slot -= 1
+  false
+
 proc getState(
     dag: ChainDAGRef, bsi: BlockSlotId, state: var ForkedHashedBeaconState): bool =
   ## Load a state from the database given a block and a slot - this will first
@@ -676,16 +693,8 @@ proc getStateByParent(
   func rollback() =
     assign(v[], rollbackAddr[])
 
-  while true:
-    if dag.db.getState(dag.cfg, summary.parent_root, slot, state, rollback):
-      return true
-
-    if slot == parentMinSlot:
-      return false
-
-    slot -= 1
-
-  return false
+  dag.db.getState(
+    dag.cfg, summary.parent_root, parentMinSlot..slot, state, rollback)
 
 proc currentSyncCommitteeForPeriod*(
     dag: ChainDAGRef,
@@ -938,15 +947,9 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
     dag.forkBlocks.incl(KeyedBlockRef.init(curRef))
 
     if not foundHeadState:
-      while slot >= blck.summary.slot:
-        # Try loading state from database - we need the head state early on to
-        # establish the (real) finalized checkpoint
-        if db.getState(cfg, blck.root, slot, dag.headState, noRollback):
-          foundHeadState = true
-          break
-        slot -= 1
-
-      slot += 1
+      foundHeadState = db.getState(
+        cfg, blck.root, blck.summary.slot..slot, dag.headState, noRollback)
+      slot = blck.summary.slot
 
       if not foundHeadState:
         # When the database has been written with a pre-fork version of the
@@ -1090,37 +1093,33 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
     var
       blocks = 0
-      parent: Eth2Digest
 
     # Here, we'll build up the slot->root mapping in memory for the range of
     # blocks from genesis to backfill, if possible.
-    for summary in dag.era.getBlockIds(historical_roots, Slot(0)):
-      if summary.slot >= dag.backfill.slot:
+    for bid in dag.era.getBlockIds(historical_roots, Slot(0), Eth2Digest()):
+      if bid.slot >= dag.backfill.slot:
         # If we end up in here, we failed the root comparison just below in
         # an earlier iteration
         fatal "Era summaries don't lead up to backfill, database or era files corrupt?",
-          slot = summary.slot
+          bid
         quit 1
 
       # In BeaconState.block_roots, empty slots are filled with the root of
       # the previous block - in our data structure, we use a zero hash instead
-      if summary.root != parent:
-        dag.frontfillBlocks.setLen(summary.slot.int + 1)
-        dag.frontfillBlocks[summary.slot.int] = summary.root
+      dag.frontfillBlocks.setLen(bid.slot.int + 1)
+      dag.frontfillBlocks[bid.slot.int] = bid.root
 
-        if summary.root == dag.backfill.parent_root:
-          # We've reached the backfill point, meaning blocks are available
-          # in the sqlite database from here onwards - remember this point in
-          # time so that we can write summaries to the database - it's a lot
-          # faster to load from database than to iterate over era files with
-          # the current naive era file reader.
-          reset(dag.backfill)
+      if bid.root == dag.backfill.parent_root:
+        # We've reached the backfill point, meaning blocks are available
+        # in the sqlite database from here onwards - remember this point in
+        # time so that we can write summaries to the database - it's a lot
+        # faster to load from database than to iterate over era files with
+        # the current naive era file reader.
+        reset(dag.backfill)
 
-          dag.updateFrontfillBlocks()
+        dag.updateFrontfillBlocks()
 
-          break
-
-        parent = summary.root
+        break
 
       blocks += 1
 
