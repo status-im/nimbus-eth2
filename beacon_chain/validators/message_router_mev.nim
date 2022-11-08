@@ -59,11 +59,11 @@ proc unblindAndRouteBlockMEV*(
       # From here on, including error paths, disallow local EL production by
       # returning Opt.some, regardless of whether on head or newBlock.
     except RestDecodingError as exc:
-      error "unblindAndRouteBlockMEV: REST decoding error submitting blinded block",
+      error "REST decoding error submitting blinded block",
         blindedBlock, error = exc.msg
       return err("REST decoding error submitting blinded block: " & exc.msg)
     except CatchableError as exc:
-      error "unblindAndRouteBlockMEV: exception in submitBlindedBlock",
+      error "exception in submitBlindedBlock",
         blindedBlock, error = exc.msg
       return err("exception in submitBlindedBlock: " & exc.msg)
 
