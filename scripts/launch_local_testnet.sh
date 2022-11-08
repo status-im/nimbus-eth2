@@ -96,7 +96,7 @@ RUN_GETH="0"
 DL_GETH="0"
 DL_ETH2="0"
 BEACON_NODE_COMMAND="./build/nimbus_beacon_node"
-
+WEB3_ARG=()
 CLEANUP_DIRS=()
 
 #NIMBUS EL VARS
@@ -737,7 +737,7 @@ else
   ganache-cli --blockTime 17 --gasLimit 100000000 -e 100000 --verbose > "${DATA_DIR}/log_ganache.txt" 2>&1 &
   PIDS="${PIDS},$!"
 
-  WEB3_ARG="--web3-url=ws://localhost:8545"
+  WEB3_ARG=("--web3-url=ws://localhost:8545")
 
   echo "Deploying deposit contract"
   DEPLOY_CMD_OUTPUT=$(./build/deposit_contract deploy $WEB3_ARG)
@@ -756,7 +756,7 @@ else
   ./build/deposit_contract sendDeposits \
     --deposits-file="${DEPOSITS_FILE}" \
     --min-delay=$MIN_DELAY --max-delay=$MAX_DELAY \
-    $WEB3_ARG \
+    "${WEB3_ARG[@]}" \
     --deposit-contract=${DEPOSIT_CONTRACT_ADDRESS} > "${DATA_DIR}/log_deposit_maker.txt" 2>&1 &
 
   PIDS="${PIDS},$!"

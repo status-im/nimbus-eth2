@@ -10,17 +10,51 @@ else:
   {.push raises: [].}
 
 import
-  stew/base10,
-  chronicles, chronos,
+  stew/[base10, results],
+  chronicles, chronos, eth/async_utils,
   ./sync/sync_manager,
   ./consensus_object_pools/[block_clearance, blockchain_dag],
   ./spec/eth2_apis/rest_beacon_client,
-  ./spec/[beaconstate, eth2_merkleization, forks, presets, state_transition],
+  ./spec/[beaconstate, eth2_merkleization, forks, presets,
+          state_transition, deposit_snapshots],
   "."/[beacon_clock, beacon_chain_db, era_db]
 
+from presto import RestDecodingError
+
+const
+  largeRequestsTimeout = 60.seconds # Downloading large items such as states.
+  smallRequestsTimeout = 30.seconds # Downloading smaller items such as blocks and deposit snapshots.
+
+proc fetchDepositSnapshot(client: RestClientRef):
+                          Future[Result[DepositTreeSnapshot, string]] {.async.} =
+  let resp = try:
+    awaitWithTimeout(client.getDepositSnapshot(), smallRequestsTimeout):
+      return err "Fetching /eth/v1/beacon/deposit_snapshot timed out"
+  except CatchableError as e:
+    return err("The trusted node likely does not support the /eth/v1/beacon/deposit_snapshot end-point:" & e.msg)
+
+  let data = resp.data.data
+  let snapshot = DepositTreeSnapshot(
+    eth1Block: data.execution_block_hash,
+    depositContractState: DepositContractState(
+      branch: data.finalized,
+      deposit_count: depositCountBytes(data.deposit_count)),
+    blockHeight: data.execution_block_height)
+
+  if not snapshot.isValid(data.deposit_root):
+    return err "The obtained deposit snapshot contains self-contradictory data"
+
+  return ok snapshot
+
 proc doTrustedNodeSync*(
-    cfg: RuntimeConfig, databaseDir, eraDir, restUrl, stateId: string,
-    backfill: bool, reindex: bool,
+    cfg: RuntimeConfig,
+    databaseDir: string,
+    eraDir: string,
+    restUrl: string,
+    stateId: string,
+    backfill: bool,
+    reindex: bool,
+    downloadDepositSnapshot: bool,
     genesisState: ref ForkedHashedBeaconState = nil) {.async.} =
   logScope:
     restUrl
@@ -71,8 +105,11 @@ proc doTrustedNodeSync*(
       else:
         notice "Downloading genesis state", restUrl
         try:
-          await client.getStateV2(
-            StateIdent.init(StateIdentType.Genesis), cfg)
+          awaitWithTimeout(
+              client.getStateV2(StateIdent.init(StateIdentType.Genesis), cfg),
+              largeRequestsTimeout):
+            info "Attempt to download genesis state timed out"
+            nil
         except CatchableError as exc:
           info "Unable to download genesis state",
             error = exc.msg, restUrl
@@ -111,7 +148,9 @@ proc doTrustedNodeSync*(
             StateIdent.init(tmp.slot.epoch().start_slot)
           else:
             tmp
-        await client.getStateV2(id, cfg)
+        awaitWithTimeout(client.getStateV2(id, cfg), largeRequestsTimeout):
+          error "Attempt to download checkpoint state timed out"
+          quit 1
       except CatchableError as exc:
         error "Unable to download checkpoint state",
           error = exc.msg
@@ -143,6 +182,21 @@ proc doTrustedNodeSync*(
         ChainDAGRef.preInit(db, state[])
     else:
       ChainDAGRef.preInit(db, state[])
+
+    if downloadDepositSnapshot:
+      # Fetch deposit snapshot.  This API endpoint is still optional.
+      let depositSnapshot = await fetchDepositSnapshot(client)
+      if depositSnapshot.isOk:
+        if depositSnapshot.get.matches(getStateField(state[], eth1_data)):
+          info "Writing deposit contracts snapshot",
+               depositRoot = depositSnapshot.get.getDepositRoot(),
+               depositCount = depositSnapshot.get.getDepositCountU64
+          db.putDepositTreeSnapshot(depositSnapshot.get)
+        else:
+          warn "The downloaded deposit snapshot does not agree with the downloaded state"
+      else:
+        warn "Deposit tree snapshot was not imported", reason = depositSnapshot.error
+
   else:
     notice "Skipping checkpoint download, database already exists (remove db directory to get a fresh snapshot)",
       databaseDir, head = shortLog(head.get())
@@ -178,7 +232,9 @@ proc doTrustedNodeSync*(
       var lastError: ref CatchableError
       for i in 0..<3:
         try:
-          return await client.getBlockV2(BlockIdent.init(slot), cfg)
+          return awaitWithTimeout(client.getBlockV2(BlockIdent.init(slot), cfg),
+                                  smallRequestsTimeout):
+            raise newException(CatchableError, "Request timed out")
         except RestResponseError as exc:
           lastError = exc
           notice "Server does not support block downloads / backfilling - blocks will be downloaded later",
@@ -280,4 +336,4 @@ when isMainModule:
 
   waitFor doTrustedNodeSync(
     getRuntimeConfig(some os.paramStr(1)), os.paramStr(2), os.paramStr(3),
-    os.paramStr(4), os.paramStr(5), backfill, false)
+    os.paramStr(4), os.paramStr(5), backfill, false, true)

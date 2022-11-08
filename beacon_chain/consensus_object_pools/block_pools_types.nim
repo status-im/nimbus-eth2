@@ -73,7 +73,7 @@ type
 
   ChainDAGRef* = ref object
     ## ChainDAG validates, stores and serves chain history of valid blocks
-    ## according to the beacon chain state transtion. From genesis to the
+    ## according to the beacon chain state transition. From genesis to the
     ## finalization point, block history is linear - from there, it branches out
     ## into a dag with several heads, one of which is considered canonical.
     ##
@@ -112,7 +112,7 @@ type
     ##          |         |               |
     ##          db.finalizedBlocks        dag.forkBlocks
     ##
-    ## The archive is the the part of finalized history for which we no longer
+    ## The archive is the part of finalized history for which we no longer
     ## recreate states quickly because we don't have a reasonable state to
     ## start replay from - when starting from a checkpoint, this is the typical
     ## case - recreating history requires either replaying from genesis or

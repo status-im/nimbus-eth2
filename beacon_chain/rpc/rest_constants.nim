@@ -178,6 +178,8 @@ const
     "Unable to produce contribution using the passed parameters"
   InternalServerError* =
     "Internal server error"
+  NoFinalizedSnapshotAvailableError* =
+    "No Finalized Snapshot Available"
   NoImplementationError* =
     "Not implemented yet"
   KeystoreAdditionFailure =

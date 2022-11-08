@@ -11,7 +11,7 @@ import
   ../tests/testblockutil,
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/spec/datatypes/[phase0, altair],
-  ../beacon_chain/spec/[beaconstate, forks, helpers],
+  ../beacon_chain/spec/[beaconstate, deposit_snapshots, forks, helpers],
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_pools_types]
 
 template withTimer*(stats: var RunningStat, body: untyped) =
@@ -68,7 +68,7 @@ func verifyConsensus*(state: ForkedHashedBeaconState, attesterRatio: auto) =
       state, finalized_checkpoint).epoch + 2 >= current_epoch
 
 proc loadGenesis*(validators: Natural, validate: bool):
-                 (ref ForkedHashedBeaconState, DepositContractSnapshot) =
+                 (ref ForkedHashedBeaconState, DepositTreeSnapshot) =
   let
     genesisFn =
       &"genesis_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
@@ -93,7 +93,7 @@ proc loadGenesis*(validators: Natural, validate: bool):
       # TODO check that the private keys are interop keys
 
       let contractSnapshot = SSZ.loadFile(contractSnapshotFn,
-                                          DepositContractSnapshot)
+                                          DepositTreeSnapshot)
       (res, contractSnapshot)
   else:
     echo "Genesis file not found, making one up (use nimbus_beacon_node createTestnet to make one)"
@@ -107,7 +107,7 @@ proc loadGenesis*(validators: Natural, validate: bool):
     var merkleizer = init DepositsMerkleizer
     for d in deposits:
       merkleizer.addChunk hash_tree_root(d).data
-    let contractSnapshot = DepositContractSnapshot(
+    let contractSnapshot = DepositTreeSnapshot(
       depositContractState: merkleizer.toDepositContractState)
 
     let res = (ref ForkedHashedBeaconState)(

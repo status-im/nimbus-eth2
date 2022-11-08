@@ -16,7 +16,11 @@ import
   serialization, chronicles, snappy,
   eth/db/[kvstore, kvstore_sqlite3],
   ./networking/network_metadata, ./beacon_chain_db_immutable,
-  ./spec/[eth2_ssz_serialization, eth2_merkleization, forks, state_transition],
+  ./spec/[deposit_snapshots,
+          eth2_ssz_serialization,
+          eth2_merkleization,
+          forks,
+          state_transition],
   ./spec/datatypes/[phase0, altair, bellatrix],
   "."/[beacon_chain_db_light_client, filepath]
 
@@ -45,10 +49,6 @@ type
     high*: Opt[Slot]
 
   DepositsSeq = DbSeq[DepositData]
-
-  DepositContractSnapshot* = object
-    eth1Block*: Eth2Digest
-    depositContractState*: DepositContractState
 
   BeaconChainDBV0* = ref object
     ## BeaconChainDBV0 based on old kvstore table that sets the WITHOUT ROWID
@@ -154,17 +154,20 @@ type
     lcData: LightClientDataDB
       ## Persistent light client data to avoid expensive recomputations
 
-  DbKeyKind = enum
+  DbKeyKind* = enum
+    # BEWARE. You should never remove entries from this enum.
+    #         Only new items should be added to its end.
     kHashToState
     kHashToBlock
     kHeadBlock
       ## Pointer to the most recent block selected by the fork choice
     kTailBlock
-      ## Pointer to the earliest finalized block - this is the genesis block when
-      ## the chain starts, but might advance as the database gets pruned
-      ## TODO: determine how aggressively the database should be pruned. For a
-      ##       healthy network sync, we probably need to store blocks at least
-      ##       past the weak subjectivity period.
+      ## Pointer to the earliest finalized block - this is the genesis
+      ## block when the chain starts, but might advance as the database
+      ## gets pruned
+      ## TODO: determine how aggressively the database should be pruned.
+      ##       For a healthy network sync, we probably need to store blocks
+      ##       at least past the weak subjectivity period.
     kBlockSlotStateRoot
       ## BlockSlot -> state_root mapping
     kGenesisBlock
@@ -172,19 +175,25 @@ type
       ## (needed for satisfying requests to the beacon node API).
     kEth1PersistedTo # Obsolete
     kDepositsFinalizedByEth1 # Obsolete
-    kDepositsFinalizedByEth2
-      ## A merkleizer checkpoint used for computing merkle proofs of
-      ## deposits added to Eth2 blocks (it may lag behind the finalized
-      ## eth1 deposits checkpoint).
+    kOldDepositContractSnapshot
+      ## Deprecated:
+      ## This was the merkleizer checkpoint produced by processing the
+      ## finalized deposits (similar to kDepositTreeSnapshot, but before
+      ## the EIP-4881 support was introduced). Currently, we read from
+      ## it during upgrades and we keep writing data to it as a measure
+      ## allowing the users to downgrade to a previous version of Nimbus.
     kHashToBlockSummary # Block summaries for fast startup
     kSpeculativeDeposits
-      ## A merkelizer checkpoint created on the basis of deposit events
-      ## that we were not able to verify against a `deposit_root` served
-      ## by the web3 provider. This may happen on Geth nodes that serve
-      ## only recent contract state data (i.e. only recent `deposit_roots`).
+      ## Obsolete:
+      ## This was a merkelizer checkpoint created on the basis of deposit
+      ## events that we were not able to verify against a `deposit_root`
+      ## served by the web3 provider. This was happening on Geth nodes
+      ## that serve only recent contract state data (i.e. only recent
+      ## `deposit_roots`).
     kHashToStateDiff # Obsolete
     kHashToStateOnlyMutableValidators
     kBackfillBlock # Obsolete, was in `unstable` for a while, but never released
+    kDepositTreeSnapshot # EIP-4881-compatible deposit contract state snapshot
 
   BeaconBlockSummary* = object
     ## Cache of beacon block summaries - during startup when we construct the
@@ -411,12 +420,15 @@ proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorDataDb2]): seq[Immuta
       withdrawal_credentials: tmp.withdrawal_credentials)
 
 template withManyWrites*(dbParam: BeaconChainDB, body: untyped) =
+  let db = dbParam
+  # Make sure we're not nesting transactions.
+  if isInsideTransaction(db.db):
+    raiseAssert "Sqlite does not support nested transactions"
   # We don't enforce strong ordering or atomicity requirements in the beacon
   # chain db in general, relying instead on readers to be able to deal with
   # minor inconsistencies - however, putting writes in a transaction is orders
   # of magnitude faster when doing many small writes, so we use this as an
   # optimization technique and the templace is named accordingly.
-  let db = dbParam
   expectDb db.db.exec("BEGIN TRANSACTION;")
   var commit = false
   try:
@@ -572,7 +584,7 @@ proc new*(T: type BeaconChainDB,
 template getLightClientDataDB*(db: BeaconChainDB): LightClientDataDB =
   db.lcData
 
-proc decodeSSZ[T](data: openArray[byte], output: var T): bool =
+proc decodeSSZ*[T](data: openArray[byte], output: var T): bool =
   try:
     readSszBytes(data, output, updateRoot = false)
     true
@@ -607,7 +619,7 @@ proc decodeSZSSZ[T](data: openArray[byte], output: var T): bool =
       err = e.msg, typ = name(T), dataLen = data.len
     false
 
-func encodeSSZ(v: auto): seq[byte] =
+func encodeSSZ*(v: auto): seq[byte] =
   try:
     SSZ.encode(v)
   except IOError as err:
@@ -832,6 +844,13 @@ proc delState*(db: BeaconChainDB, key: Eth2Digest) =
     for kv in db.statesNoVal:
       kv.del(key.data).expectDb()
 
+proc delKeyValue*(db: BeaconChainDB, key: array[1, byte]) =
+  db.keyValues.del(key).expectDb()
+  db.v0.backend.del(key).expectDb()
+
+proc delKeyValue*(db: BeaconChainDB, key: DbKeyKind) =
+  db.delKeyValue(subkey(key))
+
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.stateRoots.del(stateRootKey(root, slot)).expectDb()
 
@@ -847,9 +866,36 @@ proc putTailBlock*(db: BeaconChainDB, key: Eth2Digest) =
 proc putGenesisBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kGenesisBlock), key)
 
-proc putEth2FinalizedTo*(db: BeaconChainDB,
-                         eth1Checkpoint: DepositContractSnapshot) =
-  db.keyValues.putSnappySSZ(subkey(kDepositsFinalizedByEth2), eth1Checkpoint)
+proc putDepositTreeSnapshot*(db: BeaconChainDB,
+                             snapshot: DepositTreeSnapshot) =
+  db.withManyWrites:
+    db.keyValues.putSnappySSZ(subkey(kDepositTreeSnapshot),
+                              snapshot)
+    # TODO: We currently store this redundant old snapshot in order
+    #       to allow the users to rollback to a previous version
+    #       of Nimbus without problems. It would be reasonable
+    #       to remove this in Nimbus 23.2
+    db.keyValues.putSnappySSZ(subkey(kOldDepositContractSnapshot),
+                              snapshot.toOldDepositContractSnapshot)
+
+proc hasDepositTreeSnapshot*(db: BeaconChainDB): bool =
+  expectDb(subkey(kDepositTreeSnapshot) in db.keyValues)
+
+proc getDepositTreeSnapshot*(db: BeaconChainDB): Opt[DepositTreeSnapshot] =
+  result.ok(default DepositTreeSnapshot)
+  let r = db.keyValues.getSnappySSZ(subkey(kDepositTreeSnapshot), result.get)
+  if r != GetResult.found: result.err()
+
+proc getUpgradableDepositSnapshot*(db: BeaconChainDB): Option[OldDepositContractSnapshot] =
+  var dcs: OldDepositContractSnapshot
+  let oldKey = subkey(kOldDepositContractSnapshot)
+  if db.keyValues.getSnappySSZ(oldKey, dcs) != GetResult.found:
+    # Old record is not present in the current database.
+    # We need to take a look in the v0 database as well.
+    if db.v0.backend.getSnappySSZ(oldKey, dcs) != GetResult.found:
+      return
+
+  return some dcs
 
 proc getPhase0Block(
     db: BeaconChainDBV0, key: Eth2Digest): Opt[phase0.TrustedSignedBeaconBlock] =
@@ -1220,16 +1266,6 @@ proc getGenesisBlock(db: BeaconChainDBV0): Opt[Eth2Digest] =
 proc getGenesisBlock*(db: BeaconChainDB): Opt[Eth2Digest] =
   db.keyValues.getRaw(subkey(kGenesisBlock), Eth2Digest) or
     db.v0.getGenesisBlock()
-
-proc getEth2FinalizedTo(db: BeaconChainDBV0): Opt[DepositContractSnapshot] =
-  result.ok(DepositContractSnapshot())
-  let r = db.backend.getSnappySSZ(subkey(kDepositsFinalizedByEth2), result.get)
-  if r != found: result.err()
-
-proc getEth2FinalizedTo*(db: BeaconChainDB): Opt[DepositContractSnapshot] =
-  result.ok(DepositContractSnapshot())
-  let r = db.keyValues.getSnappySSZ(subkey(kDepositsFinalizedByEth2), result.get)
-  if r != found: return db.v0.getEth2FinalizedTo()
 
 proc containsBlock*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   db.backend.contains(subkey(phase0.SignedBeaconBlock, key)).expectDb()

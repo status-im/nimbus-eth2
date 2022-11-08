@@ -10,12 +10,12 @@ import
   stew/[results, base10],
   chronicles,
   ./rest_utils,
-  ../beacon_node, ../networking/eth2_network,
+  ./state_ttl_cache,
+  ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
-  ../spec/[eth2_merkleization, forks, network, validator],
+  ../spec/[deposit_snapshots, eth2_merkleization, forks, network, validator],
   ../spec/datatypes/[phase0, altair],
-  ../validators/message_router_mev,
-  ./state_ttl_cache
+  ../validators/message_router_mev
 
 export rest_utils
 
@@ -124,6 +124,24 @@ proc toString*(kind: ValidatorFilterKind): string =
     "withdrawal_done"
 
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
+  # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md
+  router.api(MethodGet, "/eth/v1/beacon/deposit_snapshot") do () -> RestApiResponse:
+    let snapshotOpt = node.db.getDepositTreeSnapshot()
+    if snapshotOpt.isSome():
+      let snapshot = snapshotOpt.get()
+      return RestApiResponse.jsonResponse(
+        RestDepositSnapshot(
+          finalized: snapshot.depositContractState.branch,
+          deposit_root: snapshot.getDepositRoot(),
+          deposit_count: snapshot.getDepositCountU64(),
+          execution_block_hash: snapshot.eth1Block,
+          execution_block_height: snapshot.blockHeight))
+    else:
+      # This can happen in a very short window after the client is started, but the
+      # snapshot record still haven't been upgraded in the database. Returning 404
+      # should be easy to handle for the clients - they just need to retry.
+      return RestApiResponse.jsonError(Http404, NoFinalizedSnapshotAvailableError)
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
   router.api(MethodGet, "/eth/v1/beacon/genesis") do () -> RestApiResponse:
     return RestApiResponse.jsonResponse(

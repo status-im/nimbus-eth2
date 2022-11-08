@@ -273,3 +273,8 @@ proc submitPoolVoluntaryExit*(body: SignedVoluntaryExit): RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/pool/voluntary_exits",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
+
+proc getDepositSnapshot*(): RestResponse[GetDepositSnapshotResponse] {.
+     rest, endpoint: "/eth/v1/beacon/deposit_snapshot",
+     meth: MethodGet.}
+  ## https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md

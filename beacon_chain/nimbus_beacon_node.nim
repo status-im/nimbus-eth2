@@ -21,7 +21,7 @@ import
   ./networking/topic_params,
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
-  ./spec/[engine_authentication, weak_subjectivity],
+  ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
   ./validators/[keystore_management, validator_duties],
   "."/[
     beacon_node, beacon_node_light_client, deposits, interop,
@@ -382,25 +382,14 @@ const SlashingDbName = "slashing_protection"
   # changing this requires physical file rename as well or history is lost.
 
 proc init*(T: type BeaconNode,
-           cfg: RuntimeConfig,
            rng: ref HmacDrbgContext,
            config: BeaconNodeConf,
-           depositContractDeployedAt: BlockHashOrNumber,
-           eth1Network: Option[Eth1Network],
-           genesisStateContents: string,
-           depositContractSnapshotContents: string): BeaconNode {.
-    raises: [Defect, CatchableError].} =
-
+           metadata: Eth2NetworkMetadata): BeaconNode
+          {.raises: [Defect, CatchableError].} =
   var taskpool: TaskPoolPtr
 
-  let depositContractSnapshot = if depositContractSnapshotContents.len > 0:
-    try:
-      some SSZ.decode(depositContractSnapshotContents, DepositContractSnapshot)
-    except CatchableError as err:
-      fatal "Invalid deposit contract snapshot", err = err.msg
-      quit 1
-  else:
-    none DepositContractSnapshot
+  template cfg: auto = metadata.cfg
+  template eth1Network: auto = metadata.eth1Network
 
   try:
     if config.numThreads < 0:
@@ -455,26 +444,6 @@ proc init*(T: type BeaconNode,
 
   let optJwtSecret = rng[].loadJwtSecret(config, allowCreate = false)
 
-  template getDepositContractSnapshot: auto =
-    if depositContractSnapshot.isSome:
-      depositContractSnapshot
-    elif not cfg.DEPOSIT_CONTRACT_ADDRESS.isZeroMemory:
-      let snapshotRes = waitFor createInitialDepositSnapshot(
-        cfg.DEPOSIT_CONTRACT_ADDRESS,
-        depositContractDeployedAt,
-        config.web3Urls[0],
-        optJwtSecret)
-      if snapshotRes.isErr:
-        fatal "Failed to locate the deposit contract deployment block",
-              depositContract = cfg.DEPOSIT_CONTRACT_ADDRESS,
-              deploymentBlock = $depositContractDeployedAt,
-              err = snapshotRes.error
-        quit 1
-      else:
-        some snapshotRes.get
-    else:
-      none(DepositContractSnapshot)
-
   if config.web3Urls.len() == 0:
     if cfg.BELLATRIX_FORK_EPOCH == FAR_FUTURE_EPOCH:
       notice "Running without execution client - validator features partially disabled (see https://nimbus.guide/eth1.html)"
@@ -484,11 +453,11 @@ proc init*(T: type BeaconNode,
   var eth1Monitor: Eth1Monitor
 
   let genesisState =
-    if genesisStateContents.len > 0:
+    if metadata.genesisData.len > 0:
       try:
-        newClone(readSszForkedHashedBeaconState(
+        newClone readSszForkedHashedBeaconState(
           cfg,
-          genesisStateContents.toOpenArrayByte(0, genesisStateContents.high())))
+          metadata.genesisData.toOpenArrayByte(0, metadata.genesisData.high))
       except CatchableError as err:
         raiseAssert "Invalid baked-in state: " & err.msg
     else:
@@ -497,10 +466,6 @@ proc init*(T: type BeaconNode,
   if not ChainDAGRef.isInitialized(db).isOk():
     if genesisState == nil and checkpointState == nil:
       when hasGenesisDetection:
-        if depositContractSnapshotContents.len > 0:
-          fatal "A deposits snapshot cannot be provided without also providing a matching beacon state snapshot"
-          quit 1
-
         # This is a fresh start without a known genesis state
         # (most likely, it hasn't arrived yet). We'll try to
         # obtain a genesis through the Eth1 deposits monitor:
@@ -512,10 +477,10 @@ proc init*(T: type BeaconNode,
         #      that would do only this - see Paul's proposal for this.
         let eth1Monitor = Eth1Monitor.init(
           cfg,
+          metadata.depositContractDeployedAt,
           db,
           nil,
           config.web3Urls,
-          getDepositContractSnapshot(),
           eth1Network,
           config.web3ForcePolling,
           optJwtSecret,
@@ -608,10 +573,10 @@ proc init*(T: type BeaconNode,
   if eth1Monitor.isNil and config.web3Urls.len > 0:
     eth1Monitor = Eth1Monitor.init(
       cfg,
+      metadata.depositContractDeployedAt,
       db,
       getBeaconTime,
       config.web3Urls,
-      getDepositContractSnapshot(),
       eth1Network,
       config.web3ForcePolling,
       optJwtSecret,
@@ -1824,14 +1789,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
 
-  let node = BeaconNode.init(
-    metadata.cfg,
-    rng,
-    config,
-    metadata.depositContractDeployedAt,
-    metadata.eth1Network,
-    metadata.genesisData,
-    metadata.genesisDepositsSnapshot)
+  let node = BeaconNode.init(rng, config, metadata)
 
   if bnStatus == BeaconNodeStatus.Stopping:
     return
@@ -2036,6 +1994,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
       config.stateId,
       config.backfillBlocks,
       config.reindex,
+      config.downloadDepositSnapshot,
       genesis)
 
 {.pop.} # TODO moduletests exceptions
