@@ -13,7 +13,7 @@ import
   web3/ethtypes,
   # Beacon chain internals
   ../beacon_chain/spec/[forks, helpers, state_transition],
-  ../beacon_chain/eth1/eth1_monitor,
+  ../beacon_chain/spec/datatypes/bellatrix,
   # Test utilities
   ./unittest2, mocking/mock_genesis
 
