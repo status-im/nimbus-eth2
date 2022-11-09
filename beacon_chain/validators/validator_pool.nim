@@ -23,12 +23,10 @@ import
   ../filepath,
   ./slashing_protection
 
-from ../consensus_object_pools/attestation_pool import NextAttestationEntry
-
 export
   streams, options, keystore, phase0, altair, tables, uri, crypto,
   rest_types, eth2_rest_serialization, rest_remote_signer_calls,
-  slashing_protection, NextAttestationEntry
+  slashing_protection
 
 const
   WEB3_SIGNER_DELAY_TOLERANCE = 3.seconds
@@ -262,8 +260,7 @@ proc doppelgangerCheck*(validator: AttachedValidator,
       else:
         let actualStartEpoch = max(startEpoch, broadcastEpoch)
         if epoch - actualStartEpoch <= DOPPELGANGER_EPOCHS_COUNT:
-          # Validator is started in checking period, perform check using
-          # `nextAttestation` entry.
+          # Validator is started in unsafe period.
           ok(false)
         else:
           # Validator is already passed checking period, so we allow validator
