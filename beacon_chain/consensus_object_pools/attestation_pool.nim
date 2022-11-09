@@ -61,10 +61,6 @@ type
     ## voted on different states - this map keeps track of each vote keyed by
     ## hash_tree_root(AttestationData)
 
-  NextAttestationEntry* = object
-    subnet*: Epoch
-    aggregate*: Epoch
-
   AttestationPool* = object
     ## The attestation pool keeps track of all attestations that potentially
     ## could be added to a block during block production.
@@ -85,7 +81,7 @@ type
 
     forkChoice*: ForkChoice
 
-    nextAttestationEpoch*: seq[NextAttestationEntry] ## \
+    nextAttestationEpoch*: seq[tuple[subnet: Epoch, aggregate: Epoch]] ## \
     ## sequence based on validator indices
 
     onAttestationAdded*: OnAttestationCallback
@@ -837,15 +833,3 @@ proc validatorSeenAtEpoch*(pool: AttestationPool, epoch: Epoch,
     (mark.subnet > epoch) or (mark.aggregate > epoch)
   else:
     false
-
-proc getNextAttestationEntry*(
-       pool: AttestationPool,
-       epoch: Epoch,
-       validatorIndex: Opt[ValidatorIndex]
-     ): Opt[NextAttestationEntry] =
-  let vindex = validatorIndex.valueOr:
-    return Opt.none(NextAttestationEntry)
-  if uint64(vindex) < lenu64(pool.nextAttestationEpoch):
-    Opt.some(pool.nextAttestationEpoch[vindex])
-  else:
-    Opt.none(NextAttestationEntry)
