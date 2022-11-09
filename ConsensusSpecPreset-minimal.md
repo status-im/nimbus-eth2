@@ -154,6 +154,31 @@ ConsensusSpecPreset-minimal
 + EF - Capella - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
 + EF - Capella - Rewards - with_slashed_validators [Preset: minimal]                         OK
 + EF - Capella - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
++ EF - Capella - Transition - normal_transition [Preset: minimal]                            OK
++ EF - Capella - Transition - simple_transition [Preset: minimal]                            OK
++ EF - Capella - Transition - transition_missing_first_post_block [Preset: minimal]          OK
++ EF - Capella - Transition - transition_missing_last_pre_fork_block [Preset: minimal]       OK
++ EF - Capella - Transition - transition_only_blocks_post_fork [Preset: minimal]             OK
++ EF - Capella - Transition - transition_randomized_state [Preset: minimal]                  OK
++ EF - Capella - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]     OK
++ EF - Capella - Transition - transition_with_attester_slashing_right_after_fork [Preset: mi OK
++ EF - Capella - Transition - transition_with_attester_slashing_right_before_fork [Preset: m OK
++ EF - Capella - Transition - transition_with_deposit_right_after_fork [Preset: minimal]     OK
++ EF - Capella - Transition - transition_with_deposit_right_before_fork [Preset: minimal]    OK
++ EF - Capella - Transition - transition_with_finality [Preset: minimal]                     OK
++ EF - Capella - Transition - transition_with_leaking_at_fork [Preset: minimal]              OK
++ EF - Capella - Transition - transition_with_leaking_pre_fork [Preset: minimal]             OK
++ EF - Capella - Transition - transition_with_no_attestations_until_after_fork [Preset: mini OK
++ EF - Capella - Transition - transition_with_non_empty_activation_queue [Preset: minimal]   OK
++ EF - Capella - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pr OK
++ EF - Capella - Transition - transition_with_one_fourth_exiting_validators_exit_post_fork [ OK
++ EF - Capella - Transition - transition_with_one_fourth_slashed_active_validators_pre_fork  OK
++ EF - Capella - Transition - transition_with_proposer_slashing_right_after_fork [Preset: mi OK
++ EF - Capella - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
++ EF - Capella - Transition - transition_with_random_half_participation [Preset: minimal]    OK
++ EF - Capella - Transition - transition_with_random_three_quarters_participation [Preset: m OK
++ EF - Capella - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minim OK
++ EF - Capella - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
 + EF - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: minimal]           OK
 + EF - Phase 0 - Rewards - empty [Preset: minimal]                                           OK
@@ -640,7 +665,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 602/637 Fail: 0/637 Skip: 35/637
+OK: 627/662 Fail: 0/662 Skip: 35/662
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -2032,4 +2057,4 @@ OK: 52/52 Fail: 0/52 Skip: 0/52
 OK: 14/14 Fail: 0/14 Skip: 0/14
 
 ---TOTAL---
-OK: 1739/1774 Fail: 0/1774 Skip: 35/1774
+OK: 1764/1799 Fail: 0/1799 Skip: 35/1799

@@ -146,6 +146,27 @@ ConsensusSpecPreset-mainnet
 + EF - Capella - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]          OK
 + EF - Capella - Rewards - with_slashed_validators [Preset: mainnet]                         OK
 + EF - Capella - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
++ EF - Capella - Transition - normal_transition [Preset: mainnet]                            OK
++ EF - Capella - Transition - simple_transition [Preset: mainnet]                            OK
++ EF - Capella - Transition - transition_missing_first_post_block [Preset: mainnet]          OK
++ EF - Capella - Transition - transition_missing_last_pre_fork_block [Preset: mainnet]       OK
++ EF - Capella - Transition - transition_only_blocks_post_fork [Preset: mainnet]             OK
++ EF - Capella - Transition - transition_randomized_state [Preset: mainnet]                  OK
++ EF - Capella - Transition - transition_with_activation_at_fork_epoch [Preset: mainnet]     OK
++ EF - Capella - Transition - transition_with_attester_slashing_right_after_fork [Preset: ma OK
++ EF - Capella - Transition - transition_with_attester_slashing_right_before_fork [Preset: m OK
++ EF - Capella - Transition - transition_with_deposit_right_after_fork [Preset: mainnet]     OK
++ EF - Capella - Transition - transition_with_deposit_right_before_fork [Preset: mainnet]    OK
++ EF - Capella - Transition - transition_with_finality [Preset: mainnet]                     OK
++ EF - Capella - Transition - transition_with_leaking_at_fork [Preset: mainnet]              OK
++ EF - Capella - Transition - transition_with_leaking_pre_fork [Preset: mainnet]             OK
++ EF - Capella - Transition - transition_with_no_attestations_until_after_fork [Preset: main OK
++ EF - Capella - Transition - transition_with_non_empty_activation_queue [Preset: mainnet]   OK
++ EF - Capella - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pr OK
++ EF - Capella - Transition - transition_with_proposer_slashing_right_after_fork [Preset: ma OK
++ EF - Capella - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
++ EF - Capella - Transition - transition_with_random_half_participation [Preset: mainnet]    OK
++ EF - Capella - Transition - transition_with_random_three_quarters_participation [Preset: m OK
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
 + EF - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: mainnet]           OK
 + EF - Phase 0 - Rewards - empty [Preset: mainnet]                                           OK
@@ -568,7 +589,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 538/565 Fail: 0/565 Skip: 27/565
+OK: 559/586 Fail: 0/586 Skip: 27/586
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -1900,4 +1921,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 14/14 Fail: 0/14 Skip: 0/14
 
 ---TOTAL---
-OK: 1627/1654 Fail: 0/1654 Skip: 27/1654
+OK: 1648/1675 Fail: 0/1675 Skip: 27/1675

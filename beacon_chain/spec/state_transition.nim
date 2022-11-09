@@ -181,10 +181,25 @@ func maybeUpgradeStateToBellatrix(
       bellatrixData: bellatrix.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
+from ./datatypes/capella import HashedBeaconState
+
+func maybeUpgradeStateToCapella(
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+  # Both process_slots() and state_transition_block() call this, so only run it
+  # once by checking for existing fork.
+  if getStateField(state, slot).epoch == cfg.CAPELLA_FORK_EPOCH and
+      state.kind == BeaconStateFork.Bellatrix:
+    let newState = upgrade_to_capella(cfg, state.bellatrixData.data)
+    state = (ref ForkedHashedBeaconState)(
+      kind: BeaconStateFork.Capella,
+      capellaData: capella.HashedBeaconState(
+        root: hash_tree_root(newState[]), data: newState[]))[]
+
 func maybeUpgradeState*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   cfg.maybeUpgradeStateToAltair(state)
   cfg.maybeUpgradeStateToBellatrix(state)
+  cfg.maybeUpgradeStateToCapella(state)
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
