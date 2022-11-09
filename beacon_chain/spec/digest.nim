@@ -30,8 +30,10 @@ import
   # Status libraries
   chronicles,
   nimcrypto/[sha2, hash],
-  stew/[byteutils, endians2, objects],
+  stew/[arrayops, byteutils, endians2, objects],
   json_serialization
+
+from nimcrypto/utils import burnMem
 
 export
   # Exports from sha2 / hash are explicit to avoid exporting upper-case `$` and
@@ -50,13 +52,28 @@ when PREFER_BLST_SHA256:
   else:
     const USE_BLST_SHA256 = false
 else:
+  import nimcrypto/sha2
   const USE_BLST_SHA256 = false
 
 when USE_BLST_SHA256:
-  export blscurve.update
+  export blscurve.update, blscurve.finish
+
   type Eth2DigestCtx* = BLST_SHA256_CTX
+
+  # HMAC support
+  template hmacSizeBlock*(_: type BLST_SHA256_CTX): untyped = 64
+  template sizeDigest*(_: BLST_SHA256_CTX): untyped = 32
+
+  proc finish*(ctx: var BLST_SHA256_CTX,
+               data: var openArray[byte]): uint =
+      var tmp {.noinit.}: array[32, byte]
+      finalize(tmp, ctx)
+      data.copyFrom(tmp).uint * 8
+  proc clear*(ctx: var BLST_SHA256_CTX) =
+    burnMem(ctx)
+
 else:
-  export sha2.update
+  export sha2.update, sha2.finish
   type Eth2DigestCtx* = sha2.sha256
 
 func `$`*(x: Eth2Digest): string =

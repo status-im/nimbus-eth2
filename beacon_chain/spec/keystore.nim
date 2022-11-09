@@ -752,10 +752,11 @@ proc decryptCryptoField*(crypto: Crypto,
       template params: auto = crypto.kdf.pbkdf2Params
       if not params.areValid or params.c > high(int).uint64:
         return InvalidKeystore
-      sha256.pbkdf2(password.str,
-                    params.salt.bytes,
-                    int params.c,
-                    int params.dklen)
+      Eth2DigestCtx.pbkdf2(
+        password.str,
+        params.salt.bytes,
+        int params.c,
+        int params.dklen)
     of kdfScrypt:
       template params: auto = crypto.kdf.scryptParams
       if not params.areValid:
