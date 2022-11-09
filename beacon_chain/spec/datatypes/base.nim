@@ -910,8 +910,8 @@ template isomorphicCast*[T, U](x: U): T =
     cast[T](x)
   else:
     static:
-      doAssert sizeof(T) == sizeof(U)
       doAssert getSizeofSig(T()) == getSizeofSig(U())
+      doAssert sizeof(T) == sizeof(U)
     cast[ptr T](unsafeAddr x)[]
 
 func prune*(cache: var StateCache, epoch: Epoch) =
@@ -953,7 +953,6 @@ func clear*(cache: var StateCache) =
   cache.sync_committees.clear
 
 func checkForkConsistency*(cfg: RuntimeConfig) =
-  doAssert cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
   doAssert cfg.SHARDING_FORK_EPOCH == FAR_FUTURE_EPOCH
 
   let forkVersions =

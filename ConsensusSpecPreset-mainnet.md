@@ -252,22 +252,22 @@ ConsensusSpecPreset-mainnet
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/block_lookup_failed Skip
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_early_for_merge Skip
   ForkChoice - mainnet/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_late_for_merge  Skip
-  ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_grea Skip
-  ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_ Skip
-  ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest Skip
-  ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att Skip
-  ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              Skip
-  ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/chain_no_attestations       Skip
-  ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/discard_equivocations       Skip
-  ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/genesis                     Skip
-  ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head Skip
-  ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w Skip
-  ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest Skip
-  ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/basic                       Skip
-  ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    Skip
++ ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_grea OK
++ ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_ OK
++ ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
++ ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att OK
++ ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              OK
++ ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/chain_no_attestations       OK
++ ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/discard_equivocations       OK
++ ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/genesis                     OK
++ ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
++ ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
++ ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
++ ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/basic                       OK
++ ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
   ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
-  ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost              Skip
-  ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl Skip
++ ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
++ ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
 + ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_great OK
 + ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_n OK
 + ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
@@ -299,7 +299,7 @@ ConsensusSpecPreset-mainnet
 + Slots - slots_1                                                                            OK
 + Slots - slots_2                                                                            OK
 + Sync - mainnet/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
-  Sync - mainnet/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                Skip
++ Sync - mainnet/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + [Invalid] EF - Altair - Sanity - Blocks - double_same_proposer_slashings_same_block [Prese OK
 + [Invalid] EF - Altair - Sanity - Blocks - double_similar_proposer_slashings_same_block [Pr OK
 + [Invalid] EF - Altair - Sanity - Blocks - double_validator_exit_same_block [Preset: mainne OK
@@ -589,7 +589,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 559/586 Fail: 0/586 Skip: 27/586
+OK: 575/586 Fail: 0/586 Skip: 11/586
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -1921,4 +1921,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 14/14 Fail: 0/14 Skip: 0/14
 
 ---TOTAL---
-OK: 1648/1675 Fail: 0/1675 Skip: 27/1675
+OK: 1664/1675 Fail: 0/1675 Skip: 11/1675

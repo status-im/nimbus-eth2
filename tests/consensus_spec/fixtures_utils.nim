@@ -118,6 +118,8 @@ proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
     stderr.write err.formatMsg(path), "\n"
     quit 1
 
+from ../../beacon_chain/spec/datatypes/capella import BeaconState
+
 proc loadForkedState*(
     path: string, fork: BeaconStateFork): ref ForkedHashedBeaconState =
   # TODO stack usage. newClone and assignClone do not seem to
@@ -125,7 +127,10 @@ proc loadForkedState*(
   let forkedState = new ForkedHashedBeaconState
   case fork
   of BeaconStateFork.Capella:
-    raiseAssert $capellaImplementationMissing
+    let state = newClone(parseTest(path, SSZ, capella.BeaconState))
+    forkedState.kind = BeaconStateFork.Capella
+    forkedState.capellaData.data = state[]
+    forkedState.capellaData.root = hash_tree_root(state[])
   of BeaconStateFork.Bellatrix:
     let state = newClone(parseTest(path, SSZ, bellatrix.BeaconState))
     forkedState.kind = BeaconStateFork.Bellatrix

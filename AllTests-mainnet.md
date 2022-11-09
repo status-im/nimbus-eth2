@@ -35,6 +35,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + sanity check Bellatrix blocks [Preset: mainnet]                                            OK
 + sanity check Bellatrix states [Preset: mainnet]                                            OK
 + sanity check Bellatrix states, reusing buffers [Preset: mainnet]                           OK
++ sanity check Capella blocks [Preset: mainnet]                                              OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
@@ -42,7 +43,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
+OK: 17/17 Fail: 0/17 Skip: 0/17
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
@@ -606,4 +607,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 335/340 Fail: 0/340 Skip: 5/340
+OK: 336/341 Fail: 0/341 Skip: 5/341

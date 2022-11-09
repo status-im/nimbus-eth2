@@ -137,11 +137,11 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]  # [New in Altair]
+    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Light client sync committees
-    current_sync_committee*: SyncCommittee     # [New in Altair]
-    next_sync_committee*: SyncCommittee        # [New in Altair]
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
 
     # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader
