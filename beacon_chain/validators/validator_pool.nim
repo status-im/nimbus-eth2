@@ -23,13 +23,16 @@ import
   ../filepath,
   ./slashing_protection
 
+from ../consensus_object_pools/attestation_pool import NextAttestationEntry
+
 export
   streams, options, keystore, phase0, altair, tables, uri, crypto,
   rest_types, eth2_rest_serialization, rest_remote_signer_calls,
-  slashing_protection
+  slashing_protection, NextAttestationEntry
 
 const
   WEB3_SIGNER_DELAY_TOLERANCE = 3.seconds
+  DOPPELGANGER_EPOCHS_COUNT = 2
 
 declareGauge validators,
   "Number of validators attached to the beacon node"
@@ -226,14 +229,46 @@ iterator items*(pool: ValidatorPool): AttachedValidator =
     yield item
 
 proc doppelgangerCheck*(validator: AttachedValidator,
-                        wallSlot: Slot, seenEpoch: Epoch): bool =
-  let vindex =
-    if validator.index.isSome():
-      validator.index.get()
-    else:
-      # If `validator` do not have index assigned yet it should not participate.
-      return false
+                        epoch: Epoch,
+                        broadcastEpoch: Epoch): Result[bool, cstring] =
+  ## Perform check of ``validator`` for doppelganger.
+  ##
+  ## Returns ``true`` if `validator` do not have doppelganger and could perform
+  ## validator actions.
+  ##
+  ## Returns ``false`` if `validator` has doppelganger in network and MUST not
+  ## perform any validator actions.
+  ##
+  ## Returns error, if its impossible to perform doppelganger check.
+  let
+    startEpoch = validator.startSlot.epoch() # startEpoch is epoch when /
+      # validator appeared in beacon_node.
+    activationEpoch = validator.activationEpoch # validator's activation_epoch
 
+  if activationEpoch.isNone() or activationEpoch.get() > epoch:
+    # If validator's `activation_epoch` is not set or `activation_epoch` is far
+    # from current wall epoch - it should not participate in the network.
+    err("Validator is not activated yet, or beacon node clock is invalid")
+  else:
+    if startEpoch == GENESIS_EPOCH:
+      # Validator's `activation_epoch` less or equal to current wall epoch.
+      # Because validator was started at `GENESIS_EPOCH` we going to skip
+      # doppelganger detection.
+      ok(true)
+    else:
+      if activationEpoch.get() == epoch:
+        # Validator just activated so we going to skip doppelganger detection.
+        ok(true)
+      else:
+        let actualStartEpoch = max(startEpoch, broadcastEpoch)
+        if epoch - actualStartEpoch <= DOPPELGANGER_EPOCHS_COUNT:
+          # Validator is started in checking period, perform check using
+          # `nextAttestation` entry.
+          ok(false)
+        else:
+          # Validator is already passed checking period, so we allow validator
+          # to participate in the network.
+          ok(true)
 
 proc signWithDistributedKey(v: AttachedValidator,
                             request: Web3SignerRequest): Future[SignatureResult]
