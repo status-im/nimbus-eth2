@@ -262,6 +262,9 @@ proc checkForPotentialDoppelganger(
   if not self.doppelgangerDetectionEnabled:
     return
 
+  if attestation.data.slot <= self.doppelgangerDetection.nodeLaunchSlot + 1:
+    return
+
   let broadcastStartEpoch = self.doppelgangerDetection.broadcastStartEpoch
 
   for validatorIndex in attesterIndices:
