@@ -845,7 +845,11 @@ proc applyBlock(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
   of BeaconBlockFork.Capella:
-    raiseAssert $capellaImplementationMissing
+    let data = getBlock(dag, bid, capella.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    state_transition(
+      dag.cfg, state, data, cache, info,
+      dag.updateFlags + {slotProcessed}, noRollback)
 
 proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
            validatorMonitor: ref ValidatorMonitor, updateFlags: UpdateFlags,
