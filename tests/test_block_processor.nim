@@ -60,7 +60,7 @@ suite "Block processor" & preset():
   asyncTest "Reverse order block add & get" & preset():
     let missing = await processor.storeBlock(
       MsgSource.gossip, b2.message.slot.start_beacon_time(), b2)
-    check: missing.error[0] == BlockError.MissingParent
+    check: missing.error[0] == VerifierError.MissingParent
 
     check:
       not dag.containsForkBlock(b2.root) # Unresolved, shouldn't show up

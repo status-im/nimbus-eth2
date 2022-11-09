@@ -29,8 +29,8 @@ proc pruneAtFinalization(dag: ChainDAGRef) =
     dag.pruneStateCachesDAG()
 
 type
-  AddHeadRes = Result[BlockRef, BlockError]
-  AddBackRes = Result[void, BlockError]
+  AddHeadRes = Result[BlockRef, VerifierError]
+  AddBackRes = Result[void, VerifierError]
 
 suite "Block pool processing" & preset():
   setup:
@@ -273,7 +273,7 @@ suite "Block pool processing" & preset():
       b11 = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
 
     check:
-      b11 == AddHeadRes.err BlockError.Duplicate
+      b11 == AddHeadRes.err VerifierError.Duplicate
       not b10[].isNil
 
   test "updateHead updates head and headState" & preset():
@@ -382,7 +382,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd == AddHeadRes.err BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # Randao reveal
       var b = b2
@@ -390,7 +390,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd == AddHeadRes.err BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # Attestations
       var b = b2
@@ -398,7 +398,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd == AddHeadRes.err BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # SyncAggregate empty
       var b = b2
@@ -406,7 +406,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd == AddHeadRes.err BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # SyncAggregate junk
       var b = b2
@@ -416,7 +416,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd == AddHeadRes.err BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
 suite "chain DAG finalization tests" & preset():
   setup:
@@ -556,7 +556,7 @@ suite "chain DAG finalization tests" & preset():
       let status = dag.addHeadBlock(verifier, lateBlock, nilPhase0Callback)
       # This _should_ be Unviable, but we can't tell, from the data that we have
       # so MissingParent is the least wrong thing to reply
-      check: status == AddHeadRes.err BlockError.UnviableFork
+      check: status == AddHeadRes.err VerifierError.UnviableFork
 
     block:
       let
@@ -871,13 +871,13 @@ suite "Backfill":
     badBlock.signature = blocks[^3].phase0Data.signature
 
     check:
-      dag.addBackfillBlock(badBlock) == AddBackRes.err BlockError.Invalid
+      dag.addBackfillBlock(badBlock) == AddBackRes.err VerifierError.Invalid
 
     check:
       dag.addBackfillBlock(blocks[^3].phase0Data) ==
-        AddBackRes.err BlockError.MissingParent
+        AddBackRes.err VerifierError.MissingParent
       dag.addBackfillBlock(genBlock.phase0Data.asSigned()) ==
-        AddBackRes.err BlockError.MissingParent
+        AddBackRes.err VerifierError.MissingParent
 
       dag.addBackfillBlock(tailBlock.phase0Data).isOk()
 
@@ -909,7 +909,7 @@ suite "Backfill":
 
     check:
       dag.addBackfillBlock(genBlock.phase0Data.asSigned) ==
-        AddBackRes.err BlockError.Duplicate
+        AddBackRes.err VerifierError.Duplicate
 
       dag.backfill.slot == GENESIS_SLOT
 
@@ -972,7 +972,7 @@ suite "Backfill":
     check:
       dag.addBackfillBlock(genBlock.phase0Data.asSigned).isOk()
       dag.addBackfillBlock(
-        genBlock.phase0Data.asSigned) == AddBackRes.err BlockError.Duplicate
+        genBlock.phase0Data.asSigned) == AddBackRes.err VerifierError.Duplicate
 
     var
       cache: StateCache
@@ -1064,13 +1064,13 @@ suite "Starting states":
       badBlock = blocks[^2].phase0Data
     badBlock.signature = blocks[^3].phase0Data.signature
     check:
-      dag.addBackfillBlock(badBlock) == AddBackRes.err BlockError.Invalid
+      dag.addBackfillBlock(badBlock) == AddBackRes.err VerifierError.Invalid
 
     check:
       dag.addBackfillBlock(blocks[^3].phase0Data) ==
-        AddBackRes.err BlockError.MissingParent
+        AddBackRes.err VerifierError.MissingParent
       dag.addBackfillBlock(genBlock.phase0Data.asSigned()) ==
-        AddBackRes.err BlockError.MissingParent
+        AddBackRes.err VerifierError.MissingParent
 
       dag.addBackfillBlock(tailBlock.phase0Data) == AddBackRes.ok()
 

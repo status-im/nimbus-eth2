@@ -188,7 +188,7 @@ proc stepOnBlock(
        signedBlock: ForkySignedBeaconBlock,
        time: BeaconTime,
        invalidatedRoots: Table[Eth2Digest, Eth2Digest]):
-       Result[BlockRef, BlockError] =
+       Result[BlockRef, VerifierError] =
   # 1. Move state to proper slot.
   doAssert dag.updateState(
     state,
@@ -227,7 +227,7 @@ proc stepOnBlock(
       fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
         signedBlock.message.parent_root, lvh, executionPayloadHash))
 
-      return err BlockError.Invalid
+      return err VerifierError.Invalid
 
   let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: TrustedBlock,

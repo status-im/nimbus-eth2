@@ -33,7 +33,7 @@ const
 type
   BlockVerifier* =
     proc(signedBlock: ForkedSignedBeaconBlock):
-      Future[Result[void, BlockError]] {.gcsafe, raises: [Defect].}
+      Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 
   RequestManager* = object
     network*: Eth2Node
@@ -90,21 +90,21 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
           let ver = await rman.blockVerifier(b[])
           if ver.isErr():
             case ver.error()
-            of BlockError.MissingParent:
+            of VerifierError.MissingParent:
               # Ignoring because the order of the blocks that
               # we requested may be different from the order in which we need
               # these blocks to apply.
               discard
-            of BlockError.Duplicate:
+            of VerifierError.Duplicate:
               # Ignoring because these errors could occur due to the
               # concurrent/parallel requests we made.
               discard
-            of BlockError.UnviableFork:
+            of VerifierError.UnviableFork:
               # If they're working a different fork, we'll want to descore them
               # but also process the other blocks (in case we can register the
               # other blocks as unviable)
               gotUnviableBlock = true
-            of BlockError.Invalid:
+            of VerifierError.Invalid:
               # We stop processing blocks because peer is either sending us
               # junk or working a different fork
               notice "Received invalid block",

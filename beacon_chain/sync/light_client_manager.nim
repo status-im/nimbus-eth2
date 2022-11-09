@@ -37,7 +37,7 @@ type
     Endpoint[Nothing, altair.LightClientOptimisticUpdate]
 
   ValueVerifier[V] =
-    proc(v: V): Future[Result[void, BlockError]] {.gcsafe, raises: [Defect].}
+    proc(v: V): Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   BootstrapVerifier* =
     ValueVerifier[altair.LightClientBootstrap]
   UpdateVerifier* =
@@ -226,22 +226,22 @@ proc workerTask[E](
         let res = await self.valueVerifier(E)(val)
         if res.isErr:
           case res.error
-          of BlockError.MissingParent:
+          of VerifierError.MissingParent:
             # Stop, requires different request to progress
             return didProgress
-          of BlockError.Duplicate:
+          of VerifierError.Duplicate:
             # Ignore, a concurrent request may have already fulfilled this
             when E.V is altair.LightClientBootstrap:
               didProgress = true
             else:
               discard
-          of BlockError.UnviableFork:
+          of VerifierError.UnviableFork:
             # Descore, peer is on an incompatible fork version
             notice "Received value from an unviable fork", value = val.shortLog,
               endpoint = E.name, peer, peer_score = peer.getScore()
             peer.updateScore(PeerScoreUnviableFork)
             return didProgress
-          of BlockError.Invalid:
+          of VerifierError.Invalid:
             # Descore, received data is malformed
             warn "Received invalid value", value = val.shortLog,
               endpoint = E.name, peer, peer_score = peer.getScore()

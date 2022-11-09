@@ -99,7 +99,7 @@ suite "Light client processor" & preset():
         processor = LightClientProcessor.new(
           false, "", "", cfg, genesis_validators_root, finalizationMode,
           store, getBeaconTime, getTrustedBlockRoot, onStoreInitialized)
-        res: Result[bool, BlockError]
+        res: Result[bool, VerifierError]
 
     test "Sync" & testNameSuffix:
       let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
@@ -151,14 +151,14 @@ suite "Light client processor" & preset():
             else:
               check:
                 res.isErr
-                res.error == BlockError.Duplicate
+                res.error == VerifierError.Duplicate
                 store[].isSome
                 store[].get.best_valid_update.isSome
                 store[].get.best_valid_update.get == update.get
           else:
             check:
               res.isErr
-              res.error == BlockError.MissingParent
+              res.error == VerifierError.MissingParent
               store[].isSome
               store[].get.best_valid_update.isSome
               store[].get.best_valid_update.get != update.get
@@ -170,14 +170,14 @@ suite "Light client processor" & preset():
                 period == lastPeriodWithSupermajority + 1:
               check:
                 res.isErr
-                res.error == BlockError.Duplicate
+                res.error == VerifierError.Duplicate
                 store[].isSome
                 store[].get.best_valid_update.isSome
                 store[].get.best_valid_update.get == update.get
             else:
               check:
                 res.isErr
-                res.error == BlockError.MissingParent
+                res.error == VerifierError.MissingParent
                 store[].isSome
                 store[].get.best_valid_update.isSome
                 store[].get.best_valid_update.get != update.get
@@ -194,7 +194,7 @@ suite "Light client processor" & preset():
           if finalizationMode == LightClientFinalizationMode.Optimistic:
             check:
               res.isErr
-              res.error == BlockError.Duplicate
+              res.error == VerifierError.Duplicate
               store[].isSome
               store[].get.best_valid_update.isNone
             if store[].get.finalized_header == update.get.attested_header:
@@ -203,14 +203,14 @@ suite "Light client processor" & preset():
           elif period == lastPeriodWithSupermajority + 1:
             check:
               res.isErr
-              res.error == BlockError.Duplicate
+              res.error == VerifierError.Duplicate
               store[].isSome
               store[].get.best_valid_update.isSome
               store[].get.best_valid_update.get == update.get
           else:
             check:
               res.isErr
-              res.error == BlockError.MissingParent
+              res.error == VerifierError.MissingParent
               store[].isSome
               store[].get.best_valid_update.isSome
               store[].get.best_valid_update.get != update.get
@@ -238,9 +238,9 @@ suite "Light client processor" & preset():
           store[].get.best_valid_update.get.matches(finalityUpdate.get)
           store[].get.optimistic_header == finalityUpdate.get.attested_header
       elif finalizationMode == LightClientFinalizationMode.Optimistic:
-        check res.error == BlockError.Duplicate
+        check res.error == VerifierError.Duplicate
       else:
-        check res.error == BlockError.MissingParent
+        check res.error == VerifierError.MissingParent
       check numOnStoreInitializedCalls == 1
 
     test "Invalid bootstrap" & testNameSuffix:
@@ -252,7 +252,7 @@ suite "Light client processor" & preset():
         MsgSource.gossip, getBeaconTime(), bootstrap.get)
       check:
         res.isErr
-        res.error == BlockError.Invalid
+        res.error == VerifierError.Invalid
         numOnStoreInitializedCalls == 0
 
     test "Duplicate bootstrap" & testNameSuffix:
@@ -268,7 +268,7 @@ suite "Light client processor" & preset():
         MsgSource.gossip, getBeaconTime(), bootstrap.get)
       check:
         res.isErr
-        res.error == BlockError.Duplicate
+        res.error == VerifierError.Duplicate
         numOnStoreInitializedCalls == 1
 
     test "Missing bootstrap (update)" & testNameSuffix:
@@ -279,7 +279,7 @@ suite "Light client processor" & preset():
         MsgSource.gossip, getBeaconTime(), update.get)
       check:
         res.isErr
-        res.error == BlockError.MissingParent
+        res.error == VerifierError.MissingParent
         numOnStoreInitializedCalls == 0
 
     test "Missing bootstrap (finality update)" & testNameSuffix:
@@ -290,7 +290,7 @@ suite "Light client processor" & preset():
         MsgSource.gossip, getBeaconTime(), finalityUpdate.get)
       check:
         res.isErr
-        res.error == BlockError.MissingParent
+        res.error == VerifierError.MissingParent
         numOnStoreInitializedCalls == 0
 
     test "Missing bootstrap (optimistic update)" & testNameSuffix:
@@ -301,5 +301,5 @@ suite "Light client processor" & preset():
         MsgSource.gossip, getBeaconTime(), optimisticUpdate.get)
       check:
         res.isErr
-        res.error == BlockError.MissingParent
+        res.error == VerifierError.MissingParent
         numOnStoreInitializedCalls == 0
