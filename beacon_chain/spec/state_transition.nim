@@ -181,7 +181,8 @@ func maybeUpgradeStateToBellatrix(
       bellatrixData: bellatrix.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
-from ./datatypes/capella import HashedBeaconState
+from ./datatypes/capella import
+  ExecutionPayload, HashedBeaconState, asSigVerified
 
 func maybeUpgradeStateToCapella(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
@@ -322,7 +323,7 @@ template partialBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    execution_payload: ExecutionPayload): phase0.BeaconBlock =
+    execution_payload: bellatrix.ExecutionPayload): phase0.BeaconBlock =
   phase0.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
@@ -348,7 +349,7 @@ proc makeBeaconBlock*(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    execution_payload: ExecutionPayload,
+    execution_payload: bellatrix.ExecutionPayload,
     rollback: RollbackHashedProc[phase0.HashedBeaconState],
     cache: var StateCache,
     # TODO:
@@ -391,7 +392,7 @@ template partialBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    execution_payload: ExecutionPayload): altair.BeaconBlock =
+    execution_payload: bellatrix.ExecutionPayload): altair.BeaconBlock =
   altair.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
@@ -418,7 +419,7 @@ proc makeBeaconBlock*(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    execution_payload: ExecutionPayload,
+    execution_payload: bellatrix.ExecutionPayload,
     rollback: RollbackHashedProc[altair.HashedBeaconState],
     cache: var StateCache,
     # TODO:
@@ -462,7 +463,7 @@ template partialBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    execution_payload: ExecutionPayload): bellatrix.BeaconBlock =
+    execution_payload: bellatrix.ExecutionPayload): bellatrix.BeaconBlock =
   bellatrix.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
@@ -490,7 +491,7 @@ proc makeBeaconBlock*(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    execution_payload: ExecutionPayload,
+    execution_payload: bellatrix.ExecutionPayload,
     rollback: RollbackHashedProc[bellatrix.HashedBeaconState],
     cache: var StateCache,
     # TODO:
@@ -532,7 +533,7 @@ proc makeBeaconBlock*(
     deposits: seq[Deposit],
     exits: BeaconBlockExits,
     sync_aggregate: SyncAggregate,
-    executionPayload: ExecutionPayload,
+    executionPayload: bellatrix.ExecutionPayload,
     rollback: RollbackForkedHashedProc,
     cache: var StateCache,
     # TODO:

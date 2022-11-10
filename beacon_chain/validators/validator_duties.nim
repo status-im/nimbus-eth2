@@ -626,7 +626,7 @@ proc getBlindedBeaconBlock[T](
       forkedBlock, executionPayloadHeader))
 
 proc getBlindedBlockParts(
-    node: BeaconNode, head: BlockRef, validator: AttachedValidator,
+    node: BeaconNode, head: BlockRef, pubkey: ValidatorPubKey,
     slot: Slot, randao: ValidatorSig, validator_index: ValidatorIndex):
     Future[Result[(bellatrix.ExecutionPayloadHeader, ForkedBeaconBlock), string]]
     {.async.} =
@@ -636,7 +636,7 @@ proc getBlindedBlockParts(
       try:
         awaitWithTimeout(
             node.getBlindedExecutionPayload(
-              slot, executionBlockRoot, validator.pubkey),
+              slot, executionBlockRoot, pubkey),
             BUILDER_PROPOSAL_DELAY_TOLERANCE):
           Result[bellatrix.ExecutionPayloadHeader, string].err(
             "getBlindedExecutionPayload timed out")
@@ -685,7 +685,7 @@ proc proposeBlockMEV(
     randao: ValidatorSig, validator_index: ValidatorIndex):
     Future[Opt[BlockRef]] {.async.} =
   let blindedBlockParts = await getBlindedBlockParts(
-    node, head, validator, slot, randao, validator_index)
+    node, head, validator.pubkey, slot, randao, validator_index)
   if blindedBlockParts.isErr:
     # Not signed yet, fine to try to fall back on EL
     beacon_block_builder_missed_with_fallback.inc()
@@ -739,7 +739,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*(
   ## signed by a validator. A blinded block is a block with only a transactions
   ## root, rather than a full transactions list.
   let
-    validator =
+    pubkey =
       # Relevant state for knowledge of validators
       withState(node.dag.headState):
         if distinctBase(validator_index) >= forkyState.data.validators.lenu64:
@@ -749,19 +749,10 @@ proc makeBlindedBeaconBlockForHeadAndSlot*(
             validators_len = forkyState.data.validators.len
           return err("Invalid validator index")
 
-        let pubkey = forkyState.data.validators.item(validator_index).pubkey
-        if pubkey notin node.attachedValidators.validators:
-          debug "makeBlindedBeaconBlockForHeadAndSlot: validator pubkey unknown",
-            head = shortLog(head),
-            validator_index,
-            validators_len = forkyState.data.validators.len,
-            pubkey = shortLog(pubkey)
-          return err("Validator pubkey unknown")
-
-        node.attachedValidators.validators[pubkey]
+        forkyState.data.validators.item(validator_index).pubkey
 
     blindedBlockParts = await getBlindedBlockParts(
-      node, head, validator, slot, randao_reveal, validator_index)
+      node, head, pubkey, slot, randao_reveal, validator_index)
   if blindedBlockParts.isErr:
     # Don't try EL fallback -- VC specifically requested a blinded block
     return err("Unable to create blinded block")
