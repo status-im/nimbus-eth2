@@ -9,6 +9,6 @@ Each beacon node requires at least one dedicated web3 provider.
 
 ```sh
 ./run-mainnet-beacon-node.sh \
-  --web3-url="ws://127.0.0.1:8546" \
-  --web3-url="http://backup:4444"
+  --web3-url="http://127.0.0.1:8551" \
+  --web3-url="ws://backup:4444"
 ```

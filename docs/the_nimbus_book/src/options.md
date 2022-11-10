@@ -1,4 +1,4 @@
-# Command line options
+# Command line
 
 Command line options allow you to customize the way your beacon node operates.
 

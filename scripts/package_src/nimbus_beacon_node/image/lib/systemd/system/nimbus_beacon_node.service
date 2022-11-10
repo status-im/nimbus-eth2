@@ -31,7 +31,7 @@ Environment=NETWORK=mainnet
 # a compatible execution client is running on the same machine on the default
 # websocket port. Make sure to supply the right path to the JWT secret.
 
-Environment=WEB3_URL=ws://127.0.0.1:8551
+Environment=WEB3_URL=http://127.0.0.1:8551
 Environment=JWT_SECRET=/tmp/jwtsecret
 
 # Where to store chain data

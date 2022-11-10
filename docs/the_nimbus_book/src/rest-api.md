@@ -1,10 +1,11 @@
-# REST API
+# Beacon API
 
-Nimbus exposes an **extremely fast** implementation of the standard [Beacon Node API](https://ethereum.github.io/beacon-APIs/). The API allows you to use Nimbus together with third-party tooling such as validator clients, block explorers as well as your own monitoring infrastructure.
+Nimbus exposes an **extremely fast** implementation of the standard [Beacon API](https://ethereum.github.io/beacon-APIs/). The API allows you to use Nimbus together with third-party tooling such as validator clients, block explorers as well as your own monitoring infrastructure.
 
-The API is a `REST` interface accessed via `HTTP`. **The API should not be exposed to the public Internet** unless protected by additional security: it includes multiple endpoints which could open your node to denial-of-service (DoS) attacks.
+The Beacon API is a `REST` interface accessed via `http`. If you wish to expose the beacon node to the public internet, it is recommended to use a proxy such as `nginx` to provide caching and SSL support.
 
-> **Warning:** If you choose to run a public endpoint, do not use that same node for validation duties -- the load of the public REST endpoint is enough to interfere with your validator duties. Additionally, if you're running validators on your beacon node, and using the same instance for historical data queries (>2 epochs old), this  may also interfere with your duties.
+!!! warning
+    If you are running validators with your beacon node, do no expose the REST API to the public internet or use the same beacon node for deep historical queries - doing so may negatively affect validator performance.
 
 ## Test your tooling against our servers
 
