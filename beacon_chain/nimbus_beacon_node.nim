@@ -1999,6 +1999,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
     waitFor doTrustedNodeSync(
       cfg,
       config.databaseDir,
+      config.eraDir,
       config.trustedNodeUrl,
       config.stateId,
       config.backfillBlocks,

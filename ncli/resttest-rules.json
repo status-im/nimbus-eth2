@@ -2308,6 +2308,20 @@
     "response": {"status": {"operator": "equals", "value": "400"}}
   },
   {
+    "topics": ["beacon", "beacon_block_blinded_blocks"],
+    "request": {
+      "url": "/eth/v1/beacon/blinded_blocks",
+      "method": "POST",
+      "headers": {"Accept": "application/json"},
+      "body": {"content-type": "application/json", "data": "[]"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
     "topics": ["beacon", "beacon_light_client_bootstrap_blockroot"],
     "request": {
       "url": "/eth/v1/beacon/light_client/bootstrap/0x0000000000000000000000000000000000000000000000000000000000000000",

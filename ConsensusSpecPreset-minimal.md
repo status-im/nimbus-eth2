@@ -154,6 +154,31 @@ ConsensusSpecPreset-minimal
 + EF - Capella - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
 + EF - Capella - Rewards - with_slashed_validators [Preset: minimal]                         OK
 + EF - Capella - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
++ EF - Capella - Transition - normal_transition [Preset: minimal]                            OK
++ EF - Capella - Transition - simple_transition [Preset: minimal]                            OK
++ EF - Capella - Transition - transition_missing_first_post_block [Preset: minimal]          OK
++ EF - Capella - Transition - transition_missing_last_pre_fork_block [Preset: minimal]       OK
++ EF - Capella - Transition - transition_only_blocks_post_fork [Preset: minimal]             OK
++ EF - Capella - Transition - transition_randomized_state [Preset: minimal]                  OK
++ EF - Capella - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]     OK
++ EF - Capella - Transition - transition_with_attester_slashing_right_after_fork [Preset: mi OK
++ EF - Capella - Transition - transition_with_attester_slashing_right_before_fork [Preset: m OK
++ EF - Capella - Transition - transition_with_deposit_right_after_fork [Preset: minimal]     OK
++ EF - Capella - Transition - transition_with_deposit_right_before_fork [Preset: minimal]    OK
++ EF - Capella - Transition - transition_with_finality [Preset: minimal]                     OK
++ EF - Capella - Transition - transition_with_leaking_at_fork [Preset: minimal]              OK
++ EF - Capella - Transition - transition_with_leaking_pre_fork [Preset: minimal]             OK
++ EF - Capella - Transition - transition_with_no_attestations_until_after_fork [Preset: mini OK
++ EF - Capella - Transition - transition_with_non_empty_activation_queue [Preset: minimal]   OK
++ EF - Capella - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pr OK
++ EF - Capella - Transition - transition_with_one_fourth_exiting_validators_exit_post_fork [ OK
++ EF - Capella - Transition - transition_with_one_fourth_slashed_active_validators_pre_fork  OK
++ EF - Capella - Transition - transition_with_proposer_slashing_right_after_fork [Preset: mi OK
++ EF - Capella - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
++ EF - Capella - Transition - transition_with_random_half_participation [Preset: minimal]    OK
++ EF - Capella - Transition - transition_with_random_three_quarters_participation [Preset: m OK
++ EF - Capella - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minim OK
++ EF - Capella - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
 + EF - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: minimal]           OK
 + EF - Phase 0 - Rewards - empty [Preset: minimal]                                           OK
@@ -255,30 +280,30 @@ ConsensusSpecPreset-minimal
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/block_lookup_failed Skip
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_early_for_merge Skip
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_late_for_merge  Skip
-  ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest Skip
-  ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att Skip
-  ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              Skip
-  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/chain_no_attestations       Skip
-  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/discard_equivocations       Skip
-  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/filtered_block_tree         Skip
-  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/genesis                     Skip
-  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head Skip
-  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w Skip
-  ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/basic                       Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justi Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_j Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_justified_is_later_than Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_before_finalized   Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_checkpoints        Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo Skip
++ ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
++ ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att OK
++ ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/chain_no_attestations       OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/discard_equivocations       OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/filtered_block_tree         OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/genesis                     OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/basic                       OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justi OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_j OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_justified_is_later_than OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_before_finalized   OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_checkpoints        OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo OK
   ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_update_justified_c Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost              Skip
-  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl Skip
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_update_justified_c OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
@@ -309,15 +334,18 @@ ConsensusSpecPreset-minimal
 + Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
 + Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
 + Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
-  Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp Skip
-  Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp Skip
-  Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp Skip
++ Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp OK
++ Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp OK
++ Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/advance_finality_witho OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync      OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/supply_sync_committee_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/advance_finality_wi OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync   OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/supply_sync_committ OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/advance_finality_with OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync     OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Update ranking - minimal/altair/light_client/update_ranking/pyspec_tests/up OK
 + Light client - Update ranking - minimal/bellatrix/light_client/update_ranking/pyspec_tests OK
 + Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u OK
@@ -327,7 +355,7 @@ ConsensusSpecPreset-minimal
 + Slots - slots_1                                                                            OK
 + Slots - slots_2                                                                            OK
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
-  Sync - minimal/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                Skip
++ Sync - minimal/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + [Invalid] EF - Altair - Sanity - Blocks - double_same_proposer_slashings_same_block [Prese OK
 + [Invalid] EF - Altair - Sanity - Blocks - double_similar_proposer_slashings_same_block [Pr OK
 + [Invalid] EF - Altair - Sanity - Blocks - double_validator_exit_same_block [Preset: minima OK
@@ -640,7 +668,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 602/637 Fail: 0/637 Skip: 35/637
+OK: 657/665 Fail: 0/665 Skip: 8/665
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -2032,4 +2060,4 @@ OK: 52/52 Fail: 0/52 Skip: 0/52
 OK: 14/14 Fail: 0/14 Skip: 0/14
 
 ---TOTAL---
-OK: 1739/1774 Fail: 0/1774 Skip: 35/1774
+OK: 1794/1802 Fail: 0/1802 Skip: 8/1802

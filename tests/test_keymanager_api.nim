@@ -267,6 +267,7 @@ proc startBeaconNode {.raises: [Defect, CatchableError].} =
   let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
     "--tcp-port=49000",
     "--udp-port=49000",
+    "--discv5=off",
     "--network=" & dataDir,
     "--data-dir=" & nodeDataDir,
     "--validators-dir=" & nodeValidatorsDir,

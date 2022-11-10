@@ -1158,7 +1158,7 @@ func matches_block_slot*(
 func can_advance_slots*(
     state: ForkyHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =
   ## Return true iff we can reach the given block/slot combination simply by
-  ## advancing slots
+  ## advancing 0 or more slots
   target_slot >= state.data.slot and block_root == state.latest_block_root
 func can_advance_slots*(
     state: ForkedHashedBeaconState, block_root: Eth2Digest, target_slot: Slot): bool =

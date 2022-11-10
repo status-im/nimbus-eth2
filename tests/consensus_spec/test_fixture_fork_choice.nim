@@ -62,6 +62,9 @@ type
     of opChecks:
       checks: JsonNode
 
+from ../../beacon_chain/spec/datatypes/capella import
+  BeaconBlock, BeaconState, SignedBeaconBlock
+
 proc initialLoad(
     path: string, db: BeaconChainDB,
     StateType, BlockType: typedesc
@@ -75,7 +78,13 @@ proc initialLoad(
       path/"anchor_block.ssz_snappy",
       SSZ, BlockType)
 
-  when BlockType is bellatrix.BeaconBlock:
+  when BlockType is capella.BeaconBlock:
+    let signedBlock = ForkedSignedBeaconBlock.init(capella.SignedBeaconBlock(
+      message: blck,
+      # signature: - unused as it's trusted
+      root: hash_tree_root(blck)
+    ))
+  elif BlockType is bellatrix.BeaconBlock:
     let signedBlock = ForkedSignedBeaconBlock.init(bellatrix.SignedBeaconBlock(
       message: blck,
       # signature: - unused as it's trusted
@@ -150,7 +159,12 @@ proc loadOps(path: string, fork: BeaconStateFork): seq[Operation] =
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
       of BeaconStateFork.Capella:
-        raiseAssert $capellaImplementationMissing
+        let blck = parseTest(
+          path/filename & ".ssz_snappy",
+          SSZ, capella.SignedBeaconBlock
+        )
+        result.add Operation(kind: opOnBlock,
+          blck: ForkedSignedBeaconBlock.init(blck))
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       let attesterSlashing = parseTest(
@@ -202,8 +216,13 @@ proc stepOnBlock(
     type TrustedBlock = phase0.TrustedSignedBeaconBlock
   elif signedBlock is altair.SignedBeaconBlock:
     type TrustedBlock = altair.TrustedSignedBeaconBlock
-  else:
+  elif signedBlock is bellatrix.SignedBeaconBlock:
     type TrustedBlock = bellatrix.TrustedSignedBeaconBlock
+  elif signedBlock is capella.SignedBeaconBlock:
+    type TrustedBlock = capella.TrustedSignedBeaconBlock
+  else:
+    doAssert false, "Unknown TrustedSignedBeaconBlock fork"
+
 
   # In normal Nimbus flow, for this (effectively) newPayload-based INVALID, it
   # is checked even before entering the DAG, by the block processor. Currently
@@ -300,7 +319,7 @@ proc doRunTest(path: string, fork: BeaconStateFork) =
   let stores =
     case fork
     of BeaconStateFork.Capella:
-      raiseAssert $capellaImplementationMissing
+      initialLoad(path, db, capella.BeaconState, capella.BeaconBlock)
     of BeaconStateFork.Bellatrix:
       initialLoad(path, db, bellatrix.BeaconState, bellatrix.BeaconBlock)
     of BeaconStateFork.Altair:
@@ -332,14 +351,11 @@ proc doRunTest(path: string, fork: BeaconStateFork) =
       doAssert status.isOk == step.valid
     of opOnBlock:
       withBlck(step.blck):
-        when stateFork != BeaconStateFork.Capella:
-          let status = stepOnBlock(
-            stores.dag, stores.fkChoice,
-            verifier, state[], stateCache,
-            blck, time, invalidatedRoots)
-          doAssert status.isOk == step.valid
-        else:
-          raiseAssert $capellaImplementationMissing
+        let status = stepOnBlock(
+          stores.dag, stores.fkChoice,
+          verifier, state[], stateCache,
+          blck, time, invalidatedRoots)
+        doAssert status.isOk == step.valid
     of opOnAttesterSlashing:
       let indices =
         check_attester_slashing(state[], step.attesterSlashing, flags = {})
@@ -375,8 +391,6 @@ proc runTest(testType: static[string], path: string, fork: BeaconStateFork) =
       skip()
     else:
       if os.splitPath(path).tail in SKIP:
-        skip()
-      elif capellaImplementationMissing or path.contains("/capella/"):
         skip()
       else:
         doRunTest(path, fork)
