@@ -23,10 +23,6 @@ import
 
 proc runTest(path: string, fork: BeaconStateFork) =
   test "Light client - Single merkle proof - " & path.relativePath(SszTestsDir):
-    if capellaImplementationMissing or fork == BeaconStateFork.Capella:
-      skip()
-      return
-
     type
       TestProof = object
         leaf: string
