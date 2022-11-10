@@ -334,15 +334,18 @@ ConsensusSpecPreset-minimal
 + Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
 + Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
 + Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
-  Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp Skip
-  Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp Skip
-  Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp Skip
++ Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp OK
++ Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp OK
++ Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/pysp OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/advance_finality_witho OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync      OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/supply_sync_committee_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/advance_finality_wi OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync   OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/supply_sync_committ OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/advance_finality_with OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync     OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Update ranking - minimal/altair/light_client/update_ranking/pyspec_tests/up OK
 + Light client - Update ranking - minimal/bellatrix/light_client/update_ranking/pyspec_tests OK
 + Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u OK
@@ -665,7 +668,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 651/662 Fail: 0/662 Skip: 11/662
+OK: 657/665 Fail: 0/665 Skip: 8/665
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -2057,4 +2060,4 @@ OK: 52/52 Fail: 0/52 Skip: 0/52
 OK: 14/14 Fail: 0/14 Skip: 0/14
 
 ---TOTAL---
-OK: 1788/1799 Fail: 0/1799 Skip: 11/1799
+OK: 1794/1802 Fail: 0/1802 Skip: 8/1802

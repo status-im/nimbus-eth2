@@ -290,9 +290,9 @@ ConsensusSpecPreset-mainnet
 + Light client - Single merkle proof - mainnet/bellatrix/light_client/single_merkle_proof/py OK
 + Light client - Single merkle proof - mainnet/bellatrix/light_client/single_merkle_proof/py OK
 + Light client - Single merkle proof - mainnet/bellatrix/light_client/single_merkle_proof/py OK
-  Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/pysp Skip
-  Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/pysp Skip
-  Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/pysp Skip
++ Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/pysp OK
++ Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/pysp OK
++ Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/pysp OK
 + Slots - double_empty_epoch                                                                 OK
 + Slots - empty_epoch                                                                        OK
 + Slots - over_epoch_boundary                                                                OK
@@ -589,7 +589,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 575/586 Fail: 0/586 Skip: 11/586
+OK: 578/586 Fail: 0/586 Skip: 8/586
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -1921,4 +1921,4 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 OK: 14/14 Fail: 0/14 Skip: 0/14
 
 ---TOTAL---
-OK: 1664/1675 Fail: 0/1675 Skip: 11/1675
+OK: 1667/1675 Fail: 0/1675 Skip: 8/1675
