@@ -30,7 +30,7 @@ type
   ProcessingCallback* = proc() {.gcsafe, raises: [Defect].}
   BlockVerifier* =
     proc(signedBlock: ForkedSignedBeaconBlock):
-      Future[Result[void, BlockError]] {.gcsafe, raises: [Defect].}
+      Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 
   SyncQueueKind* {.pure.} = enum
     Forward, Backward
@@ -666,7 +666,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       # compiler segfault if this is moved into the for loop, at time of writing
       # TODO this does segfault in 1.2 but not 1.6, so remove workaround when 1.2
       # is dropped.
-      res: Result[void, BlockError]
+      res: Result[void, VerifierError]
 
     for blk in sq.blocks(item):
       res = await sq.blockVerifier(blk[])
@@ -674,20 +674,20 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         goodBlock = some(blk[].slot)
       else:
         case res.error()
-        of BlockError.MissingParent:
+        of VerifierError.MissingParent:
           missingParentSlot = some(blk[].slot)
           break
-        of BlockError.Duplicate:
+        of VerifierError.Duplicate:
           # Keep going, happens naturally
           discard
-        of BlockError.UnviableFork:
+        of VerifierError.UnviableFork:
           # Keep going so as to register other unviable blocks with the
           # quarantine
           if unviableBlock.isNone:
             # Remember the first unviable block, so we can log it
             unviableBlock = some((blk[].root, blk[].slot))
 
-        of BlockError.Invalid:
+        of VerifierError.Invalid:
           hasInvalidBlock = true
 
           let req = item.request
@@ -747,10 +747,10 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           resetSlot: Option[Slot]
           failSlot = missingParentSlot.get()
 
-        # If we got `BlockError.MissingParent` it means that peer returns chain
-        # of blocks with holes or `block_pool` is in incomplete state. We going
-        # to rewind the SyncQueue some distance back (2ⁿ, where n∈[0,∞], but
-        # no more than `finalized_epoch`).
+        # If we got `VerifierError.MissingParent` it means that peer returns
+        # chain of blocks with holes or `block_pool` is in incomplete state. We
+        # going to rewind the SyncQueue some distance back (2ⁿ, where n∈[0,∞],
+        # but no more than `finalized_epoch`).
         let
           req = item.request
           safeSlot = sq.getSafeSlot()
@@ -763,7 +763,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         case sq.kind
         of SyncQueueKind.Forward:
           if goodBlock.isSome():
-            # `BlockError.MissingParent` and `Success` present in response,
+            # `VerifierError.MissingParent` and `Success` present in response,
             # it means that we just need to request this range one more time.
             debug "Unexpected missing parent, but no rewind needed",
                   request = req, finalized_slot = safeSlot,

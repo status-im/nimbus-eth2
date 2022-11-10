@@ -635,7 +635,7 @@ suite "Attestation pool processing" & preset():
           epochRef, blckRef, unrealized, signedBlock.message,
           blckRef.slot.start_beacon_time)
 
-    doAssert: b10Add_clone.error == BlockError.Duplicate
+    doAssert: b10Add_clone.error == VerifierError.Duplicate
 
   test "Trying to add a duplicate block from an old pruned epoch is tagged as an error":
     # Note: very sensitive to stack usage
@@ -725,4 +725,4 @@ suite "Attestation pool processing" & preset():
           epochRef, blckRef, unrealized, signedBlock.message,
           blckRef.slot.start_beacon_time)
 
-    doAssert: b10Add_clone.error == BlockError.Duplicate
+    doAssert: b10Add_clone.error == VerifierError.Duplicate

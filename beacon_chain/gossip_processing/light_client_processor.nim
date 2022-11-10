@@ -155,12 +155,12 @@ proc dumpInvalidObject(
 proc dumpObject[T](
     self: LightClientProcessor,
     obj: SomeLightClientObject,
-    res: Result[T, BlockError]) =
+    res: Result[T, VerifierError]) =
   if self.dumpEnabled and res.isErr:
     case res.error
-    of BlockError.Invalid:
+    of VerifierError.Invalid:
       self.dumpInvalidObject(obj)
-    of BlockError.MissingParent:
+    of VerifierError.MissingParent:
       dump(self.dumpDirIncoming, obj)
     else:
       discard
@@ -190,18 +190,18 @@ proc tryForceUpdate(
 proc processObject(
     self: var LightClientProcessor,
     obj: SomeLightClientObject,
-    wallTime: BeaconTime): Result[void, BlockError] =
+    wallTime: BeaconTime): Result[void, VerifierError] =
   let
     wallSlot = wallTime.slotOrZero()
     store = self.store
     res =
       when obj is altair.LightClientBootstrap:
         if store[].isSome:
-          err(BlockError.Duplicate)
+          err(VerifierError.Duplicate)
         else:
           let trustedBlockRoot = self.getTrustedBlockRoot()
           if trustedBlockRoot.isNone:
-            err(BlockError.MissingParent)
+            err(VerifierError.MissingParent)
           else:
             let initRes =
               initialize_light_client_store(trustedBlockRoot.get, obj)
@@ -212,7 +212,7 @@ proc processObject(
               ok()
       elif obj is SomeLightClientUpdate:
         if store[].isNone:
-          err(BlockError.MissingParent)
+          err(VerifierError.MissingParent)
         else:
           store[].get.process_light_client_update(
             obj, wallSlot, self.cfg, self.genesis_validators_root)
@@ -228,7 +228,7 @@ proc processObject(
         # If none is made available within reasonable time, the light client
         # is force-updated using the best known data to ensure sync progress.
         case res.error
-        of BlockError.Duplicate:
+        of VerifierError.Duplicate:
           if wallTime >= self.lastDuplicateTick + duplicateRateLimit:
             if self.numDuplicatesSinceProgress < minForceUpdateDuplicates:
               if obj.matches(store[].get.best_valid_update.get):
@@ -296,7 +296,7 @@ template withReportedProgress(body: untyped): bool =
 proc storeObject*(
     self: var LightClientProcessor,
     src: MsgSource, wallTime: BeaconTime,
-    obj: SomeLightClientObject): Result[bool, BlockError] =
+    obj: SomeLightClientObject): Result[bool, VerifierError] =
   ## storeObject is the main entry point for unvalidated light client objects -
   ## all untrusted objects pass through here. When storing an object, we will
   ## update the `LightClientStore` accordingly
@@ -353,7 +353,7 @@ proc addObject*(
     self: var LightClientProcessor,
     src: MsgSource,
     obj: SomeLightClientObject,
-    resfut: Future[Result[void, BlockError]] = nil) =
+    resfut: Future[Result[void, VerifierError]] = nil) =
   ## Enqueue a Gossip-validated light client object for verification
   # Backpressure:
   #   Only one object is validated at any time -
@@ -380,16 +380,16 @@ proc addObject*(
 
   if resfut != nil:
     if res.isOk:
-      resfut.complete(Result[void, BlockError].ok())
+      resfut.complete(Result[void, VerifierError].ok())
     else:
-      resfut.complete(Result[void, BlockError].err(res.error))
+      resfut.complete(Result[void, VerifierError].err(res.error))
 
 # Message validators
 # ------------------------------------------------------------------------------
 
 func toValidationError(
     self: var LightClientProcessor,
-    r: Result[bool, BlockError],
+    r: Result[bool, VerifierError],
     wallTime: BeaconTime,
     obj: SomeLightClientObject): Result[void, ValidationError] =
   if r.isOk:
@@ -420,11 +420,13 @@ func toValidationError(
       errIgnore(typeof(obj).name & ": no significant progress")
   else:
     case r.error
-    of BlockError.Invalid:
+    of VerifierError.Invalid:
       # [REJECT] The `finality_update` is valid.
       # [REJECT] The `optimistic_update` is valid.
       errReject($r.error)
-    of BlockError.MissingParent, BlockError.UnviableFork, BlockError.Duplicate:
+    of VerifierError.MissingParent,
+        VerifierError.UnviableFork,
+        VerifierError.Duplicate:
       # [IGNORE] No other `finality_update` with a lower or equal
       # `finalized_header.slot` was already forwarded on the network.
       # [IGNORE] No other `optimistic_update` with a lower or equal

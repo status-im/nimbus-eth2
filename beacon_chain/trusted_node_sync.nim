@@ -223,11 +223,13 @@ proc doTrustedNodeSync*(
         withBlck(data[]):
           if (let res = dag.addBackfillBlock(blck.asSigVerified()); res.isErr()):
             case res.error()
-            of BlockError.Invalid, BlockError.MissingParent, BlockError.UnviableFork:
+            of VerifierError.Invalid,
+                VerifierError.MissingParent,
+                VerifierError.UnviableFork:
               error "Got invalid block from trusted node - is it on the right network?",
                 blck = shortLog(blck), err = res.error()
               quit 1
-            of BlockError.Duplicate:
+            of VerifierError.Duplicate:
               discard
 
     # Download blocks backwards from the backfill slot, ie the first slot for

@@ -34,22 +34,22 @@ export
 # relationships and allowing various forms of lookups
 
 type
-  BlockError* {.pure.} = enum
+  VerifierError* {.pure.} = enum
     Invalid
-      ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
+      ## Value is broken / doesn't apply cleanly - whoever sent it is fishy (or
       ## we're buggy)
 
     MissingParent
-      ## We don't know the parent of this block so we can't tell if it's valid
+      ## We don't know the parent of this value so we can't tell if it's valid
       ## or not - it'll go into the quarantine and be reexamined when the parent
       ## appears or be discarded if finality obsoletes it
 
     UnviableFork
-      ## Block is from a history / fork that does not include our most current
+      ## Value is from a history / fork that does not include our most current
       ## finalized checkpoint
 
     Duplicate
-      ## We've seen this block already, can't add again
+      ## We've seen this value already, can't add again
 
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [Defect].}

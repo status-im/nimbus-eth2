@@ -303,12 +303,12 @@ proc initFullNode(
       rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime,
       optimistic = config.optimistic)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock):
-        Future[Result[void, BlockError]] =
+        Future[Result[void, VerifierError]] =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
       # taken in the sync/request managers - this is an architectural compromise
       # that should probably be reimagined more holistically in the future.
-      let resfut = newFuture[Result[void, BlockError]]("blockVerifier")
+      let resfut = newFuture[Result[void, VerifierError]]("blockVerifier")
       blockProcessor[].addBlock(MsgSource.gossip, signedBlock, resfut)
       resfut
     processor = Eth2Processor.new(
