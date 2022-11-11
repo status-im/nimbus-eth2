@@ -322,7 +322,7 @@ proc waitForChanges[T](sq: SyncQueue[T]): Future[bool] {.async.} =
     sq.waiters.delete(sq.waiters.find(waititem))
 
 proc wakeupAndWaitWaiters[T](sq: SyncQueue[T]) {.async.} =
-  ## This procedure will perform wakeupWaiters(false) and blocks until last
+  ## This procedure will perform wakeupWaiters(true) and blocks until last
   ## waiter will be awakened.
   var waitChanges = sq.waitForChanges()
   sq.wakeupWaiters(true)
