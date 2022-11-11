@@ -289,11 +289,8 @@ proc getBlockOptimistic*(node: BeaconNode,
     case blck.kind
     of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
       some[bool](false)
-    of BeaconBlockFork.Bellatrix:
+    of BeaconBlockFork.Bellatrix, BeaconBlockFork.Capella:
       some[bool](node.dag.is_optimistic(blck.root))
-    of BeaconBlockFork.Capella:
-      if true: raiseAssert $capellaImplementationMissing
-      none[bool]()
   else:
     none[bool]()
 

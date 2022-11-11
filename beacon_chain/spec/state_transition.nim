@@ -90,7 +90,7 @@ func verifyStateRoot(
 
 type
   RollbackProc* = proc() {.gcsafe, noSideEffect, raises: [Defect].}
-  RollbackHashedProc[T] =
+  RollbackHashedProc*[T] =
     proc(state: var T) {.gcsafe, noSideEffect, raises: [Defect].}
   RollbackForkedHashedProc* = RollbackHashedProc[ForkedHashedBeaconState]
 
@@ -316,7 +316,7 @@ proc state_transition*(
     cfg, state, signedBlock, cache, flags, rollback)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#preparing-for-a-beaconblock
-template partialBeaconBlock(
+template partialBeaconBlock*(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -342,51 +342,8 @@ template partialBeaconBlock(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: exits.voluntary_exits))
 
-proc makeBeaconBlock*(
-    cfg: RuntimeConfig,
-    state: var phase0.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    exits: BeaconBlockExits,
-    sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayload,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,
-    rollback: RollbackHashedProc[phase0.HashedBeaconState],
-    cache: var StateCache,
-    # TODO:
-    # `verificationFlags` is needed only in tests and can be
-    # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[phase0.BeaconBlock, cstring] =
-  ## Create a block for the given state. The latest block applied to it will
-  ## be used for the parent_root value, and the slot will be take from
-  ## state.slot meaning process_slots must be called up to the slot for which
-  ## the block is to be created.
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = partialBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
-
-  let res = process_block(
-    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
-
-  if res.isErr:
-    rollback(state)
-    return err(res.error())
-
-  state.root = hash_tree_root(state.data)
-  blck.state_root = state.root
-
-  ok(blck)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/validator.md#preparing-a-beaconblock
-template partialBeaconBlock(
+template partialBeaconBlock*(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -413,52 +370,8 @@ template partialBeaconBlock(
       voluntary_exits: exits.voluntary_exits,
       sync_aggregate: sync_aggregate))
 
-proc makeBeaconBlock*(
-    cfg: RuntimeConfig,
-    state: var altair.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    exits: BeaconBlockExits,
-    sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayload,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,
-    rollback: RollbackHashedProc[altair.HashedBeaconState],
-    cache: var StateCache,
-    # TODO:
-    # `verificationFlags` is needed only in tests and can be
-    # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[altair.BeaconBlock, cstring] =
-  ## Create a block for the given state. The latest block applied to it will
-  ## be used for the parent_root value, and the slot will be take from
-  ## state.slot meaning process_slots must be called up to the slot for which
-  ## the block is to be created.
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = partialBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
-
-  # Signatures are verified elsewhere, so don't duplicate inefficiently here
-  let res = process_block(
-    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
-
-  if res.isErr:
-    rollback(state)
-    return err(res.error())
-
-  state.root = hash_tree_root(state.data)
-  blck.state_root = state.root
-
-  ok(blck)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/validator.md#block-proposal
-template partialBeaconBlock(
+template partialBeaconBlock*(
     cfg: RuntimeConfig,
     state: var bellatrix.HashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -486,51 +399,8 @@ template partialBeaconBlock(
       sync_aggregate: sync_aggregate,
       execution_payload: execution_payload))
 
-proc makeBeaconBlock*(
-    cfg: RuntimeConfig,
-    state: var bellatrix.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    exits: BeaconBlockExits,
-    sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayload,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,
-    rollback: RollbackHashedProc[bellatrix.HashedBeaconState],
-    cache: var StateCache,
-    # TODO:
-    # `verificationFlags` is needed only in tests and can be
-    # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[bellatrix.BeaconBlock, cstring] =
-  ## Create a block for the given state. The latest block applied to it will
-  ## be used for the parent_root value, and the slot will be take from
-  ## state.slot meaning process_slots must be called up to the slot for which
-  ## the block is to be created.
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = partialBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
-
-  let res = process_block(
-    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
-
-  if res.isErr:
-    rollback(state)
-    return err(res.error())
-
-  state.root = hash_tree_root(state.data)
-  blck.state_root = state.root
-
-  ok(blck)
-
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/validator.md#block-proposal
-template partialBeaconBlock(
+template partialBeaconBlock*(
     cfg: RuntimeConfig,
     state: var capella.HashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -562,50 +432,6 @@ template partialBeaconBlock(
       execution_payload: execution_payload,
       bls_to_execution_changes: bls_to_execution_changes
       ))
-
-proc makeBeaconBlock*(
-    cfg: RuntimeConfig,
-    state: var capella.HashedBeaconState,
-    proposer_index: ValidatorIndex,
-    randao_reveal: ValidatorSig,
-    eth1_data: Eth1Data,
-    graffiti: GraffitiBytes,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    exits: BeaconBlockExits,
-    sync_aggregate: SyncAggregate,
-    execution_payload: capella.ExecutionPayload,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,
-    rollback: RollbackHashedProc[capella.HashedBeaconState],
-    cache: var StateCache,
-    # TODO:
-    # `verificationFlags` is needed only in tests and can be
-    # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[capella.BeaconBlock, cstring] =
-  ## Create a block for the given state. The latest block applied to it will
-  ## be used for the parent_root value, and the slot will be take from
-  ## state.slot meaning process_slots must be called up to the slot for which
-  ## the block is to be created.
-
-  # To create a block, we'll first apply a partial block to the state, skipping
-  # some validations.
-
-  var blck = partialBeaconBlock(
-    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload,
-    bls_to_execution_changes)
-
-  let res = process_block(
-    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
-
-  if res.isErr:
-    rollback(state)
-    return err(res.error())
-
-  state.root = hash_tree_root(state.data)
-  blck.state_root = state.root
-
-  ok(blck)
 
 proc makeBeaconBlock*(
     cfg: RuntimeConfig,
