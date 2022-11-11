@@ -1,6 +1,6 @@
 # Start validating
 
-Once your keys have been [imported](./keys.md), it is time to configure a [fee recipient](./suggested-fee-recipient.md and restart the beacon node to start validating!
+Once your keys have been [imported](./keys.md), it is time to configure a [fee recipient](./suggested-fee-recipient.md) and restart the beacon node to start validating!
 
 ## Steps
 
