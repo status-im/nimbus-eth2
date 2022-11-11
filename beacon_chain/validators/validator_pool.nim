@@ -242,30 +242,36 @@ proc doppelgangerCheck*(validator: AttachedValidator,
     startEpoch = validator.startSlot.epoch() # startEpoch is epoch when /
       # validator appeared in beacon_node.
     activationEpoch = validator.activationEpoch # validator's activation_epoch
+    currentStartEpoch = max(startEpoch, broadcastEpoch)
 
   if activationEpoch.isNone() or activationEpoch.get() > epoch:
     # If validator's `activation_epoch` is not set or `activation_epoch` is far
     # from current wall epoch - it should not participate in the network.
     err("Validator is not activated yet, or beacon node clock is invalid")
   else:
-    if startEpoch == GENESIS_EPOCH:
-      # Validator's `activation_epoch` less or equal to current wall epoch.
-      # Because validator was started at `GENESIS_EPOCH` we going to skip
-      # doppelganger detection.
-      ok(true)
+    if currentStartEpoch > epoch:
+      err("Validator is not started or broadcast is not started, or " &
+          "beacon node clock is invalid")
     else:
-      if activationEpoch.get() == epoch:
-        # Validator just activated so we going to skip doppelganger detection.
+      let actEpoch = activationEpoch.get()
+      # startEpoch == broadcastEpoch == activateEpoch == GENESIS_EPOCH
+      if (currentStartEpoch == GENESIS_EPOCH) and (actEpoch == GENESIS_EPOCH):
+        # Validator has been started at `GENESIS_EPOCH`, we going to skip
+        # doppelganger protection.
         ok(true)
       else:
-        let actualStartEpoch = max(startEpoch, broadcastEpoch)
-        if epoch - actualStartEpoch <= DOPPELGANGER_EPOCHS_COUNT:
-          # Validator is started in unsafe period.
-          ok(false)
-        else:
-          # Validator is already passed checking period, so we allow validator
-          # to participate in the network.
+        # max(startEpoch, broadcastEpoch) <= activateEpoch <= epoch
+        if (currentStartEpoch <= actEpoch) and (actEpoch <= epoch):
+          # Validator was activated, we going to skip doppelganger protection
           ok(true)
+        else:
+          if epoch - currentStartEpoch < DOPPELGANGER_EPOCHS_COUNT:
+            # Validator is started in unsafe period.
+            ok(false)
+          else:
+            # Validator is already passed checking period, so we allow
+            # validator to participate in the network.
+            ok(true)
 
 proc signWithDistributedKey(v: AttachedValidator,
                             request: Web3SignerRequest): Future[SignatureResult]
