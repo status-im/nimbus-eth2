@@ -189,7 +189,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               ident: string = "main"): SyncQueue[T] =
   ## Create new synchronization queue with parameters
   ##
-  ## ``start`` and ``last`` are starting and finishing Slots.
+  ## ``start`` and ``final`` are starting and final Slots.
   ##
   ## ``chunkSize`` maximum number of slots in one request.
   ##
@@ -205,10 +205,11 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
   #
   # Joker's problem
   #
-  # According to current Ethereum2 network specification
+  # According to pre-v0.12.0 Ethereum consensus network specification
   # > Clients MUST respond with at least one block, if they have it and it
   # > exists in the range. Clients MAY limit the number of blocks in the
   # > response.
+  # https://github.com/ethereum/consensus-specs/blob/v0.11.3/specs/phase0/p2p-interface.md#L590
   #
   # Such rule can lead to very uncertain responses, for example let slots from
   # 10 to 12 will be not empty. Client which follows specification can answer
@@ -222,18 +223,24 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
   # 6.   X - X
   # 7.   X X -
   #
-  # If peer answers with `1` everything will be fine and `block_pool` will be
-  # able to process all 3 blocks. In case of `2`, `3`, `4`, `6` - `block_pool`
-  # will fail immediately with chunk and report "parent is missing" error.
-  # But in case of `5` and `7` blocks will be processed by `block_pool` without
-  # any problems, however it will start producing problems right from this
-  # uncertain last slot. SyncQueue will start producing requests for next
+  # If peer answers with `1` everything will be fine and `block_processor`
+  # will be able to process all 3 blocks.
+  # In case of `2`, `3`, `4`, `6` - `block_processor` will fail immediately
+  # with chunk and report "parent is missing" error.
+  # But in case of `5` and `7` blocks will be processed by `block_processor`
+  # without any problems, however it will start producing problems right from
+  # this uncertain last slot. SyncQueue will start producing requests for next
   # blocks, but all the responses from this point will fail with "parent is
   # missing" error. Lets call such peers "jokers", because they are joking
   # with responses.
   #
   # To fix "joker" problem we going to perform rollback to the latest finalized
   # epoch's first slot.
+  #
+  # Note that as of spec v0.12.0, well-behaving clients are forbidden from
+  # answering this way. However, it still makes sense to attempt to handle
+  # this case to increase compatibility (e.g., with weak subjectivity nodes
+  # that are still backfilling blocks)
   doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
   SyncQueue[T](
     kind: queueKind,
