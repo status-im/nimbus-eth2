@@ -62,7 +62,7 @@ type
     notInSyncEvent: AsyncEvent
     rangeAge: uint64
     chunkSize: uint64
-    queue: SyncQueue[A]
+    queue: BeaconBlocksSyncQueue[A]
     syncFut: Future[void]
     blockVerifier: BlockVerifier
     inProgress*: bool
@@ -95,10 +95,11 @@ proc speed*(start, finish: SyncMoment): float {.inline.} =
 proc initQueue[A, B](man: SyncManager[A, B]) =
   case man.direction
   of SyncQueueKind.Forward:
-    man.queue = SyncQueue.init(A, man.direction, man.getFirstSlot(),
-                               man.getLastSlot(), man.chunkSize,
-                               man.getSafeSlot, man.blockVerifier, 1,
-                               man.ident)
+    man.queue =
+      initBeaconBlocksSyncQueue(A, man.direction, man.getFirstSlot(),
+                                man.getLastSlot(), man.chunkSize,
+                                man.getSafeSlot, man.blockVerifier, 1,
+                                man.ident)
   of SyncQueueKind.Backward:
     let
       firstSlot = man.getFirstSlot()
@@ -109,10 +110,11 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                     firstSlot
                   else:
                     Slot(firstSlot - 1'u64)
-    man.queue = SyncQueue.init(A, man.direction, startSlot, lastSlot,
-                               man.chunkSize, man.getSafeSlot,
-                               man.blockVerifier, 1,
-                               man.ident)
+    man.queue =
+      initBeaconBlocksSyncQueue(A, man.direction, startSlot,
+                                lastSlot, man.chunkSize,
+                                man.getSafeSlot, man.blockVerifier, 1,
+                                man.ident)
 
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            direction: SyncQueueKind,

@@ -83,9 +83,10 @@ suite "SyncManager test suite":
     let p1 = SomeTPeer()
     let aq = newAsyncQueue[BlockEntry]()
 
-    var queue = SyncQueue.init(SomeTPeer, kind,
-                               Slot(0), Slot(0), 1'u64,
-                               getStaticSlotCb(Slot(0)), collector(aq))
+    var queue =
+      initBeaconBlocksSyncQueue(SomeTPeer, kind,
+                                Slot(0), Slot(0), 1'u64,
+                                getStaticSlotCb(Slot(0)), collector(aq))
     check:
       len(queue) == 1
       pendingLen(queue) == 0
@@ -178,9 +179,10 @@ suite "SyncManager test suite":
 
     for item in Checks:
       let aq = newAsyncQueue[BlockEntry]()
-      var queue = SyncQueue.init(SomeTPeer, kind,
-                                 item[0], item[1], item[2],
-                                 getStaticSlotCb(item[0]), collector(aq))
+      var queue =
+        initBeaconBlocksSyncQueue(SomeTPeer, kind,
+                                  item[0], item[1], item[2],
+                                  getStaticSlotCb(item[0]), collector(aq))
       check:
         len(queue) == item[4]
         pendingLen(queue) == item[5]
@@ -202,13 +204,13 @@ suite "SyncManager test suite":
     var queue =
       case kkind
       of SyncQueueKind.Forward:
-        SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                       Slot(0), Slot(1), 1'u64,
-                       getStaticSlotCb(Slot(0)), collector(aq))
+        initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Forward,
+                                  Slot(0), Slot(1), 1'u64,
+                                  getStaticSlotCb(Slot(0)), collector(aq))
       of SyncQueueKind.Backward:
-        SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                       Slot(1), Slot(0), 1'u64,
-                       getStaticSlotCb(Slot(1)), collector(aq))
+        initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Backward,
+                                  Slot(1), Slot(0), 1'u64,
+                                  getStaticSlotCb(Slot(1)), collector(aq))
 
     let p1 = SomeTPeer()
     let p2 = SomeTPeer()
@@ -300,13 +302,13 @@ suite "SyncManager test suite":
       queue =
         case kkind
         of SyncQueueKind.Forward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                         start, finish, chunkSize,
-                         getStaticSlotCb(start), collector(aq))
+          initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Forward,
+                                    start, finish, chunkSize,
+                                    getStaticSlotCb(start), collector(aq))
         of SyncQueueKind.Backward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                         finish, start, chunkSize,
-                         getStaticSlotCb(finish), collector(aq))
+          initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Backward,
+                                    finish, start, chunkSize,
+                                    getStaticSlotCb(finish), collector(aq))
       chain = createChain(start, finish)
       validatorFut =
         case kkind
@@ -370,15 +372,15 @@ suite "SyncManager test suite":
       queue =
         case kkind
         of SyncQueueKind.Forward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                         startSlot, finishSlot, chunkSize,
-                         getStaticSlotCb(startSlot), collector(aq),
-                         queueSize)
+          initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Forward,
+                                    startSlot, finishSlot, chunkSize,
+                                    getStaticSlotCb(startSlot), collector(aq),
+                                    queueSize)
         of SyncQueueKind.Backward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                         finishSlot, startSlot, chunkSize,
-                         getStaticSlotCb(finishSlot), collector(aq),
-                         queueSize)
+          initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Backward,
+                                    finishSlot, startSlot, chunkSize,
+                                    getStaticSlotCb(finishSlot), collector(aq),
+                                    queueSize)
       validatorFut =
         case kkind
         of SyncQueueKind.Forward:
@@ -475,13 +477,13 @@ suite "SyncManager test suite":
       queue =
         case kkind
         of SyncQueueKind.Forward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                         start, finish, chunkSize,
-                         getFowardSafeSlotCb, collector(aq))
+          initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Forward,
+                                    start, finish, chunkSize,
+                                    getFowardSafeSlotCb, collector(aq))
         of SyncQueueKind.Backward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                         finish, start, chunkSize,
-                         getBackwardSafeSlotCb, collector(aq))
+          initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Backward,
+                                    finish, start, chunkSize,
+                                    getBackwardSafeSlotCb, collector(aq))
       chain = createChain(start, finish)
       validatorFut =
         case kkind
@@ -568,13 +570,13 @@ suite "SyncManager test suite":
       queue =
         case kkind
         of SyncQueueKind.Forward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                         start, finish, chunkSize,
-                         getFowardSafeSlotCb, collector(aq))
+          initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Forward,
+                                    start, finish, chunkSize,
+                                    getFowardSafeSlotCb, collector(aq))
         of SyncQueueKind.Backward:
-          SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                         finish, start, chunkSize,
-                         getBackwardSafeSlotCb, collector(aq))
+          initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Backward,
+                                    finish, start, chunkSize,
+                                    getBackwardSafeSlotCb, collector(aq))
       chain = createChain(start, finish)
       validatorFut = failingValidator(aq)
 
@@ -719,10 +721,11 @@ suite "SyncManager test suite":
 
     var
       chain = createChain(startSlot, finishSlot)
-      queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                             startSlot, finishSlot, chunkSize,
-                             getStaticSlotCb(startSlot), collector(aq),
-                             queueSize)
+      queue =
+        initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Forward,
+                                  startSlot, finishSlot, chunkSize,
+                                  getStaticSlotCb(startSlot), collector(aq),
+                                  queueSize)
       validatorFut = forwardValidator(aq)
 
     let
@@ -827,10 +830,11 @@ suite "SyncManager test suite":
 
     var
       chain = createChain(startSlot, finishSlot)
-      queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                             startSlot, finishSlot, chunkSize,
-                             getStaticSlotCb(startSlot), collector(aq),
-                             queueSize)
+      queue =
+        initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Forward,
+                                  startSlot, finishSlot, chunkSize,
+                                  getStaticSlotCb(startSlot), collector(aq),
+                                  queueSize)
       validatorFut = forwardValidator(aq)
 
     let
@@ -885,9 +889,10 @@ suite "SyncManager test suite":
 
     var
       chain = createChain(startSlot, finishSlot)
-      queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                             finishSlot, startSlot, chunkSize,
-                             getSafeSlot, collector(aq), queueSize)
+      queue =
+        initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Backward,
+                                  finishSlot, startSlot, chunkSize,
+                                  getSafeSlot, collector(aq), queueSize)
       validatorFut = backwardValidator(aq)
 
     let
@@ -962,18 +967,21 @@ suite "SyncManager test suite":
 
     check waitFor(runTest()) == true
 
+  type Request = SyncRequest[SomeTPeer]
+  type Result = BeaconBlocksSyncResult[SomeTPeer]
+
   test "[SyncQueue] hasEndGap() test":
     let chain1 = createChain(Slot(1), Slot(1))
     let chain2 = newSeq[ref ForkedSignedBeaconBlock]()
 
     for counter in countdown(32'u64, 2'u64):
-      let req = SyncRequest[SomeTPeer](slot: Slot(1), count: counter)
-      let sr = SyncResult[SomeTPeer](request: req, data: chain1)
+      let req = Request(slot: Slot(1), count: counter)
+      let sr = Result(request: req, data: chain1)
       check sr.hasEndGap() == true
 
-    let req = SyncRequest[SomeTPeer](slot: Slot(1), count: 1'u64)
-    let sr1 = SyncResult[SomeTPeer](request: req, data: chain1)
-    let sr2 = SyncResult[SomeTPeer](request: req, data: chain2)
+    let req = Request(slot: Slot(1), count: 1'u64)
+    let sr1 = Result(request: req, data: chain1)
+    let sr2 = Result(request: req, data: chain2)
     check:
       sr1.hasEndGap() == false
       sr2.hasEndGap() == true
@@ -983,16 +991,16 @@ suite "SyncManager test suite":
     let chain2 = newSeq[ref ForkedSignedBeaconBlock]()
 
     for counter in countdown(32'u64, 2'u64):
-      let req = SyncRequest[SomeTPeer](slot: Slot(10), count: counter)
-      let sr = SyncResult[SomeTPeer](request: req, data: chain1)
+      let req = Request(slot: Slot(10), count: counter)
+      let sr = Result(request: req, data: chain1)
       check sr.getLastNonEmptySlot() == Slot(10)
 
-    let req = SyncRequest[SomeTPeer](slot: Slot(100), count: 1'u64)
-    let sr = SyncResult[SomeTPeer](request: req, data: chain2)
+    let req = Request(slot: Slot(100), count: 1'u64)
+    let sr = Result(request: req, data: chain2)
     check sr.getLastNonEmptySlot() == Slot(100)
 
   test "[SyncQueue] contains() test":
-    proc checkRange[T](req: SyncRequest[T]): bool =
+    proc checkRange(req: Request): bool =
       var slot = req.slot
       var counter = 0'u64
       while counter < req.count:
@@ -1002,7 +1010,7 @@ suite "SyncManager test suite":
         counter = counter + 1'u64
       return true
 
-    var req1 = SyncRequest[SomeTPeer](slot: Slot(5), count: 10'u64)
+    var req1 = Request(slot: Slot(5), count: 10'u64)
 
     check:
       req1.checkRange() == true
@@ -1012,18 +1020,18 @@ suite "SyncManager test suite":
 
   test "[SyncQueue] checkResponse() test":
     let chain = createChain(Slot(10), Slot(20))
-    let r1 = SyncRequest[SomeTPeer](slot: Slot(11), count: 1'u64)
-    let r21 = SyncRequest[SomeTPeer](slot: Slot(11), count: 2'u64)
+    let r1 = Request(slot: Slot(11), count: 1'u64)
+    let r21 = Request(slot: Slot(11), count: 2'u64)
 
     check:
       checkResponse(r1, @[chain[1]]) == true
-      checkResponse(r1, @[]) == true
+      checkResponse(r1, newSeq[ref ForkedSignedBeaconBlock]()) == true
       checkResponse(r1, @[chain[1], chain[1]]) == false
       checkResponse(r1, @[chain[0]]) == false
       checkResponse(r1, @[chain[2]]) == false
 
       checkResponse(r21, @[chain[1]]) == true
-      checkResponse(r21, @[]) == true
+      checkResponse(r21, newSeq[ref ForkedSignedBeaconBlock]()) == true
       checkResponse(r21, @[chain[1], chain[2]]) == true
       checkResponse(r21, @[chain[2]]) == true
       checkResponse(r21, @[chain[1], chain[2], chain[3]]) == false
@@ -1037,10 +1045,11 @@ suite "SyncManager test suite":
   test "[SyncQueue#Forward] getRewindPoint() test":
     let aq = newAsyncQueue[BlockEntry]()
     block:
-      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-                                 1'u64, getStaticSlotCb(Slot(0)),
-                                 collector(aq), 2)
+      var queue =
+        initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Forward,
+                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                                  1'u64, getStaticSlotCb(Slot(0)),
+                                  collector(aq), 2)
       let finalizedSlot = start_slot(Epoch(0'u64))
       let startSlot = start_slot(Epoch(0'u64)) + 1'u64
       let finishSlot = start_slot(Epoch(2'u64))
@@ -1049,10 +1058,11 @@ suite "SyncManager test suite":
         check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
 
     block:
-      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-                                 1'u64, getStaticSlotCb(Slot(0)),
-                                 collector(aq), 2)
+      var queue =
+        initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Forward,
+                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                                  1'u64, getStaticSlotCb(Slot(0)),
+                                  collector(aq), 2)
       let finalizedSlot = start_slot(Epoch(1'u64))
       let startSlot = start_slot(Epoch(1'u64)) + 1'u64
       let finishSlot = start_slot(Epoch(3'u64))
@@ -1061,10 +1071,11 @@ suite "SyncManager test suite":
         check queue.getRewindPoint(Slot(i), finalizedSlot) == finalizedSlot
 
     block:
-      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-                                 1'u64, getStaticSlotCb(Slot(0)),
-                                 collector(aq), 2)
+      var queue =
+        initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Forward,
+                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                                  1'u64, getStaticSlotCb(Slot(0)),
+                                  collector(aq), 2)
       let finalizedSlot = start_slot(Epoch(0'u64))
       let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
       let failEpoch = epoch(failSlot)
@@ -1079,10 +1090,11 @@ suite "SyncManager test suite":
         counter = counter shl 1
 
     block:
-      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Forward,
-                                 Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
-                                 1'u64, getStaticSlotCb(Slot(0)),
-                                 collector(aq), 2)
+      var queue =
+        initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Forward,
+                                  Slot(0), Slot(0xFFFF_FFFF_FFFF_FFFFF'u64),
+                                  1'u64, getStaticSlotCb(Slot(0)),
+                                  collector(aq), 2)
       let finalizedSlot = start_slot(Epoch(1'u64))
       let failSlot = Slot(0xFFFF_FFFF_FFFF_FFFFF'u64)
       let failEpoch = epoch(failSlot)
@@ -1099,9 +1111,10 @@ suite "SyncManager test suite":
     let aq = newAsyncQueue[BlockEntry]()
     block:
       let getSafeSlot = getStaticSlotCb(Slot(1024))
-      var queue = SyncQueue.init(SomeTPeer, SyncQueueKind.Backward,
-                                 Slot(1024), Slot(0),
-                                 1'u64, getSafeSlot, collector(aq), 2)
+      var queue =
+        initBeaconBlocksSyncQueue(SomeTPeer, SyncQueueKind.Backward,
+                                  Slot(1024), Slot(0),
+                                  1'u64, getSafeSlot, collector(aq), 2)
       let safeSlot = getSafeSlot()
       for i in countdown(1023, 0):
         check queue.getRewindPoint(Slot(i), safeSlot) == safeSlot
