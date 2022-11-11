@@ -27,6 +27,9 @@ import
 export json_serialization, base
 
 type
+  SignedBLSToExecutionChangeList* =
+    List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#withdrawal
   Withdrawal* = object
     index*: WithdrawalIndex
@@ -240,7 +243,7 @@ type
     execution_payload*: ExecutionPayload
 
     # Capella operations
-    bls_to_execution_changes*: List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList  # [New in Capella]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -276,7 +279,7 @@ type
     execution_payload*: ExecutionPayload
 
     # Capella operations
-    bls_to_execution_changes*: List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList  # [New in Capella]
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -300,7 +303,7 @@ type
     execution_payload*: ExecutionPayload
 
     # Capella operations
-    bls_to_execution_changes*: List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList  # [New in Capella]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
