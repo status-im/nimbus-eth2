@@ -32,6 +32,8 @@ import
                                           sync_committee_msg_pool],
   ./simutils
 
+from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
+
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
   tEpoch = "Process epoch slot with block"
@@ -72,7 +74,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
   cfg.ALTAIR_FORK_EPOCH = 1.Epoch
   cfg.BELLATRIX_FORK_EPOCH = 2.Epoch
-  cfg.CAPELLA_FORK_EPOCH = FAR_FUTURE_EPOCH
+  cfg.CAPELLA_FORK_EPOCH = 3.Epoch
 
   echo "Starting simulation..."
 
@@ -247,10 +249,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       sync_aggregate =
         when T is phase0.SignedBeaconBlock:
           SyncAggregate.init()
-        elif T is altair.SignedBeaconBlock or T is bellatrix.SignedBeaconBlock:
+        elif T is altair.SignedBeaconBlock or T is bellatrix.SignedBeaconBlock or
+             T is capella.SignedBeaconBlock:
           syncCommitteePool[].produceSyncAggregate(dag.head.root)
-        else:
-          static: doAssert false
       hashedState =
         when T is phase0.SignedBeaconBlock:
           addr state.phase0Data
@@ -258,6 +259,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           addr state.altairData
         elif T is bellatrix.SignedBeaconBlock:
           addr state.bellatrixData
+        elif T is capella.SignedBeaconBlock:
+          addr state.capellaData
         else:
           static: doAssert false
       message = makeBeaconBlock(
@@ -274,7 +277,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         eth1ProposalData.deposits,
         BeaconBlockExits(),
         sync_aggregate,
-        default(ExecutionPayload),
+        when T is capella.SignedBeaconBlock:
+          default(capella.ExecutionPayload)
+        else:
+          default(bellatrix.ExecutionPayload),
+        default(SignedBLSToExecutionChangeList),
         noRollback,
         cache)
 
@@ -296,6 +303,10 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     newBlock
 
+  # TODO when withUpdatedState's state template doesn't conflict with chronos's
+  # HTTP server's state function, combine all proposeForkBlock functions into a
+  # single generic function. Until https://github.com/nim-lang/Nim/issues/20811
+  # is fixed, that generic function must take `blockRatio` as a parameter.
   proc proposePhase0Block(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
@@ -362,6 +373,28 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     do:
       raiseAssert "withUpdatedState failed"
 
+  proc proposeCapellaBlock(slot: Slot) =
+    if rand(r, 1.0) > blockRatio:
+      return
+
+    dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
+      let
+        newBlock = getNewBlock[capella.SignedBeaconBlock](state, slot, cache)
+        added = dag.addHeadBlock(verifier, newBlock) do (
+            blckRef: BlockRef, signedBlock: capella.TrustedSignedBeaconBlock,
+            epochRef: EpochRef, unrealized: FinalityCheckpoints):
+          # Callback add to fork choice if valid
+          attPool.addForkChoice(
+            epochRef, blckRef, unrealized, signedBlock.message,
+            blckRef.slot.start_beacon_time)
+
+      dag.updateHead(added[], quarantine[])
+      if dag.needStateCachesAndForkChoicePruning():
+        dag.pruneStateCachesDAG()
+        attPool.prune()
+    do:
+      raiseAssert "withUpdatedState failed"
+
   var
     lastEth1BlockAt = genesisTime
     eth1BlockNum = 1000
@@ -402,7 +435,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.stateForkAtEpoch(slot.epoch)
-        of BeaconStateFork.Capella:   raiseAssert $capellaImplementationMissing
+        of BeaconStateFork.Capella:   proposeCapellaBlock(slot)
         of BeaconStateFork.Bellatrix: proposeBellatrixBlock(slot)
         of BeaconStateFork.Altair:    proposeAltairBlock(slot)
         of BeaconStateFork.Phase0:    proposePhase0Block(slot)
