@@ -77,8 +77,7 @@ type
     stamp*: chronos.Moment
     slots*: uint64
 
-  SyncManagerError* = object of CatchableError
-  BeaconBlocksRes* = NetRes[List[ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS]]
+  BeaconBlocksRes = NetRes[List[ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS]]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)
