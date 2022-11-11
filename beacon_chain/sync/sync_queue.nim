@@ -148,11 +148,6 @@ proc checkResponse*[T](req: SyncRequest[T],
   else:
     return false
 
-proc getFullMap*[T](req: SyncRequest[T],
-                    data: openArray[ForkedSignedBeaconBlock]): string =
-  # Returns all slot numbers in ``data`` as comma-delimeted string.
-  mapIt(data, $it.message.slot).join(", ")
-
 proc init[T](t1: typedesc[SyncRequest], kind: SyncQueueKind, start: Slot,
              finish: Slot, t2: typedesc[T]): SyncRequest[T] =
   let count = finish - start + 1'u64
