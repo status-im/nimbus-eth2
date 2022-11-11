@@ -673,16 +673,10 @@ proc close*(db: BeaconChainDB) =
   discard db.summaries.close()
   discard db.stateDiffs.close()
   for kv in db.statesNoVal:
-    # The scaffolding currently creates nil databases
-    if  (capellaImplementationMissing == capellaImplementationMissing) and
-        not (kv.isNil):
-      discard kv.close()
+    discard kv.close()
   discard db.stateRoots.close()
   for kv in db.blocks:
-    # The scaffolding currently creates nil databases
-    if  (capellaImplementationMissing == capellaImplementationMissing) and
-        not (kv.isNil):
-      discard kv.close()
+    discard kv.close()
   discard db.keyValues.close()
 
   db.immutableValidatorsDb.close()
@@ -790,19 +784,13 @@ proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.withManyWrites:
     for kv in db.blocks:
-      # The scaffolding currently creates nil databases
-      if  (capellaImplementationMissing == capellaImplementationMissing) and
-          not (kv.isNil):
-        kv.del(key.data).expectDb()
+      kv.del(key.data).expectDb()
     db.summaries.del(key.data).expectDb()
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.withManyWrites:
     for kv in db.statesNoVal:
-      # The scaffolding currently creates nil databases
-      if  (capellaImplementationMissing == capellaImplementationMissing) and
-          not (kv.isNil):
-        kv.del(key.data).expectDb()
+      kv.del(key.data).expectDb()
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.stateRoots.del(stateRootKey(root, slot)).expectDb()

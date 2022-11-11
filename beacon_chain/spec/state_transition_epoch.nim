@@ -437,7 +437,8 @@ proc process_justification_and_finalization*(
     balances.current_epoch_TIMELY_TARGET, flags)
 
 proc compute_unrealized_finality*(
-    state: altair.BeaconState | bellatrix.BeaconState): FinalityCheckpoints =
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState):
+    FinalityCheckpoints =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return FinalityCheckpoints(
       justified: state.current_justified_checkpoint,

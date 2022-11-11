@@ -39,6 +39,8 @@ proc findValidator(validators: seq[Validator], pubKey: ValidatorPubKey):
   else:
     Opt.some idx.ValidatorIndex
 
+from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
+
 cli do(validatorsDir: string, secretsDir: string,
        startState: string, network: string):
   let
@@ -192,7 +194,14 @@ cli do(validatorsDir: string, secretsDir: string,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
       of BeaconBlockFork.Capella:
-        raiseAssert $capellaImplementationMissing
+        blockRoot = hash_tree_root(message.capellaData)
+        let signedBlock = capella.SignedBeaconBlock(
+          message: message.capellaData,
+          root: blockRoot,
+          signature: get_block_signature(
+            fork, genesis_validators_root, slot, blockRoot,
+            validators[proposer]).toValidatorSig())
+        dump(".", signedBlock)
       notice "Block proposed", message, blockRoot
 
       aggregates.setLen(0)

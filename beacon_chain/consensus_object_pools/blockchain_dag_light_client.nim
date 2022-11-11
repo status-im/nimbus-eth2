@@ -24,10 +24,12 @@ logScope: topics = "chaindag_lc"
 
 type
   HashedBeaconStateWithSyncCommittee =
+    capella.HashedBeaconState |
     bellatrix.HashedBeaconState |
     altair.HashedBeaconState
 
   TrustedSignedBeaconBlockWithSyncAggregate =
+    capella.TrustedSignedBeaconBlock |
     bellatrix.TrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock
 
@@ -217,6 +219,8 @@ proc initLightClientBootstrapForPeriod(
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(bid.slot, branch)
   res
 
+from ../spec/datatypes/capella import asSigned
+
 proc initLightClientUpdateForPeriod(
     dag: ChainDAGRef, period: SyncCommitteePeriod): Opt[void] =
   ## Compute and cache the best `LightClientUpdate` within a given
@@ -383,9 +387,8 @@ proc initLightClientUpdateForPeriod(
     dag.handleUnexpectedLightClientError(signatureBid.slot)
     return err()
   withBlck(bdata):
-    when stateFork >= BeaconStateFork.Capella:
-      raiseAssert $capellaImplementationMissing
-    elif stateFork >= BeaconStateFork.Altair:
+    static: doAssert high(BeaconStateFork) == BeaconStateFork.Capella
+    when stateFork >= BeaconStateFork.Altair:
       update.sync_aggregate = blck.asSigned().message.body.sync_aggregate
     else: raiseAssert "Unreachable"
   update.signature_slot = signatureBid.slot
@@ -721,7 +724,8 @@ proc processNewBlockForLightClient*(
     return
 
   when signedBlock is capella.TrustedSignedBeaconBlock:
-    raiseAssert $capellaImplementationMissing
+    dag.cacheLightClientData(state.capellaData, signedBlock.toBlockId())
+    dag.createLightClientUpdates(state.capellaData, signedBlock, parentBid)
   elif signedBlock is bellatrix.TrustedSignedBeaconBlock:
     dag.cacheLightClientData(state.bellatrixData, signedBlock.toBlockId())
     dag.createLightClientUpdates(state.bellatrixData, signedBlock, parentBid)
