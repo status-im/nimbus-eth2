@@ -79,9 +79,6 @@ type
     blockVerifier: BlockVerifier
     ident*: string
 
-  SyncManagerError* = object of CatchableError
-  BeaconBlocksRes* = NetRes[seq[ref ForkedSignedBeaconBlock]]
-
 chronicles.formatIt SyncQueueKind: toLowerAscii($it)
 
 template shortLog*[T](req: SyncRequest[T]): string =
