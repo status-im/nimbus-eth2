@@ -245,29 +245,29 @@ proc workerTask[E](
             # Descore, received data is malformed
             warn "Received invalid value", value = val.shortLog,
               endpoint = E.name, peer, peer_score = peer.getScore()
-            peer.updateScore(PeerScoreBadBlocks)
+            peer.updateScore(PeerScoreBadValues)
             return didProgress
         else:
           # Reward, peer returned something useful
           applyReward = true
           didProgress = true
       if applyReward:
-        peer.updateScore(PeerScoreGoodBlocks)
+        peer.updateScore(PeerScoreGoodValues)
     else:
-      peer.updateScore(PeerScoreNoBlocks)
+      peer.updateScore(PeerScoreNoValues)
       debug "Failed to receive value on request", value,
         endpoint = E.name, peer, peer_score = peer.getScore()
   except ResponseError as exc:
     warn "Received invalid response", error = exc.msg,
       endpoint = E.name, peer, peer_score = peer.getScore()
-    peer.updateScore(PeerScoreBadBlocks)
+    peer.updateScore(PeerScoreBadValues)
   except CancelledError as exc:
     raise exc
   except PeerPoolError as exc:
     debug "Failed to acquire peer", exc = exc.msg
   except CatchableError as exc:
     if peer != nil:
-      peer.updateScore(PeerScoreNoBlocks)
+      peer.updateScore(PeerScoreNoValues)
       debug "Unexpected exception while receiving value", exc = exc.msg,
         endpoint = E.name, peer, peer_score = peer.getScore()
     raise exc

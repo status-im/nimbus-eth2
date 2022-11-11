@@ -694,7 +694,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           notice "Received invalid sequence of blocks", request = req,
                   blocks_count = len(item.data),
                   blocks_map = getShortMap(req, item.data)
-          req.item.updateScore(PeerScoreBadBlocks)
+          req.item.updateScore(PeerScoreBadValues)
           break
 
     # When errors happen while processing blocks, we retry the same request
@@ -708,12 +708,12 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       if goodBlock.isSome():
         # If there no error and response was not empty we should reward peer
         # with some bonus score - not for duplicate blocks though.
-        item.request.item.updateScore(PeerScoreGoodBlocks)
+        item.request.item.updateScore(PeerScoreGoodValues)
         item.request.item.updateStats(SyncResponseKind.Good, 1'u64)
 
         # BlockProcessor reports good block, so we can reward all the peers
         # who sent us empty responses.
-        sq.rewardForGaps(PeerScoreGoodBlocks)
+        sq.rewardForGaps(PeerScoreGoodValues)
         sq.gapList.reset()
       else:
         # Response was empty
@@ -757,7 +757,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           gapsCount = len(sq.gapList)
 
         # We should penalize all the peers which responded with gaps.
-        sq.rewardForGaps(PeerScoreMissingBlocks)
+        sq.rewardForGaps(PeerScoreMissingValues)
         sq.gapList.reset()
 
         case sq.kind
@@ -772,7 +772,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                   blocks_count = len(item.data),
                   blocks_map = getShortMap(req, item.data),
                   gaps_count = gapsCount
-            req.item.updateScore(PeerScoreMissingBlocks)
+            req.item.updateScore(PeerScoreMissingValues)
           else:
             if safeSlot < req.slot:
               let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
@@ -789,7 +789,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                   blocks_count = len(item.data),
                   blocks_map = getShortMap(req, item.data),
                   gaps_count = gapsCount
-              req.item.updateScore(PeerScoreBadBlocks)
+              req.item.updateScore(PeerScoreBadValues)
         of SyncQueueKind.Backward:
           if safeSlot > failSlot:
             let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
@@ -799,12 +799,12 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                  finalized_slot = safeSlot, blocks_count = len(item.data),
                  blocks_map = getShortMap(req, item.data)
             resetSlot = some(rewindSlot)
-            req.item.updateScore(PeerScoreMissingBlocks)
+            req.item.updateScore(PeerScoreMissingValues)
           else:
             error "Unexpected missing parent at safe slot", request = req,
                   to_slot = safeSlot, blocks_count = len(item.data),
                   blocks_map = getShortMap(req, item.data)
-            req.item.updateScore(PeerScoreBadBlocks)
+            req.item.updateScore(PeerScoreBadValues)
 
         if resetSlot.isSome():
           await sq.resetWait(resetSlot)

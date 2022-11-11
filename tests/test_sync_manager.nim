@@ -508,7 +508,7 @@ suite "SyncManager test suite":
             response.delete(response.len - 2)
           of SyncQueueKind.Backward:
             response.delete(1)
-          expectedScore += PeerScoreMissingBlocks
+          expectedScore += PeerScoreMissingValues
         if response.len >= 1:
           # Ensure requested values are past `safeSlot`
           case kkind

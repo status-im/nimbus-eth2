@@ -110,7 +110,7 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
               notice "Received invalid block",
                 peer = peer, blocks = shortLog(items),
                 peer_score = peer.getScore()
-              peer.updateScore(PeerScoreBadBlocks)
+              peer.updateScore(PeerScoreBadValues)
 
               return # Stop processing this junk...
           else:
@@ -123,17 +123,17 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
           peer.updateScore(PeerScoreUnviableFork)
         elif gotGoodBlock:
           # We reward peer only if it returns something.
-          peer.updateScore(PeerScoreGoodBlocks)
+          peer.updateScore(PeerScoreGoodValues)
 
       else:
         peer.updateScore(PeerScoreBadResponse)
     else:
-      peer.updateScore(PeerScoreNoBlocks)
+      peer.updateScore(PeerScoreNoValues)
 
   except CancelledError as exc:
     raise exc
   except CatchableError as exc:
-    peer.updateScore(PeerScoreNoBlocks)
+    peer.updateScore(PeerScoreNoValues)
     debug "Error while fetching ancestor blocks", exc = exc.msg,
           items = shortLog(items), peer = peer, peer_score = peer.getScore()
     raise exc
