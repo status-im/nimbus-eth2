@@ -5,7 +5,7 @@ Nimbus exposes an **extremely fast** implementation of the standard [Beacon API]
 The Beacon API is a `REST` interface accessed via `http`. If you wish to expose the beacon node to the public internet, it is recommended to use a proxy such as `nginx` to provide caching and SSL support.
 
 !!! warning
-    If you are running validators with your beacon node, do no expose the REST API to the public internet or use the same beacon node for deep historical queries - doing so may negatively affect validator performance.
+    If you are running validators with your beacon node, do not expose the REST API to the public internet or use the same beacon node for deep historical queries - doing so may negatively affect validator performance.
 
 ## Test your tooling against our servers
 
