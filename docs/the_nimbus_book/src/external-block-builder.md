@@ -4,7 +4,7 @@ Nimbus supports outsourcing block production to an external block builder, thus 
 
 When external block building is enabled, the beacon node connects to a service using the [builder API](https://ethereum.github.io/builder-specs/) with the execution client acting as a fallback.
 
-Setting up external block building involves running an additional service on your server and choosing one or more relays to do the actual building.
+Setting up external block building typically involves running an additional service on your server which is configured to choose the best block from one or more relays and having the beacon node connect to this service.
 
 !!! warning
     External block builders introduce additional risk to the block building process which may cause loss of rewards.
@@ -18,7 +18,7 @@ Setting up external block building involves running an additional service on you
 
 ## Command line
 
-External block building is enabled on both beacon node and [validator client](./validator-client.md) using the `--payload-builder=true` flag.
+External block building is must be enabled on both beacon node and [validator client](./validator-client.md) using the `--payload-builder=true` flag.
 
 Additionally, the URL of the service exposing the [builder API](https://ethereum.github.io/builder-specs/) must be provided to the beacon node:
 
