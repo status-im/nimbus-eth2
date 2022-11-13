@@ -1,4 +1,4 @@
-# Logging options
+# Logging
 
 !!! warning
     The logging options outlined here are based on a preview feature, and are subject to change

@@ -32,16 +32,13 @@ Select an execution client and install it, configuring it such that that WebSock
 
     === "Mainnet"
         ```
-        geth --ws --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
+        geth --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
         ```
 
     === "Goerli"
         ```
-        geth --goerli --ws --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
+        geth --goerli --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
         ```
-
-    !!! note
-        The `--ws` flag allows Nimbus to connect using WebSockets.
 
     #### 3. Leave Geth running
 
@@ -56,25 +53,25 @@ Select an execution client and install it, configuring it such that that WebSock
     INFO [05-29|01:16:14] Imported new chain segment               blocks=1 txs=11  mgas=1.135  elapsed=22.281ms  mgasps=50.943  number=3785444 hash=277bb9…623d8c
     ```
 
-    Geth accepts connections from the localhost interface (`127.0.0.1`), with default authenticated RPC port `8551`. This means that your default Web3 provider URL should be: `ws://127.0.0.1:8551`
+    Geth accepts connections from the localhost interface (`127.0.0.1`), with default authenticated RPC port `8551`. This means that your default Web3 provider URL should be: `http://127.0.0.1:8551`
 
 === "Nethermind"
 
     See the [Getting started](https://docs.nethermind.io/nethermind/first-steps-with-nethermind/getting-started) guide to set up Nethermind.
 
-    Make sure to enable the [JSON-RPC](https://docs.nethermind.io/nethermind/first-steps-with-nethermind/running-nethermind-post-merge#jsonrpc-configuration-module) interface over WebSockets, and pass `--JsonRpc.JwtSecretFile=/tmp/jwtsecret` to select a JWT secret file location.
+    Make sure to enable the [JSON-RPC](https://docs.nethermind.io/nethermind/first-steps-with-nethermind/running-nethermind-post-merge#jsonrpc-configuration-module) interface and pass `--JsonRpc.JwtSecretFile=/tmp/jwtsecret` to select a JWT secret file location.
 
 === "Besu"
 
     See the [Besu documentation](https://besu.hyperledger.org/en/stable/) for instructions on setting up Besu.
 
-    Make sure to enable the [JSON-RPC](https://besu.hyperledger.org/en/stable/HowTo/Interact/APIs/Using-JSON-RPC-API/) WebSocket interface and store the JWT token in `/tmp/jwtsecret`.
+    Make sure to enable the [JSON-RPC](https://besu.hyperledger.org/en/stable/HowTo/Interact/APIs/Using-JSON-RPC-API/) interface and store the JWT token in `/tmp/jwtsecret`.
 
 === "Erigon"
 
     See the [Erigon README](https://github.com/ledgerwatch/erigon#getting-started) for instructions on setting up Erigon.
 
-    Make sure to enable the [JSON-RPC](https://github.com/ledgerwatch/erigon#beacon-chain-consensus-layer) WebSocket interface and use `--authrpc.jwtsecret=/tmp/jwtsecret` to set a path to the JWT token file.
+    Make sure to enable the [JSON-RPC](https://github.com/ledgerwatch/erigon#beacon-chain-consensus-layer) interface and use `--authrpc.jwtsecret=/tmp/jwtsecret` to set a path to the JWT token file.
 
 ### 2. Leave the execution client running
 
@@ -91,23 +88,23 @@ Once started, the execution client will create a file containing a JWT secret to
 === "Mainnet"
     ```sh
     ./run-mainnet-beacon-node.sh \
-      --web3-url=ws://127.0.0.1:8551 \
+      --web3-url=http://127.0.0.1:8551 \
       --jwt-secret=/tmp/jwtsecret
     ```
 
 === "Prater"
     ```sh
     ./run-prater-beacon-node.sh \
-      --web3-url=ws://127.0.0.1:8551 \
+      --web3-url=http://127.0.0.1:8551 \
       --jwt-secret=/tmp/jwtsecret
     ```
 
-!!! tip
+!!! tip "Multiple execution clients"
     You can pass one or more `--web3-url` parameters to the node as long as they share JWT secret. Any additional web3 url:s will be used for backup, should the first one become unavailable:
 
     ```sh
     ./run-mainnet-beacon-node.sh \
-      --web3-url=ws://127.0.0.1:8551 \
-      --web3-url=http://other:8551 \
+      --web3-url=http://127.0.0.1:8551 \
+      --web3-url=ws://other:8551 \
       --jwt-secret=/tmp/jwtsecret
     ```

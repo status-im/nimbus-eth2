@@ -1,4 +1,4 @@
-# Command line options
+# Command line
 
 Command line options allow you to customize the way your beacon node operates.
 
@@ -138,7 +138,7 @@ Here is an example config file illustrating all of the above:
     ```toml
     # Comments look like this
     doppelganger-detection = true
-    web3-url = ["ws://192.168.1.10:8000"]
+    web3-url = ["http://127.0.0.1:8551"]
     num-threads = 0
 
     [trustedNodeSync]
