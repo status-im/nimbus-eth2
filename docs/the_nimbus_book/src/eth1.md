@@ -53,7 +53,7 @@ Select an execution client and install it, configuring it such that that WebSock
     INFO [05-29|01:16:14] Imported new chain segment               blocks=1 txs=11  mgas=1.135  elapsed=22.281ms  mgasps=50.943  number=3785444 hash=277bb9…623d8c
     ```
 
-    Geth accepts connections from the localhost interface (`127.0.0.1`), with default authenticated RPC port `8551`. This means that your default Web3 provider URL should be: `ws://127.0.0.1:8551`
+    Geth accepts connections from the localhost interface (`127.0.0.1`), with default authenticated RPC port `8551`. This means that your default Web3 provider URL should be: `http://127.0.0.1:8551`
 
 === "Nethermind"
 
