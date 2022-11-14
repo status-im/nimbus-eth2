@@ -159,6 +159,18 @@ type
     of BeaconBlockFork.Bellatrix: bellatrixData*: bellatrix.SignedBeaconBlock
     of BeaconBlockFork.Capella:   capellaData*:   capella.SignedBeaconBlock
 
+  ForkySignedBlindedBeaconBlock* =
+    phase0.SignedBeaconBlock |
+    altair.SignedBeaconBlock |
+    SignedBlindedBeaconBlock
+
+  ForkedSignedBlindedBeaconBlock* = object
+    case kind*: BeaconBlockFork
+    of BeaconBlockFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock
+    of BeaconBlockFork.Altair:    altairData*:    altair.SignedBeaconBlock
+    of BeaconBlockFork.Bellatrix: bellatrixData*: SignedBlindedBeaconBlock
+    of BeaconBlockFork.Capella:   capellaData*:   SignedBlindedBeaconBlock
+
   ForkySigVerifiedSignedBeaconBlock* =
     phase0.SigVerifiedSignedBeaconBlock |
     altair.SigVerifiedSignedBeaconBlock |
