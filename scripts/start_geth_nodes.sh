@@ -27,7 +27,18 @@ for GETH_NUM_NODE in $(seq 0 $(( GETH_NUM_NODES - 1 ))); do
     openssl rand -hex 32 | tr -d "\n" > "${GETHDATADIR}/jwtsecret"
     ${GETH_BINARY} --http --ws -http.api "engine" --datadir "${GETHDATADIR}" init "${GENESISJSON}"
     ${GETH_BINARY} --http --ws --http.corsdomain '*' --http.api "eth,net,engine" -ws.api "eth,net,engine" --datadir "${GETHDATADIR}" ${DISCOVER} --port ${GETH_NET_PORT} --http.port ${GETH_HTTP_PORT} --ws.port ${GETH_WS_PORT} --authrpc.port ${GETH_AUTH_RPC_PORT} --authrpc.jwtsecret "${GETHDATADIR}/jwtsecret" &> "${DATA_DIR}/geth-log${GETH_NUM_NODE}.txt" &
-    sleep 5
+    GETH_RETRY=0
+    while :; do
+        if [[ -S "${GETHDATADIR}/geth.ipc" ]]; then
+            echo "Geth ${GETH_NUM_NODE} started in $(( GETH_RETRY * 100 ))ms"
+            break
+        fi
+        if (( ++GETH_RETRY >= 300 )); then
+            echo "Geth ${GETH_NUM_NODE} failed to start"
+            exit 1
+        fi
+        sleep 0.1
+    done
     NODE_ID=$(${GETH_BINARY} attach --datadir "${GETHDATADIR}" --exec admin.nodeInfo.enode)
     GETH_ENODES+=("${NODE_ID}")
     GETH_HTTP_PORTS+=("${GETH_HTTP_PORT}")
