@@ -22,7 +22,7 @@ import
 # it sequentially
 export
   extras, block_id, phase0, altair, bellatrix, eth2_merkleization,
-  eth2_ssz_serialization, presets
+  eth2_ssz_serialization, presets, bellatrix_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -295,6 +295,29 @@ template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
                                              root: blockRoot,
                                              signature: signature))
 
+template init*(T: type ForkedSignedBlindedBeaconBlock,
+               forked: ForkedBlindedBeaconBlock, blockRoot: Eth2Digest,
+               signature: ValidatorSig): T =
+  case forked.kind
+  of BeaconBlockFork.Phase0:
+    T(kind: BeaconBlockFork.Phase0,
+      phase0Data: phase0.SignedBeaconBlock(message: forked.phase0Data,
+                                           root: blockRoot,
+                                           signature: signature))
+  of BeaconBlockFork.Altair:
+    T(kind: BeaconBlockFork.Altair,
+      altairData: altair.SignedBeaconBlock(message: forked.altairData,
+                                           root: blockRoot,
+                                           signature: signature))
+  of BeaconBlockFork.Bellatrix:
+    T(kind: BeaconBlockFork.Bellatrix,
+      bellatrixData: SignedBlindedBeaconBlock(message: forked.bellatrixData,
+                                              signature: signature))
+  of BeaconBlockFork.Capella:
+    T(kind: BeaconBlockFork.Capella,
+      capellaData: SignedBlindedBeaconBlock(message: forked.capellaData,
+                                            signature: signature))
+
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: phase0.MsgTrustedSignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0,    phase0Data: blck)
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: altair.MsgTrustedSignedBeaconBlock): T =
@@ -542,7 +565,8 @@ template asTrusted*(
 template withBlck*(
     x: ForkedBeaconBlock | Web3SignerForkedBeaconBlock |
        ForkedSignedBeaconBlock | ForkedMsgTrustedSignedBeaconBlock |
-       ForkedTrustedSignedBeaconBlock,
+       ForkedTrustedSignedBeaconBlock | ForkedBlindedBeaconBlock |
+       ForkedSignedBlindedBeaconBlock,
     body: untyped): untyped =
   case x.kind
   of BeaconBlockFork.Phase0:
@@ -582,7 +606,8 @@ template getForkedBlockField*(
   of BeaconBlockFork.Capella:   unsafeAddr x.capellaData.message.y)[]
 
 template signature*(x: ForkedSignedBeaconBlock |
-                       ForkedMsgTrustedSignedBeaconBlock): ValidatorSig =
+                       ForkedMsgTrustedSignedBeaconBlock |
+                       ForkedSignedBlindedBeaconBlock): ValidatorSig =
   withBlck(x): blck.signature
 
 template signature*(x: ForkedTrustedSignedBeaconBlock): TrustedSig =
@@ -598,12 +623,13 @@ template slot*(x: ForkedSignedBeaconBlock |
                   ForkedTrustedSignedBeaconBlock): Slot =
   withBlck(x): blck.message.slot
 
-template shortLog*(x: ForkedBeaconBlock): auto =
+template shortLog*(x: ForkedBeaconBlock | ForkedBlindedBeaconBlock): auto =
   withBlck(x): shortLog(blck)
 
 template shortLog*(x: ForkedSignedBeaconBlock |
                       ForkedMsgTrustedSignedBeaconBlock |
-                      ForkedTrustedSignedBeaconBlock): auto =
+                      ForkedTrustedSignedBeaconBlock |
+                      ForkedSignedBlindedBeaconBlock): auto =
   withBlck(x): shortLog(blck)
 
 chronicles.formatIt ForkedBeaconBlock: it.shortLog

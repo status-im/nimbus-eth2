@@ -110,6 +110,10 @@ func get_block_signature*(
 
   blsSign(privkey, signing_root.data)
 
+func get_block_signature*(signing_root: Eth2Digest,
+                          privkey: ValidatorPrivKey): CookedSig =
+  blsSign(privkey, signing_root.data)
+
 proc verify_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader,

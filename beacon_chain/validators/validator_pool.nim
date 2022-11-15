@@ -364,6 +364,63 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
             fork, genesis_validators_root, web3SignerBlock)
         await v.signData(request)
 
+proc getBlockSignature*(v: AttachedValidator,
+                        signing_root: Eth2Digest, fork: Fork,
+                        genesis_validators_root: Eth2Digest, slot: Slot,
+                        block_root: Eth2Digest,
+                        blck: ForkedBeaconBlock | ForkedBlindedBeaconBlock
+                       ): Future[SignatureResult] {.async.} =
+  return
+    case v.kind
+    of ValidatorKind.Local:
+      SignatureResult.ok(
+        get_block_signature(signing_root, v.data.privateKey).toValidatorSig())
+    of ValidatorKind.Remote:
+      when blck is BlindedBeaconBlock:
+        let
+          web3SignerBlock =
+            case blck.kind
+            of BeaconBlockFork.Phase0:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Phase0,
+                phase0Data: blck.phase0Data)
+            of BeaconBlockFork.Altair:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Altair,
+                altairData: blck.altairData)
+            of BeaconBlockFork.Bellatrix:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Bellatrix,
+                bellatrixData: blck.toBeaconBlockHeader)
+            of BeaconBlockFork.Capella:
+              raiseAssert $capellaImplementationMissing
+
+          request = Web3SignerRequest.init(
+            fork, genesis_validators_root, web3SignerBlock)
+        await v.signData(request)
+      else:
+        let
+          web3SignerBlock =
+            case blck.kind
+            of BeaconBlockFork.Phase0:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Phase0,
+                phase0Data: blck.phase0Data)
+            of BeaconBlockFork.Altair:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Altair,
+                altairData: blck.altairData)
+            of BeaconBlockFork.Bellatrix:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Bellatrix,
+                bellatrixData: blck.bellatrixData.toBeaconBlockHeader)
+            of BeaconBlockFork.Capella:
+              raiseAssert $capellaImplementationMissing
+
+          request = Web3SignerRequest.init(
+            fork, genesis_validators_root, web3SignerBlock)
+        await v.signData(request)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
