@@ -1,4 +1,47 @@
 {
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS-PROXY",
+      "label": "prometheus-proxy",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__elements": [],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "8.4.3"
+    },
+    {
+      "type": "panel",
+      "id": "heatmap",
+      "name": "Heatmap",
+      "version": ""
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    }
+  ],
   "annotations": {
     "list": [
       {
@@ -21,8 +64,8 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 10,
-  "iteration": 1668594933136,
+  "id": null,
+  "iteration": 1668598332189,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -1600,7 +1643,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P5354BB48EF90EBE5"
+            "uid": "${DS_PROMETHEUS-PROXY}"
           },
           "expr": "rate(beacon_blocks_received_total{instance=\"${instance}\"}[$__rate_interval]) * 12",
           "interval": "",
@@ -1610,7 +1653,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P5354BB48EF90EBE5"
+            "uid": "${DS_PROMETHEUS-PROXY}"
           },
           "exemplar": true,
           "expr": "rate(beacon_blocks_proposed_total{instance=\"${instance}\"}[$__rate_interval]) * 12",
@@ -1621,7 +1664,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P5354BB48EF90EBE5"
+            "uid": "${DS_PROMETHEUS-PROXY}"
           },
           "exemplar": true,
           "expr": "rate(beacon_blocks_dropped_total{instance=\"${instance}\", reason='Ignore'}[$__rate_interval]) * 12",
@@ -1633,7 +1676,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P5354BB48EF90EBE5"
+            "uid": "${DS_PROMETHEUS-PROXY}"
           },
           "exemplar": true,
           "expr": "rate(beacon_blocks_dropped_total{instance=\"${instance}\", reason='Reject'}[$__rate_interval]) * 12",
@@ -1647,7 +1690,6 @@
       "type": "timeseries"
     },
     {
-      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1656,7 +1698,6 @@
           "custom": {
             "axisLabel": "",
             "axisPlacement": "auto",
-            "axisSoftMin": 0,
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
@@ -1964,7 +2005,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P5354BB48EF90EBE5"
+            "uid": "${DS_PROMETHEUS-PROXY}"
           },
           "exemplar": true,
           "expr": "rate(nbc_reqresp_messages_received_total{instance=\"${instance}\"}[$__rate_interval])",
@@ -1975,7 +2016,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P5354BB48EF90EBE5"
+            "uid": "${DS_PROMETHEUS-PROXY}"
           },
           "exemplar": true,
           "expr": "rate(nbc_reqresp_messages_failed{instance=\"${instance}\"}[$__rate_interval])",
@@ -1987,7 +2028,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P5354BB48EF90EBE5"
+            "uid": "${DS_PROMETHEUS-PROXY}"
           },
           "exemplar": true,
           "expr": "rate(nbc_reqresp_messages_throttled{instance=\"${instance}\"}[$__rate_interval])",
@@ -2172,7 +2213,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P5354BB48EF90EBE5"
+            "uid": "${DS_PROMETHEUS-PROXY}"
           },
           "exemplar": true,
           "expr": "rate(nbc_reqresp_messages_sent_total{instance=\"${instance}\"}[$__rate_interval])",
@@ -3562,7 +3603,7 @@
       "type": "stat"
     },
     {
-      "collapsed": true,
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -3570,1371 +3611,1389 @@
         "y": 82
       },
       "id": 88,
-      "panels": [
-        {
-          "description": "Number of blocks monitored validators produced in previous epoch",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 0,
-            "y": 77
-          },
-          "id": 96,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_beacon_block_total{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Produced block",
-          "type": "stat"
-        },
-        {
-          "description": "Number of active validators being monitored that should be attesting",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 2,
-            "y": 77
-          },
-          "id": 97,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_active{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Active",
-          "type": "stat"
-        },
-        {
-          "description": "Validators that have exited from the chain, either volunt",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 4,
-            "y": 77
-          },
-          "id": 93,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_exited{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Exited",
-          "type": "stat"
-        },
-        {
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 6,
-            "y": 77
-          },
-          "id": 94,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_slashed{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Slashed",
-          "type": "stat"
-        },
-        {
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 8,
-            "y": 77
-          },
-          "id": 95,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_slashed{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Withdrawable",
-          "type": "stat"
-        },
-        {
-          "description": "Number of monitored validators in the current sync committee",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 10,
-            "y": 77
-          },
-          "id": 99,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_validator_in_current_sync_committee{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "CurrentSync",
-          "type": "stat"
-        },
-        {
-          "description": "Number of monitored validators in the next sync committee",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 12,
-            "y": 77
-          },
-          "id": 105,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_validator_in_next_sync_committee{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "NextSync",
-          "type": "stat"
-        },
-        {
-          "description": "Number of times attestation was seen in a block",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 14,
-            "y": 77
-          },
-          "id": 107,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "P5354BB48EF90EBE5"
-              },
-              "exemplar": true,
-              "expr": "sum(validator_monitor_prev_epoch_sync_signature_block_inclusions{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Sync block inclusions",
-          "type": "stat"
-        },
-        {
-          "description": "Number of validators being monitored",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 0,
-            "y": 80
-          },
-          "id": 92,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_active{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Monitored",
-          "type": "stat"
-        },
-        {
-          "description": "Number of attestations monitored validators produced in previous epoch",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 2,
-            "y": 80
-          },
-          "id": 101,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_prev_epoch_attestations_total{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Attested",
-          "type": "stat"
-        },
-        {
-          "description": "Number of aggregates monitored validators produced in previous epoch",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 4,
-            "y": 80
-          },
-          "id": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_prev_epoch_aggregates_total{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Aggregated",
-          "type": "stat"
-        },
-        {
-          "description": "Number of times attestation produced by monitored validator was seen in an aggregate",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 6,
-            "y": 80
-          },
-          "id": 98,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_prev_epoch_attestation_aggregate_inclusions{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Aggregate inclusions",
-          "type": "stat"
-        },
-        {
-          "description": "Number of times attestation was seen in a block",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 8,
-            "y": 80
-          },
-          "id": 104,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_prev_epoch_attestation_block_inclusions{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Block inclusions",
-          "type": "stat"
-        },
-        {
-          "description": "Number of sync  messages monitored validators produced in previous epoch",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 10,
-            "y": 80
-          },
-          "id": 102,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_prev_epoch_sync_committee_messages_total{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "SyncMessaged",
-          "type": "stat"
-        },
-        {
-          "description": "Number of sync  comntributions monitored validators produced in previous epoch",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 12,
-            "y": 80
-          },
-          "id": 103,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(validator_monitor_prev_epoch_sync_contributions_total{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "SyncContributed",
-          "type": "stat"
-        },
-        {
-          "description": "Number of times attestation was seen in a block",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red"
-                  },
-                  {
-                    "color": "green",
-                    "value": 1
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 3,
-            "w": 2,
-            "x": 14,
-            "y": 80
-          },
-          "id": 108,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.4.3",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "P5354BB48EF90EBE5"
-              },
-              "exemplar": true,
-              "expr": "sum(validator_monitor_prev_epoch_sync_contribution_inclusions{instance=\"${instance}\"})",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Sync contrib inclusions",
-          "type": "stat"
-        },
-        {
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "bars",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineStyle": {
-                  "fill": "solid"
-                },
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "links": [],
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "source"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "fixedColor": "red",
-                      "mode": "fixed"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 83
-          },
-          "id": 89,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.0.4",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(rate(validator_monitor_prev_epoch_on_chain_head_attester_miss_total{instance=\"${instance}\"}[$__rate_interval]))*384",
-              "interval": "384s",
-              "legendFormat": "head",
-              "refId": "A"
-            },
-            {
-              "exemplar": true,
-              "expr": "sum(rate(validator_monitor_prev_epoch_on_chain_target_attester_miss_total{instance=\"${instance}\"}[$__rate_interval]))*384",
-              "interval": "384s",
-              "legendFormat": "target",
-              "refId": "B"
-            },
-            {
-              "exemplar": true,
-              "expr": "sum(rate(validator_monitor_prev_epoch_on_chain_source_attester_miss_total{instance=\"${instance}\"}[$__rate_interval]))*384",
-              "hide": false,
-              "interval": "384s",
-              "legendFormat": "source",
-              "refId": "C"
-            }
-          ],
-          "title": "Attestation misses",
-          "type": "timeseries"
-        },
-        {
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "bars",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineStyle": {
-                  "fill": "solid"
-                },
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "links": [],
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 83
-          },
-          "id": 90,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.0.4",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "rate(validator_monitor_balance_gwei{instance=\"${instance}\"}[$__rate_interval]) / on(instance,container) group_left validator_monitor_validators_total{instance=\"${instance}\"}",
-              "interval": "384",
-              "legendFormat": "{{validator}}",
-              "refId": "A"
-            }
-          ],
-          "title": "Balance",
-          "type": "timeseries"
-        }
-      ],
+      "panels": [],
       "title": "Validator monitoring",
       "type": "row"
     },
     {
-      "collapsed": false,
+      "description": "Number of blocks monitored validators produced in previous epoch",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 0,
+        "y": 83
+      },
+      "id": 96,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_beacon_block_total{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Produced block",
+      "type": "stat"
+    },
+    {
+      "description": "Number of active validators being monitored that should be attesting",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 2,
+        "y": 83
+      },
+      "id": 97,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_active{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Active",
+      "type": "stat"
+    },
+    {
+      "description": "Validators that have exited from the chain, either volunt",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 4,
+        "y": 83
+      },
+      "id": 93,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_exited{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Exited",
+      "type": "stat"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 6,
+        "y": 83
+      },
+      "id": 94,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_slashed{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Slashed",
+      "type": "stat"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 8,
+        "y": 83
+      },
+      "id": 95,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_slashed{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Withdrawable",
+      "type": "stat"
+    },
+    {
+      "description": "Number of monitored validators in the current sync committee",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 10,
+        "y": 83
+      },
+      "id": 99,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_validator_in_current_sync_committee{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "CurrentSync",
+      "type": "stat"
+    },
+    {
+      "description": "Number of monitored validators in the next sync committee",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 12,
+        "y": 83
+      },
+      "id": 105,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_validator_in_next_sync_committee{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "NextSync",
+      "type": "stat"
+    },
+    {
+      "description": "Number of times attestation was seen in a block",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 14,
+        "y": 83
+      },
+      "id": 107,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
+          "expr": "sum(validator_monitor_prev_epoch_sync_signature_block_inclusions{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Sync block inclusions",
+      "type": "stat"
+    },
+    {
+      "description": "Number of validators being monitored",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 0,
+        "y": 86
+      },
+      "id": 92,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_active{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Monitored",
+      "type": "stat"
+    },
+    {
+      "description": "Number of attestations monitored validators produced in previous epoch",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 2,
+        "y": 86
+      },
+      "id": 101,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_prev_epoch_attestations_total{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Attested",
+      "type": "stat"
+    },
+    {
+      "description": "Number of aggregates monitored validators produced in previous epoch",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 4,
+        "y": 86
+      },
+      "id": 100,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_prev_epoch_aggregates_total{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Aggregated",
+      "type": "stat"
+    },
+    {
+      "description": "Number of times attestation produced by monitored validator was seen in an aggregate",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 6,
+        "y": 86
+      },
+      "id": 98,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_prev_epoch_attestation_aggregate_inclusions{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Aggregate inclusions",
+      "type": "stat"
+    },
+    {
+      "description": "Number of times attestation was seen in a block",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 8,
+        "y": 86
+      },
+      "id": 104,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_prev_epoch_attestation_block_inclusions{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Block inclusions",
+      "type": "stat"
+    },
+    {
+      "description": "Number of sync  messages monitored validators produced in previous epoch",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 10,
+        "y": 86
+      },
+      "id": 102,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_prev_epoch_sync_committee_messages_total{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "SyncMessaged",
+      "type": "stat"
+    },
+    {
+      "description": "Number of sync  comntributions monitored validators produced in previous epoch",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 12,
+        "y": 86
+      },
+      "id": 103,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_prev_epoch_sync_contributions_total{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "SyncContributed",
+      "type": "stat"
+    },
+    {
+      "description": "Number of times attestation was seen in a block",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 14,
+        "y": 86
+      },
+      "id": 108,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
+          "expr": "sum(validator_monitor_prev_epoch_sync_contribution_inclusions{instance=\"${instance}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Sync contrib inclusions",
+      "type": "stat"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "source"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 89
+      },
+      "id": 89,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(rate(validator_monitor_prev_epoch_on_chain_head_attester_miss_total{instance=\"${instance}\"}[$__rate_interval]))*384",
+          "interval": "384s",
+          "legendFormat": "head",
+          "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "sum(rate(validator_monitor_prev_epoch_on_chain_target_attester_miss_total{instance=\"${instance}\"}[$__rate_interval]))*384",
+          "interval": "384s",
+          "legendFormat": "target",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "sum(rate(validator_monitor_prev_epoch_on_chain_source_attester_miss_total{instance=\"${instance}\"}[$__rate_interval]))*384",
+          "hide": false,
+          "interval": "384s",
+          "legendFormat": "source",
+          "refId": "C"
+        }
+      ],
+      "title": "Attestation misses",
+      "type": "timeseries"
+    },
+    {
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 89
+      },
+      "id": 90,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "rate(validator_monitor_balance_gwei{instance=\"${instance}\"}[$__rate_interval]) / on(instance,container) group_left validator_monitor_validators_total{instance=\"${instance}\"}",
+          "interval": "384",
+          "legendFormat": "{{validator}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Balance",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": true,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 83
+        "y": 97
       },
       "id": 75,
-      "panels": [],
+      "panels": [
+        {
+          "cards": {},
+          "color": {
+            "cardColor": "#b4ff00",
+            "colorScale": "sqrt",
+            "colorScheme": "interpolateSpectral",
+            "exponent": 0.5,
+            "min": 0,
+            "mode": "opacity"
+          },
+          "dataFormat": "tsbuckets",
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 0,
+            "y": 84
+          },
+          "heatmap": {},
+          "hideZeroBuckets": false,
+          "highlightCards": true,
+          "id": 26,
+          "interval": "",
+          "legend": {
+            "show": false
+          },
+          "reverseYBuckets": false,
+          "targets": [
+            {
+              "expr": "rate(beacon_attestation_delay_bucket{instance=\"${instance}\"}[$__rate_interval])",
+              "format": "heatmap",
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "{{le}}",
+              "refId": "A"
+            }
+          ],
+          "title": "received attestation delay (s) (${instance})",
+          "tooltip": {
+            "show": true,
+            "showHistogram": false
+          },
+          "type": "heatmap",
+          "xAxis": {
+            "show": true
+          },
+          "yAxis": {
+            "format": "short",
+            "logBase": 1,
+            "show": true
+          },
+          "yBucketBound": "auto"
+        },
+        {
+          "cards": {},
+          "color": {
+            "cardColor": "#b4ff00",
+            "colorScale": "sqrt",
+            "colorScheme": "interpolateSpectral",
+            "exponent": 0.5,
+            "min": 0,
+            "mode": "opacity"
+          },
+          "dataFormat": "tsbuckets",
+          "description": "",
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 84
+          },
+          "heatmap": {},
+          "hideZeroBuckets": false,
+          "highlightCards": true,
+          "id": 53,
+          "interval": "",
+          "legend": {
+            "show": false
+          },
+          "reverseYBuckets": false,
+          "targets": [
+            {
+              "expr": "rate(beacon_block_delay_bucket{instance=\"${instance}\"}[$__rate_interval])",
+              "format": "heatmap",
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "{{le}}",
+              "refId": "A"
+            }
+          ],
+          "title": "received beacon block delay (s) (${instance})",
+          "tooltip": {
+            "show": true,
+            "showHistogram": false
+          },
+          "type": "heatmap",
+          "xAxis": {
+            "show": true
+          },
+          "yAxis": {
+            "format": "short",
+            "logBase": 1,
+            "show": true
+          },
+          "yBucketBound": "auto"
+        },
+        {
+          "cards": {},
+          "color": {
+            "cardColor": "#b4ff00",
+            "colorScale": "sqrt",
+            "colorScheme": "interpolateSpectral",
+            "exponent": 0.5,
+            "min": 0,
+            "mode": "opacity"
+          },
+          "dataFormat": "tsbuckets",
+          "description": "",
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 0,
+            "y": 90
+          },
+          "heatmap": {},
+          "hideZeroBuckets": false,
+          "highlightCards": true,
+          "id": 52,
+          "interval": "",
+          "legend": {
+            "show": false
+          },
+          "reverseYBuckets": false,
+          "targets": [
+            {
+              "expr": "rate(beacon_aggregate_delay_bucket{instance=\"${instance}\"}[$__rate_interval])",
+              "format": "heatmap",
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "{{le}}",
+              "refId": "A"
+            }
+          ],
+          "title": "received aggregate delay (s) (${instance})",
+          "tooltip": {
+            "show": true,
+            "showHistogram": false
+          },
+          "type": "heatmap",
+          "xAxis": {
+            "show": true
+          },
+          "yAxis": {
+            "format": "short",
+            "logBase": 1,
+            "show": true
+          },
+          "yBucketBound": "auto"
+        },
+        {
+          "cards": {},
+          "color": {
+            "cardColor": "#b4ff00",
+            "colorScale": "sqrt",
+            "colorScheme": "interpolateSpectral",
+            "exponent": 0.1,
+            "min": 0,
+            "mode": "opacity"
+          },
+          "dataFormat": "tsbuckets",
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 90
+          },
+          "heatmap": {},
+          "hideZeroBuckets": false,
+          "highlightCards": true,
+          "id": 50,
+          "interval": "",
+          "legend": {
+            "show": false
+          },
+          "reverseYBuckets": false,
+          "targets": [
+            {
+              "expr": "rate(beacon_store_block_duration_seconds_bucket{instance=\"${instance}\"}[$__rate_interval])",
+              "format": "heatmap",
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "{{le}}",
+              "refId": "A"
+            }
+          ],
+          "title": "storeBlock() duration (s) (${instance})",
+          "tooltip": {
+            "show": true,
+            "showHistogram": false
+          },
+          "type": "heatmap",
+          "xAxis": {
+            "show": true
+          },
+          "yAxis": {
+            "format": "short",
+            "logBase": 1,
+            "show": true
+          },
+          "yBucketBound": "auto"
+        }
+      ],
       "title": "Block & Attestation Delays (slow)",
       "type": "row"
-    },
-    {
-      "cards": {},
-      "color": {
-        "cardColor": "#b4ff00",
-        "colorScale": "sqrt",
-        "colorScheme": "interpolateSpectral",
-        "exponent": 0.5,
-        "min": 0,
-        "mode": "opacity"
-      },
-      "dataFormat": "tsbuckets",
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 0,
-        "y": 84
-      },
-      "heatmap": {},
-      "hideZeroBuckets": false,
-      "highlightCards": true,
-      "id": 26,
-      "interval": "",
-      "legend": {
-        "show": false
-      },
-      "reverseYBuckets": false,
-      "targets": [
-        {
-          "expr": "rate(beacon_attestation_delay_bucket{instance=\"${instance}\"}[$__rate_interval])",
-          "format": "heatmap",
-          "instant": false,
-          "interval": "",
-          "intervalFactor": 1,
-          "legendFormat": "{{le}}",
-          "refId": "A"
-        }
-      ],
-      "title": "received attestation delay (s) (${instance})",
-      "tooltip": {
-        "show": true,
-        "showHistogram": false
-      },
-      "type": "heatmap",
-      "xAxis": {
-        "show": true
-      },
-      "yAxis": {
-        "format": "short",
-        "logBase": 1,
-        "show": true
-      },
-      "yBucketBound": "auto"
-    },
-    {
-      "cards": {},
-      "color": {
-        "cardColor": "#b4ff00",
-        "colorScale": "sqrt",
-        "colorScheme": "interpolateSpectral",
-        "exponent": 0.5,
-        "min": 0,
-        "mode": "opacity"
-      },
-      "dataFormat": "tsbuckets",
-      "description": "",
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 84
-      },
-      "heatmap": {},
-      "hideZeroBuckets": false,
-      "highlightCards": true,
-      "id": 53,
-      "interval": "",
-      "legend": {
-        "show": false
-      },
-      "reverseYBuckets": false,
-      "targets": [
-        {
-          "expr": "rate(beacon_block_delay_bucket{instance=\"${instance}\"}[$__rate_interval])",
-          "format": "heatmap",
-          "instant": false,
-          "interval": "",
-          "intervalFactor": 1,
-          "legendFormat": "{{le}}",
-          "refId": "A"
-        }
-      ],
-      "title": "received beacon block delay (s) (${instance})",
-      "tooltip": {
-        "show": true,
-        "showHistogram": false
-      },
-      "type": "heatmap",
-      "xAxis": {
-        "show": true
-      },
-      "yAxis": {
-        "format": "short",
-        "logBase": 1,
-        "show": true
-      },
-      "yBucketBound": "auto"
-    },
-    {
-      "cards": {},
-      "color": {
-        "cardColor": "#b4ff00",
-        "colorScale": "sqrt",
-        "colorScheme": "interpolateSpectral",
-        "exponent": 0.5,
-        "min": 0,
-        "mode": "opacity"
-      },
-      "dataFormat": "tsbuckets",
-      "description": "",
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 0,
-        "y": 90
-      },
-      "heatmap": {},
-      "hideZeroBuckets": false,
-      "highlightCards": true,
-      "id": 52,
-      "interval": "",
-      "legend": {
-        "show": false
-      },
-      "reverseYBuckets": false,
-      "targets": [
-        {
-          "expr": "rate(beacon_aggregate_delay_bucket{instance=\"${instance}\"}[$__rate_interval])",
-          "format": "heatmap",
-          "instant": false,
-          "interval": "",
-          "intervalFactor": 1,
-          "legendFormat": "{{le}}",
-          "refId": "A"
-        }
-      ],
-      "title": "received aggregate delay (s) (${instance})",
-      "tooltip": {
-        "show": true,
-        "showHistogram": false
-      },
-      "type": "heatmap",
-      "xAxis": {
-        "show": true
-      },
-      "yAxis": {
-        "format": "short",
-        "logBase": 1,
-        "show": true
-      },
-      "yBucketBound": "auto"
-    },
-    {
-      "cards": {},
-      "color": {
-        "cardColor": "#b4ff00",
-        "colorScale": "sqrt",
-        "colorScheme": "interpolateSpectral",
-        "exponent": 0.1,
-        "min": 0,
-        "mode": "opacity"
-      },
-      "dataFormat": "tsbuckets",
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 90
-      },
-      "heatmap": {},
-      "hideZeroBuckets": false,
-      "highlightCards": true,
-      "id": 50,
-      "interval": "",
-      "legend": {
-        "show": false
-      },
-      "reverseYBuckets": false,
-      "targets": [
-        {
-          "expr": "rate(beacon_store_block_duration_seconds_bucket{instance=\"${instance}\"}[$__rate_interval])",
-          "format": "heatmap",
-          "instant": false,
-          "interval": "",
-          "intervalFactor": 1,
-          "legendFormat": "{{le}}",
-          "refId": "A"
-        }
-      ],
-      "title": "storeBlock() duration (s) (${instance})",
-      "tooltip": {
-        "show": true,
-        "showHistogram": false
-      },
-      "type": "heatmap",
-      "xAxis": {
-        "show": true
-      },
-      "yAxis": {
-        "format": "short",
-        "logBase": 1,
-        "show": true
-      },
-      "yBucketBound": "auto"
     }
   ],
   "refresh": false,
@@ -4945,18 +5004,14 @@
     "list": [
       {
         "current": {},
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
-        },
-        "definition": "label_values(nim_gc_mem_bytes,instance)",
+        "definition": "label_values(beacon_current_epoch{job=\"beacon-node-metrics\"},instance)",
         "hide": 0,
         "includeAll": false,
         "multi": false,
         "name": "instance",
         "options": [],
         "query": {
-          "query": "label_values(nim_gc_mem_bytes,instance)",
+          "query": "label_values(beacon_current_epoch{job=\"beacon-node-metrics\"},instance)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,
@@ -4966,12 +5021,32 @@
         "tagValuesQuery": "",
         "tagsQuery": "",
         "type": "query",
-        "useTags": false
+        "useTags": false,
+        "datasource": "${DS_PROMETHEUS-PROXY}"
+      },
+      {
+        "current": {},
+        "definition": "label_values(beacon_current_epoch{job=\"beacon-node-metrics\",instance=\"${instance}\"},container)",
+        "hide": 0,
+        "includeAll": true,
+        "multi": false,
+        "name": "container",
+        "options": [],
+        "query": {
+          "query": "label_values(beacon_current_epoch{job=\"beacon-node-metrics\",instance=\"${instance}\"},container)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query",
+        "datasource": "${DS_PROMETHEUS-PROXY}"
       }
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {
