@@ -296,8 +296,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     if beaconBlocks.blindedBlock.isSome():
       let signedBlock = beaconBlocks.blindedBlock.get()
       warn "Slashing protection activated for block proposal",
-           # blck = shortLog(signedBlock),
-           # signingRoot = shortLog(signedBlock.signing_root),
+           blck = shortLog(signedBlock.data),
+           signing_root = shortLog(signedBlock.signing_root),
            wall_slot = currentSlot,
            existingProposal = notSlashable.error()
     else:
