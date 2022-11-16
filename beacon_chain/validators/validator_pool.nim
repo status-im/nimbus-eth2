@@ -254,24 +254,18 @@ proc doppelgangerCheck*(validator: AttachedValidator,
           "beacon node clock is invalid")
     else:
       let actEpoch = activationEpoch.get()
-      # startEpoch == broadcastEpoch == activateEpoch == GENESIS_EPOCH
-      if (currentStartEpoch == GENESIS_EPOCH) and (actEpoch == GENESIS_EPOCH):
-        # Validator has been started at `GENESIS_EPOCH`, we going to skip
-        # doppelganger protection.
+      # max(startEpoch, broadcastEpoch) <= activateEpoch <= epoch
+      if (currentStartEpoch <= actEpoch) and (actEpoch <= epoch):
+        # Validator was activated, we going to skip doppelganger protection
         ok(true)
       else:
-        # max(startEpoch, broadcastEpoch) <= activateEpoch <= epoch
-        if (currentStartEpoch <= actEpoch) and (actEpoch <= epoch):
-          # Validator was activated, we going to skip doppelganger protection
-          ok(true)
+        if epoch - currentStartEpoch < DOPPELGANGER_EPOCHS_COUNT:
+          # Validator is started in unsafe period.
+          ok(false)
         else:
-          if epoch - currentStartEpoch < DOPPELGANGER_EPOCHS_COUNT:
-            # Validator is started in unsafe period.
-            ok(false)
-          else:
-            # Validator is already passed checking period, so we allow
-            # validator to participate in the network.
-            ok(true)
+          # Validator is already passed checking period, so we allow
+          # validator to participate in the network.
+          ok(true)
 
 proc signWithDistributedKey(v: AttachedValidator,
                             request: Web3SignerRequest): Future[SignatureResult]
