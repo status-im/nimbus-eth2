@@ -536,7 +536,9 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
         dag.withUpdatedState(tmpState[], eraBid) do:
           withState(state):
             group.finish(e2, forkyState.data).get()
-        do: raiseAssert "withUpdatedState failed"
+        do:
+          echo "Unable to load historical state - export requires fully indexed history node - see https://nimbus.guide/trusted-node-sync.html#recreate-historical-state-access-indices"
+          quit 1
 
     era += 1
 
