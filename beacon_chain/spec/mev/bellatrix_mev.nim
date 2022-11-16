@@ -6,6 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import ".."/datatypes/[altair, bellatrix]
+from stew/byteutils import to0xHex
 
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
@@ -76,6 +77,18 @@ func shortLog*(v: BlindedBeaconBlock): auto =
     proposer_index: v.proposer_index,
     parent_root: shortLog(v.parent_root),
     state_root: shortLog(v.state_root),
+    eth1data: v.body.eth1_data,
+    graffiti: $v.body.graffiti,
+    proposer_slashings_len: v.body.proposer_slashings.len(),
+    attester_slashings_len: v.body.attester_slashings.len(),
+    attestations_len: v.body.attestations.len(),
+    deposits_len: v.body.deposits.len(),
+    voluntary_exits_len: v.body.voluntary_exits.len(),
+    sync_committee_participants:
+      countOnes(v.body.sync_aggregate.sync_committee_bits),
+    block_number: v.body.execution_payload_header.block_number,
+    # TODO checksum hex? shortlog?
+    fee_recipient: to0xHex(v.body.execution_payload_header.fee_recipient.data),
   )
 
 func shortLog*(v: SignedBlindedBeaconBlock): auto =
