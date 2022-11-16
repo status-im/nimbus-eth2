@@ -4758,7 +4758,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(validator_monitor_balance_gwei{instance=\"${instance}\"}[$__rate_interval]) / on(instance,container) group_left validator_monitor_validators_total{instance=\"${instance}\"}",
+          "expr": "rate(validator_monitor_balance_gwei{instance=\"${instance}\"}[$__rate_interval]) / on(instance) group_left validator_monitor_validators_total{instance=\"${instance}\"}",
           "interval": "384",
           "legendFormat": "{{validator}}",
           "refId": "A"
@@ -5004,14 +5004,14 @@
     "list": [
       {
         "current": {},
-        "definition": "label_values(beacon_current_epoch{job=\"beacon-node-metrics\"},instance)",
+        "definition": "label_values(beacon_current_epoch,instance)",
         "hide": 0,
         "includeAll": false,
         "multi": false,
         "name": "instance",
         "options": [],
         "query": {
-          "query": "label_values(beacon_current_epoch{job=\"beacon-node-metrics\"},instance)",
+          "query": "label_values(beacon_current_epoch,instance)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,
@@ -5022,25 +5022,6 @@
         "tagsQuery": "",
         "type": "query",
         "useTags": false,
-        "datasource": "${DS_PROMETHEUS-PROXY}"
-      },
-      {
-        "current": {},
-        "definition": "label_values(beacon_current_epoch{job=\"beacon-node-metrics\",instance=\"${instance}\"},container)",
-        "hide": 0,
-        "includeAll": true,
-        "multi": false,
-        "name": "container",
-        "options": [],
-        "query": {
-          "query": "label_values(beacon_current_epoch{job=\"beacon-node-metrics\",instance=\"${instance}\"},container)",
-          "refId": "StandardVariableQuery"
-        },
-        "refresh": 2,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
-        "type": "query",
         "datasource": "${DS_PROMETHEUS-PROXY}"
       }
     ]
