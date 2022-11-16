@@ -55,6 +55,9 @@ type
     # assumed that a valid index is stored here!
     index*: Opt[ValidatorIndex]
 
+    # Epoch when validator activated.
+    activationEpoch*: Opt[Epoch]
+
     # Cache the latest slot signature - the slot signature is used to determine
     # if the validator will be aggregating (in the near future)
     slotSignature*: Opt[tuple[slot: Slot, signature: ValidatorSig]]
@@ -177,6 +180,28 @@ proc close*(pool: var ValidatorPool) =
       notice "Could not unlock validator's keystore file",
              pubkey = validator.pubkey, validator = shortLog(validator)
 
+proc addRemoteValidator*(pool: var ValidatorPool,
+                         keystore: KeystoreData,
+                         index: Opt[ValidatorIndex],
+                         feeRecipient: Eth1Address,
+                         slot: Slot) =
+  var clients: seq[(RestClientRef, RemoteSignerInfo)]
+  let httpFlags =
+    block:
+      var res: set[HttpClientFlag]
+      if RemoteKeystoreFlag.IgnoreSSLVerification in keystore.flags:
+        res.incl({HttpClientFlag.NoVerifyHost,
+                  HttpClientFlag.NoVerifyServerName})
+      res
+  let prestoFlags = {RestClientFlag.CommaSeparatedArray}
+  for remote in keystore.remotes:
+    let client = RestClientRef.new($remote.url, prestoFlags, httpFlags)
+    if client.isErr():
+      warn "Unable to resolve distributed signer address",
+          remote_url = $remote.url, validator = $remote.pubkey
+    clients.add((client.get(), remote))
+  pool.addRemoteValidator(keystore, clients, index, feeRecipient, slot)
+
 iterator publicKeys*(pool: ValidatorPool): ValidatorPubKey =
   for item in pool.validators.keys():
     yield item
@@ -243,7 +268,7 @@ proc signData(v: AttachedValidator,
   else:
     v.signWithDistributedKey(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#signature
 proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         block_root: Eth2Digest,
@@ -280,12 +305,14 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
               Web3SignerForkedBeaconBlock(
                 kind: BeaconBlockFork.Bellatrix,
                 bellatrixData: blck.bellatrixData.toBeaconBlockHeader)
+            of BeaconBlockFork.Capella:
+              raiseAssert $capellaImplementationMissing
 
           request = Web3SignerRequest.init(
             fork, genesis_validators_root, web3SignerBlock)
         await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
                               genesis_validators_root: Eth2Digest,
                               data: AttestationData
@@ -301,7 +328,7 @@ proc getAttestationSignature*(v: AttachedValidator, fork: Fork,
       let request = Web3SignerRequest.init(fork, genesis_validators_root, data)
       await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#broadcast-aggregate
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#broadcast-aggregate
 proc getAggregateAndProofSignature*(v: AttachedValidator,
                                     fork: Fork,
                                     genesis_validators_root: Eth2Digest,
@@ -320,7 +347,7 @@ proc getAggregateAndProofSignature*(v: AttachedValidator,
         fork, genesis_validators_root, aggregate_and_proof)
       await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/validator.md#prepare-sync-committee-message
 proc getSyncCommitteeMessage*(v: AttachedValidator,
                               fork: Fork,
                               genesis_validators_root: Eth2Digest,
@@ -387,7 +414,7 @@ proc getContributionAndProofSignature*(v: AttachedValidator, fork: Fork,
         fork, genesis_validators_root, contribution_and_proof)
       await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#randao-reveal
 proc getEpochSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, epoch: Epoch
                        ): Future[SignatureResult] {.async.} =
@@ -402,7 +429,7 @@ proc getEpochSignature*(v: AttachedValidator, fork: Fork,
         fork, genesis_validators_root, epoch)
       await v.signData(request)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#aggregation-selection
 proc getSlotSignature*(v: AttachedValidator, fork: Fork,
                        genesis_validators_root: Eth2Digest, slot: Slot
                       ): Future[SignatureResult] {.async.} =
@@ -438,3 +465,4 @@ proc getBuilderSignature*(v: AttachedValidator, fork: Fork,
       let request = Web3SignerRequest.init(
         fork, ZERO_HASH, validatorRegistration)
       await v.signData(request)
+

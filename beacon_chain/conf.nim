@@ -179,6 +179,11 @@ type
       desc: "Force the use of polling when determining the head block of Eth1"
       name: "web3-force-polling" .}: bool
 
+    optimistic* {.
+      defaultValue: false
+      desc: "Run the node in optimistic mode, allowing it to optimistically sync without an execution client"
+      name: "optimistic".}: bool
+
     requireEngineAPI* {.
       hidden  # Deprecated > 22.9
       desc: "Require Nimbus to be configured with an Engine API end-point after the Bellatrix fork epoch"
@@ -307,6 +312,7 @@ type
         name: "finalized-checkpoint-state" .}: Option[InputFile]
 
       finalizedCheckpointBlock* {.
+        hidden
         desc: "SSZ file specifying a recent finalized block"
         name: "finalized-checkpoint-block" .}: Option[InputFile]
 
@@ -528,12 +534,9 @@ type
         defaultValueDesc: $DeploymentPhase.Mainnet
         name: "deployment-phase" .}: DeploymentPhase
 
-      # TODO nim-confutils on 32-bit platforms overflows decoding integers
-      # requiring 64-bit representations and doesn't build when specifying
-      # UInt256 directly, so pass this through for decoding elsewhere.
       terminalTotalDifficultyOverride* {.
         hidden
-        desc: "Override pre-configured TERMINAL_TOTAL_DIFFICULTY parameter"
+        desc: "Deprecated for removal"
         name: "terminal-total-difficulty-override" .}: Option[string]
 
       validatorMonitorAuto* {.
@@ -761,10 +764,16 @@ type
         name: "trusted-node-url"
       .}: string
 
-      blockId* {.
-        desc: "Block id to sync to - this can be a block root, slot number, \"finalized\" or \"head\""
-        defaultValue: "finalized"
+      stateId* {.
+        desc: "State id to sync to - this can be \"finalized\", a slot number or state hash or \"head\""
+        defaultValue: "finalized",
+        name: "state-id"
       .}: string
+
+      blockId* {.
+        hidden
+        desc: "Block id to sync to - this can be a block root, slot number, \"finalized\" or \"head\" (deprecated)"
+      .}: Option[string]
 
       backfillBlocks* {.
         desc: "Backfill blocks directly from REST server instead of fetching via API"
@@ -902,6 +911,11 @@ type
       desc: "A positive epoch selects the epoch at which to stop"
       defaultValue: 0
       name: "stop-at-epoch" .}: uint64
+
+    payloadBuilderEnable* {.
+      desc: "Enable usage of beacon node with external payload builder"
+      defaultValue: false
+      name: "payload-builder" .}: bool
 
     beaconNodes* {.
       desc: "URL addresses to one or more beacon node HTTP REST APIs",

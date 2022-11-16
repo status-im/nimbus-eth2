@@ -10,8 +10,6 @@
 import
   # Standard library
   std/[json, os, streams],
-  # Status libraries
-  stew/bitops2,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -126,4 +124,5 @@ suite "EF - Light client - Sync" & preset():
     if kind != pcDir or not dirExists(basePath):
       continue
     for kind, path in walkDir(basePath, relative = true, checkDir = true):
+      let combinedPath = basePath/path
       runTest(basePath/path)

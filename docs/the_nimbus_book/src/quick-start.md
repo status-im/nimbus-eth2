@@ -37,10 +37,10 @@ Next, download the [latest release](./binaries.md) and install it by unpacking t
 mkdir -p nimbus-eth2
 
 # Download the latest release - replace the link with the latest release on the download page!
-wget https://github.com/status-im/nimbus-eth2/releases/download/v22.6.1/nimbus-eth2_Linux_amd64_22.6.1_2444e994.tar.gz
+wget https://github.com/status-im/nimbus-eth2/releases/download/v22.10.1/nimbus-eth2_Linux_amd64_22.10.1_97a1cdc4.tar.gz
 
 # Unpack the archive into the `nimbus-eth2` directory you just created
-tar xvf nimbus-eth2_Linux_amd64_22.6.1_2444e994.tar.gz --strip-components 1 -C nimbus-eth2
+tar xvf nimbus-eth2_Linux_amd64_22.10.1_97a1cdc4.tar.gz --strip-components 1 -C nimbus-eth2
 ```
 
 !!! tip
@@ -58,20 +58,20 @@ cd nimbus-eth2
 
     ```sh
     # Start a mainnet node
-    ./run-mainnet-beacon-node.sh
+    ./run-mainnet-beacon-node.sh --web3-url=http://127.0.0.1:8551
     ```
 
 === "Prater"
 
     ```sh
     # Start a prater testnet node
-    ./run-prater-beacon-node.sh
+    ./run-prater-beacon-node.sh --web3-url=http://127.0.0.1:8551
     ```
 
 Once the beacon node starts, you'll see it logging information to the console, like so:
 
 ```sh
-INF 2022-07-19 15:42:58.145+02:00 Launching beacon node                      topics="beacnde" version=v22.6.1-2444e9-stateofus ...
+INF 2022-07-19 15:42:58.145+02:00 Launching beacon node                      topics="beacnde" version=v22.10.1-97a1cdc4-stateofus ...
 ```
 
 Congratulations! Your beacon node is up and running, and syncing the network!

@@ -33,18 +33,10 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
     vc = service.client
     fork = vc.forkAtEpoch(slot.epoch)
     genesisValidatorsRoot = vc.beaconGenesis.genesis_validators_root
-
     vindex = duty.data.validator_index
     subcommitteeIdx = getSubcommitteeIndex(
       duty.data.validator_sync_committee_index)
-
-    validator =
-      block:
-        let res = vc.getValidator(duty.data.pubkey)
-        if res.isNone():
-          return false
-        res.get()
-
+    validator = vc.getValidator(duty.data.pubkey).valueOr: return false
     message =
       block:
         let res = await getSyncCommitteeMessage(validator, fork,
@@ -368,10 +360,9 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
   await service.produceAndPublishContributions(slot, beaconBlockRoot, duties)
 
 proc spawnSyncCommitteeTasks(service: SyncCommitteeServiceRef, slot: Slot) =
-  let vc = service.client
-
-  removeOldSyncPeriodDuties(vc, slot)
-  let duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)
+  let
+    vc = service.client
+    duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)
 
   asyncSpawn service.publishSyncMessagesAndContributions(slot, duties)
 
@@ -409,8 +400,8 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
 proc init*(t: typedesc[SyncCommitteeServiceRef],
            vc: ValidatorClientRef): Future[SyncCommitteeServiceRef] {.async.} =
   logScope: service = ServiceName
-  let res = SyncCommitteeServiceRef(name: ServiceName,
-                                    client: vc, state: ServiceState.Initialized)
+  let res = SyncCommitteeServiceRef(name: ServiceName, client: vc,
+                                    state: ServiceState.Initialized)
   debug "Initializing service"
   return res
 

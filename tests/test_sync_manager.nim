@@ -42,15 +42,16 @@ func getStaticSlotCb(slot: Slot): GetSlotCallback =
 type
   BlockEntry = object
     blck*: ForkedSignedBeaconBlock
-    resfut*: Future[Result[void, BlockError]]
+    resfut*: Future[Result[void, VerifierError]]
 
 proc collector(queue: AsyncQueue[BlockEntry]): BlockVerifier =
   # This sets up a fake block verifiation collector that simply puts the blocks
   # in the async queue, similar to how BlockProcessor does it - as far as
   # testing goes, this is risky because it might introduce differences between
   # the BlockProcessor and this test
-  proc verify(signedBlock: ForkedSignedBeaconBlock): Future[Result[void, BlockError]] =
-    let fut = newFuture[Result[void, BlockError]]()
+  proc verify(signedBlock: ForkedSignedBeaconBlock):
+      Future[Result[void, VerifierError]] =
+    let fut = newFuture[Result[void, VerifierError]]()
     try: queue.addLastNoWait(BlockEntry(blck: signedBlock, resfut: fut))
     except CatchableError as exc: raiseAssert exc.msg
     return fut
@@ -262,9 +263,9 @@ suite "SyncManager test suite":
         r22.slot == Slot(0) and r22.count == 1'u64
 
   template done(b: BlockEntry) =
-    b.resfut.complete(Result[void, BlockError].ok())
+    b.resfut.complete(Result[void, VerifierError].ok())
   template fail(b: BlockEntry, e: untyped) =
-    b.resfut.complete(Result[void, BlockError].err(e))
+    b.resfut.complete(Result[void, VerifierError].err(e))
 
   template smokeTest(kkind: SyncQueueKind, start, finish: Slot,
                      chunkSize: uint64) =
@@ -283,7 +284,7 @@ suite "SyncManager test suite":
         if sblock.blck.slot == Slot(counter):
           sblock.done()
         else:
-          sblock.fail(BlockError.Invalid)
+          sblock.fail(VerifierError.Invalid)
         dec(counter)
 
     proc forwardValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
@@ -293,7 +294,7 @@ suite "SyncManager test suite":
           inc(counter)
           sblock.done()
         else:
-          sblock.fail(BlockError.Invalid)
+          sblock.fail(VerifierError.Invalid)
 
     var
       queue =
@@ -352,7 +353,7 @@ suite "SyncManager test suite":
         if sblock.blck.slot == Slot(counter):
           sblock.done()
         else:
-          sblock.fail(BlockError.Invalid)
+          sblock.fail(VerifierError.Invalid)
         dec(counter)
 
     proc forwardValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
@@ -362,7 +363,7 @@ suite "SyncManager test suite":
           inc(counter)
           sblock.done()
         else:
-          sblock.fail(BlockError.Invalid)
+          sblock.fail(VerifierError.Invalid)
 
     var
       chain = createChain(startSlot, finishSlot)
@@ -448,9 +449,9 @@ suite "SyncManager test suite":
           sblock.done()
         elif sblock.blck.slot < Slot(counter):
           # There was a gap, report missing parent
-          sblock.fail(BlockError.MissingParent)
+          sblock.fail(VerifierError.MissingParent)
         else:
-          sblock.fail(BlockError.Duplicate)
+          sblock.fail(VerifierError.Duplicate)
 
     proc getBackwardSafeSlotCb(): Slot =
       min((Slot(counter).epoch + 1).start_slot, finish)
@@ -463,9 +464,9 @@ suite "SyncManager test suite":
           sblock.done()
         elif sblock.blck.slot > Slot(counter):
           # There was a gap, report missing parent
-          sblock.fail(BlockError.MissingParent)
+          sblock.fail(VerifierError.MissingParent)
         else:
-          sblock.fail(BlockError.Duplicate)
+          sblock.fail(VerifierError.Duplicate)
 
     proc getFowardSafeSlotCb(): Slot =
       max(Slot(max(counter, 1) - 1).epoch.start_slot, start)
@@ -507,7 +508,7 @@ suite "SyncManager test suite":
             response.delete(response.len - 2)
           of SyncQueueKind.Backward:
             response.delete(1)
-          expectedScore += PeerScoreMissingBlocks
+          expectedScore += PeerScoreMissingValues
         if response.len >= 1:
           # Ensure requested values are past `safeSlot`
           case kkind
@@ -540,7 +541,7 @@ suite "SyncManager test suite":
     proc failingValidator(aq: AsyncQueue[BlockEntry]) {.async.} =
       while true:
         let sblock = await aq.popFirst()
-        sblock.fail(BlockError.Invalid)
+        sblock.fail(VerifierError.Invalid)
 
     proc getBackwardSafeSlotCb(): Slot =
       let progress = (uint64(int(finish) - counter) div chunkSize) * chunkSize
@@ -709,12 +710,12 @@ suite "SyncManager test suite":
         if sblock.blck.slot == Slot(counter):
           withBlck(sblock.blck):
             if blck.message.proposer_index == 0xDEADBEAF'u64:
-              sblock.fail(BlockError.MissingParent)
+              sblock.fail(VerifierError.MissingParent)
             else:
               inc(counter)
               sblock.done()
         else:
-          sblock.fail(BlockError.Invalid)
+          sblock.fail(VerifierError.Invalid)
 
     var
       chain = createChain(startSlot, finishSlot)
@@ -821,7 +822,7 @@ suite "SyncManager test suite":
       while true:
         let sblock = await aq.popFirst()
         withBlck(sblock.blck):
-          sblock.fail(BlockError.UnviableFork)
+          sblock.fail(VerifierError.UnviableFork)
           inc(counter)
 
     var
@@ -874,13 +875,13 @@ suite "SyncManager test suite":
         if sblock.blck.slot == Slot(counter):
           withBlck(sblock.blck):
             if blck.message.proposer_index == 0xDEADBEAF'u64:
-              sblock.fail(BlockError.MissingParent)
+              sblock.fail(VerifierError.MissingParent)
             else:
               lastSafeSlot = sblock.blck.slot
               dec(counter)
               sblock.done()
         else:
-          sblock.fail(BlockError.Invalid)
+          sblock.fail(VerifierError.Invalid)
 
     var
       chain = createChain(startSlot, finishSlot)

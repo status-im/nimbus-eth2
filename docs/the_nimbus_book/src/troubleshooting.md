@@ -107,22 +107,6 @@ To change the base port, run:
 
 If you're being flooded with `Catching up on validator duties` messages, your CPU is probably too slow to run Nimbus. Please check that your setup matches our [system requirements](./hardware.md).
 
-### Local timer is broken error
-
-If you cannot start your validator because you are seeing logs that look like the following:
-
-```
-WRN 2021-01-08 06:32:46.975+00:00 Local timer is broken or peer's status information is invalid topics="beacnde" tid=120491 file=sync_manager.nim:752 wall_clock_slot=271961 remote_head_slot=271962 local_head_slot=269254 peer=16U*mELUgu index=0 tolerance_value=0 peer_speed=2795.0 peer_score=200
-```
-
-This is likely due to the fact that your local clock is off. To compare your local time with a internet time, run:
-
-```
-cat </dev/tcp/time.nist.gov/13 ; date -u
-```
-
-The first line in the output will give you internet time. And the second line will give you the time according to your machine. These shouldn't be more than half a second apart. See the [requirements](./install.md#time) page for more information on how to set automatic time synchronization.
-
 ### Eth1 chain monitor failure
 
 If you see an error that looks like the following:

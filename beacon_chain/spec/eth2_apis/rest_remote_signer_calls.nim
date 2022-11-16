@@ -10,7 +10,7 @@ else:
   {.push raises: [].}
 
 import
-  std/strutils, chronicles, metrics,
+  chronicles, metrics,
   chronos, chronos/apps/http/httpclient, presto, presto/client,
   serialization, json_serialization,
   json_serialization/std/[options, net, sets],

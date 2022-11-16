@@ -25,6 +25,8 @@ import
   ../fork_choice/fork_choice,
   ../beacon_clock
 
+from ../spec/datatypes/capella import HashedBeaconState, shortLog
+
 export tables, results, phase0, altair, bellatrix, blockchain_dag, fork_choice
 
 const
@@ -481,7 +483,8 @@ func init(T: type AttestationCache, state: phase0.HashedBeaconState): T =
 
 func init(
     T: type AttestationCache,
-    state: altair.HashedBeaconState | bellatrix.HashedBeaconState,
+    state: altair.HashedBeaconState | bellatrix.HashedBeaconState |
+           capella.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let
@@ -531,12 +534,36 @@ func score(
   # Not found in cache - fresh vote meaning all attestations count
   bitsScore
 
+proc check_attestation_compatible*(
+    dag: ChainDAGRef,
+    state: ForkyBeaconState,
+    attestation: SomeAttestation): Result[void, cstring] =
+  let targetEpoch = attestation.data.target.epoch
+  if targetEpoch <= MIN_SEED_LOOKAHEAD:
+    return ok()
+
+  let
+    attestedBlck =
+      dag.getBlockRef(attestation.data.beacon_block_root).valueOr:
+        return err("Unknown `beacon_block_root`")
+
+    dependentSlot = (targetEpoch - MIN_SEED_LOOKAHEAD).start_slot - 1
+    dependentBid = dag.atSlot(attestedBlck.bid, dependentSlot).valueOr:
+      return err("Dependent root not found")
+
+    dependentRoot = dependentBid.bid.root
+    compatibleRoot = state.get_block_root_at_slot(dependentSlot)
+  if dependentRoot != compatibleRoot:
+    return err("Incompatible shuffling")
+
+  ok()
+
 proc getAttestationsForBlock*(pool: var AttestationPool,
                               state: ForkyHashedBeaconState,
                               cache: var StateCache): seq[Attestation] =
   ## Retrieve attestations that may be added to a new block at the slot of the
   ## given state
-  ## https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#attestations
+  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#attestations
   let newBlockSlot = state.data.slot.uint64
 
   if newBlockSlot < MIN_ATTESTATION_INCLUSION_DELAY:
@@ -554,7 +581,8 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
     attCache =
       when state is phase0.HashedBeaconState:
         AttestationCache.init(state)
-      elif state is altair.HashedBeaconState or state is bellatrix.HashedBeaconState:
+      elif state is altair.HashedBeaconState or state is bellatrix.HashedBeaconState or
+           state is capella.HashedBeaconState:
         AttestationCache.init(state, cache)
       else:
         static: doAssert false
@@ -578,6 +606,12 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       for j in 0..<entry.aggregates.len():
         let
           attestation = entry.toAttestation(entry.aggregates[j])
+
+        # Filter out attestations that were created with a different shuffling.
+        # As we don't re-check signatures, this needs to be done separately
+        if not check_attestation_compatible(
+              pool.dag, state.data, attestation).isOk():
+          continue
 
         # Attestations are checked based on the state that we're adding the
         # attestation to - there might have been a fork between when we first
@@ -609,7 +643,8 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     prevEpoch = state.data.get_previous_epoch()
     prevEpochSpace =
-      when state is altair.HashedBeaconState or state is bellatrix.HashedBeaconState:
+      when state is altair.HashedBeaconState or state is bellatrix.HashedBeaconState or
+           state is capella.HashedBeaconState:
         MAX_ATTESTATIONS
       elif state is phase0.HashedBeaconState:
         state.data.previous_epoch_attestations.maxLen -
@@ -745,7 +780,7 @@ proc getBeaconHead*(
     finalizedExecutionPayloadHash =
       pool.dag.loadExecutionBlockRoot(pool.dag.finalizedHead.blck)
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.2.0/fork_choice/safe-block.md#get_safe_execution_payload_hash
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/fork_choice/safe-block.md#get_safe_execution_payload_hash
     safeBlockRoot = pool.forkChoice.get_safe_beacon_block_root()
     safeBlock = pool.dag.getBlockRef(safeBlockRoot)
     safeExecutionPayloadHash =

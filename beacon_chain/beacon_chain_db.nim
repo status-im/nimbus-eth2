@@ -20,6 +20,8 @@ import
   ./spec/datatypes/[phase0, altair, bellatrix],
   "."/[beacon_chain_db_light_client, filepath]
 
+from ./spec/datatypes/capella import BeaconState
+
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
   kvstore_sqlite3
@@ -400,7 +402,23 @@ template withManyWrites*(dbParam: BeaconChainDB, body: untyped) =
     if commit:
       expectDb db.db.exec("COMMIT TRANSACTION;")
     else:
-      expectDb db.db.exec("ROLLBACK TRANSACTION;")
+      # https://www.sqlite.org/lang_transaction.html
+      #
+      # For all of these errors, SQLite attempts to undo just the one statement
+      # it was working on and leave changes from prior statements within the same
+      # transaction intact and continue with the transaction. However, depending
+      # on the statement being evaluated and the point at which the error occurs,
+      # it might be necessary for SQLite to rollback and cancel the entire transaction.
+      # An application can tell which course of action SQLite took by using the
+      # sqlite3_get_autocommit() C-language interface.
+      #
+      # It is recommended that applications respond to the errors listed above by
+      # explicitly issuing a ROLLBACK command. If the transaction has already been
+      # rolled back automatically by the error response, then the ROLLBACK command
+      # will fail with an error, but no harm is caused by this.
+      #
+      if isInsideTransaction(db.db): # calls `sqlite3_get_autocommit`
+        expectDb db.db.exec("ROLLBACK TRANSACTION;")
 
 proc new*(T: type BeaconChainDB,
           dir: string,
@@ -447,14 +465,16 @@ proc new*(T: type BeaconChainDB,
     blocks = [
       kvStore db.openKvStore("blocks").expectDb(),
       kvStore db.openKvStore("altair_blocks").expectDb(),
-      kvStore db.openKvStore("bellatrix_blocks").expectDb()]
+      kvStore db.openKvStore("bellatrix_blocks").expectDb(),
+      kvStore db.openKvStore("capella_blocks").expectDb()]
 
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
     statesNoVal = [
       kvStore db.openKvStore("state_no_validators2").expectDb(),
       kvStore db.openKvStore("altair_state_no_validators").expectDb(),
-      kvStore db.openKvStore("bellatrix_state_no_validators").expectDb()]
+      kvStore db.openKvStore("bellatrix_state_no_validators").expectDb(),
+      kvStore db.openKvStore("capella_state_no_validators").expectDb()]
 
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
@@ -547,20 +567,20 @@ proc decodeSZSSZ[T](data: openArray[byte], output: var T): bool =
       err = e.msg, typ = name(T), dataLen = data.len
     false
 
-proc encodeSSZ(v: auto): seq[byte] =
+func encodeSSZ(v: auto): seq[byte] =
   try:
     SSZ.encode(v)
   except IOError as err:
     raiseAssert err.msg
 
-proc encodeSnappySSZ(v: auto): seq[byte] =
+func encodeSnappySSZ(v: auto): seq[byte] =
   try:
     snappy.encode(SSZ.encode(v))
   except CatchableError as err:
     # In-memory encode shouldn't fail!
     raiseAssert err.msg
 
-proc encodeSZSSZ(v: auto): seq[byte] =
+func encodeSZSSZ(v: auto): seq[byte] =
   # https://github.com/google/snappy/blob/main/framing_format.txt
   try:
     encodeFramed(SSZ.encode(v))
@@ -652,9 +672,11 @@ proc close*(db: BeaconChainDB) =
   db.finalizedBlocks.close()
   discard db.summaries.close()
   discard db.stateDiffs.close()
-  for kv in db.statesNoVal: discard kv.close()
+  for kv in db.statesNoVal:
+    discard kv.close()
   discard db.stateRoots.close()
-  for kv in db.blocks: discard kv.close()
+  for kv in db.blocks:
+    discard kv.close()
   discard db.keyValues.close()
 
   db.immutableValidatorsDb.close()
@@ -684,7 +706,8 @@ proc putBlock*(
 
 proc putBlock*(
     db: BeaconChainDB,
-    value: bellatrix.TrustedSignedBeaconBlock) =
+    value: bellatrix.TrustedSignedBeaconBlock |
+           capella.TrustedSignedBeaconBlock) =
   db.withManyWrites:
     db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
@@ -715,6 +738,10 @@ template toBeaconStateNoImmutableValidators(state: bellatrix.BeaconState):
     BellatrixBeaconStateNoImmutableValidators =
   isomorphicCast[BellatrixBeaconStateNoImmutableValidators](state)
 
+template toBeaconStateNoImmutableValidators(state: capella.BeaconState):
+    CapellaBeaconStateNoImmutableValidators =
+  isomorphicCast[CapellaBeaconStateNoImmutableValidators](state)
+
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
     value: phase0.BeaconState | altair.BeaconState) =
@@ -722,7 +749,9 @@ proc putState*(
   db.statesNoVal[type(value).toFork()].putSnappySSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
 
-proc putState*(db: BeaconChainDB, key: Eth2Digest, value: bellatrix.BeaconState) =
+proc putState*(
+    db: BeaconChainDB, key: Eth2Digest,
+    value: bellatrix.BeaconState | capella.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
   db.statesNoVal[type(value).toFork()].putSZSSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
@@ -754,12 +783,14 @@ proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) 
 
 proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.withManyWrites:
-    for kv in db.blocks: kv.del(key.data).expectDb()
+    for kv in db.blocks:
+      kv.del(key.data).expectDb()
     db.summaries.del(key.data).expectDb()
 
 proc delState*(db: BeaconChainDB, key: Eth2Digest) =
   db.withManyWrites:
-    for kv in db.statesNoVal: kv.del(key.data).expectDb()
+    for kv in db.statesNoVal:
+      kv.del(key.data).expectDb()
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
   db.stateRoots.del(stateRootKey(root, slot)).expectDb()
@@ -815,7 +846,7 @@ proc getBlock*(
     result.err()
 
 proc getBlock*[
-    X: bellatrix.TrustedSignedBeaconBlock](
+    X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,
     T: type X): Opt[T] =
   # We only store blocks that we trust in the database
@@ -869,9 +900,9 @@ proc getBlockSSZ*(
     except CatchableError: success = false
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
 
-proc getBlockSSZ*(
-    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
-    T: type bellatrix.TrustedSignedBeaconBlock): bool =
+proc getBlockSSZ*[
+    X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock](
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: type X): bool =
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
@@ -889,6 +920,8 @@ proc getBlockSSZ*(
     getBlockSSZ(db, key, data, altair.TrustedSignedBeaconBlock)
   of BeaconBlockFork.Bellatrix:
     getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.Capella:
+    raiseAssert $capellaImplementationMissing
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
@@ -913,9 +946,9 @@ proc getBlockSZ*(
     except CatchableError: success = false
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
 
-proc getBlockSZ*(
-    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
-    T: type bellatrix.TrustedSignedBeaconBlock): bool =
+proc getBlockSZ*[
+    X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock](
+    db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: type X): bool =
   let dataPtr = addr data # Short-lived
   var success = true
   func decode(data: openArray[byte]) =
@@ -932,6 +965,8 @@ proc getBlockSZ*(
     getBlockSZ(db, key, data, altair.TrustedSignedBeaconBlock)
   of BeaconBlockFork.Bellatrix:
     getBlockSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.Capella:
+    raiseAssert $capellaImplementationMissing
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
@@ -977,7 +1012,8 @@ proc getStateOnlyMutableValidators(
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
-    store: KvStoreRef, key: openArray[byte], output: var bellatrix.BeaconState,
+    store: KvStoreRef, key: openArray[byte],
+    output: var (bellatrix.BeaconState | capella.BeaconState),
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -1068,7 +1104,8 @@ proc getState*(
 
 proc getState*(
     db: BeaconChainDB, key: Eth2Digest,
-    output: var (altair.BeaconState | bellatrix.BeaconState),
+    output: var (altair.BeaconState | bellatrix.BeaconState |
+                 capella.BeaconState),
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -1084,6 +1121,21 @@ proc getState*(
   getStateOnlyMutableValidators(
     db.immutableValidators, db.statesNoVal[T.toFork], key.data, output,
     rollback)
+
+proc getState*(
+    db: BeaconChainDB, fork: BeaconStateFork, state_root: Eth2Digest,
+    state: var ForkedHashedBeaconState, rollback: RollbackProc): bool =
+  if state.kind != fork:
+    # Avoid temporary (!)
+    state = (ref ForkedHashedBeaconState)(kind: fork)[]
+
+  withState(state):
+    if not db.getState(state_root, forkyState.data, rollback):
+      return false
+
+    forkyState.root = state_root
+
+  true
 
 proc getStateRoot(db: BeaconChainDBV0,
                    root: Eth2Digest,
@@ -1143,7 +1195,8 @@ proc containsBlock*(
     db.v0.containsBlock(key)
 
 proc containsBlock*[
-    X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock](
+    X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
+       capella.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
   db.blocks[X.toFork].contains(key.data).expectDb()
 
@@ -1153,7 +1206,9 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: BeaconBlockFork): 
   else: db.blocks[fork].contains(key.data).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
-  db.containsBlock(key, bellatrix.TrustedSignedBeaconBlock) or
+  static: doAssert high(BeaconBlockFork) == BeaconBlockFork.Capella
+  db.containsBlock(key, capella.TrustedSignedBeaconBlock) or
+    db.containsBlock(key, bellatrix.TrustedSignedBeaconBlock) or
     db.containsBlock(key, altair.TrustedSignedBeaconBlock) or
     db.containsBlock(key, phase0.TrustedSignedBeaconBlock)
 

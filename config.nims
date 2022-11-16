@@ -1,5 +1,17 @@
 import strutils
 
+--noNimblePath
+
+const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
+
+if getEnv("NIMBUS_BUILD_SYSTEM") == "yes" and
+   # BEWARE
+   # In Nim 1.6, config files are evaluated with a working directory
+   # matching where the Nim command was invocated. This means that we
+   # must do all file existance checks with full absolute paths:
+   system.fileExists(currentDir & "nimbus-build-system.paths"):
+  include "nimbus-build-system.paths"
+
 const nimCachePathOverride {.strdefine.} = ""
 when nimCachePathOverride == "":
   when defined(release):
@@ -81,18 +93,19 @@ if defined(windows):
 if defined(disableMarchNative):
   if defined(i386) or defined(amd64):
     if defined(macosx):
-      # https://support.apple.com/kb/SP777
-      # "macOS Mojave - Technical Specifications": EOL as of 2021-10
-      # https://support.apple.com/kb/SP803
-      # "macOS Catalina - Technical Specifications" lists current oldest
-      # supported models: MacBook Air (Mid 2012 or newer), MacBook Pro
-      # (Mid 2012 or newer), Mac mini (Late 2012 or newer), and iMac (Late 2012
-      # or newer). These all have Ivy Bridge CPUs or newer.
+      # https://support.apple.com/kb/sp803
+      # "macOS Catalina - Technical Specifications": EOL as of 2022-09
+      # https://support.apple.com/kb/sp833
+      # "macOS Big Sur - Technical Specifications" lists current oldest
+      # supported models: MacBook (2015 or later), MacBook Air (2013 or later),
+      # MacBook Pro (Late 2013 or later), Mac mini (2014 or later), iMac (2014
+      # or later), iMac Pro (2017 or later), Mac Pro (2013 or later).
       #
-      # This ensures AVX, AES, PCLMUL, FSGSBASE, RDRND, and F16C instruction
-      # set support.
-      switch("passC", "-march=ivybridge")
-      switch("passL", "-march=ivybridge")
+      # These all have Haswell or newer CPUs.
+      #
+      # This ensures AVX2, AES-NI, PCLMUL, BMI1, and BMI2 instruction set support.
+      switch("passC", "-march=haswell -mtune=generic")
+      switch("passL", "-march=haswell -mtune=generic")
     else:
       switch("passC", "-mssse3")
       switch("passL", "-mssse3")
@@ -123,7 +136,6 @@ switch("passL", "-fno-omit-frame-pointer")
 # for heap-usage-by-instance-type metrics and object base-type strings
 --define:nimTypeNames
 
-const currentDir = currentSourcePath()[0 .. ^(len("config.nims") + 1)]
 switch("define", "nim_compiler_path=" & currentDir & "env.sh nim")
 switch("define", "withoutPCRE")
 

@@ -58,7 +58,6 @@ type
     onContributionReceived*: OnSyncContributionCallback
 
     rng: ref HmacDrbgContext
-    syncCommitteeSubscriptions*: Table[ValidatorPubKey, Epoch]
 
 func hash*(x: SyncCommitteeMsgKey): Hash =
   hashAllFields(x)

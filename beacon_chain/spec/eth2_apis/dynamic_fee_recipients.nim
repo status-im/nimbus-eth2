@@ -2,7 +2,6 @@ import
   std/tables,
   stew/results,
   chronicles,
-  web3/ethtypes,
   ../datatypes/base
 
 type
@@ -20,10 +19,21 @@ proc addMapping*(store: var DynamicFeeRecipientsStore,
                  validator: ValidatorIndex,
                  feeRecipient: Eth1Address,
                  currentEpoch: Epoch) =
-  info "Updating fee recipient",
-    validator, feeRecipient = feeRecipient.toHex(), currentEpoch
-  store.mappings[validator] = Entry(recipient: feeRecipient,
-                                    addedAt: currentEpoch)
+  var
+    found, updated = false
+  store.mappings.withValue(validator, entry) do:
+    updated = not (entry[].recipient == feeRecipient)
+    entry[] = Entry(recipient: feeRecipient, addedAt: currentEpoch)
+  do:
+    updated = true
+    store.mappings[validator] = Entry(recipient: feeRecipient,
+                                      addedAt: currentEpoch)
+  if updated:
+    info "Updating fee recipient",
+      validator, feeRecipient = feeRecipient.toHex(), currentEpoch
+  else:
+    debug "Refreshing fee recipient",
+      validator, feeRecipient = feeRecipient.toHex(), currentEpoch
 
 func getDynamicFeeRecipient*(store: var DynamicFeeRecipientsStore,
                              validator: ValidatorIndex,

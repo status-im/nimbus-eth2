@@ -3,9 +3,9 @@
 !!! warning
     The light client is currently in BETA and details around running it may change.
 
-The Nimbus Light Client is a light-weight alternative to running a full beacon node, when setting up an Ethereum execution client for read-only use cases after the merge.
+The Nimbus Light Client is a light-weight alternative to running a full beacon node, when you're not planning on becoming a validator but still want to run an Ethereum execution layer client.
 
-Execution layer (EL) clients provide the [web3 API](https://ethereum.github.io/execution-apis/api-documentation/) to expose information stored on the Ethereum blockchain. With [the merge 🐼](./merge.md), EL clients can no longer run standalone and require an external component to determine the latest state to sync to.
+Execution layer (EL) clients provide the [Web3 API](https://ethereum.github.io/execution-apis/api-documentation/) to expose information stored on the Ethereum blockchain. Since the merge 🐼, execution clients can no longer run standalone.
 
 ## Comparison
 
@@ -69,12 +69,12 @@ In addition to the [regular instructions](./eth1.md) to run an EL client, the JW
 
     === "Mainnet"
         ```sh
-        geth --ws --authrpc.jwtsecret="$HOME/jwtsecret"
+        geth --authrpc.jwtsecret="$HOME/jwtsecret"
         ```
 
     === "Goerli"
         ```sh
-        geth --goerli --ws --authrpc.jwtsecret="$HOME/jwtsecret"
+        geth --goerli --authrpc.jwtsecret="$HOME/jwtsecret"
         ```
 
 === "Nethermind"
@@ -123,7 +123,7 @@ To start the light client, run the following commands (inserting your own truste
     ```sh
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
     build/nimbus_light_client \
-        --web3-url=ws://127.0.0.1:8551 --jwt-secret="$HOME/jwtsecret" \
+        --web3-url=http://127.0.0.1:8551 --jwt-secret="$HOME/jwtsecret" \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
 
@@ -131,7 +131,7 @@ To start the light client, run the following commands (inserting your own truste
     ```sh
     TRUSTED_BLOCK_ROOT=0x1234567890123456789012345678901234567890123456789012345678901234
     build/nimbus_light_client --network=goerli \
-        --web3-url=ws://127.0.0.1:8551 --jwt-secret="$HOME/jwtsecret" \
+        --web3-url=http://127.0.0.1:8551 --jwt-secret="$HOME/jwtsecret" \
         --trusted-block-root=$TRUSTED_BLOCK_ROOT
     ```
 

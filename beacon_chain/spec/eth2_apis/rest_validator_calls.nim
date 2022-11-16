@@ -87,3 +87,8 @@ proc prepareBeaconProposer*(body: seq[PrepareBeaconProposer]): RestPlainResponse
      rest, endpoint: "/eth/v1/validator/prepare_beacon_proposer",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/ValidatorRequiredApi/prepareBeaconProposer
+
+proc registerValidator*(body: seq[SignedValidatorRegistrationV1]): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/register_validator",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/registerValidator

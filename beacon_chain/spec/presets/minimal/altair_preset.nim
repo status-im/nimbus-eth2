@@ -1,5 +1,5 @@
 # Minimal preset - Altair
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/presets/minimal/altair.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/presets/minimal/altair.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------

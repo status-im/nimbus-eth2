@@ -21,6 +21,7 @@ import
   ../beacon_chain/eth1/eth1_monitor,
   ./testutil, ./testdbutil, ./testblockutil
 
+from chronos/unittest2/asynctests import asyncTest
 from ../beacon_chain/spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, init
 from ../beacon_chain/validators/action_tracker import ActionTracker
@@ -56,11 +57,10 @@ suite "Block processor" & preset():
         false, "", "", keys.newRng(), taskpool, consensusManager,
         validatorMonitor, getTimeFn)
 
-  test "Reverse order block add & get" & preset():
-    let missing = processor[].storeBlock(
-      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2,
-      payloadValid = true)
-    check: missing.error == BlockError.MissingParent
+  asyncTest "Reverse order block add & get" & preset():
+    let missing = await processor.storeBlock(
+      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2)
+    check: missing.error[0] == VerifierError.MissingParent
 
     check:
       not dag.containsForkBlock(b2.root) # Unresolved, shouldn't show up
@@ -68,9 +68,8 @@ suite "Block processor" & preset():
       FetchRecord(root: b1.root) in quarantine[].checkMissing()
 
     let
-      status = processor[].storeBlock(
-        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1,
-        payloadValid = true)
+      status = await processor.storeBlock(
+        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1)
       b1Get = dag.getBlockRef(b1.root)
 
     check:

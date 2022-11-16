@@ -130,3 +130,30 @@ suite "Beacon state" & preset():
 
     check:
       dcs == merkleizer.toDepositContractState()
+
+  test "can_advance_slots":
+    var
+      state = (ref ForkedHashedBeaconState)(
+        kind: BeaconStateFork.Phase0,
+        phase0Data: initialize_hashed_beacon_state_from_eth1(
+          defaultRuntimeConfig, ZERO_HASH, 0,
+          makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
+      genBlock = get_initial_beacon_block(state[])
+      cache: StateCache
+      info: ForkedEpochInfo
+
+    check:
+      state[].can_advance_slots(genBlock.root, Slot(0))
+      state[].can_advance_slots(genBlock.root, Slot(0))
+      state[].can_advance_slots(genBlock.root, Slot(0))
+
+    let blck = addTestBlock(
+      state[], cache, flags = {skipBlsValidation})
+
+    check:
+      not state[].can_advance_slots(genBlock.root, Slot(0))
+      not state[].can_advance_slots(genBlock.root, Slot(0))
+      not state[].can_advance_slots(genBlock.root, Slot(0))
+      not state[].can_advance_slots(blck.root, Slot(0))
+      state[].can_advance_slots(blck.root, Slot(1))
+      state[].can_advance_slots(blck.root, Slot(2))

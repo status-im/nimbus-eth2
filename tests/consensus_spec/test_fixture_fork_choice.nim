@@ -11,7 +11,7 @@ import
   # Standard library
   std/[json, os, sequtils, strutils, tables],
   # Status libraries
-  stew/[results, endians2], chronicles,
+  stew/results, chronicles,
   eth/keys, taskpools,
   # Internals
   ../../beacon_chain/spec/[helpers, forks, state_transition_block],
@@ -62,6 +62,9 @@ type
     of opChecks:
       checks: JsonNode
 
+from ../../beacon_chain/spec/datatypes/capella import
+  BeaconBlock, BeaconState, SignedBeaconBlock
+
 proc initialLoad(
     path: string, db: BeaconChainDB,
     StateType, BlockType: typedesc
@@ -75,7 +78,13 @@ proc initialLoad(
       path/"anchor_block.ssz_snappy",
       SSZ, BlockType)
 
-  when BlockType is bellatrix.BeaconBlock:
+  when BlockType is capella.BeaconBlock:
+    let signedBlock = ForkedSignedBeaconBlock.init(capella.SignedBeaconBlock(
+      message: blck,
+      # signature: - unused as it's trusted
+      root: hash_tree_root(blck)
+    ))
+  elif BlockType is bellatrix.BeaconBlock:
     let signedBlock = ForkedSignedBeaconBlock.init(bellatrix.SignedBeaconBlock(
       message: blck,
       # signature: - unused as it's trusted
@@ -95,10 +104,7 @@ proc initialLoad(
     ))
   else: {.error: "Unknown block fork: " & name(BlockType).}
 
-  ChainDAGRef.preInit(
-    db,
-    forkedState[], forkedState[],
-    asTrusted(signedBlock))
+  ChainDAGRef.preInit(db, forkedState[])
 
   let
     validatorMonitor = newClone(ValidatorMonitor.init())
@@ -152,6 +158,13 @@ proc loadOps(path: string, fork: BeaconStateFork): seq[Operation] =
         )
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
+      of BeaconStateFork.Capella:
+        let blck = parseTest(
+          path/filename & ".ssz_snappy",
+          SSZ, capella.SignedBeaconBlock
+        )
+        result.add Operation(kind: opOnBlock,
+          blck: ForkedSignedBeaconBlock.init(blck))
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       let attesterSlashing = parseTest(
@@ -189,7 +202,7 @@ proc stepOnBlock(
        signedBlock: ForkySignedBeaconBlock,
        time: BeaconTime,
        invalidatedRoots: Table[Eth2Digest, Eth2Digest]):
-       Result[BlockRef, BlockError] =
+       Result[BlockRef, VerifierError] =
   # 1. Move state to proper slot.
   doAssert dag.updateState(
     state,
@@ -203,8 +216,13 @@ proc stepOnBlock(
     type TrustedBlock = phase0.TrustedSignedBeaconBlock
   elif signedBlock is altair.SignedBeaconBlock:
     type TrustedBlock = altair.TrustedSignedBeaconBlock
-  else:
+  elif signedBlock is bellatrix.SignedBeaconBlock:
     type TrustedBlock = bellatrix.TrustedSignedBeaconBlock
+  elif signedBlock is capella.SignedBeaconBlock:
+    type TrustedBlock = capella.TrustedSignedBeaconBlock
+  else:
+    doAssert false, "Unknown TrustedSignedBeaconBlock fork"
+
 
   # In normal Nimbus flow, for this (effectively) newPayload-based INVALID, it
   # is checked even before entering the DAG, by the block processor. Currently
@@ -228,7 +246,7 @@ proc stepOnBlock(
       fkChoice[].mark_root_invalid(dag.getEarliestInvalidBlockRoot(
         signedBlock.message.parent_root, lvh, executionPayloadHash))
 
-      return err BlockError.Invalid
+      return err VerifierError.Invalid
 
   let blockAdded = dag.addHeadBlock(verifier, signedBlock) do (
       blckRef: BlockRef, signedBlock: TrustedBlock,
@@ -288,10 +306,8 @@ proc stepChecks(
       doAssert fkChoice.checkpoints.proposer_boost_root ==
         Eth2Digest.fromHex(val.getStr())
     elif check == "genesis_time":
-      # The fork choice is pruned regularly
-      # and does not store the genesis time,
-      # hence we check the DAG
-      doAssert dag.genesis.slot == Slot(val.getInt())
+      # We do not store genesis in fork choice..
+      discard
     else:
       doAssert false, "Unsupported check '" & $check & "'"
 
@@ -302,6 +318,8 @@ proc doRunTest(path: string, fork: BeaconStateFork) =
 
   let stores =
     case fork
+    of BeaconStateFork.Capella:
+      initialLoad(path, db, capella.BeaconState, capella.BeaconBlock)
     of BeaconStateFork.Bellatrix:
       initialLoad(path, db, bellatrix.BeaconState, bellatrix.BeaconBlock)
     of BeaconStateFork.Altair:

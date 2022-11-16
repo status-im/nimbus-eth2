@@ -36,7 +36,7 @@ func match(data: openArray[char], charset: set[char]): int =
 proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
   let head = node.dag.head
 
-  if slot > head.slot and not node.isSynced(head):
+  if slot > head.slot and node.isSynced(head) != SyncStatus.synced:
     return err("Requesting way ahead of the current head")
 
   ok(head)
@@ -80,7 +80,9 @@ proc getBlockSlotId*(node: BeaconNode,
     of StateIdentType.Head:
       ok(node.dag.head.bid.atSlot())
     of StateIdentType.Genesis:
-      ok(node.dag.genesis.atSlot())
+      let bid = node.dag.getBlockIdAtSlot(GENESIS_SLOT).valueOr:
+        return err("Genesis state not available / pruned")
+      ok bid
     of StateIdentType.Finalized:
       ok(node.dag.finalizedHead.toBlockSlotId().expect("not nil"))
     of StateIdentType.Justified:
@@ -98,7 +100,7 @@ proc getBlockId*(node: BeaconNode, id: BlockIdent): Opt[BlockId] =
     of BlockIdentType.Head:
       ok(node.dag.head.bid)
     of BlockIdentType.Genesis:
-      ok(node.dag.genesis)
+      node.dag.getBlockIdAtSlot(GENESIS_SLOT).map(proc(x: auto): auto = x.bid)
     of BlockIdentType.Finalized:
       ok(node.dag.finalizedHead.blck.bid)
   of BlockQueryKind.Root:
@@ -274,6 +276,9 @@ proc getStateOptimistic*(node: BeaconNode,
           doAssert forkyState.data.slot > 0
           some[bool](node.dag.is_optimistic(
             get_block_root_at_slot(forkyState.data, forkyState.data.slot - 1)))
+    of BeaconStateFork.Capella:
+      if true: raiseAssert $capellaImplementationMissing
+      none[bool]()
   else:
     none[bool]()
 
@@ -284,7 +289,7 @@ proc getBlockOptimistic*(node: BeaconNode,
     case blck.kind
     of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
       some[bool](false)
-    of BeaconBlockFork.Bellatrix:
+    of BeaconBlockFork.Bellatrix, BeaconBlockFork.Capella:
       some[bool](node.dag.is_optimistic(blck.root))
   else:
     none[bool]()
@@ -296,6 +301,9 @@ proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
     false
   of BeaconBlockFork.Bellatrix:
     node.dag.is_optimistic(blck.root)
+  of BeaconBlockFork.Capella:
+    if true: raiseAssert $capellaImplementationMissing
+    true
 
 const
   jsonMediaType* = MediaType.init("application/json")

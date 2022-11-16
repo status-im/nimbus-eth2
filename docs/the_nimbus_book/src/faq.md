@@ -58,6 +58,10 @@ To add an additional validator, follow [the same steps](./keys.md) as you did wh
 !!! note
     Note that a single Nimbus instance is able to handle multiple validators.
 
+### What does `synced/opt` mean, in the "Slot start" message?
+
+When `/opt` is present in the "Slot start" message, it means the node is [optimistically synced](./optimistic-sync.md) and is waiting for the execution client to finish its syncing process - until that happens, validator duties are disabled.
+
 ## Networking
 
 ### How can I improve my peer count?

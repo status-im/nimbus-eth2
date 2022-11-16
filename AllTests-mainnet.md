@@ -2,6 +2,7 @@ AllTests-mainnet
 ===
 ## Attestation pool processing [Preset: mainnet]
 ```diff
++ Attestation from different branch [Preset: mainnet]                                        OK
 + Attestations may arrive in any order [Preset: mainnet]                                     OK
 + Attestations may overlap, bigger first [Preset: mainnet]                                   OK
 + Attestations may overlap, smaller first [Preset: mainnet]                                  OK
@@ -14,13 +15,14 @@ AllTests-mainnet
 + Trying to add a duplicate block from an old pruned epoch is tagged as an error             OK
 + Working with aggregates [Preset: mainnet]                                                  OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
+OK: 12/12 Fail: 0/12 Skip: 0/12
 ## Backfill
 ```diff
++ Init without genesis / block                                                               OK
 + backfill to genesis                                                                        OK
 + reload backfill position                                                                   OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Beacon chain DB [Preset: mainnet]
 ```diff
 + empty database [Preset: mainnet]                                                           OK
@@ -33,6 +35,7 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + sanity check Bellatrix blocks [Preset: mainnet]                                            OK
 + sanity check Bellatrix states [Preset: mainnet]                                            OK
 + sanity check Bellatrix states, reusing buffers [Preset: mainnet]                           OK
++ sanity check Capella blocks [Preset: mainnet]                                              OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
@@ -40,17 +43,18 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 16/16 Fail: 0/16 Skip: 0/16
+OK: 17/17 Fail: 0/17 Skip: 0/17
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
++ can_advance_slots                                                                          OK
 + dependent_root                                                                             OK
 + get_beacon_proposer_index                                                                  OK
 + latest_block_root                                                                          OK
 + merklizer state roundtrip                                                                  OK
 + process_slots                                                                              OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Beacon time
 ```diff
 + basics                                                                                     OK
@@ -438,16 +442,22 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
++ build_empty_execution_payload                                                              OK
 + build_proof - BeaconState                                                                  OK
 + integer_squareroot                                                                         OK
 ```
-OK: 2/2 Fail: 0/2 Skip: 0/2
+OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Specific field types
 ```diff
 + root update                                                                                OK
 + roundtrip                                                                                  OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Starting states
+```diff
++ Starting state without block                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Sync committee pool
 ```diff
 + Aggregating votes                                                                          OK
@@ -580,8 +590,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## subnet tracker
 ```diff
 + should register stability subnets on attester duties                                       OK
++ should register sync committee duties                                                      OK
 ```
-OK: 1/1 Fail: 0/1 Skip: 0/1
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## weak-subjectivity-checkpoint
 ```diff
 + Correct values                                                                             OK
@@ -597,4 +608,4 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 330/335 Fail: 0/335 Skip: 5/335
+OK: 337/342 Fail: 0/342 Skip: 5/342

@@ -16,7 +16,8 @@ logScope: service = ServiceName
 
 type
   DutiesServiceLoop* = enum
-    AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop
+    AttesterLoop, ProposerLoop, IndicesLoop, SyncCommitteeLoop,
+    ProposerPreparationLoop, ValidatorRegisterLoop
 
 chronicles.formatIt(DutiesServiceLoop):
   case it
@@ -24,6 +25,8 @@ chronicles.formatIt(DutiesServiceLoop):
   of ProposerLoop: "proposer_loop"
   of IndicesLoop: "index_loop"
   of SyncCommitteeLoop: "sync_committee_loop"
+  of ProposerPreparationLoop: "proposer_prepare_loop"
+  of ValidatorRegisterLoop: "validator_register_loop"
 
 proc checkDuty(duty: RestAttesterDuty): bool =
   (duty.committee_length <= MAX_VALIDATORS_PER_COMMITTEE) and
@@ -77,18 +80,28 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
 
     offset += arraySize
 
+  var
+    missing: seq[string]
+    updated: seq[string]
+    list: seq[AttachedValidator]
+
   for item in validators:
-    if item.validator.pubkey notin vc.attachedValidators[]:
-      warn "Beacon node returned missing validator",
-           pubkey = item.validator.pubkey, index = item.index
+    var validator = vc.attachedValidators[].getValidator(item.validator.pubkey)
+    if isNil(validator):
+      missing.add(validatorLog(item.validator.pubkey, item.index))
     else:
-      debug "Local validator updated with index",
-            pubkey = item.validator.pubkey, index = item.index
-      vc.attachedValidators[].updateValidator(item.validator.pubkey,
-                                              item.index)
-      # Adding validator for doppelganger detection.
-      vc.addDoppelganger(
-        vc.attachedValidators[].getValidator(item.validator.pubkey))
+      validator.index = Opt.some(item.index)
+      validator.activationEpoch = Opt.some(item.validator.activation_epoch)
+      updated.add(validatorLog(item.validator.pubkey, item.index))
+      list.add(validator)
+
+  if len(updated) > 0:
+    info "Validator indices updated", missing_validators = len(missing),
+         updated_validators = len(updated)
+    trace "Validator indices update dump", missing_validators = missing,
+          updated_validators = updated
+    vc.indicesAvailable.fire()
+    vc.addDoppelganger(list)
 
 proc pollForAttesterDuties*(vc: ValidatorClientRef,
                             epoch: Epoch): Future[int] {.async.} =
@@ -221,6 +234,18 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
 
   return len(addOrReplaceItems)
 
+proc pruneSyncCommitteeDuties*(vc: ValidatorClientRef, slot: Slot) =
+  if slot.is_sync_committee_period():
+    var newSyncCommitteeDuties: SyncCommitteeDutiesMap
+    let epoch = slot.epoch()
+    for key, item in vc.syncCommitteeDuties:
+      var currentPeriodDuties = EpochSyncDuties()
+      for epochKey, epochDuty in item.duties:
+        if epochKey >= epoch:
+          currentPeriodDuties.duties[epochKey] = epochDuty
+      newSyncCommitteeDuties[key] = currentPeriodDuties
+    vc.syncCommitteeDuties = newSyncCommitteeDuties
+
 proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
                                  epoch: Epoch): Future[int] {.async.} =
   let validatorIndices = toSeq(vc.attachedValidators[].indices())
@@ -260,7 +285,8 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
       block:
         var res: seq[SyncCommitteeDuty]
         for duty in filteredDuties:
-          for validatorSyncCommitteeIndex in duty.validator_sync_committee_indices:
+          for validatorSyncCommitteeIndex in
+              duty.validator_sync_committee_indices:
             res.add(SyncCommitteeDuty(
               pubkey: duty.pubkey,
               validator_index: duty.validator_index,
@@ -273,12 +299,20 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
 
   let addOrReplaceItems =
     block:
+      var alreadyWarned = false
       var res: seq[tuple[epoch: Epoch, duty: SyncCommitteeDuty]]
       for duty in relevantDuties:
         let map = vc.syncCommitteeDuties.getOrDefault(duty.pubkey)
         let epochDuty = map.duties.getOrDefault(epoch, DefaultSyncDutyAndProof)
-        info "Received new sync committee duty", duty, epoch
-        res.add((epoch, duty))
+        if epochDuty.isDefault():
+          info "Received new sync committee duty", duty, epoch
+          res.add((epoch, duty))
+        else:
+          if epochDuty.data != duty:
+            if not(alreadyWarned):
+              info "Sync committee duties re-organization", duty, epoch
+              alreadyWarned = true
+            res.add((epoch, duty))
       res
 
   if len(addOrReplaceItems) > 0:
@@ -324,7 +358,8 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
           SyncDutyAndProof.init(item.epoch, item.duty,
                                 none[ValidatorSig]())
 
-      var validatorDuties = vc.syncCommitteeDuties.getOrDefault(item.duty.pubkey)
+      var validatorDuties =
+        vc.syncCommitteeDuties.getOrDefault(item.duty.pubkey)
       validatorDuties.duties[item.epoch] = dap
       vc.syncCommitteeDuties[item.duty.pubkey] = validatorDuties
 
@@ -390,10 +425,11 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef) {.async.} =
           res
 
       if len(subscriptions) > 0:
-        let res = await vc.prepareBeaconCommitteeSubnet(subscriptions,
-                                                        ApiStrategyKind.First)
-        if not(res):
-          error "Failed to subscribe validators"
+        let res = await vc.prepareBeaconCommitteeSubnet(subscriptions)
+        if res == 0:
+          error "Failed to subscribe validators to beacon committee subnets",
+                slot = currentSlot, epoch = currentEpoch,
+                subscriptions_count = len(subscriptions)
 
     vc.pruneAttesterDuties(currentEpoch)
 
@@ -435,10 +471,13 @@ proc pollForSyncCommitteeDuties* (vc: ValidatorClientRef) {.async.} =
                 res.add(sub)
           res
       if len(subscriptions) > 0:
-        let res = await vc.prepareSyncCommitteeSubnets(subscriptions,
-                                                       ApiStrategyKind.First)
-        if not(res):
-          error "Failed to subscribe validators"
+        let res = await vc.prepareSyncCommitteeSubnets(subscriptions)
+        if res != 0:
+          error "Failed to subscribe validators to sync committee subnets",
+                slot = currentSlot, epoch = currentEpoch,
+                subscriptions_count = len(subscriptions)
+
+      vc.pruneSyncCommitteeDuties(currentSlot)
 
 proc pruneBeaconProposers(vc: ValidatorClientRef, epoch: Epoch) =
   var proposers: ProposerMap
@@ -484,6 +523,85 @@ proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
 
     vc.pruneBeaconProposers(currentEpoch)
 
+proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  let sres = vc.getCurrentSlot()
+  if sres.isSome():
+    let
+      currentSlot = sres.get()
+      currentEpoch = currentSlot.epoch()
+      proposers = vc.prepareProposersList(currentEpoch)
+
+    if len(proposers) > 0:
+      let count =
+        try:
+          await prepareBeaconProposer(vc, proposers)
+        except ValidatorApiError as exc:
+          warn "Unable to prepare beacon proposers", slot = currentSlot,
+                epoch = currentEpoch, err_name = exc.name,
+                err_msg = exc.msg
+          0
+        except CancelledError as exc:
+          debug "Beacon proposer preparation processing was interrupted"
+          raise exc
+        except CatchableError as exc:
+          error "Unexpected error occured while preparing beacon proposers",
+                slot = currentSlot, epoch = currentEpoch, err_name = exc.name,
+                err_msg = exc.msg
+          0
+      debug "Beacon proposers prepared",
+            validators_count = vc.attachedValidators[].count(),
+            proposers_count = len(proposers),
+            prepared_count = count
+
+proc registerValidators*(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  let sres = vc.getCurrentSlot()
+
+  var default: seq[SignedValidatorRegistrationV1]
+  if sres.isSome():
+    let
+      genesisFork = vc.forks[0]
+      currentSlot = sres.get()
+      registrations =
+        try:
+          await vc.prepareRegistrationList(getTime(), genesisFork)
+        except CancelledError as exc:
+          debug "Validator registration preparation was interrupted",
+                slot = currentSlot, fork = genesisFork
+          raise exc
+        except CatchableError as exc:
+          error "Unexpected error occured while preparing validators " &
+                "registration data", slot = currentSlot, fork = genesisFork,
+                err_name = exc.name, err_msg = exc.msg
+          default
+
+    let count =
+      if len(registrations) > 0:
+        try:
+          await registerValidator(vc, registrations)
+        except ValidatorApiError as exc:
+          warn "Unable to register validators", slot = currentSlot,
+                fork = genesisFork, err_name = exc.name,
+                err_msg = exc.msg
+          0
+        except CancelledError as exc:
+          debug "Validator registration was interrupted", slot = currentSlot,
+                fork = genesisFork
+          raise exc
+        except CatchableError as exc:
+          error "Unexpected error occured while registering validators",
+                slot = currentSlot, fork = genesisFork, err_name = exc.name,
+                err_msg = exc.msg
+          0
+      else:
+        0
+
+    if count > 0:
+      debug "Validators registered", slot = currentSlot,
+            beacon_nodes_count = count, registrations = len(registrations),
+            validators_count = vc.attachedValidators[].count()
+
 proc waitForNextSlot(service: DutiesServiceRef,
                      serviceLoop: DutiesServiceLoop) {.async.} =
   let vc = service.client
@@ -516,7 +634,26 @@ proc validatorIndexLoop(service: DutiesServiceRef) {.async.} =
     await vc.pollForValidatorIndices()
     await service.waitForNextSlot(IndicesLoop)
 
-proc syncCommitteeeDutiesLoop(service: DutiesServiceRef) {.async.} =
+proc proposerPreparationsLoop(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+
+  debug "Beacon proposer preparation loop waiting for validator indices update"
+  await vc.indicesAvailable.wait()
+  while true:
+    await service.prepareBeaconProposers()
+    await service.waitForNextSlot(ProposerPreparationLoop)
+
+proc validatorRegisterLoop(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+  doAssert(vc.config.payloadBuilderEnable)
+
+  debug "Validator registration loop is waiting for initialization"
+  await allFutures(vc.indicesAvailable.wait(), vc.forksAvailable.wait())
+  while true:
+    await service.registerValidators()
+    await service.waitForNextSlot(ValidatorRegisterLoop)
+
+proc syncCommitteeDutiesLoop(service: DutiesServiceRef) {.async.} =
   let vc = service.client
 
   debug "Sync committee duties loop waiting for fork schedule update"
@@ -541,6 +678,8 @@ template checkAndRestart(serviceLoop: DutiesServiceLoop,
     future = body
 
 proc mainLoop(service: DutiesServiceRef) {.async.} =
+  let vc = service.client
+
   service.state = ServiceState.Running
   debug "Service started"
 
@@ -548,7 +687,13 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
     attestFut = service.attesterDutiesLoop()
     proposeFut = service.proposerDutiesLoop()
     indicesFut = service.validatorIndexLoop()
-    syncFut = service.syncCommitteeeDutiesLoop()
+    syncFut = service.syncCommitteeDutiesLoop()
+    prepareFut = service.proposerPreparationsLoop()
+    registerFut =
+      if vc.config.payloadBuilderEnable:
+        service.validatorRegisterLoop()
+      else:
+        nil
 
   while true:
     # This loop could look much more nicer/better, when
@@ -556,12 +701,21 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
     # become safe to combine loops, breaks and exception handlers.
     let breakLoop =
       try:
-        discard await race(attestFut, proposeFut, indicesFut, syncFut)
+        var futures = @[FutureBase(attestFut), FutureBase(proposeFut),
+                        FutureBase(indicesFut), FutureBase(syncFut),
+                        FutureBase(prepareFut)]
+        if not(isNil(registerFut)): futures.add(FutureBase(registerFut))
+        discard await race(futures)
         checkAndRestart(AttesterLoop, attestFut, service.attesterDutiesLoop())
         checkAndRestart(ProposerLoop, proposeFut, service.proposerDutiesLoop())
         checkAndRestart(IndicesLoop, indicesFut, service.validatorIndexLoop())
-        checkAndRestart(SyncCommitteeLoop,
-                        syncFut, service.syncCommitteeeDutiesLoop())
+        checkAndRestart(SyncCommitteeLoop, syncFut,
+                        service.syncCommitteeDutiesLoop())
+        checkAndRestart(ProposerPreparationLoop, prepareFut,
+                        service.proposerPreparationsLoop())
+        if not(isNil(registerFut)):
+          checkAndRestart(ValidatorRegisterLoop, registerFut,
+                          service.validatorRegisterLoop())
         false
       except CancelledError:
         debug "Service interrupted"
@@ -574,6 +728,10 @@ proc mainLoop(service: DutiesServiceRef) {.async.} =
           pending.add(indicesFut.cancelAndWait())
         if not(syncFut.finished()):
           pending.add(syncFut.cancelAndWait())
+        if not(prepareFut.finished()):
+          pending.add(prepareFut.cancelAndWait())
+        if not(isNil(registerFut)) and not(registerFut.finished()):
+          pending.add(registerFut.cancelAndWait())
         await allFutures(pending)
         true
       except CatchableError as exc:

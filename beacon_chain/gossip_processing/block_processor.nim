@@ -23,7 +23,8 @@ from ../consensus_object_pools/consensus_manager import
   updateHeadWithExecution
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, slot
-from ../consensus_object_pools/block_pools_types import BlockError, EpochRef
+from ../consensus_object_pools/block_pools_types import
+  EpochRef, VerifierError
 from ../consensus_object_pools/block_quarantine import
   addOrphan, addUnviable, pop, removeOrphan
 from ../validators/validator_monitor import
@@ -42,7 +43,7 @@ declareHistogram beacon_store_block_duration_seconds,
 type
   BlockEntry* = object
     blck*: ForkedSignedBeaconBlock
-    resfut*: Future[Result[void, BlockError]]
+    resfut*: Future[Result[void, VerifierError]]
     queueTick*: Moment # Moment when block was enqueued
     validationDur*: Duration # Time it took to perform gossip validation
     src*: MsgSource
@@ -85,9 +86,23 @@ type
 
     verifier: BatchVerifier
 
+    optimistic: bool
+      ## Run block processor in optimistic mode allowing it to progress even
+      ## though execution client is offline
+
+  NewPayloadStatus {.pure.} = enum
+    valid
+    notValid
+    invalid
+    noResponse
+
+  ProcessingStatus {.pure.} = enum
+    completed
+    notCompleted
+
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    resfut: Future[Result[void, BlockError]] = nil,
+    resfut: Future[Result[void, VerifierError]] = nil,
     validationDur = Duration())
 
 # Initialization
@@ -99,7 +114,8 @@ proc new*(T: type BlockProcessor,
           rng: ref HmacDrbgContext, taskpool: TaskPoolPtr,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
-          getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
+          getBeaconTime: GetBeaconTimeFn,
+          optimistic: bool = false): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
@@ -108,7 +124,8 @@ proc new*(T: type BlockProcessor,
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
     getBeaconTime: getBeaconTime,
-    verifier: BatchVerifier(rng: rng, taskpool: taskpool)
+    verifier: BatchVerifier(rng: rng, taskpool: taskpool),
+    optimistic: optimistic
   )
 
 # Sync callbacks
@@ -128,12 +145,12 @@ proc dumpInvalidBlock*(
 proc dumpBlock[T](
     self: BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    res: Result[T, BlockError]) =
+    res: Result[T, VerifierError]) =
   if self.dumpEnabled and res.isErr:
     case res.error
-    of BlockError.Invalid:
+    of VerifierError.Invalid:
       self.dumpInvalidBlock(signedBlock)
-    of BlockError.MissingParent:
+    of VerifierError.MissingParent:
       dump(self.dumpDirIncoming, signedBlock)
     else:
       discard
@@ -143,7 +160,7 @@ from ../consensus_object_pools/block_clearance import
 
 proc storeBackfillBlock(
     self: var BlockProcessor,
-    signedBlock: ForkySignedBeaconBlock): Result[void, BlockError] =
+    signedBlock: ForkySignedBeaconBlock): Result[void, VerifierError] =
 
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
@@ -152,15 +169,15 @@ proc storeBackfillBlock(
 
   if res.isErr():
     case res.error
-    of BlockError.MissingParent:
+    of VerifierError.MissingParent:
       if signedBlock.message.parent_root in
           self.consensusManager.quarantine[].unviable:
         # DAG doesn't know about unviable ancestor blocks - we do! Translate
         # this to the appropriate error so that sync etc doesn't retry the block
         self.consensusManager.quarantine[].addUnviable(signedBlock.root)
 
-        return err(BlockError.UnviableFork)
-    of BlockError.UnviableFork:
+        return err(VerifierError.UnviableFork)
+    of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded properly
       self.consensusManager.quarantine[].addUnviable(signedBlock.root)
     else: discard
@@ -173,16 +190,39 @@ from ../eth1/eth1_monitor import
 
 proc expectValidForkchoiceUpdated(
     eth1Monitor: Eth1Monitor,
-    headBlockRoot, safeBlockRoot, finalizedBlockRoot: Eth2Digest
-): Future[void] {.async.} =
-  let (payloadExecutionStatus, _) =
-    await eth1Monitor.runForkchoiceUpdated(
-      headBlockRoot, safeBlockRoot, finalizedBlockRoot)
-  if payloadExecutionStatus != PayloadExecutionStatus.valid:
-    # Only called when expecting this to be valid because `newPayload` or some
-    # previous `forkchoiceUpdated` had already marked it as valid.
-    warn "expectValidForkchoiceUpdate: forkChoiceUpdated not `VALID`",
-      payloadExecutionStatus, headBlockRoot, safeBlockRoot, finalizedBlockRoot
+    headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
+    receivedBlock: ForkySignedBeaconBlock): Future[void] {.async.} =
+  let
+    (payloadExecutionStatus, _) = await eth1Monitor.runForkchoiceUpdated(
+      headBlockHash, safeBlockHash, finalizedBlockHash)
+    receivedExecutionBlockHash =
+      when typeof(receivedBlock).toFork >= BeaconBlockFork.Bellatrix:
+        receivedBlock.message.body.execution_payload.block_hash
+      else:
+        # https://github.com/nim-lang/Nim/issues/19802
+        (static(default(Eth2Digest)))
+
+  # Only called when expecting this to be valid because `newPayload` or some
+  # previous `forkchoiceUpdated` had already marked it as valid. However, if
+  # it's not the block that was received, don't info/warn either way given a
+  # relative lack of immediate evidence.
+  if receivedExecutionBlockHash != headBlockHash:
+    return
+
+  case payloadExecutionStatus
+  of PayloadExecutionStatus.valid:
+    # situation nominal
+    discard
+  of PayloadExecutionStatus.accepted, PayloadExecutionStatus.syncing:
+    info "execution payload forkChoiceUpdated status ACCEPTED/SYNCING, but was previously VALID",
+      payloadExecutionStatus = $payloadExecutionStatus, headBlockHash,
+      safeBlockHash, finalizedBlockHash,
+      receivedBlock = shortLog(receivedBlock)
+  of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
+    warn "execution payload forkChoiceUpdated status INVALID, but was previously VALID",
+      payloadExecutionStatus = $payloadExecutionStatus, headBlockHash,
+      safeBlockHash, finalizedBlockHash,
+      receivedBlock = shortLog(receivedBlock)
 
 from ../consensus_object_pools/attestation_pool import
   addForkChoice, selectOptimisticHead, BeaconHead
@@ -191,13 +231,125 @@ from ../consensus_object_pools/blockchain_dag import
 from ../consensus_object_pools/block_dag import shortLog
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
+from ../spec/datatypes/altair import SignedBeaconBlock
+from ../spec/datatypes/bellatrix import SignedBeaconBlock
+
+from eth/async_utils import awaitWithTimeout
+from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
+
+proc newExecutionPayload*(
+    eth1Monitor: Eth1Monitor, executionPayload: bellatrix.ExecutionPayload):
+    Future[Opt[PayloadExecutionStatus]] {.async.} =
+  if eth1Monitor.isNil:
+    warn "newPayload: attempting to process execution payload without Eth1Monitor. Ensure --web3-url setting is correct and JWT is configured."
+    return Opt.none PayloadExecutionStatus
+
+  debug "newPayload: inserting block into execution engine",
+    parentHash = executionPayload.parent_hash,
+    blockHash = executionPayload.block_hash,
+    stateRoot = shortLog(executionPayload.state_root),
+    receiptsRoot = shortLog(executionPayload.receipts_root),
+    prevRandao = shortLog(executionPayload.prev_randao),
+    blockNumber = executionPayload.block_number,
+    gasLimit = executionPayload.gas_limit,
+    gasUsed = executionPayload.gas_used,
+    timestamp = executionPayload.timestamp,
+    extraDataLen = executionPayload.extra_data.len,
+    baseFeePerGas = $executionPayload.base_fee_per_gas,
+    numTransactions = executionPayload.transactions.len
+
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#request
+  const NEWPAYLOAD_TIMEOUT = 8.seconds
+
+  try:
+    let
+      payloadResponse =
+        awaitWithTimeout(
+            eth1Monitor.newPayload(
+              executionPayload.asEngineExecutionPayload),
+            NEWPAYLOAD_TIMEOUT):
+          info "newPayload: newPayload timed out"
+          return Opt.none PayloadExecutionStatus
+
+          # Placeholder for type system
+          PayloadStatusV1(status: PayloadExecutionStatus.syncing)
+
+      payloadStatus = payloadResponse.status
+
+    debug "newPayload: succeeded",
+      parentHash = executionPayload.parent_hash,
+      blockHash = executionPayload.block_hash,
+      blockNumber = executionPayload.block_number,
+      payloadStatus = $payloadStatus
+
+    return Opt.some payloadStatus
+  except CatchableError as err:
+    error "newPayload failed", msg = err.msg
+    return Opt.none PayloadExecutionStatus
+
+# TODO when forks re-exports this, remove
+from ../spec/datatypes/capella import ExecutionPayload
+
+proc newExecutionPayload*(
+    eth1Monitor: Eth1Monitor, executionPayload: capella.ExecutionPayload):
+    Future[Opt[PayloadExecutionStatus]] {.async.} =
+  raiseAssert $capellaImplementationMissing
+
+proc getExecutionValidity(
+    eth1Monitor: Eth1Monitor,
+    blck: phase0.SignedBeaconBlock | altair.SignedBeaconBlock):
+    Future[NewPayloadStatus] {.async.} =
+  return NewPayloadStatus.valid   # vacuously
+
+proc getExecutionValidity(
+    eth1Monitor: Eth1Monitor, blck: bellatrix.SignedBeaconBlock):
+    Future[NewPayloadStatus] {.async.} =
+  # Eth1 syncing is asynchronous from this
+  # TODO self.consensusManager.eth1Monitor.ttdReached
+  # should gate this when it works more reliably
+  # TODO detect have-TTD-but-not-is_execution_block case, and where
+  # execution payload was non-zero when TTD detection more reliable
+
+  if not blck.message.is_execution_block:
+    return NewPayloadStatus.valid  # vacuously
+
+  try:
+    # Minimize window for Eth1 monitor to shut down connection
+    await eth1Monitor.ensureDataProvider()
+
+    let executionPayloadStatus = await newExecutionPayload(
+      eth1Monitor, blck.message.body.execution_payload)
+    if executionPayloadStatus.isNone:
+      return NewPayloadStatus.noResponse
+
+    case executionPayloadStatus.get
+      of PayloadExecutionStatus.invalid, PayloadExecutionStatus.invalid_block_hash:
+        debug "getExecutionValidity: execution payload invalid",
+          executionPayloadStatus = $executionPayloadStatus.get,
+          blck = shortLog(blck)
+        return NewPayloadStatus.invalid
+      of PayloadExecutionStatus.syncing, PayloadExecutionStatus.accepted:
+        return NewPayloadStatus.notValid
+      of PayloadExecutionStatus.valid:
+        return NewPayloadStatus.valid
+  except CatchableError as err:
+    error "getExecutionValidity: newPayload failed", err = err.msg
+    return NewPayloadStatus.noResponse
+
+# TODO drop when forks re-exports all this
+from ../spec/datatypes/capella import SignedBeaconBlock, asTrusted, shortLog
+
+proc getExecutionValidity(
+    eth1Monitor: Eth1Monitor,
+    blck: capella.SignedBeaconBlock):
+    Future[NewPayloadStatus] {.async.} =
+  raiseAssert $capellaImplementationMissing
 
 proc storeBlock*(
-    self: var BlockProcessor,
-    src: MsgSource, wallTime: BeaconTime,
-    signedBlock: ForkySignedBeaconBlock, payloadValid: bool,
-    queueTick: Moment = Moment.now(),
-    validationDur = Duration()): Result[BlockRef, BlockError] =
+    self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
+    signedBlock: ForkySignedBeaconBlock, queueTick: Moment = Moment.now(),
+    validationDur = Duration()):
+    Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async.} =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
   ## blocks, regardless of origin, pass through here. When storing a block,
   ## we will add it to the dag and pass it to all block consumers that need
@@ -207,9 +359,25 @@ proc storeBlock*(
     startTick = Moment.now()
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
+    payloadStatus =
+      await self.consensusManager.eth1Monitor.getExecutionValidity(signedBlock)
+    payloadValid = payloadStatus == NewPayloadStatus.valid
 
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
+
+  if NewPayloadStatus.invalid == payloadStatus:
+    self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+    return err((VerifierError.UnviableFork, ProcessingStatus.completed))
+
+  if NewPayloadStatus.noResponse == payloadStatus and not self[].optimistic:
+    # Disallow the `MissingParent` from leaking to the sync/request managers
+    # as it will be descored. However sync and request managers interact via
+    # `processBlock` (indirectly). `validator_duties` does call `storeBlock`
+    # directly, so is exposed to this, but only cares about whether there is
+    # an error or not.
+    return err((
+      VerifierError.MissingParent, ProcessingStatus.notCompleted))
 
   # We'll also remove the block as an orphan: it's unlikely the parent is
   # missing if we get this far - should that be the case, the block will
@@ -240,21 +408,21 @@ proc storeBlock*(
             trustedBlock.message.slot, trustedBlock.root,
             forkyState.data.current_sync_committee.pubkeys.data[i])
 
-  self.dumpBlock(signedBlock, blck)
+  self[].dumpBlock(signedBlock, blck)
 
   # There can be a scenario where we receive a block we already received.
   # However this block was before the last finalized epoch and so its parent
   # was pruned from the ForkChoice.
   if blck.isErr():
     case blck.error()
-    of BlockError.MissingParent:
+    of VerifierError.MissingParent:
       if signedBlock.message.parent_root in
           self.consensusManager.quarantine[].unviable:
         # DAG doesn't know about unviable ancestor blocks - we do! Translate
         # this to the appropriate error so that sync etc doesn't retry the block
         self.consensusManager.quarantine[].addUnviable(signedBlock.root)
 
-        return err(BlockError.UnviableFork)
+        return err((VerifierError.UnviableFork, ProcessingStatus.completed))
 
       if not self.consensusManager.quarantine[].addOrphan(
           dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock)):
@@ -262,12 +430,12 @@ proc storeBlock*(
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
           signature = shortLog(signedBlock.signature)
-    of BlockError.UnviableFork:
+    of VerifierError.UnviableFork:
       # Track unviables so that descendants can be discarded properly
       self.consensusManager.quarantine[].addUnviable(signedBlock.root)
     else: discard
 
-    return blck
+    return err((blck.error, ProcessingStatus.completed))
 
   let storeBlockTick = Moment.now()
 
@@ -312,9 +480,9 @@ proc storeBlock*(
       # - followed by "Beacon chain reorged" from optimistic head back to DAG.
       self.consensusManager[].updateHead(newHead.get.blck)
       asyncSpawn eth1Monitor.runForkchoiceUpdatedDiscardResult(
-        headBlockRoot = self.consensusManager[].optimisticExecutionPayloadHash,
-        safeBlockRoot = newHead.get.safeExecutionPayloadHash,
-        finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
+        headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
+        safeBlockHash = newHead.get.safeExecutionPayloadHash,
+        finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash)
     else:
       let
         headExecutionPayloadHash =
@@ -332,9 +500,10 @@ proc storeBlock*(
         if self.consensusManager.checkNextProposer(wallSlot).isNone:
           # No attached validator is next proposer, so use non-proposal fcU
           asyncSpawn eth1Monitor.expectValidForkchoiceUpdated(
-            headBlockRoot = headExecutionPayloadHash,
-            safeBlockRoot = newHead.get.safeExecutionPayloadHash,
-            finalizedBlockRoot = newHead.get.finalizedExecutionPayloadHash)
+            headBlockHash = headExecutionPayloadHash,
+            safeBlockHash = newHead.get.safeExecutionPayloadHash,
+            finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+            receivedBlock = signedBlock)
         else:
           # Some attached validator is next proposer, so prepare payload. As
           # updateHead() updated the DAG head, runProposalForkchoiceUpdated,
@@ -363,16 +532,16 @@ proc storeBlock*(
 
   for quarantined in self.consensusManager.quarantine[].pop(blck.get().root):
     # Process the blocks that had the newly accepted block as parent
-    self.addBlock(MsgSource.gossip, quarantined)
+    self[].addBlock(MsgSource.gossip, quarantined)
 
-  return blck
+  return Result[BlockRef, (VerifierError, ProcessingStatus)].ok blck.get
 
 # Enqueue
 # ------------------------------------------------------------------------------
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    resfut: Future[Result[void, BlockError]] = nil,
+    resfut: Future[Result[void, VerifierError]] = nil,
     validationDur = Duration()) =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
@@ -406,7 +575,7 @@ proc addBlock*(
 # ------------------------------------------------------------------------------
 
 proc processBlock(
-    self: var BlockProcessor, entry: BlockEntry, payloadValid: bool) =
+    self: ref BlockProcessor, entry: BlockEntry) {.async.} =
   logScope:
     blockRoot = shortLog(entry.blck.root)
 
@@ -419,64 +588,27 @@ proc processBlock(
     quit 1
 
   let res = withBlck(entry.blck):
-    self.storeBlock(
-      entry.src, wallTime, blck, payloadValid, entry.queueTick,
-      entry.validationDur)
+    await self.storeBlock(
+      entry.src, wallTime, blck, entry.queueTick, entry.validationDur)
+
+  if res.isErr and res.error[1] == ProcessingStatus.notCompleted:
+    # When an execution engine returns an error or fails to respond to a
+    # payload validity request for some block, a consensus engine:
+    # - MUST NOT optimistically import the block.
+    # - MUST NOT apply the block to the fork choice store.
+    # - MAY queue the block for later processing.
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/sync/optimistic.md#execution-engine-errors
+    await sleepAsync(chronos.seconds(1))
+    self[].addBlock(
+      entry.src, entry.blck, entry.resfut, entry.validationDur)
+
+    # To ensure backpressure on the sync manager, do not complete these futures.
+    return
 
   if entry.resfut != nil:
     entry.resfut.complete(
-      if res.isOk(): Result[void, BlockError].ok()
-      else: Result[void, BlockError].err(res.error()))
-
-from eth/async_utils import awaitWithTimeout
-from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
-
-proc newExecutionPayload*(
-    eth1Monitor: Eth1Monitor, executionPayload: bellatrix.ExecutionPayload):
-    Future[Opt[PayloadExecutionStatus]] {.async.} =
-  if eth1Monitor.isNil:
-    warn "newPayload: attempting to process execution payload without Eth1Monitor. Ensure --web3-url setting is correct and JWT is configured."
-    return Opt.none PayloadExecutionStatus
-
-  debug "newPayload: inserting block into execution engine",
-    parentHash = executionPayload.parent_hash,
-    blockHash = executionPayload.block_hash,
-    stateRoot = shortLog(executionPayload.state_root),
-    receiptsRoot = shortLog(executionPayload.receipts_root),
-    prevRandao = shortLog(executionPayload.prev_randao),
-    blockNumber = executionPayload.block_number,
-    gasLimit = executionPayload.gas_limit,
-    gasUsed = executionPayload.gas_used,
-    timestamp = executionPayload.timestamp,
-    extraDataLen = executionPayload.extra_data.len,
-    baseFeePerGas = $executionPayload.base_fee_per_gas,
-    numTransactions = executionPayload.transactions.len
-
-  try:
-    let
-      payloadResponse =
-        awaitWithTimeout(
-            eth1Monitor.newPayload(
-              executionPayload.asEngineExecutionPayload),
-            NEWPAYLOAD_TIMEOUT):
-          info "newPayload: newPayload timed out"
-          return Opt.none PayloadExecutionStatus
-
-          # Placeholder for type system
-          PayloadStatusV1(status: PayloadExecutionStatus.syncing)
-
-      payloadStatus = payloadResponse.status
-
-    debug "newPayload: succeeded",
-      parentHash = executionPayload.parent_hash,
-      blockHash = executionPayload.block_hash,
-      blockNumber = executionPayload.block_number,
-      payloadStatus
-
-    return Opt.some payloadStatus
-  except CatchableError as err:
-    error "newPayload failed", msg = err.msg
-    return Opt.none PayloadExecutionStatus
+      if res.isOk(): Result[void, VerifierError].ok()
+      else: Result[void, VerifierError].err(res.error()[0]))
 
 proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
   while true:
@@ -493,72 +625,4 @@ proc runQueueProcessingLoop*(self: ref BlockProcessor) {.async.} =
 
     discard await idleAsync().withTimeout(idleTimeout)
 
-    let
-      blck = await self[].blockQueue.popFirst()
-      hasExecutionPayload =
-        withBlck(blck.blck): blck.message.is_execution_block
-      executionPayloadStatus =
-       if hasExecutionPayload:
-         # Eth1 syncing is asynchronous from this
-         # TODO self.consensusManager.eth1Monitor.ttdReached
-         # should gate this when it works more reliably
-         # TODO detect have-TTD-but-not-is_execution_block case, and where
-         # execution payload was non-zero when TTD detection more reliable
-         when true:
-           # When an execution engine returns an error or fails to respond to a
-           # payload validity request for some block, a consensus engine:
-           # - MUST NOT optimistically import the block.
-           # - MUST NOT apply the block to the fork choice store.
-           # - MAY queue the block for later processing.
-           # https://github.com/ethereum/consensus-specs/blob/v1.2.0/sync/optimistic.md#execution-engine-errors
-           template reEnqueueBlock: untyped =
-             await sleepAsync(chronos.seconds(1))
-             self[].addBlock(
-               blck.src, blck.blck, blck.resfut, blck.validationDur)
-
-           try:
-             # Minimize window for Eth1 monitor to shut down connection
-             await self.consensusManager.eth1Monitor.ensureDataProvider()
-
-             let executionPayload =
-               withBlck(blck.blck):
-                 when stateFork >= BeaconStateFork.Bellatrix:
-                   blck.message.body.execution_payload
-                 else:
-                   doAssert false
-                   default(bellatrix.ExecutionPayload) # satisfy Nim
-
-             let executionPayloadStatus = await newExecutionPayload(
-               self.consensusManager.eth1Monitor, executionPayload)
-             if executionPayloadStatus.isNone:
-               reEnqueueBlock()
-               continue
-
-             executionPayloadStatus.get
-           except CatchableError as err:
-             error "runQueueProcessingLoop: newPayload failed", err = err.msg
-             reEnqueueBlock()
-             continue
-         else:
-           debug "runQueueProcessingLoop: got execution payload before TTD"
-           PayloadExecutionStatus.syncing
-       else:
-         # Vacuously
-         PayloadExecutionStatus.valid
-
-    if executionPayloadStatus in static([
-        PayloadExecutionStatus.invalid,
-        PayloadExecutionStatus.invalid_block_hash]):
-      debug "runQueueProcessingLoop: execution payload invalid",
-        executionPayloadStatus,
-        blck = shortLog(blck.blck)
-      self.consensusManager.quarantine[].addUnviable(blck.blck.root)
-      # Every loop iteration ends with some version of blck.resfut.complete(),
-      # including processBlock(), otherwise the sync manager stalls.
-      if not blck.resfut.isNil:
-        blck.resfut.complete(
-          Result[void, BlockError].err(BlockError.UnviableFork))
-    else:
-      self[].processBlock(
-        blck,
-        payloadValid = executionPayloadStatus == PayloadExecutionStatus.valid)
+    await self.processBlock(await self[].blockQueue.popFirst())

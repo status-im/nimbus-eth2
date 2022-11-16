@@ -207,6 +207,9 @@ func getSlotRange(dag: ChainDAGRef, startSlot: int64, count: uint64): (Slot, Slo
       else: start + count
   (start, ends)
 
+from ../beacon_chain/spec/datatypes/capella import
+  HashedBeaconState, TrustedSignedBeaconBlock
+
 proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   var timers: array[Timers, RunningStat]
 
@@ -234,7 +237,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     blocks: (
       seq[phase0.TrustedSignedBeaconBlock],
       seq[altair.TrustedSignedBeaconBlock],
-      seq[bellatrix.TrustedSignedBeaconBlock])
+      seq[bellatrix.TrustedSignedBeaconBlock],
+      seq[capella.TrustedSignedBeaconBlock])
 
   echo &"Loaded head slot {dag.head.slot}, selected {blockRefs.len} blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
@@ -252,6 +256,9 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of BeaconBlockFork.Bellatrix:
         blocks[2].add dag.db.getBlock(
           blck.root, bellatrix.TrustedSignedBeaconBlock).get()
+      of BeaconBlockFork.Capella:
+        blocks[3].add dag.db.getBlock(
+          blck.root, capella.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 
@@ -261,7 +268,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     loadedState = (
       (ref phase0.HashedBeaconState)(),
       (ref altair.HashedBeaconState)(),
-      (ref bellatrix.HashedBeaconState)())
+      (ref bellatrix.HashedBeaconState)(),
+      (ref capella.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
@@ -316,17 +324,22 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of BeaconStateFork.Bellatrix:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[2][].data, noRollback)
+              of BeaconStateFork.Capella:
+                doAssert dbBenchmark.getState(
+                  forkyState.root, loadedState[3][].data, noRollback)
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case stateFork
                 of BeaconStateFork.Phase0:    hash_tree_root(loadedState[0][].data)
                 of BeaconStateFork.Altair:    hash_tree_root(loadedState[1][].data)
                 of BeaconStateFork.Bellatrix: hash_tree_root(loadedState[2][].data)
+                of BeaconStateFork.Capella:   hash_tree_root(loadedState[3][].data)
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])
   processBlocks(blocks[1])
   processBlocks(blocks[2])
+  processBlocks(blocks[3])
 
   printTimers(false, timers)
 
@@ -338,6 +351,7 @@ proc cmdDumpState(conf: DbConf) =
     phase0State    = (ref phase0.HashedBeaconState)()
     altairState    = (ref altair.HashedBeaconState)()
     bellatrixState = (ref bellatrix.HashedBeaconState)()
+    capellaState   = (ref capella.HashedBeaconState)()
 
   for stateRoot in conf.stateRoot:
     if shouldShutDown: quit QuitSuccess
@@ -354,6 +368,7 @@ proc cmdDumpState(conf: DbConf) =
     doit(phase0State[])
     doit(altairState[])
     doit(bellatrixState[])
+    doit(capellaState[])
 
     echo "Couldn't load ", stateRoot
 
@@ -383,6 +398,8 @@ proc cmdDumpBlock(conf: DbConf) =
           root, altair.TrustedSignedBeaconBlock); blck.isSome):
         dump("./", blck.get())
       elif (let blck = db.getBlock(root, bellatrix.TrustedSignedBeaconBlock); blck.isSome):
+        dump("./", blck.get())
+      elif (let blck = db.getBlock(root, capella.TrustedSignedBeaconBlock); blck.isSome):
         dump("./", blck.get())
       else:
         echo "Couldn't load ", blockRoot
@@ -437,7 +454,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
 
 func atCanonicalSlot(dag: ChainDAGRef, bid: BlockId, slot: Slot): Opt[BlockSlotId] =
   if slot == 0:
-    ok dag.genesis.atSlot()
+    dag.getBlockIdAtSlot(GENESIS_SLOT)
   else:
     ok BlockSlotId.init((? dag.atSlot(bid, slot - 1)).bid, slot)
 
@@ -519,7 +536,9 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
         dag.withUpdatedState(tmpState[], eraBid) do:
           withState(state):
             group.finish(e2, forkyState.data).get()
-        do: raiseAssert "withUpdatedState failed"
+        do:
+          echo "Unable to load historical state - export requires fully indexed history node - see https://nimbus.guide/trusted-node-sync.html#recreate-historical-state-access-indices"
+          quit 1
 
     era += 1
 

@@ -94,8 +94,8 @@ proc createLightClient(
     onStoreInitialized, onFinalizedHeader, onOptimisticHeader)
 
   proc lightClientVerifier(obj: SomeLightClientObject):
-      Future[Result[void, BlockError]] =
-    let resfut = newFuture[Result[void, BlockError]]("lightClientVerifier")
+      Future[Result[void, VerifierError]] =
+    let resfut = newFuture[Result[void, VerifierError]]("lightClientVerifier")
     lightClient.processor[].addObject(MsgSource.gossip, obj, resfut)
     resfut
   proc bootstrapVerifier(obj: altair.LightClientBootstrap): auto =

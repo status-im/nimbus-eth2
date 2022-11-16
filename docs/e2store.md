@@ -12,14 +12,15 @@ The `e2store` (extension: `.e2s`) is a simple linear [Type-Length-Value](https:/
 
 The type and length are encoded in an 8-byte header which is directly followed by data.
 
-```
-record = header | data
-header = type | length
-type = Vector[byte, 2]
-length = Vector[byte, 6]
+The header corresponds to an SSZ object defined as such:
+
+```python
+class Header(Container):
+    type: Vector[byte, 2]
+    length: uint48
 ```
 
-The `length` is the first 6 bytes of a little-endian encoded `uint64`, not including the header itself. For example, the entry with header type `[0x22, 0x32]`, the length `4` and the bytes `[0x01, 0x02, 0x03, 0x04]` will be stored as the byte sequence `[0x22, 0x32, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04]`.
+The `length` is the length of the data that follows the header, not including the length of the header itself. For example, the entry with header type `[0x22, 0x32]`, the length `4` and the bytes `[0x01, 0x02, 0x03, 0x04]` will be stored as the byte sequence `[0x22, 0x32, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04]`.
 
 `.e2s` files may freely be concatenated, and may contain out-of-order records.
 
@@ -335,3 +336,7 @@ The alternative that was considered is to store the state without the block appl
 * no special case is needed when replaying blocks from era files - all are applied in the order they appear in the era file
 
 In the end though, the applied block state is used throughout in the protocol - given a block, the state root in the block is computed with the data from the block applied and this later gets stored in `state_roots` which forms the basis for `historical_roots`. In API:s such as the beacon API, the canonical state root of a slot is the state with the block of that slot applied, if it is part of the canonical history given by the head.
+
+## How can block roots be accessed without computing them?
+
+Each era file contains a full `BeaconState` object whose `block_roots` field corresponds to the block contents of the file. The easiest way to access the roots is to read the "header" of the `BeaconState` without reading all fields.

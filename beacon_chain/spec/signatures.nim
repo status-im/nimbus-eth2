@@ -23,6 +23,8 @@ import
   ./datatypes/[phase0, altair, bellatrix], ./mev/bellatrix_mev, ./helpers,
   ./eth2_merkleization
 
+from ./datatypes/capella import BLSToExecutionChange, SignedBLSToExecutionChange
+
 export phase0, altair
 
 template withTrust(sig: SomeSig, body: untyped): bool =
@@ -46,7 +48,7 @@ func compute_slot_signing_root*(
       fork, DOMAIN_SELECTION_PROOF, epoch, genesis_validators_root)
   compute_signing_root(slot, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#aggregation-selection
 func get_slot_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     privkey: ValidatorPrivKey): CookedSig =
@@ -70,7 +72,7 @@ func compute_epoch_signing_root*(
   let domain = get_domain(fork, DOMAIN_RANDAO, epoch, genesis_validators_root)
   compute_signing_root(epoch, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#randao-reveal
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#randao-reveal
 func get_epoch_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
     privkey: ValidatorPrivKey): CookedSig =
@@ -99,7 +101,7 @@ func compute_block_signing_root*(
       fork, DOMAIN_BEACON_PROPOSER, epoch, genesis_validators_root)
   compute_signing_root(blck, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#signature
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#signature
 func get_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     root: Eth2Digest, privkey: ValidatorPrivKey): CookedSig =
@@ -128,7 +130,7 @@ func compute_aggregate_and_proof_signing_root*(
       fork, DOMAIN_AGGREGATE_AND_PROOF, epoch, genesis_validators_root)
   compute_signing_root(aggregate_and_proof, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#broadcast-aggregate
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#broadcast-aggregate
 func get_aggregate_and_proof_signature*(fork: Fork, genesis_validators_root: Eth2Digest,
                                         aggregate_and_proof: AggregateAndProof,
                                         privkey: ValidatorPrivKey): CookedSig =
@@ -156,7 +158,7 @@ func compute_attestation_signing_root*(
       fork, DOMAIN_BEACON_ATTESTER, epoch, genesis_validators_root)
   compute_signing_root(attestation_data, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#aggregate-signature
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#aggregate-signature
 func get_attestation_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,
@@ -184,7 +186,7 @@ func compute_deposit_signing_root*(
     domain = compute_domain(DOMAIN_DEPOSIT, version)
   compute_signing_root(deposit_message, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/beacon-chain.md#deposits
 func get_deposit_signature*(preset: RuntimeConfig,
                             deposit: DepositData,
                             privkey: ValidatorPrivKey): CookedSig =
@@ -247,7 +249,7 @@ proc verify_voluntary_exit_signature*(
 
     blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/validator.md#prepare-sync-committee-message
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/validator.md#prepare-sync-committee-message
 func compute_sync_committee_message_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     slot: Slot, beacon_block_root: Eth2Digest): Eth2Digest =
@@ -367,4 +369,20 @@ proc verify_builder_signature*(
     fork: Fork, msg: BuilderBid,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_builder_signing_root(fork, msg)
+  blsVerify(pubkey, signing_root.data, signature)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
+func compute_bls_to_execution_change_signing_root(
+    fork: Fork, genesis_validators_root: Eth2Digest,
+    epoch: Epoch, msg: BLSToExecutionChange): Eth2Digest =
+  let domain = get_domain(
+    fork, DOMAIN_BLS_TO_EXECUTION_CHANGE, epoch, genesis_validators_root)
+  compute_signing_root(msg, domain)
+
+proc verify_bls_to_execution_change_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
+    msg: SignedBLSToExecutionChange,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  let signing_root = compute_bls_to_execution_change_signing_root(
+    fork, genesis_validators_root, epoch, msg.message)
   blsVerify(pubkey, signing_root.data, signature)

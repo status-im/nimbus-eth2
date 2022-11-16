@@ -207,6 +207,8 @@ suite "Gossip validation - Extra": # Not based on preset config
             of BeaconBlockFork.Bellatrix:
               const nilCallback = OnBellatrixBlockAdded(nil)
               dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
+            of BeaconBlockFork.Capella:
+              raiseAssert $capellaImplementationMissing
           check: added.isOk()
           dag.updateHead(added[], quarantine[])
         dag

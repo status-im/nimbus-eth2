@@ -74,10 +74,13 @@ type
       ## duty, we'll subscribe to the corresponding subnet to collect
       ## attestations for the aggregate
 
+    lastSyncUpdate*: Opt[SyncCommitteePeriod]
+    syncDuties*: Table[ValidatorPubKey, Epoch]
+
 func hash*(x: AggregatorDuty): Hash =
   hashAllFields(x)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 func randomStabilitySubnet(
     self: ActionTracker, epoch: Epoch): tuple[subnet_id: SubnetId, expiration: Epoch] =
   (
@@ -105,6 +108,26 @@ proc registerDuty*(
 
     debug "Registering aggregation duty", slot, subnet_id, vidx
     tracker.duties.incl(newDuty)
+
+proc registerSyncDuty*(
+    tracker: var ActionTracker, pubkey: ValidatorPubKey, until_epoch: Epoch) =
+  if tracker.currentSlot.epoch >= until_epoch:
+    return
+
+  tracker.syncDuties.withValue(pubkey, entry) do:
+    if entry[] < until_epoch:
+      debug "Updating sync duty",
+        pubkey = shortLog(pubkey), prev_until_epoch = entry[], until_epoch
+      entry[] = until_epoch
+      reset(tracker.lastSyncUpdate)
+  do:
+    debug "Registering sync duty", pubkey = shortLog(pubkey), until_epoch
+    tracker.syncDuties[pubkey] = until_epoch
+    reset(tracker.lastSyncUpdate)
+
+proc hasSyncDuty*(
+    tracker: ActionTracker, pubkey: ValidatorPubKey, epoch: Epoch): bool =
+  epoch < tracker.syncDuties.getOrDefault(pubkey, GENESIS_EPOCH)
 
 const allSubnetBits = block:
   var res: AttnetBits
@@ -136,6 +159,14 @@ proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
   # duties at the same time
   tracker.duties.keepItIf(it.slot >= wallSlot)
 
+  block:
+    var dels: seq[ValidatorPubKey]
+    for k, v in tracker.syncDuties:
+      if wallSlot.epoch >= v:
+        dels.add k
+    for k in dels:
+      tracker.syncDuties.del(k)
+
   # Keep stability subnets for as long as validators are validating
   var toPrune: seq[ValidatorIndex]
   for k, v in tracker.knownValidators:
@@ -147,7 +178,7 @@ proc updateSlot*(tracker: var ActionTracker, wallSlot: Slot) =
   # One stability subnet per known validator
   static: doAssert RANDOM_SUBNETS_PER_VALIDATOR == 1
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
   let expectedSubnets =
     min(ATTESTATION_SUBNET_COUNT.int, tracker.knownValidators.len)
 

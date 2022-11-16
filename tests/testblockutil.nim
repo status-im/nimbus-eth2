@@ -26,7 +26,7 @@ const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/tests/core/pyspec/eth2spec/test/helpers/keys.py
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/tests/core/pyspec/eth2spec/test/helpers/keys.py
 func `[]`*(_: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
   # lighthouse. EF tests use 1 instead of 1000.
@@ -138,12 +138,15 @@ proc addTestBlock*(
 
   let execution_payload =
     withState(state):
-      when stateFork >= BeaconStateFork.Bellatrix:
+      when stateFork >= BeaconStateFork.Capella:
+        raiseAssert $capellaImplementationMissing
+      elif stateFork >= BeaconStateFork.Bellatrix:
         # Merge shortly after Bellatrix
         if  forkyState.data.slot >
             cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH + 10:
           if is_merge_transition_complete(forkyState.data):
-            build_empty_execution_payload(forkyState.data)
+            const feeRecipient = default(Eth1Address)
+            build_empty_execution_payload(forkyState.data, feeRecipient)
           else:
             build_empty_merge_execution_payload(forkyState.data)
         else:
@@ -215,7 +218,7 @@ func makeAttestationData*(
     "Computed epoch was " & $slot.epoch &
     "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,

@@ -2,16 +2,18 @@
 
 To make a deposit, you will need to generate keys then submit a deposit transaction to the execution chain.
 
-!!! tip
+!!! tip "Launchpad"
     The process of setting up a validator is also documented at the Ethereum launchpad site:
 
     * [Mainnet](https://launchpad.ethereum.org/)
-    * [Prater](https://prater.launchpad.ethereum.org/)
+    * [Goerli/Prater EthStaker Launchpad](https://goerli.launchpad.ethstaker.cc/en/) or [Goerli/Prater EF Launchpad](https://prater.launchpad.ethereum.org/)
 
 !!! tip
     Use Prater to stress test / future proof  your set up against peak mainnet load. See [here](./prater.md) for all you need to know
 
-## Download the deposit tool
+## Steps
+
+### 1. Download the deposit tool
 
 Start by downloading and unpacking the [deposit tool](https://github.com/ethereum/staking-deposit-cli/releases/latest) provided by the Ethereum Foundation:
 
@@ -26,14 +28,14 @@ wget https://github.com/ethereum/staking-deposit-cli/releases/download/v2.2.0/st
 tar xvf staking_deposit-cli-9ab0b05-linux-amd64.tar.gz --strip-components 2
 ```
 
-## Generate keys
+### 2. Generate keys
 
-!!! tip
+!!! tip "Live image"
     You can increase the security of this process by downloading a [Live linux image](https://ubuntu.com/tutorials/try-ubuntu-before-you-install). To do so, copy `deposit` to a USB stick, boot into the live image, and run the tool from inside the image. Make sure you **don't** enable Wifi and unplug any Ethernet cables when using this process.
 
 The deposit tool generates a seed phrase, and uses this to create validator and withdrawal keys.
 
-!!! danger
+!!! danger "Seed phrase"
     If you lose you seed phrase and your withdrawal key, your funds will be lost forever!
 
 === "Mainnet"
@@ -48,7 +50,7 @@ The deposit tool generates a seed phrase, and uses this to create validator and 
     ./deposit new-mnemonic --chain prater
     ```
 
-## Make the deposit
+### 3. Make the deposit
 
 Once created, the keys are used to create a deposit transaction on the Ethereum execution chain. Follow the instructions at https://launchpad.ethereum.org/en/upload-deposit-data to upload the deposit data.
 
