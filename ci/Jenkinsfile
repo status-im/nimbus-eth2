@@ -77,25 +77,31 @@ pipeline {
     stage('Finalizations') {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
         stage('minimal') {
-          steps { script { timeout(26) {
+          steps { timeout(26) {
             launchLocalTestnet('minimal')
-          } } }
+          } }
+          post { always {
+            collectLocalTestnetArtifacts('minimal')
+          } }
         }
 
         stage('mainnet') {
-          steps { script { timeout(62) {
+          steps { timeout(62) {
             launchLocalTestnet('mainnet')
-          } } }
+          } }
+          post { always {
+            collectLocalTestnetArtifacts('mainnet')
+          } }
         }
       }
+      post { always { timeout(5) {
+        archiveArtifacts(artifacts: '*.tar.gz', allowEmptyArchive: true)
+      } } }
     }
   }
 
   post {
     always {
-      catchError { timeout(5) {
-        archiveArtifacts(artifacts: '*.tar.gz', allowEmptyArchive: true)
-      } }
       cleanWs(
         disableDeferredWipeout: true,
         deleteDirs: true
@@ -105,12 +111,11 @@ pipeline {
 }
 
 def launchLocalTestnet(String name) {
-  /* We want to mark job as failed, but save the results. */
-  try {
-    sh "make local-testnet-${name}"
-  } finally {
-    sh "tar cjf local-testnet-${name}.tar.gz local-testnet-${name}/*.txt"
-  }
+  sh "make local-testnet-${name}"
+}
+
+def collectLocalTestnetArtifacts(String name) {
+  sh "tar cjf local-testnet-${name}.tar.gz local-testnet-${name}/*.txt"
 }
 
 def isMainBranch() {
