@@ -90,15 +90,11 @@ pipeline {
       }
     }
 
-    stage('Upload') {
-      steps { timeout(5) {
-        archiveArtifacts('*.tar.gz')
-      } }
-    }
-  }
-
   post {
     always {
+      catchError { timeout(5) {
+        archiveArtifacts(artifacts: '*.tar.gz', allowEmptyArchive: true)
+      } }
       cleanWs(
         disableDeferredWipeout: true,
         deleteDirs: true
@@ -109,15 +105,11 @@ pipeline {
 
 def launchLocalTestnet(String name) {
   /* We want to mark job as failed, but save the results. */
-  catchError(
-    message: "Local ${name} testnet finalization failure!",
-    buildResult: 'FAILURE',
-    stageResult: 'FAILURE'
-  ) {
+  try {
     sh "make local-testnet-${name}"
+  } finally {
+    sh "tar cjf local-testnet-${name}.tar.gz local-testnet-${name}/*.txt"
   }
-  /* Archive test results regardless of outcome. */
-  sh "tar cjf local-testnet-${name}.tar.gz local-testnet-${name}/*.txt"
 }
 
 def isMainBranch() {
