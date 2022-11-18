@@ -77,23 +77,26 @@ pipeline {
     stage('Finalizations') {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
         stage('minimal') {
-          steps { script { timeout(26) {
-            launchLocalTestnet('minimal')
-          } } }
+          steps { timeout(26) {
+            sh 'make local-testnet-minimal'
+          } }
+          post { always {
+            sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/*.txt'
+          } }
         }
 
         stage('mainnet') {
-          steps { script { timeout(62) {
-            launchLocalTestnet('mainnet')
-          } } }
+          steps { timeout(62) {
+            sh 'make local-testnet-mainnet'
+          } }
+          post { always {
+            sh 'tar cjf local-testnet-mainnet.tar.gz local-testnet-mainnet/*.txt'
+          } }
         }
       }
-    }
-
-    stage('Upload') {
-      steps { timeout(5) {
-        archiveArtifacts('*.tar.gz')
-      } }
+      post { always { timeout(5) {
+        archiveArtifacts(artifacts: '*.tar.gz', allowEmptyArchive: true)
+      } } }
     }
   }
 
@@ -105,19 +108,6 @@ pipeline {
       )
     }
   }
-}
-
-def launchLocalTestnet(String name) {
-  /* We want to mark job as failed, but save the results. */
-  catchError(
-    message: "Local ${name} testnet finalization failure!",
-    buildResult: 'FAILURE',
-    stageResult: 'FAILURE'
-  ) {
-    sh "make local-testnet-${name}"
-  }
-  /* Archive test results regardless of outcome. */
-  sh "tar cjf local-testnet-${name}.tar.gz local-testnet-${name}/*.txt"
 }
 
 def isMainBranch() {
