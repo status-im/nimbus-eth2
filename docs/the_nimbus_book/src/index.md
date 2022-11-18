@@ -19,7 +19,7 @@ This book describes the consensus layer client, [`nimbus-eth2`](https://github.c
 * [Web3Signer](https://docs.web3signer.consensys.net/en/latest/) remote signing
 * [Validator monitoring](./validator-monitor.md) and [performance analysis](./attestation-performance.md) tooling
 * [External block builder](./external-block-builder.md) (PBS / mev-boost) support with execution client fallback
-* [Light consensus client](./el-light-client,md) for running an execution client without a beacon node
+* [Light consensus client](./el-light-client.md) for running an execution client without a full beacon node
 
 ## Get in touch
 
