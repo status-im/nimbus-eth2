@@ -78,19 +78,19 @@ pipeline {
       stages {  /* parallel builds of minimal / mainnet not yet supported */
         stage('minimal') {
           steps { timeout(26) {
-            launchLocalTestnet('minimal')
+            sh 'make local-testnet-minimal'
           } }
           post { always {
-            collectLocalTestnetArtifacts('minimal')
+            sh 'tar cjf local-testnet-minimal.tar.gz local-testnet-minimal/*.txt'
           } }
         }
 
         stage('mainnet') {
           steps { timeout(62) {
-            launchLocalTestnet('mainnet')
+            sh 'make local-testnet-mainnet'
           } }
           post { always {
-            collectLocalTestnetArtifacts('mainnet')
+            sh 'tar cjf local-testnet-mainnet.tar.gz local-testnet-mainnet/*.txt'
           } }
         }
       }
@@ -108,14 +108,6 @@ pipeline {
       )
     }
   }
-}
-
-def launchLocalTestnet(String name) {
-  sh "make local-testnet-${name}"
-}
-
-def collectLocalTestnetArtifacts(String name) {
-  sh "tar cjf local-testnet-${name}.tar.gz local-testnet-${name}/*.txt"
 }
 
 def isMainBranch() {
