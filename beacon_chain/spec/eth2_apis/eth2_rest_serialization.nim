@@ -985,42 +985,39 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
   of BeaconBlockFork.Phase0:
     let res =
       try:
-        some(RestJson.decode(string(data.get()),
-                             phase0.BeaconBlock,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[phase0.BeaconBlock]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect phase0 block format")
+        RestJson.decode(string(data.get()),
+                        phase0.BeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError as exc:
+        reader.raiseUnexpectedValue("Incorrect phase0 block format, [" &
+                                    exc.formatMsg("BlindedBlock") & "]")
     value = ForkedBlindedBeaconBlock(kind: BeaconBlockFork.Phase0,
-                                     phase0Data: res.get())
+                                     phase0Data: res)
   of BeaconBlockFork.Altair:
     let res =
       try:
-        some(RestJson.decode(string(data.get()),
-                             altair.BeaconBlock,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[altair.BeaconBlock]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect altair block format")
+        RestJson.decode(string(data.get()),
+                        altair.BeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError as exc:
+        reader.raiseUnexpectedValue("Incorrect altair block format, [" &
+                                    exc.formatMsg("BlindedBlock") & "]")
     value = ForkedBlindedBeaconBlock(kind: BeaconBlockFork.Altair,
-                                     altairData: res.get())
+                                     altairData: res)
   of BeaconBlockFork.Bellatrix:
     let res =
       try:
-        some(RestJson.decode(string(data.get()),
-                             BlindedBeaconBlock,
-                             requireAllFields = true,
-                             allowUnknownFields = true))
-      except SerializationError:
-        none[BlindedBeaconBlock]()
-    if res.isNone():
-      reader.raiseUnexpectedValue("Incorrect bellatrix block format")
+        RestJson.decode(string(data.get()),
+                        BlindedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError as exc:
+        reader.raiseUnexpectedValue("Incorrect bellatrix block format, [" &
+                                    exc.formatMsg("BlindedBlock") & "]")
     value = ForkedBlindedBeaconBlock(kind: BeaconBlockFork.Bellatrix,
-                                     bellatrixData: res.get())
+                                     bellatrixData: res)
   of BeaconBlockFork.Capella:
     reader.raiseUnexpectedValue($capellaImplementationMissing)
 
