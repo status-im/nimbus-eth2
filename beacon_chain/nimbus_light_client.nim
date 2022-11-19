@@ -20,7 +20,24 @@ from ./consensus_object_pools/consensus_manager import runForkchoiceUpdated
 from ./gossip_processing/block_processor import newExecutionPayload
 from ./gossip_processing/eth2_processor import toValidationResult
 
+# this needs to be global, so it can be set in the Ctrl+C signal handler
+var globalRunning = true
+
 programMain:
+  ## Ctrl+C handling
+  proc controlCHandler() {.noconv.} =
+    when defined(windows):
+      # workaround for https://github.com/nim-lang/Nim/issues/4057
+      try:
+        setupForeignThreadGc()
+      except Exception as exc: raiseAssert exc.msg # shouldn't happen
+    notice "Shutting down after having received SIGINT"
+    globalRunning = false
+  try:
+    setControlCHook(controlCHandler)
+  except Exception as exc: # TODO Exception
+    warn "Cannot set ctrl-c handler", msg = exc.msg
+
   var config = makeBannerAndConfig(
     "Nimbus light client " & fullVersionStr, LightClientConf)
   setupLogging(config.logLevel, config.logStdout, config.logFile)
@@ -235,5 +252,7 @@ programMain:
   lightClient.start()
 
   asyncSpawn runOnSecondLoop()
-  while true:
+  while globalRunning:
     poll()
+
+  notice "Exiting light client"
