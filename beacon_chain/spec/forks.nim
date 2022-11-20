@@ -271,8 +271,8 @@ template init*(T: type ForkedSignedBeaconBlock, blck: bellatrix.SignedBeaconBloc
 template init*(T: type ForkedSignedBeaconBlock, blck: capella.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Capella, capellaData: blck)
 
-template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
-               blockRoot: Eth2Digest, signature: ValidatorSig): T =
+func init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
+           blockRoot: Eth2Digest, signature: ValidatorSig): T =
   case forked.kind
   of BeaconBlockFork.Phase0:
     T(kind: BeaconBlockFork.Phase0,
@@ -295,9 +295,9 @@ template init*(T: type ForkedSignedBeaconBlock, forked: ForkedBeaconBlock,
                                              root: blockRoot,
                                              signature: signature))
 
-template init*(T: type ForkedSignedBlindedBeaconBlock,
-               forked: ForkedBlindedBeaconBlock, blockRoot: Eth2Digest,
-               signature: ValidatorSig): T =
+func init*(T: type ForkedSignedBlindedBeaconBlock,
+           forked: ForkedBlindedBeaconBlock, blockRoot: Eth2Digest,
+           signature: ValidatorSig): T =
   case forked.kind
   of BeaconBlockFork.Phase0:
     T(kind: BeaconBlockFork.Phase0,
