@@ -247,24 +247,11 @@ proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # can be up to around 10,000 Wei. Thus, skipping attestations isn't cheap
   # and one should gauge the likelihood of this simultaneous launch to tune
   # the epoch delay to one's perceived risk.
-
-  const duplicateValidatorEpochs = 2
-
-  # TODO:
-  # We should switch to a model where this value is set for each validator
-  # as it gets added to the validator pool.
-  # Currently, we set it here because otherwise if the client is started
-  # without any validators, it will remain set to FAR_FUTURE_EPOCH and
-  # any new validators added through the Keymanager API will never get
-  # activated.
-  self.doppelgangerDetection.broadcastStartEpoch =
-    slot.epoch + duplicateValidatorEpochs
-
-  if self.validatorPool[].count() > 0:
-    if self.doppelgangerDetectionEnabled:
-      notice "Setting up doppelganger detection",
-        epoch = slot.epoch,
-        broadcastStartEpoch = self.doppelgangerDetection.broadcastStartEpoch
+  if self.doppelgangerDetectionEnabled:
+    notice "Setting up doppelganger detection",
+      epoch = slot.epoch,
+      broadcast_epoch = self.doppelgangerDetection.broadcastStartEpoch,
+      nodestart_epoch = self.doppelgangerDetection.nodeLaunchSlot.epoch()
 
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor, attestation: Attestation,
@@ -278,17 +265,32 @@ proc checkForPotentialDoppelganger(
   if attestation.data.slot <= self.doppelgangerDetection.nodeLaunchSlot + 1:
     return
 
-  if attestation.data.slot.epoch <
-      self.doppelgangerDetection.broadcastStartEpoch and
-     self.doppelgangerDetection.nodeLaunchSlot > GENESIS_SLOT:
-    for validatorIndex in attesterIndices:
-      let validatorPubkey = self.dag.validatorKey(validatorIndex).get().toPubKey()
-      if not isNil(self.validatorPool[].getValidator(validatorPubkey)):
-        warn "We believe you are currently running another instance of the same validator. We've disconnected you from the network as this presents a significant slashing risk. Possible next steps are (a) making sure you've disconnected your validator from your old machine before restarting the client; and (b) running the client again with the gossip-slashing-protection option disabled, only if you are absolutely sure this is the only instance of your validator running, and reporting the issue at https://github.com/status-im/nimbus-eth2/issues.",
-          validatorIndex,
-          validatorPubkey,
-          attestation = shortLog(attestation)
+  let broadcastStartEpoch = self.doppelgangerDetection.broadcastStartEpoch
 
+  for validatorIndex in attesterIndices:
+    let
+      validatorPubkey = self.dag.validatorKey(validatorIndex).get().toPubKey()
+      validator = self.validatorPool[].getValidator(validatorPubkey)
+
+    if not(isNil(validator)):
+      let res = validator.doppelgangerCheck(attestation.data.slot.epoch(),
+                                            broadcastStartEpoch)
+      if res.isOk() and not(res.get()):
+        warn "We believe you are currently running another instance of the " &
+             "same validator. We've disconnected you from the network as " &
+             "this presents a significant slashing risk. Possible next steps "&
+             "are (a) making sure you've disconnected your validator from " &
+             "your old machine before restarting the client; and (b) running " &
+             "the client again with the gossip-slashing-protection option " &
+             "disabled, only if you are absolutely sure this is the only " &
+             "instance of your validator running, and reporting the issue " &
+             "at https://github.com/status-im/nimbus-eth2/issues.",
+          validator = shortLog(validator),
+          start_slot = validator.startSlot,
+          validator_index = validatorIndex,
+          activation_epoch = validator.activationEpoch.get(),
+          broadcast_epoch = broadcastStartEpoch,
+          attestation = shortLog(attestation)
         # Avoid colliding with
         # https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Process%20Exit%20Codes
         const QuitDoppelganger = 129

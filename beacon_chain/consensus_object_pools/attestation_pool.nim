@@ -826,7 +826,7 @@ proc prune*(pool: var AttestationPool) =
     # but we'll keep running hoping that the fork chocie will recover eventually
     error "Couldn't prune fork choice, bug?", err = v.error()
 
-proc validatorSeenAtEpoch*(pool: var AttestationPool, epoch: Epoch,
+proc validatorSeenAtEpoch*(pool: AttestationPool, epoch: Epoch,
                            vindex: ValidatorIndex): bool =
   if uint64(vindex) < lenu64(pool.nextAttestationEpoch):
     let mark = pool.nextAttestationEpoch[vindex]

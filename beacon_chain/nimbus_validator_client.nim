@@ -276,8 +276,8 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
     vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
     vc.keymanagerServer = keymanagerInitResult.server
     if vc.keymanagerServer != nil:
-      func getValidatorIdx(pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
-        Opt.none ValidatorIndex
+      func getValidatorData(pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
+        Opt.none(ValidatorAndIndex)
 
       vc.keymanagerHost = newClone KeymanagerHost.init(
         validatorPool,
@@ -286,7 +286,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
         vc.config.validatorsDir,
         vc.config.secretsDir,
         vc.config.defaultFeeRecipient,
-        getValidatorIdx,
+        getValidatorData,
         vc.beaconClock.getBeaconTimeFn)
 
   except CatchableError as exc:

@@ -30,6 +30,7 @@ export
 
 const
   WEB3_SIGNER_DELAY_TOLERANCE = 3.seconds
+  DOPPELGANGER_EPOCHS_COUNT = 2
 
 declareGauge validators,
   "Number of validators attached to the beacon node"
@@ -100,12 +101,16 @@ template count*(pool: ValidatorPool): int =
 
 proc addLocalValidator*(
     pool: var ValidatorPool, keystore: KeystoreData, index: Opt[ValidatorIndex],
-    feeRecipient: Eth1Address, slot: Slot) =
+    feeRecipient: Eth1Address, slot: Slot, activationEpoch: Opt[Epoch]) =
   doAssert keystore.kind == KeystoreKind.Local
   let v = AttachedValidator(
-    kind: ValidatorKind.Local, index: index, data: keystore,
+    kind: ValidatorKind.Local,
+    index: index,
+    data: keystore,
     externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
-    startSlot: slot)
+    startSlot: slot,
+    activationEpoch: activationEpoch
+  )
   pool.validators[v.pubkey] = v
 
   # Fee recipient may change after startup, but we log the initial value here
@@ -124,13 +129,17 @@ proc addLocalValidator*(
 proc addRemoteValidator*(pool: var ValidatorPool, keystore: KeystoreData,
                          clients: seq[(RestClientRef, RemoteSignerInfo)],
                          index: Opt[ValidatorIndex], feeRecipient: Eth1Address,
-                         slot: Slot) =
+                         slot: Slot, activationEpoch: Opt[Epoch]) =
   doAssert keystore.kind == KeystoreKind.Remote
   let v = AttachedValidator(
-    kind: ValidatorKind.Remote, index: index, data: keystore,
+    kind: ValidatorKind.Remote,
+    index: index,
+    data: keystore,
     clients: clients,
     externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
-    startSlot: slot)
+    startSlot: slot,
+    activationEpoch: activationEpoch
+  )
   pool.validators[v.pubkey] = v
   notice "Remote validator attached",
     pubkey = v.pubkey,
@@ -184,7 +193,8 @@ proc addRemoteValidator*(pool: var ValidatorPool,
                          keystore: KeystoreData,
                          index: Opt[ValidatorIndex],
                          feeRecipient: Eth1Address,
-                         slot: Slot) =
+                         slot: Slot,
+                         activationEpoch: Opt[Epoch]) =
   var clients: seq[(RestClientRef, RemoteSignerInfo)]
   let httpFlags =
     block:
@@ -200,7 +210,8 @@ proc addRemoteValidator*(pool: var ValidatorPool,
       warn "Unable to resolve distributed signer address",
           remote_url = $remote.url, validator = $remote.pubkey
     clients.add((client.get(), remote))
-  pool.addRemoteValidator(keystore, clients, index, feeRecipient, slot)
+  pool.addRemoteValidator(keystore, clients, index, feeRecipient, slot,
+                          activationEpoch)
 
 iterator publicKeys*(pool: ValidatorPool): ValidatorPubKey =
   for item in pool.validators.keys():
@@ -214,6 +225,47 @@ iterator indices*(pool: ValidatorPool): ValidatorIndex =
 iterator items*(pool: ValidatorPool): AttachedValidator =
   for item in pool.validators.values():
     yield item
+
+proc doppelgangerCheck*(validator: AttachedValidator,
+                        epoch: Epoch,
+                        broadcastEpoch: Epoch): Result[bool, cstring] =
+  ## Perform check of ``validator`` for doppelganger.
+  ##
+  ## Returns ``true`` if `validator` do not have doppelganger and could perform
+  ## validator actions.
+  ##
+  ## Returns ``false`` if `validator` has doppelganger in network and MUST not
+  ## perform any validator actions.
+  ##
+  ## Returns error, if its impossible to perform doppelganger check.
+  let
+    startEpoch = validator.startSlot.epoch() # startEpoch is epoch when /
+      # validator appeared in beacon_node.
+    activationEpoch = validator.activationEpoch # validator's activation_epoch
+    currentStartEpoch = max(startEpoch, broadcastEpoch)
+
+  if activationEpoch.isNone() or activationEpoch.get() > epoch:
+    # If validator's `activation_epoch` is not set or `activation_epoch` is far
+    # from current wall epoch - it should not participate in the network.
+    err("Validator is not activated yet, or beacon node clock is invalid")
+  else:
+    if currentStartEpoch > epoch:
+      err("Validator is not started or broadcast is not started, or " &
+          "beacon node clock is invalid")
+    else:
+      let actEpoch = activationEpoch.get()
+      # max(startEpoch, broadcastEpoch) <= activateEpoch <= epoch
+      if (currentStartEpoch <= actEpoch) and (actEpoch <= epoch):
+        # Validator was activated, we going to skip doppelganger protection
+        ok(true)
+      else:
+        if epoch - currentStartEpoch < DOPPELGANGER_EPOCHS_COUNT:
+          # Validator is started in unsafe period.
+          ok(false)
+        else:
+          # Validator is already passed checking period, so we allow
+          # validator to participate in the network.
+          ok(true)
 
 proc signWithDistributedKey(v: AttachedValidator,
                             request: Web3SignerRequest): Future[SignatureResult]
