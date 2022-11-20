@@ -13,7 +13,7 @@ else:
 import
   std/[options, tables, sets, macros],
   chronicles, chronos, snappy/codec,
-  stew/ranges/bitranges, libp2p/switch,
+  libp2p/switch,
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[helpers, forks, network],
   ".."/[beacon_clock],

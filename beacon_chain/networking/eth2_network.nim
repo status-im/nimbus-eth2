@@ -2162,7 +2162,7 @@ proc getPersistentNetKeys(
     let
       keys = rng.getRandomNetKeys()
       pres = PeerId.init(keys.pubkey).valueOr:
-        fatal "Could not obtain PeerId from network key"
+        fatal "Could not obtain PeerId from network key", error
         quit QuitFailure
     info "Generating new networking key",
       network_public_key = keys.pubkey, network_peer_id = $pres
