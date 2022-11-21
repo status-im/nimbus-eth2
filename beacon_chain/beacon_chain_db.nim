@@ -921,7 +921,7 @@ proc getBlockSSZ*(
   of BeaconBlockFork.Bellatrix:
     getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
   of BeaconBlockFork.Capella:
-    raiseAssert $capellaImplementationMissing
+    getBlockSSZ(db, key, data, capella.TrustedSignedBeaconBlock)
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],

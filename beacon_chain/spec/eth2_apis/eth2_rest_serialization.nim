@@ -18,6 +18,8 @@ import ".."/[eth2_ssz_serialization, forks, keystore],
        "."/[rest_types, rest_keymanager_types]
 import nimcrypto/utils as ncrutils
 
+from ".."/datatypes/capella import SignedBeaconBlock
+
 export
   eth2_ssz_serialization, results, peerid, common, serialization, chronicles,
   json_serialization, options, net, sets, rest_types, slashing_protection_common
@@ -90,6 +92,7 @@ type
   EncodeOctetTypes* =
     altair.SignedBeaconBlock |
     bellatrix.SignedBeaconBlock |
+    capella.SignedBeaconBlock |
     phase0.SignedBeaconBlock
 
   EncodeArrays* =
@@ -898,6 +901,8 @@ template prepareForkedBlockReading(
         version = some(BeaconBlockFork.Altair)
       of "BELLATRIX", "bellatrix":
         version = some(BeaconBlockFork.Bellatrix)
+      of "CAPELLA", "capella":
+        version = some(BeaconBlockFork.Bellatrix)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "block", "block_header", "data":
@@ -1040,7 +1045,8 @@ proc writeValue*[
     writer.writeField("version", forkIdentifier "bellatrix")
     writer.writeField("data", value.bellatrixData)
   of BeaconBlockFork.Capella:
-    raiseAssert $capellaImplementationMissing
+    writer.writeField("version", forkIdentifier "capella")
+    writer.writeField("data", value.capellaData)
   writer.endRecord()
 
 ## RestPublishedBeaconBlockBody
@@ -1337,7 +1343,12 @@ proc readValue*(reader: var JsonReader[RestJson],
         )
       )
     of BeaconBlockFork.Capella:
-      reader.raiseUnexpectedValue($capellaImplementationMissing)
+      ForkedSignedBeaconBlock.init(
+        capella.SignedBeaconBlock(
+          message: blck.capellaData,
+          signature: signature.get()
+        )
+      )
   )
 
 ## ForkedSignedBeaconBlock
@@ -1362,6 +1373,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = some(BeaconBlockFork.Altair)
       of "bellatrix":
         version = some(BeaconBlockFork.Bellatrix)
+      of "capella":
+        version = some(BeaconBlockFork.Capella)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -1434,7 +1447,8 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("version", "bellatrix")
     writer.writeField("data", value.bellatrixData)
   of BeaconBlockFork.Capella:
-    raiseAssert $capellaImplementationMissing
+    writer.writeField("version", "capella")
+    writer.writeField("data", value.capellaData)
   writer.endRecord()
 
 # ForkedHashedBeaconState is used where a `ForkedBeaconState` normally would
@@ -1457,6 +1471,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       of "phase0": some(BeaconStateFork.Phase0)
       of "altair": some(BeaconStateFork.Altair)
       of "bellatrix": some(BeaconStateFork.Bellatrix)
+      of "capella": some(BeaconStateFork.Capella)
       else: reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
@@ -1533,7 +1548,8 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
     writer.writeField("version", "bellatrix")
     writer.writeField("data", value.bellatrixData.data)
   of BeaconStateFork.Capella:
-    raiseAssert $capellaImplementationMissing
+    writer.writeField("version", "capella")
+    writer.writeField("data", value.capellaData.data)
   writer.endRecord()
 
 ## Web3SignerRequest
@@ -2915,6 +2931,7 @@ proc decodeString*(t: typedesc[BeaconBlockFork],
   of "phase0": ok(BeaconBlockFork.Phase0)
   of "altair": ok(BeaconBlockFork.Altair)
   of "bellatrix": ok(BeaconBlockFork.Bellatrix)
+  of "capella": ok(BeaconBlockFork.Capella)
   else: err("Unsupported or invalid beacon block fork version")
 
 proc decodeString*(t: typedesc[BeaconStateFork],
@@ -2923,4 +2940,5 @@ proc decodeString*(t: typedesc[BeaconStateFork],
   of "phase0": ok(BeaconStateFork.Phase0)
   of "altair": ok(BeaconStateFork.Altair)
   of "bellatrix": ok(BeaconStateFork.Bellatrix)
+  of "capella": ok(BeaconStateFork.Capella)
   else: err("Unsupported or invalid beacon state fork version")

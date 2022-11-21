@@ -266,7 +266,7 @@ proc getStateOptimistic*(node: BeaconNode,
     case state.kind
     of BeaconStateFork.Phase0, BeaconStateFork.Altair:
       some[bool](false)
-    of BeaconStateFork.Bellatrix:
+    of BeaconStateFork.Bellatrix, BeaconStateFork.Capella:
       # A state is optimistic iff the block which created it is
       withState(state):
         # The block root which created the state at slot `n` is at slot `n-1`
@@ -276,9 +276,6 @@ proc getStateOptimistic*(node: BeaconNode,
           doAssert forkyState.data.slot > 0
           some[bool](node.dag.is_optimistic(
             get_block_root_at_slot(forkyState.data, forkyState.data.slot - 1)))
-    of BeaconStateFork.Capella:
-      if true: raiseAssert $capellaImplementationMissing
-      none[bool]()
   else:
     none[bool]()
 
