@@ -38,8 +38,6 @@ const
   HistoricalRootsUpdateDir =     RootDir/"historical_roots_update"
   ParticipationFlagDir =         RootDir/"participation_flag_updates"
   SyncCommitteeDir =             RootDir/"sync_committee_updates"
-  FullWithdrawalsDir =           RootDir/"full_withdrawals"
-  PartialWithdrawalsDir =        RootDir/"partial_withdrawals"
   RewardsAndPenaltiesDir =       RootDir/"rewards_and_penalties"
 
 doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
@@ -48,8 +46,7 @@ doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     JustificationFinalizationDir, InactivityDir, RegistryUpdatesDir,
     SlashingsDir, Eth1DataResetDir, EffectiveBalanceUpdatesDir,
     SlashingsResetDir, RandaoMixesResetDir, HistoricalRootsUpdateDir,
-    ParticipationFlagDir, FullWithDrawalsDir,
-    PartialWithdrawalsDir, RewardsAndPenaltiesDir])
+    ParticipationFlagDir, RewardsAndPenaltiesDir])
 
 template runSuite(
     suiteDir, testName: string, transitionProc: untyped): untyped =
@@ -154,15 +151,3 @@ when const_preset == "minimal":
     Result[void, cstring].ok()
 else:
   doAssert not dirExists(SyncCommitteeDir)
-
-# Full withdrawals
-# ---------------------------------------------------------------
-runSuite(FullWithdrawalsDir, "Full withdrawals"):
-  process_full_withdrawals(state)
-  Result[void, cstring].ok()
-
-# Partial withdrawals
-# ---------------------------------------------------------------
-runSuite(PartialWithdrawalsDir, "Partial withdrawals"):
-  process_partial_withdrawals(state)
-  Result[void, cstring].ok()

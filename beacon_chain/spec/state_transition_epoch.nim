@@ -1046,83 +1046,6 @@ func process_inactivity_updates*(
     if pre_inactivity_score != inactivity_score:
       state.inactivity_scores[index] = inactivity_score
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#has_eth1_withdrawal_credential
-func has_eth1_withdrawal_credential(validator: Validator): bool =
-  ## Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
-  validator.withdrawal_credentials.data[0] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
-func is_fully_withdrawable_validator(
-    validator: Validator, balance: Gwei, epoch: Epoch): bool =
-  ## Check if ``validator`` is fully withdrawable.
-  has_eth1_withdrawal_credential(validator) and
-    validator.withdrawable_epoch <= epoch and balance > 0
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
-func is_partially_withdrawable_validator(
-    validator: Validator, balance: Gwei): bool =
-  ## Check if ``validator`` is partially withdrawable.
-  let
-    has_max_effective_balance =
-      validator.effective_balance == MAX_EFFECTIVE_BALANCE
-    has_excess_balance = balance > MAX_EFFECTIVE_BALANCE
-  has_eth1_withdrawal_credential(validator) and
-    has_max_effective_balance and has_excess_balance
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#withdraw_balance
-func withdraw_balance(
-    state: var capella.BeaconState, validator_index: ValidatorIndex,
-    amount: Gwei) =
-  # Decrease the validator's balance
-  decrease_balance(state, validator_index, amount)
-
-  # Create a corresponding withdrawal receipt
-  var withdrawal = Withdrawal(
-    index: state.next_withdrawal_index,
-    validator_index: validator_index.uint64,
-    amount: amount)
-  withdrawal.address.data[0 .. 19] =
-      state.validators.item(
-        validator_index).withdrawal_credentials.data.toOpenArray(12, 31)
-  state.next_withdrawal_index = WithdrawalIndex(state.next_withdrawal_index + 1)
-  #TODO TODO don't just discard, check if full
-  discard state.withdrawal_queue.add(withdrawal)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#full-withdrawals
-func process_full_withdrawals*(state: var capella.BeaconState) =
-  let current_epoch = get_current_epoch(state)
-  for index in 0 ..< len(state.validators):
-    let
-      balance = state.balances.item(index)
-      validator = state.validators.item(index)
-    if is_fully_withdrawable_validator(validator, balance, current_epoch):
-      withdraw_balance(state, ValidatorIndex(index), balance)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#partial-withdrawals
-func process_partial_withdrawals*(state: var capella.BeaconState) =
-  var partial_withdrawals_count = 0
-
-  # Begin where we left off last time
-  var validator_index = state.next_partial_withdrawal_validator_index
-
-  for _ in 0 ..< len(state.validators):
-    let
-      balance = state.balances.item(validator_index)
-      validator = state.validators.item(validator_index)
-    if is_partially_withdrawable_validator(validator, balance):
-      withdraw_balance(
-        state, validator_index.ValidatorIndex, balance - MAX_EFFECTIVE_BALANCE)
-      partial_withdrawals_count += 1
-
-    # Iterate to next validator to check for partial withdrawal
-    validator_index = (validator_index + 1) mod lenu64(state.validators)
-
-    # Exit if performed maximum allowable withdrawals
-    if partial_withdrawals_count == MAX_PARTIAL_WITHDRAWALS_PER_EPOCH:
-      break
-
-  state.next_partial_withdrawal_validator_index = validator_index
-
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
@@ -1182,7 +1105,8 @@ func init*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/beacon-chain.md#epoch-processing
 proc process_epoch*(
-    cfg: RuntimeConfig, state: var (altair.BeaconState | bellatrix.BeaconState),
+    cfg: RuntimeConfig,
+    state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
     Result[void, cstring] =
   let currentEpoch = get_current_epoch(state)
@@ -1222,53 +1146,5 @@ proc process_epoch*(
   process_historical_roots_update(state)
   process_participation_flag_updates(state)  # [New in Altair]
   process_sync_committee_updates(state)  # [New in Altair]
-
-  ok()
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#epoch-processing
-proc process_epoch*(
-    cfg: RuntimeConfig, state: var capella.BeaconState,
-    flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
-    Result[void, cstring] =
-  let currentEpoch = get_current_epoch(state)
-  trace "process_epoch",
-    current_epoch = currentEpoch
-
-  info.init(state)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/beacon-chain.md#justification-and-finalization
-  process_justification_and_finalization(state, info.balances, flags)
-
-  # state.slot hasn't been incremented yet.
-  if strictVerification in flags and currentEpoch >= 2:
-    doAssert state.current_justified_checkpoint.epoch + 2 >= currentEpoch
-
-  if strictVerification in flags and currentEpoch >= 3:
-    # Rule 2/3/4 finalization results in the most pessimal case. The other
-    # three finalization rules finalize more quickly as long as the any of
-    # the finalization rules triggered.
-    doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
-
-  process_inactivity_updates(cfg, state, info)  # [New in Altair]
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/beacon-chain.md#process_rewards_and_penalties
-  process_rewards_and_penalties(cfg, state, info)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/beacon-chain.md#registry-updates
-  ? process_registry_updates(cfg, state, cache)
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/beacon-chain.md#slashings
-  process_slashings(state, info.balances.current_epoch)
-
-  process_eth1_data_reset(state)
-  process_effective_balance_updates(state)
-  process_slashings_reset(state)
-  process_randao_mixes_reset(state)
-  process_historical_roots_update(state)
-  process_participation_flag_updates(state)
-  process_sync_committee_updates(state)
-
-  process_full_withdrawals(state)  # [New in Capella]
-  process_partial_withdrawals(state)  # [New in Capella]
 
   ok()

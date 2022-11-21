@@ -150,9 +150,8 @@ type
     latest_execution_payload_header*: ExecutionPayloadHeader
 
     # Withdrawals
-    withdrawal_queue*: HashList[Withdrawal, WITHDRAWAL_QUEUE_LIMIT]  # [New in Capella]
     next_withdrawal_index*: WithdrawalIndex # [New in Capella]
-    next_partial_withdrawal_validator_index*: uint64  # [New in Capella]
+    next_withdrawal_validator_index*: uint64  # [New in Capella]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
