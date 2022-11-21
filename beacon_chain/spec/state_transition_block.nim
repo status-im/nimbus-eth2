@@ -30,7 +30,8 @@ import
   "."/[beaconstate, eth2_merkleization, helpers, validator, signatures]
 
 from ./datatypes/capella import
-  BeaconState, MAX_WITHDRAWALS_PER_PAYLOAD, SignedBLSToExecutionChange
+  BeaconState, MAX_WITHDRAWALS_PER_PAYLOAD, SignedBLSToExecutionChange,
+  Withdrawal
 
 export extras, phase0, altair
 
@@ -619,26 +620,84 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#new-process_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#has_eth1_withdrawal_credential
+func has_eth1_withdrawal_credential(validator: Validator): bool =
+  ## Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
+  validator.withdrawal_credentials.data[0] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
+func is_fully_withdrawable_validator(
+    validator: Validator, balance: Gwei, epoch: Epoch): bool =
+  ## Check if ``validator`` is fully withdrawable.
+  has_eth1_withdrawal_credential(validator) and
+    validator.withdrawable_epoch <= epoch and balance > 0
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
+func is_partially_withdrawable_validator(
+    validator: Validator, balance: Gwei): bool =
+  ## Check if ``validator`` is partially withdrawable.
+  let
+    has_max_effective_balance =
+      validator.effective_balance == MAX_EFFECTIVE_BALANCE
+    has_excess_balance = balance > MAX_EFFECTIVE_BALANCE
+  has_eth1_withdrawal_credential(validator) and
+    has_max_effective_balance and has_excess_balance
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-get_expected_withdrawals
+func get_expected_withdrawals(state: capella.BeaconState): seq[Withdrawal] =
+  let epoch = get_current_epoch(state)
+  var
+    withdrawal_index = state.next_withdrawal_index
+    validator_index = state.next_withdrawal_validator_index
+    withdrawals: seq[Withdrawal] = @[]
+  for _ in 0 ..< len(state.validators):
+    let
+      validator = state.validators[validator_index]
+      balance = state.balances[validator_index]
+    if is_fully_withdrawable_validator(validator, balance, epoch):
+      var w = Withdrawal(
+        index: withdrawal_index,
+        validator_index: validator_index,
+        amount: balance)
+      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
+      withdrawals.add w
+      withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
+    elif is_partially_withdrawable_validator(validator, balance):
+      var w = Withdrawal(
+        index: withdrawal_index,
+        validator_index: validator_index,
+        amount: balance - MAX_EFFECTIVE_BALANCE)
+      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
+      withdrawals.add w
+      withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
+    if len(withdrawals) == MAX_WITHDRAWALS_PER_PAYLOAD:
+      break
+    validator_index = (validator_index + 1) mod lenu64(state.validators)
+  withdrawals
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
     state: var capella.BeaconState, payload: capella.ExecutionPayload):
     Result[void, cstring] =
-  let
-    num_withdrawals =
-      min(MAX_WITHDRAWALS_PER_PAYLOAD, len(state.withdrawal_queue))
-    dequeued_withdrawals = state.withdrawal_queue.asSeq[0 ..< num_withdrawals]
+  let expected_withdrawals = get_expected_withdrawals(state)
 
-  if not (len(dequeued_withdrawals) == len(payload.withdrawals)):
-    return err("process_withdrawals: different numbers of dequeued and payload withdrawals")
+  if not (len(payload.withdrawals) == len(expected_withdrawals)):
+    return err("process_withdrawals: different numbers of payload and expected withdrawals")
 
-  for i in 0 ..< len(dequeued_withdrawals):
-    if not (dequeued_withdrawals[i] == payload.withdrawals[i]):
-      return err("process_withdrawals: mismatched queued and payload withdrawals")
-
-  # Remove dequeued withdrawals from state
-  if num_withdrawals > 0:
-    state.withdrawal_queue.asSeq.delete(0, num_withdrawals - 1)
-    state.withdrawal_queue.resetCache()
+  for i in 0 ..< len(expected_withdrawals):
+    if expected_withdrawals[i] != payload.withdrawals[i]:
+      return err("process_withdrawals: mismatched expected and payload withdrawal")
+    let validator_index =
+      ValidatorIndex.init(expected_withdrawals[i].validator_index).valueOr:
+        return err("process_withdrawals: invalid validator index")
+    decrease_balance(
+      state, validator_index, expected_withdrawals[i].amount)
+  if len(expected_withdrawals) > 0:
+    let latest_withdrawal = expected_withdrawals[^1]
+    state.next_withdrawal_index = WithdrawalIndex(latest_withdrawal.index + 1)
+    let next_validator_index =
+      (latest_withdrawal.validator_index + 1) mod lenu64(state.validators)
+    state.next_withdrawal_validator_index = next_validator_index
 
   ok()
 

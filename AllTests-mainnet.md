@@ -131,6 +131,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Tail block only in common                                                                  OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
+## Doppelganger protection test suite
+```diff
++ doppelgangerCheck() test                                                                   OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid                                                      Skip
@@ -608,4 +613,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 337/342 Fail: 0/342 Skip: 5/342
+OK: 338/343 Fail: 0/343 Skip: 5/343

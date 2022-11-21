@@ -403,6 +403,10 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       if kind != pcDir or not dirExists(testsPath):
         continue
       let fork = forkForPathComponent(path).valueOr:
+        if path.contains("eip4844"):
+          # TODO can either wait if/when 4844 is incorporated into capella or
+          # add it as next fork even not as part of 4844
+          continue
         raiseAssert "Unknown test fork: " & testsPath
       for kind, path in walkDir(testsPath, relative = true, checkDir = true):
         let basePath = testsPath/path/"pyspec_tests"

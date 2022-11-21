@@ -185,7 +185,7 @@ type
     # Execution
     latest_execution_payload_header*: bellatrix.ExecutionPayloadHeader  # [New in Bellatrix]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a Capella BeaconState for in-place SSZ
   # reading and writing
   CapellaBeaconStateNoImmutableValidators* = object
@@ -246,6 +246,5 @@ type
     latest_execution_payload_header*: capella.ExecutionPayloadHeader
 
     # Withdrawals
-    withdrawal_queue*: HashList[Withdrawal, WITHDRAWAL_QUEUE_LIMIT]  # [New in Capella]
     next_withdrawal_index*: WithdrawalIndex # [New in Capella]
-    next_partial_withdrawal_validator_index*: uint64  # [New in Capella]
+    next_withdrawal_validator_index*: uint64  # [New in Capella]

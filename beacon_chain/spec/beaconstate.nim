@@ -957,7 +957,7 @@ func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
     latest_execution_payload_header: default(bellatrix.ExecutionPayloadHeader)
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/fork.md#upgrading-the-state
 func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
     ref capella.BeaconState =
   let
@@ -1033,9 +1033,8 @@ func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
     latest_execution_payload_header: latest_execution_payload_header,
 
     # Withdrawals
-    withdrawal_queue: HashList[Withdrawal, Limit WITHDRAWAL_QUEUE_LIMIT](),
     next_withdrawal_index: 0,
-    next_partial_withdrawal_validator_index: 0
+    next_withdrawal_validator_index: 0
   )
 
 template isValidInState*(idx: ValidatorIndex, state: ForkyBeaconState): bool =
