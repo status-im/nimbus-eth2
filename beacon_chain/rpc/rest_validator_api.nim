@@ -637,6 +637,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         get_committee_count_per_slot(shufflingRef), request.slot,
         request.committee_index)
 
+      if not is_active_validator(
+          getStateField(
+            node.dag.headState, validators).item(request.validator_index),
+          request.slot.epoch):
+        return RestApiResponse.jsonError(Http400, ValidatorNotActive)
+
       node.consensusManager[].actionTracker.registerDuty(
         request.slot, subnet_id, request.validator_index,
         request.is_aggregator)
