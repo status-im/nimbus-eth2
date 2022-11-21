@@ -145,32 +145,30 @@ After a while, the light client will pick up beacon block headers from the Ether
 ### Nimbus
 
 ```
-NOT 2022-08-20 14:56:58.063+02:00 Starting light client                      topics="lightcl" trusted_block_root=Some(e734eae428acd2e5ab3fb9a6db04926e5cc597a6f3d3b94835b051859539adfa)
+NOT 2022-11-21 18:00:23.666+01:00 Starting light client                      topics="lightcl" trusted_block_root=some(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c)
 ...
-INF 2022-08-20 15:04:07.674+02:00 New LC optimistic header                   optimistic_header="(slot: 1600, proposer_index: 158, parent_root: \"5692b969\", state_root: \"06befac2\")"
-INF 2022-08-20 15:04:07.674+02:00 New LC finalized header                    finalized_header="(slot: 1600, proposer_index: 158, parent_root: \"5692b969\", state_root: \"06befac2\")"
-INF 2022-08-20 15:04:08.041+02:00 New LC optimistic header                   optimistic_header="(slot: 3119, proposer_index: 1408, parent_root: \"f42c6c38\", state_root: \"b7cd7a87\")"
-INF 2022-08-20 15:04:08.041+02:00 New LC finalized header                    finalized_header="(slot: 3040, proposer_index: 263, parent_root: \"5df53d22\", state_root: \"bed3164c\")"
+INF 2022-11-21 18:01:24.001+01:00 Slot start                                 slot=1109707 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=5 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms495us
+INF 2022-11-21 18:01:24.734+01:00 Exchanged engine configuration             topics="eth1" terminalTotalDifficulty=17000000000000000 terminalBlockHash=0x0000000000000000000000000000000000000000000000000000000000000000 terminalBlockNumber=0
 ...
-INF 2022-08-20 15:04:08.207+02:00 New LC optimistic header                   optimistic_header="(slot: 432829, proposer_index: 1003, parent_root: \"2f847459\", state_root: \"5d9bbf00\")"
-INF 2022-08-20 15:04:08.207+02:00 New LC finalized header                    finalized_header="(slot: 432736, proposer_index: 579, parent_root: \"23dd3358\", state_root: \"7273da0b\")"
-WRN 2022-08-20 15:04:08.356+02:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=15 wanted_peers=160
-INF 2022-08-20 15:04:15.984+02:00 New LC optimistic header                   optimistic_header="(slot: 438920, proposer_index: 1776, parent_root: \"81e3f439\", state_root: \"94298e8c\")"
-WRN 2022-08-20 15:04:35.212+02:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=16 wanted_peers=160
-INF 2022-08-20 15:04:39.979+02:00 New LC optimistic header                   optimistic_header="(slot: 438921, proposer_index: 163, parent_root: \"9fc27396\", state_root: \"3ff1d624\")"
-INF 2022-08-20 15:04:51.982+02:00 New LC optimistic header                   optimistic_header="(slot: 438923, proposer_index: 706, parent_root: \"8112e2f5\", state_root: \"a0628d4a\")"
-WRN 2022-08-20 15:04:54.156+02:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=16 wanted_peers=160
-WRN 2022-08-20 15:05:03.161+02:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=1 new_peers=@[] current_peers=16 wanted_peers=160
-INF 2022-08-20 15:05:03.987+02:00 New LC optimistic header                   optimistic_header="(slot: 438924, proposer_index: 1522, parent_root: \"3ff23c0c\", state_root: \"2de6d378\")"
-NOT 2022-08-20 15:05:03.987+02:00 New LC optimistic block                    opt=69449681:438924 wallSlot=438925
-WRN 2022-08-20 15:05:08.668+02:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=16 wanted_peers=160
-WRN 2022-08-20 15:05:24.971+02:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=17 wanted_peers=160
-WRN 2022-08-20 15:05:30.264+02:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=17 wanted_peers=160
-INF 2022-08-20 15:05:39.982+02:00 New LC optimistic header                   optimistic_header="(slot: 438925, proposer_index: 1275, parent_root: \"69449681\", state_root: \"b1a6c3d6\")"
-NOT 2022-08-20 15:05:39.983+02:00 New LC optimistic block                    opt=935c35e8:438925 wallSlot=438928
-WRN 2022-08-20 15:05:42.601+02:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=18 wanted_peers=160
-INF 2022-08-20 15:05:51.982+02:00 New LC optimistic header                   optimistic_header="(slot: 438928, proposer_index: 1356, parent_root: \"935c35e8\", state_root: \"331dda33\")"
-NOT 2022-08-20 15:05:51.982+02:00 New LC optimistic block                    opt=5dbb26df:438928 wallSlot=438929
+INF 2022-11-21 18:02:48.001+01:00 Slot start                                 slot=1109714 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=6 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms161us
+WRN 2022-11-21 18:02:53.603+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=1 new_peers=@[] current_peers=6 wanted_peers=160
+INF 2022-11-21 18:03:00.001+01:00 Slot start                                 slot=1109715 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=5 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms154us
+INF 2022-11-21 18:03:09.989+01:00 New LC optimistic header                   optimistic_header="(slot: 1109216, proposer_index: 1813, parent_root: \"0871af30\", state_root: \"5c0afc98\")"
+INF 2022-11-21 18:03:09.989+01:00 New LC finalized header                    finalized_header="(slot: 1109216, proposer_index: 1813, parent_root: \"0871af30\", state_root: \"5c0afc98\")"
+INF 2022-11-21 18:03:12.001+01:00 Slot start                                 slot=1109716 epoch=34678 sync=syncing peers=6 head=c092a1d1:1109216 finalized=c092a1d1:1109216 delay=1ms159us
+INF 2022-11-21 18:03:16.047+01:00 New LC optimistic header                   optimistic_header="(slot: 1109715, proposer_index: 262, parent_root: \"676f4fe4\", state_root: \"2d13aa42\")"
+INF 2022-11-21 18:03:24.001+01:00 Slot start                                 slot=1109717 epoch=34678 sync=synced peers=7 head=58cae92a:1109715 finalized=c092a1d1:1109216 delay=1ms120us
+INF 2022-11-21 18:03:27.984+01:00 New LC optimistic header                   optimistic_header="(slot: 1109716, proposer_index: 1281, parent_root: \"58cae92a\", state_root: \"de464f71\")"
+WRN 2022-11-21 18:03:31.419+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
+INF 2022-11-21 18:03:36.001+01:00 Slot start                                 slot=1109718 epoch=34678 sync=synced peers=7 head=c5464508:1109716 finalized=c092a1d1:1109216 delay=1ms98us
+INF 2022-11-21 18:03:40.012+01:00 New LC optimistic header                   optimistic_header="(slot: 1109717, proposer_index: 835, parent_root: \"c5464508\", state_root: \"13f823f8\")"
+NOT 2022-11-21 18:03:40.012+01:00 New LC optimistic block                    opt=99ab28aa:1109717 wallSlot=1109718
+WRN 2022-11-21 18:03:40.422+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=1 new_peers=@[] current_peers=7 wanted_peers=160
+INF 2022-11-21 18:03:48.001+01:00 Slot start                                 slot=1109719 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms53us
+WRN 2022-11-21 18:03:50.205+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
+INF 2022-11-21 18:04:00.001+01:00 Slot start                                 slot=1109720 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms145us
+INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   optimistic_header="(slot: 1109718, proposer_index: 1202, parent_root: \"99ab28aa\", state_root: \"7f7f88d2\")"
+NOT 2022-11-21 18:04:03.982+01:00 New LC optimistic block                    opt=ab007266:1109718 wallSlot=1109720
 ```
 
 !!! note

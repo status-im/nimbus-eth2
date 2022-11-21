@@ -220,6 +220,61 @@ programMain:
 
     blocksGossipState = targetGossipState
 
+  proc onSlot(wallTime: BeaconTime, lastSlot: Slot) =
+    let
+      wallSlot = wallTime.slotOrZero()
+      expectedSlot = lastSlot + 1
+      delay = wallTime - expectedSlot.start_beacon_time()
+
+      finalizedHeader = lightClient.finalizedHeader
+      optimisticHeader = lightClient.optimisticHeader
+
+      finalizedBid =
+        if finalizedHeader.isSome:
+          finalizedHeader.get.toBlockId()
+        else:
+          BlockId(root: genesisBlockRoot, slot: GENESIS_SLOT)
+      optimisticBid =
+        if optimisticHeader.isSome:
+          optimisticHeader.get.toBlockId()
+        else:
+          BlockId(root: genesisBlockRoot, slot: GENESIS_SLOT)
+
+      syncStatus =
+        if optimisticHeader.isNone:
+          "bootstrapping(" & $config.trustedBlockRoot & ")"
+        elif not shouldSyncOptimistically(wallSlot):
+          "syncing"
+        else:
+          "synced"
+
+    info "Slot start",
+      slot = shortLog(wallSlot),
+      epoch = shortLog(wallSlot.epoch),
+      sync = syncStatus,
+      peers = len(network.peerPool),
+      head = shortLog(optimisticBid),
+      finalized = shortLog(finalizedBid),
+      delay = shortLog(delay)
+
+  proc runOnSlotLoop() {.async.} =
+    var
+      curSlot = getBeaconTime().slotOrZero()
+      nextSlot = curSlot + 1
+      timeToNextSlot = nextSlot.start_beacon_time() - getBeaconTime()
+    while true:
+      await sleepAsync(timeToNextSlot)
+
+      let
+        wallTime = getBeaconTime()
+        wallSlot = wallTime.slotOrZero()
+
+      onSlot(wallTime, curSlot)
+
+      curSlot = wallSlot
+      nextSlot = wallSlot + 1
+      timeToNextSlot = nextSlot.start_beacon_time() - getBeaconTime()
+
   var nextExchangeTransitionConfTime = Moment.now + chronos.seconds(60)
   proc onSecond(time: Moment) =
     let wallSlot = getBeaconTime().slotOrZero()
@@ -251,6 +306,7 @@ programMain:
   onSecond(Moment.now())
   lightClient.start()
 
+  asyncSpawn runOnSlotLoop()
   asyncSpawn runOnSecondLoop()
   while globalRunning:
     poll()
