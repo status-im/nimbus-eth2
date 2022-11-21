@@ -1571,10 +1571,5 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
             continue
           let isAggregator = is_aggregator(committee.lenu64, slotSigRes.get())
 
-          # Consistent with getShufflingRef, regardless of `await`
-          if is_active_validator(
-              getStateField(
-                node.dag.headState, validators).item(validator_index),
-              slot.epoch):
-            node.consensusManager[].actionTracker.registerDuty(
-              slot, subnet_id, validator_index, isAggregator)
+          node.consensusManager[].actionTracker.registerDuty(
+            slot, subnet_id, validator_index, isAggregator)
