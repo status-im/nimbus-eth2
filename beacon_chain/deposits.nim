@@ -34,7 +34,8 @@ proc getSignedExitMessage(config: BeaconNodeConf,
     validatorsDir,
     config.secretsDir,
     validatorKeyAsStr,
-    config.nonInteractive)
+    config.nonInteractive,
+    nil)
 
   if signingItem.isNone:
     fatal "Unable to continue without decrypted signing key"

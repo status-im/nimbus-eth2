@@ -10,13 +10,14 @@
 import
   # Standard library
   std/[algorithm, math, parseutils, strformat, strutils, typetraits, unicode,
-       uri],
+       uri, hashes],
   # Third-party libraries
   normalize,
   # Status libraries
-  stew/[results, bitops2, base10, io2], stew/shims/macros,
+  stew/[results, bitops2, base10, io2, endians2], stew/shims/macros,
   eth/keyfile/uuid, blscurve,
   json_serialization, json_serialization/std/options,
+  chronos/timer,
   nimcrypto/[sha2, rijndael, pbkdf2, bcmode, hash, scrypt],
   # Local modules
   libp2p/crypto/crypto as lcrypto,
@@ -197,6 +198,24 @@ type
     withdrawalKey*: ValidatorPrivKey
 
   SimpleHexEncodedTypes* = ScryptSalt|ChecksumBytes|CipherBytes
+
+  CacheItemFlag {.pure.} = enum
+    Missing, Present
+
+  KeystoreCacheItem = object
+    flag: CacheItemFlag
+    kdf: Kdf
+    cipher: Cipher
+    decryptionKey: seq[byte]
+    timestamp: Moment
+
+  KdfSaltKey* = distinct array[32, byte]
+
+  KeystoreCache* = object
+    expireTime*: Duration
+    table*: Table[KdfSaltKey, KeystoreCacheItem]
+
+  KeystoreCacheRef* = ref KeystoreCache
 
 const
   keyLen = 32
@@ -736,48 +755,56 @@ func areValid(params: ScryptParams): bool =
   params.p == scryptParams.p and
   params.salt.bytes.len > 0
 
+proc decryptCryptoField*(crypto: Crypto, decKey: openArray[byte],
+                         outSecret: var seq[byte]): DecryptionStatus =
+  if crypto.cipher.message.bytes.len == 0:
+    return DecryptionStatus.InvalidKeystore
+  if len(decKey) < keyLen:
+    return DecryptionStatus.InvalidKeystore
+  let derivedChecksum = shaChecksum(decKey.toOpenArray(16, 31),
+                                    crypto.cipher.message.bytes)
+  if derivedChecksum != crypto.checksum.message:
+    return DecryptionStatus.InvalidPassword
+
+  var aesCipher: CTR[aes128]
+  outSecret.setLen(crypto.cipher.message.bytes.len)
+  aesCipher.init(decKey.toOpenArray(0, 15), crypto.cipher.params.iv.bytes)
+  aesCipher.decrypt(crypto.cipher.message.bytes, outSecret)
+  aesCipher.clear()
+  DecryptionStatus.Success
+
+proc getDecryptionKey*(crypto: Crypto, password: KeystorePass,
+                       decKey: var seq[byte]): DecryptionStatus =
+  let res =
+    case crypto.kdf.function
+    of kdfPbkdf2:
+      template params: auto = crypto.kdf.pbkdf2Params
+      if not params.areValid or params.c > high(int).uint64:
+        return DecryptionStatus.InvalidKeystore
+      Eth2DigestCtx.pbkdf2(password.str, params.salt.bytes, int(params.c),
+                           int(params.dklen))
+    of kdfScrypt:
+      template params: auto = crypto.kdf.scryptParams
+      if not params.areValid:
+        return DecryptionStatus.InvalidKeystore
+      @(scrypt(password.str, params.salt.bytes, scryptParams.n,
+               scryptParams.r, scryptParams.p, int(scryptParams.dklen)))
+  decKey = res
+  DecryptionStatus.Success
+
 proc decryptCryptoField*(crypto: Crypto,
                          password: KeystorePass,
                          outSecret: var seq[byte]): DecryptionStatus =
   # https://github.com/ethereum/wiki/wiki/Web3-Secret-Storage-Definition
-
+  var decKey: seq[byte]
   if crypto.cipher.message.bytes.len == 0:
     return InvalidKeystore
 
-  let decKey = case crypto.kdf.function
-    of kdfPbkdf2:
-      template params: auto = crypto.kdf.pbkdf2Params
-      if not params.areValid or params.c > high(int).uint64:
-        return InvalidKeystore
-      Eth2DigestCtx.pbkdf2(
-        password.str,
-        params.salt.bytes,
-        int params.c,
-        int params.dklen)
-    of kdfScrypt:
-      template params: auto = crypto.kdf.scryptParams
-      if not params.areValid:
-        return InvalidKeystore
-      @(scrypt(password.str,
-               params.salt.bytes,
-               scryptParams.n,
-               scryptParams.r,
-               scryptParams.p,
-               int scryptParams.dklen))
+  let res = getDecryptionKey(crypto, password, decKey)
+  if res != DecryptionStatus.Success:
+    return res
 
-  let derivedChecksum = shaChecksum(decKey.toOpenArray(16, 31),
-                                    crypto.cipher.message.bytes)
-  if derivedChecksum != crypto.checksum.message:
-    return InvalidPassword
-
-  var aesCipher: CTR[aes128]
-  outSecret.setLen(crypto.cipher.message.bytes.len)
-
-  aesCipher.init(decKey.toOpenArray(0, 15), crypto.cipher.params.iv.bytes)
-  aesCipher.decrypt(crypto.cipher.message.bytes, outSecret)
-  aesCipher.clear()
-
-  return Success
+  decryptCryptoField(crypto, decKey, outSecret)
 
 func cstringToStr(v: cstring): string = $v
 
@@ -796,23 +823,167 @@ template parseRemoteKeystore*(jsonContent: string): RemoteKeystore =
               requireAllFields = false,
               allowUnknownFields = true)
 
+proc getSaltKey(keystore: Keystore, password: KeystorePass): KdfSaltKey =
+  let digest =
+    case keystore.crypto.kdf.function
+    of kdfPbkdf2:
+      template params: auto = keystore.crypto.kdf.pbkdf2Params
+      withEth2Hash:
+        h.update(seq[byte](params.salt))
+        h.update(password.str.toOpenArrayByte(0, len(password.str) - 1))
+        h.update(toBytesLE(params.dklen))
+        h.update(toBytesLE(params.c))
+        let prf = $params.prf
+        h.update(prf.toOpenArrayByte(0, len(prf) - 1))
+    of kdfScrypt:
+      template params: auto = keystore.crypto.kdf.scryptParams
+      withEth2Hash:
+        h.update(seq[byte](params.salt))
+        h.update(password.str.toOpenArrayByte(0, len(password.str) - 1))
+        h.update(toBytesLE(params.dklen))
+        h.update(toBytesLE(uint64(params.n)))
+        h.update(toBytesLE(uint64(params.p)))
+        h.update(toBytesLE(uint64(params.r)))
+  KdfSaltKey(digest.data)
+
+proc `==`*(a, b: KdfSaltKey): bool {.borrow.}
+proc hash*(salt: KdfSaltKey): Hash {.borrow.}
+
+func `==`*(a, b: Kdf): bool =
+  # We do not care about `message` field.
+  if a.function != b.function:
+    return false
+  case a.function
+  of kdfPbkdf2:
+    template aparams: auto = a.pbkdf2Params
+    template bparams: auto = b.pbkdf2Params
+    (aparams.dklen == bparams.dklen) and (aparams.c == bparams.c) and
+    (aparams.prf == bparams.prf) and (len(seq[byte](aparams.salt)) > 0) and
+    (seq[byte](aparams.salt) == seq[byte](bparams.salt))
+  of kdfScrypt:
+    template aparams: auto = a.scryptParams
+    template bparams: auto = b.scryptParams
+    (aparams.dklen == bparams.dklen) and (aparams.n == bparams.n) and
+    (aparams.p == bparams.p) and (aparams.r == bparams.r) and
+    (len(seq[byte](aparams.salt)) > 0) and
+    (seq[byte](aparams.salt) == seq[byte](bparams.salt))
+
+func `==`*(a, b: Cipher): bool =
+  # We do not care about `params` and `message` fields.
+  a.function == b.function
+
+func `==`*(a, b: KeystoreCacheItem): bool =
+  (a.kdf == b.kdf) and (a.cipher == b.cipher) and
+  (a.decryptionKey == b.decryptionKey)
+
+func init*(t: typedesc[KeystoreCacheRef],
+           expireTime = InfiniteDuration): KeystoreCacheRef =
+  KeystoreCacheRef(
+    table: initTable[KdfSaltKey, KeystoreCacheItem](),
+    expireTime: expireTime
+  )
+
+proc clear*(cache: KeystoreCacheRef) =
+  cache.table.clear()
+
+proc pruneExpiredKeys*(cache: KeystoreCacheRef) =
+  if cache.expireTime == InfiniteDuration:
+    return
+  let currentTime = Moment.now()
+  var keys: seq[KdfSaltKey]
+  for key, value in cache.table.mpairs():
+    if currentTime - value.timestamp >= cache.expireTime:
+      keys.add(key)
+      burnMem(value.decryptionKey)
+  for item in keys:
+    cache.table.del(item)
+
+proc init*(t: typedesc[KeystoreCacheItem], keystore: Keystore,
+           key: openArray[byte]): KeystoreCacheItem =
+  KeystoreCacheItem(flag: CacheItemFlag.Present, kdf: keystore.crypto.kdf,
+                    cipher: keystore.crypto.cipher, decryptionKey: @key,
+                    timestamp: Moment.now())
+
+proc getCachedKey*(cache: KeystoreCacheRef,
+                   keystore: Keystore, password: KeystorePass): Opt[seq[byte]] =
+  if isNil(cache): return Opt.none(seq[byte])
+  let
+    saltKey = keystore.getSaltKey(password)
+    item = cache.table.getOrDefault(saltKey)
+  case item.flag
+  of CacheItemFlag.Present:
+    if (item.kdf == keystore.crypto.kdf) and
+       (item.cipher == keystore.crypto.cipher):
+      Opt.some(item.decryptionKey)
+    else:
+      Opt.none(seq[byte])
+  else:
+    Opt.none(seq[byte])
+
+proc setCachedKey*(cache: KeystoreCacheRef, keystore: Keystore,
+                   password: KeystorePass, key: openArray[byte]) =
+  if isNil(cache): return
+  let saltKey = keystore.getSaltKey(password)
+  cache.table[saltKey] = KeystoreCacheItem.init(keystore, key)
+
+proc destroyCacheKey*(cache: KeystoreCacheRef,
+                      keystore: Keystore, password: KeystorePass) =
+  if isNil(cache): return
+  let saltKey = keystore.getSaltKey(password)
+  cache.table.withValue(saltKey, item):
+    burnMem(item[].decryptionKey)
+  cache.table.del(saltKey)
+
 proc decryptKeystore*(keystore: Keystore,
-                      password: KeystorePass): KsResult[ValidatorPrivKey] =
+                      password: KeystorePass,
+                      cache: KeystoreCacheRef): KsResult[ValidatorPrivKey] =
   var secret: seq[byte]
   defer: burnMem(secret)
-  let status = decryptCryptoField(keystore.crypto, password, secret)
-  case status
-  of Success:
-    ValidatorPrivKey.fromRaw(secret).mapErr(cstringToStr)
-  else:
-    err $status
+
+  while true:
+    let res = cache.getCachedKey(keystore, password)
+    if res.isNone():
+      var decKey: seq[byte]
+      defer: burnMem(decKey)
+
+      let kres = getDecryptionKey(keystore.crypto, password, decKey)
+      if kres != DecryptionStatus.Success:
+        return err($kres)
+      let dres = decryptCryptoField(keystore.crypto, decKey, secret)
+      if dres != DecryptionStatus.Success:
+        return err($dres)
+      cache.setCachedKey(keystore, password, decKey)
+      break
+    else:
+      var decKey = res.get()
+      defer: burnMem(decKey)
+
+      let dres = decryptCryptoField(keystore.crypto, decKey, secret)
+      if dres == DecryptionStatus.Success:
+        break
+
+      cache.destroyCacheKey(keystore, password)
+
+  ValidatorPrivKey.fromRaw(secret).mapErr(cstringToStr)
+
+proc decryptKeystore*(keystore: JsonString,
+                      password: KeystorePass,
+                      cache: KeystoreCacheRef): KsResult[ValidatorPrivKey] =
+  let keystore =
+    try:
+      parseKeystore(string(keystore))
+    except SerializationError as e:
+      return err(e.formatMsg("<keystore>"))
+
+  decryptKeystore(keystore, password, cache)
+
+proc decryptKeystore*(keystore: Keystore,
+                      password: KeystorePass): KsResult[ValidatorPrivKey] =
+  decryptKeystore(keystore, password, nil)
 
 proc decryptKeystore*(keystore: JsonString,
                       password: KeystorePass): KsResult[ValidatorPrivKey] =
-  let keystore = try: parseKeystore(string keystore)
-                 except SerializationError as e:
-                   return err e.formatMsg("<keystore>")
-  decryptKeystore(keystore, password)
+  decryptKeystore(keystore, password, nil)
 
 proc writeValue*(writer: var JsonWriter, value: lcrypto.PublicKey) {.
      inline, raises: [IOError, Defect].} =
@@ -850,6 +1021,9 @@ proc decryptNetKeystore*(nkeystore: JsonString,
     return decryptNetKeystore(keystore, password)
   except SerializationError as exc:
     return err(exc.formatMsg("<keystore>"))
+
+proc generateKeystoreSalt*(rng: var HmacDrbgContext): seq[byte] =
+  rng.generateBytes(keyLen)
 
 proc createCryptoField(kdfKind: KdfKind,
                        rng: var HmacDrbgContext,

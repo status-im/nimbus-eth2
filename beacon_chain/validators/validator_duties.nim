@@ -108,7 +108,7 @@ proc addValidators*(node: BeaconNode) =
   info "Loading validators", validatorsDir = node.config.validatorsDir()
   let
     epoch = node.currentSlot().epoch
-  for keystore in listLoadableKeystores(node.config):
+  for keystore in listLoadableKeystores(node.config, node.keystoreCache):
     let
       data = withState(node.dag.headState):
         getValidator(forkyState.data.validators.asSeq(), keystore.pubkey)
