@@ -811,7 +811,7 @@ dump_logs() {
 
 dump_logtrace() {
   if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace aggasr --log-dir="${DATA_DIR}" || true
+    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace localSimChecks --log-dir="${DATA_DIR}" --const-preset=${CONST_PRESET} || true
   fi
 }
 
