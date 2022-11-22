@@ -966,7 +966,7 @@ proc getBlockSZ*(
   of BeaconBlockFork.Bellatrix:
     getBlockSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
   of BeaconBlockFork.Capella:
-    raiseAssert $capellaImplementationMissing
+    getBlockSZ(db, key, data, capella.TrustedSignedBeaconBlock)
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],

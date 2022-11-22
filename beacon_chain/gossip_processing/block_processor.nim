@@ -236,9 +236,12 @@ from ../spec/datatypes/bellatrix import SignedBeaconBlock
 
 from eth/async_utils import awaitWithTimeout
 from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
+from ../spec/datatypes/capella import
+  ExecutionPayload, SignedBeaconBlock, asTrusted, shortLog
 
 proc newExecutionPayload*(
-    eth1Monitor: Eth1Monitor, executionPayload: bellatrix.ExecutionPayload):
+    eth1Monitor: Eth1Monitor,
+    executionPayload: bellatrix.ExecutionPayload | capella.ExecutionPayload):
     Future[Opt[PayloadExecutionStatus]] {.async.} =
   if eth1Monitor.isNil:
     warn "newPayload: attempting to process execution payload without Eth1Monitor. Ensure --web3-url setting is correct and JWT is configured."
@@ -287,14 +290,6 @@ proc newExecutionPayload*(
     error "newPayload failed", msg = err.msg
     return Opt.none PayloadExecutionStatus
 
-# TODO when forks re-exports this, remove
-from ../spec/datatypes/capella import ExecutionPayload
-
-proc newExecutionPayload*(
-    eth1Monitor: Eth1Monitor, executionPayload: capella.ExecutionPayload):
-    Future[Opt[PayloadExecutionStatus]] {.async.} =
-  raiseAssert $capellaImplementationMissing
-
 proc getExecutionValidity(
     eth1Monitor: Eth1Monitor,
     blck: phase0.SignedBeaconBlock | altair.SignedBeaconBlock):
@@ -302,7 +297,8 @@ proc getExecutionValidity(
   return NewPayloadStatus.valid   # vacuously
 
 proc getExecutionValidity(
-    eth1Monitor: Eth1Monitor, blck: bellatrix.SignedBeaconBlock):
+    eth1Monitor: Eth1Monitor,
+    blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock):
     Future[NewPayloadStatus] {.async.} =
   # Eth1 syncing is asynchronous from this
   # TODO self.consensusManager.eth1Monitor.ttdReached
@@ -335,15 +331,6 @@ proc getExecutionValidity(
   except CatchableError as err:
     error "getExecutionValidity: newPayload failed", err = err.msg
     return NewPayloadStatus.noResponse
-
-# TODO drop when forks re-exports all this
-from ../spec/datatypes/capella import SignedBeaconBlock, asTrusted, shortLog
-
-proc getExecutionValidity(
-    eth1Monitor: Eth1Monitor,
-    blck: capella.SignedBeaconBlock):
-    Future[NewPayloadStatus] {.async.} =
-  raiseAssert $capellaImplementationMissing
 
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,

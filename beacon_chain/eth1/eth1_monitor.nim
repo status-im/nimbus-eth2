@@ -369,6 +369,34 @@ func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
 
+from ../spec/datatypes/capella import ExecutionPayload
+
+func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
+    ExecutionPayloadV1 =
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
+
+  if true:
+    raiseAssert $capellaImplementationMissing & ": needs nim-web3 support for ExecutionPayloadV2"
+
+  engine_api.ExecutionPayloadV1(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: Address(executionPayload.fee_recipient.data),
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom:
+      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    prevRandao: executionPayload.prev_randao.asBlockHash,
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData:
+      DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    baseFeePerGas: executionPayload.base_fee_per_gas,
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
+
 func shortLog*(b: Eth1Block): string =
   try:
     &"{b.number}:{shortLog b.hash}(deposits = {b.depositCount})"
