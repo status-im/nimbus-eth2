@@ -107,9 +107,8 @@ proc addResolvedHeadBlock(
     var unrealized: FinalityCheckpoints
     if enableTestFeatures in dag.updateFlags:
       unrealized = withState(state):
-        when stateFork >= BeaconStateFork.Capella:
-          raiseAssert $capellaImplementationMissing
-        elif stateFork >= BeaconStateFork.Altair:
+        static: doAssert high(BeaconStateFork) == BeaconStateFork.Capella
+        when stateFork >= BeaconStateFork.Altair:
           forkyState.data.compute_unrealized_finality()
         else:
           forkyState.data.compute_unrealized_finality(cache)

@@ -235,3 +235,5 @@ const
       "https://github.com/ethereum/beacon-APIs/pull/220"
   BlockIncorrectFork* =
     "Block has incorrect fork"
+  ValidatorNotActive* =
+    "Validator inactive"
