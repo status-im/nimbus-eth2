@@ -58,14 +58,14 @@ cd nimbus-eth2
 
     ```sh
     # Start a mainnet node
-    ./run-mainnet-beacon-node.sh --web3-url=http://127.0.0.1:8551
+    ./run-mainnet-beacon-node.sh --web3-url=http://127.0.0.1:8551 --jwt-secret=/tmp/jwtsecret
     ```
 
 === "Prater"
 
     ```sh
     # Start a prater testnet node
-    ./run-prater-beacon-node.sh --web3-url=http://127.0.0.1:8551
+    ./run-prater-beacon-node.sh --web3-url=http://127.0.0.1:8551 --jwt-secret=/tmp/jwtsecret
     ```
 
 Once the beacon node starts, you'll see it logging information to the console, like so:
