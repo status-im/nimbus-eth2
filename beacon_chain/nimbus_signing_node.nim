@@ -34,6 +34,7 @@ type
     config: SigningNodeConf
     attachedValidators: ValidatorPool
     signingServer: SigningNodeServer
+    keystoreCache: KeystoreCacheRef
     keysList: string
 
 proc getRouter*(): RestRouter
@@ -97,7 +98,7 @@ proc loadTLSKey(pathName: InputFile): Result[TLSPrivateKey, cstring] =
 proc initValidators(sn: var SigningNode): bool =
   info "Initializaing validators", path = sn.config.validatorsDir()
   var publicKeyIdents: seq[string]
-  for keystore in listLoadableKeystores(sn.config):
+  for keystore in listLoadableKeystores(sn.config, sn.keystoreCache):
     # Not relevant in signing node
     # TODO don't print when loading validators
     let feeRecipient = default(Eth1Address)
@@ -115,7 +116,10 @@ proc initValidators(sn: var SigningNode): bool =
   true
 
 proc init(t: typedesc[SigningNode], config: SigningNodeConf): SigningNode =
-  var sn = SigningNode(config: config)
+  var sn = SigningNode(
+    config: config,
+    keystoreCache: KeystoreCacheRef.init()
+  )
 
   if not(initValidators(sn)):
     fatal "Could not find/initialize local validators"

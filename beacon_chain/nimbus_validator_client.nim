@@ -86,7 +86,7 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
 proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
   info "Loading validators", validatorsDir = vc.config.validatorsDir()
   var duplicates: seq[ValidatorPubKey]
-  for keystore in listLoadableKeystores(vc.config):
+  for keystore in listLoadableKeystores(vc.config, vc.keystoreCache):
     vc.addValidator(keystore)
   return true
 
@@ -208,7 +208,8 @@ proc new*(T: type ValidatorClientRef,
       indicesAvailable: newAsyncEvent(),
       dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
       sigintHandleFut: waitSignal(SIGINT),
-      sigtermHandleFut: waitSignal(SIGTERM)
+      sigtermHandleFut: waitSignal(SIGTERM),
+      keystoreCache: KeystoreCacheRef.init()
     )
   else:
     ValidatorClientRef(
@@ -222,7 +223,8 @@ proc new*(T: type ValidatorClientRef,
       doppelExit: newAsyncEvent(),
       dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
       sigintHandleFut: newFuture[void]("sigint_placeholder"),
-      sigtermHandleFut: newFuture[void]("sigterm_placeholder")
+      sigtermHandleFut: newFuture[void]("sigterm_placeholder"),
+      keystoreCache: KeystoreCacheRef.init()
     )
 
 proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =

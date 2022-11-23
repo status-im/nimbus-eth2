@@ -158,6 +158,7 @@ type
     sigtermHandleFut*: Future[void]
     keymanagerHost*: ref KeymanagerHost
     keymanagerServer*: RestServerRef
+    keystoreCache*: KeystoreCacheRef
     beaconClock*: BeaconClock
     attachedValidators*: ref ValidatorPool
     forks*: seq[Fork]
