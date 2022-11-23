@@ -248,6 +248,8 @@ proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # and one should gauge the likelihood of this simultaneous launch to tune
   # the epoch delay to one's perceived risk.
   if self.doppelgangerDetectionEnabled:
+    self.doppelgangerDetection.broadcastStartEpoch = slot.epoch
+
     notice "Setting up doppelganger detection",
       epoch = slot.epoch,
       broadcast_epoch = self.doppelgangerDetection.broadcastStartEpoch,

@@ -69,6 +69,8 @@ type
 
     startSlot*: Slot
 
+    lastWarning*: Opt[Slot]
+
   SignResponse* = Web3SignerDataResponse
 
   SignatureResult* = Result[ValidatorSig, string]
