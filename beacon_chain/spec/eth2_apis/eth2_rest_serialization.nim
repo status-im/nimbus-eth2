@@ -1075,7 +1075,19 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
       kind: BeaconBlockFork.Bellatrix,
       bellatrixData: res.get())
   of BeaconBlockFork.Capella:
-    reader.raiseUnexpectedValue($capellaImplementationMissing)
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             BeaconBlockHeader,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[BeaconBlockHeader]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect capella block format")
+    value = Web3SignerForkedBeaconBlock(
+      kind: BeaconBlockFork.Capella,
+      capellaData: res.get())
 
 proc writeValue*[
     BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock|ForkedBlindedBeaconBlock](
@@ -1201,6 +1213,7 @@ proc readValue*(reader: var JsonReader[RestJson],
   if voluntary_exits.isNone():
     reader.raiseUnexpectedValue("Field `voluntary_exits` is missing")
 
+  discard $capellaImplementationMissing & ": autodetect via added field"
   let bodyKind =
     if execution_payload.isSome() and sync_aggregate.isSome():
       BeaconBlockFork.Bellatrix
@@ -1344,7 +1357,15 @@ proc readValue*(reader: var JsonReader[RestJson],
         )
       )
     of BeaconBlockFork.Capella:
-      reader.raiseUnexpectedValue($capellaImplementationMissing)
+      ForkedBeaconBlock.init(
+        capella.BeaconBlock(
+          slot: slot.get(),
+          proposer_index: proposer_index.get(),
+          parent_root: parent_root.get(),
+          state_root: state_root.get(),
+          body: body.capellaBody
+        )
+      )
   )
 
 ## RestPublishedSignedBeaconBlock
@@ -1483,7 +1504,17 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Incorrect bellatrix block format")
     value = ForkedSignedBeaconBlock.init(res.get())
   of BeaconBlockFork.Capella:
-    reader.raiseUnexpectedValue($capellaImplementationMissing)
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             capella.SignedBeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[capella.SignedBeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect capella block format")
+    value = ForkedSignedBeaconBlock.init(res.get())
   withBlck(value):
     blck.root = hash_tree_root(blck.message)
 
@@ -1584,10 +1615,18 @@ proc readValue*(reader: var JsonReader[RestJson],
         requireAllFields = true,
         allowUnknownFields = true)
     except SerializationError:
-      reader.raiseUnexpectedValue("Incorrect altair beacon state format")
+      reader.raiseUnexpectedValue("Incorrect bellatrix beacon state format")
     toValue(bellatrixData)
   of BeaconStateFork.Capella:
-    reader.raiseUnexpectedValue($capellaImplementationMissing)
+    try:
+      tmp[].capellaData.data = RestJson.decode(
+        string(data.get()),
+        capella.BeaconState,
+        requireAllFields = true,
+        allowUnknownFields = true)
+    except SerializationError:
+      reader.raiseUnexpectedValue("Incorrect capella beacon state format")
+    toValue(capellaData)
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState)
                 {.raises: [IOError, Defect].} =
@@ -2495,7 +2534,14 @@ proc decodeBody*(
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
     of BeaconBlockFork.Capella:
-      return err($capellaImplementationMissing)
+      let blck =
+        try:
+          SSZ.decode(body.data, capella.SignedBeaconBlock)
+        except SerializationError:
+          return err("Unable to deserialize data")
+        except CatchableError:
+          return err("Unexpected deserialization error")
+      ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
   else:
     return err("Unsupported or invalid content media type")
 

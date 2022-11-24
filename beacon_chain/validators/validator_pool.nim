@@ -354,7 +354,9 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                 kind: BeaconBlockFork.Bellatrix,
                 bellatrixData: blck.bellatrixData.toBeaconBlockHeader)
             of BeaconBlockFork.Capella:
-              raiseAssert $capellaImplementationMissing
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Capella,
+                capellaData: blck.capellaData.toBeaconBlockHeader)
 
           request = Web3SignerRequest.init(
             fork, genesis_validators_root, web3SignerBlock)
@@ -383,7 +385,9 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                 kind: BeaconBlockFork.Bellatrix,
                 bellatrixData: blck.bellatrixData.toBeaconBlockHeader)
             of BeaconBlockFork.Capella:
-              raiseAssert $capellaImplementationMissing & "beacon_chain/validators/validator_pool.nim: getBlockSignature"
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Capella,
+                capellaData: blck.capellaData.toBeaconBlockHeader)
 
           request = Web3SignerRequest.init(
             fork, genesis_validators_root, web3SignerBlock)

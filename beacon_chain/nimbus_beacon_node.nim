@@ -917,13 +917,13 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
 
-proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+proc addAltairMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addPhase0MessageHandlers(forkDigest, slot)
 
   # If this comes online near sync committee period, it'll immediately get
   # replaced as usual by trackSyncCommitteeTopics, which runs at slot end.
-  let
-    syncnets = node.getSyncCommitteeSubnets(slot.epoch)
+  let syncnets = node.getSyncCommitteeSubnets(slot.epoch)
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     if syncnets[subcommitteeIdx]:
@@ -935,6 +935,11 @@ proc addAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest, slot: Sl
 
   node.network.updateSyncnetsMetadata(syncnets)
 
+proc addCapellaMessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  node.addAltairMessageHandlers(forkDigest, slot)
+  node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
+
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -945,6 +950,10 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 
   node.network.unsubscribe(
     getSyncCommitteeContributionAndProofTopic(forkDigest))
+
+proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.removeAltairMessageHandlers(forkDigest)
+  node.network.unsubscribe(getBlsToExecutionChangeTopic(forkDigest))
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1082,7 +1091,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removePhase0MessageHandlers,
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # with different forkDigest
-    if capellaImplementationMissing: removeAltairMessageHandlers else: removeAltairMessageHandlers
+    removeCapellaMessageHandlers
   ]
 
   for gossipFork in oldGossipForks:
@@ -1092,7 +1101,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addPhase0MessageHandlers,
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # with different forkDigest
-    if capellaImplementationMissing: addAltairMessageHandlers else: addAltairMessageHandlers
+    addCapellaMessageHandlers
   ]
 
   for gossipFork in newGossipForks:
