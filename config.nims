@@ -33,8 +33,8 @@ if defined(release) and not defined(disableLTO):
     switch("passC", "-flto=thin")
     switch("passL", "-flto=thin -Wl,-object_path_lto," & nimCachePath & "/lto")
   elif defined(linux):
-    switch("passC", "-flto=jobserver")
-    switch("passL", "-flto=jobserver")
+    switch("passC", "-flto=auto")
+    switch("passL", "-flto=auto")
     switch("passC", "-finline-limit=100000")
     switch("passL", "-finline-limit=100000")
   else:
@@ -181,6 +181,9 @@ switch("warning", "ObservableStores:off")
 
 # Too many false positives for "Warning: method has lock level <unknown>, but another method has 0 [LockLevel]"
 switch("warning", "LockLevel:off")
+
+# Too many of these because of Defect compat in 1.2
+switch("hint", "XCannotRaiseY:off")
 
 # Useful for Chronos metrics.
 #--define:chronosFutureTracking
