@@ -262,10 +262,10 @@ type
 
   RestPublishedBeaconBlockBody* = object
     case kind*: BeaconBlockFork
-    of BeaconBlockFork.Phase0:    phase0Body*: phase0.BeaconBlockBody
-    of BeaconBlockFork.Altair:    altairBody*: altair.BeaconBlockBody
+    of BeaconBlockFork.Phase0:    phase0Body*:    phase0.BeaconBlockBody
+    of BeaconBlockFork.Altair:    altairBody*:    altair.BeaconBlockBody
     of BeaconBlockFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
-    of BeaconBlockFork.Capella:   cappellaBody*: capella.BeaconBlockBody
+    of BeaconBlockFork.Capella:   capellaBody*:   capella.BeaconBlockBody
 
   RestSpec* = object
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/presets/mainnet/phase0.yaml

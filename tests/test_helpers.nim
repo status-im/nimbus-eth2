@@ -70,7 +70,9 @@ suite "Spec helpers":
 
     template testCase(recipient: Eth1Address): untyped =
       block:
-        let payload = build_empty_execution_payload(state[].data, recipient)
+        let payload = build_empty_execution_payload[
+          typeof state[].data, bellatrix.ExecutionPayload](
+            state[].data, recipient)
         check payload.fee_recipient ==
           bellatrix.ExecutionAddress(data: distinctBase(recipient))
 

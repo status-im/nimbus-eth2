@@ -19,7 +19,7 @@ import
   std/[os, tables],
 
   # Nimble packages
-  stew/[byteutils, objects],
+  stew/byteutils,
   chronos, metrics,
   chronicles, chronicles/timings,
   json_serialization/std/[options, sets, net],
@@ -388,10 +388,9 @@ proc getExecutionPayload[T](
 
   template empty_execution_payload(): auto =
     withState(proposalState[]):
-      when stateFork >= BeaconStateFork.Capella:
-        raiseAssert $capellaImplementationMissing & ": beacon_chain/validators/validator_duties.nim: getExecutionPayload"
-      elif stateFork >= BeaconStateFork.Bellatrix:
-        build_empty_execution_payload(forkyState.data, feeRecipient)
+      when stateFork >= BeaconStateFork.Bellatrix:
+        build_empty_execution_payload[typeof forkyState.data, T](
+          forkyState.data, feeRecipient)
       else:
         default(T)
 
