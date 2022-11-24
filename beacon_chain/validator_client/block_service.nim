@@ -14,23 +14,21 @@ import
 logScope: service = "block_service"
 
 type
-  SlashingForkedSignedBeaconBlock = object
-    signing_root*: Eth2Digest
-    data*: ForkedSignedBeaconBlock
+  PreparedBeaconBlock = object
+    blockRoot*: Eth2Digest
+    data*: ForkedBeaconBlock
 
-  SlashingForkedSignedBlindedBeaconBlock = object
-    signing_root*: Eth2Digest
-    data*: ForkedSignedBlindedBeaconBlock
+  PreparedBlindedBeaconBlock = object
+    blockRoot*: Eth2Digest
+    data*: ForkedBlindedBeaconBlock
 
 proc produceBlock(
        vc: ValidatorClientRef,
-       genesis_root: Eth2Digest,
-       fork: Fork,
        currentSlot, slot: Slot,
        randao_reveal: ValidatorSig,
        graffiti: GraffitiBytes,
        validator: AttachedValidator
-     ): Future[Opt[SlashingForkedSignedBeaconBlock]] {.async.} =
+     ): Future[Opt[PreparedBeaconBlock]] {.async.} =
   logScope:
     slot = slot
     wall_slot = currentSlot
@@ -42,50 +40,25 @@ proc produceBlock(
                                 ApiStrategyKind.Best)
       except ValidatorApiError:
         error "Unable to retrieve block data"
-        return Opt.none(SlashingForkedSignedBeaconBlock)
+        return Opt.none(PreparedBeaconBlock)
       except CancelledError as exc:
-        error "Block data processing was interrupted"
+        error "Block data production has been interrupted"
         raise exc
       except CatchableError as exc:
         error "An unexpected error occurred while getting block data",
               error_name = exc.name, error_msg = exc.msg
-        return Opt.none(SlashingForkedSignedBeaconBlock)
+        return Opt.none(PreparedBeaconBlock)
     blockRoot = withBlck(beaconBlock): hash_tree_root(blck)
-    signingRoot = compute_block_signing_root(fork, genesis_root, slot,
-                                             blockRoot)
-    signature =
-      try:
-        let res = await validator.getBlockSignature(signingRoot, fork,
-                                                    genesis_root, slot,
-                                                    blockRoot,
-                                                    beaconBlock)
-        if res.isErr():
-          error "Unable to sign block proposal using remote signer",
-                error_msg = res.error()
-          return Opt.none(SlashingForkedSignedBeaconBlock)
-        res.get()
-      except CancelledError as exc:
-        debug "Block signature processing was interrupted"
-        raise exc
-      except CatchableError as exc:
-        error "An unexpected error occurred while signing block",
-            error_name = exc.name, error_msg = exc.msg
-        return Opt.none(SlashingForkedSignedBeaconBlock)
-    signedBeaconBlock = SlashingForkedSignedBeaconBlock(
-      data: ForkedSignedBeaconBlock.init(beaconBlock, blockRoot, signature),
-      signing_root: signing_root
-    )
-  return Opt.some(signedBeaconBlock)
+
+  return Opt.some(PreparedBeaconBlock(blockRoot: blockRoot, data: beaconBlock))
 
 proc produceBlindedBlock(
        vc: ValidatorClientRef,
-       genesis_root: Eth2Digest,
-       fork: Fork,
        currentSlot, slot: Slot,
        randao_reveal: ValidatorSig,
        graffiti: GraffitiBytes,
        validator: AttachedValidator
-     ): Future[Opt[SlashingForkedSignedBlindedBeaconBlock]] {.async.} =
+     ): Future[Opt[PreparedBlindedBeaconBlock]] {.async.} =
   logScope:
     slot = slot
     wall_slot = currentSlot
@@ -97,41 +70,18 @@ proc produceBlindedBlock(
                                      ApiStrategyKind.Best)
       except ValidatorApiError:
         error "Unable to retrieve blinded block data"
-        return Opt.none(SlashingForkedSignedBlindedBeaconBlock)
+        return Opt.none(PreparedBlindedBeaconBlock)
       except CancelledError as exc:
-        error "Blinded block data processing was interrupted"
+        error "Blinded block data production has been interrupted"
         raise exc
       except CatchableError as exc:
         error "An unexpected error occurred while getting blinded block data",
               error_name = exc.name, error_msg = exc.msg
-        return Opt.none(SlashingForkedSignedBlindedBeaconBlock)
+        return Opt.none(PreparedBlindedBeaconBlock)
     blockRoot = withBlck(beaconBlock): hash_tree_root(blck)
-    signingRoot = compute_block_signing_root(fork, genesis_root, slot,
-                                             blockRoot)
-    signature =
-      try:
-        let res = await validator.getBlockSignature(signingRoot, fork,
-                                                    genesis_root, slot,
-                                                    blockRoot,
-                                                    beaconBlock)
-        if res.isErr():
-          error "Unable to sign blinded block proposal using remote signer",
-                error_msg = res.error()
-          return Opt.none(SlashingForkedSignedBlindedBeaconBlock)
-        res.get()
-      except CancelledError as exc:
-        debug "Blinded block signature processing was interrupted"
-        raise exc
-      except CatchableError as exc:
-        error "An unexpected error occurred while signing blinded block",
-            error_name = exc.name, error_msg = exc.msg
-        return Opt.none(SlashingForkedSignedBlindedBeaconBlock)
-    signedBeaconBlock = SlashingForkedSignedBlindedBeaconBlock(
-      data: ForkedSignedBlindedBeaconBlock.init(beaconBlock, blockRoot,
-                                                signature),
-      signing_root: signing_root
-    )
-  return Opt.some(signedBeaconBlock)
+
+  return Opt.some(
+    PreparedBlindedBeaconBlock(blockRoot: blockRoot, data: beaconBlock))
 
 proc lazyWait[T](fut: Future[T]) {.async.} =
   try:
@@ -155,6 +105,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     validator = shortLog(validator)
     validator_index = vindex
     slot = slot
+    wall_slot = currentSlot
 
   if not(vc.doppelgangerCheck(validator)):
     info "Block has not been produced (doppelganger check still active)"
@@ -162,18 +113,17 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
 
   debug "Publishing block", delay = vc.getDelay(slot.block_deadline()),
                             genesis_root = genesisRoot,
-                            graffiti = graffiti, fork = fork,
-                            wall_slot = currentSlot
+                            graffiti = graffiti, fork = fork
   let randaoReveal =
     try:
       let res = await validator.getEpochSignature(fork, genesisRoot, slot.epoch)
       if res.isErr():
-        error "Unable to generate randao reveal usint remote signer",
+        error "Unable to generate randao reveal using remote signer",
               error_msg = res.error()
         return
       res.get()
     except CancelledError as exc:
-      error "Randao reveal processing was interrupted"
+      error "Randao reveal production has been interrupted"
       raise exc
     except CatchableError as exc:
       error "An unexpected error occurred while receiving randao data",
@@ -184,15 +134,15 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     block:
       let blindedBlockFut =
         if vc.config.payloadBuilderEnable:
-          vc.produceBlindedBlock(genesisRoot, fork, currentSlot, slot,
-                                 randaoReveal, graffiti, validator)
+          vc.produceBlindedBlock(currentSlot, slot, randaoReveal, graffiti,
+                                 validator)
         else:
           nil
-      let normalBlockFut = vc.produceBlock(genesisRoot, fork, currentSlot, slot,
-                                           randaoReveal, graffiti, validator)
+      let normalBlockFut = vc.produceBlock(currentSlot, slot, randaoReveal,
+                                           graffiti, validator)
       let blindedBlock =
         if isNil(blindedBlockFut):
-          Opt.none(SlashingForkedSignedBlindedBeaconBlock)
+          Opt.none(PreparedBlindedBeaconBlock)
         else:
           try:
             await blindedBlockFut
@@ -202,7 +152,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
             raise exc
           except CatchableError as exc:
             # This should not be happened, because all the exceptions handled.
-            Opt.none(SlashingForkedSignedBlindedBeaconBlock)
+            Opt.none(PreparedBlindedBeaconBlock)
 
       let normalBlock =
         if blindedBlock.isNone():
@@ -212,101 +162,143 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
             raise exc
           except CatchableError as exc:
             # This should not be happened, because all the exceptions handled.
-            Opt.none(SlashingForkedSignedBeaconBlock)
+            Opt.none(PreparedBeaconBlock)
         else:
           if not(normalBlockFut.finished()):
             asyncSpawn lazyWait(normalBlockFut)
-          Opt.none(SlashingForkedSignedBeaconBlock)
+          Opt.none(PreparedBeaconBlock)
 
       if blindedBlock.isNone() and normalBlock.isNone():
         return
 
       (blindedBlock: blindedBlock, normalBlock: normalBlock)
 
-  let notSlashable =
-    if beaconBlocks.blindedBlock.isSome():
-      let signingRoot = beaconBlocks.blindedBlock.get().signing_root
-      vc.attachedValidators[]
-      .slashingProtection
-      .registerBlock(vindex, validator.pubkey, slot, signingRoot)
-    else:
-      let signingRoot = beaconBlocks.normalBlock.get().signing_root
-      vc.attachedValidators[]
-      .slashingProtection
-      .registerBlock(vindex, validator.pubkey, slot, signingRoot)
+  if beaconBlocks.blindedBlock.isSome():
+    let
+      preparedBlock = beaconBlocks.blindedBlock.get()
+      signingRoot = compute_block_signing_root(fork, genesisRoot, slot,
+                                               preparedBlock.blockRoot)
+      notSlashable = vc.attachedValidators[]
+        .slashingProtection
+        .registerBlock(vindex, validator.pubkey, slot, signingRoot)
 
-  if notSlashable.isOk():
-    if beaconBlocks.blindedBlock.isSome():
-      let slashyBlock = beaconBlocks.blindedBlock.get()
-      logScope:
-        signed_block = shortLog(slashyBlock.data)
-        wall_slot = currentSlot
+    logScope:
+      blck = shortLog(preparedBlock.data)
+      block_root = shortLog(preparedBlock.blockRoot)
+      signing_root = shortLog(signingRoot)
 
-      let res =
-        try:
-          debug "Sending blinded block"
-          await vc.publishBlindedBlock(slashyBlock.data, ApiStrategyKind.First)
-        except ValidatorApiError:
-          error "Unable to publish blinded block"
-          return
-        except CancelledError as exc:
-          debug "Publishing block processing was interrupted"
-          raise exc
-        except CatchableError as exc:
-          error "An unexpected error occurred while publishing block",
+    if notSlashable.isOk():
+      let
+        signature =
+          try:
+            let res = await validator.getBlockSignature(fork, genesisRoot,
+                                                        slot,
+                                                        preparedBlock.blockRoot,
+                                                        preparedBlock.data)
+            if res.isErr():
+              error "Unable to sign blinded block proposal using remote signer",
+                    error_msg = res.error()
+              return
+            res.get()
+          except CancelledError as exc:
+            debug "Blinded block signature process has been interrupted"
+            raise exc
+          except CatchableError as exc:
+            error "An unexpected error occurred while signing blinded block",
                 error_name = exc.name, error_msg = exc.msg
-          return
+            return
+
+      logScope:
+        signature = shortLog(signature)
+
+      let
+        signedBlock = ForkedSignedBlindedBeaconBlock.init(preparedBlock.data,
+                        preparedBlock.blockRoot, signature)
+        res =
+          try:
+            debug "Sending blinded block"
+            await vc.publishBlindedBlock(signedBlock, ApiStrategyKind.First)
+          except ValidatorApiError:
+            error "Unable to publish blinded block"
+            return
+          except CancelledError as exc:
+            debug "Blinded block publication has been interrupted"
+            raise exc
+          except CatchableError as exc:
+            error "An unexpected error occurred while publishing blinded block",
+                  error_name = exc.name, error_msg = exc.msg
+            return
 
       if res:
         let delay = vc.getDelay(slot.block_deadline())
         beacon_blocks_sent.inc()
         beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
-        notice "Blinded block published"
+        notice "Blinded block published", delay = delay
       else:
         warn "Blinded block was not accepted by beacon node"
     else:
-      let signedBlock = beaconBlocks.normalBlock.get().data
-      logScope:
-        signed_block = shortLog(signedBlock)
-        wall_slot = currentSlot
+      warn "Slashing protection activated for blinded block proposal"
+  else:
+    let
+      preparedBlock = beaconBlocks.normalBlock.get()
+      signingRoot = compute_block_signing_root(fork, genesisRoot, slot,
+                                               preparedBlock.blockRoot)
+      notSlashable = vc.attachedValidators[]
+        .slashingProtection
+        .registerBlock(vindex, validator.pubkey, slot, signingRoot)
 
-      let res =
-        try:
-          debug "Sending block"
-          await vc.publishBlock(signedBlock, ApiStrategyKind.First)
-        except ValidatorApiError:
-          error "Unable to publish block"
-          return
-        except CancelledError as exc:
-          debug "Publishing block processing was interrupted"
-          raise exc
-        except CatchableError as exc:
-          error "An unexpected error occurred while publishing block",
+    logScope:
+      blck = shortLog(preparedBlock.data)
+      block_root = shortLog(preparedBlock.blockRoot)
+      signing_root = shortLog(signingRoot)
+
+    if notSlashable.isOk():
+      let
+        signature =
+          try:
+            let res = await validator.getBlockSignature(fork,
+                                                        genesisRoot, slot,
+                                                        preparedBlock.blockRoot,
+                                                        preparedBlock.data)
+            if res.isErr():
+              error "Unable to sign block proposal using remote signer",
+                    error_msg = res.error()
+              return
+            res.get()
+          except CancelledError as exc:
+            debug "Block signature process has been interrupted"
+            raise exc
+          except CatchableError as exc:
+            error "An unexpected error occurred while signing block",
                 error_name = exc.name, error_msg = exc.msg
-          return
+            return
+        signedBlock = ForkedSignedBeaconBlock.init(preparedBlock.data,
+                                                   preparedBlock.blockRoot,
+                                                   signature)
+        res =
+          try:
+            debug "Sending block"
+            await vc.publishBlock(signedBlock, ApiStrategyKind.First)
+          except ValidatorApiError:
+            error "Unable to publish block"
+            return
+          except CancelledError as exc:
+            debug "Block publication has been interrupted"
+            raise exc
+          except CatchableError as exc:
+            error "An unexpected error occurred while publishing block",
+                  error_name = exc.name, error_msg = exc.msg
+            return
 
       if res:
         let delay = vc.getDelay(slot.block_deadline())
         beacon_blocks_sent.inc()
         beacon_blocks_sent_delay.observe(delay.toFloatSeconds())
-        notice "Block published"
+        notice "Block published", delay = delay
       else:
         warn "Block was not accepted by beacon node"
-  else:
-    if beaconBlocks.blindedBlock.isSome():
-      let signedBlock = beaconBlocks.blindedBlock.get()
-      warn "Slashing protection activated for block proposal",
-           blck = shortLog(signedBlock.data),
-           signing_root = shortLog(signedBlock.signing_root),
-           wall_slot = currentSlot,
-           existingProposal = notSlashable.error()
     else:
-      let signedBlock = beaconBlocks.normalBlock.get()
-      warn "Slashing protection activated for block proposal",
-           blck = shortLog(signedBlock.data),
-           signingRoot = shortLog(signedBlock.signing_root),
-           wall_slot = currentSlot,
-           existingProposal = notSlashable.error()
+      warn "Slashing protection activated for block proposal"
 
 proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
                   proposerKey: ValidatorPubKey) {.async.} =
