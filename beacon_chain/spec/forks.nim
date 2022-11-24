@@ -235,6 +235,8 @@ template toFork*[T: capella.BeaconState | capella.HashedBeaconState](
 #   T(kind: BeaconStateFork.Altair, altairData: data)
 # template init*(T: type ForkedHashedBeaconState, data: bellatrix.HashedBeaconState): T =
 #   T(kind: BeaconStateFork.Bellatrix, bellatrixData: data)
+# template init*(T: type ForkedHashedBeaconState, data: capella.HashedBeaconState): T =
+#   T(kind: BeaconStateFork.Capella, capellaData: data)
 
 template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
@@ -242,6 +244,8 @@ template init*(T: type ForkedBeaconBlock, blck: altair.BeaconBlock): T =
   T(kind: BeaconBlockFork.Altair, altairData: blck)
 template init*(T: type ForkedBeaconBlock, blck: bellatrix.BeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix, bellatrixData: blck)
+template init*(T: type ForkedBeaconBlock, blck: capella.BeaconBlock): T =
+  T(kind: BeaconBlockFork.Capella, capellaData: blck)
 
 template init*(T: type ForkedTrustedBeaconBlock, blck: phase0.TrustedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
@@ -249,6 +253,8 @@ template init*(T: type ForkedTrustedBeaconBlock, blck: altair.TrustedBeaconBlock
   T(kind: BeaconBlockFork.Altair, altairData: blck)
 template init*(T: type ForkedTrustedBeaconBlock, blck: bellatrix.TrustedBeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix, bellatrixData: blck)
+template init*(T: type ForkedTrustedBeaconBlock, blck: capella.TrustedBeaconBlock): T =
+  T(kind: BeaconBlockFork.Capella, capellaData: blck)
 
 template init*(T: type ForkedSignedBeaconBlock, blck: phase0.SignedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)

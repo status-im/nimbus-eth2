@@ -389,7 +389,7 @@ proc getExecutionPayload[T](
   template empty_execution_payload(): auto =
     withState(proposalState[]):
       when stateFork >= BeaconStateFork.Capella:
-        raiseAssert $capellaImplementationMissing
+        raiseAssert $capellaImplementationMissing & ": beacon_chain/validators/validator_duties.nim: getExecutionPayload"
       elif stateFork >= BeaconStateFork.Bellatrix:
         build_empty_execution_payload(forkyState.data, feeRecipient)
       else:
@@ -474,10 +474,6 @@ proc makeBeaconBlockForHeadAndSlot*(
   # Advance state to the slot that we're proposing for
   var
     cache = StateCache()
-
-  # Execution payload handling will need a review post-Bellatrix
-  if slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
-    raiseAssert $capellaImplementationMissing
 
   let
     # The clearance state already typically sits at the right slot per
