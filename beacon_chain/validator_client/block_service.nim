@@ -68,8 +68,8 @@ proc produceBlindedBlock(
       try:
         await vc.produceBlindedBlock(slot, randao_reveal, graffiti,
                                      ApiStrategyKind.Best)
-      except ValidatorApiError:
-        error "Unable to retrieve blinded block data"
+      except ValidatorApiError as exc:
+        error "Unable to retrieve blinded block data", error_msg = exc.msg
         return Opt.none(PreparedBlindedBeaconBlock)
       except CancelledError as exc:
         error "Blinded block data production has been interrupted"
