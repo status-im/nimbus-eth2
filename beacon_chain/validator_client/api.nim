@@ -1772,6 +1772,200 @@ proc publishBlock*(
 
     raise newException(ValidatorApiError, ErrorMessage)
 
+proc produceBlindedBlock*(
+       vc: ValidatorClientRef,
+       slot: Slot,
+       randao_reveal: ValidatorSig,
+       graffiti: GraffitiBytes,
+       strategy: ApiStrategyKind
+     ): Future[ProduceBlindedBlockResponse] {.async.} =
+  logScope:
+    request = "produceBlindedBlock"
+    strategy = $strategy
+
+  const ErrorMessage = "Unable to retrieve block data"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = vc.firstSuccessParallel(
+      RestResponse[ProduceBlindedBlockResponse],
+      SlotDuration, {BeaconNodeRole.BlockProposalData},
+      produceBlindedBlock(it, slot, randao_reveal, graffiti)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          RestBeaconNodeStatus.Online
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return res.get().data
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(
+      RestResponse[ProduceBlindedBlockResponse],
+      SlotDuration, {BeaconNodeRole.BlockProposalData},
+      produceBlindedBlock(it, slot, randao_reveal, graffiti)):
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace ResponseSuccess, endpoint = node
+          return response.data
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
+
+proc publishBlindedBlock*(
+       vc: ValidatorClientRef,
+       data: ForkedSignedBlindedBeaconBlock,
+       strategy: ApiStrategyKind
+     ): Future[bool] {.async.} =
+  logScope:
+    request = "publishBlindedBlock"
+    strategy = $strategy
+
+  const
+    BlockPublished = "Block was successfully published"
+    BlockBroadcasted = "Block not passed validation, but still published"
+    ErrorMessage = "Unable to publish block"
+
+  case strategy
+  of ApiStrategyKind.First, ApiStrategyKind.Best:
+    let res = block:
+      vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
+                              {BeaconNodeRole.BlockProposalPublish}):
+        case data.kind
+        of BeaconBlockFork.Phase0:
+          publishBlindedBlock(it, data.phase0Data)
+        of BeaconBlockFork.Altair:
+          publishBlindedBlock(it, data.altairData)
+        of BeaconBlockFork.Bellatrix:
+          publishBlindedBlock(it, data.bellatrixData)
+        of BeaconBlockFork.Capella:
+          raiseAssert $capellaImplementationMissing
+      do:
+        if apiResponse.isErr():
+          debug ErrorMessage, endpoint = node, error = apiResponse.error()
+          RestBeaconNodeStatus.Offline
+        else:
+          let response = apiResponse.get()
+          case response.status:
+          of 200:
+            trace BlockPublished, endpoint = node
+            RestBeaconNodeStatus.Online
+          of 202:
+            debug BlockBroadcasted, endpoint = node
+            RestBeaconNodeStatus.Online
+          of 400:
+            debug ResponseInvalidError, response_code = response.status,
+                  endpoint = node,
+                  response_error = response.getErrorMessage()
+            RestBeaconNodeStatus.Incompatible
+          of 500:
+            debug ResponseInternalError, response_code = response.status,
+                  endpoint = node,
+                  response_error = response.getErrorMessage()
+            RestBeaconNodeStatus.Offline
+          of 503:
+            debug ResponseNoSyncError, response_code = response.status,
+                  endpoint = node,
+                  response_error = response.getErrorMessage()
+            RestBeaconNodeStatus.NotSynced
+          else:
+            debug ResponseUnexpectedError, response_code = response.status,
+                  endpoint = node,
+                  response_error = response.getErrorMessage()
+            RestBeaconNodeStatus.Offline
+    if res.isErr():
+      raise newException(ValidatorApiError, res.error())
+    return true
+
+  of ApiStrategyKind.Priority:
+    vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+                              {BeaconNodeRole.BlockProposalPublish}):
+      case data.kind
+      of BeaconBlockFork.Phase0:
+        publishBlindedBlock(it, data.phase0Data)
+      of BeaconBlockFork.Altair:
+        publishBlindedBlock(it, data.altairData)
+      of BeaconBlockFork.Bellatrix:
+        publishBlindedBlock(it, data.bellatrixData)
+      of BeaconBlockFork.Capella:
+        raiseAssert $capellaImplementationMissing
+    do:
+      if apiResponse.isErr():
+        debug ErrorMessage, endpoint = node, error = apiResponse.error()
+        RestBeaconNodeStatus.Offline
+      else:
+        let response = apiResponse.get()
+        case response.status:
+        of 200:
+          trace BlockPublished, endpoint = node
+          return true
+        of 202:
+          debug BlockBroadcasted, endpoint = node
+          return true
+        of 400:
+          debug ResponseInvalidError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getErrorMessage()
+          RestBeaconNodeStatus.Incompatible
+        of 500:
+          debug ResponseInternalError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getErrorMessage()
+          RestBeaconNodeStatus.Offline
+        of 503:
+          debug ResponseNoSyncError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getErrorMessage()
+          RestBeaconNodeStatus.NotSynced
+        else:
+          debug ResponseUnexpectedError, response_code = response.status,
+                endpoint = node,
+                response_error = response.getErrorMessage()
+          RestBeaconNodeStatus.Offline
+
+    raise newException(ValidatorApiError, ErrorMessage)
+
 proc prepareBeaconCommitteeSubnet*(
        vc: ValidatorClientRef,
        data: seq[RestCommitteeSubscription],

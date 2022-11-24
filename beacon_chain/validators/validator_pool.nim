@@ -326,7 +326,8 @@ proc signData(v: AttachedValidator,
 proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         block_root: Eth2Digest,
-                        blck: ForkedBeaconBlock | BlindedBeaconBlock
+                        blck: ForkedBeaconBlock | ForkedBlindedBeaconBlock |
+                              BlindedBeaconBlock
                        ): Future[SignatureResult] {.async.} =
   return
     case v.kind
@@ -336,7 +337,29 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           fork, genesis_validators_root, slot, block_root,
           v.data.privateKey).toValidatorSig())
     of ValidatorKind.Remote:
-      when blck is BlindedBeaconBlock:
+      when blck is ForkedBlindedBeaconBlock:
+        let
+          web3SignerBlock =
+            case blck.kind
+            of BeaconBlockFork.Phase0:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Phase0,
+                phase0Data: blck.phase0Data)
+            of BeaconBlockFork.Altair:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Altair,
+                altairData: blck.altairData)
+            of BeaconBlockFork.Bellatrix:
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.Bellatrix,
+                bellatrixData: blck.bellatrixData.toBeaconBlockHeader)
+            of BeaconBlockFork.Capella:
+              raiseAssert $capellaImplementationMissing
+
+          request = Web3SignerRequest.init(
+            fork, genesis_validators_root, web3SignerBlock)
+        await v.signData(request)
+      elif blck is BlindedBeaconBlock:
         let request = Web3SignerRequest.init(
           fork, genesis_validators_root,
           Web3SignerForkedBeaconBlock(
@@ -519,4 +542,3 @@ proc getBuilderSignature*(v: AttachedValidator, fork: Fork,
       let request = Web3SignerRequest.init(
         fork, ZERO_HASH, validatorRegistration)
       await v.signData(request)
-

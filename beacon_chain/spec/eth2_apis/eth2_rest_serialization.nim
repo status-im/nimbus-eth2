@@ -123,6 +123,7 @@ type
     ListFeeRecipientResponse |
     PrepareBeaconProposer |
     ProduceBlockResponseV2 |
+    ProduceBlindedBlockResponse |
     RestIndexedErrorMessage |
     RestErrorMessage |
     RestValidator |
@@ -886,29 +887,31 @@ template unrecognizedFieldWarning =
 ## ForkedBeaconBlock
 template prepareForkedBlockReading(
     reader: var JsonReader[RestJson], value: untyped,
-    version: var Option[BeaconBlockFork], data: var Option[JsonString]) =
+    version: var Option[BeaconBlockFork],
+    data: var Option[JsonString],
+    blockTypeName: cstring) =
   for fieldName {.inject.} in readObjectFields(reader):
     case fieldName
     of "version":
       if version.isSome():
         reader.raiseUnexpectedField("Multiple version fields found",
-                                    "ForkedBeaconBlock")
-      let vres = reader.readValue(string)
+                                    blockTypeName)
+      let vres = reader.readValue(string).toLowerAscii()
       case vres
-      of "PHASE0", "phase0":
+      of "phase0":
         version = some(BeaconBlockFork.Phase0)
-      of "ALTAIR", "altair":
+      of "altair":
         version = some(BeaconBlockFork.Altair)
-      of "BELLATRIX", "bellatrix":
+      of "bellatrix":
         version = some(BeaconBlockFork.Bellatrix)
-      of "CAPELLA", "capella":
+      of "capella":
         version = some(BeaconBlockFork.Bellatrix)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "block", "block_header", "data":
       if data.isSome():
         reader.raiseUnexpectedField("Multiple block or block_header fields found",
-                                    "ForkedBeaconBlock")
+                                    blockTypeName)
       data = some(reader.readValue(JsonString))
     else:
       unrecognizedFieldWarning()
@@ -925,7 +928,7 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     version: Option[BeaconBlockFork]
     data: Option[JsonString]
 
-  prepareForkedBlockReading(reader, value, version, data)
+  prepareForkedBlockReading(reader, value, version, data, "ForkedBeaconBlock")
 
   case version.get():
   of BeaconBlockFork.Phase0:
@@ -967,6 +970,57 @@ proc readValue*[BlockType: ForkedBeaconBlock](
   of BeaconBlockFork.Capella:
     reader.raiseUnexpectedValue($capellaImplementationMissing)
 
+proc readValue*[BlockType: ForkedBlindedBeaconBlock](
+       reader: var JsonReader[RestJson],
+       value: var BlockType
+     ) {.raises: [IOError, SerializationError, Defect].} =
+  var
+    version: Option[BeaconBlockFork]
+    data: Option[JsonString]
+
+  prepareForkedBlockReading(reader, value, version, data,
+                            "ForkedBlindedBeaconBlock")
+
+  case version.get():
+  of BeaconBlockFork.Phase0:
+    let res =
+      try:
+        RestJson.decode(string(data.get()),
+                        phase0.BeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError as exc:
+        reader.raiseUnexpectedValue("Incorrect phase0 block format, [" &
+                                    exc.formatMsg("BlindedBlock") & "]")
+    value = ForkedBlindedBeaconBlock(kind: BeaconBlockFork.Phase0,
+                                     phase0Data: res)
+  of BeaconBlockFork.Altair:
+    let res =
+      try:
+        RestJson.decode(string(data.get()),
+                        altair.BeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError as exc:
+        reader.raiseUnexpectedValue("Incorrect altair block format, [" &
+                                    exc.formatMsg("BlindedBlock") & "]")
+    value = ForkedBlindedBeaconBlock(kind: BeaconBlockFork.Altair,
+                                     altairData: res)
+  of BeaconBlockFork.Bellatrix:
+    let res =
+      try:
+        RestJson.decode(string(data.get()),
+                        BlindedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError as exc:
+        reader.raiseUnexpectedValue("Incorrect bellatrix block format, [" &
+                                    exc.formatMsg("BlindedBlock") & "]")
+    value = ForkedBlindedBeaconBlock(kind: BeaconBlockFork.Bellatrix,
+                                     bellatrixData: res)
+  of BeaconBlockFork.Capella:
+    reader.raiseUnexpectedValue($capellaImplementationMissing)
+
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
     value: var BlockType) {.raises: [IOError, SerializationError, Defect].} =
@@ -974,7 +1028,8 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     version: Option[BeaconBlockFork]
     data: Option[JsonString]
 
-  prepareForkedBlockReading(reader, value, version, data)
+  prepareForkedBlockReading(reader, value, version, data,
+                            "Web3SignerForkedBeaconBlock")
 
   case version.get():
   of BeaconBlockFork.Phase0:
