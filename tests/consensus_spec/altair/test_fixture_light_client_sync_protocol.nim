@@ -22,7 +22,7 @@ import
   # Test utilities
   ../../testutil, ../../testblockutil
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/tests/core/pyspec/eth2spec/test/helpers/sync_committee.py#L27-L44
 proc compute_aggregate_sync_committee_signature(
     cfg: RuntimeConfig,
     forked: ForkedHashedBeaconState,
@@ -53,7 +53,7 @@ proc compute_aggregate_sync_committee_signature(
       aggregateSig.aggregate(signature)
   aggregateSig.finish.toValidatorSig
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L32-L62
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L32-L62
 proc get_sync_aggregate(
     cfg: RuntimeConfig,
     forked: ForkedHashedBeaconState,
@@ -137,7 +137,7 @@ let full_sync_committee_bits = block:
   res.bytes.fill(byte.high)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L20-L29
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L20-L29
 func initialize_light_client_store(state: auto): LightClientStore =
   LightClientStore(
     finalized_header: BeaconBlockHeader(),
