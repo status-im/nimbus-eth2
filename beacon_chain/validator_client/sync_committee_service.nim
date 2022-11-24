@@ -413,6 +413,9 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
   service.state = ServiceState.Running
   debug "Service started"
 
+  debug "Sync committee duties loop waiting for fork schedule update"
+  await vc.forksAvailable.wait()
+
   while true:
     # This loop could look much more nicer/better, when
     # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
