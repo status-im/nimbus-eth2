@@ -216,7 +216,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           # state, it's not possible that it will sit on the sync committee.
           # Since this API must omit results for validators that don't have
           # duties, we can simply ingnore this requested index.
-          # (we won't bother to validate it agains a more recent state).
+          # (we won't bother to validate it against a more recent state).
           continue
 
         let requestedValidatorPubkey =
@@ -709,15 +709,15 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let res = slot.get()
       if res.isErr():
         return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                          $res.error())
+                                         $res.error())
       let rslot = res.get()
       if epoch(rslot) < node.dag.cfg.ALTAIR_FORK_EPOCH:
         return RestApiResponse.jsonError(Http400,
-                                          SlotFromTheIncorrectForkError)
+                                         SlotFromTheIncorrectForkError)
       rslot
     if qslot <= node.dag.finalizedHead.slot:
       return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
-                                        "Slot already finalized")
+                                       "Slot already finalized")
     let qindex =
       if subcommittee_index.isNone():
         return RestApiResponse.jsonError(Http400,
@@ -726,8 +726,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res = subcommittee_index.get()
         if res.isErr():
           return RestApiResponse.jsonError(Http400,
-                                            InvalidSubCommitteeIndexValueError,
-                                            $res.error())
+                                           InvalidSubCommitteeIndexValueError,
+                                           $res.error())
         res.get()
     let qroot =
       if beacon_block_root.isNone():

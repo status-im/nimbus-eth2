@@ -296,73 +296,31 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
 
     fork = vc.forkAtEpoch(epoch)
 
-    genesisRoot = vc.beaconGenesis.genesis_validators_root
-
   let addOrReplaceItems =
     block:
       var alreadyWarned = false
       var res: seq[tuple[epoch: Epoch, duty: SyncCommitteeDuty]]
       for duty in relevantDuties:
-        let map = vc.syncCommitteeDuties.getOrDefault(duty.pubkey)
-        let epochDuty = map.duties.getOrDefault(epoch, DefaultSyncDutyAndProof)
-        if epochDuty.isDefault():
-          info "Received new sync committee duty", duty, epoch
-          res.add((epoch, duty))
-        else:
-          if epochDuty.data != duty:
-            if not(alreadyWarned):
-              info "Sync committee duties re-organization", duty, epoch
-              alreadyWarned = true
-            res.add((epoch, duty))
+        var dutyFound = false
+
+        vc.syncCommitteeDuties.withValue(duty.pubkey, map):
+          map.duties.withValue(epoch, epochDuty):
+            if epochDuty[] != duty:
+              dutyFound = true
+
+        if dutyFound and not alreadyWarned:
+          info "Sync committee duties re-organization", duty, epoch
+          alreadyWarned = true
+
+        res.add((epoch, duty))
       res
 
   if len(addOrReplaceItems) > 0:
-    var pendingRequests: seq[Future[SignatureResult]]
-    var validators: seq[AttachedValidator]
-    let sres = vc.getCurrentSlot()
-    if sres.isSome():
-      for item in addOrReplaceItems:
-        let validator = vc.attachedValidators[].getValidator(item.duty.pubkey)
-        let future = validator.getSyncCommitteeSelectionProof(
-          fork,
-          genesisRoot,
-          sres.get(),
-          getSubcommitteeIndex(item.duty.validator_sync_committee_index))
-        pendingRequests.add(future)
-        validators.add(validator)
-
-    try:
-      await allFutures(pendingRequests)
-    except CancelledError as exc:
-      var pendingCancel: seq[Future[void]]
-      for future in pendingRequests:
-        if not(future.finished()):
-          pendingCancel.add(future.cancelAndWait())
-      await allFutures(pendingCancel)
-      raise exc
-
-    for index, fut in pendingRequests:
-      let item = addOrReplaceItems[index]
-      let dap =
-        if fut.done():
-          let sigRes = fut.read()
-          if sigRes.isErr():
-            error "Unable to create slot signature using remote signer",
-                  validator = shortLog(validators[index]),
-                  error_msg = sigRes.error()
-            SyncDutyAndProof.init(item.epoch, item.duty,
-                                  none[ValidatorSig]())
-          else:
-            SyncDutyAndProof.init(item.epoch, item.duty,
-                                  some(sigRes.get()))
-        else:
-          SyncDutyAndProof.init(item.epoch, item.duty,
-                                none[ValidatorSig]())
-
+    for epoch, duty in items(addOrReplaceItems):
       var validatorDuties =
-        vc.syncCommitteeDuties.getOrDefault(item.duty.pubkey)
-      validatorDuties.duties[item.epoch] = dap
-      vc.syncCommitteeDuties[item.duty.pubkey] = validatorDuties
+        vc.syncCommitteeDuties.getOrDefault(duty.pubkey)
+      validatorDuties.duties[epoch] = duty
+      vc.syncCommitteeDuties[duty.pubkey] = validatorDuties
 
   return len(addOrReplaceItems)
 
