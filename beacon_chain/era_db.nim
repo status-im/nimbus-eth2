@@ -6,6 +6,7 @@
 
 import
   std/os,
+  chronicles,
   stew/results, snappy, taskpools,
   ../ncli/e2store, eth/keys,
   ./spec/datatypes/[altair, bellatrix, phase0],
@@ -194,35 +195,38 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
             try: newClone(readSszForkedSignedBeaconBlock(cfg, tmp))
             except CatchableError as exc:
               return err("Unable to read block: " & exc.msg)
+
         if getForkedBlockField(blck[], slot) != slot:
           return err("Block slot does not match era index")
         if blck[].root !=
             state[].get_block_root_at_slot(getForkedBlockField(blck[], slot)):
           return err("Block does not match state")
+        if slot > GENESIS_SLOT:
+          let
+            proposer = getForkedBlockField(blck[], proposer_index)
+            key = withState(state[]):
+              if proposer >= forkyState.data.validators.lenu64:
+                return err("Invalid proposer in block")
+              forkyState.data.validators.item(proposer).pubkey
+            cooked = key.load()
+            sig = blck[].signature.load()
 
-        let
-          proposer = getForkedBlockField(blck[], proposer_index)
-          key = withState(state[]):
-            if proposer >= forkyState.data.validators.lenu64:
-              return err("Invalid proposer in block")
-            forkyState.data.validators.item(proposer).pubkey
-          cooked = key.load()
-          sig = blck[].signature.load()
+          if cooked.isNone():
+            return err("Cannot load proposer key")
+          if sig.isNone():
+            warn "Signature invalid",
+              sig = blck[].signature, blck = shortLog(blck[])
+            return err("Cannot load block signature")
 
-        if cooked.isNone():
-          return err("Cannot load proposer key")
-        if sig.isNone():
-          return err("Cannot load block signature")
-
-        if slot == GENESIS_SLOT:
-          if blck[].signature != default(type(blck[].signature)):
-            return err("Genesis slot signature not empty")
-        else:
           # Batch-verification more than doubles total verification speed
           sigs.add block_signature_set(
               getStateField(state[], fork),
-              getStateField(state[], genesis_validators_root), slot, blck[].root,
-              cooked.get(), sig.get())
+              getStateField(state[], genesis_validators_root), slot,
+              blck[].root, cooked.get(), sig.get())
+
+        else: # slot == GENESIS_SLOT:
+          if blck[].signature != default(type(blck[].signature)):
+            return err("Genesis slot signature not empty")
 
     if not batchVerify(verifier, sigs):
       return err("Invalid block signature")
@@ -241,7 +245,17 @@ proc getEraFile(
         db.genesis_validators_root, historical_roots, era).valueOr:
       return err("Era outside of known history")
     name = eraFileName(db.cfg, era, eraRoot)
-    f = ? EraFile.open(db.path / name)
+    path = db.path / name
+
+  if not isFile(path):
+    return err("No such era file")
+
+  let
+    f = EraFile.open(path).valueOr:
+      # TODO allow caller to differentiate between invalid and missing era file,
+      #      then move logging elsewhere
+      warn "Failed to open era file", path, error = error
+      return err(error)
 
   if db.files.len > 16: # TODO LRU
     close(db.files[0])
@@ -405,6 +419,7 @@ when isMainModule:
       if os.paramCount() == 1: os.paramStr(1)
       else: "era"
 
+    cfg = defaultRuntimeConfig
     db = EraDB.new(
       defaultRuntimeConfig, dbPath,
       Eth2Digest.fromHex(
@@ -454,3 +469,8 @@ when isMainModule:
       phase0.TrustedSignedBeaconBlock).get().root ==
     Eth2Digest.fromHex(
         "0xbacd20f09da907734434f052bd4c9503aa16bab1960e89ea20610d08d064481c")
+
+  let
+    f = EraFile.open(dbPath & "/mainnet-00001-40cf2f3c.era").expect(
+      "opening works")
+  doAssert f.verify(cfg).isOk()
