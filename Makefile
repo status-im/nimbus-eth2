@@ -331,7 +331,7 @@ build/generate_makefile: | libbacktrace
 endif
 build/generate_makefile: tools/generate_makefile.nim | deps-common
 	+ echo -e $(BUILD_MSG) "$@" && \
-	$(ENV_SCRIPT) nim c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim $(SILENCE_WARNINGS) && \
+	$(ENV_SCRIPT) $(NIMC) c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim $(SILENCE_WARNINGS) && \
 	echo -e $(BUILD_END_MSG) "$@"
 
 # GCC's LTO parallelisation is able to detect a GNU Make jobserver and get its
@@ -638,13 +638,9 @@ nimbus-pkg: | nimbus_beacon_node
 	xcodebuild -project installer/macos/nimbus-pkg.xcodeproj -scheme nimbus-pkg build
 	packagesbuild installer/macos/nimbus-pkg.pkgproj
 
-ctail: | build deps
-	mkdir -p vendor/.nimble/bin/
-	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ctail c vendor/nim-chronicles-tail/ctail.nim
-
 ntu: | build deps
 	mkdir -p vendor/.nimble/bin/
-	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
+	+ $(ENV_SCRIPT) $(NIMC) -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,state_sim,transition*,generate_makefile,nimbus-wix/obj}
@@ -654,7 +650,7 @@ endif
 
 libnfuzz.so: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
+		$(ENV_SCRIPT) $(NIMC) c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@" && \
 		rm -f build/$@ && \
 		ln -s $@.0 build/$@
@@ -662,7 +658,7 @@ libnfuzz.so: | build deps
 libnfuzz.a: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		rm -f build/$@ && \
-		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
+		$(ENV_SCRIPT) $(NIMC) c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@" && \
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 
