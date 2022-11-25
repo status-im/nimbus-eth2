@@ -97,7 +97,7 @@ nav:
       - 'logging.md'
       - 'validator-client-options.md'
       - 'validator-monitor.md'
-    - "REST API:s":
+    - "REST APIs":
       - 'rest-api.md'
       - 'keymanager-api.md'
     - Storage:
