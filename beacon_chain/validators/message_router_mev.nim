@@ -83,10 +83,9 @@ proc unblindAndRouteBlockMEV*(
         getFieldNames(typeof(signedBlock.message.body)))
       signedBlock.message.body.execution_payload = unblindedPayload.data.data
 
-      if signedBlock.root != hash_tree_root(blindedBlock.message):
-        return err("Unblinded block doesn't match blinded block SSZ root")
-
       signedBlock.root = hash_tree_root(signedBlock.message)
+
+      doAssert signedBlock.root == hash_tree_root(blindedBlock.message)
 
       debug "unblindAndRouteBlockMEV: proposing unblinded block",
         blck = shortLog(signedBlock)
