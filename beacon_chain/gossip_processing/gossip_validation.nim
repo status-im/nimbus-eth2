@@ -182,8 +182,10 @@ template validateBeaconBlockBellatrix(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/bellatrix/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
-       signed_beacon_block: bellatrix.SignedBeaconBlock,
+       signed_beacon_block: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock,
        parent: BlockRef): untyped =
+  discard $capellaImplementationMissing & ": verify first signed_bls_to_execution_change"
+
   # If the execution is enabled for the block -- i.e.
   # is_execution_enabled(state, block.body) then validate the following:
   #
@@ -225,7 +227,7 @@ template validateBeaconBlockBellatrix(
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                         bellatrix.SignedBeaconBlock,
+                         bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
@@ -386,12 +388,6 @@ proc validateBeaconBlock*(
     return errReject("BeaconBlock: Invalid proposer signature")
 
   ok()
-
-proc validateBeaconBlock*(
-    dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block: capella.SignedBeaconBlock,
-    wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
-  raiseAssert $capellaImplementationMissing
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
