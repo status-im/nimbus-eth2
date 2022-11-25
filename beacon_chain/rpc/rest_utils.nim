@@ -39,8 +39,9 @@ proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
   if node.isSynced(head) != SyncStatus.synced:
     return err("Beacon node not fully and non-optimistically synced")
 
-  if slot > head.slot:
-    return err("Requesting ahead of the current head")
+  # Enough ahead not to know the shuffling
+  if slot > head.slot + SLOTS_PER_EPOCH * 2:
+    return err("Requesting far ahead of the current head")
 
   ok(head)
 
