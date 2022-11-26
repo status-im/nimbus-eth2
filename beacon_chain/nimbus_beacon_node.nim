@@ -1312,6 +1312,13 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   await onSlotEnd(node, wallSlot)
 
+  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#registration-dissemination
+  # This specification suggests validators re-submit to builder software every
+  # `EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION` epochs.
+  if  wallSlot.is_epoch and
+      wallSlot.epoch mod EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION == 0:
+    asyncSpawn node.registerValidators(wallSlot.epoch)
+
   return false
 
 proc handleMissingBlocks(node: BeaconNode) =
