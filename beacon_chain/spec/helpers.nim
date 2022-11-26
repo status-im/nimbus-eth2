@@ -18,7 +18,8 @@ import
   # Status libraries
   stew/[bitops2, byteutils, endians2, objects, saturation_arith],
   chronicles,
-  eth/eip1559, eth/common/[eth_types, eth_types_rlp], eth/trie/[db, hexary],
+  eth/eip1559, eth/common/[eth_types, eth_types_rlp],
+  eth/rlp, eth/trie/[db, hexary],
   # Internal
   ./datatypes/[phase0, altair, bellatrix, capella],
   "."/[eth2_merkleization, forks, ssz_codec]
