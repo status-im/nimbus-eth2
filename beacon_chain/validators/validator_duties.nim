@@ -1282,7 +1282,7 @@ proc getValidatorRegistration(
 
 from std/sequtils import toSeq
 
-proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
+proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
   try:
     if  (not node.config.payloadBuilderEnable) or
         node.currentSlot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -1443,13 +1443,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     handleAttestations(node, head, curSlot)
 
     curSlot += 1
-
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#registration-dissemination
-  # This specification suggests validators re-submit to builder software every
-  # `EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION` epochs.
-  if  slot.is_epoch and
-      slot.epoch mod EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION == 0:
-    asyncSpawn node.registerValidators(slot.epoch)
 
   let
     newHead = await handleProposal(node, head, slot)
