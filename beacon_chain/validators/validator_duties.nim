@@ -50,7 +50,7 @@ const
                   0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
 
   BUILDER_STATUS_DELAY_TOLERANCE = 3.seconds
-  BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 3.seconds
+  BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 6.seconds
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
