@@ -388,9 +388,10 @@ proc getExecutionPayload[T](
 
   template empty_execution_payload(): auto =
     withState(proposalState[]):
-      when stateFork >= BeaconStateFork.Bellatrix:
-        build_empty_execution_payload[typeof forkyState.data, T](
-          forkyState.data, feeRecipient)
+      when stateFork >= BeaconStateFork.Capella:
+        raiseAssert $capellaImplementationMissing
+      elif stateFork >= BeaconStateFork.Bellatrix:
+        build_empty_execution_payload(forkyState.data, feeRecipient)
       else:
         default(T)
 
