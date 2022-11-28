@@ -165,7 +165,7 @@
 	branch = master
 [submodule "vendor/eth2-networks"]
 	path = vendor/eth2-networks
-	url = https://github.com/eth-clients/eth2-networks.git
+	url = https://github.com/henridf/eth2-networks.git
 	ignore = untracked
 	branch = master
 [submodule "vendor/nim-taskpools"]
