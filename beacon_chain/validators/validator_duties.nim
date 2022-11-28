@@ -50,7 +50,7 @@ const
                   0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
 
   BUILDER_STATUS_DELAY_TOLERANCE = 3.seconds
-  BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 3.seconds
+  BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE = 6.seconds
 
 # Metrics for tracking attestation and beacon block loss
 declareCounter beacon_light_client_finality_updates_sent,
@@ -388,9 +388,10 @@ proc getExecutionPayload[T](
 
   template empty_execution_payload(): auto =
     withState(proposalState[]):
-      when stateFork >= BeaconStateFork.Bellatrix:
-        build_empty_execution_payload[typeof forkyState.data, T](
-          forkyState.data, feeRecipient)
+      when stateFork >= BeaconStateFork.Capella:
+        raiseAssert $capellaImplementationMissing
+      elif stateFork >= BeaconStateFork.Bellatrix:
+        build_empty_execution_payload(forkyState.data, feeRecipient)
       else:
         default(T)
 
@@ -1282,7 +1283,7 @@ proc getValidatorRegistration(
 
 from std/sequtils import toSeq
 
-proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
+proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
   try:
     if  (not node.config.payloadBuilderEnable) or
         node.currentSlot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH:
@@ -1310,8 +1311,20 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
     let attachedValidatorPubkeys =
       toSeq(node.attachedValidators[].validators.keys)
 
+    const emptyNestedSeq = @[newSeq[SignedValidatorRegistrationV1](0)]
     # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#validator-registration
-    var validatorRegistrations: seq[SignedValidatorRegistrationV1]
+    # Seed with single empty inner list to avoid special cases
+    var validatorRegistrations = emptyNestedSeq
+
+    # Some relay networks disallow large request bodies, so split requests
+    template addValidatorRegistration(
+        validatorRegistration: SignedValidatorRegistrationV1) =
+      const registrationValidatorChunkSize = 1000
+
+      if validatorRegistrations[^1].len < registrationValidatorChunkSize:
+        validatorRegistrations[^1].add validatorRegistration
+      else:
+        validatorRegistrations.add @[validatorRegistration]
 
     # First, check for VC-added keys; cheaper because provided pre-signed
     var nonExitedVcPubkeys: HashSet[ValidatorPubKey]
@@ -1331,7 +1344,7 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
             let signedValidatorRegistration =
               node.externalBuilderRegistrations[pubkey]
             nonExitedVcPubkeys.incl signedValidatorRegistration.message.pubkey
-            validatorRegistrations.add signedValidatorRegistration
+            addValidatorRegistration signedValidatorRegistration
 
     for key in attachedValidatorPubkeys:
       # Already included from VC
@@ -1362,7 +1375,7 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
           continue
 
       if validator.externalBuilderRegistration.isSome:
-        validatorRegistrations.add validator.externalBuilderRegistration.get
+        addValidatorRegistration validator.externalBuilderRegistration.get
       else:
         let validatorRegistration =
           await node.getValidatorRegistration(validator, epoch)
@@ -1377,16 +1390,24 @@ proc registerValidators(node: BeaconNode, epoch: Epoch) {.async.} =
 
         node.attachedValidators[].validators[key].externalBuilderRegistration =
           Opt.some validatorRegistration.get
-        validatorRegistrations.add validatorRegistration.get
+        addValidatorRegistration validatorRegistration.get
 
-    let registerValidatorResult =
-      awaitWithTimeout(node.payloadBuilderRestClient.registerValidator(validatorRegistrations),
-                       BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE):
-        error "Timeout when registering validator with builder"
-        return
-    if HttpOk != registerValidatorResult.status:
-      warn "registerValidators: Couldn't register validator with MEV builder",
-        registerValidatorResult
+    if validatorRegistrations == emptyNestedSeq:
+      return
+
+    # TODO if there are too many chunks, could trigger DoS protections, so
+    # might randomize order to accumulate cumulative coverage
+    for chunkIdx in 0 ..< validatorRegistrations.len:
+      let registerValidatorResult =
+        awaitWithTimeout(
+            node.payloadBuilderRestClient.registerValidator(
+              validatorRegistrations[chunkIdx]),
+            BUILDER_VALIDATOR_REGISTRATION_DELAY_TOLERANCE):
+          error "Timeout when registering validator with builder"
+          continue  # Try next batch regardless
+      if HttpOk != registerValidatorResult.status:
+        warn "registerValidators: Couldn't register validator with MEV builder",
+          registerValidatorResult
   except CatchableError as exc:
     warn "registerValidators: exception",
       error = exc.msg
@@ -1443,13 +1464,6 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
     handleAttestations(node, head, curSlot)
 
     curSlot += 1
-
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#registration-dissemination
-  # This specification suggests validators re-submit to builder software every
-  # `EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION` epochs.
-  if  slot.is_epoch and
-      slot.epoch mod EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION == 0:
-    asyncSpawn node.registerValidators(slot.epoch)
 
   let
     newHead = await handleProposal(node, head, slot)

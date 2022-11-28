@@ -360,12 +360,6 @@ type
     parentHash*: string
     timestamp*: string
 
-  BoolReturnValidRPC = object
-    valid*: bool
-
-  BoolReturnSuccessRPC = object
-    success*: bool
-
 func shortLog*(v: SomeBeaconBlock): auto =
   (
     slot: shortLog(v.slot),

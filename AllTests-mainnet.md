@@ -447,11 +447,12 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Spec helpers
 ```diff
-+ build_empty_execution_payload                                                              OK
++ build_empty_execution_payload - Bellatrix                                                  OK
++ build_empty_execution_payload - Capella                                                    OK
 + build_proof - BeaconState                                                                  OK
 + integer_squareroot                                                                         OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Specific field types
 ```diff
 + root update                                                                                OK
@@ -613,4 +614,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 338/343 Fail: 0/343 Skip: 5/343
+OK: 339/344 Fail: 0/344 Skip: 5/344

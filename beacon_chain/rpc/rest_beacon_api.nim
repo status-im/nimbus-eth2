@@ -832,7 +832,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                              $error)
           await node.unblindAndRouteBlockMEV(restBlock)
 
-      if res.get().isErr():
+      if res.isErr():
         return RestApiResponse.jsonError(
           Http503, BeaconNodeInSyncError, $res.error())
       if res.get().isNone():
