@@ -439,12 +439,4 @@ proc waitForBlockPublished*(vc: ValidatorClientRef, slot: Slot) {.async.} =
             res.add(task.future)
       res
   if len(pendingTasks) > 0:
-    try:
-      await allFutures(pendingTasks)
-    except CancelledError as exc:
-      var pending: seq[Future[void]]
-      for future in pendingTasks:
-        if not(future.finished()):
-          pending.add(future.cancelAndWait())
-      await allFutures(pending)
-      raise exc
+    await allFutures(pendingTasks)
