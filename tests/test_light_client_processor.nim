@@ -54,6 +54,8 @@ suite "Light client processor" & preset():
           dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
         of BeaconBlockFork.Capella:
           raiseAssert $capellaImplementationMissing
+        of BeaconBlockFork.EIP4844:
+          raiseAssert $eip4844ImplementationMissing
       doAssert added.isOk()
       dag.updateHead(added[], quarantine[])
 

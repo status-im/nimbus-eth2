@@ -209,6 +209,8 @@ suite "Gossip validation - Extra": # Not based on preset config
               dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
             of BeaconBlockFork.Capella:
               raiseAssert $capellaImplementationMissing
+            of BeaconBlockFork.EIP4844:
+              raiseAssert $eip4844ImplementationMissing
           check: added.isOk()
           dag.updateHead(added[], quarantine[])
         dag

@@ -202,6 +202,8 @@ cli do(validatorsDir: string, secretsDir: string,
             fork, genesis_validators_root, slot, blockRoot,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
+      of BeaconBlockFork.EIP4844:
+        raiseAssert $eip4844ImplementationMissing
       notice "Block proposed", message, blockRoot
 
       aggregates.setLen(0)

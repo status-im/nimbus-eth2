@@ -1687,6 +1687,9 @@ proc publishBlock*(
           publishBlock(it, data.bellatrixData)
         of BeaconBlockFork.Capella:
           publishBlock(it, data.capellaData)
+        of BeaconBlockFork.EIP4844:
+          raiseAssert $eip4844ImplementationMissing
+
       do:
         if apiResponse.isErr():
           debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1736,6 +1739,8 @@ proc publishBlock*(
         publishBlock(it, data.bellatrixData)
       of BeaconBlockFork.Capella:
         publishBlock(it, data.capellaData)
+      of BeaconBlockFork.EIP4844:
+        raiseAssert $eip4844ImplementationMissing
     do:
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1881,6 +1886,8 @@ proc publishBlindedBlock*(
           publishBlindedBlock(it, data.bellatrixData)
         of BeaconBlockFork.Capella:
           publishBlindedBlock(it, data.capellaData)
+        of BeaconBlockFork.EIP4844:
+          raiseAssert $eip4844ImplementationMissing
       do:
         if apiResponse.isErr():
           debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1930,6 +1937,8 @@ proc publishBlindedBlock*(
         publishBlindedBlock(it, data.bellatrixData)
       of BeaconBlockFork.Capella:
         publishBlindedBlock(it, data.capellaData)
+      of BeaconBlockFork.EIP4844:
+        raiseAssert $eip4844ImplementationMissing
     do:
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()

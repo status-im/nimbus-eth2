@@ -21,6 +21,7 @@ import
   "."/[beacon_chain_db_light_client, filepath]
 
 from ./spec/datatypes/capella import BeaconState
+from ./spec/datatypes/eip4844 import TrustedSignedBeaconBlock
 
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
@@ -466,7 +467,8 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("blocks").expectDb(),
       kvStore db.openKvStore("altair_blocks").expectDb(),
       kvStore db.openKvStore("bellatrix_blocks").expectDb(),
-      kvStore db.openKvStore("capella_blocks").expectDb()]
+      kvStore db.openKvStore("capella_blocks").expectDb(),
+      kvStore db.openKvStore("eip4844_blocks").expectDb()]
 
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
@@ -846,7 +848,7 @@ proc getBlock*(
     result.err()
 
 proc getBlock*[
-    X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock](
+    X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock | eip4844.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,
     T: type X): Opt[T] =
   # We only store blocks that we trust in the database
@@ -922,6 +924,9 @@ proc getBlockSSZ*(
     getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
   of BeaconBlockFork.Capella:
     getBlockSSZ(db, key, data, capella.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.EIP4844:
+    raiseAssert $eip4844ImplementationMissing
+
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
@@ -967,6 +972,9 @@ proc getBlockSZ*(
     getBlockSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
   of BeaconBlockFork.Capella:
     getBlockSZ(db, key, data, capella.TrustedSignedBeaconBlock)
+  of BeaconBlockFork.EIP4844:
+    raiseAssert $eip4844ImplementationMissing
+
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
@@ -1206,7 +1214,7 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: BeaconBlockFork): 
   else: db.blocks[fork].contains(key.data).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
-  static: doAssert high(BeaconBlockFork) == BeaconBlockFork.Capella
+  static: doAssert high(BeaconBlockFork) == BeaconBlockFork.EIP4844
   db.containsBlock(key, capella.TrustedSignedBeaconBlock) or
     db.containsBlock(key, bellatrix.TrustedSignedBeaconBlock) or
     db.containsBlock(key, altair.TrustedSignedBeaconBlock) or

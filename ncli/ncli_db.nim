@@ -259,6 +259,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of BeaconBlockFork.Capella:
         blocks[3].add dag.db.getBlock(
           blck.root, capella.TrustedSignedBeaconBlock).get()
+      of BeaconBlockFork.EIP4844:
+        raiseAssert $eip4844ImplementationMissing
 
   let stateData = newClone(dag.headState)
 

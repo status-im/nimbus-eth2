@@ -958,7 +958,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
-     cfg.SHARDING_FORK_VERSION]
+     cfg.EIP4844_FORK_VERSION, cfg.SHARDING_FORK_VERSION]
   for i in 0 ..< forkVersions.len:
     for j in i+1 ..< forkVersions.len:
       doAssert distinctBase(forkVersions[i]) != distinctBase(forkVersions[j])
@@ -974,10 +974,13 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
 
   assertForkEpochOrder(cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH)
   assertForkEpochOrder(cfg.BELLATRIX_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH)
-  assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.SHARDING_FORK_EPOCH)
+  assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.EIP4844_FORK_EPOCH)
+  assertForkEpochOrder(cfg.EIP4844_FORK_EPOCH, cfg.SHARDING_FORK_EPOCH)
 
 # This is a readily/uniquely searchable token of where a false assertion is
 # due to Capella implementation missing. checkForkConsistency() checks that
 # Nimbus does not actually run any non-FAR_FUTURE_EPOCH Capella network, so
 # such cases won't be hit.
 const capellaImplementationMissing* = false
+
+const eip4844ImplementationMissing* = false

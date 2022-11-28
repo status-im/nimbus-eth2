@@ -20,7 +20,7 @@ import
   std/json,
   stew/base10, web3/ethtypes,
   ".."/forks,
-  ".."/datatypes/[phase0, altair, bellatrix],
+  ".."/datatypes/[phase0, altair, bellatrix, eip4844],
   ".."/mev/bellatrix_mev
 
 from ".."/datatypes/capella import BeaconBlockBody
@@ -266,6 +266,7 @@ type
     of BeaconBlockFork.Altair:    altairBody*:    altair.BeaconBlockBody
     of BeaconBlockFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
     of BeaconBlockFork.Capella:   capellaBody*:   capella.BeaconBlockBody
+    of BeaconBlockFork.EIP4844:   eip4844Body*: eip4844.BeaconBlockBody
 
   RestSpec* = object
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/presets/mainnet/phase0.yaml
@@ -337,6 +338,8 @@ type
     BELLATRIX_FORK_EPOCH*: uint64
     CAPELLA_FORK_VERSION*: Version
     CAPELLA_FORK_EPOCH*: uint64
+    EIP4844_FORK_VERSION*: Version
+    EIP4844_FORK_EPOCH*: uint64
     SHARDING_FORK_VERSION*: Version
     SHARDING_FORK_EPOCH*: uint64
     SECONDS_PER_SLOT*: uint64
