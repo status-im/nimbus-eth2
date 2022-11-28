@@ -349,12 +349,6 @@ type
     parentHash*: string
     timestamp*: string
 
-  BoolReturnValidRPC = object
-    valid*: bool
-
-  BoolReturnSuccessRPC = object
-    success*: bool
-
 func fromHex*(T: typedesc[BloomLogs], s: string): T {.
      raises: [Defect, ValueError].} =
   hexToByteArray(s, result.data)
