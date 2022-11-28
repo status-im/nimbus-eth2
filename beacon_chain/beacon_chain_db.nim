@@ -289,7 +289,7 @@ proc close*(s: var DbSeq) =
   reset(s)
 
 proc add*[T](s: var DbSeq[T], val: T) =
-  doAssert(distinctBase(s.insertStmt) != nil, "database closed or read-only")
+  doAssert(distinctBase(s.insertStmt) != nil, "database closed or table not preset")
   var bytes = SSZ.encode(val)
   s.insertStmt.exec(bytes).expectDb()
   inc s.recordCount
@@ -299,7 +299,7 @@ template len*[T](s: DbSeq[T]): int64 =
 
 proc get*[T](s: DbSeq[T], idx: int64): T =
   # This is used only locally
-  doAssert(distinctBase(s.selectStmt) != nil, $T & " not found at index " & $(idx))
+  doAssert(distinctBase(s.selectStmt) != nil, $T & " table not present for read at " & $(idx))
 
   let resultAddr = addr result
 
@@ -379,7 +379,7 @@ proc close*(s: var FinalizedBlocks) =
 
 proc insert*(s: var FinalizedBlocks, slot: Slot, val: Eth2Digest) =
   doAssert slot.uint64 < int64.high.uint64, "Only reasonable slots supported"
-  doAssert(distinctBase(s.insertStmt) != nil, "database closed or read-only")
+  doAssert(distinctBase(s.insertStmt) != nil, "database closed or table not present")
 
   s.insertStmt.exec((slot.int64, val.data)).expectDb()
   s.low.ok(min(slot, s.low.get(slot)))
