@@ -953,6 +953,7 @@ func clear*(cache: var StateCache) =
   cache.sync_committees.clear
 
 func checkForkConsistency*(cfg: RuntimeConfig) =
+  doAssert cfg.EIP4844_FORK_EPOCH == FAR_FUTURE_EPOCH
   doAssert cfg.SHARDING_FORK_EPOCH == FAR_FUTURE_EPOCH
 
   let forkVersions =
