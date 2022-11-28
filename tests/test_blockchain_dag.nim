@@ -699,15 +699,18 @@ suite "Old database versions" & preset():
 
   test "pre-1.1.0":
     # only kvstore, no immutable validator keys
-
-    let db = BeaconChainDB.new("", inMemory = true)
+    let
+      sq = SqStoreRef.init("", "test", inMemory = true).expect(
+        "working database (out of memory?)")
+      v0 = BeaconChainDBV0.new(sq, readOnly = false)
+      db = BeaconChainDB.new(sq)
 
     # preInit a database to a v1.0.12 state
+    v0.putStateV0(genState[].root, genState[].data)
+    v0.putBlockV0(genBlock)
+
     db.putStateRoot(
       genState[].latest_block_root, genState[].data.slot, genState[].root)
-    db.putStateV0(genState[].root, genState[].data)
-
-    db.putBlockV0(genBlock)
     db.putTailBlock(genBlock.root)
     db.putHeadBlock(genBlock.root)
     db.putGenesisBlock(genBlock.root)

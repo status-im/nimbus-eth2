@@ -215,7 +215,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
   echo "Opening database..."
   let
-    db = BeaconChainDB.new(conf.databaseDir.string,)
+    db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
     dbBenchmark = BeaconChainDB.new("benchmark")
   defer:
     db.close()
@@ -233,7 +233,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
   var
     (start, ends) = dag.getSlotRange(conf.benchSlot, conf.benchSlots)
-    blockRefs = dag.getBlockRange(start, ends)
+    blockRefs = dag.getBlockRange(max(start, Slot 1), ends)
     blocks: (
       seq[phase0.TrustedSignedBeaconBlock],
       seq[altair.TrustedSignedBeaconBlock],
@@ -245,6 +245,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
   for b in 0 ..< blockRefs.len:
     let blck = blockRefs[blockRefs.len - b - 1]
+
     withTimer(timers[tLoadBlock]):
       case cfg.blockForkAtEpoch(blck.slot.epoch)
       of BeaconBlockFork.Phase0:
@@ -501,7 +502,8 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
         else: some((era - 1).start_slot)
       endSlot = era.start_slot
       eraBid = dag.atSlot(dag.head.bid, endSlot).valueOr:
-        echo "Skipping ", era, ", blocks not available"
+        echo "Skipping era ", era, ", blocks not available"
+        era += 1
         continue
 
     if endSlot > dag.head.slot:
