@@ -968,7 +968,17 @@ proc readValue*[BlockType: ForkedBeaconBlock](
       reader.raiseUnexpectedValue("Incorrect bellatrix block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
   of BeaconBlockFork.Capella:
-    reader.raiseUnexpectedValue($capellaImplementationMissing)
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             capella.BeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[capella.BeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect capella block format")
+    value = ForkedBeaconBlock.init(res.get()).BlockType
 
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        reader: var JsonReader[RestJson],

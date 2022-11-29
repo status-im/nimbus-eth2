@@ -156,9 +156,10 @@ OK: 10/12 Fail: 0/12 Skip: 2/12
 ```diff
 + Deposits chain                                                                             OK
 + Rewrite HTTPS Infura URLs                                                                  OK
-+ Roundtrip engine RPC and consensus ExecutionPayload representations                        OK
++ Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
++ Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Eth2 specific discovery tests
 ```diff
 + Invalid attnets field                                                                      OK
