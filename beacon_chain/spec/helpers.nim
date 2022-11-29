@@ -220,7 +220,7 @@ template is_finality_update*(update: SomeLightClientUpdate): bool =
 template is_next_sync_committee_known*(store: LightClientStore): bool =
   not isZeroMemory(store.next_sync_committee)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#get_safety_threshold
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/sync-protocol.md#get_safety_threshold
 func get_safety_threshold*(store: LightClientStore): uint64 =
   max(
     store.previous_max_active_participants,
@@ -320,7 +320,7 @@ func contextEpoch*(bootstrap: altair.LightClientBootstrap): Epoch =
 func contextEpoch*(update: SomeLightClientUpdate): Epoch =
   update.attested_header.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState): bool =
   const defaultExecutionPayloadHeader =
