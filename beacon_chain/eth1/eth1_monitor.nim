@@ -354,8 +354,8 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV2):
     capella.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
-  template getConsensusWithdrawal(w: WithdrawalV1): Withdrawal =
-    Withdrawal(
+  template getConsensusWithdrawal(w: WithdrawalV1): capella.Withdrawal =
+    capella.Withdrawal(
       index: w.index.uint64,
       validator_index: w.validatorIndex.uint64,
       address: ExecutionAddress(data: w.address.distinctBase),
@@ -380,7 +380,7 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV2):
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
-    withdrawals: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
+    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.withdrawals, it.getConsensusWithdrawal)))
 
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
