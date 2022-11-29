@@ -480,7 +480,7 @@ proc loadLocalKeystoreImpl(validatorsDir, secretsDir, keyName: string,
           return Opt.none(KeystoreData)
         res.get()
 
-    let res = decryptKeystore(keystore, passphrase)
+    let res = decryptKeystore(keystore, passphrase, cache)
     if res.isOk():
       success = true
       return Opt.some(KeystoreData.init(res.get(), keystore, handle))
@@ -499,7 +499,8 @@ proc loadLocalKeystoreImpl(validatorsDir, secretsDir, keyName: string,
                (validatorsDir / keyName) & "\": "
   let res = keyboardGetPassword[ValidatorPrivKey](prompt, 3,
     proc (password: string): KsResult[ValidatorPrivKey] =
-      let decrypted = decryptKeystore(keystore, KeystorePass.init password)
+      let decrypted = decryptKeystore(keystore, KeystorePass.init password,
+                                      cache)
       if decrypted.isErr():
         error "Keystore decryption failed. Please try again",
               keystore_path = keystorePath
