@@ -44,6 +44,10 @@ func readValue*(r: var JsonReader, a: var seq[byte]) =
 func genesisTestRuntimeConfig*(stateFork: BeaconStateFork): RuntimeConfig =
   var res = defaultRuntimeConfig
   case stateFork
+  of BeaconStateFork.Capella:
+    res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
+    res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
   of BeaconStateFork.Bellatrix:
     res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
     res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
@@ -65,7 +69,7 @@ type
     rewards*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
     penalties*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#eth1block
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#eth1block
   Eth1Block* = object
     timestamp*: uint64
     deposit_root*: Eth2Digest
@@ -114,12 +118,19 @@ proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
     stderr.write err.formatMsg(path), "\n"
     quit 1
 
+from ../../beacon_chain/spec/datatypes/capella import BeaconState
+
 proc loadForkedState*(
     path: string, fork: BeaconStateFork): ref ForkedHashedBeaconState =
   # TODO stack usage. newClone and assignClone do not seem to
   # prevent temporaries created by case objects
   let forkedState = new ForkedHashedBeaconState
   case fork
+  of BeaconStateFork.Capella:
+    let state = newClone(parseTest(path, SSZ, capella.BeaconState))
+    forkedState.kind = BeaconStateFork.Capella
+    forkedState.capellaData.data = state[]
+    forkedState.capellaData.root = hash_tree_root(state[])
   of BeaconStateFork.Bellatrix:
     let state = newClone(parseTest(path, SSZ, bellatrix.BeaconState))
     forkedState.kind = BeaconStateFork.Bellatrix

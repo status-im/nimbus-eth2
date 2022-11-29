@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[os, re, strutils],
+  std/[os, strutils],
   stew/bitops2,
   ../beacon_chain/spec/[
     datatypes/base,
@@ -18,6 +18,8 @@ import
     state_transition_block,
     signatures],
   ../beacon_chain/consensus_object_pools/blockchain_dag
+
+from ../beacon_chain/spec/datatypes/capella import BeaconState
 
 type
   RewardsAndPenalties* = object
@@ -49,8 +51,7 @@ type
 
 const
   epochInfoFileNameDigitsCount = 8
-  epochFileNameExtension* = ".epoch"
-  epochNumberRegexStr = r"\d{" & $epochInfoFileNameDigitsCount & r"}\"
+  epochFileNameExtension = ".epoch"
 
 func copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
                              forkedState: ForkedHashedBeaconState) =
@@ -62,18 +63,75 @@ func copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
       flags.previousEpochParticipation =
         forkyState.data.previous_epoch_participation
 
+from std/sequtils import allIt
+
+func matchFilenameUnaggregatedFiles(filename: string): bool =
+  # epochNumberRegexStr & epochFileNameExtension
+  filename.len == epochInfoFileNameDigitsCount + epochFileNameExtension.len and
+    filename.endsWith(epochFileNameExtension) and
+    # TODO should use toOpenArray, but
+    # https://github.com/nim-lang/Nim/issues/15952
+    # https://github.com/nim-lang/Nim/issues/19969
+    allIt(filename[0 ..< epochInfoFileNameDigitsCount], it.isDigit)
+
+static:
+  for filename in [
+      "00000000.epoch", "00243929.epoch", "04957024.epoch", "39820353.epoch",
+      "82829191.epoch", "85740966.epoch", "93321944.epoch", "98928899.epoch"]:
+    doAssert filename.matchFilenameUnaggregatedFiles
+
+  for filename in [
+      # Valid aggregated, not unaggregated
+      "03820350_13372742.epoch", "04117778_69588614.epoch",
+      "25249017_64218993.epoch", "34265267_41589365.epoch",
+      "57926659_59282297.epoch", "67699314_92835461.epoch",
+
+      "0000000.epoch",     # Too short
+      "000000000.epoch",   # Too long
+      "75787x73.epoch",    # Incorrect number format
+      "00000000.ecpoh"]:   # Wrong extension
+    doAssert not filename.matchFilenameUnaggregatedFiles
+
+func matchFilenameAggregatedFiles(filename: string): bool =
+  # epochNumberRegexStr & "_" & epochNumberRegexStr & epochFileNameExtension
+  filename.len == epochInfoFileNameDigitsCount * 2 + "_".len + epochFileNameExtension.len and
+    filename.endsWith(epochFileNameExtension) and
+    # TODO should use toOpenArray, but
+    # https://github.com/nim-lang/Nim/issues/15952
+    # https://github.com/nim-lang/Nim/issues/19969
+    allIt(filename[0 ..< epochInfoFileNameDigitsCount], it.isDigit) and
+    filename[epochInfoFileNameDigitsCount] == '_' and
+    allIt(
+      filename[epochInfoFileNameDigitsCount + 1 ..< 2 * epochInfoFileNameDigitsCount + 1],
+      it.isDigit)
+
+static:
+  for filename in [
+      "03820350_13372742.epoch", "04117778_69588614.epoch",
+      "25249017_64218993.epoch", "34265267_41589365.epoch",
+      "57926659_59282297.epoch", "67699314_92835461.epoch"]:
+    doAssert filename.matchFilenameAggregatedFiles
+
+  for filename in [
+      # Valid unaggregated, not aggregated
+      "00000000.epoch", "00243929.epoch", "04957024.epoch", "39820353.epoch",
+      "82829191.epoch", "85740966.epoch", "93321944.epoch", "98928899.epoch",
+
+      "00000000_0000000.epoch",   # Too short
+      "31x85971_93149672.epoch",  # Incorrect number format, first field
+      "18049105&72034596.epoch",  # No underscore separator
+      "31485971_931496x2.epoch",  # Incorrect number format, second field
+      "15227487_86601706.echop"]: # Wrong extension
+    doAssert not filename.matchFilenameAggregatedFiles
+
 proc getUnaggregatedFilesEpochRange*(dir: string):
     tuple[firstEpoch, lastEpoch: Epoch] =
-  const epochInfoFileNameRegexStr =
-    epochNumberRegexStr & epochFileNameExtension
-  var pattern {.global.}: Regex
-  once: pattern = re(epochInfoFileNameRegexStr)
   var smallestEpochFileName =
     '9'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
   var largestEpochFileName =
     '0'.repeat(epochInfoFileNameDigitsCount) & epochFileNameExtension
   for (_, fn) in walkDir(dir.string, relative = true):
-    if fn.match(pattern):
+    if fn.matchFilenameUnaggregatedFiles:
       if fn < smallestEpochFileName:
         smallestEpochFileName = fn
       if fn > largestEpochFileName:
@@ -87,13 +145,9 @@ proc getUnaggregatedFilesLastEpoch*(dir: string): Epoch =
   dir.getUnaggregatedFilesEpochRange.lastEpoch
 
 proc getAggregatedFilesLastEpoch*(dir: string): Epoch =
-  const epochInfoFileNameRegexStr =
-    epochNumberRegexStr & "_" & epochNumberRegexStr & epochFileNameExtension
-  var pattern {.global.}: Regex
-  once: pattern = re(epochInfoFileNameRegexStr)
   var largestEpochInFileName = 0'u
   for (_, fn) in walkDir(dir.string, relative = true):
-    if fn.match(pattern):
+    if fn.matchFilenameAggregatedFiles:
       let fileLastEpoch = parseUInt(
         fn[epochInfoFileNameDigitsCount + 1 .. 2 * epochInfoFileNameDigitsCount])
       if fileLastEpoch > largestEpochInFileName:
@@ -214,7 +268,7 @@ proc collectEpochRewardsAndPenalties*(
 
 proc collectEpochRewardsAndPenalties*(
     rewardsAndPenalties: var seq[RewardsAndPenalties],
-    state: var (altair.BeaconState | bellatrix.BeaconState),
+    state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
     cache: var StateCache, cfg: RuntimeConfig, flags: UpdateFlags) =
   if get_current_epoch(state) == GENESIS_EPOCH:
     return

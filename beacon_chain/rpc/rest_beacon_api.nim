@@ -14,6 +14,7 @@ import
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
   ../spec/[eth2_merkleization, forks, network, validator],
   ../spec/datatypes/[phase0, altair],
+  ../validators/message_router_mev,
   ./state_ttl_cache
 
 export rest_utils
@@ -795,49 +796,82 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
 
+  # https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+  # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/beacon/blocks/blinded_blocks.yaml
+  router.api(MethodPost, "/eth/v1/beacon/blinded_blocks") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    ## Instructs the beacon node to use the components of the
+    ## `SignedBlindedBeaconBlock` to construct and publish a
+    ## `SignedBeaconBlock` by swapping out the transactions_root for the
+    ## corresponding full list of transactions. The beacon node should
+    ## broadcast a newly constructed `SignedBeaconBlock` to the beacon network,
+    ## to be included in the beacon chain. The beacon node is not required to
+    ## validate the signed `BeaconBlock`, and a successful response (20X) only
+    ## indicates that the broadcast has been successful.
+    if contentBody.isNone():
+      return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+
+    let
+      currentEpochFork =
+        node.dag.cfg.stateForkAtEpoch(node.currentSlot().epoch())
+      version = request.headers.getString("eth-consensus-version")
+      body = contentBody.get()
+
+    if  body.contentType == OctetStreamMediaType and
+        currentEpochFork.toString != version:
+      return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
+
+    case currentEpochFork
+    of BeaconStateFork.Capella:
+      return RestApiResponse.jsonError(Http500, $capellaImplementationMissing)
+    of BeaconStateFork.Bellatrix:
+      let res =
+        block:
+          var restBlock = decodeBodyJsonOrSsz(SignedBlindedBeaconBlock, body).valueOr:
+            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
+                                             $error)
+          await node.unblindAndRouteBlockMEV(restBlock)
+
+      if res.isErr():
+        return RestApiResponse.jsonError(
+          Http503, BeaconNodeInSyncError, $res.error())
+      if res.get().isNone():
+        return RestApiResponse.jsonError(Http202, BlockValidationError)
+
+      return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+    of BeaconStateFork.Altair, BeaconStateFork.Phase0:
+      # Pre-Bellatrix, this endpoint will accept a `SignedBeaconBlock`.
+      #
+      # This is mostly the same as /eth/v1/beacon/blocks for phase 0 and
+      # altair.
+      var
+        restBlock = decodeBody(RestPublishedSignedBeaconBlock, body,
+                               version).valueOr:
+          return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
+                                           $error)
+        forked = ForkedSignedBeaconBlock(restBlock)
+
+      if forked.kind != node.dag.cfg.blockForkAtEpoch(
+           getForkedBlockField(forked, slot).epoch):
+        return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
+
+      let res = withBlck(forked):
+        blck.root = hash_tree_root(blck.message)
+        await node.router.routeSignedBeaconBlock(blck)
+
+      if res.isErr():
+        return RestApiResponse.jsonError(
+          Http503, BeaconNodeInSyncError, $res.error())
+      elif res.get().isNone():
+        return RestApiResponse.jsonError(Http202, BlockValidationError)
+
+      return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlock
   router.api(MethodGet, "/eth/v1/beacon/blocks/{block_id}") do (
     block_id: BlockIdent) -> RestApiResponse:
-    let
-      blockIdent = block_id.valueOr:
-        return RestApiResponse.jsonError(Http400, InvalidBlockIdValueError,
-                                         $error)
-      bid = node.getBlockId(blockIdent).valueOr:
-        return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-
-    if node.dag.cfg.blockForkAtEpoch(bid.slot.epoch) !=
-        BeaconBlockFork.Phase0:
-      return RestApiResponse.jsonError(
-        Http404, BlockNotFoundError, "v1 API supports only phase 0 blocks")
-
-    let contentType =
-      block:
-        let res = preferredContentType(jsonMediaType,
-                                       sszMediaType)
-        if res.isErr():
-          return RestApiResponse.jsonError(Http406, ContentNotAcceptableError)
-        res.get()
-
-    return
-      if contentType == sszMediaType:
-        var data: seq[byte]
-        if not node.dag.getBlockSSZ(bid, data):
-          return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-
-        RestApiResponse.sszResponsePlain(data)
-      elif contentType == jsonMediaType:
-        let bdata = node.dag.getForkedBlock(bid).valueOr:
-          return RestApiResponse.jsonError(Http404, BlockNotFoundError)
-
-        if bdata.kind == BeaconBlockFork.Phase0:
-          RestApiResponse.jsonResponse(bdata.phase0Data.asSigned())
-        else:
-          # Shouldn't happen, but in case there's some weird block database
-          # issue..
-          RestApiResponse.jsonError(
-            Http404, BlockNotFoundError, "v1 API supports only phase 0 blocks")
-      else:
-        RestApiResponse.jsonError(Http500, InvalidAcceptError)
+    return RestApiResponse.jsonError(
+      Http410, DeprecatedRemovalBeaconBlocksDebugStateV1)
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockV2
   router.api(MethodGet, "/eth/v2/beacon/blocks/{block_id}") do (
@@ -871,14 +905,9 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let bdata = node.dag.getForkedBlock(bid).valueOr:
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
-        let
-          fork = node.dag.cfg.blockForkAtEpoch(bid.slot.epoch)
-          headers = [("eth-consensus-version", fork.toString())]
-
         RestApiResponse.jsonResponseBlock(
           bdata.asSigned(),
-          node.getBlockOptimistic(bdata),
-          headers
+          node.getBlockOptimistic(bdata)
         )
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)

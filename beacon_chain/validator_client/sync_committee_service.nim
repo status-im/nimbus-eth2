@@ -27,24 +27,16 @@ type
 
 proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
                                 slot: Slot, beaconBlockRoot: Eth2Digest,
-                                duty: SyncDutyAndProof): Future[bool] {.
+                                duty: SyncCommitteeDuty): Future[bool] {.
      async.} =
   let
     vc = service.client
     fork = vc.forkAtEpoch(slot.epoch)
     genesisValidatorsRoot = vc.beaconGenesis.genesis_validators_root
-
-    vindex = duty.data.validator_index
+    vindex = duty.validator_index
     subcommitteeIdx = getSubcommitteeIndex(
-      duty.data.validator_sync_committee_index)
-
-    validator =
-      block:
-        let res = vc.getValidator(duty.data.pubkey)
-        if res.isNone():
-          return false
-        res.get()
-
+      duty.validator_sync_committee_index)
+    validator = vc.getValidator(duty.pubkey).valueOr: return false
     message =
       block:
         let res = await getSyncCommitteeMessage(validator, fork,
@@ -101,16 +93,15 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
 proc produceAndPublishSyncCommitteeMessages(service: SyncCommitteeServiceRef,
                                             slot: Slot,
                                             beaconBlockRoot: Eth2Digest,
-                                            duties: seq[SyncDutyAndProof]) {.
-     async.} =
+                                            duties: seq[SyncCommitteeDuty])
+                                           {.async.} =
   let vc = service.client
 
   let pendingSyncCommitteeMessages =
     block:
       var res: seq[Future[bool]]
       for duty in duties:
-        debug "Serving sync message duty", duty = duty.data,
-              epoch = slot.epoch()
+        debug "Serving sync message duty", duty, epoch = slot.epoch()
         res.add(service.serveSyncCommitteeMessage(slot,
                                                   beaconBlockRoot,
                                                   duty))
@@ -211,38 +202,81 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
 proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
                                     slot: Slot,
                                     beaconBlockRoot: Eth2Digest,
-                                    duties: seq[SyncDutyAndProof]) {.async.} =
+                                    duties: seq[SyncCommitteeDuty]) {.async.} =
   let
     vc = service.client
-    contributionItems =
-      block:
-        var res: seq[ContributionItem]
-        for duty in duties:
-          let validator = vc.attachedValidators[].getValidator(duty.data.pubkey)
-          if not isNil(validator):
-            if duty.slotSig.isSome:
-              template slotSignature: auto = duty.slotSig.get
-              if is_sync_committee_aggregator(slotSignature):
-                res.add(ContributionItem(
-                  aggregator_index: uint64(duty.data.validator_index),
-                  selection_proof: slotSignature,
-                  validator: validator,
-                  subcommitteeIdx: getSubcommitteeIndex(
-                    duty.data.validator_sync_committee_index)
-                ))
-        res
+    epoch = slot.epoch
+    fork = vc.forkAtEpoch(epoch)
 
-  if len(contributionItems) > 0:
+  var slotSignatureReqs: seq[Future[SignatureResult]]
+  var validators: seq[(AttachedValidator, SyncSubcommitteeIndex)]
+
+  for duty in duties:
+    let validator = vc.attachedValidators[].getValidator(duty.pubkey)
+    if isNil(validator): continue # This should never happen
+    let
+      subCommitteeIdx =
+        getSubcommitteeIndex(duty.validator_sync_committee_index)
+      future = validator.getSyncCommitteeSelectionProof(
+        fork,
+        vc.beaconGenesis.genesis_validators_root,
+        slot,
+        subCommitteeIdx)
+
+    slotSignatureReqs.add(future)
+    validators.add((validator, subCommitteeIdx))
+
+  try:
+    await allFutures(slotSignatureReqs)
+  except CancelledError as exc:
+    var pendingCancel: seq[Future[void]]
+    for future in slotSignatureReqs:
+      if not(future.finished()):
+        pendingCancel.add(future.cancelAndWait())
+    await allFutures(pendingCancel)
+    raise exc
+
+  var
+    contributionsFuts: array[SYNC_COMMITTEE_SUBNET_COUNT,
+                             Future[SyncCommitteeContribution]]
+
+  let validatorContributions = block:
+    var res: seq[ContributionItem]
+    for idx, fut in slotSignatureReqs:
+      if fut.done:
+        let
+          sigRes = fut.read
+          validator = validators[idx][0]
+          subCommitteeIdx = validators[idx][1]
+        if sigRes.isErr:
+          error "Unable to create slot signature using remote signer",
+                validator = shortLog(validator),
+                error_msg = sigRes.error()
+        elif validator.index.isSome and
+             is_sync_committee_aggregator(sigRes.get):
+          res.add ContributionItem(
+            aggregator_index: uint64(validator.index.get),
+            selection_proof: sigRes.get,
+            validator: validator,
+            subcommitteeIdx: subCommitteeIdx)
+
+          if isNil(contributionsFuts[subCommitteeIdx]):
+            contributionsFuts[int subCommitteeIdx] =
+              vc.produceSyncCommitteeContribution(
+                slot,
+                subCommitteeIdx,
+                beaconBlockRoot,
+                ApiStrategyKind.Best)
+    res
+
+  if len(validatorContributions) > 0:
     let pendingAggregates =
       block:
         var res: seq[Future[bool]]
-        for item in contributionItems:
+        for item in validatorContributions:
           let aggContribution =
             try:
-              await vc.produceSyncCommitteeContribution(slot,
-                                                        item.subcommitteeIdx,
-                                                        beaconBlockRoot,
-                                                        ApiStrategyKind.Best)
+              await contributionsFuts[item.subcommitteeIdx]
             except ValidatorApiError:
               error "Unable to get sync message contribution data", slot = slot,
                     beaconBlockRoot = shortLog(beaconBlockRoot)
@@ -298,23 +332,11 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
 
 proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
                                          slot: Slot,
-                                         duties: seq[SyncDutyAndProof]) {.
+                                         duties: seq[SyncCommitteeDuty]) {.
      async.} =
-  let
-    vc = service.client
-    startTime = Moment.now()
+  let vc = service.client
 
-  try:
-    let timeout = syncCommitteeMessageSlotOffset
-    await vc.waitForBlockPublished(slot).wait(nanoseconds(timeout.nanoseconds))
-    let dur = Moment.now() - startTime
-    debug "Block proposal awaited", slot = slot, duration = dur
-  except CancelledError:
-    debug "Block proposal waiting was interrupted"
-    return
-  except AsyncTimeoutError:
-    let dur = Moment.now() - startTime
-    debug "Block was not produced in time", slot = slot, duration = dur
+  await vc.waitForBlockPublished(slot, syncCommitteeMessageSlotOffset)
 
   block:
     let delay = vc.getDelay(slot.sync_committee_message_deadline())
@@ -368,10 +390,9 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
   await service.produceAndPublishContributions(slot, beaconBlockRoot, duties)
 
 proc spawnSyncCommitteeTasks(service: SyncCommitteeServiceRef, slot: Slot) =
-  let vc = service.client
-
-  removeOldSyncPeriodDuties(vc, slot)
-  let duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)
+  let
+    vc = service.client
+    duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)
 
   asyncSpawn service.publishSyncMessagesAndContributions(slot, duties)
 
@@ -379,6 +400,9 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
   debug "Service started"
+
+  debug "Sync committee duties loop waiting for fork schedule update"
+  await vc.forksAvailable.wait()
 
   while true:
     # This loop could look much more nicer/better, when
@@ -409,8 +433,8 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
 proc init*(t: typedesc[SyncCommitteeServiceRef],
            vc: ValidatorClientRef): Future[SyncCommitteeServiceRef] {.async.} =
   logScope: service = ServiceName
-  let res = SyncCommitteeServiceRef(name: ServiceName,
-                                    client: vc, state: ServiceState.Initialized)
+  let res = SyncCommitteeServiceRef(name: ServiceName, client: vc,
+                                    state: ServiceState.Initialized)
   debug "Initializing service"
   return res
 

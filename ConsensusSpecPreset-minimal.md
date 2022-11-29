@@ -120,6 +120,65 @@ ConsensusSpecPreset-minimal
 + EF - Bellatrix - Transition - transition_with_random_three_quarters_participation [Preset: OK
 + EF - Bellatrix - Transition - transition_with_voluntary_exit_right_after_fork [Preset: min OK
 + EF - Bellatrix - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mi OK
++ EF - Capella - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
++ EF - Capella - Rewards - empty [Preset: minimal]                                           OK
++ EF - Capella - Rewards - empty_leak [Preset: minimal]                                      OK
++ EF - Capella - Rewards - full_all_correct [Preset: minimal]                                OK
++ EF - Capella - Rewards - full_but_partial_participation [Preset: minimal]                  OK
++ EF - Capella - Rewards - full_but_partial_participation_leak [Preset: minimal]             OK
++ EF - Capella - Rewards - full_leak [Preset: minimal]                                       OK
++ EF - Capella - Rewards - full_random_0 [Preset: minimal]                                   OK
++ EF - Capella - Rewards - full_random_1 [Preset: minimal]                                   OK
++ EF - Capella - Rewards - full_random_2 [Preset: minimal]                                   OK
++ EF - Capella - Rewards - full_random_3 [Preset: minimal]                                   OK
++ EF - Capella - Rewards - full_random_4 [Preset: minimal]                                   OK
++ EF - Capella - Rewards - full_random_leak [Preset: minimal]                                OK
++ EF - Capella - Rewards - full_random_low_balances_0 [Preset: minimal]                      OK
++ EF - Capella - Rewards - full_random_low_balances_1 [Preset: minimal]                      OK
++ EF - Capella - Rewards - full_random_misc_balances [Preset: minimal]                       OK
++ EF - Capella - Rewards - full_random_seven_epoch_leak [Preset: minimal]                    OK
++ EF - Capella - Rewards - full_random_ten_epoch_leak [Preset: minimal]                      OK
++ EF - Capella - Rewards - full_random_without_leak_0 [Preset: minimal]                      OK
++ EF - Capella - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]     OK
++ EF - Capella - Rewards - half_full [Preset: minimal]                                       OK
++ EF - Capella - Rewards - half_full_leak [Preset: minimal]                                  OK
++ EF - Capella - Rewards - quarter_full [Preset: minimal]                                    OK
++ EF - Capella - Rewards - quarter_full_leak [Preset: minimal]                               OK
++ EF - Capella - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]  OK
++ EF - Capella - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mini OK
++ EF - Capella - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: min OK
++ EF - Capella - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
++ EF - Capella - Rewards - with_exited_validators [Preset: minimal]                          OK
++ EF - Capella - Rewards - with_exited_validators_leak [Preset: minimal]                     OK
++ EF - Capella - Rewards - with_not_yet_activated_validators [Preset: minimal]               OK
++ EF - Capella - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
++ EF - Capella - Rewards - with_slashed_validators [Preset: minimal]                         OK
++ EF - Capella - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
++ EF - Capella - Transition - normal_transition [Preset: minimal]                            OK
++ EF - Capella - Transition - simple_transition [Preset: minimal]                            OK
++ EF - Capella - Transition - transition_missing_first_post_block [Preset: minimal]          OK
++ EF - Capella - Transition - transition_missing_last_pre_fork_block [Preset: minimal]       OK
++ EF - Capella - Transition - transition_only_blocks_post_fork [Preset: minimal]             OK
++ EF - Capella - Transition - transition_randomized_state [Preset: minimal]                  OK
++ EF - Capella - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]     OK
++ EF - Capella - Transition - transition_with_attester_slashing_right_after_fork [Preset: mi OK
++ EF - Capella - Transition - transition_with_attester_slashing_right_before_fork [Preset: m OK
++ EF - Capella - Transition - transition_with_deposit_right_after_fork [Preset: minimal]     OK
++ EF - Capella - Transition - transition_with_deposit_right_before_fork [Preset: minimal]    OK
++ EF - Capella - Transition - transition_with_finality [Preset: minimal]                     OK
++ EF - Capella - Transition - transition_with_leaking_at_fork [Preset: minimal]              OK
++ EF - Capella - Transition - transition_with_leaking_pre_fork [Preset: minimal]             OK
++ EF - Capella - Transition - transition_with_no_attestations_until_after_fork [Preset: mini OK
++ EF - Capella - Transition - transition_with_non_empty_activation_queue [Preset: minimal]   OK
++ EF - Capella - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pr OK
++ EF - Capella - Transition - transition_with_one_fourth_exiting_validators_exit_post_fork [ OK
++ EF - Capella - Transition - transition_with_one_fourth_slashed_active_validators_pre_fork  OK
++ EF - Capella - Transition - transition_with_proposer_slashing_right_after_fork [Preset: mi OK
++ EF - Capella - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
++ EF - Capella - Transition - transition_with_random_half_participation [Preset: minimal]    OK
++ EF - Capella - Transition - transition_with_random_three_quarters_participation [Preset: m OK
++ EF - Capella - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minim OK
++ EF - Capella - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
 + EF - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: minimal]           OK
 + EF - Phase 0 - Rewards - empty [Preset: minimal]                                           OK
@@ -221,6 +280,30 @@ ConsensusSpecPreset-minimal
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/block_lookup_failed Skip
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_early_for_merge Skip
   ForkChoice - minimal/bellatrix/fork_choice/on_merge_block/pyspec_tests/too_late_for_merge  Skip
++ ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
++ ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att OK
++ ForkChoice - minimal/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/chain_no_attestations       OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/discard_equivocations       OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/filtered_block_tree         OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/genesis                     OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
++ ForkChoice - minimal/capella/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/basic                       OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justi OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_j OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/new_justified_is_later_than OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_before_finalized   OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_checkpoints        OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo OK
+  ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_update_justified_c OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
++ ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
@@ -245,62 +328,92 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/on_block_update_justified_ch OK
 + ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
 + ForkChoice - minimal/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
-+ Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/pyspe OK
-+ Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/pyspe OK
-+ Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/pyspe OK
-+ Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
-+ Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
-+ Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/py OK
++ Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
++ Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
++ Light client - Single merkle proof - minimal/altair/light_client/single_merkle_proof/Beaco OK
++ Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/Be OK
++ Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/Be OK
++ Light client - Single merkle proof - minimal/bellatrix/light_client/single_merkle_proof/Be OK
++ Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/advance_finality_witho OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync      OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/supply_sync_committee_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/advance_finality_wi OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync   OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/supply_sync_committ OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/advance_finality_with OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync     OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Update ranking - minimal/altair/light_client/update_ranking/pyspec_tests/up OK
 + Light client - Update ranking - minimal/bellatrix/light_client/update_ranking/pyspec_tests OK
++ Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u OK
++ Light client - Update ranking - minimal/eip4844/light_client/update_ranking/pyspec_tests/u OK
 + Slots - double_empty_epoch                                                                 OK
 + Slots - empty_epoch                                                                        OK
 + Slots - over_epoch_boundary                                                                OK
 + Slots - slots_1                                                                            OK
 + Slots - slots_2                                                                            OK
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
-+ [Invalid] EF - Altair - Sanity - Blocks - double_same_proposer_slashings_same_block [Prese OK
-+ [Invalid] EF - Altair - Sanity - Blocks - double_similar_proposer_slashings_same_block [Pr OK
-+ [Invalid] EF - Altair - Sanity - Blocks - double_validator_exit_same_block [Preset: minima OK
-+ [Invalid] EF - Altair - Sanity - Blocks - duplicate_attester_slashing [Preset: minimal]    OK
++ Sync - minimal/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + [Invalid] EF - Altair - Sanity - Blocks - expected_deposit_in_block [Preset: minimal]      OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_block_sig [Preset: minimal]              OK
++ [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
++ [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mi OK
++ [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block  OK
++ [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pre OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_proposer_index_sig_from_expected_propose OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_proposer_index_sig_from_proposer_index [ OK
++ [Invalid] EF - Altair - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [P OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_state_root [Preset: minimal]             OK
 + [Invalid] EF - Altair - Sanity - Blocks - parent_from_same_slot [Preset: minimal]          OK
 + [Invalid] EF - Altair - Sanity - Blocks - prev_slot_block_transition [Preset: minimal]     OK
 + [Invalid] EF - Altair - Sanity - Blocks - same_slot_block_transition [Preset: minimal]     OK
 + [Invalid] EF - Altair - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]      OK
 + [Invalid] EF - Altair - Sanity - Blocks - zero_block_sig [Preset: minimal]                 OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - double_same_proposer_slashings_same_block [Pr OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - double_similar_proposer_slashings_same_block  OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - double_validator_exit_same_block [Preset: min OK
-+ [Invalid] EF - Bellatrix - Sanity - Blocks - duplicate_attester_slashing [Preset: minimal] OK
 + [Invalid] EF - Bellatrix - Sanity - Blocks - expected_deposit_in_block [Preset: minimal]   OK
 + [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_block_sig [Preset: minimal]           OK
++ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_duplicate_attester_slashing_same_bloc OK
++ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: OK
++ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_blo OK
++ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [ OK
 + [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_proposer_index_sig_from_expected_prop OK
 + [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_proposer_index_sig_from_proposer_inde OK
++ [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_similar_proposer_slashings_same_block OK
 + [Invalid] EF - Bellatrix - Sanity - Blocks - invalid_state_root [Preset: minimal]          OK
 + [Invalid] EF - Bellatrix - Sanity - Blocks - parent_from_same_slot [Preset: minimal]       OK
 + [Invalid] EF - Bellatrix - Sanity - Blocks - prev_slot_block_transition [Preset: minimal]  OK
 + [Invalid] EF - Bellatrix - Sanity - Blocks - same_slot_block_transition [Preset: minimal]  OK
 + [Invalid] EF - Bellatrix - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]   OK
 + [Invalid] EF - Bellatrix - Sanity - Blocks - zero_block_sig [Preset: minimal]              OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - double_same_proposer_slashings_same_block [Pres OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - double_similar_proposer_slashings_same_block [P OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - double_validator_exit_same_block [Preset: minim OK
-+ [Invalid] EF - Phase 0 - Sanity - Blocks - duplicate_attester_slashing [Preset: minimal]   OK
++ [Invalid] EF - Capella - Sanity - Blocks - expected_deposit_in_block [Preset: minimal]     OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_block_sig [Preset: minimal]             OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block  OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Prese OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_proposer_index_sig_from_expected_propos OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_proposer_index_sig_from_proposer_index  OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_state_root [Preset: minimal]            OK
++ [Invalid] EF - Capella - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
++ [Invalid] EF - Capella - Sanity - Blocks - parent_from_same_slot [Preset: minimal]         OK
++ [Invalid] EF - Capella - Sanity - Blocks - prev_slot_block_transition [Preset: minimal]    OK
++ [Invalid] EF - Capella - Sanity - Blocks - same_slot_block_transition [Preset: minimal]    OK
++ [Invalid] EF - Capella - Sanity - Blocks - slash_and_exit_same_index [Preset: minimal]     OK
++ [Invalid] EF - Capella - Sanity - Blocks - withdrawal_fail_second_block_payload_isnt_compa OK
++ [Invalid] EF - Capella - Sanity - Blocks - zero_block_sig [Preset: minimal]                OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - expected_deposit_in_block [Preset: minimal]     OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_block_sig [Preset: minimal]             OK
++ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block  OK
++ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
++ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
++ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_proposer_index_sig_from_expected_propos OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_proposer_index_sig_from_proposer_index  OK
++ [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_state_root [Preset: minimal]            OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - parent_from_same_slot [Preset: minimal]         OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - prev_slot_block_transition [Preset: minimal]    OK
@@ -334,6 +447,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Altair - Sanity - Blocks - balance_driven_status_transitions [Preset: minim OK
 + [Valid]   EF - Altair - Sanity - Blocks - deposit_in_block [Preset: minimal]               OK
 + [Valid]   EF - Altair - Sanity - Blocks - deposit_top_up [Preset: minimal]                 OK
++ [Valid]   EF - Altair - Sanity - Blocks - duplicate_attestation_same_block [Preset: minima OK
 + [Valid]   EF - Altair - Sanity - Blocks - empty_block_transition [Preset: minimal]         OK
 + [Valid]   EF - Altair - Sanity - Blocks - empty_block_transition_large_validator_set [Pres OK
 + [Valid]   EF - Altair - Sanity - Blocks - empty_epoch_transition [Preset: minimal]         OK
@@ -391,6 +505,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Bellatrix - Sanity - Blocks - balance_driven_status_transitions [Preset: mi OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - deposit_in_block [Preset: minimal]            OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - deposit_top_up [Preset: minimal]              OK
++ [Valid]   EF - Bellatrix - Sanity - Blocks - duplicate_attestation_same_block [Preset: min OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition [Preset: minimal]      OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition_large_validator_set [P OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal OK
@@ -425,6 +540,73 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Bellatrix - Sanity - Blocks - skipped_slots [Preset: minimal]               OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]   OK
 + [Valid]   EF - Bellatrix - Sanity - Blocks - voluntary_exit [Preset: minimal]              OK
++ [Valid]   EF - Capella - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
++ [Valid]   EF - Capella - Finality - finality_rule_1 [Preset: minimal]                      OK
++ [Valid]   EF - Capella - Finality - finality_rule_2 [Preset: minimal]                      OK
++ [Valid]   EF - Capella - Finality - finality_rule_3 [Preset: minimal]                      OK
++ [Valid]   EF - Capella - Finality - finality_rule_4 [Preset: minimal]                      OK
++ [Valid]   EF - Capella - Random - randomized_0 [Preset: minimal]                           OK
++ [Valid]   EF - Capella - Random - randomized_1 [Preset: minimal]                           OK
++ [Valid]   EF - Capella - Random - randomized_10 [Preset: minimal]                          OK
++ [Valid]   EF - Capella - Random - randomized_11 [Preset: minimal]                          OK
++ [Valid]   EF - Capella - Random - randomized_12 [Preset: minimal]                          OK
++ [Valid]   EF - Capella - Random - randomized_13 [Preset: minimal]                          OK
++ [Valid]   EF - Capella - Random - randomized_14 [Preset: minimal]                          OK
++ [Valid]   EF - Capella - Random - randomized_15 [Preset: minimal]                          OK
++ [Valid]   EF - Capella - Random - randomized_2 [Preset: minimal]                           OK
++ [Valid]   EF - Capella - Random - randomized_3 [Preset: minimal]                           OK
++ [Valid]   EF - Capella - Random - randomized_4 [Preset: minimal]                           OK
++ [Valid]   EF - Capella - Random - randomized_5 [Preset: minimal]                           OK
++ [Valid]   EF - Capella - Random - randomized_6 [Preset: minimal]                           OK
++ [Valid]   EF - Capella - Random - randomized_7 [Preset: minimal]                           OK
++ [Valid]   EF - Capella - Random - randomized_8 [Preset: minimal]                           OK
++ [Valid]   EF - Capella - Random - randomized_9 [Preset: minimal]                           OK
++ [Valid]   EF - Capella - Sanity - Blocks - attestation [Preset: minimal]                   OK
++ [Valid]   EF - Capella - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
++ [Valid]   EF - Capella - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
++ [Valid]   EF - Capella - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
++ [Valid]   EF - Capella - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
++ [Valid]   EF - Capella - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_no_tx [Preset: minimal]  OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_randomized_payload [Pres OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition [Preset: minimal]        OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition_large_validator_set [Pre OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset:  OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_sync_committee_committee [Preset: minimal OK
++ [Valid]   EF - Capella - Sanity - Blocks - empty_sync_committee_committee_genesis [Preset: OK
++ [Valid]   EF - Capella - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]     OK
++ [Valid]   EF - Capella - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]  OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_0 [Preset: minimal]      OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_1 [Preset: minimal]      OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_2 [Preset: minimal]      OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_3 [Preset: minimal]      OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_sync_committee_committee [Preset: minimal] OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_sync_committee_committee_genesis [Preset:  OK
++ [Valid]   EF - Capella - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: mi OK
++ [Valid]   EF - Capella - Sanity - Blocks - half_sync_committee_committee [Preset: minimal] OK
++ [Valid]   EF - Capella - Sanity - Blocks - half_sync_committee_committee_genesis [Preset:  OK
++ [Valid]   EF - Capella - Sanity - Blocks - high_proposer_index [Preset: minimal]           OK
++ [Valid]   EF - Capella - Sanity - Blocks - historical_batch [Preset: minimal]              OK
++ [Valid]   EF - Capella - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
++ [Valid]   EF - Capella - Sanity - Blocks - inactivity_scores_leaking [Preset: minimal]     OK
++ [Valid]   EF - Capella - Sanity - Blocks - is_execution_enabled_false [Preset: minimal]    OK
++ [Valid]   EF - Capella - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
++ [Valid]   EF - Capella - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: OK
++ [Valid]   EF - Capella - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pr OK
++ [Valid]   EF - Capella - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
++ [Valid]   EF - Capella - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
++ [Valid]   EF - Capella - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
++ [Valid]   EF - Capella - Sanity - Blocks - proposer_after_inactive_index [Preset: minimal] OK
++ [Valid]   EF - Capella - Sanity - Blocks - proposer_self_slashing [Preset: minimal]        OK
++ [Valid]   EF - Capella - Sanity - Blocks - proposer_slashing [Preset: minimal]             OK
++ [Valid]   EF - Capella - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
++ [Valid]   EF - Capella - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
++ [Valid]   EF - Capella - Sanity - Blocks - success_bls_change [Preset: minimal]            OK
++ [Valid]   EF - Capella - Sanity - Blocks - success_exit_and_bls_change [Preset: minimal]   OK
++ [Valid]   EF - Capella - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
++ [Valid]   EF - Capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 + [Valid]   EF - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
 + [Valid]   EF - Phase 0 - Finality - finality_rule_1 [Preset: minimal]                      OK
 + [Valid]   EF - Phase 0 - Finality - finality_rule_2 [Preset: minimal]                      OK
@@ -451,6 +633,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
++ [Valid]   EF - Phase 0 - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - empty_block_transition [Preset: minimal]        OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - empty_block_transition_large_validator_set [Pre OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - empty_epoch_transition [Preset: minimal]        OK
@@ -490,6 +673,13 @@ ConsensusSpecPreset-minimal
 + bellatrix_fork_random_large_validator_set                                                  OK
 + bellatrix_fork_random_low_balances                                                         OK
 + bellatrix_fork_random_misc_balances                                                        OK
++ capella_fork_random_0                                                                      OK
++ capella_fork_random_1                                                                      OK
++ capella_fork_random_2                                                                      OK
++ capella_fork_random_3                                                                      OK
++ capella_fork_random_large_validator_set                                                    OK
++ capella_fork_random_low_balances                                                           OK
++ capella_fork_random_misc_balances                                                          OK
 + fork_base_state                                                                            OK
 + fork_many_next_epoch                                                                       OK
 + fork_next_epoch                                                                            OK
@@ -498,7 +688,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 488/495 Fail: 0/495 Skip: 7/495
+OK: 677/685 Fail: 0/685 Skip: 8/685
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -549,6 +739,30 @@ OK: 488/495 Fail: 0/495 Skip: 7/495
 + [Invalid] EF - Bellatrix - Operations - Attestation - wrong_index_for_committee_signature  OK
 + [Invalid] EF - Bellatrix - Operations - Attestation - wrong_index_for_slot_0               OK
 + [Invalid] EF - Bellatrix - Operations - Attestation - wrong_index_for_slot_1               OK
++ [Invalid] EF - Capella - Operations - Attestation - after_epoch_slots                      OK
++ [Invalid] EF - Capella - Operations - Attestation - bad_source_root                        OK
++ [Invalid] EF - Capella - Operations - Attestation - before_inclusion_delay                 OK
++ [Invalid] EF - Capella - Operations - Attestation - correct_after_epoch_delay              OK
++ [Invalid] EF - Capella - Operations - Attestation - empty_participants_seemingly_valid_sig OK
++ [Invalid] EF - Capella - Operations - Attestation - empty_participants_zeroes_sig          OK
++ [Invalid] EF - Capella - Operations - Attestation - future_target_epoch                    OK
++ [Invalid] EF - Capella - Operations - Attestation - incorrect_head_after_epoch_delay       OK
++ [Invalid] EF - Capella - Operations - Attestation - incorrect_head_and_target_after_epoch_ OK
++ [Invalid] EF - Capella - Operations - Attestation - incorrect_target_after_epoch_delay     OK
++ [Invalid] EF - Capella - Operations - Attestation - invalid_attestation_signature          OK
++ [Invalid] EF - Capella - Operations - Attestation - invalid_current_source_root            OK
++ [Invalid] EF - Capella - Operations - Attestation - invalid_index                          OK
++ [Invalid] EF - Capella - Operations - Attestation - invalid_previous_source_root           OK
++ [Invalid] EF - Capella - Operations - Attestation - mismatched_target_and_slot             OK
++ [Invalid] EF - Capella - Operations - Attestation - new_source_epoch                       OK
++ [Invalid] EF - Capella - Operations - Attestation - old_source_epoch                       OK
++ [Invalid] EF - Capella - Operations - Attestation - old_target_epoch                       OK
++ [Invalid] EF - Capella - Operations - Attestation - source_root_is_target_root             OK
++ [Invalid] EF - Capella - Operations - Attestation - too_few_aggregation_bits               OK
++ [Invalid] EF - Capella - Operations - Attestation - too_many_aggregation_bits              OK
++ [Invalid] EF - Capella - Operations - Attestation - wrong_index_for_committee_signature    OK
++ [Invalid] EF - Capella - Operations - Attestation - wrong_index_for_slot_0                 OK
++ [Invalid] EF - Capella - Operations - Attestation - wrong_index_for_slot_1                 OK
 + [Invalid] EF - Phase 0 - Operations - Attestation - after_epoch_slots                      OK
 + [Invalid] EF - Phase 0 - Operations - Attestation - bad_source_root                        OK
 + [Invalid] EF - Phase 0 - Operations - Attestation - before_inclusion_delay                 OK
@@ -603,6 +817,21 @@ OK: 488/495 Fail: 0/495 Skip: 7/495
 + [Valid]   EF - Bellatrix - Operations - Attestation - success                              OK
 + [Valid]   EF - Bellatrix - Operations - Attestation - success_multi_proposer_index_iterati OK
 + [Valid]   EF - Bellatrix - Operations - Attestation - success_previous_epoch               OK
++ [Valid]   EF - Capella - Operations - Attestation - correct_epoch_delay                    OK
++ [Valid]   EF - Capella - Operations - Attestation - correct_min_inclusion_delay            OK
++ [Valid]   EF - Capella - Operations - Attestation - correct_sqrt_epoch_delay               OK
++ [Valid]   EF - Capella - Operations - Attestation - incorrect_head_and_target_epoch_delay  OK
++ [Valid]   EF - Capella - Operations - Attestation - incorrect_head_and_target_min_inclusio OK
++ [Valid]   EF - Capella - Operations - Attestation - incorrect_head_and_target_sqrt_epoch_d OK
++ [Valid]   EF - Capella - Operations - Attestation - incorrect_head_epoch_delay             OK
++ [Valid]   EF - Capella - Operations - Attestation - incorrect_head_min_inclusion_delay     OK
++ [Valid]   EF - Capella - Operations - Attestation - incorrect_head_sqrt_epoch_delay        OK
++ [Valid]   EF - Capella - Operations - Attestation - incorrect_target_epoch_delay           OK
++ [Valid]   EF - Capella - Operations - Attestation - incorrect_target_min_inclusion_delay   OK
++ [Valid]   EF - Capella - Operations - Attestation - incorrect_target_sqrt_epoch_delay      OK
++ [Valid]   EF - Capella - Operations - Attestation - success                                OK
++ [Valid]   EF - Capella - Operations - Attestation - success_multi_proposer_index_iteration OK
++ [Valid]   EF - Capella - Operations - Attestation - success_previous_epoch                 OK
 + [Valid]   EF - Phase 0 - Operations - Attestation - correct_epoch_delay                    OK
 + [Valid]   EF - Phase 0 - Operations - Attestation - correct_min_inclusion_delay            OK
 + [Valid]   EF - Phase 0 - Operations - Attestation - correct_sqrt_epoch_delay               OK
@@ -619,7 +848,7 @@ OK: 488/495 Fail: 0/495 Skip: 7/495
 + [Valid]   EF - Phase 0 - Operations - Attestation - success_multi_proposer_index_iteration OK
 + [Valid]   EF - Phase 0 - Operations - Attestation - success_previous_epoch                 OK
 ```
-OK: 117/117 Fail: 0/117 Skip: 0/117
+OK: 156/156 Fail: 0/156 Skip: 0/156
 ## Attester Slashing
 ```diff
 + [Invalid] EF - Altair - Operations - Attester Slashing - all_empty_indices                 OK
@@ -664,6 +893,27 @@ OK: 117/117 Fail: 0/117 Skip: 0/117
 + [Invalid] EF - Bellatrix - Operations - Attester Slashing - same_data                      OK
 + [Invalid] EF - Bellatrix - Operations - Attester Slashing - unsorted_att_1                 OK
 + [Invalid] EF - Bellatrix - Operations - Attester Slashing - unsorted_att_2                 OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - all_empty_indices                OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - att1_bad_extra_index             OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - att1_bad_replaced_index          OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - att1_duplicate_index_double_sign OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - att1_duplicate_index_normal_sign OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - att1_empty_indices               OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - att1_high_index                  OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - att2_bad_extra_index             OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - att2_bad_replaced_index          OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - att2_duplicate_index_double_sign OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - att2_duplicate_index_normal_sign OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - att2_empty_indices               OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - att2_high_index                  OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - invalid_sig_1                    OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - invalid_sig_1_and_2              OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - invalid_sig_2                    OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - no_double_or_surround            OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - participants_already_slashed     OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - same_data                        OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - unsorted_att_1                   OK
++ [Invalid] EF - Capella - Operations - Attester Slashing - unsorted_att_2                   OK
 + [Invalid] EF - Phase 0 - Operations - Attester Slashing - all_empty_indices                OK
 + [Invalid] EF - Phase 0 - Operations - Attester Slashing - att1_bad_extra_index             OK
 + [Invalid] EF - Phase 0 - Operations - Attester Slashing - att1_bad_replaced_index          OK
@@ -703,6 +953,15 @@ OK: 117/117 Fail: 0/117 Skip: 0/117
 + [Valid]   EF - Bellatrix - Operations - Attester Slashing - success_proposer_index_slashed OK
 + [Valid]   EF - Bellatrix - Operations - Attester Slashing - success_surround               OK
 + [Valid]   EF - Bellatrix - Operations - Attester Slashing - success_with_effective_balance OK
++ [Valid]   EF - Capella - Operations - Attester Slashing - success_already_exited_long_ago  OK
++ [Valid]   EF - Capella - Operations - Attester Slashing - success_already_exited_recent    OK
++ [Valid]   EF - Capella - Operations - Attester Slashing - success_attestation_from_future  OK
++ [Valid]   EF - Capella - Operations - Attester Slashing - success_double                   OK
++ [Valid]   EF - Capella - Operations - Attester Slashing - success_low_balances             OK
++ [Valid]   EF - Capella - Operations - Attester Slashing - success_misc_balances            OK
++ [Valid]   EF - Capella - Operations - Attester Slashing - success_proposer_index_slashed   OK
++ [Valid]   EF - Capella - Operations - Attester Slashing - success_surround                 OK
++ [Valid]   EF - Capella - Operations - Attester Slashing - success_with_effective_balance_d OK
 + [Valid]   EF - Phase 0 - Operations - Attester Slashing - success_already_exited_long_ago  OK
 + [Valid]   EF - Phase 0 - Operations - Attester Slashing - success_already_exited_recent    OK
 + [Valid]   EF - Phase 0 - Operations - Attester Slashing - success_attestation_from_future  OK
@@ -713,7 +972,21 @@ OK: 117/117 Fail: 0/117 Skip: 0/117
 + [Valid]   EF - Phase 0 - Operations - Attester Slashing - success_surround                 OK
 + [Valid]   EF - Phase 0 - Operations - Attester Slashing - success_with_effective_balance_d OK
 ```
-OK: 90/90 Fail: 0/90 Skip: 0/90
+OK: 120/120 Fail: 0/120 Skip: 0/120
+## BLS to execution change
+```diff
++ [Invalid] EF - Capella - Operations - BLS to execution change - fail_already_0x01          OK
++ [Invalid] EF - Capella - Operations - BLS to execution change - fail_bad_signature         OK
++ [Invalid] EF - Capella - Operations - BLS to execution change - fail_incorrect_from_bls_pu OK
++ [Invalid] EF - Capella - Operations - BLS to execution change - fail_val_index_out_of_rang OK
++ [Valid]   EF - Capella - Operations - BLS to execution change - success                    OK
++ [Valid]   EF - Capella - Operations - BLS to execution change - success_exited             OK
++ [Valid]   EF - Capella - Operations - BLS to execution change - success_in_activation_queu OK
++ [Valid]   EF - Capella - Operations - BLS to execution change - success_in_exit_queue      OK
++ [Valid]   EF - Capella - Operations - BLS to execution change - success_not_activated      OK
++ [Valid]   EF - Capella - Operations - BLS to execution change - success_withdrawable       OK
+```
+OK: 10/10 Fail: 0/10 Skip: 0/10
 ## Block Header
 ```diff
 + [Invalid] EF - Altair - Operations - Block Header - invalid_multiple_blocks_single_slot    OK
@@ -726,6 +999,11 @@ OK: 90/90 Fail: 0/90 Skip: 0/90
 + [Invalid] EF - Bellatrix - Operations - Block Header - invalid_proposer_index              OK
 + [Invalid] EF - Bellatrix - Operations - Block Header - invalid_slot_block_header           OK
 + [Invalid] EF - Bellatrix - Operations - Block Header - proposer_slashed                    OK
++ [Invalid] EF - Capella - Operations - Block Header - invalid_multiple_blocks_single_slot   OK
++ [Invalid] EF - Capella - Operations - Block Header - invalid_parent_root                   OK
++ [Invalid] EF - Capella - Operations - Block Header - invalid_proposer_index                OK
++ [Invalid] EF - Capella - Operations - Block Header - invalid_slot_block_header             OK
++ [Invalid] EF - Capella - Operations - Block Header - proposer_slashed                      OK
 + [Invalid] EF - Phase 0 - Operations - Block Header - invalid_multiple_blocks_single_slot   OK
 + [Invalid] EF - Phase 0 - Operations - Block Header - invalid_parent_root                   OK
 + [Invalid] EF - Phase 0 - Operations - Block Header - invalid_proposer_index                OK
@@ -733,15 +1011,18 @@ OK: 90/90 Fail: 0/90 Skip: 0/90
 + [Invalid] EF - Phase 0 - Operations - Block Header - proposer_slashed                      OK
 + [Valid]   EF - Altair - Operations - Block Header - success_block_header                   OK
 + [Valid]   EF - Bellatrix - Operations - Block Header - success_block_header                OK
++ [Valid]   EF - Capella - Operations - Block Header - success_block_header                  OK
 + [Valid]   EF - Phase 0 - Operations - Block Header - success_block_header                  OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
+OK: 24/24 Fail: 0/24 Skip: 0/24
 ## Deposit
 ```diff
 + [Invalid] EF - Altair - Operations - Deposit - bad_merkle_proof                            OK
 + [Invalid] EF - Altair - Operations - Deposit - wrong_deposit_for_deposit_count             OK
 + [Invalid] EF - Bellatrix - Operations - Deposit - bad_merkle_proof                         OK
 + [Invalid] EF - Bellatrix - Operations - Deposit - wrong_deposit_for_deposit_count          OK
++ [Invalid] EF - Capella - Operations - Deposit - bad_merkle_proof                           OK
++ [Invalid] EF - Capella - Operations - Deposit - wrong_deposit_for_deposit_count            OK
 + [Invalid] EF - Phase 0 - Operations - Deposit - bad_merkle_proof                           OK
 + [Invalid] EF - Phase 0 - Operations - Deposit - wrong_deposit_for_deposit_count            OK
 + [Valid]   EF - Altair - Operations - Deposit - invalid_sig_new_deposit                     OK
@@ -755,7 +1036,9 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_non_versioned_withdrawal_creden OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_over_max                        OK
 + [Valid]   EF - Altair - Operations - Deposit - new_deposit_under_max                       OK
-+ [Valid]   EF - Altair - Operations - Deposit - success_top_up                              OK
++ [Valid]   EF - Altair - Operations - Deposit - success_top_up__less_effective_balance      OK
++ [Valid]   EF - Altair - Operations - Deposit - success_top_up__max_effective_balance       OK
++ [Valid]   EF - Altair - Operations - Deposit - success_top_up__zero_balance                OK
 + [Valid]   EF - Altair - Operations - Deposit - valid_sig_but_forked_state                  OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - deposit_with_bad_fork_version__valid_ine OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - deposit_with_genesis_fork_version__valid OK
@@ -771,8 +1054,29 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_non_versioned_withdrawal_cre OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_over_max                     OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - new_deposit_under_max                    OK
-+ [Valid]   EF - Bellatrix - Operations - Deposit - success_top_up                           OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - success_top_up__less_effective_balance   OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - success_top_up__max_effective_balance    OK
++ [Valid]   EF - Bellatrix - Operations - Deposit - success_top_up__zero_balance             OK
 + [Valid]   EF - Bellatrix - Operations - Deposit - valid_sig_but_forked_state               OK
++ [Valid]   EF - Capella - Operations - Deposit - deposit_with_bad_fork_version__valid_ineff OK
++ [Valid]   EF - Capella - Operations - Deposit - deposit_with_genesis_fork_version__valid_e OK
++ [Valid]   EF - Capella - Operations - Deposit - deposit_with_previous_fork_version__valid_ OK
++ [Valid]   EF - Capella - Operations - Deposit - invalid_sig_new_deposit                    OK
++ [Valid]   EF - Capella - Operations - Deposit - invalid_sig_other_version                  OK
++ [Valid]   EF - Capella - Operations - Deposit - invalid_sig_top_up                         OK
++ [Valid]   EF - Capella - Operations - Deposit - invalid_withdrawal_credentials_top_up      OK
++ [Valid]   EF - Capella - Operations - Deposit - key_validate_invalid_decompression         OK
++ [Valid]   EF - Capella - Operations - Deposit - key_validate_invalid_subgroup              OK
++ [Valid]   EF - Capella - Operations - Deposit - new_deposit_eth1_withdrawal_credentials    OK
++ [Valid]   EF - Capella - Operations - Deposit - new_deposit_max                            OK
++ [Valid]   EF - Capella - Operations - Deposit - new_deposit_non_versioned_withdrawal_crede OK
++ [Valid]   EF - Capella - Operations - Deposit - new_deposit_over_max                       OK
++ [Valid]   EF - Capella - Operations - Deposit - new_deposit_under_max                      OK
++ [Valid]   EF - Capella - Operations - Deposit - success_top_up__less_effective_balance     OK
++ [Valid]   EF - Capella - Operations - Deposit - success_top_up__max_effective_balance      OK
++ [Valid]   EF - Capella - Operations - Deposit - success_top_up__zero_balance               OK
++ [Valid]   EF - Capella - Operations - Deposit - success_top_up_to_withdrawn_validator      OK
++ [Valid]   EF - Capella - Operations - Deposit - valid_sig_but_forked_state                 OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_sig_new_deposit                    OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_sig_other_version                  OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_sig_top_up                         OK
@@ -784,10 +1088,12 @@ OK: 18/18 Fail: 0/18 Skip: 0/18
 + [Valid]   EF - Phase 0 - Operations - Deposit - new_deposit_non_versioned_withdrawal_crede OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - new_deposit_over_max                       OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - new_deposit_under_max                      OK
-+ [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up                             OK
++ [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up__less_effective_balance     OK
++ [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up__max_effective_balance      OK
++ [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up__zero_balance               OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - valid_sig_but_forked_state                 OK
 ```
-OK: 48/48 Fail: 0/48 Skip: 0/48
+OK: 75/75 Fail: 0/75 Skip: 0/75
 ## EF - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -879,6 +1185,25 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
 + Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
+## EF - Altair - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
 ```
 OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Altair - Epoch Processing - Slashings [Preset: minimal]
@@ -1047,6 +1372,25 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
 OK: 15/15 Fail: 0/15 Skip: 0/15
+## EF - Bellatrix - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
 ## EF - Bellatrix - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -1115,6 +1459,189 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    VoluntaryExit                                                                 OK
 ```
 OK: 41/41 Fail: 0/41 Skip: 0/41
+## EF - Capella - Epoch Processing - Effective balance updates [Preset: minimal]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - Capella - Epoch Processing - Eth1 data reset [Preset: minimal]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## EF - Capella - Epoch Processing - Historical roots update [Preset: minimal]
+```diff
++ Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - Capella - Epoch Processing - Inactivity [Preset: minimal]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
++ Inactivity - genesis [Preset: minimal]                                                     OK
++ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
++ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
+```
+OK: 19/19 Fail: 0/19 Skip: 0/19
+## EF - Capella - Epoch Processing - Justification & Finalization [Preset: minimal]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
++ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+OK: 10/10 Fail: 0/10 Skip: 0/10
+## EF - Capella - Epoch Processing - Participation flag updates [Preset: minimal]
+```diff
++ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
++ Participation flag updates - current_filled [Preset: minimal]                              OK
++ Participation flag updates - filled [Preset: minimal]                                      OK
++ Participation flag updates - large_random [Preset: minimal]                                OK
++ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
++ Participation flag updates - previous_filled [Preset: minimal]                             OK
++ Participation flag updates - random_0 [Preset: minimal]                                    OK
++ Participation flag updates - random_1 [Preset: minimal]                                    OK
++ Participation flag updates - random_2 [Preset: minimal]                                    OK
++ Participation flag updates - random_genesis [Preset: minimal]                              OK
++ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
+```
+OK: 12/12 Fail: 0/12 Skip: 0/12
+## EF - Capella - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - Capella - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
+## EF - Capella - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
+## EF - Capella - Epoch Processing - Slashings [Preset: minimal]
+```diff
++ Slashings - low_penalty [Preset: minimal]                                                  OK
++ Slashings - max_penalties [Preset: minimal]                                                OK
++ Slashings - minimal_penalty [Preset: minimal]                                              OK
++ Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
+## EF - Capella - Epoch Processing - Slashings reset [Preset: minimal]
+```diff
++ Slashings reset - flush_slashings [Preset: minimal]                                        OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - Capella - Epoch Processing - Sync committee updates [Preset: minimal]
+```diff
++ Sync committee updates - sync_committees_no_progress_not_boundary [Preset: minimal]        OK
++ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
++ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
++ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
++ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
+## EF - Capella - SSZ consensus objects  [Preset: minimal]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
+```
+OK: 44/44 Fail: 0/44 Skip: 0/44
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1174,6 +1701,29 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
 ```
 OK: 15/15 Fail: 0/15 Skip: 0/15
+## EF - Phase 0 - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - duplicate_participants_different_attestation_1 [Preset: minimal]   OK
++ Rewards and penalties - duplicate_participants_different_attestation_2 [Preset: minimal]   OK
++ Rewards and penalties - duplicate_participants_different_attestation_3 [Preset: minimal]   OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - full_attestations_random_incorrect_fields [Preset: minimal]        OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+OK: 19/19 Fail: 0/19 Skip: 0/19
 ## EF - Phase 0 - Epoch Processing - Slashings [Preset: minimal]
 ```diff
 + Slashings - low_penalty [Preset: minimal]                                                  OK
@@ -1234,6 +1784,19 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Invalid] EF - Bellatrix - Operations - Execution Payload - past_timestamp_regular_payload OK
 + [Invalid] EF - Bellatrix - Operations - Execution Payload - randomized_non_validated_execu OK
 + [Invalid] EF - Bellatrix - Operations - Execution Payload - randomized_non_validated_execu OK
++ [Invalid] EF - Capella - Operations - Execution Payload - bad_everything_first_payload     OK
++ [Invalid] EF - Capella - Operations - Execution Payload - bad_everything_regular_payload   OK
++ [Invalid] EF - Capella - Operations - Execution Payload - bad_execution_first_payload      OK
++ [Invalid] EF - Capella - Operations - Execution Payload - bad_execution_regular_payload    OK
++ [Invalid] EF - Capella - Operations - Execution Payload - bad_parent_hash_regular_payload  OK
++ [Invalid] EF - Capella - Operations - Execution Payload - bad_pre_randao_regular_payload   OK
++ [Invalid] EF - Capella - Operations - Execution Payload - bad_prev_randao_first_payload    OK
++ [Invalid] EF - Capella - Operations - Execution Payload - future_timestamp_first_payload   OK
++ [Invalid] EF - Capella - Operations - Execution Payload - future_timestamp_regular_payload OK
++ [Invalid] EF - Capella - Operations - Execution Payload - past_timestamp_first_payload     OK
++ [Invalid] EF - Capella - Operations - Execution Payload - past_timestamp_regular_payload   OK
++ [Invalid] EF - Capella - Operations - Execution Payload - randomized_non_validated_executi OK
++ [Invalid] EF - Capella - Operations - Execution Payload - randomized_non_validated_executi OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - bad_parent_hash_first_payload  OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - non_empty_extra_data_first_pay OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - non_empty_extra_data_regular_p OK
@@ -1247,8 +1810,21 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - success_regular_payload_with_g OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - zero_length_transaction_first_ OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - zero_length_transaction_regula OK
++ [Valid]   EF - Capella - Operations - Execution Payload - bad_parent_hash_first_payload    OK
++ [Valid]   EF - Capella - Operations - Execution Payload - non_empty_extra_data_first_paylo OK
++ [Valid]   EF - Capella - Operations - Execution Payload - non_empty_extra_data_regular_pay OK
++ [Valid]   EF - Capella - Operations - Execution Payload - non_empty_transactions_first_pay OK
++ [Valid]   EF - Capella - Operations - Execution Payload - non_empty_transactions_regular_p OK
++ [Valid]   EF - Capella - Operations - Execution Payload - randomized_non_validated_executi OK
++ [Valid]   EF - Capella - Operations - Execution Payload - randomized_non_validated_executi OK
++ [Valid]   EF - Capella - Operations - Execution Payload - success_first_payload            OK
++ [Valid]   EF - Capella - Operations - Execution Payload - success_first_payload_with_gap_s OK
++ [Valid]   EF - Capella - Operations - Execution Payload - success_regular_payload          OK
++ [Valid]   EF - Capella - Operations - Execution Payload - success_regular_payload_with_gap OK
++ [Valid]   EF - Capella - Operations - Execution Payload - zero_length_transaction_first_pa OK
++ [Valid]   EF - Capella - Operations - Execution Payload - zero_length_transaction_regular_ OK
 ```
-OK: 26/26 Fail: 0/26 Skip: 0/26
+OK: 52/52 Fail: 0/52 Skip: 0/52
 ## Proposer Slashing
 ```diff
 + [Invalid] EF - Altair - Operations - Proposer Slashing - epochs_are_different              OK
@@ -1275,6 +1851,18 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - proposer_is_not_activated      OK
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - proposer_is_slashed            OK
 + [Invalid] EF - Bellatrix - Operations - Proposer Slashing - proposer_is_withdrawn          OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - epochs_are_different             OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - headers_are_same_sigs_are_differ OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - headers_are_same_sigs_are_same   OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_different_proposer_indic OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_proposer_index           OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_sig_1                    OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_sig_1_and_2              OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_sig_1_and_2_swap         OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - invalid_sig_2                    OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - proposer_is_not_activated        OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - proposer_is_slashed              OK
++ [Invalid] EF - Capella - Operations - Proposer Slashing - proposer_is_withdrawn            OK
 + [Invalid] EF - Phase 0 - Operations - Proposer Slashing - epochs_are_different             OK
 + [Invalid] EF - Phase 0 - Operations - Proposer Slashing - headers_are_same_sigs_are_differ OK
 + [Invalid] EF - Phase 0 - Operations - Proposer Slashing - headers_are_same_sigs_are_same   OK
@@ -1293,11 +1881,14 @@ OK: 26/26 Fail: 0/26 Skip: 0/26
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - success                        OK
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - success_block_header_from_futu OK
 + [Valid]   EF - Bellatrix - Operations - Proposer Slashing - success_slashed_and_proposer_i OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - success                          OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - success_block_header_from_future OK
++ [Valid]   EF - Capella - Operations - Proposer Slashing - success_slashed_and_proposer_ind OK
 + [Valid]   EF - Phase 0 - Operations - Proposer Slashing - success                          OK
 + [Valid]   EF - Phase 0 - Operations - Proposer Slashing - success_block_header_from_future OK
 + [Valid]   EF - Phase 0 - Operations - Proposer Slashing - success_slashed_and_proposer_ind OK
 ```
-OK: 45/45 Fail: 0/45 Skip: 0/45
+OK: 60/60 Fail: 0/60 Skip: 0/60
 ## Sync Aggregate
 ```diff
 + [Invalid] EF - Altair - Operations - Sync Aggregate - invalid_signature_bad_domain         OK
@@ -1316,6 +1907,14 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + [Invalid] EF - Bellatrix - Operations - Sync Aggregate - invalid_signature_no_participants OK
 + [Invalid] EF - Bellatrix - Operations - Sync Aggregate - invalid_signature_past_block      OK
 + [Invalid] EF - Bellatrix - Operations - Sync Aggregate - invalid_signature_previous_commit OK
++ [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_bad_domain        OK
++ [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_extra_participant OK
++ [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_infinite_signatur OK
++ [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_infinite_signatur OK
++ [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_missing_participa OK
++ [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_no_participants   OK
++ [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_past_block        OK
++ [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_previous_committe OK
 + [Valid]   EF - Altair - Operations - Sync Aggregate - proposer_in_committee_with_participa OK
 + [Valid]   EF - Altair - Operations - Sync Aggregate - proposer_in_committee_without_partic OK
 + [Valid]   EF - Altair - Operations - Sync Aggregate - random_all_but_one_participating_wit OK
@@ -1348,8 +1947,24 @@ OK: 45/45 Fail: 0/45 Skip: 0/45
 + [Valid]   EF - Bellatrix - Operations - Sync Aggregate - sync_committee_with_participating OK
 + [Valid]   EF - Bellatrix - Operations - Sync Aggregate - sync_committee_with_participating OK
 + [Valid]   EF - Bellatrix - Operations - Sync Aggregate - valid_signature_future_committee  OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - proposer_in_committee_with_particip OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - proposer_in_committee_without_parti OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - random_all_but_one_participating_wi OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - random_high_participation_without_d OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - random_low_participation_without_du OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - random_misc_balances_and_half_parti OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - random_only_one_participant_without OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - random_with_exits_without_duplicate OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - sync_committee_rewards_empty_partic OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - sync_committee_rewards_nonduplicate OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - sync_committee_rewards_not_full_par OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - sync_committee_with_nonparticipatin OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - sync_committee_with_nonparticipatin OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - sync_committee_with_participating_e OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - sync_committee_with_participating_w OK
++ [Valid]   EF - Capella - Operations - Sync Aggregate - valid_signature_future_committee    OK
 ```
-OK: 48/48 Fail: 0/48 Skip: 0/48
+OK: 72/72 Fail: 0/72 Skip: 0/72
 ## Voluntary Exit
 ```diff
 + [Invalid] EF - Altair - Operations - Voluntary Exit - invalid_signature                    OK
@@ -1368,6 +1983,16 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 + [Invalid] EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_genesis_fork_ OK
 + [Invalid] EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_genesis_fork_ OK
 + [Invalid] EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_previous_fork OK
++ [Invalid] EF - Capella - Operations - Voluntary Exit - invalid_signature                   OK
++ [Invalid] EF - Capella - Operations - Voluntary Exit - validator_already_exited            OK
++ [Invalid] EF - Capella - Operations - Voluntary Exit - validator_exit_in_future            OK
++ [Invalid] EF - Capella - Operations - Voluntary Exit - validator_invalid_validator_index   OK
++ [Invalid] EF - Capella - Operations - Voluntary Exit - validator_not_active                OK
++ [Invalid] EF - Capella - Operations - Voluntary Exit - validator_not_active_long_enough    OK
++ [Invalid] EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ve OK
++ [Invalid] EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_genesis_fork_ve OK
++ [Invalid] EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_genesis_fork_ve OK
++ [Invalid] EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
 + [Invalid] EF - Phase 0 - Operations - Voluntary Exit - invalid_signature                   OK
 + [Invalid] EF - Phase 0 - Operations - Voluntary Exit - validator_already_exited            OK
 + [Invalid] EF - Phase 0 - Operations - Voluntary Exit - validator_exit_in_future            OK
@@ -1384,12 +2009,73 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - success_exit_queue__scaled_churn  OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ OK
 + [Valid]   EF - Bellatrix - Operations - Voluntary Exit - voluntary_exit_with_previous_fork OK
++ [Valid]   EF - Capella - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit  OK
++ [Valid]   EF - Capella - Operations - Voluntary Exit - success                             OK
++ [Valid]   EF - Capella - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
++ [Valid]   EF - Capella - Operations - Voluntary Exit - success_exit_queue__scaled_churn    OK
++ [Valid]   EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ve OK
++ [Valid]   EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
 + [Valid]   EF - Phase 0 - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit  OK
 + [Valid]   EF - Phase 0 - Operations - Voluntary Exit - success                             OK
 + [Valid]   EF - Phase 0 - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
 + [Valid]   EF - Phase 0 - Operations - Voluntary Exit - success_exit_queue__scaled_churn    OK
 ```
-OK: 36/36 Fail: 0/36 Skip: 0/36
+OK: 52/52 Fail: 0/52 Skip: 0/52
+## Withdrawals
+```diff
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_a_lot_fully_withdrawable_too_few_ OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_a_lot_mixed_withdrawable_in_queue OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_a_lot_partially_withdrawable_too_ OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_incorrect_address_full            OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_incorrect_address_partial         OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_incorrect_amount_full             OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_incorrect_amount_partial          OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_incorrect_withdrawal_index        OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_many_incorrectly_full             OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_many_incorrectly_partial          OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_max_per_slot_full_withdrawals_and OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_max_per_slot_partial_withdrawals_ OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_non_withdrawable_non_empty_withdr OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_one_expected_full_withdrawal_and_ OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_one_expected_full_withdrawal_and_ OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_one_expected_partial_withdrawal_a OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_one_of_many_incorrectly_full      OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_one_of_many_incorrectly_partial   OK
++ [Invalid] EF - Capella - Operations - Withdrawals - fail_two_expected_partial_withdrawal_a OK
++ [Valid]   EF - Capella - Operations - Withdrawals - all_withdrawal                         OK
++ [Valid]   EF - Capella - Operations - Withdrawals - no_withdrawals_but_some_next_epoch     OK
++ [Valid]   EF - Capella - Operations - Withdrawals - random_0                               OK
++ [Valid]   EF - Capella - Operations - Withdrawals - random_full_withdrawals_0              OK
++ [Valid]   EF - Capella - Operations - Withdrawals - random_full_withdrawals_1              OK
++ [Valid]   EF - Capella - Operations - Withdrawals - random_full_withdrawals_2              OK
++ [Valid]   EF - Capella - Operations - Withdrawals - random_full_withdrawals_3              OK
++ [Valid]   EF - Capella - Operations - Withdrawals - random_partial_withdrawals_1           OK
++ [Valid]   EF - Capella - Operations - Withdrawals - random_partial_withdrawals_2           OK
++ [Valid]   EF - Capella - Operations - Withdrawals - random_partial_withdrawals_3           OK
++ [Valid]   EF - Capella - Operations - Withdrawals - random_partial_withdrawals_4           OK
++ [Valid]   EF - Capella - Operations - Withdrawals - random_partial_withdrawals_5           OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_all_fully_withdrawable         OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_all_partially_withdrawable     OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_max_partial_withdrawable       OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_max_per_slot                   OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_max_plus_one_withdrawable      OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_no_excess_balance              OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_no_max_effective_balance       OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_one_full_withdrawal            OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_one_partial_withdrawable_activ OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_one_partial_withdrawable_exite OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_one_partial_withdrawable_exite OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_one_partial_withdrawable_in_ex OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_one_partial_withdrawable_not_y OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_one_partial_withdrawal         OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_two_partial_withdrawable       OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_zero_expected_withdrawals      OK
++ [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_balance       OK
++ [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
++ [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
+```
+OK: 51/51 Fail: 0/51 Skip: 0/51
 
 ---TOTAL---
-OK: 1207/1214 Fail: 0/1214 Skip: 7/1214
+OK: 1820/1828 Fail: 0/1828 Skip: 8/1828

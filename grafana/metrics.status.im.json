@@ -9,12 +9,13 @@
       "pluginName": "Prometheus"
     }
   ],
+  "__elements": [],
   "__requires": [
     {
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "8.2.7"
+      "version": "8.4.3"
     },
     {
       "type": "panel",
@@ -62,16 +63,14 @@
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1645740474076,
+  "iteration": 1668598332189,
   "links": [],
   "liveNow": false,
   "panels": [
     {
       "collapsed": false,
-      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -84,7 +83,6 @@
       "type": "row"
     },
     {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -126,7 +124,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "expr": "validators{instance=\"${instance}\",container=\"${container}\"}",
@@ -135,14 +133,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Validators",
       "type": "stat"
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -181,7 +175,6 @@
         "y": 1
       },
       "id": 12,
-      "interval": null,
       "links": [],
       "maxDataPoints": 100,
       "options": {
@@ -199,7 +192,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "expr": "nbc_peers{instance=\"${instance}\",container=\"${container}\"}",
@@ -208,14 +201,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Peers",
       "type": "stat"
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -254,7 +243,6 @@
         "y": 1
       },
       "id": 40,
-      "interval": null,
       "links": [],
       "maxDataPoints": 100,
       "options": {
@@ -272,7 +260,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "expr": "time() - process_start_time_seconds{instance=\"${instance}\",container=\"${container}\"}",
@@ -281,14 +269,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Uptime",
       "type": "stat"
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -329,7 +313,6 @@
         "y": 1
       },
       "id": 8,
-      "interval": null,
       "links": [],
       "maxDataPoints": 100,
       "options": {
@@ -347,21 +330,17 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "expr": "rate(process_cpu_seconds_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 100",
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "CPU usage",
       "type": "stat"
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -400,7 +379,6 @@
         "y": 1
       },
       "id": 6,
-      "interval": null,
       "links": [],
       "maxDataPoints": 100,
       "options": {
@@ -418,20 +396,17 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "expr": "process_resident_memory_bytes{instance=\"${instance}\",container=\"${container}\"}",
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "RSS mem",
       "type": "stat"
     },
     {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -496,7 +471,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "targets": [
@@ -520,8 +496,6 @@
       "type": "timeseries"
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
       "description": "Slot based on current wall clock time",
       "fieldConfig": {
         "defaults": {
@@ -563,7 +537,6 @@
         "y": 3
       },
       "id": 28,
-      "interval": null,
       "links": [],
       "maxDataPoints": 100,
       "options": {
@@ -581,7 +554,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "expr": "beacon_slot{instance=\"${instance}\",container=\"${container}\"}",
@@ -590,14 +563,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Wall slot",
       "type": "stat"
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -639,7 +608,6 @@
         "y": 3
       },
       "id": 79,
-      "interval": null,
       "links": [],
       "maxDataPoints": 100,
       "options": {
@@ -657,7 +625,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -667,14 +635,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Head slot",
       "type": "stat"
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
       "description": "Epoch based on current wall clock time",
       "fieldConfig": {
         "defaults": {
@@ -716,7 +680,6 @@
         "y": 3
       },
       "id": 81,
-      "interval": null,
       "links": [],
       "maxDataPoints": 100,
       "options": {
@@ -734,7 +697,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -744,14 +707,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Wall epoch",
       "type": "stat"
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -793,7 +752,6 @@
         "y": 3
       },
       "id": 80,
-      "interval": null,
       "links": [],
       "maxDataPoints": 100,
       "options": {
@@ -811,7 +769,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -821,14 +779,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Head epoch",
       "type": "stat"
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -870,7 +824,6 @@
         "y": 3
       },
       "id": 34,
-      "interval": null,
       "links": [],
       "maxDataPoints": 100,
       "options": {
@@ -888,7 +841,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -898,14 +851,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Justified epoch",
       "type": "stat"
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -947,7 +896,6 @@
         "y": 3
       },
       "id": 36,
-      "interval": null,
       "links": [],
       "maxDataPoints": 100,
       "options": {
@@ -965,7 +913,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "expr": "beacon_finalized_epoch{instance=\"${instance}\",container=\"${container}\"}",
@@ -974,13 +922,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Finalized epoch",
       "type": "stat"
     },
     {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1085,7 +1030,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -1125,13 +1071,10 @@
           "refId": "B"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "resources (${instance})",
       "type": "timeseries"
     },
     {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1199,7 +1142,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -1211,13 +1155,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "open streams (${instance})",
       "type": "timeseries"
     },
     {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1281,6 +1222,18 @@
                 "value": "auto"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byType",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "auto"
+              }
+            ]
           }
         ]
       },
@@ -1298,7 +1251,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -1310,13 +1264,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "GC heap objects (${instance})",
       "type": "timeseries"
     },
     {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1344,7 +1295,7 @@
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -1368,15 +1319,39 @@
           },
           "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total"
+            },
+            "properties": [
+              {
+                "id": "custom.stacking",
+                "value": {
+                  "group": "A",
+                  "mode": "none"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "h": 7,
+        "h": 6,
         "w": 12,
         "x": 12,
         "y": 11
       },
-      "id": 51,
+      "id": 76,
       "options": {
         "legend": {
           "calcs": [],
@@ -1384,37 +1359,145 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
       "targets": [
         {
-          "expr": "libp2p_peers{instance=\"${instance}\",container=\"${container}\"}",
+          "exemplar": true,
+          "expr": "libp2p_peers_identity{instance=\"${instance}\",container=\"${container}\"}",
           "interval": "",
-          "legendFormat": "libp2p peers",
+          "legendFormat": "{{agent}}",
           "refId": "A"
-        },
-        {
-          "expr": "libp2p_pubsub_peers{instance=\"${instance}\",container=\"${container}\"}",
-          "interval": "",
-          "legendFormat": "libp2p pubsub peers",
-          "refId": "C"
-        },
-        {
-          "expr": "nbc_peers{instance=\"${instance}\",container=\"${container}\"}",
-          "interval": "",
-          "legendFormat": "beacon_node peers",
-          "refId": "B"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "peers (${instance})",
+      "title": "peer type (${instance})",
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {}
+        }
+      ],
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "binBps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total"
+            },
+            "properties": [
+              {
+                "id": "custom.stacking",
+                "value": {
+                  "group": "A",
+                  "mode": "none"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "id": 77,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "rate(libp2p_peers_traffic_read_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval])",
+          "interval": "",
+          "legendFormat": "{{agent}}",
+          "refId": "A"
+        }
+      ],
+      "title": "incoming traffic by peer type (${instance})",
+      "transformations": [
+        {
+          "id": "calculateField",
+          "options": {}
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1496,6 +1579,44 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rejected"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#C4162A",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ignored"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
           }
         ]
       },
@@ -1513,242 +1634,62 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
           "expr": "rate(beacon_blocks_received_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 12",
           "interval": "",
           "legendFormat": "received",
           "refId": "B"
         },
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
           "expr": "rate(beacon_blocks_proposed_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 12",
           "interval": "",
           "legendFormat": "proposed",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
+          "expr": "rate(beacon_blocks_dropped_total{instance=\"${instance}\",container=\"${container}\", reason='Ignore'}[$__rate_interval]) * 12",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "ignored",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
+          "expr": "rate(beacon_blocks_dropped_total{instance=\"${instance}\",container=\"${container}\", reason='Reject'}[$__rate_interval]) * 12",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "rejected",
+          "refId": "D"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "blocks/slot (${instance})",
       "type": "timeseries"
     },
     {
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "links": [],
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Total"
-            },
-            "properties": [
-              {
-                "id": "custom.stacking",
-                "value": {
-                  "group": "A",
-                  "mode": "none"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 0
-              },
-              {
-                "id": "custom.lineWidth",
-                "value": 0
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 18
-      },
-      "id": 76,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "libp2p_peers_identity{instance=\"${instance}\",container=\"${container}\"}",
-          "interval": "",
-          "legendFormat": "{{agent}}",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "peer type (${instance})",
-      "transformations": [
-        {
-          "id": "calculateField",
-          "options": {}
-        }
-      ],
-      "type": "timeseries"
-    },
-    {
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "links": [],
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 0,
-        "y": 24
-      },
-      "id": 30,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "rate(beacon_attestations_received_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 12",
-          "interval": "",
-          "legendFormat": "received",
-          "refId": "A"
-        },
-        {
-          "exemplar": true,
-          "expr": "rate(beacon_attestations_sent_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 12",
-          "interval": "",
-          "legendFormat": "sent",
-          "refId": "B"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "attestations/slot (${instance})",
-      "type": "timeseries"
-    },
-    {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1827,12 +1768,12 @@
         ]
       },
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 22
       },
-      "id": 77,
+      "id": 78,
       "options": {
         "legend": {
           "calcs": [],
@@ -1840,22 +1781,21 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(libp2p_peers_traffic_read_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval])",
+          "expr": "rate(libp2p_peers_traffic_write_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval])",
           "interval": "",
           "legendFormat": "{{agent}}",
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "incoming traffic by peer type (${instance})",
+      "title": "outgoing traffic by peer type (${instance})",
       "transformations": [
         {
           "id": "calculateField",
@@ -1865,7 +1805,6 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1925,7 +1864,7 @@
         "x": 0,
         "y": 24
       },
-      "id": 55,
+      "id": 30,
       "options": {
         "legend": {
           "calcs": [],
@@ -1933,26 +1872,177 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
       "targets": [
         {
-          "exemplar": true,
-          "expr": "rate(beacon_aggregates_received_total{instance=\"${instance}\"}[$__rate_interval])",
+          "expr": "rate(beacon_attestations_received_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 12",
           "interval": "",
           "legendFormat": "received",
           "refId": "A"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_attestations_sent_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 12",
+          "interval": "",
+          "legendFormat": "sent",
+          "refId": "B"
+        },
+        {
+          "exemplar": true,
+          "expr": "rate(beacon_aggregates_received_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) * 12",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "aggregates",
+          "refId": "C"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "aggregates/slot (${instance})",
+      "title": "attestations/slot (${instance})",
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total"
+            },
+            "properties": [
+              {
+                "id": "custom.stacking",
+                "value": {
+                  "group": "A",
+                  "mode": "none"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "id": 109,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
+          "expr": "rate(nbc_reqresp_messages_received_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval])",
+          "interval": "",
+          "legendFormat": "{{protocol}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
+          "expr": "rate(nbc_reqresp_messages_failed{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "{{protocol}} (F)",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
+          "expr": "rate(nbc_reqresp_messages_throttled{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "{{protocol}} (T)",
+          "refId": "C"
+        }
+      ],
+      "title": "Incoming P2P requests",
+      "transformations": [],
+      "type": "timeseries"
+    },
+    {
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -2021,7 +2111,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -2041,13 +2132,11 @@
           "refId": "B"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "sync committee msgs/slot (${instance})",
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2097,41 +2186,17 @@
               }
             ]
           },
-          "unit": "binBps"
+          "unit": "reqps"
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Total"
-            },
-            "properties": [
-              {
-                "id": "custom.stacking",
-                "value": {
-                  "group": "A",
-                  "mode": "none"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 0
-              },
-              {
-                "id": "custom.lineWidth",
-                "value": 0
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 12,
         "x": 12,
-        "y": 29
+        "y": 33
       },
-      "id": 78,
+      "id": 110,
       "options": {
         "legend": {
           "calcs": [],
@@ -2139,32 +2204,29 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
           "exemplar": true,
-          "expr": "rate(libp2p_peers_traffic_write_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval])",
+          "expr": "rate(nbc_reqresp_messages_sent_total{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval])",
           "interval": "",
-          "legendFormat": "{{agent}}",
+          "legendFormat": "{{protocol}}",
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "outgoing traffic by peer type (${instance})",
-      "transformations": [
-        {
-          "id": "calculateField",
-          "options": {}
-        }
-      ],
+      "title": "Outgoing P2P requests",
+      "transformations": [],
       "type": "timeseries"
     },
     {
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -2233,7 +2295,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -2317,13 +2380,10 @@
           "refId": "J"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "dropped msgs/slot (ignored/rejected) (${instance})",
       "type": "timeseries"
     },
     {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2394,7 +2454,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 35
+        "y": 38
       },
       "id": 71,
       "options": {
@@ -2404,7 +2464,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "targets": [
@@ -2432,11 +2493,10 @@
           "refId": "B"
         }
       ],
-      "title": "Health of subnet reception",
+      "title": "Mesh health",
       "type": "timeseries"
     },
     {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2504,7 +2564,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -2516,13 +2577,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "validator rewards / epoch (${instance})",
       "type": "timeseries"
     },
     {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2608,7 +2666,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 42
+        "y": 45
       },
       "id": 106,
       "options": {
@@ -2618,7 +2676,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "targets": [
@@ -2646,11 +2705,10 @@
           "refId": "B"
         }
       ],
-      "title": "Health of subnet publishing",
+      "title": "Fanout health",
       "type": "timeseries"
     },
     {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2716,7 +2774,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -2729,13 +2788,126 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Eth1 Chain Length",
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "hidden",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.*/"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "auto"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byType",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "auto"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 51
+      },
+      "id": 54,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "expr": "sqlite3_memory_used_bytes{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "Memory used",
+          "refId": "A"
+        }
+      ],
+      "title": "SQLite3 (${instance})",
+      "type": "timeseries"
+    },
+    {
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2826,7 +2998,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 49
+        "y": 52
       },
       "id": 73,
       "options": {
@@ -2836,7 +3008,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -2873,205 +3046,10 @@
           "refId": "D"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Discovery & Dialing",
       "type": "timeseries"
     },
     {
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "hidden",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "links": [],
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/.*/"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "bytes"
-              },
-              {
-                "id": "min",
-                "value": 0
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "auto"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 0,
-        "y": 51
-      },
-      "id": 54,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "expr": "sqlite3_memory_used_bytes{instance=\"${instance}\",container=\"${container}\"}",
-          "interval": "",
-          "legendFormat": "Memory used",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "SQLite3 (${instance})",
-      "type": "timeseries"
-    },
-    {
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "links": [],
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 12,
-        "x": 12,
-        "y": 55
-      },
-      "id": 20,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "expr": "beacon_active_validators{instance=\"${instance}\",container=\"${container}\"}",
-          "interval": "",
-          "legendFormat": "current validators",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "validators (${instance})",
-      "type": "timeseries"
-    },
-    {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3137,7 +3115,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -3151,13 +3130,178 @@
           "refId": "C"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Disk QOps Average",
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 58
+      },
+      "id": 20,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "expr": "beacon_active_validators{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "current validators",
+          "refId": "A"
+        }
+      ],
+      "title": "validators (${instance})",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 62
+      },
+      "id": 64,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "netdata_disk_ops_operations_persec_average{instance=\"${instance}\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "{{chart}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Disk I/O Ops per second",
+      "type": "timeseries"
+    },
+    {
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3229,7 +3373,7 @@
         "h": 5,
         "w": 12,
         "x": 12,
-        "y": 60
+        "y": 63
       },
       "id": 24,
       "options": {
@@ -3239,7 +3383,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -3258,99 +3403,10 @@
           "refId": "B"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "pool.cachedStates (${instance})",
       "type": "timeseries"
     },
     {
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 12,
-        "x": 0,
-        "y": 62
-      },
-      "id": 64,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "netdata_disk_ops_operations_persec_average{instance=\"${instance}\"}",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "{{chart}}",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Disk I/O Ops per second",
-      "type": "timeseries"
-    },
-    {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3421,7 +3477,7 @@
         "h": 5,
         "w": 12,
         "x": 12,
-        "y": 65
+        "y": 68
       },
       "id": 86,
       "options": {
@@ -3431,7 +3487,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -3475,13 +3532,10 @@
           "refId": "E"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Batch verifications/slot (${instance})",
       "type": "timeseries"
     },
     {
-      "datasource": null,
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3547,7 +3601,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -3569,14 +3624,106 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Disk Backlog",
       "type": "timeseries"
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 73
+      },
+      "id": 51,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "expr": "libp2p_peers{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "libp2p peers",
+          "refId": "A"
+        },
+        {
+          "expr": "libp2p_pubsub_peers{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "libp2p pubsub peers",
+          "refId": "C"
+        },
+        {
+          "expr": "nbc_peers{instance=\"${instance}\",container=\"${container}\"}",
+          "interval": "",
+          "legendFormat": "beacon_node peers",
+          "refId": "B"
+        }
+      ],
+      "title": "peers (${instance})",
+      "type": "timeseries"
+    },
+    {
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -3614,10 +3761,9 @@
         "h": 2,
         "w": 3,
         "x": 12,
-        "y": 70
+        "y": 80
       },
       "id": 13,
-      "interval": null,
       "links": [],
       "maxDataPoints": 100,
       "options": {
@@ -3635,7 +3781,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "expr": "sum(beacon_attestations_sent_total)",
@@ -3644,14 +3790,10 @@
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "att'ns sent #all",
       "type": "stat"
     },
     {
-      "cacheTimeout": null,
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -3690,10 +3832,9 @@
         "h": 2,
         "w": 3,
         "x": 15,
-        "y": 70
+        "y": 80
       },
       "id": 14,
-      "interval": null,
       "links": [],
       "maxDataPoints": 100,
       "options": {
@@ -3711,26 +3852,23 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "expr": "beacon_attestations_received_total{instance=\"${instance}\",container=\"${container}\"}",
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "att'ns recv'd",
       "type": "stat"
     },
     {
       "collapsed": false,
-      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 76
+        "y": 82
       },
       "id": 88,
       "panels": [],
@@ -3738,7 +3876,6 @@
       "type": "row"
     },
     {
-      "datasource": null,
       "description": "Number of blocks monitored validators produced in previous epoch",
       "fieldConfig": {
         "defaults": {
@@ -3766,7 +3903,7 @@
         "h": 3,
         "w": 2,
         "x": 0,
-        "y": 77
+        "y": 83
       },
       "id": 96,
       "options": {
@@ -3784,7 +3921,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -3798,7 +3935,6 @@
       "type": "stat"
     },
     {
-      "datasource": null,
       "description": "Number of active validators being monitored that should be attesting",
       "fieldConfig": {
         "defaults": {
@@ -3826,7 +3962,7 @@
         "h": 3,
         "w": 2,
         "x": 2,
-        "y": 77
+        "y": 83
       },
       "id": 97,
       "options": {
@@ -3844,7 +3980,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -3858,7 +3994,6 @@
       "type": "stat"
     },
     {
-      "datasource": null,
       "description": "Validators that have exited from the chain, either volunt",
       "fieldConfig": {
         "defaults": {
@@ -3886,7 +4021,7 @@
         "h": 3,
         "w": 2,
         "x": 4,
-        "y": 77
+        "y": 83
       },
       "id": 93,
       "options": {
@@ -3904,7 +4039,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -3918,7 +4053,6 @@
       "type": "stat"
     },
     {
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -3946,7 +4080,7 @@
         "h": 3,
         "w": 2,
         "x": 6,
-        "y": 77
+        "y": 83
       },
       "id": 94,
       "options": {
@@ -3964,7 +4098,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -3978,7 +4112,6 @@
       "type": "stat"
     },
     {
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -4006,7 +4139,7 @@
         "h": 3,
         "w": 2,
         "x": 8,
-        "y": 77
+        "y": 83
       },
       "id": 95,
       "options": {
@@ -4024,7 +4157,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -4038,7 +4171,6 @@
       "type": "stat"
     },
     {
-      "datasource": null,
       "description": "Number of monitored validators in the current sync committee",
       "fieldConfig": {
         "defaults": {
@@ -4066,7 +4198,7 @@
         "h": 3,
         "w": 2,
         "x": 10,
-        "y": 77
+        "y": 83
       },
       "id": 99,
       "options": {
@@ -4084,7 +4216,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -4098,7 +4230,6 @@
       "type": "stat"
     },
     {
-      "datasource": null,
       "description": "Number of monitored validators in the next sync committee",
       "fieldConfig": {
         "defaults": {
@@ -4126,7 +4257,7 @@
         "h": 3,
         "w": 2,
         "x": 12,
-        "y": 77
+        "y": 83
       },
       "id": 105,
       "options": {
@@ -4144,7 +4275,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -4158,7 +4289,69 @@
       "type": "stat"
     },
     {
-      "datasource": null,
+      "description": "Number of times attestation was seen in a block",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 14,
+        "y": 83
+      },
+      "id": 107,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
+          "expr": "sum(validator_monitor_prev_epoch_sync_signature_block_inclusions{instance=\"${instance}\",container=\"${container}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Sync block inclusions",
+      "type": "stat"
+    },
+    {
       "description": "Number of validators being monitored",
       "fieldConfig": {
         "defaults": {
@@ -4186,7 +4379,7 @@
         "h": 3,
         "w": 2,
         "x": 0,
-        "y": 80
+        "y": 86
       },
       "id": 92,
       "options": {
@@ -4204,7 +4397,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -4218,7 +4411,6 @@
       "type": "stat"
     },
     {
-      "datasource": null,
       "description": "Number of attestations monitored validators produced in previous epoch",
       "fieldConfig": {
         "defaults": {
@@ -4246,7 +4438,7 @@
         "h": 3,
         "w": 2,
         "x": 2,
-        "y": 80
+        "y": 86
       },
       "id": 101,
       "options": {
@@ -4264,7 +4456,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -4278,7 +4470,6 @@
       "type": "stat"
     },
     {
-      "datasource": null,
       "description": "Number of aggregates monitored validators produced in previous epoch",
       "fieldConfig": {
         "defaults": {
@@ -4306,7 +4497,7 @@
         "h": 3,
         "w": 2,
         "x": 4,
-        "y": 80
+        "y": 86
       },
       "id": 100,
       "options": {
@@ -4324,7 +4515,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -4338,127 +4529,6 @@
       "type": "stat"
     },
     {
-      "datasource": null,
-      "description": "Number of sync  messages monitored validators produced in previous epoch",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 2,
-        "x": 6,
-        "y": 80
-      },
-      "id": 102,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "8.2.7",
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "sum(validator_monitor_prev_epoch_sync_committee_messages_total{instance=\"${instance}\",container=\"${container}\"})",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "title": "SyncMessaged",
-      "type": "stat"
-    },
-    {
-      "datasource": null,
-      "description": "Number of sync  comntributions monitored validators produced in previous epoch",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 2,
-        "x": 8,
-        "y": 80
-      },
-      "id": 103,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "8.2.7",
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "sum(validator_monitor_prev_epoch_sync_contributions_total{instance=\"${instance}\",container=\"${container}\"})",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "title": "SyncContributed",
-      "type": "stat"
-    },
-    {
-      "datasource": null,
       "description": "Number of times attestation produced by monitored validator was seen in an aggregate",
       "fieldConfig": {
         "defaults": {
@@ -4485,8 +4555,8 @@
       "gridPos": {
         "h": 3,
         "w": 2,
-        "x": 10,
-        "y": 80
+        "x": 6,
+        "y": 86
       },
       "id": 98,
       "options": {
@@ -4504,7 +4574,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -4518,7 +4588,6 @@
       "type": "stat"
     },
     {
-      "datasource": null,
       "description": "Number of times attestation was seen in a block",
       "fieldConfig": {
         "defaults": {
@@ -4545,8 +4614,8 @@
       "gridPos": {
         "h": 3,
         "w": 2,
-        "x": 12,
-        "y": 80
+        "x": 8,
+        "y": 86
       },
       "id": 104,
       "options": {
@@ -4564,7 +4633,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.2.7",
+      "pluginVersion": "8.4.3",
       "targets": [
         {
           "exemplar": true,
@@ -4578,7 +4647,187 @@
       "type": "stat"
     },
     {
-      "datasource": null,
+      "description": "Number of sync  messages monitored validators produced in previous epoch",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 10,
+        "y": 86
+      },
+      "id": 102,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_prev_epoch_sync_committee_messages_total{instance=\"${instance}\",container=\"${container}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "SyncMessaged",
+      "type": "stat"
+    },
+    {
+      "description": "Number of sync  comntributions monitored validators produced in previous epoch",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 12,
+        "y": 86
+      },
+      "id": 103,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(validator_monitor_prev_epoch_sync_contributions_total{instance=\"${instance}\",container=\"${container}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "SyncContributed",
+      "type": "stat"
+    },
+    {
+      "description": "Number of times attestation was seen in a block",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 14,
+        "y": 86
+      },
+      "id": 108,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS-PROXY}"
+          },
+          "exemplar": true,
+          "expr": "sum(validator_monitor_prev_epoch_sync_contribution_inclusions{instance=\"${instance}\",container=\"${container}\"})",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Sync contrib inclusions",
+      "type": "stat"
+    },
+    {
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -4652,7 +4901,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 83
+        "y": 89
       },
       "id": 89,
       "options": {
@@ -4662,7 +4911,8 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
@@ -4690,13 +4940,10 @@
           "refId": "C"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Attestation misses",
       "type": "timeseries"
     },
     {
-      "datasource": null,
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -4753,7 +5000,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 83
+        "y": 89
       },
       "id": 90,
       "options": {
@@ -4763,56 +5010,49 @@
           "placement": "bottom"
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.4",
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum by (instance, container) (rate(validator_monitor_balance_gwei{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) / on(instance,container) validator_monitor_validators_total{instance=\"${instance}\",container=\"${container}\"})",
+          "expr": "rate(validator_monitor_balance_gwei{instance=\"${instance}\",container=\"${container}\"}[$__rate_interval]) / on(instance,container) group_left validator_monitor_validators_total{instance=\"${instance}\",container=\"${container}\"}",
           "interval": "384",
-          "legendFormat": "balance",
+          "legendFormat": "{{validator}}",
           "refId": "A"
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "Balance",
       "type": "timeseries"
     },
     {
       "collapsed": true,
-      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 91
+        "y": 97
       },
       "id": 75,
       "panels": [
         {
-          "cards": {
-            "cardPadding": null,
-            "cardRound": null
-          },
+          "cards": {},
           "color": {
             "cardColor": "#b4ff00",
             "colorScale": "sqrt",
             "colorScheme": "interpolateSpectral",
             "exponent": 0.5,
-            "max": null,
             "min": 0,
             "mode": "opacity"
           },
           "dataFormat": "tsbuckets",
-          "datasource": null,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 92
+            "y": 84
           },
           "heatmap": {},
           "hideZeroBuckets": false,
@@ -4834,8 +5074,6 @@
               "refId": "A"
             }
           ],
-          "timeFrom": null,
-          "timeShift": null,
           "title": "received attestation delay (s) (${instance})",
           "tooltip": {
             "show": true,
@@ -4845,43 +5083,30 @@
           "xAxis": {
             "show": true
           },
-          "xBucketNumber": null,
-          "xBucketSize": null,
           "yAxis": {
-            "decimals": null,
             "format": "short",
             "logBase": 1,
-            "max": null,
-            "min": null,
-            "show": true,
-            "splitFactor": null
+            "show": true
           },
-          "yBucketBound": "auto",
-          "yBucketNumber": null,
-          "yBucketSize": null
+          "yBucketBound": "auto"
         },
         {
-          "cards": {
-            "cardPadding": null,
-            "cardRound": null
-          },
+          "cards": {},
           "color": {
             "cardColor": "#b4ff00",
             "colorScale": "sqrt",
             "colorScheme": "interpolateSpectral",
             "exponent": 0.5,
-            "max": null,
             "min": 0,
             "mode": "opacity"
           },
           "dataFormat": "tsbuckets",
-          "datasource": null,
           "description": "",
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 92
+            "y": 84
           },
           "heatmap": {},
           "hideZeroBuckets": false,
@@ -4903,8 +5128,6 @@
               "refId": "A"
             }
           ],
-          "timeFrom": null,
-          "timeShift": null,
           "title": "received beacon block delay (s) (${instance})",
           "tooltip": {
             "show": true,
@@ -4914,43 +5137,30 @@
           "xAxis": {
             "show": true
           },
-          "xBucketNumber": null,
-          "xBucketSize": null,
           "yAxis": {
-            "decimals": null,
             "format": "short",
             "logBase": 1,
-            "max": null,
-            "min": null,
-            "show": true,
-            "splitFactor": null
+            "show": true
           },
-          "yBucketBound": "auto",
-          "yBucketNumber": null,
-          "yBucketSize": null
+          "yBucketBound": "auto"
         },
         {
-          "cards": {
-            "cardPadding": null,
-            "cardRound": null
-          },
+          "cards": {},
           "color": {
             "cardColor": "#b4ff00",
             "colorScale": "sqrt",
             "colorScheme": "interpolateSpectral",
             "exponent": 0.5,
-            "max": null,
             "min": 0,
             "mode": "opacity"
           },
           "dataFormat": "tsbuckets",
-          "datasource": null,
           "description": "",
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 98
+            "y": 90
           },
           "heatmap": {},
           "hideZeroBuckets": false,
@@ -4972,8 +5182,6 @@
               "refId": "A"
             }
           ],
-          "timeFrom": null,
-          "timeShift": null,
           "title": "received aggregate delay (s) (${instance})",
           "tooltip": {
             "show": true,
@@ -4983,42 +5191,29 @@
           "xAxis": {
             "show": true
           },
-          "xBucketNumber": null,
-          "xBucketSize": null,
           "yAxis": {
-            "decimals": null,
             "format": "short",
             "logBase": 1,
-            "max": null,
-            "min": null,
-            "show": true,
-            "splitFactor": null
+            "show": true
           },
-          "yBucketBound": "auto",
-          "yBucketNumber": null,
-          "yBucketSize": null
+          "yBucketBound": "auto"
         },
         {
-          "cards": {
-            "cardPadding": null,
-            "cardRound": null
-          },
+          "cards": {},
           "color": {
             "cardColor": "#b4ff00",
             "colorScale": "sqrt",
             "colorScheme": "interpolateSpectral",
             "exponent": 0.1,
-            "max": null,
             "min": 0,
             "mode": "opacity"
           },
           "dataFormat": "tsbuckets",
-          "datasource": null,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 98
+            "y": 90
           },
           "heatmap": {},
           "hideZeroBuckets": false,
@@ -5040,8 +5235,6 @@
               "refId": "A"
             }
           ],
-          "timeFrom": null,
-          "timeShift": null,
           "title": "storeBlock() duration (s) (${instance})",
           "tooltip": {
             "show": true,
@@ -5051,42 +5244,29 @@
           "xAxis": {
             "show": true
           },
-          "xBucketNumber": null,
-          "xBucketSize": null,
           "yAxis": {
-            "decimals": null,
             "format": "short",
             "logBase": 1,
-            "max": null,
-            "min": null,
-            "show": true,
-            "splitFactor": null
+            "show": true
           },
-          "yBucketBound": "auto",
-          "yBucketNumber": null,
-          "yBucketSize": null
+          "yBucketBound": "auto"
         }
       ],
       "title": "Block & Attestation Delays (slow)",
       "type": "row"
     }
   ],
-  "refresh": "",
-  "schemaVersion": 32,
+  "refresh": false,
+  "schemaVersion": 35,
   "style": "dark",
   "tags": [],
   "templating": {
     "list": [
       {
-        "allValue": null,
         "current": {},
-        "datasource": "${DS_PROMETHEUS-PROXY}",
         "definition": "label_values(beacon_current_epoch{job=\"beacon-node-metrics\"},instance)",
-        "description": null,
-        "error": null,
         "hide": 0,
         "includeAll": false,
-        "label": null,
         "multi": false,
         "name": "instance",
         "options": [],
@@ -5101,18 +5281,14 @@
         "tagValuesQuery": "",
         "tagsQuery": "",
         "type": "query",
-        "useTags": false
+        "useTags": false,
+        "datasource": "${DS_PROMETHEUS-PROXY}"
       },
       {
-        "allValue": null,
         "current": {},
-        "datasource": "${DS_PROMETHEUS-PROXY}",
         "definition": "label_values(beacon_current_epoch{job=\"beacon-node-metrics\",instance=\"${instance}\"},container)",
-        "description": null,
-        "error": null,
         "hide": 0,
         "includeAll": true,
-        "label": null,
         "multi": false,
         "name": "container",
         "options": [],
@@ -5124,12 +5300,13 @@
         "regex": "",
         "skipUrlSync": false,
         "sort": 0,
-        "type": "query"
+        "type": "query",
+        "datasource": "${DS_PROMETHEUS-PROXY}"
       }
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {
@@ -5149,5 +5326,6 @@
   "timezone": "",
   "title": "Nimbus Fleet Testnets",
   "uid": "pgeNfj2Wz23",
-  "version": 110
+  "version": 116,
+  "weekStart": ""
 }

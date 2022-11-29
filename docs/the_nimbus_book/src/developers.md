@@ -4,6 +4,12 @@ This page contains tips and tricks for developers, further resources, along with
 
 Before building Nimbus for the first time, make sure to install the [prerequisites](./install.md).
 
+## Helpful resources
+
+* [Ethereum consensus spec](https://github.com/ethereum/consensus-specs/)
+* [Ben Edgington's annotated spec](hhttps://eth2book.info/bellatrix/)
+* [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
+
 ## Code style
 
 The code follows the [Status Nim Style Guide](https://status-im.github.io/nim-style-guide/).

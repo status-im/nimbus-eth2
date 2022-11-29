@@ -1,3 +1,66 @@
+2022-10-14 v22.10.1
+===================
+
+Nimbus `v22.10.1` is a `low-urgency` point release introducing support for the official light client REST API and improving the stability of Nimbus when paired with an external block builder.
+
+### Improvements
+
+* Support for the official light client REST API:
+  https://github.com/ethereum/beacon-APIs/pull/247
+  https://github.com/status-im/nimbus-eth2/pull/4213
+  https://github.com/status-im/nimbus-eth2/pull/4232
+
+### Fixes:
+
+* Nimbus was slowly leaking file descriptors when paired with an external builder:
+  https://github.com/status-im/nimbus-eth2/pull/4235
+
+* Nimbus could potentially crash under a poor network connectivity to the external builder:
+  https://github.com/status-im/nimbus-eth2/pull/4222
+
+
+2022-10-03 v22.10.0
+===================
+
+Nimbus `v22.10.0` is a `medium-urgency` release, continuing our briefly accelerated release schedule and bringing further stability and performance improvements after the merge.
+
+### Improvements
+
+* Faster block production, bringing practical benefits on low-powered devices such as the Raspberry Pi:
+  https://github.com/status-im/nimbus-eth2/pull/4184
+  https://github.com/status-im/nimbus-eth2/pull/4196
+
+* The Nimbus validator client can now work with multiple beacon nodes with configurable responsibilities:
+  https://github.com/status-im/nimbus-eth2/pull/4113
+  https://github.com/status-im/nimbus-eth2/issues/4140
+
+* The `/eth/v2/validator/blocks/{slot}` API now features an optional `randao_reveal` parameter in accordance to the latest Beacon API spec:
+  https://github.com/ethereum/beacon-APIs/pull/222
+  https://github.com/status-im/nimbus-eth2/pull/3837
+  
+* The `/eth/v1/beacon/blocks` API now supports SSZ-encoded payloads:
+  https://github.com/status-im/nimbus-eth2/pull/4154 
+
+* The new metrics `beacon_block_builder_proposed`, `beacon_block_builder_missed_with_fallback` and `beacon_block_builder_missed_without_fallback` can help you track the successful and failed attempts to use the configured external block builder:
+  https://github.com/status-im/nimbus-eth2/pull/4158
+
+### Fixes
+
+* Rare, but critical conditions manifesting primarily in the Goerli network were leading to an unrecoverable database corruption:
+  https://github.com/status-im/nimbus-eth2/pull/4174
+  https://github.com/status-im/nimbus-eth2/pull/4192
+
+* If the chain was re-orged while Nimbus is shut down, this created a low risk that the client may become stuck on a non-canonical block:
+  https://github.com/status-im/nimbus-eth2/pull/4161
+  
+* Nimbus was not serving the best possible light client updates when back-filling after a trusted node sync:  
+  https://github.com/status-im/nimbus-eth2/pull/4195
+
+### Upcoming breaking changes
+
+* The pre-altair REST API paths `/eth2/beacon_chain/req/beacon_blocks_by_{range,root}/1/` are now deprecated and will be removed in the next Nimbus version. Since these APIs support only phase0 responses, it is unlikely that there are any remaining clients using them.
+
+
 2022-09-20 v22.9.1
 ==================
 

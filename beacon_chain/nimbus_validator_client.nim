@@ -171,6 +171,7 @@ proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
     slot = shortLog(wallSlot.slot),
     attestationIn = vc.getDurationToNextAttestation(wallSlot.slot),
     blockIn = vc.getDurationToNextBlock(wallSlot.slot),
+    validators = vc.attachedValidators[].count(),
     delay = shortLog(delay)
 
   return false
@@ -210,6 +211,8 @@ proc new*(T: type ValidatorClientRef,
       nodesAvailable: newAsyncEvent(),
       forksAvailable: newAsyncEvent(),
       gracefulExit: newAsyncEvent(),
+      indicesAvailable: newAsyncEvent(),
+      dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
       sigintHandleFut: waitSignal(SIGINT),
       sigtermHandleFut: waitSignal(SIGTERM)
     )
@@ -221,7 +224,9 @@ proc new*(T: type ValidatorClientRef,
       graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
       nodesAvailable: newAsyncEvent(),
       forksAvailable: newAsyncEvent(),
+      indicesAvailable: newAsyncEvent(),
       gracefulExit: newAsyncEvent(),
+      dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
       sigintHandleFut: newFuture[void]("sigint_placeholder"),
       sigtermHandleFut: newFuture[void]("sigterm_placeholder")
     )
@@ -271,8 +276,8 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
     vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
     vc.keymanagerServer = keymanagerInitResult.server
     if vc.keymanagerServer != nil:
-      func getValidatorIdx(pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
-        Opt.none ValidatorIndex
+      func getValidatorData(pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
+        Opt.none(ValidatorAndIndex)
 
       vc.keymanagerHost = newClone KeymanagerHost.init(
         validatorPool,
@@ -281,7 +286,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
         vc.config.validatorsDir,
         vc.config.secretsDir,
         vc.config.defaultFeeRecipient,
-        getValidatorIdx,
+        getValidatorData,
         vc.beaconClock.getBeaconTimeFn)
 
   except CatchableError as exc:

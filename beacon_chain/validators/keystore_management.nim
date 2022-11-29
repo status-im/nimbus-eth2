@@ -67,8 +67,12 @@ type
 
   ImportResult*[T] = Result[T, AddValidatorFailure]
 
-  ValidatorPubKeyToIdxFn* =
-    proc (pubkey: ValidatorPubKey): Opt[ValidatorIndex]
+  ValidatorAndIndex* = object
+    index*: ValidatorIndex
+    validator*: Validator
+
+  ValidatorPubKeyToDataFn* =
+    proc (pubkey: ValidatorPubKey): Opt[ValidatorAndIndex]
          {.raises: [Defect], gcsafe.}
 
   KeymanagerHost* = object
@@ -78,7 +82,7 @@ type
     validatorsDir*: string
     secretsDir*: string
     defaultFeeRecipient*: Eth1Address
-    getValidatorIdxFn*: ValidatorPubKeyToIdxFn
+    getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
     getBeaconTimeFn*: GetBeaconTimeFn
 
 const
@@ -97,7 +101,7 @@ func init*(T: type KeymanagerHost,
            validatorsDir: string,
            secretsDir: string,
            defaultFeeRecipient: Eth1Address,
-           getValidatorIdxFn: ValidatorPubKeyToIdxFn,
+           getValidatorAndIdxFn: ValidatorPubKeyToDataFn,
            getBeaconTimeFn: GetBeaconTimeFn): T =
   T(validatorPool: validatorPool,
     rng: rng,
@@ -105,15 +109,24 @@ func init*(T: type KeymanagerHost,
     validatorsDir: validatorsDir,
     secretsDir: secretsDir,
     defaultFeeRecipient: defaultFeeRecipient,
-    getValidatorIdxFn: getValidatorIdxFn,
+    getValidatorAndIdxFn: getValidatorAndIdxFn,
     getBeaconTimeFn: getBeaconTimeFn)
 
 proc getValidatorIdx*(host: KeymanagerHost,
                       pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
-  if host.getValidatorIdxFn != nil:
-    host.getValidatorIdxFn(pubkey)
+  if not(isNil(host.getValidatorAndIdxFn)):
+    let res = host.getValidatorAndIdxFn(pubkey).valueOr:
+      return Opt.none ValidatorIndex
+    Opt.some res.index
   else:
     Opt.none ValidatorIndex
+
+proc getValidatorData*(host: KeymanagerHost,
+                       pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
+  if not(isNil(host.getValidatorAndIdxFn)):
+    host.getValidatorAndIdxFn(pubkey)
+  else:
+    Opt.none ValidatorAndIndex
 
 proc echoP*(msg: string) =
   ## Prints a paragraph aligned to 80 columns
@@ -1324,11 +1337,22 @@ proc getSuggestedFeeRecipient*(
 proc addLocalValidator*(host: KeymanagerHost, keystore: KeystoreData) =
   let
     slot = host.getBeaconTimeFn().slotOrZero
-    validatorIdx = host.getValidatorIdx(keystore.pubkey)
+    data = host.getValidatorData(keystore.pubkey)
     feeRecipient = host.getSuggestedFeeRecipient(keystore.pubkey).valueOr(
       host.defaultFeeRecipient)
-  host.validatorPool[].addLocalValidator(
-    keystore, validatorIdx, feeRecipient, slot)
+    index =
+      if data.isSome():
+        Opt.some(data.get().index)
+      else:
+        Opt.none(ValidatorIndex)
+    activationEpoch =
+      if data.isSome():
+        Opt.some(data.get().validator.activation_epoch)
+      else:
+        Opt.none(Epoch)
+
+  host.validatorPool[].addLocalValidator(keystore, index, feeRecipient, slot,
+                                         activationEpoch)
 
 proc generateDeposits*(cfg: RuntimeConfig,
                        rng: var HmacDrbgContext,

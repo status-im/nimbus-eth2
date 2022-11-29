@@ -23,47 +23,52 @@ const
 
 type
   StartUpCommand {.pure.} = enum
-    pubsub, asl, asr, aggasr, scmsr, csr, lat, traceAll
+    pubsub, asl, asr, aggasr, scmsr, csr, lat, traceAll, localSimChecks
 
   LogTraceConf = object
     logFiles {.
       desc: "Specifies one or more log files",
       abbr: "f",
-      name: "log-file" }: seq[string]
+      name: "log-file" .}: seq[string]
 
     simDir {.
       desc: "Specifies path to eth2_network_simulation directory",
-      name: "sim-dir",
-      defaultValue: "" }: string
+      defaultValue: "",
+      name: "sim-dir" .}: string
 
     netDir {.
       desc: "Specifies path to network build directory",
-      name: "net-dir",
-      defaultValue: "" }: string
+      defaultValue: "",
+      name: "net-dir" .}: string
 
     logDir {.
       desc: "Specifies path with bunch of logs",
-      name: "log-dir",
-      defaultValue: "" }: string
+      defaultValue: "",
+      name: "log-dir" .}: string
 
     ignoreSerializationErrors {.
       desc: "Ignore serialization errors while parsing log files",
-      name: "ignore-errors",
-      defaultValue: true }: bool
+      defaultValue: true,
+      name: "ignore-errors" .}: bool
 
     dumpSerializationErrors {.
       desc: "Dump full serialization errors while parsing log files",
-      name: "dump-errors",
-      defaultValue: false }: bool
+      defaultValue: false ,
+      name: "dump-errors" .}: bool
 
     nodes {.
       desc: "Specifies node names which logs will be used",
-      name: "nodes" }: seq[string]
+      name: "nodes" .}: seq[string]
 
     allowedLag {.
       desc: "Allowed latency lag multiplier",
-      name: "lag",
-      defaultValue: 2.0 }: float
+      defaultValue: 2.0,
+      name: "lag" .}: float
+
+    constPreset {.
+      desc: "The const preset being used"
+      defaultValue: "mainnet"
+      name: "const-preset" .}: string
 
     case cmd {.command.}: StartUpCommand
     of pubsub:
@@ -82,6 +87,25 @@ type
       discard
     of traceAll:
       discard
+    of localSimChecks:
+      discard
+
+  IssuesGroup = ref object
+    name: string
+    fatalIssues: seq[string]
+    warnings: seq[string]
+
+  FileReport = object
+    categories: seq[IssuesGroup]
+
+  LogVisitor = object
+    visitLine: proc(msg, fullLine: string) {.gcsafe, raises: [Defect].}
+    produceReport: proc(): FileReport {.gcsafe, raises: [Defect].}
+
+  LogVisitorFactory = proc(): LogVisitor {.gcsafe, raises: [Defect].}
+
+  LogTracer = object
+    enabledVisitors: seq[LogVisitorFactory]
 
   GossipDirection = enum
     None, Incoming, Outgoing
@@ -141,6 +165,46 @@ type
     aggregate: AttestationObject
     wallSlot: uint64
     signature: string
+
+  BlockSentMessage = object
+    # The message structure is as follows:
+    #[
+      {
+        "lvl": "NOT",
+        "ts": "2022-11-21 23:02:37.032+02:00",
+        "msg": "Block sent",
+        "topics": "beacval",
+        "blockRoot": "7a0836e4",
+        "blck": {
+          "slot": 15,
+          "proposer_index": 96,
+          "parent_root": "487372dc",
+          "state_root": "06699625",
+          "eth1data": {
+            "deposit_root": "6c3ff67871b79b7aecc7a125e7ec9ff857879a1c83e50513be113103acf8ca3f",
+            "deposit_count": 1024,
+            "block_hash": "4242424242424242424242424242424242424242424242424242424242424242"
+          },
+          "graffiti": "Nimbus/v22.10.1-eb6615-stateofus",
+          "proposer_slashings_len": 0,
+          "attester_slashings_len": 0,
+          "attestations_len": 4,
+          "deposits_len": 0,
+          "voluntary_exits_len": 0,
+          "sync_committee_participants": 32,
+          "block_number": 0,
+          "fee_recipient": ""
+        },
+        "signature": "b544f144",
+        "delay": "32ms3us"
+      }
+    ]#
+    # So far, logtrace needs only a single property of the block object.
+    # Feel free to add additional fields to be parsed as necessary.
+    blck: BlockShortLog
+
+  BlockShortLog = object
+    sync_committee_participants: int
 
   SyncCommitteeMessageObject = object
     slot: uint64
@@ -215,6 +279,42 @@ type
     recvs: TableRef[string, SCMReceivedMessage]
     contributionSends: seq[ContributionSentMessage]
     contributionRecvs: TableRef[string, ContributionReceivedMessage]
+
+template noIssues: FileReport =
+  FileReport()
+
+template hasIssues(issuesCategories: varargs[IssuesGroup]): FileReport =
+  FileReport(categories: @issuesCategories)
+
+proc copyEntriesTo(src: FileReport, dst: var FileReport) =
+  for c in src.categories:
+    dst.categories.add c
+
+func isEmpty(r: FileReport): bool =
+  r.categories.len == 0
+
+proc printCategory(severityLevel: string, issues: openArray[string]) =
+  if issues.len > 0:
+    echo ""
+    echo severityLevel, ":"
+    for issue in issues:
+      echo "* ", issue
+
+proc print(r: FileReport) =
+  for category in r.categories:
+    echo "### ", category.name
+    printCategory "Fatal Issues", category.fatalIssues
+    printCategory "Warnings", category.warnings
+    echo ""
+
+template fatal(issuesGroup: IssuesGroup, msg: string) =
+  issuesGroup.fatalIssues.add msg
+
+template warning(issuesGroup: IssuesGroup, msg: string) =
+  issuesGroup.warnings.add msg
+
+proc new(T: type IssuesGroup, name: string): T =
+  T(name: name)
 
 proc readValue(reader: var JsonReader, value: var DateTime) =
   let s = reader.readValue(string)
@@ -454,6 +554,93 @@ proc readLogFileForSCMSRMessages(file: string, srnode: var SRSCNode,
     warn "Error reading data from file", file = file, errorMsg = exc.msg
   finally:
     stream.close()
+
+proc processFile(tracer: LogTracer, file: string): FileReport =
+  var stream = newFileStream(file)
+  let visitors = mapIt(tracer.enabledVisitors, it())
+
+  try:
+    while not (stream.atEnd()):
+      let line = stream.readLine()
+      var reader = JsonReader[DefaultFlavor].init(memoryInput(line))
+      for fieldName in reader.readObjectFields:
+        if fieldName == "msg":
+          let msg = reader.readValue(string)
+          for visitor in visitors:
+            visitor.visitLine(msg, line)
+          break
+        else:
+          reader.skipSingleJsValue()
+  except CatchableError as exc:
+    warn "Error reading data from file", file = file, errorMsg = exc.msg
+  finally:
+    stream.close()
+
+  for vistor in visitors:
+    let report = vistor.produceReport()
+    if not report.isEmpty:
+      report.copyEntriesTo result
+
+proc failedValidationsChecker: LogVisitorFactory =
+  return proc (): LogVisitor =
+    var failedValidations = initCountTable[string]()
+
+    LogVisitor(
+      visitLine: proc (msg, line: string) =
+        if msg.endsWith("failed validation"):
+          failedValidations.inc msg
+      ,
+      produceReport: proc (): FileReport =
+        if failedValidations.len > 0:
+          let issues = IssuesGroup.new "Failed Validations"
+          for msg, count in failedValidations:
+            issues.fatal(msg & " " & $count & " times")
+
+          return hasIssues(issues)
+        else:
+          return noIssues()
+    )
+
+proc syncAggregateChecker(constPreset: string): LogVisitorFactory =
+  return proc (): LogVisitor =
+    var totalBlocks = 0
+    var minSyncAggregate = 512
+    var syncAggregatesCombinedSize = 0
+
+    let minExpectedAggregateSize = if constPreset == "mainnet":
+      450
+    else:
+      20
+
+    LogVisitor(
+      visitLine: proc (msgLabel, line: string) =
+        if msgLabel == "Block sent":
+          let msg = try:
+            Json.decode(line, BlockSentMessage, allowUnknownFields = true)
+          except SerializationError as err:
+            echo "Failure to parse a 'Block sent' message:"
+            echo err.formatMsg("<msg>")
+            quit 1
+
+          let syncAggregateSize = msg.blck.sync_committee_participants
+          if syncAggregateSize != -1:
+            inc totalBlocks
+            syncAggregatesCombinedSize += syncAggregateSize
+            if minSyncAggregate > syncAggregateSize:
+              minSyncAggregate = syncAggregateSize
+      ,
+      produceReport: proc (): FileReport =
+        let avgSyncAggregateSize = syncAggregatesCombinedSize div totalBlocks
+        if avgSyncAggregateSize < minExpectedAggregateSize:
+          let issues = IssuesGroup.new "SyncAggregate Stats"
+
+          issues.fatal("Minimal sync aggregate size: " & $minSyncAggregate)
+          issues.fatal("Average sync aggregate size: " & $avgSyncAggregateSize)
+
+          return hasIssues(issues)
+        else:
+          return noIssues()
+    )
 
 proc readLogFileForSecondMessages(file: string, ignoreErrors = true,
                                   dumpErrors = false): seq[LogMessage] =
@@ -960,6 +1147,33 @@ proc run(conf: LogTraceConf) =
     runLatencyCheck(conf, logFiles, logNodes)
     runPubsub(conf, logFiles)
     runAttSend(conf, logFiles)
+  of StartUpCommand.localSimChecks:
+    runAggAttSendReceive(conf, logNodes)
+
+    # TODO All analysis types can be converted to the more efficient
+    #      LogVisitor style, so they can enabled together here.
+    #      See the discussion below for some potential caveats:
+    #      https://github.com/status-im/nimbus-eth2/pull/3583#pullrequestreview-941934055
+
+    var tracer = LogTracer()
+    tracer.enabledVisitors.add failedValidationsChecker()
+    tracer.enabledVisitors.add syncAggregateChecker(conf.constPreset)
+
+    var issuesDetected = false
+
+    for node in logNodes:
+      for logFile in node.logs:
+        let report = tracer.processFile(node.path / logFile)
+        if not report.isEmpty:
+          if not issuesDetected:
+            issuesDetected = true
+            echo "# Logtrace Report"
+            echo ""
+          echo "## ", logFile
+          echo ""
+          print report
+
+    quit ord(issuesDetected)
 
 when isMainModule:
   echo LogTraceHeader

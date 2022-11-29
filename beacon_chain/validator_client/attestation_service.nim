@@ -25,22 +25,11 @@ type
 proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
                       duty: DutyAndProof): Future[bool] {.async.} =
   let vc = service.client
-  let validator =
-    block:
-      let res = vc.getValidator(duty.data.pubkey)
-      if res.isNone():
-        return false
-      res.get()
+  let validator = vc.getValidator(duty.data.pubkey).valueOr: return false
   let fork = vc.forkAtEpoch(adata.slot.epoch)
 
   doAssert(validator.index.isSome())
   let vindex = validator.index.get()
-
-  if not(vc.doppelgangerCheck(validator)):
-    info "Attestation has not been served (doppelganger check still active)",
-         slot = duty.data.slot, validator = shortLog(validator),
-         validator_index = vindex
-    return false
 
   # TODO: signing_root is recomputed in getAttestationSignature just after,
   # but not for locally attached validators.
@@ -132,13 +121,6 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
     slot = proof.aggregate.data.slot
     vindex = validator.index.get()
     fork = vc.forkAtEpoch(slot.epoch)
-
-  if not(vc.doppelgangerCheck(validator)):
-    info "Aggregate attestation has not been served " &
-         "(doppelganger check still active)",
-         slot = slot, validator = shortLog(validator),
-         validator_index = vindex
-    return false
 
   debug "Signing aggregate", validator = shortLog(validator),
          attestation = shortLog(proof.aggregate), fork = fork
@@ -364,18 +346,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
                                       duties: seq[DutyAndProof]) {.async.} =
   let vc = service.client
   # Waiting for blocks to be published before attesting.
-  let startTime = Moment.now()
-  try:
-    let timeout = attestationSlotOffset # 4.seconds in mainnet
-    await vc.waitForBlockPublished(slot).wait(nanoseconds(timeout.nanoseconds))
-    let dur = Moment.now() - startTime
-    debug "Block proposal awaited", slot = slot, duration = dur
-  except CancelledError as exc:
-    debug "Block proposal waiting was interrupted"
-    raise exc
-  except AsyncTimeoutError:
-    let dur = Moment.now() - startTime
-    debug "Block was not produced in time", slot = slot, duration = dur
+  await vc.waitForBlockPublished(slot, attestationSlotOffset)
 
   block:
     let delay = vc.getDelay(slot.attestation_deadline())
@@ -421,9 +392,19 @@ proc spawnAttestationTasks(service: AttestationServiceRef,
       for item in attesters:
         res.mgetOrPut(item.data.committee_index, default).add(item)
       res
+
+  var dutiesSkipped: seq[string]
   for index, duties in dutiesByCommittee:
-    if len(duties) > 0:
-      asyncSpawn service.publishAttestationsAndAggregates(slot, index, duties)
+    let (protectedDuties, skipped) = vc.doppelgangerFilter(duties)
+    if len(skipped) > 0: dutiesSkipped.add(skipped)
+    if len(protectedDuties) > 0:
+      asyncSpawn service.publishAttestationsAndAggregates(slot, index,
+                                                          protectedDuties)
+  if len(dutiesSkipped) > 0:
+    info "Doppelganger protection disabled validator duties",
+         validators = len(dutiesSkipped)
+    trace "Doppelganger protection disabled validator duties dump",
+          validators = dutiesSkipped
 
 proc mainLoop(service: AttestationServiceRef) {.async.} =
   let vc = service.client

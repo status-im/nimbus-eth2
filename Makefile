@@ -28,7 +28,6 @@ BASE_METRICS_PORT := 8008
 # WARNING: Use lazy assignment to allow CI to override.
 EXECUTOR_NUMBER ?= 0
 
-ROPSTEN_WEB3_URL := "--web3-url=wss://ropsten.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
 GOERLI_WEB3_URL := "--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
 GNOSIS_WEB3_URLS := "--web3-url=wss://rpc.gnosischain.com/wss --web3-url=wss://xdai.poanetwork.dev/wss"
@@ -36,6 +35,8 @@ GNOSIS_WEB3_URLS := "--web3-url=wss://rpc.gnosischain.com/wss --web3-url=wss://x
 VALIDATORS := 1
 CPU_LIMIT := 0
 BUILD_END_MSG := "\\x1B[92mBuild completed successfully:\\x1B[39m"
+
+TEST_MODULES_FLAGS := -d:chronicles_log_level=TRACE -d:chronicles_sinks=json[file]
 
 ifeq ($(CPU_LIMIT), 0)
 	CPU_LIMIT_CMD :=
@@ -61,6 +62,7 @@ TOOLS := \
 	ncli \
 	ncli_db \
 	ncli_split_keystore \
+	fakeee \
 	wss_sim \
 	stack_sizes \
 	nimbus_light_client \
@@ -248,7 +250,7 @@ consensus_spec_tests_mainnet: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/consensus_spec/consensus_spec_tests_preset.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) -d:const_preset=mainnet $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 consensus_spec_tests_minimal: | build deps
@@ -256,7 +258,7 @@ consensus_spec_tests_minimal: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/consensus_spec/consensus_spec_tests_preset.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=minimal -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) -d:const_preset=minimal $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Tests we only run for the default preset
@@ -265,7 +267,7 @@ proto_array: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"beacon_chain/fork_choice/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 fork_choice: | build deps
@@ -273,7 +275,7 @@ fork_choice: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"beacon_chain/fork_choice/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 all_tests: | build deps
@@ -281,7 +283,7 @@ all_tests: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # State and block sims; getting to 4th epoch triggers consensus checks
@@ -310,7 +312,7 @@ endif
 	for TEST_BINARY in $(XML_TEST_BINARIES); do \
 		PARAMS="--xml:build/$${TEST_BINARY}.xml --console"; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Aborting."; exit 1; }; \
+		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; tail -n50 "$${TEST_BINARY}.log"; exit 1; }; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 	for TEST_BINARY in $(TEST_BINARIES); do \
@@ -319,7 +321,7 @@ endif
 		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
 		fi; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Aborting."; exit 1; }; \
+		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; tail -n50 "$${TEST_BINARY}.log"; exit 1; }; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 
@@ -329,7 +331,7 @@ build/generate_makefile: | libbacktrace
 endif
 build/generate_makefile: tools/generate_makefile.nim | deps-common
 	+ echo -e $(BUILD_MSG) "$@" && \
-	$(ENV_SCRIPT) nim c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim $(SILENCE_WARNINGS) && \
+	$(ENV_SCRIPT) $(NIMC) c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim $(SILENCE_WARNINGS) && \
 	echo -e $(BUILD_END_MSG) "$@"
 
 # GCC's LTO parallelisation is able to detect a GNU Make jobserver and get its
@@ -531,35 +533,6 @@ clean-goerli:
 
 
 ###
-### Ropsten
-###
-ropsten-build: | nimbus_beacon_node nimbus_signing_node
-
-# https://www.gnu.org/software/make/manual/html_node/Call-Function.html#Call-Function
-ropsten: | ropsten-build
-	$(call CONNECT_TO_NETWORK,ropsten,nimbus_beacon_node,$(ROPSTEN_WEB3_URL))
-
-ropsten-vc: | ropsten-build nimbus_validator_client
-	$(call CONNECT_TO_NETWORK_WITH_VALIDATOR_CLIENT,ropsten,nimbus_beacon_node,$(ROPSTEN_WEB3_URL))
-
-ropsten-lc: | nimbus_light_client
-	$(call CONNECT_TO_NETWORK_WITH_LIGHT_CLIENT,ropsten)
-
-ifneq ($(LOG_LEVEL), TRACE)
-ropsten-dev:
-	+ "$(MAKE)" LOG_LEVEL=TRACE $@
-else
-ropsten-dev: | ropsten-build
-	$(call CONNECT_TO_NETWORK_IN_DEV_MODE,ropsten,nimbus_beacon_node,$(ROPSTEN_WEB3_URL))
-endif
-
-ropsten-dev-deposit: | ropsten-build deposit_contract
-	$(call MAKE_DEPOSIT,ropsten,$(ROPSTEN_WEB3_URL))
-
-clean-ropsten:
-	$(call CLEAN_NETWORK,ropsten)
-
-###
 ### Sepolia
 ###
 sepolia-build: | nimbus_beacon_node nimbus_signing_node
@@ -665,13 +638,9 @@ nimbus-pkg: | nimbus_beacon_node
 	xcodebuild -project installer/macos/nimbus-pkg.xcodeproj -scheme nimbus-pkg build
 	packagesbuild installer/macos/nimbus-pkg.pkgproj
 
-ctail: | build deps
-	mkdir -p vendor/.nimble/bin/
-	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ctail c vendor/nim-chronicles-tail/ctail.nim
-
 ntu: | build deps
 	mkdir -p vendor/.nimble/bin/
-	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
+	+ $(ENV_SCRIPT) $(NIMC) -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,state_sim,transition*,generate_makefile,nimbus-wix/obj}
@@ -681,7 +650,7 @@ endif
 
 libnfuzz.so: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
+		$(ENV_SCRIPT) $(NIMC) c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@" && \
 		rm -f build/$@ && \
 		ln -s $@.0 build/$@
@@ -689,7 +658,7 @@ libnfuzz.so: | build deps
 libnfuzz.a: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		rm -f build/$@ && \
-		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
+		$(ENV_SCRIPT) $(NIMC) c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@" && \
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 

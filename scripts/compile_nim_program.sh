@@ -9,12 +9,14 @@ SOURCE="$2"
 # the rest are NIM_PARAMS
 shift 2
 
+NIMC="${NIMC:-nim}"
+
 # verbosity level
 [[ -z "$V" ]] && V=0
 
 # Nim version (formatted as "{MAJOR}{MINOR}").
 # This weird "sed" invocation is because of macOS.
-NIM_VERSION=$(nim --version | head -n1 | sed -E 's/^.* ([0-9])\.([0-9]+).*$/\1\2/')
+NIM_VERSION=$("$NIMC" --version | head -n1 | sed -E 's/^.* ([0-9])\.([0-9]+).*$/\1\2/')
 
 # According to old Nim compiler versions, the project name comes from the main
 # source file, not the output binary.
@@ -29,7 +31,7 @@ fi
 # parallel.
 # We can't use '--nimcache:...' here, because the same path is being used by
 # LTO on macOS, in "config.nims"
-nim c --compileOnly -o:build/${BINARY} "$@" -d:nimCachePathOverride=nimcache/release/${BINARY} "${SOURCE}"
+"$NIMC" c --compileOnly -o:build/${BINARY} "$@" -d:nimCachePathOverride=nimcache/release/${BINARY} "${SOURCE}"
 build/generate_makefile "nimcache/release/${BINARY}/${PROJECT_NAME}.json" "nimcache/release/${BINARY}/${BINARY}.makefile"
 # Don't swallow stderr, in case it's important.
 [[ "$V" == "0" ]] && exec >/dev/null

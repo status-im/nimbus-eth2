@@ -1,4 +1,4 @@
-# Command line options
+# Command line
 
 Command line options allow you to customize the way your beacon node operates.
 
@@ -35,6 +35,8 @@ The following options are available:
      --secrets-dir             A directory containing validator keystore passwords.
      --wallets-dir             A directory containing wallet files.
      --web3-url                One or more execution layer Web3 provider URLs.
+     --optimistic              Run the node in optimistic mode, allowing it to optimistically sync without an
+                               execution client [=false].
      --non-interactive         Do not display interative prompts. Quit on missing configuration.
      --netkey-file             Source of network (secp256k1) private key file (random|<path>) [=random].
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key file [=false].
@@ -58,7 +60,6 @@ The following options are available:
                                this functionality [=false].
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format block_root:epoch_number.
      --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
-     --finalized-checkpoint-block  SSZ file specifying a recent finalized block.
      --node-name               A name for this node that will appear in the logs. If you set this to 'auto', a
                                persistent automatically generated ID will be selected for each --data-dir
                                folder.
@@ -137,7 +138,7 @@ Here is an example config file illustrating all of the above:
     ```toml
     # Comments look like this
     doppelganger-detection = true
-    web3-url = ["ws://192.168.1.10:8000"]
+    web3-url = ["http://127.0.0.1:8551"]
     num-threads = 0
 
     [trustedNodeSync]

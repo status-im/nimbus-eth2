@@ -15,6 +15,9 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/forks
 
+# TODO remove once forks re-exports these
+from ../spec/datatypes/capella import SomeBeaconBlock, TrustedBeaconBlock
+
 export chronicles, forks
 
 type
@@ -67,7 +70,8 @@ func init*(
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
-    blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock): BlockRef =
+    blck: bellatrix.SomeBeaconBlock | bellatrix.TrustedBeaconBlock |
+          capella.SomeBeaconBlock | capella.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
     root, some Eth2Digest(blck.body.execution_payload.block_hash), blck.slot)
 
@@ -125,7 +129,7 @@ func link*(parent, child: BlockRef) =
 func get_ancestor*(blck: BlockRef, slot: Slot,
     maxDepth = 100'i64 * 365 * 24 * 60 * 60 div SECONDS_PER_SLOT.int):
     BlockRef =
-  ## https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/fork-choice.md#get_ancestor
+  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/fork-choice.md#get_ancestor
   ## Return the most recent block as of the time at `slot` that not more recent
   ## than `blck` itself
   if isNil(blck): return nil

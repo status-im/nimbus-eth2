@@ -22,6 +22,8 @@ import
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
 
+from ../spec/datatypes/capella import TrustedSignedBeaconBlock
+
 from "."/vanity_logs/pandas import VanityLogs
 
 export
@@ -32,22 +34,22 @@ export
 # relationships and allowing various forms of lookups
 
 type
-  BlockError* {.pure.} = enum
+  VerifierError* {.pure.} = enum
     Invalid
-      ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
+      ## Value is broken / doesn't apply cleanly - whoever sent it is fishy (or
       ## we're buggy)
 
     MissingParent
-      ## We don't know the parent of this block so we can't tell if it's valid
+      ## We don't know the parent of this value so we can't tell if it's valid
       ## or not - it'll go into the quarantine and be reexamined when the parent
       ## appears or be discarded if finality obsoletes it
 
     UnviableFork
-      ## Block is from a history / fork that does not include our most current
+      ## Value is from a history / fork that does not include our most current
       ## finalized checkpoint
 
     Duplicate
-      ## We've seen this block already, can't add again
+      ## We've seen this value already, can't add again
 
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [Defect].}
@@ -138,14 +140,15 @@ type
       ## `finalizedHead.slot..head.slot` (inclusive) - dag.heads keeps track
       ## of each potential head block in this table.
 
-    genesis*: BlockId
-      ## The genesis block of the network
+    genesis*: Opt[BlockId]
+      ## The root of the genesis block, iff it is known (ie if the database was
+      ## created with a genesis state available)
 
     tail*: BlockId
-      ## The earliest finalized block for which we have a corresponding state -
-      ## when making a replay of chain history, this is as far back as we can
-      ## go - the tail block is unique in that its parent is set to `nil`, even
-      ## in the case where an earlier genesis block exists.
+      ## The earliest block for which we can construct a state - we consider
+      ## the tail implicitly finalized no matter what fork choice and state
+      ## says - when starting from a trusted checkpoint, the tail is set to
+      ## the checkpoint block.
 
     head*: BlockRef
       ## The most recently known head, as chosen by fork choice; might be
@@ -237,7 +240,7 @@ type
       ## committee messages will be rejected
 
     optimisticRoots*: HashSet[Eth2Digest]
-      ## https://github.com/ethereum/consensus-specs/blob/v1.2.0/sync/optimistic.md#helpers
+      ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/sync/optimistic.md#helpers
 
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
@@ -302,6 +305,16 @@ type
     epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
+  OnCapellaBlockAdded* = proc(
+    blckRef: BlockRef,
+    blck: capella.TrustedSignedBeaconBlock,
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
+
+  OnForkyBlockAdded* =
+    OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
+    OnCapellaBlockAdded
+
   HeadChangeInfoObject* = object
     slot*: Slot
     block_root* {.serializedFieldName: "block".}: Eth2Digest
@@ -333,10 +346,14 @@ type
 
 template head*(dag: ChainDAGRef): BlockRef = dag.headState.blck
 
-template frontfill*(dagParam: ChainDAGRef): BlockId =
+template frontfill*(dagParam: ChainDAGRef): Opt[BlockId] =
+  ## When there's a gap in the block database, this is the most recent block
+  ## that we know of _before_ the gap - after a checkpoint sync, this will
+  ## typically be the genesis block (iff available) - if we have era files,
+  ## this is the most recent era file block.
   let dag = dagParam
   if dag.frontfillBlocks.lenu64 > 0:
-    BlockId(
+    Opt.some BlockId(
       slot: Slot(dag.frontfillBlocks.lenu64 - 1), root: dag.frontfillBlocks[^1])
   else:
     dag.genesis

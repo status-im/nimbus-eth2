@@ -67,6 +67,8 @@ suite "Light client" & preset():
           of BeaconBlockFork.Bellatrix:
             const nilCallback = OnBellatrixBlockAdded(nil)
             dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
+          of BeaconBlockFork.Capella:
+            raiseAssert $capellaImplementationMissing
         check: added.isOk()
         dag.updateHead(added[], quarantine)
 
@@ -178,9 +180,8 @@ suite "Light client" & preset():
 
     # Initialize new DAG from checkpoint
     let cpDb = BeaconChainDB.new("", inMemory = true)
-    ChainDAGRef.preInit(
-      cpDb, genesisState[],
-      dag.headState, dag.getForkedBlock(dag.head.bid).get)
+    ChainDAGRef.preInit(cpDb, genesisState[])
+    ChainDAGRef.preInit(cpDb, dag.headState) # dag.getForkedBlock(dag.head.bid).get)
     let cpDag = ChainDAGRef.init(
       cfg, cpDb, validatorMonitor, {},
       lcDataConfig = LightClientDataConfig(

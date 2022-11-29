@@ -17,7 +17,6 @@ import
   web3/[ethtypes, conversions],
   chronicles,
   eth/common/eth_types_json_serialization,
-  ssz_serialization/navigator,
   ../spec/eth2_ssz_serialization,
   ../spec/datatypes/phase0
 
@@ -78,15 +77,6 @@ type
       genesisDepositsSnapshot*: string
     else:
       incompatibilityDesc*: string
-
-type DeploymentPhase* {.pure.} = enum
-  None,
-  Devnet,
-  Testnet,
-  Mainnet
-
-func deploymentPhase*(genesisData: string): DeploymentPhase =
-  DeploymentPhase.Devnet
 
 const
   eth2NetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-networks"
@@ -219,6 +209,7 @@ elif const_preset == "mainnet":
     for network in [
         mainnetMetadata, praterMetadata, ropstenMetadata, sepoliaMetadata]:
       checkForkConsistency(network.cfg)
+      doAssert network.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 proc getMetadataForNetwork*(
     networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
@@ -268,12 +259,27 @@ proc getMetadataForNetwork*(
 
   metadata
 
+
 proc getRuntimeConfig*(
     eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
+  ## Returns the run-time config for a network specified on the command line
+  ## If the network is not explicitly specified, the function will act as the
+  ## regular Nimbus binary, returning the mainnet config.
+  ##
+  ## TODO the assumption that the input variable is a CLI config option is not
+  ## quite appropriate in such as low-level function. The "assume mainnet by
+  ## default" behavior is something that should be handled closer to the `conf`
+  ## layer.
   if eth2Network.isSome:
     return getMetadataForNetwork(eth2Network.get).cfg
-  defaultRuntimeConfig
 
-proc extractGenesisValidatorRootFromSnapshot*(
-    snapshot: string): Eth2Digest {.raises: [Defect, IOError, SszError].} =
-  sszMount(snapshot, phase0.BeaconState).genesis_validators_root[]
+  when const_preset == "mainnet":
+    when defined(gnosisChainBinary):
+      gnosisMetadata.cfg
+    else:
+      mainnetMetadata.cfg
+  else:
+    # This is a non-standard build (i.e. minimal), and the function was most
+    # likely executed in a test. The best we can do is return a fully default
+    # config:
+    defaultRuntimeConfig

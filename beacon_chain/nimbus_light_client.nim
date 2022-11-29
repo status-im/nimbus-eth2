@@ -20,7 +20,24 @@ from ./consensus_object_pools/consensus_manager import runForkchoiceUpdated
 from ./gossip_processing/block_processor import newExecutionPayload
 from ./gossip_processing/eth2_processor import toValidationResult
 
+# this needs to be global, so it can be set in the Ctrl+C signal handler
+var globalRunning = true
+
 programMain:
+  ## Ctrl+C handling
+  proc controlCHandler() {.noconv.} =
+    when defined(windows):
+      # workaround for https://github.com/nim-lang/Nim/issues/4057
+      try:
+        setupForeignThreadGc()
+      except Exception as exc: raiseAssert exc.msg # shouldn't happen
+    notice "Shutting down after having received SIGINT"
+    globalRunning = false
+  try:
+    setControlCHook(controlCHandler)
+  except Exception as exc: # TODO Exception
+    warn "Cannot set ctrl-c handler", msg = exc.msg
+
   var config = makeBannerAndConfig(
     "Nimbus light client " & fullVersionStr, LightClientConf)
   setupLogging(config.logLevel, config.logStdout, config.logFile)
@@ -203,6 +220,61 @@ programMain:
 
     blocksGossipState = targetGossipState
 
+  proc onSlot(wallTime: BeaconTime, lastSlot: Slot) =
+    let
+      wallSlot = wallTime.slotOrZero()
+      expectedSlot = lastSlot + 1
+      delay = wallTime - expectedSlot.start_beacon_time()
+
+      finalizedHeader = lightClient.finalizedHeader
+      optimisticHeader = lightClient.optimisticHeader
+
+      finalizedBid =
+        if finalizedHeader.isSome:
+          finalizedHeader.get.toBlockId()
+        else:
+          BlockId(root: genesisBlockRoot, slot: GENESIS_SLOT)
+      optimisticBid =
+        if optimisticHeader.isSome:
+          optimisticHeader.get.toBlockId()
+        else:
+          BlockId(root: genesisBlockRoot, slot: GENESIS_SLOT)
+
+      syncStatus =
+        if optimisticHeader.isNone:
+          "bootstrapping(" & $config.trustedBlockRoot & ")"
+        elif not shouldSyncOptimistically(wallSlot):
+          "syncing"
+        else:
+          "synced"
+
+    info "Slot start",
+      slot = shortLog(wallSlot),
+      epoch = shortLog(wallSlot.epoch),
+      sync = syncStatus,
+      peers = len(network.peerPool),
+      head = shortLog(optimisticBid),
+      finalized = shortLog(finalizedBid),
+      delay = shortLog(delay)
+
+  proc runOnSlotLoop() {.async.} =
+    var
+      curSlot = getBeaconTime().slotOrZero()
+      nextSlot = curSlot + 1
+      timeToNextSlot = nextSlot.start_beacon_time() - getBeaconTime()
+    while true:
+      await sleepAsync(timeToNextSlot)
+
+      let
+        wallTime = getBeaconTime()
+        wallSlot = wallTime.slotOrZero()
+
+      onSlot(wallTime, curSlot)
+
+      curSlot = wallSlot
+      nextSlot = wallSlot + 1
+      timeToNextSlot = nextSlot.start_beacon_time() - getBeaconTime()
+
   var nextExchangeTransitionConfTime = Moment.now + chronos.seconds(60)
   proc onSecond(time: Moment) =
     let wallSlot = getBeaconTime().slotOrZero()
@@ -234,6 +306,9 @@ programMain:
   onSecond(Moment.now())
   lightClient.start()
 
+  asyncSpawn runOnSlotLoop()
   asyncSpawn runOnSecondLoop()
-  while true:
+  while globalRunning:
     poll()
+
+  notice "Exiting light client"

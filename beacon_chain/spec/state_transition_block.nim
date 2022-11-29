@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition - block processing, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
 #
@@ -29,9 +29,13 @@ import
   ./datatypes/[phase0, altair, bellatrix],
   "."/[beaconstate, eth2_merkleization, helpers, validator, signatures]
 
+from ./datatypes/capella import
+  BeaconState, MAX_WITHDRAWALS_PER_PAYLOAD, SignedBLSToExecutionChange,
+  Withdrawal
+
 export extras, phase0, altair
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#block-header
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#block-header
 func process_block_header*(
     state: var ForkyBeaconState, blck: SomeForkyBeaconBlock, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
@@ -74,7 +78,7 @@ func `xor`[T: array](a, b: T): T =
   for i in 0..<result.len:
     result[i] = a[i] xor b[i]
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#randao
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#randao
 proc process_randao(
     state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
@@ -115,7 +119,7 @@ proc process_randao(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#eth1-data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody): Result[void, cstring]=
   if not state.eth1_data_votes.add body.eth1_data:
     # Count is reset  in process_final_updates, so this should never happen
@@ -126,14 +130,14 @@ func process_eth1_data(state: var ForkyBeaconState, body: SomeForkyBeaconBlockBo
     state.eth1_data = body.eth1_data
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
     (validator.activation_epoch <= epoch) and
     (epoch < validator.withdrawable_epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#proposer-slashings
 proc check_proposer_slashing*(
     state: ForkyBeaconState, proposer_slashing: SomeProposerSlashing,
     flags: UpdateFlags):
@@ -182,7 +186,7 @@ proc check_proposer_slashing*(
   withState(state):
     check_proposer_slashing(forkyState.data, proposer_slashing, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#proposer-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#proposer-slashings
 proc process_proposer_slashing*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     proposer_slashing: SomeProposerSlashing, flags: UpdateFlags,
@@ -192,7 +196,7 @@ proc process_proposer_slashing*(
   ? slash_validator(cfg, state, proposer_index, cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#is_slashable_attestation_data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#is_slashable_attestation_data
 func is_slashable_attestation_data(
     data_1: AttestationData, data_2: AttestationData): bool =
   ## Check if ``data_1`` and ``data_2`` are slashable according to Casper FFG
@@ -204,7 +208,7 @@ func is_slashable_attestation_data(
     (data_1.source.epoch < data_2.source.epoch and
      data_2.target.epoch < data_1.target.epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#attester-slashings
 proc check_attester_slashing*(
        state: ForkyBeaconState,
        attester_slashing: SomeAttesterSlashing,
@@ -246,7 +250,7 @@ proc check_attester_slashing*(
   withState(state):
     check_attester_slashing(forkyState.data, attester_slashing, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#attester-slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#attester-slashings
 proc process_attester_slashing*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
@@ -311,7 +315,7 @@ proc process_deposit*(cfg: RuntimeConfig,
         static: doAssert state.balances.maxLen == state.validators.maxLen
         raiseAssert "adding validator succeeded, so should balances"
 
-      when state is altair.BeaconState or state is bellatrix.BeaconState:
+      when state is altair.BeaconState or state is bellatrix.BeaconState or state is capella.BeaconState:
         if not state.previous_epoch_participation.add(ParticipationFlags(0)):
           return err("process_deposit: too many validators (previous_epoch_participation)")
         if not state.current_epoch_participation.add(ParticipationFlags(0)):
@@ -329,7 +333,7 @@ proc process_deposit*(cfg: RuntimeConfig,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#voluntary-exits
 proc check_voluntary_exit*(
     cfg: RuntimeConfig,
     state: ForkyBeaconState,
@@ -378,7 +382,7 @@ proc check_voluntary_exit*(
   withState(state):
     check_voluntary_exit(cfg, forkyState.data, signed_voluntary_exit, flags)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#voluntary-exits
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#voluntary-exits
 proc process_voluntary_exit*(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState,
@@ -390,7 +394,43 @@ proc process_voluntary_exit*(
   ? initiate_validator_exit(cfg, state, exited_validator, cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
+proc process_bls_to_execution_change*(
+    state: var capella.BeaconState,
+    signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
+  let address_change = signed_address_change.message
+
+  if not (address_change.validator_index < state.validators.lenu64):
+    return err("process_bls_to_execution_change: invalid validator index")
+
+  var withdrawal_credentials =
+    state.validators.item(address_change.validator_index).withdrawal_credentials
+
+  if not (withdrawal_credentials.data[0] == BLS_WITHDRAWAL_PREFIX):
+    return err("process_bls_to_execution_change: invalid withdrawal prefix")
+
+  # TODO what's usual convention here re 32 hardcoded constant?
+  if not (withdrawal_credentials.data.toOpenArray(1, 31) ==
+      eth2digest(address_change.from_bls_pubkey.blob).data.toOpenArray(1, 31)):
+    return err("process_bls_to_execution_change: invalid withdrawal credentials")
+
+  if not verify_bls_to_execution_change_signature(
+      state.fork, state.genesis_validators_root, state.get_current_epoch,
+      signed_address_change, address_change.from_bls_pubkey,
+      signed_address_change.signature):
+    return err("process_bls_to_execution_change: invalid signature")
+
+  withdrawal_credentials.data[0] = ETH1_ADDRESS_WITHDRAWAL_PREFIX
+  withdrawal_credentials.data.fill(1, 11, 0)
+  withdrawal_credentials.data[12..31] =
+    address_change.to_execution_address.data
+  state.validators.mitem(address_change.validator_index).withdrawal_credentials =
+    withdrawal_credentials
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#operations
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#modified-process_operations
 proc process_operations(cfg: RuntimeConfig,
                         state: var ForkyBeaconState,
                         body: SomeForkyBeaconBlockBody,
@@ -417,10 +457,14 @@ proc process_operations(cfg: RuntimeConfig,
     ? process_deposit(cfg, state, op, flags)
   for op in body.voluntary_exits:
     ? process_voluntary_exit(cfg, state, op, flags, cache)
+  for fieldName, _ in body.fieldPairs:
+    when fieldName == "bls_to_execution_changes":
+      for op in body.bls_to_execution_changes:
+        ? process_bls_to_execution_change(state, op)
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#sync-committee-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/beacon-chain.md#sync-committee-processing
 func get_participant_reward*(total_active_balance: Gwei): Gwei =
   let
     total_active_increments =
@@ -435,9 +479,9 @@ func get_participant_reward*(total_active_balance: Gwei): Gwei =
 func get_proposer_reward*(participant_reward: Gwei): Gwei =
   participant_reward * PROPOSER_WEIGHT div (WEIGHT_DENOMINATOR - PROPOSER_WEIGHT)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#sync-committee-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
-    state: var (altair.BeaconState | bellatrix.BeaconState),
+    state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
     cache: var StateCache):
     Result[void, cstring]  =
@@ -491,10 +535,10 @@ proc process_sync_aggregate*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var bellatrix.BeaconState, payload: ExecutionPayload,
-    notify_new_payload: ExecutePayload): Result[void, cstring] =
+    state: var bellatrix.BeaconState, payload: bellatrix.ExecutionPayload,
+    notify_new_payload: bellatrix.ExecutePayload): Result[void, cstring] =
   ## Verify consistency of the parent hash with respect to the previous
   ## execution payload header
   if is_merge_transition_complete(state):
@@ -515,7 +559,7 @@ proc process_execution_payload*(
     return err("process_execution_payload: execution payload invalid")
 
   # Cache execution payload header
-  state.latest_execution_payload_header = ExecutionPayloadHeader(
+  state.latest_execution_payload_header = bellatrix.ExecutionPayloadHeader(
     parent_hash: payload.parent_hash,
     fee_recipient: payload.fee_recipient,
     state_root: payload.state_root,
@@ -533,7 +577,131 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#modified-process_execution_payload
+proc process_execution_payload*(
+    state: var capella.BeaconState, payload: capella.ExecutionPayload,
+    notify_new_payload: capella.ExecutePayload): Result[void, cstring] =
+  ## Verify consistency of the parent hash with respect to the previous
+  ## execution payload header
+  if is_merge_transition_complete(state):
+    if not (payload.parent_hash ==
+        state.latest_execution_payload_header.block_hash):
+      return err("process_execution_payload: payload and state parent hash mismatch")
+
+  # Verify prev_randao
+  if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
+    return err("process_execution_payload: payload and state randomness mismatch")
+
+  # Verify timestamp
+  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+    return err("process_execution_payload: invalid timestamp")
+
+  # Verify the execution payload is valid
+  if not notify_new_payload(payload):
+    return err("process_execution_payload: execution payload invalid")
+
+  # Cache execution payload header
+  state.latest_execution_payload_header = capella.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions),
+    withdrawals_root: hash_tree_root(payload.withdrawals))  # [New in Capella]
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#has_eth1_withdrawal_credential
+func has_eth1_withdrawal_credential(validator: Validator): bool =
+  ## Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
+  validator.withdrawal_credentials.data[0] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
+func is_fully_withdrawable_validator(
+    validator: Validator, balance: Gwei, epoch: Epoch): bool =
+  ## Check if ``validator`` is fully withdrawable.
+  has_eth1_withdrawal_credential(validator) and
+    validator.withdrawable_epoch <= epoch and balance > 0
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
+func is_partially_withdrawable_validator(
+    validator: Validator, balance: Gwei): bool =
+  ## Check if ``validator`` is partially withdrawable.
+  let
+    has_max_effective_balance =
+      validator.effective_balance == MAX_EFFECTIVE_BALANCE
+    has_excess_balance = balance > MAX_EFFECTIVE_BALANCE
+  has_eth1_withdrawal_credential(validator) and
+    has_max_effective_balance and has_excess_balance
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-get_expected_withdrawals
+func get_expected_withdrawals(state: capella.BeaconState): seq[Withdrawal] =
+  let epoch = get_current_epoch(state)
+  var
+    withdrawal_index = state.next_withdrawal_index
+    validator_index = state.next_withdrawal_validator_index
+    withdrawals: seq[Withdrawal] = @[]
+  for _ in 0 ..< len(state.validators):
+    let
+      validator = state.validators[validator_index]
+      balance = state.balances[validator_index]
+    if is_fully_withdrawable_validator(validator, balance, epoch):
+      var w = Withdrawal(
+        index: withdrawal_index,
+        validator_index: validator_index,
+        amount: balance)
+      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
+      withdrawals.add w
+      withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
+    elif is_partially_withdrawable_validator(validator, balance):
+      var w = Withdrawal(
+        index: withdrawal_index,
+        validator_index: validator_index,
+        amount: balance - MAX_EFFECTIVE_BALANCE)
+      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
+      withdrawals.add w
+      withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
+    if len(withdrawals) == MAX_WITHDRAWALS_PER_PAYLOAD:
+      break
+    validator_index = (validator_index + 1) mod lenu64(state.validators)
+  withdrawals
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-process_withdrawals
+func process_withdrawals*(
+    state: var capella.BeaconState, payload: capella.ExecutionPayload):
+    Result[void, cstring] =
+  let expected_withdrawals = get_expected_withdrawals(state)
+
+  if not (len(payload.withdrawals) == len(expected_withdrawals)):
+    return err("process_withdrawals: different numbers of payload and expected withdrawals")
+
+  for i in 0 ..< len(expected_withdrawals):
+    if expected_withdrawals[i] != payload.withdrawals[i]:
+      return err("process_withdrawals: mismatched expected and payload withdrawal")
+    let validator_index =
+      ValidatorIndex.init(expected_withdrawals[i].validator_index).valueOr:
+        return err("process_withdrawals: invalid validator index")
+    decrease_balance(
+      state, validator_index, expected_withdrawals[i].amount)
+  if len(expected_withdrawals) > 0:
+    let latest_withdrawal = expected_withdrawals[^1]
+    state.next_withdrawal_index = WithdrawalIndex(latest_withdrawal.index + 1)
+    let next_validator_index =
+      (latest_withdrawal.validator_index + 1) mod lenu64(state.validators)
+    state.next_withdrawal_validator_index = next_validator_index
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/phase0.nim
 type SomePhase0Block =
@@ -553,7 +721,7 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
 type SomeAltairBlock =
@@ -582,6 +750,7 @@ proc process_block*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock
@@ -597,8 +766,39 @@ proc process_block*(
   if is_execution_enabled(state, blck.body):
     ? process_execution_payload(
         state, blck.body.execution_payload,
-        # TODO this is enough to pass consensus spec tests
         func(_: ExecutionPayload): bool = true)
+  ? process_randao(state, blck.body, flags, cache)
+  ? process_eth1_data(state, blck.body)
+
+  let
+    total_active_balance = get_total_active_balance(state, cache)
+    base_reward_per_increment =
+      get_base_reward_per_increment(total_active_balance)
+  ? process_operations(
+    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  ? process_sync_aggregate(
+    state, blck.body.sync_aggregate, total_active_balance, cache)
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#block-processing
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+type SomeCapellaBlock =
+  capella.BeaconBlock | capella.SigVerifiedBeaconBlock | capella.TrustedBeaconBlock
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var capella.BeaconState, blck: SomeCapellaBlock,
+    flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
+  ## When there's a new block, we need to verify that the block is sane and
+  ## update the state accordingly - the state is left in an unknown state when
+  ## block application fails (!)
+
+  ? process_block_header(state, blck, flags, cache)
+  if is_execution_enabled(state, blck.body):
+    ? process_withdrawals(state, blck.body.execution_payload)  # [New in Capella]
+    ? process_execution_payload(
+        state, blck.body.execution_payload,
+        func(_: capella.ExecutionPayload): bool = true)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
 

@@ -351,7 +351,7 @@ SECRETS_DIR="${DATA_DIR}/secrets"
 scripts/makedir.sh "${SECRETS_DIR}"
 
 USER_VALIDATORS=8
-TOTAL_VALIDATORS=128
+TOTAL_VALIDATORS=1024
 
 # "Make" binary
 if [[ "${OS}" == "windows" ]]; then
@@ -399,7 +399,8 @@ kill_by_port() {
   done
 }
 
-
+GETH_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
+NIMBUSEL_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
 
 # kill lingering processes from a previous run
 if [[ "${OS}" != "windows" ]]; then
@@ -408,7 +409,7 @@ if [[ "${OS}" != "windows" ]]; then
 
   #Stop geth nodes
   if [[ "${RUN_GETH}" == "1" ]]; then
-    for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+    for NUM_NODE in $(seq 0 $(( GETH_NUM_NODES - 1 ))); do
       for PORT in $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_NET_PORT )) \
                     $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_HTTP_PORT )) \
                     $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_WS_PORT )) \
@@ -421,7 +422,7 @@ if [[ "${OS}" != "windows" ]]; then
 
   #Stop Nimbus EL nodes
   if [[ "${RUN_NIMBUS}" == "1" ]]; then
-    for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+    for NUM_NODE in $(seq 0 $(( NIMBUSEL_NUM_NODES - 1 ))); do
       for PORT in $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_NET_PORT )) \
                     $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_HTTP_PORT )) \
                     $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_WS_PORT )) \
@@ -504,9 +505,6 @@ download_eth2() {
     REUSE_BINARIES=1
   fi
 }
-
-GETH_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
-NIMBUSEL_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
 
 if [[ "${RUN_GETH}" == "1" ]]; then
   if [[ ! -e "${GETH_BINARY}" ]]; then
@@ -813,7 +811,7 @@ dump_logs() {
 
 dump_logtrace() {
   if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace aggasr --log-dir="${DATA_DIR}" || true
+    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace localSimChecks --log-dir="${DATA_DIR}" --const-preset=${CONST_PRESET} || true
   fi
 }
 
@@ -994,7 +992,6 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --keymanager-token-file="${DATA_DIR}/keymanager-token" \
     --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
-    --sync-light-client=on \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 

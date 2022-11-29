@@ -30,7 +30,7 @@ type
   ProcessingCallback* = proc() {.gcsafe, raises: [Defect].}
   BlockVerifier* =
     proc(signedBlock: ForkedSignedBeaconBlock):
-      Future[Result[void, BlockError]] {.gcsafe, raises: [Defect].}
+      Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 
   SyncQueueKind* {.pure.} = enum
     Forward, Backward
@@ -78,9 +78,6 @@ type
     rewind: Option[RewindPoint]
     blockVerifier: BlockVerifier
     ident*: string
-
-  SyncManagerError* = object of CatchableError
-  BeaconBlocksRes* = NetRes[seq[ref ForkedSignedBeaconBlock]]
 
 chronicles.formatIt SyncQueueKind: toLowerAscii($it)
 
@@ -151,11 +148,6 @@ proc checkResponse*[T](req: SyncRequest[T],
   else:
     return false
 
-proc getFullMap*[T](req: SyncRequest[T],
-                    data: openArray[ForkedSignedBeaconBlock]): string =
-  # Returns all slot numbers in ``data`` as comma-delimeted string.
-  mapIt(data, $it.message.slot).join(", ")
-
 proc init[T](t1: typedesc[SyncRequest], kind: SyncQueueKind, start: Slot,
              finish: Slot, t2: typedesc[T]): SyncRequest[T] =
   let count = finish - start + 1'u64
@@ -189,7 +181,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               ident: string = "main"): SyncQueue[T] =
   ## Create new synchronization queue with parameters
   ##
-  ## ``start`` and ``last`` are starting and finishing Slots.
+  ## ``start`` and ``final`` are starting and final Slots.
   ##
   ## ``chunkSize`` maximum number of slots in one request.
   ##
@@ -205,10 +197,11 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
   #
   # Joker's problem
   #
-  # According to current Ethereum2 network specification
+  # According to pre-v0.12.0 Ethereum consensus network specification
   # > Clients MUST respond with at least one block, if they have it and it
   # > exists in the range. Clients MAY limit the number of blocks in the
   # > response.
+  # https://github.com/ethereum/consensus-specs/blob/v0.11.3/specs/phase0/p2p-interface.md#L590
   #
   # Such rule can lead to very uncertain responses, for example let slots from
   # 10 to 12 will be not empty. Client which follows specification can answer
@@ -222,18 +215,24 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
   # 6.   X - X
   # 7.   X X -
   #
-  # If peer answers with `1` everything will be fine and `block_pool` will be
-  # able to process all 3 blocks. In case of `2`, `3`, `4`, `6` - `block_pool`
-  # will fail immediately with chunk and report "parent is missing" error.
-  # But in case of `5` and `7` blocks will be processed by `block_pool` without
-  # any problems, however it will start producing problems right from this
-  # uncertain last slot. SyncQueue will start producing requests for next
+  # If peer answers with `1` everything will be fine and `block_processor`
+  # will be able to process all 3 blocks.
+  # In case of `2`, `3`, `4`, `6` - `block_processor` will fail immediately
+  # with chunk and report "parent is missing" error.
+  # But in case of `5` and `7` blocks will be processed by `block_processor`
+  # without any problems, however it will start producing problems right from
+  # this uncertain last slot. SyncQueue will start producing requests for next
   # blocks, but all the responses from this point will fail with "parent is
   # missing" error. Lets call such peers "jokers", because they are joking
   # with responses.
   #
   # To fix "joker" problem we going to perform rollback to the latest finalized
   # epoch's first slot.
+  #
+  # Note that as of spec v0.12.0, well-behaving clients are forbidden from
+  # answering this way. However, it still makes sense to attempt to handle
+  # this case to increase compatibility (e.g., with weak subjectivity nodes
+  # that are still backfilling blocks)
   doAssert(chunkSize > 0'u64, "Chunk size should not be zero")
   SyncQueue[T](
     kind: queueKind,
@@ -315,7 +314,7 @@ proc waitForChanges[T](sq: SyncQueue[T]): Future[bool] {.async.} =
     sq.waiters.delete(sq.waiters.find(waititem))
 
 proc wakeupAndWaitWaiters[T](sq: SyncQueue[T]) {.async.} =
-  ## This procedure will perform wakeupWaiters(false) and blocks until last
+  ## This procedure will perform wakeupWaiters(true) and blocks until last
   ## waiter will be awakened.
   var waitChanges = sq.waitForChanges()
   sq.wakeupWaiters(true)
@@ -666,7 +665,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       # compiler segfault if this is moved into the for loop, at time of writing
       # TODO this does segfault in 1.2 but not 1.6, so remove workaround when 1.2
       # is dropped.
-      res: Result[void, BlockError]
+      res: Result[void, VerifierError]
 
     for blk in sq.blocks(item):
       res = await sq.blockVerifier(blk[])
@@ -674,27 +673,27 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         goodBlock = some(blk[].slot)
       else:
         case res.error()
-        of BlockError.MissingParent:
+        of VerifierError.MissingParent:
           missingParentSlot = some(blk[].slot)
           break
-        of BlockError.Duplicate:
+        of VerifierError.Duplicate:
           # Keep going, happens naturally
           discard
-        of BlockError.UnviableFork:
+        of VerifierError.UnviableFork:
           # Keep going so as to register other unviable blocks with the
           # quarantine
           if unviableBlock.isNone:
             # Remember the first unviable block, so we can log it
             unviableBlock = some((blk[].root, blk[].slot))
 
-        of BlockError.Invalid:
+        of VerifierError.Invalid:
           hasInvalidBlock = true
 
           let req = item.request
           notice "Received invalid sequence of blocks", request = req,
                   blocks_count = len(item.data),
                   blocks_map = getShortMap(req, item.data)
-          req.item.updateScore(PeerScoreBadBlocks)
+          req.item.updateScore(PeerScoreBadValues)
           break
 
     # When errors happen while processing blocks, we retry the same request
@@ -708,12 +707,12 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       if goodBlock.isSome():
         # If there no error and response was not empty we should reward peer
         # with some bonus score - not for duplicate blocks though.
-        item.request.item.updateScore(PeerScoreGoodBlocks)
+        item.request.item.updateScore(PeerScoreGoodValues)
         item.request.item.updateStats(SyncResponseKind.Good, 1'u64)
 
         # BlockProcessor reports good block, so we can reward all the peers
         # who sent us empty responses.
-        sq.rewardForGaps(PeerScoreGoodBlocks)
+        sq.rewardForGaps(PeerScoreGoodValues)
         sq.gapList.reset()
       else:
         # Response was empty
@@ -747,23 +746,23 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           resetSlot: Option[Slot]
           failSlot = missingParentSlot.get()
 
-        # If we got `BlockError.MissingParent` it means that peer returns chain
-        # of blocks with holes or `block_pool` is in incomplete state. We going
-        # to rewind the SyncQueue some distance back (2ⁿ, where n∈[0,∞], but
-        # no more than `finalized_epoch`).
+        # If we got `VerifierError.MissingParent` it means that peer returns
+        # chain of blocks with holes or `block_pool` is in incomplete state. We
+        # going to rewind the SyncQueue some distance back (2ⁿ, where n∈[0,∞],
+        # but no more than `finalized_epoch`).
         let
           req = item.request
           safeSlot = sq.getSafeSlot()
           gapsCount = len(sq.gapList)
 
         # We should penalize all the peers which responded with gaps.
-        sq.rewardForGaps(PeerScoreMissingBlocks)
+        sq.rewardForGaps(PeerScoreMissingValues)
         sq.gapList.reset()
 
         case sq.kind
         of SyncQueueKind.Forward:
           if goodBlock.isSome():
-            # `BlockError.MissingParent` and `Success` present in response,
+            # `VerifierError.MissingParent` and `Success` present in response,
             # it means that we just need to request this range one more time.
             debug "Unexpected missing parent, but no rewind needed",
                   request = req, finalized_slot = safeSlot,
@@ -772,7 +771,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                   blocks_count = len(item.data),
                   blocks_map = getShortMap(req, item.data),
                   gaps_count = gapsCount
-            req.item.updateScore(PeerScoreMissingBlocks)
+            req.item.updateScore(PeerScoreMissingValues)
           else:
             if safeSlot < req.slot:
               let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
@@ -789,7 +788,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                   blocks_count = len(item.data),
                   blocks_map = getShortMap(req, item.data),
                   gaps_count = gapsCount
-              req.item.updateScore(PeerScoreBadBlocks)
+              req.item.updateScore(PeerScoreBadValues)
         of SyncQueueKind.Backward:
           if safeSlot > failSlot:
             let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
@@ -799,12 +798,12 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
                  finalized_slot = safeSlot, blocks_count = len(item.data),
                  blocks_map = getShortMap(req, item.data)
             resetSlot = some(rewindSlot)
-            req.item.updateScore(PeerScoreMissingBlocks)
+            req.item.updateScore(PeerScoreMissingValues)
           else:
             error "Unexpected missing parent at safe slot", request = req,
                   to_slot = safeSlot, blocks_count = len(item.data),
                   blocks_map = getShortMap(req, item.data)
-            req.item.updateScore(PeerScoreBadBlocks)
+            req.item.updateScore(PeerScoreBadValues)
 
         if resetSlot.isSome():
           await sq.resetWait(resetSlot)

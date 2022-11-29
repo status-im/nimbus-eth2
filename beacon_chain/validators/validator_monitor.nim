@@ -11,6 +11,9 @@ import
   ../spec/[beaconstate, forks, helpers],
   ../beacon_clock
 
+# TODO when forks re-exports capella, drop this
+from ../spec/datatypes/capella import shortLog
+
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
