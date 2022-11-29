@@ -332,23 +332,11 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
 
 proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
                                          slot: Slot,
-                                         duties: seq[SyncCommitteeDuty])
-                                        {.async.} =
-  let
-    vc = service.client
-    startTime = Moment.now()
+                                         duties: seq[SyncCommitteeDuty]) {.
+     async.} =
+  let vc = service.client
 
-  try:
-    let timeout = syncCommitteeMessageSlotOffset
-    await vc.waitForBlockPublished(slot).wait(nanoseconds(timeout.nanoseconds))
-    let dur = Moment.now() - startTime
-    debug "Block proposal awaited", slot = slot, duration = dur
-  except CancelledError:
-    debug "Block proposal waiting was interrupted"
-    return
-  except AsyncTimeoutError:
-    let dur = Moment.now() - startTime
-    debug "Block was not produced in time", slot = slot, duration = dur
+  await vc.waitForBlockPublished(slot, syncCommitteeMessageSlotOffset)
 
   block:
     let delay = vc.getDelay(slot.sync_committee_message_deadline())
