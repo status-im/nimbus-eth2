@@ -346,18 +346,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
                                       duties: seq[DutyAndProof]) {.async.} =
   let vc = service.client
   # Waiting for blocks to be published before attesting.
-  let startTime = Moment.now()
-  try:
-    let timeout = attestationSlotOffset # 4.seconds in mainnet
-    await vc.waitForBlockPublished(slot).wait(nanoseconds(timeout.nanoseconds))
-    let dur = Moment.now() - startTime
-    debug "Block proposal awaited", slot = slot, duration = dur
-  except CancelledError as exc:
-    debug "Block proposal waiting was interrupted"
-    raise exc
-  except AsyncTimeoutError:
-    let dur = Moment.now() - startTime
-    debug "Block was not produced in time", slot = slot, duration = dur
+  await vc.waitForBlockPublished(slot, attestationSlotOffset)
 
   block:
     let delay = vc.getDelay(slot.attestation_deadline())
