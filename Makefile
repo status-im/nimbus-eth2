@@ -159,17 +159,28 @@ libbacktrace:
 # EXECUTOR_NUMBER: [0, 1] (depends on max number of concurrent CI jobs)
 #
 # The following port ranges are allocated (entire continuous range):
+#
+# Unit tests:
+# - NIMBUS_TEST_KEYMANAGER_BASE_PORT + [0, 4)
+#
+# REST tests:
+# - --base-port
+# - --base-rest-port
+# - --base-metrics-port
+#
+# Local testnets (entire continuous range):
 # - --base-port + [0, --nodes + --light-clients)
 # - --base-rest-port + [0, --nodes)
 # - --base-metrics-port + [0, --nodes)
 # - --base-vc-metrics-port + [0, --nodes]
 # - --base-remote-signer-port + [0, --remote-signers)
 #
-# If --run-geth or --run-nimbus is specified (only these ports):
+# Local testnets with --run-geth or --run-nimbus (only these ports):
 # - --base-el-net-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-http-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-ws-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
+UNIT_TEST_BASE_PORT := 9950
 
 restapi-test:
 	./tests/simulation/restapi.sh \
@@ -315,7 +326,11 @@ endif
 	for TEST_BINARY in $(XML_TEST_BINARIES); do \
 		PARAMS="--xml:build/$${TEST_BINARY}.xml --console"; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; tail -n50 "$${TEST_BINARY}.log"; exit 1; }; \
+		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 )) \
+			build/$${TEST_BINARY} $${PARAMS} || { \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
+				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+			}; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 	for TEST_BINARY in $(TEST_BINARIES); do \
@@ -324,7 +339,10 @@ endif
 		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
 		fi; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; tail -n50 "$${TEST_BINARY}.log"; exit 1; }; \
+		build/$${TEST_BINARY} $${PARAMS} || { \
+			echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
+			tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+		}; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 
