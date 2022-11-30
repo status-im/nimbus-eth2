@@ -242,6 +242,8 @@ const
   wordListLen = 2048
   maxWordLen = 16
 
+  KeystoreCachePruningTime* = 5.minutes
+
 UUID.serializesAsBaseIn Json
 KeyPath.serializesAsBaseIn Json
 WalletName.serializesAsBaseIn Json
@@ -877,7 +879,7 @@ func `==`*(a, b: KeystoreCacheItem): bool =
   (a.decryptionKey == b.decryptionKey)
 
 func init*(t: typedesc[KeystoreCacheRef],
-           expireTime = InfiniteDuration): KeystoreCacheRef =
+           expireTime = KeystoreCachePruningTime): KeystoreCacheRef =
   KeystoreCacheRef(
     table: initTable[KdfSaltKey, KeystoreCacheItem](),
     expireTime: expireTime

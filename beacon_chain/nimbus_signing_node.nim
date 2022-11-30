@@ -125,6 +125,8 @@ proc init(t: typedesc[SigningNode], config: SigningNodeConf): SigningNode =
     fatal "Could not find/initialize local validators"
     quit 1
 
+  asyncSpawn runKeystoreCachePruningLoop(sn.keystoreCache)
+
   let
     address = initTAddress(config.bindAddress, config.bindPort)
     serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
