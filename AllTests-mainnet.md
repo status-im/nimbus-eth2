@@ -615,4 +615,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 339/344 Fail: 0/344 Skip: 5/344
+OK: 340/345 Fail: 0/345 Skip: 5/345
