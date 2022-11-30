@@ -149,7 +149,7 @@ proc getSyncCommittee*(
     res.expect("SQL query OK")
     try:
       return ok SSZ.decode(syncCommittee, altair.SyncCommittee)
-    except SszError:
+    except SszError as exc:
       error "LC store corrupted", store = "syncCommittees",
         period, exc = exc.msg
       return err()
