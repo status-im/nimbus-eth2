@@ -248,7 +248,7 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
         proposalState[],
         head.atSlot(wallSlot).toBlockSlotId().expect("not nil")):
       return RestApiResponse.jsonResponse(
-        node.getBlockProposalEth1Data(state))
+        node.getBlockProposalEth1Data(updatedState))
     do:
       return RestApiResponse.jsonError(Http400, PrunedStateError)
 

@@ -294,20 +294,20 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], attestationHead.toBlockSlotId.expect("not nil")) do:
       let
-        fork = getStateField(state, fork)
-        genesis_validators_root = getStateField(state, genesis_validators_root)
+        fork = getStateField(updatedState, fork)
+        genesis_validators_root = getStateField(updatedState, genesis_validators_root)
         committees_per_slot =
-          get_committee_count_per_slot(state, slot.epoch, cache)
+          get_committee_count_per_slot(updatedState, slot.epoch, cache)
 
       for committee_index in get_committee_indices(committees_per_slot):
         let committee = get_beacon_committee(
-          state, slot, committee_index, cache)
+          updatedState, slot, committee_index, cache)
 
         for index_in_committee, validator_index in committee:
           if rand(r, 1.0) <= attesterRatio:
             let
               data = makeAttestationData(
-                state, slot, committee_index, bid.root)
+                updatedState, slot, committee_index, bid.root)
               sig =
                 get_attestation_signature(
                   fork, genesis_validators_root, data,
@@ -494,7 +494,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
-        newBlock = getNewBlock[phase0.SignedBeaconBlock](state, slot, cache)
+        newBlock = getNewBlock[phase0.SignedBeaconBlock](updatedState, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
             epochRef: EpochRef, unrealized: FinalityCheckpoints):
@@ -516,7 +516,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
-        newBlock = getNewBlock[altair.SignedBeaconBlock](state, slot, cache)
+        newBlock = getNewBlock[altair.SignedBeaconBlock](updatedState, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: altair.TrustedSignedBeaconBlock,
             epochRef: EpochRef, unrealized: FinalityCheckpoints):
@@ -538,7 +538,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
-        newBlock = getNewBlock[bellatrix.SignedBeaconBlock](state, slot, cache)
+        newBlock = getNewBlock[bellatrix.SignedBeaconBlock](updatedState, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: bellatrix.TrustedSignedBeaconBlock,
             epochRef: EpochRef, unrealized: FinalityCheckpoints):
@@ -560,7 +560,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
-        newBlock = getNewBlock[capella.SignedBeaconBlock](state, slot, cache)
+        newBlock = getNewBlock[capella.SignedBeaconBlock](updatedState, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: capella.TrustedSignedBeaconBlock,
             epochRef: EpochRef, unrealized: FinalityCheckpoints):

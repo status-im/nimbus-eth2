@@ -76,7 +76,7 @@ template withUpdatedState*(
     var cache {.inject.} = StateCache()
     if updateState(dag, stateParam, bsi, false, cache):
       template bid(): BlockId {.inject, used.} = bsi.bid
-      template state(): ForkedHashedBeaconState {.inject, used.} = stateParam
+      template updatedState(): ForkedHashedBeaconState {.inject, used.} = stateParam
       okBody
     else:
       failureBody
@@ -710,7 +710,7 @@ proc currentSyncCommitteeForPeriod*(
     syncCommitteeSlot = max(periodStartSlot, lowSlot)
     bsi = ? dag.getBlockIdAtSlot(syncCommitteeSlot)
   dag.withUpdatedState(tmpState, bsi) do:
-    withState(state):
+    withState(updatedState):
       when stateFork >= BeaconStateFork.Altair:
         ok forkyState.data.current_sync_committee
       else: err()

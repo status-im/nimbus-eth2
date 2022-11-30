@@ -449,7 +449,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
   dag.withUpdatedState(
       tmpState[], dag.atSlot(bid, Slot(conf.slot)).expect("block found")) do:
     echo "Writing state..."
-    withState(state):
+    withState(updatedState):
       dump("./", forkyState)
   do: raiseAssert "withUpdatedState failed"
 
@@ -536,7 +536,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
 
       withTimer(timers[tState]):
         dag.withUpdatedState(tmpState[], eraBid) do:
-          withState(state):
+          withState(updatedState):
             group.finish(e2, forkyState.data).get()
         do:
           echo "Unable to load historical state - export requires fully indexed history node - see https://nimbus.guide/trusted-node-sync.html#recreate-historical-state-access-indices"
