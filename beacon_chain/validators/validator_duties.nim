@@ -755,10 +755,15 @@ proc proposeBlockMEV(
     # the block failed to validate and integrate into the DAG, which for the
     # purpose of this return value, is equivalent. It's used to drive Beacon
     # REST API output.
+    let errMsg =
+      if unblindedBlockRef.isOk:
+        unblindedBlockRef.error
+      else:
+        "Unblinded block failed either to validate or integrate into validated store: " & unblindedBlockRef.error
     warn "proposeBlockMEV: blinded block not successfully unblinded and proposed",
       head = shortLog(head), slot, validator_index,
       validator = shortLog(validator),
-      err = unblindedBlockRef.error, blindedBlck = shortLog(blindedBlock.get)
+      err = errMsg, blindedBlck = shortLog(blindedBlock.get)
     Opt.some head
 
 proc makeBlindedBeaconBlockForHeadAndSlot*(
