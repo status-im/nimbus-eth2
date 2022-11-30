@@ -756,7 +756,7 @@ proc proposeBlockMEV(
     # purpose of this return value, is equivalent. It's used to drive Beacon
     # REST API output.
     let errMsg =
-      if unblindedBlockRef.isOk:
+      if unblindedBlockRef.isErr:
         unblindedBlockRef.error
       else:
         "Unblinded block failed either to validate or integrate into validated store: " & unblindedBlockRef.error
