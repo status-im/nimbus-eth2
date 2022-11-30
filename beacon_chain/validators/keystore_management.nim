@@ -1530,10 +1530,23 @@ proc resetAttributesNoError() =
     try: stdout.resetAttributes()
     except IOError: discard
 
-proc importKeystoresFromDir*(rng: var HmacDrbgContext,
+proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
                              importedDir, validatorsDir, secretsDir: string) =
   var password: string  # TODO consider using a SecretString type
   defer: burnMem(password)
+
+  var (singleSaltPassword, singleSaltSalt) =
+    case meth
+    of ImportMethod.Normal:
+      var defaultSeq: seq[byte]
+      (KeystorePass.init(""), defaultSeq)
+    of ImportMethod.SingleSalt:
+      (KeystorePass.init(ncrutils.toHex(rng.generateBytes(32))),
+       rng.generateBytes(32))
+
+  defer:
+    burnMem(singleSaltPassword)
+    burnMem(singleSaltSalt)
 
   try:
     for file in walkDirRec(importedDir):
@@ -1572,12 +1585,23 @@ proc importKeystoresFromDir*(rng: var HmacDrbgContext,
           let privKey = ValidatorPrivKey.fromRaw(secret)
           if privKey.isOk:
             let pubkey = privKey.value.toPubKey
-            var
-              password = KeystorePass.init ncrutils.toHex(rng.generateBytes(32))
-            defer: burnMem(password)
+            var (password, salt) =
+              case meth
+              of ImportMethod.Normal:
+                var defaultSeq: seq[byte]
+                (KeystorePass.init ncrutils.toHex(rng.generateBytes(32)),
+                 defaultSeq)
+              of ImportMethod.SingleSalt:
+                (singleSaltPassword, singleSaltSalt)
+
+            defer:
+              burnMem(password)
+              burnMem(salt)
+
             let status = saveKeystore(rng, validatorsDir, secretsDir,
                                       privKey.value, pubkey,
-                                      keystore.path, password.str)
+                                      keystore.path, password.str,
+                                      salt)
             if status.isOk:
               notice "Keystore imported", file
             else:
