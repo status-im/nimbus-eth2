@@ -57,7 +57,7 @@ cli do(validatorsDir: string, secretsDir: string,
     validatorKeys: Table[ValidatorPubKey, ValidatorPrivKey]
 
   for item in listLoadableKeystores(validatorsDir, secretsDir, true,
-                                    {KeystoreKind.Local}):
+                                    {KeystoreKind.Local}, nil):
     let
       pubkey = item.privateKey.toPubKey().toPubKey()
       idx = findValidator(getStateField(state[], validators).toSeq, pubkey)
