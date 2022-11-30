@@ -759,7 +759,7 @@ proc proposeBlockMEV(
       if unblindedBlockRef.isErr:
         unblindedBlockRef.error
       else:
-        "Unblinded block failed either to validate or integrate into validated store: " & unblindedBlockRef.error
+        "Unblinded block failed either to validate or integrate into validated store: " & unblindedBlockRef.get.error
     warn "proposeBlockMEV: blinded block not successfully unblinded and proposed",
       head = shortLog(head), slot, validator_index,
       validator = shortLog(validator),
