@@ -53,6 +53,13 @@ func optimisticHeader*(lightClient: LightClient): Opt[BeaconBlockHeader] =
   else:
     err()
 
+func finalizedSyncCommittee*(
+    lightClient: LightClient): Opt[altair.SyncCommittee] =
+  if lightClient.store[].isSome:
+    ok lightClient.store[].get.current_sync_committee
+  else:
+    err()
+
 proc createLightClient(
     network: Eth2Node,
     rng: ref HmacDrbgContext,

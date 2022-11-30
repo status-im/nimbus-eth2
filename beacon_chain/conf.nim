@@ -1169,8 +1169,11 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
   else:
     fail()
 
-func databaseDir*(config: AnyConf): string =
-  config.dataDir / "db"
+func databaseDir*(dataDir: OutDir): string =
+  dataDir / "db"
+
+template databaseDir*(config: AnyConf): string =
+  config.dataDir.databaseDir
 
 func runAsService*(config: BeaconNodeConf): bool =
   config.cmd == noCommand and config.runAsServiceFlag
