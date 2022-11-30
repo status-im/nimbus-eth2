@@ -88,9 +88,9 @@ proc getLatestFinalizedHeader*(db: LightClientDB): Opt[BeaconBlockHeader] =
     res.expect("SQL query OK")
     try:
       return ok SSZ.decode(header, BeaconBlockHeader)
-    except MalformedSszError, SszSizeMismatchError:
-      error "LC store corrupted", store = "headers", kind = "Finalized",
-        exc = getCurrentException().name, err = getCurrentExceptionMsg()
+    except SszError as exc:
+      error "LC store corrupted", store = "headers",
+        kind = "Finalized", exc = exc.msg
       return err()
 
 func putLatestFinalizedHeader*(
@@ -149,9 +149,9 @@ proc getSyncCommittee*(
     res.expect("SQL query OK")
     try:
       return ok SSZ.decode(syncCommittee, altair.SyncCommittee)
-    except MalformedSszError, SszSizeMismatchError:
-      error "LC store corrupted", store = "syncCommittees", period,
-        exc = getCurrentException().name, err = getCurrentExceptionMsg()
+    except SszError:
+      error "LC store corrupted", store = "syncCommittees",
+        period, exc = exc.msg
       return err()
 
 func putSyncCommittee*(

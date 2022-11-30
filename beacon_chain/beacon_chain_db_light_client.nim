@@ -147,9 +147,9 @@ proc getCurrentSyncCommitteeBranch*(
     res.expect("SQL query OK")
     try:
       return SSZ.decode(branch, altair.CurrentSyncCommitteeBranch)
-    except MalformedSszError, SszSizeMismatchError:
-      error "LC data store corrupted", store = "currentBranches", slot,
-        exc = getCurrentException().name, err = getCurrentExceptionMsg()
+    except SszError as exc:
+      error "LC data store corrupted", store = "currentBranches",
+        slot, exc = exc.msg
       return default(altair.CurrentSyncCommitteeBranch)
 
 func putCurrentSyncCommitteeBranch*(
@@ -217,9 +217,9 @@ proc getBestUpdate*(
     res.expect("SQL query OK")
     try:
       return SSZ.decode(update, altair.LightClientUpdate)
-    except MalformedSszError, SszSizeMismatchError:
-      error "LC data store corrupted", store = "bestUpdates", period,
-        exc = getCurrentException().name, err = getCurrentExceptionMsg()
+    except SszError as exc:
+      error "LC data store corrupted", store = "bestUpdates",
+        period, exc = exc.msg
       return default(altair.LightClientUpdate)
 
 func putBestUpdate*(
