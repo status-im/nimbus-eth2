@@ -94,7 +94,7 @@ type
     pubkeys*: HashArray[Limit SYNC_COMMITTEE_SIZE, ValidatorPubKey]
     aggregate_pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/validator.md#synccommitteemessage
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/validator.md#synccommitteemessage
   SyncCommitteeMessage* = object
     slot*: Slot
       ## Slot to which this contribution pertains
@@ -157,30 +157,30 @@ type
   NextSyncCommitteeBranch* =
     array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
     header*: BeaconBlockHeader
-      ## The requested beacon block header
+      ## Header matching the requested beacon block root
 
     current_sync_committee*: SyncCommittee
-      ## Current sync committee corresponding to `header`
+      ## Current sync committee corresponding to `header.state_root`
     current_sync_committee_branch*: CurrentSyncCommitteeBranch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
     attested_header*: BeaconBlockHeader
-      ## The beacon block header that is attested to by the sync committee
+      ## Header attested to by the sync committee
 
     next_sync_committee*: SyncCommittee
-      ## Next sync committee corresponding to `attested_header`,
-      ## if signature is from current sync committee
+      ## Next sync committee corresponding to `attested_header.state_root`
     next_sync_committee_branch*: NextSyncCommitteeBranch
 
-    # The finalized beacon block header attested to by Merkle branch
+    # Finalized header corresponding to `attested_header.state_root`
     finalized_header*: BeaconBlockHeader
     finality_branch*: FinalityBranch
 
     sync_aggregate*: SyncAggregate
+      ## Sync committee aggregate signature
     signature_slot*: Slot
       ## Slot at which the aggregate signature was created (untrusted)
 
@@ -224,13 +224,13 @@ type
     LightClientBootstrap |
     SomeLightClientUpdate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#lightclientstore
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/sync-protocol.md#lightclientstore
   LightClientStore* = object
     finalized_header*: BeaconBlockHeader
-      ## Beacon block header that is finalized
+      ## Header that is finalized
 
     current_sync_committee*: SyncCommittee
-      ## Sync committees corresponding to the header
+      ## Sync committees corresponding to the finalized header
     next_sync_committee*: SyncCommittee
 
     best_valid_update*: Option[LightClientUpdate]
