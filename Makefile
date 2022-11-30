@@ -162,6 +162,7 @@ libbacktrace:
 # - --base-port + [0, --nodes + --light-clients)
 # - --base-rest-port + [0, --nodes)
 # - --base-metrics-port + [0, --nodes)
+# - --base-vc-metrics-port + [0, --nodes]
 # - --base-remote-signer-port + [0, --remote-signers)
 #
 # If --run-geth or --run-nimbus is specified (only these ports):
@@ -196,11 +197,12 @@ local-testnet-minimal:
 		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 6031 + EXECUTOR_NUMBER * 500 )) \
 		--base-metrics-port $$(( 6061 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-port $$(( 6101 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-net-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-http-port $$(( 6202 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-ws-port $$(( 6203 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-auth-rpc-port $$(( 6204 + EXECUTOR_NUMBER * 500 )) \
+		--base-vc-metrics-port $$(( 6161 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-net-port $$(( 6301 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 6302 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-ws-port $$(( 6303 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-auth-rpc-port $$(( 6304 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
 		--timeout 648 \
 		--kill-old-processes \
@@ -219,11 +221,12 @@ local-testnet-mainnet:
 		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 7031 + EXECUTOR_NUMBER * 500 )) \
 		--base-metrics-port $$(( 7061 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-port $$(( 7101 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-net-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-http-port $$(( 7202 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-ws-port $$(( 7203 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-auth-rpc-port $$(( 7204 + EXECUTOR_NUMBER * 500 )) \
+		--base-vc-metrics-port $$(( 7161 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-net-port $$(( 7301 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 7302 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-ws-port $$(( 7303 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-auth-rpc-port $$(( 7304 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
 		--timeout 2784 \
 		--kill-old-processes \
