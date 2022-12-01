@@ -6,10 +6,9 @@ production-ready version of the [Nimbus validator client][1].
 The validator client will enable advanced users such as professional
 institutional operators to take advantage of features such as support
 for [redundant beacon nodes][2], [enhanced validator privacy][3] and
-[distributed keystores][4]. All existing users, currently relying on
-the streamlined stand-alone beacon node setup are not required to take
-action, as this mode of operation will continue to be supported and
-improved forever.
+[distributed keystores][4]. Meanwhile, existing users still can use
+the streamlined stand-alone beacon node setup, as this mode of operation
+will continue to be supported and improved.
 
 [1]: https://nimbus.guide/validator-client.html
 [2]: https://nimbus.guide/validator-client-options.html#multiple-beacon-nodes
@@ -32,19 +31,19 @@ improved forever.
 
   https://github.com/status-im/nimbus-eth2/pull/4301
 
-* The doppelganger detection will now protect validators added
+* The doppelganger detection now protects validators added
   on the fly through the Keymanager API:
 
   https://github.com/status-im/nimbus-eth2/pull/4304
 
-* Fine-tuned internal task scheduling will provide better
+* Fine-tuned internal task scheduling can provide better
   quality-of-service protections for performing all validator
   duties in the presence of syncing peers performing large
   number of concurrent block download requests:
 
   https://github.com/status-im/nimbus-eth2/pull/4254
 
-* The `--optimistic` mode of the beacon node will allow you to
+* The `--optimistic` mode of the beacon node allows you to
   stay synced with the network even without an execution layer
   node:
 
@@ -53,6 +52,17 @@ improved forever.
 
   Please note that this mode is less secure and intended only
   for non-critical information retrieval through the Beacon API.
+
+* The Nimbus build for the Gnosis chain (available  when compiling
+  from source) has full support for the upcoming merge:
+
+  https://github.com/status-im/nimbus-eth2/pull/4330
+  https://forum.gnosis.io/t/gip-16-gnosis-chain-xdai-gnosis-merge/1904
+
+* The stand-alone light client (available when compiling from source)
+  now preserves progress between restarts:
+
+  https://github.com/status-im/nimbus-eth2/pull/4371
 
 ### Fixes
 

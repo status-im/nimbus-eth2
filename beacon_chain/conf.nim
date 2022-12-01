@@ -540,16 +540,16 @@ type
         name: "terminal-total-difficulty-override" .}: Option[string]
 
       validatorMonitorAuto* {.
-        desc: "Automatically monitor locally active validators"
+        desc: "Automatically monitor locally active validators (BETA)"
         defaultValue: false
         name: "validator-monitor-auto" .}: bool
 
       validatorMonitorPubkeys* {.
-        desc: "One or more validators to monitor - works best when --subscribe-all-subnets is enabled"
+        desc: "One or more validators to monitor - works best when --subscribe-all-subnets is enabled (BETA)"
         name: "validator-monitor-pubkey" .}: seq[ValidatorPubKey]
 
       validatorMonitorTotals* {.
-        desc: "Publish metrics to single 'totals' label for better collection performance when monitoring many validators"
+        desc: "Publish metrics to single 'totals' label for better collection performance when monitoring many validators (BETA)"
         defaultValue: false
         name: "validator-monitor-totals" .}: bool
 
@@ -918,7 +918,7 @@ type
       name: "payload-builder" .}: bool
 
     beaconNodes* {.
-      desc: "URL addresses to one or more beacon node HTTP REST APIs (The support for using multiple beacon nodes is considered BETA quality)",
+      desc: "URL addresses to one or more beacon node HTTP REST APIs",
       defaultValue: @[defaultBeaconNodeUri]
       defaultValueDesc: $defaultBeaconNodeUri
       name: "beacon-node" .}: seq[Uri]
