@@ -438,14 +438,18 @@ template withEpochInfo*(x: ForkedEpochInfo, body: untyped): untyped =
 
 template withEpochInfo*(
     state: phase0.BeaconState, x: var ForkedEpochInfo, body: untyped): untyped =
-  x.kind = EpochInfoFork.Phase0
+  if x.kind != EpochInfoFork.Phase0:
+    # Rare, should never happen even, so efficiency a non-issue
+    x = ForkedEpochInfo(kind: EpochInfoFork.Phase0)
   template info: untyped {.inject.} = x.phase0Data
   body
 
 template withEpochInfo*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState,
     x: var ForkedEpochInfo, body: untyped): untyped =
-  x.kind = EpochInfoFork.Altair
+  if x.kind != EpochInfoFork.Altair:
+    # Rare, so efficiency not critical
+    x = ForkedEpochInfo(kind: EpochInfoFork.Altair)
   template info: untyped {.inject.} = x.altairData
   body
 
