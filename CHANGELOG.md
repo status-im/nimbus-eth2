@@ -1,3 +1,90 @@
+2022-11-30 v22.11.0
+===================
+
+Nimbus `v22.11.0` is a `low-urgency` release, bringing the first
+production-ready version of the [Nimbus validator client][1].
+The validator client will enable advanced users such as professional
+institutional operators to take advantage of features such as support
+for [redundant beacon nodes][2], [enhanced validator privacy][3] and
+[distributed keystores][4]. All existing users, currently relying on
+the streamlined stand-alone beacon node setup are not required to take
+action, as this mode of operation will continue to be supported and
+improved forever.
+
+[1]: https://nimbus.guide/validator-client.html
+[2]: https://nimbus.guide/validator-client-options.html#multiple-beacon-nodes
+[3]: https://nimbus.guide/validator-client-options.html#sentry-node-setup
+[4]: https://github.com/status-im/nimbus-eth2/issues/3416
+
+### Improvements
+
+* The Nimbus validator client graduates from BETA to production-ready
+  status after numerous improvements and fixes:
+
+  https://nimbus.guide/validator-client.html
+
+* The Nimbus beacon node is now compatible with validator clients
+  taking advantage of the `/eth/v1/beacon/blinded_blocks` end-point:
+
+  https://github.com/status-im/nimbus-eth2/pull/4286
+
+* The validator keystore loading during start-up is now 3x faster:
+
+  https://github.com/status-im/nimbus-eth2/pull/4301
+
+* The doppelganger detection will now protect validators added
+  on the fly through the Keymanager API:
+
+  https://github.com/status-im/nimbus-eth2/pull/4304
+
+* Fine-tuned internal task scheduling will provide better
+  quality-of-service protections for performing all validator
+  duties in the presence of syncing peers performing large
+  number of concurrent block download requests:
+
+  https://github.com/status-im/nimbus-eth2/pull/4254
+
+* The `--optimistic` mode of the beacon node will allow you to
+  stay synced with the network even without an execution layer
+  node:
+
+  https://nimbus.guide/optimistic-sync.html#optimistic-mode
+  https://github.com/status-im/nimbus-eth2/pull/4262
+
+  Please note that this mode is less secure and intended only
+  for non-critical information retrieval through the Beacon API.
+
+### Fixes
+
+* A small risk for missing block proposals was present under heavy
+  forking activity in the network due to potential inclusion of
+  inappropriate attestations in the produced blocks:
+
+  https://github.com/status-im/nimbus-eth2/pull/4273
+
+* A new batching approach for the registration of validators in the
+  builder network will prevent the creation of requests of excessive
+  size that might be rejected by the network. This was a problem
+  affecting testnet nodes running with thousands of validators:
+
+  https://github.com/status-im/nimbus-eth2/pull/4364
+
+
+### Deprecated features
+
+* The `--finalized-checkpoint-block` has been deprecated.
+  The client will now download only the latest finalized state
+  during trusted node sync:
+
+  https://github.com/status-im/nimbus-eth2/pull/4251
+
+* The end-points `/eth/v1/beacon/blocks/{block_id}`, `/eth/v1/debug/beacon/states/{state_id}`, and `/eth/v1/validator/blocks/{slot}`
+  have been deprecated since they are no longer usable since
+  the Altair hard-fork:
+
+  https://github.com/status-im/nimbus-eth2/pull/4279
+
+
 2022-10-14 v22.10.1
 ===================
 
@@ -37,9 +124,9 @@ Nimbus `v22.10.0` is a `medium-urgency` release, continuing our briefly accelera
 * The `/eth/v2/validator/blocks/{slot}` API now features an optional `randao_reveal` parameter in accordance to the latest Beacon API spec:
   https://github.com/ethereum/beacon-APIs/pull/222
   https://github.com/status-im/nimbus-eth2/pull/3837
-  
+
 * The `/eth/v1/beacon/blocks` API now supports SSZ-encoded payloads:
-  https://github.com/status-im/nimbus-eth2/pull/4154 
+  https://github.com/status-im/nimbus-eth2/pull/4154
 
 * The new metrics `beacon_block_builder_proposed`, `beacon_block_builder_missed_with_fallback` and `beacon_block_builder_missed_without_fallback` can help you track the successful and failed attempts to use the configured external block builder:
   https://github.com/status-im/nimbus-eth2/pull/4158
@@ -52,8 +139,8 @@ Nimbus `v22.10.0` is a `medium-urgency` release, continuing our briefly accelera
 
 * If the chain was re-orged while Nimbus is shut down, this created a low risk that the client may become stuck on a non-canonical block:
   https://github.com/status-im/nimbus-eth2/pull/4161
-  
-* Nimbus was not serving the best possible light client updates when back-filling after a trusted node sync:  
+
+* Nimbus was not serving the best possible light client updates when back-filling after a trusted node sync:
   https://github.com/status-im/nimbus-eth2/pull/4195
 
 ### Upcoming breaking changes

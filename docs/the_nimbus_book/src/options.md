@@ -82,7 +82,7 @@ The following options are available:
                                [=infinite].
      --rest-max-body-size      Maximum size of REST request body (kilobytes) [=16384].
      --rest-max-headers-size   Maximum size of REST request headers (kilobytes) [=64].
-     --keymanager              Enable the REST keymanager API (BETA version) [=false].
+     --keymanager              Enable the REST keymanager API [=false].
      --keymanager-port         Listening port for the REST keymanager API [=5052].
      --keymanager-address      Listening port for the REST keymanager API [=127.0.0.1].
      --keymanager-allow-origin  Limit the access to the Keymanager API to a particular hostname (for
@@ -106,11 +106,11 @@ The following options are available:
                                a validator with the same index (a doppelganger), before sending an attestation
                                itself. This protects against slashing (due to double-voting) but means you will
                                miss two attestations when restarting. [=true].
-     --validator-monitor-auto  Automatically monitor locally active validators (BETA) [=false].
+     --validator-monitor-auto  Automatically monitor locally active validators [=false].
      --validator-monitor-pubkey  One or more validators to monitor - works best when --subscribe-all-subnets is
-                               enabled (BETA).
+                               enabled.
      --validator-monitor-totals  Publish metrics to single 'totals' label for better collection performance when
-                               monitoring many validators (BETA) [=false].
+                               monitoring many validators [=false].
      --suggested-fee-recipient  Suggested fee recipient.
      --payload-builder         Enable external payload builder [=false].
      --payload-builder-url     Payload builder URL.
