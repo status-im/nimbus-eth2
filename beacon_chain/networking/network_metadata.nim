@@ -224,7 +224,7 @@ proc getMetadataForNetwork*(
       quit 1
 
   if networkName == "ropsten":
-    warn "Ropsten is deprecated; https://blog.ethereum.org/2022/09/09/kiln-shutdown and https://blog.ethereum.org/2022/06/21/testnet-deprecation suggest migrating to Goerli or Sepolia"
+    warn "Ropsten is unsupported; https://blog.ethereum.org/2022/11/30/ropsten-shutdown-announcement suggests migrating to Goerli or Sepolia"
 
   let metadata =
     when defined(gnosisChainBinary) and const_preset == "mainnet":
