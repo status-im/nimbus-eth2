@@ -23,6 +23,7 @@ suite "Honest validator":
       getProposerSlashingsTopic(forkDigest) == "/eth2/00000000/proposer_slashing/ssz_snappy"
       getAttesterSlashingsTopic(forkDigest) == "/eth2/00000000/attester_slashing/ssz_snappy"
       getAggregateAndProofsTopic(forkDigest) == "/eth2/00000000/beacon_aggregate_and_proof/ssz_snappy"
+      getBlsToExecutionChangeTopic(forkDigest) == "/eth2/00000000/bls_to_execution_change/ssz_snappy"
       getSyncCommitteeContributionAndProofTopic(forkDigest) == "/eth2/00000000/sync_committee_contribution_and_proof/ssz_snappy"
       getLightClientFinalityUpdateTopic(forkDigest) == "/eth2/00000000/light_client_finality_update/ssz_snappy"
       getLightClientOptimisticUpdateTopic(forkDigest) == "/eth2/00000000/light_client_optimistic_update/ssz_snappy"

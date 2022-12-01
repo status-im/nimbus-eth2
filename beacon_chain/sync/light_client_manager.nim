@@ -37,7 +37,7 @@ type
     Endpoint[Nothing, altair.LightClientOptimisticUpdate]
 
   ValueVerifier[V] =
-    proc(v: V): Future[Result[void, BlockError]] {.gcsafe, raises: [Defect].}
+    proc(v: V): Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   BootstrapVerifier* =
     ValueVerifier[altair.LightClientBootstrap]
   UpdateVerifier* =
@@ -116,7 +116,7 @@ proc isGossipSupported*(
   else:
     period <= finalizedPeriod
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
 proc doRequest(
     e: typedesc[Bootstrap],
     peer: Peer,
@@ -125,7 +125,7 @@ proc doRequest(
     raises: [Defect, IOError].} =
   peer.lightClientBootstrap(blockRoot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
 type LightClientUpdatesByRangeResponse =
   NetRes[List[altair.LightClientUpdate, MAX_REQUEST_LIGHT_CLIENT_UPDATES]]
 proc doRequest(
@@ -166,7 +166,7 @@ proc doRequest(
       inc expectedPeriod
   return response
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
 proc doRequest(
     e: typedesc[FinalityUpdate],
     peer: Peer
@@ -174,7 +174,7 @@ proc doRequest(
     raises: [Defect, IOError].} =
   peer.lightClientFinalityUpdate()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 proc doRequest(
     e: typedesc[OptimisticUpdate],
     peer: Peer
@@ -226,48 +226,48 @@ proc workerTask[E](
         let res = await self.valueVerifier(E)(val)
         if res.isErr:
           case res.error
-          of BlockError.MissingParent:
+          of VerifierError.MissingParent:
             # Stop, requires different request to progress
             return didProgress
-          of BlockError.Duplicate:
+          of VerifierError.Duplicate:
             # Ignore, a concurrent request may have already fulfilled this
             when E.V is altair.LightClientBootstrap:
               didProgress = true
             else:
               discard
-          of BlockError.UnviableFork:
+          of VerifierError.UnviableFork:
             # Descore, peer is on an incompatible fork version
             notice "Received value from an unviable fork", value = val.shortLog,
               endpoint = E.name, peer, peer_score = peer.getScore()
             peer.updateScore(PeerScoreUnviableFork)
             return didProgress
-          of BlockError.Invalid:
+          of VerifierError.Invalid:
             # Descore, received data is malformed
             warn "Received invalid value", value = val.shortLog,
               endpoint = E.name, peer, peer_score = peer.getScore()
-            peer.updateScore(PeerScoreBadBlocks)
+            peer.updateScore(PeerScoreBadValues)
             return didProgress
         else:
           # Reward, peer returned something useful
           applyReward = true
           didProgress = true
       if applyReward:
-        peer.updateScore(PeerScoreGoodBlocks)
+        peer.updateScore(PeerScoreGoodValues)
     else:
-      peer.updateScore(PeerScoreNoBlocks)
+      peer.updateScore(PeerScoreNoValues)
       debug "Failed to receive value on request", value,
         endpoint = E.name, peer, peer_score = peer.getScore()
   except ResponseError as exc:
     warn "Received invalid response", error = exc.msg,
       endpoint = E.name, peer, peer_score = peer.getScore()
-    peer.updateScore(PeerScoreBadBlocks)
+    peer.updateScore(PeerScoreBadValues)
   except CancelledError as exc:
     raise exc
   except PeerPoolError as exc:
     debug "Failed to acquire peer", exc = exc.msg
   except CatchableError as exc:
     if peer != nil:
-      peer.updateScore(PeerScoreNoBlocks)
+      peer.updateScore(PeerScoreNoValues)
       debug "Unexpected exception while receiving value", exc = exc.msg,
         endpoint = E.name, peer, peer_score = peer.getScore()
     raise exc
@@ -388,7 +388,7 @@ func fetchTime(
     jitterDelay = chronos.seconds(self.rng[].rand(jitterSeconds).int64)
   return wallTime + minDelay + jitterDelay
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/light-client.md#light-client-sync-process
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/light-client.md#light-client-sync-process
 proc loop(self: LightClientManager) {.async.} =
   var nextFetchTime = self.getBeaconTime()
   while true:

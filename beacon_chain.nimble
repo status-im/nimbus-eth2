@@ -43,7 +43,8 @@ requires(
 
 requires "https://gitlab.com/status-im/nimbus-security-resources.git"
 
-namedBin = {
+import tables
+let namedBin = {
   "beacon_chain/nimbus_beacon_node": "nimbus_beacon_node",
   "beacon_chain/nimbus_validator_client": "nimbus_validator_client",
   "ncli/ncli": "ncli",
@@ -53,10 +54,10 @@ binDir = "build"
 
 skipDirs = @[
   ".github",
-  ".vscode"
+  ".vscode",
   "docker",
   "grafana",
-  "installer".
+  "installer",
   "media",
   "nfuzz",
   "research",

@@ -39,6 +39,8 @@ proc findValidator(validators: seq[Validator], pubKey: ValidatorPubKey):
   else:
     Opt.some idx.ValidatorIndex
 
+from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
+
 cli do(validatorsDir: string, secretsDir: string,
        startState: string, network: string):
   let
@@ -159,7 +161,7 @@ cli do(validatorsDir: string, secretsDir: string,
           @[],
           BeaconBlockExits(),
           syncAggregate,
-          default(ExecutionPayload),
+          default(bellatrix.ExecutionPayload),
           noRollback,
           cache).get()
 
@@ -186,6 +188,15 @@ cli do(validatorsDir: string, secretsDir: string,
         blockRoot = hash_tree_root(message.bellatrixData)
         let signedBlock = bellatrix.SignedBeaconBlock(
           message: message.bellatrixData,
+          root: blockRoot,
+          signature: get_block_signature(
+            fork, genesis_validators_root, slot, blockRoot,
+            validators[proposer]).toValidatorSig())
+        dump(".", signedBlock)
+      of BeaconBlockFork.Capella:
+        blockRoot = hash_tree_root(message.capellaData)
+        let signedBlock = capella.SignedBeaconBlock(
+          message: message.capellaData,
           root: blockRoot,
           signature: get_block_signature(
             fork, genesis_validators_root, slot, blockRoot,

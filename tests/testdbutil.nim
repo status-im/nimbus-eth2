@@ -16,12 +16,6 @@ import
 
 export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 
-proc makeTestDB*(
-    tailState: ForkedHashedBeaconState,
-    tailBlock: ForkedTrustedSignedBeaconBlock): BeaconChainDB =
-  result = BeaconChainDB.new("", inMemory = true)
-  ChainDAGRef.preInit(result, tailState, tailState, tailBlock)
-
 proc makeTestDB*(validators: Natural): BeaconChainDB =
   let
     genState = (ref ForkedHashedBeaconState)(
@@ -32,8 +26,9 @@ proc makeTestDB*(validators: Natural): BeaconChainDB =
         0,
         makeInitialDeposits(validators.uint64, flags = {skipBlsValidation}),
         {skipBlsValidation}))
-    genBlock = get_initial_beacon_block(genState[])
-  makeTestDB(genState[], genBlock)
+
+  result = BeaconChainDB.new("", inMemory = true)
+  ChainDAGRef.preInit(result, genState[])
 
 proc getEarliestInvalidBlockRoot*(
     dag: ChainDAGRef, initialSearchRoot: Eth2Digest,

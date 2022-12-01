@@ -32,6 +32,8 @@ import
                                           sync_committee_msg_pool],
   ./simutils
 
+from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
+
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
   tEpoch = "Process epoch slot with block"
@@ -56,6 +58,187 @@ func gauss(r: var Rand; mu = 0.0; sigma = 1.0): float =
     if  b * b <= -4.0 * a * a * ln(a): break
   mu + sigma * (b / a)
 
+from ../beacon_chain/spec/state_transition_block import process_block
+
+# TODO The rest of nimbus-eth2 uses only the forked version of these, and in
+# general it's better for the validator_duties caller to use the forkedstate
+# version, so isolate these here pending refactoring of block_sim to prefer,
+# when possible, to also use the forked version. It'll be worth keeping some
+# example of the non-forked version because it enables fork bootstrapping.
+proc makeBeaconBlock(
+    cfg: RuntimeConfig,
+    state: var phase0.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    exits: BeaconBlockExits,
+    sync_aggregate: SyncAggregate,
+    execution_payload: bellatrix.ExecutionPayload,
+    bls_to_execution_changes: SignedBLSToExecutionChangeList,
+    rollback: RollbackHashedProc[phase0.HashedBeaconState],
+    cache: var StateCache,
+    # TODO:
+    # `verificationFlags` is needed only in tests and can be
+    # removed if we don't use invalid signatures there
+    verificationFlags: UpdateFlags = {}): Result[phase0.BeaconBlock, cstring] =
+  ## Create a block for the given state. The latest block applied to it will
+  ## be used for the parent_root value, and the slot will be take from
+  ## state.slot meaning process_slots must be called up to the slot for which
+  ## the block is to be created.
+
+  # To create a block, we'll first apply a partial block to the state, skipping
+  # some validations.
+
+  var blck = partialBeaconBlock(
+    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
+    attestations, deposits, exits, sync_aggregate, execution_payload)
+
+  let res = process_block(
+    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
+
+  if res.isErr:
+    rollback(state)
+    return err(res.error())
+
+  state.root = hash_tree_root(state.data)
+  blck.state_root = state.root
+
+  ok(blck)
+
+proc makeBeaconBlock(
+    cfg: RuntimeConfig,
+    state: var altair.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    exits: BeaconBlockExits,
+    sync_aggregate: SyncAggregate,
+    execution_payload: bellatrix.ExecutionPayload,
+    bls_to_execution_changes: SignedBLSToExecutionChangeList,
+    rollback: RollbackHashedProc[altair.HashedBeaconState],
+    cache: var StateCache,
+    # TODO:
+    # `verificationFlags` is needed only in tests and can be
+    # removed if we don't use invalid signatures there
+    verificationFlags: UpdateFlags = {}): Result[altair.BeaconBlock, cstring] =
+  ## Create a block for the given state. The latest block applied to it will
+  ## be used for the parent_root value, and the slot will be take from
+  ## state.slot meaning process_slots must be called up to the slot for which
+  ## the block is to be created.
+
+  # To create a block, we'll first apply a partial block to the state, skipping
+  # some validations.
+
+  var blck = partialBeaconBlock(
+    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
+    attestations, deposits, exits, sync_aggregate, execution_payload)
+
+  # Signatures are verified elsewhere, so don't duplicate inefficiently here
+  let res = process_block(
+    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
+
+  if res.isErr:
+    rollback(state)
+    return err(res.error())
+
+  state.root = hash_tree_root(state.data)
+  blck.state_root = state.root
+
+  ok(blck)
+
+proc makeBeaconBlock(
+    cfg: RuntimeConfig,
+    state: var bellatrix.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    exits: BeaconBlockExits,
+    sync_aggregate: SyncAggregate,
+    execution_payload: bellatrix.ExecutionPayload,
+    bls_to_execution_changes: SignedBLSToExecutionChangeList,
+    rollback: RollbackHashedProc[bellatrix.HashedBeaconState],
+    cache: var StateCache,
+    # TODO:
+    # `verificationFlags` is needed only in tests and can be
+    # removed if we don't use invalid signatures there
+    verificationFlags: UpdateFlags = {}): Result[bellatrix.BeaconBlock, cstring] =
+  ## Create a block for the given state. The latest block applied to it will
+  ## be used for the parent_root value, and the slot will be take from
+  ## state.slot meaning process_slots must be called up to the slot for which
+  ## the block is to be created.
+
+  # To create a block, we'll first apply a partial block to the state, skipping
+  # some validations.
+
+  var blck = partialBeaconBlock(
+    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
+    attestations, deposits, exits, sync_aggregate, execution_payload)
+
+  let res = process_block(
+    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
+
+  if res.isErr:
+    rollback(state)
+    return err(res.error())
+
+  state.root = hash_tree_root(state.data)
+  blck.state_root = state.root
+
+  ok(blck)
+
+proc makeBeaconBlock(
+    cfg: RuntimeConfig,
+    state: var capella.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    exits: BeaconBlockExits,
+    sync_aggregate: SyncAggregate,
+    execution_payload: capella.ExecutionPayload,
+    bls_to_execution_changes: SignedBLSToExecutionChangeList,
+    rollback: RollbackHashedProc[capella.HashedBeaconState],
+    cache: var StateCache,
+    # TODO:
+    # `verificationFlags` is needed only in tests and can be
+    # removed if we don't use invalid signatures there
+    verificationFlags: UpdateFlags = {}): Result[capella.BeaconBlock, cstring] =
+  ## Create a block for the given state. The latest block applied to it will
+  ## be used for the parent_root value, and the slot will be take from
+  ## state.slot meaning process_slots must be called up to the slot for which
+  ## the block is to be created.
+
+  # To create a block, we'll first apply a partial block to the state, skipping
+  # some validations.
+
+  var blck = partialBeaconBlock(
+    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
+    attestations, deposits, exits, sync_aggregate, execution_payload,
+    bls_to_execution_changes)
+
+  let res = process_block(
+    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
+
+  if res.isErr:
+    rollback(state)
+    return err(res.error())
+
+  state.root = hash_tree_root(state.data)
+  blck.state_root = state.root
+
+  ok(blck)
+
 # TODO confutils is an impenetrable black box. how can a help text be added here?
 cli do(slots = SLOTS_PER_EPOCH * 6,
        validators = SLOTS_PER_EPOCH * 400, # One per shard is minimum
@@ -65,21 +248,21 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        replay = true):
   let
     (genesisState, depositContractSnapshot) = loadGenesis(validators, false)
-    genesisBlock = get_initial_beacon_block(genesisState[])
     genesisTime = float getStateField(genesisState[], genesis_time)
 
   var
     cfg = defaultRuntimeConfig
 
-  cfg.ALTAIR_FORK_EPOCH = 32.Slot.epoch
-  cfg.BELLATRIX_FORK_EPOCH = 96.Slot.epoch
+  cfg.ALTAIR_FORK_EPOCH = 1.Epoch
+  cfg.BELLATRIX_FORK_EPOCH = 2.Epoch
+  cfg.CAPELLA_FORK_EPOCH = 3.Epoch
 
   echo "Starting simulation..."
 
   let db = BeaconChainDB.new("block_sim_db")
   defer: db.close()
 
-  ChainDAGRef.preInit(db, genesisState[], genesisState[], genesisBlock)
+  ChainDAGRef.preInit(db, genesisState[])
   putInitialDepositContractSnapshot(db, depositContractSnapshot)
 
   var
@@ -111,20 +294,20 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], attestationHead.toBlockSlotId.expect("not nil")) do:
       let
-        fork = getStateField(state, fork)
-        genesis_validators_root = getStateField(state, genesis_validators_root)
+        fork = getStateField(updatedState, fork)
+        genesis_validators_root = getStateField(updatedState, genesis_validators_root)
         committees_per_slot =
-          get_committee_count_per_slot(state, slot.epoch, cache)
+          get_committee_count_per_slot(updatedState, slot.epoch, cache)
 
       for committee_index in get_committee_indices(committees_per_slot):
         let committee = get_beacon_committee(
-          state, slot, committee_index, cache)
+          updatedState, slot, committee_index, cache)
 
         for index_in_committee, validator_index in committee:
           if rand(r, 1.0) <= attesterRatio:
             let
               data = makeAttestationData(
-                state, slot, committee_index, bid.root)
+                updatedState, slot, committee_index, bid.root)
               sig =
                 get_attestation_signature(
                   fork, genesis_validators_root, data,
@@ -247,10 +430,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
       sync_aggregate =
         when T is phase0.SignedBeaconBlock:
           SyncAggregate.init()
-        elif T is altair.SignedBeaconBlock or T is bellatrix.SignedBeaconBlock:
+        elif T is altair.SignedBeaconBlock or T is bellatrix.SignedBeaconBlock or
+             T is capella.SignedBeaconBlock:
           syncCommitteePool[].produceSyncAggregate(dag.head.root)
-        else:
-          static: doAssert false
       hashedState =
         when T is phase0.SignedBeaconBlock:
           addr state.phase0Data
@@ -258,6 +440,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           addr state.altairData
         elif T is bellatrix.SignedBeaconBlock:
           addr state.bellatrixData
+        elif T is capella.SignedBeaconBlock:
+          addr state.capellaData
         else:
           static: doAssert false
       message = makeBeaconBlock(
@@ -274,7 +458,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         eth1ProposalData.deposits,
         BeaconBlockExits(),
         sync_aggregate,
-        default(ExecutionPayload),
+        when T is capella.SignedBeaconBlock:
+          default(capella.ExecutionPayload)
+        else:
+          default(bellatrix.ExecutionPayload),
+        default(SignedBLSToExecutionChangeList),
         noRollback,
         cache)
 
@@ -296,13 +484,17 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     newBlock
 
+  # TODO when withUpdatedState's state template doesn't conflict with chronos's
+  # HTTP server's state function, combine all proposeForkBlock functions into a
+  # single generic function. Until https://github.com/nim-lang/Nim/issues/20811
+  # is fixed, that generic function must take `blockRatio` as a parameter.
   proc proposePhase0Block(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
 
     dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
-        newBlock = getNewBlock[phase0.SignedBeaconBlock](state, slot, cache)
+        newBlock = getNewBlock[phase0.SignedBeaconBlock](updatedState, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: phase0.TrustedSignedBeaconBlock,
             epochRef: EpochRef, unrealized: FinalityCheckpoints):
@@ -324,7 +516,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
-        newBlock = getNewBlock[altair.SignedBeaconBlock](state, slot, cache)
+        newBlock = getNewBlock[altair.SignedBeaconBlock](updatedState, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: altair.TrustedSignedBeaconBlock,
             epochRef: EpochRef, unrealized: FinalityCheckpoints):
@@ -346,9 +538,31 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
-        newBlock = getNewBlock[bellatrix.SignedBeaconBlock](state, slot, cache)
+        newBlock = getNewBlock[bellatrix.SignedBeaconBlock](updatedState, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
             blckRef: BlockRef, signedBlock: bellatrix.TrustedSignedBeaconBlock,
+            epochRef: EpochRef, unrealized: FinalityCheckpoints):
+          # Callback add to fork choice if valid
+          attPool.addForkChoice(
+            epochRef, blckRef, unrealized, signedBlock.message,
+            blckRef.slot.start_beacon_time)
+
+      dag.updateHead(added[], quarantine[])
+      if dag.needStateCachesAndForkChoicePruning():
+        dag.pruneStateCachesDAG()
+        attPool.prune()
+    do:
+      raiseAssert "withUpdatedState failed"
+
+  proc proposeCapellaBlock(slot: Slot) =
+    if rand(r, 1.0) > blockRatio:
+      return
+
+    dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
+      let
+        newBlock = getNewBlock[capella.SignedBeaconBlock](updatedState, slot, cache)
+        added = dag.addHeadBlock(verifier, newBlock) do (
+            blckRef: BlockRef, signedBlock: capella.TrustedSignedBeaconBlock,
             epochRef: EpochRef, unrealized: FinalityCheckpoints):
           # Callback add to fork choice if valid
           attPool.addForkChoice(
@@ -402,6 +616,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.stateForkAtEpoch(slot.epoch)
+        of BeaconStateFork.Capella:   proposeCapellaBlock(slot)
         of BeaconStateFork.Bellatrix: proposeBellatrixBlock(slot)
         of BeaconStateFork.Altair:    proposeAltairBlock(slot)
         of BeaconStateFork.Phase0:    proposePhase0Block(slot)

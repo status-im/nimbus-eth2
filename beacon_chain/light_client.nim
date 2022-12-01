@@ -53,6 +53,13 @@ func optimisticHeader*(lightClient: LightClient): Opt[BeaconBlockHeader] =
   else:
     err()
 
+func finalizedSyncCommittee*(
+    lightClient: LightClient): Opt[altair.SyncCommittee] =
+  if lightClient.store[].isSome:
+    ok lightClient.store[].get.current_sync_committee
+  else:
+    err()
+
 proc createLightClient(
     network: Eth2Node,
     rng: ref HmacDrbgContext,
@@ -94,8 +101,8 @@ proc createLightClient(
     onStoreInitialized, onFinalizedHeader, onOptimisticHeader)
 
   proc lightClientVerifier(obj: SomeLightClientObject):
-      Future[Result[void, BlockError]] =
-    let resfut = newFuture[Result[void, BlockError]]("lightClientVerifier")
+      Future[Result[void, VerifierError]] =
+    let resfut = newFuture[Result[void, VerifierError]]("lightClientVerifier")
     lightClient.processor[].addObject(MsgSource.gossip, obj, resfut)
     resfut
   proc bootstrapVerifier(obj: altair.LightClientBootstrap): auto =

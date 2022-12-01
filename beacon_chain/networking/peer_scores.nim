@@ -28,15 +28,15 @@ const
     ## Peer's latest head is lower then ours.
   PeerScoreGoodStatus* = 50
     ## Peer's `status` answer is fine.
-  PeerScoreNoBlocks* = -100
+  PeerScoreNoValues* = -100
     ## Peer did not respond in time to a request.
-  PeerScoreGoodBlocks* = 100
+  PeerScoreGoodValues* = 100
     ## Peer's answer to our request is fine.
-  PeerScoreBadBlocks* = -1000
+  PeerScoreBadValues* = -1000
     ## Peer's response contains incorrect data.
   PeerScoreBadResponse* = -1000
     ## Peer's response is not in requested range.
-  PeerScoreMissingBlocks* = -25
+  PeerScoreMissingValues* = -25
     ## Peer response contains too much missing data - this can happen either
     ## because a long reorg happened or the peer is falsely trying to convince
     ## us that a long reorg happened.

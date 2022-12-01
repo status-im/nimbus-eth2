@@ -18,6 +18,9 @@ import
     state_transition, state_transition_epoch],
   "."/[block_dag, blockchain_dag, blockchain_dag_light_client]
 
+# TODO remove when forks re-exports this
+from ../spec/datatypes/capella import asSigVerified, asTrusted, shortLog
+
 export results, signatures_batch, block_dag, blockchain_dag
 
 # Clearance
@@ -36,7 +39,7 @@ proc addResolvedHeadBlock(
        trustedBlock: ForkyTrustedSignedBeaconBlock,
        blockVerified: bool,
        parent: BlockRef, cache: var StateCache,
-       onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded,
+       onBlockAdded: OnForkyBlockAdded,
        stateDataDur, sigVerifyDur, stateVerifyDur: Duration
      ): BlockRef =
   doAssert state.matches_block_slot(
@@ -104,6 +107,7 @@ proc addResolvedHeadBlock(
     var unrealized: FinalityCheckpoints
     if enableTestFeatures in dag.updateFlags:
       unrealized = withState(state):
+        static: doAssert high(BeaconStateFork) == BeaconStateFork.Capella
         when stateFork >= BeaconStateFork.Altair:
           forkyState.data.compute_unrealized_finality()
         else:
@@ -116,7 +120,7 @@ proc addResolvedHeadBlock(
 
 proc checkStateTransition(
        dag: ChainDAGRef, signedBlock: ForkySigVerifiedSignedBeaconBlock,
-       cache: var StateCache): Result[void, BlockError] =
+       cache: var StateCache): Result[void, VerifierError] =
   ## Ensure block can be applied on a state
   func restore(v: var ForkedHashedBeaconState) =
     assign(dag.clearanceState, dag.headState)
@@ -131,7 +135,7 @@ proc checkStateTransition(
       blck = shortLog(signedBlock.message),
       error = res.error()
 
-    err(BlockError.Invalid)
+    err(VerifierError.Invalid)
   else:
     ok()
 
@@ -161,9 +165,8 @@ proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
     blockVerified: bool,
-    onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
-                  OnBellatrixBlockAdded
-    ): Result[BlockRef, BlockError] =
+    onBlockAdded: OnForkyBlockAdded
+    ): Result[BlockRef, VerifierError] =
   ## Try adding a block to the chain, verifying first that it passes the state
   ## transition function and contains correct cryptographic signature.
   ##
@@ -189,7 +192,7 @@ proc addHeadBlock*(
       if existing.get().bid.slot == blck.slot and
           existing.get().bid.root == blockRoot:
         debug "Duplicate block"
-        return err(BlockError.Duplicate)
+        return err(VerifierError.Duplicate)
 
       # Block is older than finalized, but different from the block in our
       # canonical history: it must be from an unviable branch
@@ -198,11 +201,11 @@ proc addHeadBlock*(
         finalizedHead = shortLog(dag.finalizedHead),
         tail = shortLog(dag.tail)
 
-      return err(BlockError.UnviableFork)
+      return err(VerifierError.UnviableFork)
 
   # Check non-finalized blocks as well
   if dag.containsForkBlock(blockRoot):
-    return err(BlockError.Duplicate)
+    return err(VerifierError.Duplicate)
 
   let parent = dag.getBlockRef(blck.parent_root).valueOr:
     # There are two cases where the parent won't be found: we don't have it or
@@ -214,10 +217,10 @@ proc addHeadBlock*(
     if parentId.isSome() and parentId.get.slot < dag.finalizedHead.slot:
       debug "Block unviable due to pre-finalized-checkpoint parent",
         parentId = parentId.get()
-      return err(BlockError.UnviableFork)
+      return err(VerifierError.UnviableFork)
 
     debug "Block parent unknown or finalized already", parentId
-    return err(BlockError.MissingParent)
+    return err(VerifierError.MissingParent)
 
   if parent.slot >= blck.slot:
     # A block whose parent is newer than the block itself is clearly invalid -
@@ -225,7 +228,7 @@ proc addHeadBlock*(
     debug "Block older than parent",
       parent = shortLog(parent)
 
-    return err(BlockError.Invalid)
+    return err(VerifierError.Invalid)
 
   # The block is resolved, now it's time to validate it to ensure that the
   # blocks we add to the database are clean for the given state
@@ -250,7 +253,7 @@ proc addHeadBlock*(
     # load its corresponding state
     error "Unable to load clearance state for parent block, database corrupt?",
       clearanceBlock = shortLog(clearanceBlock)
-    return err(BlockError.MissingParent)
+    return err(VerifierError.MissingParent)
 
   let stateDataTick = Moment.now()
 
@@ -264,12 +267,12 @@ proc addHeadBlock*(
       # A PublicKey or Signature isn't on the BLS12-381 curve
       info "Unable to load signature sets",
         err = e.error()
-      return err(BlockError.Invalid)
+      return err(VerifierError.Invalid)
 
     if not verifier.batchVerify(sigs):
       info "Block signature verification failed",
         signature = shortLog(signedBlock.signature)
-      return err(BlockError.Invalid)
+      return err(VerifierError.Invalid)
 
   let sigVerifyTick = Moment.now()
 
@@ -291,15 +294,15 @@ proc addHeadBlock*(
 proc addHeadBlock*(
     dag: ChainDAGRef, verifier: var BatchVerifier,
     signedBlock: ForkySignedBeaconBlock,
-    onBlockAdded: OnPhase0BlockAdded | OnAltairBlockAdded |
-                  OnBellatrixBlockAdded
-    ): Result[BlockRef, BlockError] =
+    onBlockAdded: OnForkyBlockAdded
+    ): Result[BlockRef, VerifierError] =
   addHeadBlock(
     dag, verifier, signedBlock, blockVerified = true, onBlockAdded)
 
 proc addBackfillBlock*(
     dag: ChainDAGRef,
-    signedBlock: ForkySignedBeaconBlock): Result[void, BlockError] =
+    signedBlock: ForkySignedBeaconBlock | ForkySigVerifiedSignedBeaconBlock):
+      Result[void, VerifierError] =
   ## When performing checkpoint sync, we need to backfill historical blocks
   ## in order to respond to GetBlocksByRange requests. Backfill blocks are
   ## added in backwards order, one by one, based on the `parent_root` of the
@@ -319,34 +322,35 @@ proc addBackfillBlock*(
   template checkSignature =
     # If the hash is correct, the block itself must be correct, but the root does
     # not cover the signature, which we check next
-    if blck.slot == GENESIS_SLOT:
-      # The genesis block must have an empty signature (since there's no proposer)
-      if signedBlock.signature != ValidatorSig():
-        info "Invalid genesis block signature"
-        return err(BlockError.Invalid)
-    else:
-      let proposerKey = dag.validatorKey(blck.proposer_index)
-      if proposerKey.isNone():
-        # We've verified that the block root matches our expectations by following
-        # the chain of parents all the way from checkpoint. If all those blocks
-        # were valid, the proposer_index in this block must also be valid, and we
-        # should have a key for it but we don't: this is either a bug on our from
-        # which we cannot recover, or an invalid checkpoint state was given in which
-        # case we're in trouble.
-        fatal "Invalid proposer in backfill block - checkpoint state corrupt?",
-          head = shortLog(dag.head), tail = shortLog(dag.tail)
+    when signedBlock.signature isnot TrustedSig:
+      if blck.slot == GENESIS_SLOT:
+        # The genesis block must have an empty signature (since there's no proposer)
+        if signedBlock.signature != ValidatorSig():
+          info "Invalid genesis block signature"
+          return err(VerifierError.Invalid)
+      else:
+        let proposerKey = dag.validatorKey(blck.proposer_index)
+        if proposerKey.isNone():
+          # We've verified that the block root matches our expectations by following
+          # the chain of parents all the way from checkpoint. If all those blocks
+          # were valid, the proposer_index in this block must also be valid, and we
+          # should have a key for it but we don't: this is either a bug on our from
+          # which we cannot recover, or an invalid checkpoint state was given in which
+          # case we're in trouble.
+          fatal "Invalid proposer in backfill block - checkpoint state corrupt?",
+            head = shortLog(dag.head), tail = shortLog(dag.tail)
 
-        quit 1
+          quit 1
 
-      if not verify_block_signature(
-          dag.forkAtEpoch(blck.slot.epoch),
-          getStateField(dag.headState, genesis_validators_root),
-          blck.slot,
-          signedBlock.root,
-          proposerKey.get(),
-          signedBlock.signature):
-        info "Block signature verification failed"
-        return err(BlockError.Invalid)
+        if not verify_block_signature(
+            dag.forkAtEpoch(blck.slot.epoch),
+            getStateField(dag.headState, genesis_validators_root),
+            blck.slot,
+            signedBlock.root,
+            proposerKey.get(),
+            signedBlock.signature):
+          info "Block signature verification failed"
+          return err(VerifierError.Invalid)
 
   let startTick = Moment.now()
 
@@ -366,7 +370,7 @@ proc addBackfillBlock*(
           return ok()
 
         debug "Duplicate block"
-        return err(BlockError.Duplicate)
+        return err(VerifierError.Duplicate)
 
       # Block is older than finalized, but different from the block in our
       # canonical history: it must be from an unviable branch
@@ -374,7 +378,7 @@ proc addBackfillBlock*(
         existing = shortLog(existing.get()),
         finalizedHead = shortLog(dag.finalizedHead)
 
-      return err(BlockError.UnviableFork)
+      return err(VerifierError.UnviableFork)
 
   if dag.frontfill.isSome():
     let frontfill = dag.frontfill.get()
@@ -400,11 +404,11 @@ proc addBackfillBlock*(
       # Backfill done - dag.backfill.slot now points to genesis block just like
       # it would if we loaded a fully synced database - returning duplicate
       # here is appropriate, though one could also call it ... ok?
-      return err(BlockError.Duplicate)
+      return err(VerifierError.Duplicate)
 
   if dag.backfill.parent_root != blockRoot:
     debug "Block does not match expected backfill root"
-    return err(BlockError.MissingParent) # MissingChild really, but ..
+    return err(VerifierError.MissingParent) # MissingChild really, but ..
 
   checkSignature()
 

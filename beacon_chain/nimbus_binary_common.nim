@@ -17,7 +17,7 @@ import
   std/[tables, strutils, terminal, typetraits],
 
   # Nimble packages
-  chronos, confutils, presto, toml_serialization,
+  chronos, confutils, presto, toml_serialization, metrics,
   chronicles, chronicles/helpers as chroniclesHelpers, chronicles/topics_registry,
   stew/io2,
   presto,
@@ -25,10 +25,16 @@ import
   # Local modules
   ./spec/[helpers],
   ./spec/datatypes/base,
-  "."/[beacon_clock, beacon_node_status, conf]
+  "."/[beacon_clock, beacon_node_status, conf, version]
 
 when defined(posix):
   import termios
+
+declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
+versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
+
+declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], name = "nim_version"
+nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
 
 export
   confutils, toml_serialization, beacon_clock, beacon_node_status, conf

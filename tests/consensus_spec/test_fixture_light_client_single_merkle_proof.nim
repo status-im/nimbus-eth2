@@ -37,7 +37,7 @@ proc runTest(path: string, fork: BeaconStateFork) =
         yaml.load(s, res)
         res
 
-      state = loadForkedState(path/"state.ssz_snappy", fork)
+      state = loadForkedState(path/"object.ssz_snappy", fork)
 
     withState(state[]):
       var computedProof = newSeq[Eth2Digest](log2trunc(proof.leaf_index))
@@ -52,7 +52,7 @@ proc runTest(path: string, fork: BeaconStateFork) =
           get_subtree_index(proof.leaf_index),
           forkyState.root)
 
-from strutils import contains
+from std/strutils import contains
 
 suite "EF - Light client - Single merkle proof" & preset():
   const presetPath = SszTestsDir/const_preset
@@ -62,10 +62,10 @@ suite "EF - Light client - Single merkle proof" & preset():
       continue
     let
       fork = forkForPathComponent(path).valueOr:
-        if path.contains("capella"):
-          # TODO forkForPathComponent relies on ForkedFoo
+        if path.contains("eip4844"):
+          # not yet supported, might be folded into capella first regardless
           continue
         raiseAssert "Unknown test fork: " & testsPath
-      basePath = testsPath/"pyspec_tests"
+      basePath = testsPath/"BeaconState"
     for kind, path in walkDir(basePath, relative = true, checkDir = true):
       runTest(basePath/path, fork)

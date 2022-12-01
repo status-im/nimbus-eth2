@@ -39,7 +39,6 @@ nav:
   - About:
     - 'index.md'
     - 'philosophy.md'
-    - 'preparation.md'
 
   - Getting started:
     - 'quick-start.md'
@@ -83,29 +82,33 @@ nav:
       - 'prater.md'
 
   - Security:
+    - 'preparation.md'
     - 'security_issues.md'
     - 'audit.md'
     - 'distribution_internals.md'
 
   - Reference:
     - 'hardware.md'
-    - 'options.md'
-    - 'networking.md'
-    - 'optimistic-sync.md'
-    - 'logging.md'
-    - 'validator-monitor.md'
-    - 'attestation-performance.md'
-    - 'rest-api.md'
-    - 'keymanager-api.md'
-    - 'data-dir.md'
-    - 'era-store.md'
+    - Advanced options:
+      - 'options.md'
+      - 'networking.md'
+      - 'optimistic-sync.md'
+      - 'light-client-data.md'
+      - 'logging.md'
+      - 'validator-client-options.md'
+      - 'validator-monitor.md'
+    - "REST APIs":
+      - 'rest-api.md'
+      - 'keymanager-api.md'
+    - Storage:
+      - 'data-dir.md'
+      - 'era-store.md'
     - 'migration-options.md'
-    - 'light-client-data.md'
+    - 'attestation-performance.md'
     - 'troubleshooting.md'
+    - 'faq.md'
     - 'developers.md'
     - 'resources.md'
-    - 'faq.md'
-    - 'api.md'
     - 'contribute.md'
 
   - Downloads:

@@ -16,7 +16,8 @@ import
   eth/db/kvstore_sqlite3,
   # Beacon chain internals
   spec/datatypes/altair,
-  spec/[eth2_ssz_serialization, helpers]
+  spec/[eth2_ssz_serialization, helpers],
+  ./db_limits
 
 logScope: topics = "lcdata"
 
@@ -83,12 +84,6 @@ type
       ## Tracks the finalized sync committee periods for which complete data
       ## has been imported (from `dag.tail.slot`).
 
-# No `uint64` support in Sqlite
-template isSupportedBySQLite(slot: Slot): bool =
-  slot <= int64.high.Slot
-template isSupportedBySQLite(period: SyncCommitteePeriod): bool =
-  period <= int64.high.SyncCommitteePeriod
-
 proc initCurrentBranchesStore(
     backend: SqStoreRef,
     name: string): KvResult[CurrentSyncCommitteeBranchStore] =
@@ -152,9 +147,9 @@ proc getCurrentSyncCommitteeBranch*(
     res.expect("SQL query OK")
     try:
       return SSZ.decode(branch, altair.CurrentSyncCommitteeBranch)
-    except MalformedSszError, SszSizeMismatchError:
-      error "LC store corrupted", store = "currentBranches", slot,
-        exc = getCurrentException().name, err = getCurrentExceptionMsg()
+    except SszError as exc:
+      error "LC data store corrupted", store = "currentBranches",
+        slot, exc = exc.msg
       return default(altair.CurrentSyncCommitteeBranch)
 
 func putCurrentSyncCommitteeBranch*(
@@ -222,9 +217,9 @@ proc getBestUpdate*(
     res.expect("SQL query OK")
     try:
       return SSZ.decode(update, altair.LightClientUpdate)
-    except MalformedSszError, SszSizeMismatchError:
-      error "LC store corrupted", store = "bestUpdates", period,
-        exc = getCurrentException().name, err = getCurrentExceptionMsg()
+    except SszError as exc:
+      error "LC data store corrupted", store = "bestUpdates",
+        period, exc = exc.msg
       return default(altair.LightClientUpdate)
 
 func putBestUpdate*(

@@ -1,32 +1,47 @@
 # Set up block builders / MEV
 
-[Maximal extractable value](https://ethereum.org/en/developers/docs/mev/) involves consensus clients contacting an external block builder which might maximize profit or some other defined metric in ways hindered for a purely local consensus and execution client setup. This external builder network uses the [builder API](https://ethereum.github.io/builder-specs/) which consensus clients use to access external block builder bundles found by searchers. In exchange, such searchers and builders might choose to retain some of the profit gained from such bundles. A builder API relay provides access to multiple searchers via a single URL.
+Nimbus supports outsourcing block production to an external block builder, thus presenting the opportunity to capture [Maximal Extractable Value](https://ethereum.org/en/developers/docs/mev/) (MEV).
 
-Nimbus supports this API to access these external block builders. If one is configured, the block production flow becomes modified:
+When external block building is enabled, the beacon node connects to a service using the [builder API](https://ethereum.github.io/builder-specs/) with the execution client acting as a fallback.
 
-1. attempt to use the specified external block builder relay or builder to create an execution payload
-2. if the external block builder builder or relay doesn't function, and Nimbus has not signed a blinded beacon block, then fall back to existing local execution client to produce a block
+Setting up external block building typically involves running an additional service on your server which is configured to choose the best block from one or more relays and having the beacon node connect to this service.
 
-There exists a failure mode, intrinsic to the builder API, wherein the consensus client has signed a blinded proposal and therefore even if the external block builder relay or builder doesn't provide a full block, a consensus client such as Nimbus cannot safely proceed with step 2 and fall back on its local execution client.
+!!! warning
+    External block builders introduce additional risk to the block building process which may cause loss of rewards.
+
+    In particular, once Nimbus has signed the block header proposed by the external builder, the execution client can no longer be used as fallback and the external builder is trusted to complete the building process.
 
 !!! note
-    By default, [priority and maximum gas fees](https://eips.ethereum.org/EIPS/eip-1559#abstract) determine transaction inclusion in blocks, but external block builders may use other strategies for transaction selection, which might involve regulatory constraints and extracted value. For further information, check the documentation of the block builder.
+    By default, [priority and maximum gas fees](https://eips.ethereum.org/EIPS/eip-1559#abstract) determine transaction inclusion in blocks.
 
-## Command line option
+    External block builders may use other strategies for transaction selection, including regulatory constraints and extracted value. For further information, check the documentation of the block builder.
 
-=== "Mainnet"
+## Command line
+
+External block building is must be enabled on both beacon node and [validator client](./validator-client.md) using the `--payload-builder=true` flag.
+
+Additionally, the URL of the service exposing the [builder API](https://ethereum.github.io/builder-specs/) must be provided to the beacon node:
+
+=== "Mainnet Beacon Node"
     ```sh
     ./run-mainnet-beacon-node.sh --payload-builder=true --payload-builder-url=https://${HOST}:${PORT}/
     ```
 
-=== "Prater"
+=== "Prater Beacon Node"
     ```sh
     ./run-prater-beacon-node.sh --payload-builder=true --payload-builder-url=https://${HOST}:${PORT}/
     ```
 
+=== "Validator Client"
+    ```sh
+    build/nimbus_validator_client --payload-builder=true
+    ```
+
 ## Useful resources
 
-- [MEV relay list](https://github.com/remyroy/ethstaker/blob/main/MEV-relay-list.md)
+- [EthStaker MEV setup guide](https://github.com/eth-educators/ethstaker-guides/blob/main/prepare-for-the-merge.md#choosing-and-configuring-an-mev-solution)
+
+- [EthStaker MEV relay list](https://ethstaker.cc/mev-relay-list/)
 
 - [Mainnet Relay Overview](https://beaconcha.in/relays)
 

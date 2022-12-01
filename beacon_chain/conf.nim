@@ -312,6 +312,7 @@ type
         name: "finalized-checkpoint-state" .}: Option[InputFile]
 
       finalizedCheckpointBlock* {.
+        hidden
         desc: "SSZ file specifying a recent finalized block"
         name: "finalized-checkpoint-block" .}: Option[InputFile]
 
@@ -448,7 +449,7 @@ type
         name: "rest-max-headers-size" .}: Natural
 
       keymanagerEnabled* {.
-        desc: "Enable the REST keymanager API (BETA version)"
+        desc: "Enable the REST keymanager API"
         defaultValue: false
         name: "keymanager" .}: bool
 
@@ -539,16 +540,16 @@ type
         name: "terminal-total-difficulty-override" .}: Option[string]
 
       validatorMonitorAuto* {.
-        desc: "Automatically monitor locally active validators (BETA)"
+        desc: "Automatically monitor locally active validators"
         defaultValue: false
         name: "validator-monitor-auto" .}: bool
 
       validatorMonitorPubkeys* {.
-        desc: "One or more validators to monitor - works best when --subscribe-all-subnets is enabled (BETA)"
+        desc: "One or more validators to monitor - works best when --subscribe-all-subnets is enabled"
         name: "validator-monitor-pubkey" .}: seq[ValidatorPubKey]
 
       validatorMonitorTotals* {.
-        desc: "Publish metrics to single 'totals' label for better collection performance when monitoring many validators (BETA)"
+        desc: "Publish metrics to single 'totals' label for better collection performance when monitoring many validators"
         defaultValue: false
         name: "validator-monitor-totals" .}: bool
 
@@ -763,10 +764,16 @@ type
         name: "trusted-node-url"
       .}: string
 
-      blockId* {.
-        desc: "Block id to sync to - this can be a block root, slot number, \"finalized\" or \"head\""
-        defaultValue: "finalized"
+      stateId* {.
+        desc: "State id to sync to - this can be \"finalized\", a slot number or state hash or \"head\""
+        defaultValue: "finalized",
+        name: "state-id"
       .}: string
+
+      blockId* {.
+        hidden
+        desc: "Block id to sync to - this can be a block root, slot number, \"finalized\" or \"head\" (deprecated)"
+      .}: Option[string]
 
       backfillBlocks* {.
         desc: "Backfill blocks directly from REST server instead of fetching via API"
@@ -853,7 +860,7 @@ type
       name: "suggested-fee-recipient" .}: Option[Address]
 
     keymanagerEnabled* {.
-      desc: "Enable the REST keymanager API (BETA version)"
+      desc: "Enable the REST keymanager API"
       defaultValue: false
       name: "keymanager" .}: bool
 
@@ -879,18 +886,18 @@ type
       name: "keymanager-token-file" .}: Option[InputFile]
 
     metricsEnabled* {.
-      desc: "Enable the metrics server"
+      desc: "Enable the metrics server (BETA)"
       defaultValue: false
       name: "metrics" .}: bool
 
     metricsAddress* {.
-      desc: "Listening address of the metrics server"
+      desc: "Listening address of the metrics server (BETA)"
       defaultValue: defaultAdminListenAddress
       defaultValueDesc: $defaultAdminListenAddressDesc
       name: "metrics-address" .}: ValidIpAddress
 
     metricsPort* {.
-      desc: "Listening HTTP port of the metrics server"
+      desc: "Listening HTTP port of the metrics server (BETA)"
       defaultValue: 8108
       name: "metrics-port" .}: Port
 
@@ -906,12 +913,12 @@ type
       name: "stop-at-epoch" .}: uint64
 
     payloadBuilderEnable* {.
-      desc: "Enable usage of beacon node with external payload builder"
+      desc: "Enable usage of beacon node with external payload builder (BETA)"
       defaultValue: false
       name: "payload-builder" .}: bool
 
     beaconNodes* {.
-      desc: "URL addresses to one or more beacon node HTTP REST APIs",
+      desc: "URL addresses to one or more beacon node HTTP REST APIs (The support for using multiple beacon nodes is considered BETA quality)",
       defaultValue: @[defaultBeaconNodeUri]
       defaultValueDesc: $defaultBeaconNodeUri
       name: "beacon-node" .}: seq[Uri]
@@ -966,19 +973,19 @@ type
       name: "request-timeout" .}: int
 
     bindPort* {.
-      desc: "Port for the REST (BETA version) HTTP server"
+      desc: "Port for the REST HTTP server"
       defaultValue: defaultEth2RestPort
       defaultValueDesc: $defaultEth2RestPortDesc
       name: "bind-port" .}: Port
 
     bindAddress* {.
-      desc: "Listening address of the REST (BETA version) HTTP server"
+      desc: "Listening address of the REST HTTP server"
       defaultValue: defaultAdminListenAddress
       defaultValueDesc: $defaultAdminListenAddressDesc
       name: "bind-address" .}: ValidIpAddress
 
     tlsEnabled* {.
-      desc: "Use secure TLS communication for REST (BETA version) server"
+      desc: "Use secure TLS communication for REST server"
       defaultValue: false
       name: "tls" .}: bool
 
@@ -1162,8 +1169,11 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
   else:
     fail()
 
-func databaseDir*(config: AnyConf): string =
-  config.dataDir / "db"
+func databaseDir*(dataDir: OutDir): string =
+  dataDir / "db"
+
+template databaseDir*(config: AnyConf): string =
+  config.dataDir.databaseDir
 
 func runAsService*(config: BeaconNodeConf): bool =
   config.cmd == noCommand and config.runAsServiceFlag

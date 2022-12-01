@@ -55,7 +55,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-remote-signer-port:,base-el-net-port:,base-el-http-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-eth2,light-clients:,run-nimbus-el,verbose"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-remote-signer-port:,base-el-net-port:,base-el-http-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-eth2,light-clients:,run-nimbus-el,verbose"
 
 # default values
 BINARIES=""
@@ -72,6 +72,7 @@ BASE_REMOTE_SIGNER_PORT="6000"
 BASE_METRICS_PORT="8008"
 BASE_REST_PORT="7500"
 BASE_VC_KEYMANAGER_PORT="8500"
+BASE_VC_METRICS_PORT="9008"
 BASE_EL_NET_PORT="30303"
 BASE_EL_HTTP_PORT="8545"
 BASE_EL_WS_PORT="8546"
@@ -124,7 +125,8 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --preset                    Const preset to be (default: mainnet)
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
   --base-rest-port            bootstrap node's REST port (default: ${BASE_REST_PORT})
-  --base-metrics-port         bootstrap node's metrics server port (default: ${BASE_METRICS_PORT})
+  --base-metrics-port         bootstrap node's metrics port (default: ${BASE_METRICS_PORT})
+  --base-vc-metrics-port      The first validator client metrics port (default: ${BASE_VC_METRICS_PORT})
   --base-remote-signer-port   first remote signing node's port (default: ${BASE_REMOTE_SIGNER_PORT})
   --base-el-net-port          first EL's network traffic port (default: ${BASE_EL_NET_PORT})
   --base-el-http-port         first EL's HTTP web3 port (default: ${BASE_EL_HTTP_PORT})
@@ -229,6 +231,10 @@ while true; do
       ;;
     --base-metrics-port)
       BASE_METRICS_PORT="$2"
+      shift 2
+      ;;
+    --base-vc-metrics-port)
+      BASE_VC_METRICS_PORT="$2"
       shift 2
       ;;
     --base-remote-signer-port)
@@ -399,7 +405,8 @@ kill_by_port() {
   done
 }
 
-
+GETH_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
+NIMBUSEL_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
 
 # kill lingering processes from a previous run
 if [[ "${OS}" != "windows" ]]; then
@@ -408,7 +415,7 @@ if [[ "${OS}" != "windows" ]]; then
 
   #Stop geth nodes
   if [[ "${RUN_GETH}" == "1" ]]; then
-    for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+    for NUM_NODE in $(seq 0 $(( GETH_NUM_NODES - 1 ))); do
       for PORT in $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_NET_PORT )) \
                     $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_HTTP_PORT )) \
                     $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_WS_PORT )) \
@@ -421,7 +428,7 @@ if [[ "${OS}" != "windows" ]]; then
 
   #Stop Nimbus EL nodes
   if [[ "${RUN_NIMBUS}" == "1" ]]; then
-    for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+    for NUM_NODE in $(seq 0 $(( NIMBUSEL_NUM_NODES - 1 ))); do
       for PORT in $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_NET_PORT )) \
                     $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_HTTP_PORT )) \
                     $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_WS_PORT )) \
@@ -504,9 +511,6 @@ download_eth2() {
     REUSE_BINARIES=1
   fi
 }
-
-GETH_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
-NIMBUSEL_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
 
 if [[ "${RUN_GETH}" == "1" ]]; then
   if [[ ! -e "${GETH_BINARY}" ]]; then
@@ -813,7 +817,7 @@ dump_logs() {
 
 dump_logtrace() {
   if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace aggasr --log-dir="${DATA_DIR}" || true
+    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace localSimChecks --log-dir="${DATA_DIR}" --const-preset=${CONST_PRESET} || true
   fi
 }
 
@@ -1025,6 +1029,8 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
         --log-level="${LOG_LEVEL}" \
         ${STOP_AT_EPOCH_FLAG} \
         --data-dir="${VALIDATOR_DATA_DIR}" \
+        --metrics \
+        --metrics-port:$((BASE_VC_METRICS_PORT + NUM_NODE)) \
         ${KEYMANAGER_FLAG} \
         --keymanager-port=$((BASE_VC_KEYMANAGER_PORT + NUM_NODE)) \
         --keymanager-token-file="${DATA_DIR}/keymanager-token" \

@@ -13,8 +13,11 @@ import
   chronos, presto/client, chronicles,
   ".."/".."/validators/slashing_protection_common,
   ".."/datatypes/[phase0, altair, bellatrix],
+  ".."/mev/bellatrix_mev,
   ".."/[helpers, forks, keystore, eth2_ssz_serialization],
   "."/[rest_types, rest_common, eth2_rest_serialization]
+
+from ".."/datatypes/capella import SignedBeaconBlock
 
 export chronos, client, rest_types, eth2_rest_serialization
 
@@ -116,6 +119,11 @@ proc publishBlock*(body: bellatrix.SignedBeaconBlock): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
 
+proc publishBlock*(body: capella.SignedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlock
+
 proc publishSszBlock*(
        client: RestClientRef,
        blck: ForkySignedBeaconBlock
@@ -124,6 +132,33 @@ proc publishSszBlock*(
   let
     consensus = typeof(blck).toFork.toString()
     resp = await client.publishBlock(
+      blck, restContentType = $OctetStreamMediaType,
+      extraHeaders = @[("eth-consensus-version", consensus)])
+  return resp
+
+proc publishBlindedBlock*(body: phase0.SignedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+
+proc publishBlindedBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+
+proc publishBlindedBlock*(body: SignedBlindedBeaconBlock): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/beacon/blinded_blocks",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+
+proc publishSszBlindedBlock*(
+       client: RestClientRef,
+       blck: ForkySignedBeaconBlock
+     ): Future[RestPlainResponse] {.async.} =
+  ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
+  let
+    consensus = typeof(blck).toFork.toString()
+    resp = await client.publishBlindedBlock(
       blck, restContentType = $OctetStreamMediaType,
       extraHeaders = @[("eth-consensus-version", consensus)])
   return resp

@@ -7,26 +7,55 @@
 
 import
   std/os,
-  chronicles, chronicles/chronos_tools, chronos,
-  eth/keys,
+  chronicles, chronicles/chronos_tools, chronos, stew/io2,
+  eth/db/kvstore_sqlite3, eth/keys,
   ./eth1/eth1_monitor,
   ./gossip_processing/optimistic_processor,
   ./networking/topic_params,
   ./spec/beaconstate,
   ./spec/datatypes/[phase0, altair, bellatrix],
-  "."/[light_client, nimbus_binary_common, version]
+  "."/[filepath, light_client, light_client_db, nimbus_binary_common, version]
 
 from ./consensus_object_pools/consensus_manager import runForkchoiceUpdated
 from ./gossip_processing/block_processor import newExecutionPayload
 from ./gossip_processing/eth2_processor import toValidationResult
 
+# this needs to be global, so it can be set in the Ctrl+C signal handler
+var globalRunning = true
+
 programMain:
+  ## Ctrl+C handling
+  proc controlCHandler() {.noconv.} =
+    when defined(windows):
+      # workaround for https://github.com/nim-lang/Nim/issues/4057
+      try:
+        setupForeignThreadGc()
+      except Exception as exc: raiseAssert exc.msg # shouldn't happen
+    notice "Shutting down after having received SIGINT"
+    globalRunning = false
+  try:
+    setControlCHook(controlCHandler)
+  except Exception as exc: # TODO Exception
+    warn "Cannot set ctrl-c handler", msg = exc.msg
+
   var config = makeBannerAndConfig(
     "Nimbus light client " & fullVersionStr, LightClientConf)
   setupLogging(config.logLevel, config.logStdout, config.logFile)
 
   notice "Launching light client",
     version = fullVersionStr, cmdParams = commandLineParams(), config
+
+  let dbDir = config.databaseDir
+  if (let res = secureCreatePath(dbDir); res.isErr):
+    fatal "Failed to create create database directory",
+      path = dbDir, err = ioErrorMsg(res.error)
+    quit 1
+  let backend = SqStoreRef.init(dbDir, "nlc").expect("Database OK")
+  defer: backend.close()
+  let db = backend.initLightClientDB(LightClientDBNames(
+    altairHeaders: "altair_lc_headers",
+    altairSyncCommittees: "altair_sync_committees")).expect("Database OK")
+  defer: db.close()
 
   let metadata = loadEth2Network(config.eth2Network)
   for node in metadata.bootstrapNodes:
@@ -128,6 +157,12 @@ programMain:
     info "New LC finalized header",
       finalized_header = shortLog(finalizedHeader)
 
+    let
+      period = finalizedHeader.slot.sync_committee_period
+      syncCommittee = lightClient.finalizedSyncCommittee.expect("Bootstrap OK")
+    db.putSyncCommittee(period, syncCommittee)
+    db.putLatestFinalizedHeader(finalizedHeader)
+
   proc onOptimisticHeader(
       lightClient: LightClient, optimisticHeader: BeaconBlockHeader) =
     info "New LC optimistic header",
@@ -137,6 +172,16 @@ programMain:
   lightClient.onFinalizedHeader = onFinalizedHeader
   lightClient.onOptimisticHeader = onOptimisticHeader
   lightClient.trustedBlockRoot = some config.trustedBlockRoot
+
+  let latestHeader = db.getLatestFinalizedHeader()
+  if latestHeader.isOk:
+    let
+      period = latestHeader.get.slot.sync_committee_period
+      syncCommittee = db.getSyncCommittee(period)
+    if syncCommittee.isErr:
+      error "LC store lacks sync committee", finalized_header = latestHeader.get
+    else:
+      lightClient.resetToFinalizedHeader(latestHeader.get, syncCommittee.get)
 
   # Full blocks gossip is required to portably drive an EL client:
   # - EL clients may not sync when only driven with `forkChoiceUpdated`,
@@ -149,11 +194,7 @@ programMain:
   # Therefore, this current mechanism is to be seen as temporary; it is not
   # optimized for reducing code duplication, e.g., with `nimbus_beacon_node`.
 
-  func shouldSyncOptimistically(wallSlot: Slot): bool =
-    # Check whether an EL is connected
-    if eth1Monitor == nil:
-      return false
-
+  func isSynced(wallSlot: Slot): bool =
     # Check whether light client is used
     let optimisticHeader = lightClient.optimisticHeader.valueOr:
       return false
@@ -164,6 +205,13 @@ programMain:
       return false
 
     true
+
+  func shouldSyncOptimistically(wallSlot: Slot): bool =
+    # Check whether an EL is connected
+    if eth1Monitor == nil:
+      return false
+
+    isSynced(wallSlot)
 
   var blocksGossipState: GossipState = {}
   proc updateBlocksGossipStatus(slot: Slot) =
@@ -203,6 +251,61 @@ programMain:
 
     blocksGossipState = targetGossipState
 
+  proc onSlot(wallTime: BeaconTime, lastSlot: Slot) =
+    let
+      wallSlot = wallTime.slotOrZero()
+      expectedSlot = lastSlot + 1
+      delay = wallTime - expectedSlot.start_beacon_time()
+
+      finalizedHeader = lightClient.finalizedHeader
+      optimisticHeader = lightClient.optimisticHeader
+
+      finalizedBid =
+        if finalizedHeader.isSome:
+          finalizedHeader.get.toBlockId()
+        else:
+          BlockId(root: genesisBlockRoot, slot: GENESIS_SLOT)
+      optimisticBid =
+        if optimisticHeader.isSome:
+          optimisticHeader.get.toBlockId()
+        else:
+          BlockId(root: genesisBlockRoot, slot: GENESIS_SLOT)
+
+      syncStatus =
+        if optimisticHeader.isNone:
+          "bootstrapping(" & $config.trustedBlockRoot & ")"
+        elif not isSynced(wallSlot):
+          "syncing"
+        else:
+          "synced"
+
+    info "Slot start",
+      slot = shortLog(wallSlot),
+      epoch = shortLog(wallSlot.epoch),
+      sync = syncStatus,
+      peers = len(network.peerPool),
+      head = shortLog(optimisticBid),
+      finalized = shortLog(finalizedBid),
+      delay = shortLog(delay)
+
+  proc runOnSlotLoop() {.async.} =
+    var
+      curSlot = getBeaconTime().slotOrZero()
+      nextSlot = curSlot + 1
+      timeToNextSlot = nextSlot.start_beacon_time() - getBeaconTime()
+    while true:
+      await sleepAsync(timeToNextSlot)
+
+      let
+        wallTime = getBeaconTime()
+        wallSlot = wallTime.slotOrZero()
+
+      onSlot(wallTime, curSlot)
+
+      curSlot = wallSlot
+      nextSlot = wallSlot + 1
+      timeToNextSlot = nextSlot.start_beacon_time() - getBeaconTime()
+
   var nextExchangeTransitionConfTime = Moment.now + chronos.seconds(60)
   proc onSecond(time: Moment) =
     let wallSlot = getBeaconTime().slotOrZero()
@@ -234,6 +337,9 @@ programMain:
   onSecond(Moment.now())
   lightClient.start()
 
+  asyncSpawn runOnSlotLoop()
   asyncSpawn runOnSecondLoop()
-  while true:
+  while globalRunning:
     poll()
+
+  notice "Exiting light client"

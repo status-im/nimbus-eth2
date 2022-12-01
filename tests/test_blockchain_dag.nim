@@ -28,6 +28,10 @@ proc pruneAtFinalization(dag: ChainDAGRef) =
   if dag.needStateCachesAndForkChoicePruning():
     dag.pruneStateCachesDAG()
 
+type
+  AddHeadRes = Result[BlockRef, VerifierError]
+  AddBackRes = Result[void, VerifierError]
+
 suite "Block pool processing" & preset():
   setup:
     var
@@ -269,7 +273,7 @@ suite "Block pool processing" & preset():
       b11 = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
 
     check:
-      b11.error == BlockError.Duplicate
+      b11 == AddHeadRes.err VerifierError.Duplicate
       not b10[].isNil
 
   test "updateHead updates head and headState" & preset():
@@ -378,7 +382,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # Randao reveal
       var b = b2
@@ -386,7 +390,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # Attestations
       var b = b2
@@ -394,7 +398,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # SyncAggregate empty
       var b = b2
@@ -402,7 +406,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
     block: # SyncAggregate junk
       var b = b2
@@ -412,7 +416,7 @@ suite "Block pool altair processing" & preset():
       let
         bAdd = dag.addHeadBlock(verifier, b, nilAltairCallback)
       check:
-        bAdd.error() == BlockError.Invalid
+        bAdd == AddHeadRes.err VerifierError.Invalid
 
 suite "chain DAG finalization tests" & preset():
   setup:
@@ -552,7 +556,7 @@ suite "chain DAG finalization tests" & preset():
       let status = dag.addHeadBlock(verifier, lateBlock, nilPhase0Callback)
       # This _should_ be Unviable, but we can't tell, from the data that we have
       # so MissingParent is the least wrong thing to reply
-      check: status.error == BlockError.UnviableFork
+      check: status == AddHeadRes.err VerifierError.UnviableFork
 
     block:
       let
@@ -695,15 +699,18 @@ suite "Old database versions" & preset():
 
   test "pre-1.1.0":
     # only kvstore, no immutable validator keys
-
-    let db = BeaconChainDB.new("", inMemory = true)
+    let
+      sq = SqStoreRef.init("", "test", inMemory = true).expect(
+        "working database (out of memory?)")
+      v0 = BeaconChainDBV0.new(sq, readOnly = false)
+      db = BeaconChainDB.new(sq)
 
     # preInit a database to a v1.0.12 state
+    v0.putStateV0(genState[].root, genState[].data)
+    v0.putBlockV0(genBlock)
+
     db.putStateRoot(
       genState[].latest_block_root, genState[].data.slot, genState[].root)
-    db.putStateV0(genState[].root, genState[].data)
-
-    db.putBlockV0(genBlock)
     db.putTailBlock(genBlock.root)
     db.putHeadBlock(genBlock.root)
     db.putGenesisBlock(genBlock.root)
@@ -819,8 +826,8 @@ suite "Backfill":
       tailBlock = blocks[^1]
       genBlock = get_initial_beacon_block(genState[])
 
-    ChainDAGRef.preInit(
-        db, genState[], tailState[], tailBlock.asTrusted())
+    ChainDAGRef.preInit(db, genState[])
+    ChainDAGRef.preInit(db, tailState[])
 
     let
       validatorMonitor = newClone(ValidatorMonitor.init())
@@ -867,12 +874,15 @@ suite "Backfill":
     badBlock.signature = blocks[^3].phase0Data.signature
 
     check:
-      dag.addBackfillBlock(badBlock).error == BlockError.Invalid
+      dag.addBackfillBlock(badBlock) == AddBackRes.err VerifierError.Invalid
 
     check:
-      dag.addBackfillBlock(blocks[^3].phase0Data).error == BlockError.MissingParent
-      dag.addBackfillBlock(tailBlock.phase0Data).error == BlockError.Duplicate
-      dag.addBackfillBlock(genBlock.phase0Data.asSigned()).error == BlockError.MissingParent
+      dag.addBackfillBlock(blocks[^3].phase0Data) ==
+        AddBackRes.err VerifierError.MissingParent
+      dag.addBackfillBlock(genBlock.phase0Data.asSigned()) ==
+        AddBackRes.err VerifierError.MissingParent
+
+      dag.addBackfillBlock(tailBlock.phase0Data).isOk()
 
     check:
       dag.addBackfillBlock(blocks[^2].phase0Data).isOk()
@@ -901,7 +911,8 @@ suite "Backfill":
       check: dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
 
     check:
-      dag.addBackfillBlock(genBlock.phase0Data.asSigned).error == BlockError.Duplicate
+      dag.addBackfillBlock(genBlock.phase0Data.asSigned) ==
+        AddBackRes.err VerifierError.Duplicate
 
       dag.backfill.slot == GENESIS_SLOT
 
@@ -914,8 +925,8 @@ suite "Backfill":
     let
       tailBlock = blocks[^1]
 
-    ChainDAGRef.preInit(
-        db, genState[], tailState[], tailBlock.asTrusted())
+    ChainDAGRef.preInit(db, genState[])
+    ChainDAGRef.preInit(db, tailState[])
 
     let
       validatorMonitor = newClone(ValidatorMonitor.init())
@@ -964,7 +975,7 @@ suite "Backfill":
     check:
       dag.addBackfillBlock(genBlock.phase0Data.asSigned).isOk()
       dag.addBackfillBlock(
-        genBlock.phase0Data.asSigned).error == BlockError.Duplicate
+        genBlock.phase0Data.asSigned) == AddBackRes.err VerifierError.Duplicate
 
     var
       cache: StateCache
@@ -982,6 +993,120 @@ suite "Backfill":
       dag2 = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor2, {})
     check:
       dag2.head.root == next.root
+
+suite "Starting states":
+  setup:
+    let
+      genState = (ref ForkedHashedBeaconState)(
+        kind: BeaconStateFork.Phase0,
+        phase0Data: initialize_hashed_beacon_state_from_eth1(
+          defaultRuntimeConfig, ZERO_HASH, 0,
+          makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
+          {skipBlsValidation}))
+      tailState = assignClone(genState[])
+      db = BeaconChainDB.new("", inMemory = true)
+      quarantine = newClone(Quarantine.init())
+
+  test "Starting state without block":
+    var
+      cache: StateCache
+      info: ForkedEpochInfo
+    let
+      genBlock = get_initial_beacon_block(genState[])
+      blocks = block:
+        var blocks: seq[ForkedSignedBeaconBlock]
+        while getStateField(tailState[], slot).uint64 + 1 < SLOTS_PER_EPOCH:
+          blocks.add addTestBlock(tailState[], cache)
+        blocks
+      tailBlock = blocks[^1]
+
+    check process_slots(
+      defaultRuntimeConfig, tailState[], Slot(SLOTS_PER_EPOCH), cache, info,
+      {}).isOk()
+
+    ChainDAGRef.preInit(db, tailState[])
+
+    let
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+
+    # check that we can update head to itself
+    dag.updateHead(dag.head, quarantine[])
+
+    check:
+      dag.finalizedHead.toBlockSlotId()[] == BlockSlotId(
+        bid: dag.tail, slot: (dag.tail.slot.epoch+1).start_slot)
+      dag.getBlockRef(tailBlock.root).get().bid == dag.tail
+      dag.getBlockRef(blocks[^2].root).isNone()
+
+      dag.getBlockId(tailBlock.root).get() == dag.tail
+      dag.getBlockId(blocks[^2].root).isNone()
+
+      dag.getBlockIdAtSlot(Slot(0)).isNone() # no genesis stored in db
+      dag.getBlockIdAtSlot(Slot(1)).isNone()
+
+      # Should get EpochRef for the tail however
+      # dag.getEpochRef(dag.tail, dag.tail.slot.epoch, true).isOk()
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
+
+      # Should not get EpochRef for random block
+      dag.getEpochRef(
+        BlockId(root: blocks[^2].root, slot: dag.tail.slot), # root/slot mismatch
+        dag.tail.slot.epoch, true).isErr()
+
+      dag.getEpochRef(dag.tail, dag.tail.slot.epoch + 1, true).isOk()
+
+      dag.getFinalizedEpochRef() != nil
+
+      dag.backfill == tailBlock.phase0Data.message.toBeaconBlockSummary()
+
+      # Check that we can propose right from the checkpoint state
+      dag.getProposalState(dag.head, dag.head.slot + 1, cache).isOk()
+
+    var
+      badBlock = blocks[^2].phase0Data
+    badBlock.signature = blocks[^3].phase0Data.signature
+    check:
+      dag.addBackfillBlock(badBlock) == AddBackRes.err VerifierError.Invalid
+
+    check:
+      dag.addBackfillBlock(blocks[^3].phase0Data) ==
+        AddBackRes.err VerifierError.MissingParent
+      dag.addBackfillBlock(genBlock.phase0Data.asSigned()) ==
+        AddBackRes.err VerifierError.MissingParent
+
+      dag.addBackfillBlock(tailBlock.phase0Data) == AddBackRes.ok()
+
+    check:
+      dag.addBackfillBlock(blocks[^2].phase0Data).isOk()
+
+      dag.getBlockRef(tailBlock.root).get().bid == dag.tail
+      dag.getBlockRef(blocks[^2].root).isNone()
+
+      dag.getBlockId(tailBlock.root).get() == dag.tail
+      dag.getBlockId(blocks[^2].root).get().root == blocks[^2].root
+
+      dag.getBlockIdAtSlot(dag.tail.slot).get().bid == dag.tail
+
+      dag.backfill == blocks[^2].phase0Data.message.toBeaconBlockSummary()
+
+    check:
+      dag.addBackfillBlock(blocks[^3].phase0Data).isOk()
+
+      dag.getBlockIdAtSlot(dag.tail.slot - 2).get() ==
+        blocks[^3].toBlockId().atSlot()
+      dag.getBlockIdAtSlot(dag.tail.slot - 3).isNone
+
+    for i in 3..<blocks.len:
+      check: dag.addBackfillBlock(blocks[blocks.len - i - 1].phase0Data).isOk()
+
+    check:
+      dag.addBackfillBlock(genBlock.phase0Data.asSigned).isOk()
+
+      dag.backfill.slot == GENESIS_SLOT
+
+    check:
+      dag.getFinalizedEpochRef() != nil
 
 suite "Latest valid hash" & preset():
   setup:

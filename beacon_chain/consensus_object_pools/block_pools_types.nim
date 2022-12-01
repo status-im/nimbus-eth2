@@ -22,6 +22,8 @@ import
   ../validators/validator_monitor,
   ./block_dag, block_pools_types_light_client
 
+from ../spec/datatypes/capella import TrustedSignedBeaconBlock
+
 from "."/vanity_logs/pandas import VanityLogs
 
 export
@@ -32,22 +34,22 @@ export
 # relationships and allowing various forms of lookups
 
 type
-  BlockError* {.pure.} = enum
+  VerifierError* {.pure.} = enum
     Invalid
-      ## Block is broken / doesn't apply cleanly - whoever sent it is fishy (or
+      ## Value is broken / doesn't apply cleanly - whoever sent it is fishy (or
       ## we're buggy)
 
     MissingParent
-      ## We don't know the parent of this block so we can't tell if it's valid
+      ## We don't know the parent of this value so we can't tell if it's valid
       ## or not - it'll go into the quarantine and be reexamined when the parent
       ## appears or be discarded if finality obsoletes it
 
     UnviableFork
-      ## Block is from a history / fork that does not include our most current
+      ## Value is from a history / fork that does not include our most current
       ## finalized checkpoint
 
     Duplicate
-      ## We've seen this block already, can't add again
+      ## We've seen this value already, can't add again
 
   OnBlockCallback* =
     proc(data: ForkedTrustedSignedBeaconBlock) {.gcsafe, raises: [Defect].}
@@ -238,7 +240,7 @@ type
       ## committee messages will be rejected
 
     optimisticRoots*: HashSet[Eth2Digest]
-      ## https://github.com/ethereum/consensus-specs/blob/v1.2.0/sync/optimistic.md#helpers
+      ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/sync/optimistic.md#helpers
 
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
@@ -302,6 +304,16 @@ type
     blck: bellatrix.TrustedSignedBeaconBlock,
     epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
+
+  OnCapellaBlockAdded* = proc(
+    blckRef: BlockRef,
+    blck: capella.TrustedSignedBeaconBlock,
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
+
+  OnForkyBlockAdded* =
+    OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
+    OnCapellaBlockAdded
 
   HeadChangeInfoObject* = object
     slot*: Slot

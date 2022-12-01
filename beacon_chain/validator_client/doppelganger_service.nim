@@ -14,7 +14,7 @@ const
 logScope: service = ServiceName
 
 const
-  DOPPELGANGER_EPOCHS_COUNT = 2
+  DOPPELGANGER_EPOCHS_COUNT = 1
 
 proc getCheckingList*(vc: ValidatorClientRef): seq[ValidatorIndex] =
   var res: seq[ValidatorIndex]

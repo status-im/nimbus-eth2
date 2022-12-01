@@ -36,8 +36,12 @@ func match(data: openArray[char], charset: set[char]): int =
 proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
   let head = node.dag.head
 
-  if slot > head.slot and node.isSynced(head) != SyncStatus.synced:
-    return err("Requesting way ahead of the current head")
+  if node.isSynced(head) != SyncStatus.synced:
+    return err("Beacon node not fully and non-optimistically synced")
+
+  # Enough ahead not to know the shuffling
+  if slot > head.slot + SLOTS_PER_EPOCH * 2:
+    return err("Requesting far ahead of the current head")
 
   ok(head)
 
@@ -54,7 +58,7 @@ proc getSyncedHead*(node: BeaconNode,
     return err("Requesting epoch for which slot would overflow")
   node.getSyncedHead(epoch.start_slot())
 
-proc getBlockSlotId*(node: BeaconNode,
+func getBlockSlotId*(node: BeaconNode,
                      stateIdent: StateIdent): Result[BlockSlotId, cstring] =
   case stateIdent.kind
   of StateQueryKind.Slot:
@@ -118,7 +122,7 @@ proc getForkedBlock*(node: BeaconNode, id: BlockIdent):
 
   node.dag.getForkedBlock(bid)
 
-proc disallowInterruptionsAux(body: NimNode) =
+func disallowInterruptionsAux(body: NimNode) =
   for n in body:
     const because =
       "because the `state` variable may be mutated (and thus invalidated) " &
@@ -197,7 +201,7 @@ template strData*(body: ContentBody): string =
   bind fromBytes
   string.fromBytes(body.data)
 
-proc toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
+func toValidatorIndex*(value: RestValidatorIndex): Result[ValidatorIndex,
                                                           ValidatorIndexError] =
   when sizeof(ValidatorIndex) == 4:
     if uint64(value) < VALIDATOR_REGISTRY_LIMIT:
@@ -266,7 +270,7 @@ proc getStateOptimistic*(node: BeaconNode,
     case state.kind
     of BeaconStateFork.Phase0, BeaconStateFork.Altair:
       some[bool](false)
-    of BeaconStateFork.Bellatrix:
+    of BeaconStateFork.Bellatrix, BeaconStateFork.Capella:
       # A state is optimistic iff the block which created it is
       withState(state):
         # The block root which created the state at slot `n` is at slot `n-1`
@@ -286,7 +290,7 @@ proc getBlockOptimistic*(node: BeaconNode,
     case blck.kind
     of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
       some[bool](false)
-    of BeaconBlockFork.Bellatrix:
+    of BeaconBlockFork.Bellatrix, BeaconBlockFork.Capella:
       some[bool](node.dag.is_optimistic(blck.root))
   else:
     none[bool]()
@@ -296,7 +300,7 @@ proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
   case blck.kind
   of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
     false
-  of BeaconBlockFork.Bellatrix:
+  of BeaconBlockFork.Bellatrix, BeaconBlockFork.Capella:
     node.dag.is_optimistic(blck.root)
 
 const

@@ -41,6 +41,13 @@ proc produceBlockV2*(slot: Slot, randao_reveal: ValidatorSig,
        meth: MethodGet.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2
 
+proc produceBlindedBlock*(slot: Slot, randao_reveal: ValidatorSig,
+                          graffiti: GraffitiBytes
+                         ): RestResponse[ProduceBlindedBlockResponse] {.
+       rest, endpoint: "/eth/v1/validator/blinded_blocks/{slot}",
+       meth: MethodGet.}
+  ## https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
+
 proc produceAttestationData*(slot: Slot,
                              committee_index: CommitteeIndex
                             ): RestResponse[ProduceAttestationDataResponse] {.

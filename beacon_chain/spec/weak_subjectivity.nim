@@ -29,7 +29,7 @@ func compute_weak_subjectivity_period(
       SAFETY_DECAY * validator_count div (2 * 100 * cfg.MIN_PER_EPOCH_CHURN_LIMIT)
   return weak_subjectivity_period
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/weak-subjectivity.md#checking-for-stale-weak-subjectivity-checkpoint
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/weak-subjectivity.md#checking-for-stale-weak-subjectivity-checkpoint
 func is_within_weak_subjectivity_period*(cfg: RuntimeConfig, current_slot: Slot,
                                          ws_state: ForkedHashedBeaconState,
                                          ws_checkpoint: Checkpoint): bool =

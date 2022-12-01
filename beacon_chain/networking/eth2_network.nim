@@ -20,7 +20,7 @@ import
   stew/shims/[macros],
   faststreams/[inputs, outputs, buffers], snappy, snappy/faststreams,
   json_serialization, json_serialization/std/[net, sets, options],
-  chronos, chronicles, metrics,
+  chronos, chronos/ratelimit, chronicles, metrics,
   libp2p/[switch, peerinfo, multiaddress, multicodec, crypto/crypto,
     crypto/secp, builders],
   libp2p/protocols/pubsub/[
@@ -35,9 +35,9 @@ import
   "."/[eth2_discovery, libp2p_json_serialization, peer_pool, peer_scores]
 
 export
-  tables, chronos, version, multiaddress, peerinfo, p2pProtocol, connection,
-  libp2p_json_serialization, eth2_ssz_serialization, results, eth2_discovery,
-  peer_pool, peer_scores
+  tables, chronos, ratelimit, version, multiaddress, peerinfo, p2pProtocol,
+  connection, libp2p_json_serialization, eth2_ssz_serialization, results,
+  eth2_discovery, peer_pool, peer_scores
 
 logScope:
   topics = "networking"
@@ -86,6 +86,8 @@ type
     cfg: RuntimeConfig
     getBeaconTime: GetBeaconTimeFn
 
+    quota: TokenBucket ## Global quota mainly for high-bandwidth stuff
+
   EthereumNode = Eth2Node # needed for the definitions in p2p_backends_helpers
 
   AverageThroughput* = object
@@ -100,7 +102,7 @@ type
     protocolStates*: seq[RootRef]
     netThroughput: AverageThroughput
     score*: int
-    requestQuota*: float
+    quota*: TokenBucket
     lastReqTime*: Moment
     connections*: int
     enr*: Option[enr.Record]
@@ -172,7 +174,7 @@ type
   MounterProc* = proc(network: Eth2Node) {.gcsafe, raises: [Defect, CatchableError].}
   MessageContentPrinter* = proc(msg: pointer): string {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/p2p-interface.md#goodbye
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#goodbye
   DisconnectionReason* = enum
     # might see other values on the wire!
     ClientShutDown = 1
@@ -229,6 +231,9 @@ func toAltairMetadata(phase0: phase0.MetaData): altair.MetaData =
 
 const
   clientId* = "Nimbus beacon node " & fullVersionStr
+
+  requestPrefix = "/eth2/beacon_chain/req/"
+  requestSuffix = "/ssz_snappy"
 
   ConcurrentConnections = 20
     ## Maximum number of active concurrent connection requests.
@@ -302,6 +307,18 @@ declareHistogram nbc_resolve_time,
   "Time(s) used while resolving peer information",
    buckets = [1.0, 5.0, 10.0, 20.0, 40.0, 60.0]
 
+declareCounter nbc_reqresp_messages_sent,
+  "Number of Req/Resp messages sent", labels = ["protocol"]
+
+declareCounter nbc_reqresp_messages_received,
+  "Number of Req/Resp messages received", labels = ["protocol"]
+
+declareCounter nbc_reqresp_messages_failed,
+  "Number of Req/Resp messages that failed decoding", labels = ["protocol"]
+
+declareCounter nbc_reqresp_messages_throttled,
+  "Number of Req/Resp messages that were throttled", labels = ["protocol"]
+
 const
   libp2p_pki_schemes {.strdefine.} = ""
 
@@ -319,6 +336,15 @@ func shortLog*(peer: Peer): string = shortLog(peer.peerId)
 chronicles.formatIt(Peer): shortLog(it)
 chronicles.formatIt(PublicKey): byteutils.toHex(it.getBytes().tryGet())
 
+func shortProtocolId(protocolId: string): string =
+  let
+    start = if protocolId.startsWith(requestPrefix): requestPrefix.len else: 0
+    ends = if protocolId.endsWith(requestSuffix):
+      protocolId.high - requestSuffix.len
+    else:
+      protocolId.high
+  protocolId[start..ends]
+
 proc openStream(node: Eth2Node,
                 peer: Peer,
                 protocolId: string): Future[Connection] {.async.} =
@@ -326,9 +352,7 @@ proc openStream(node: Eth2Node,
   # attempts are handled via `connect` which also takes into account
   # reconnection timeouts
   let
-    protocolId = protocolId & "ssz_snappy"
-    conn = await dial(
-      node.switch, peer.peerId, protocolId)
+    conn = await dial(node.switch, peer.peerId, protocolId)
 
   return conn
 
@@ -409,26 +433,40 @@ func `<`(a, b: Peer): bool =
     false
 
 const
-  maxRequestQuota = 1000000.0
+  maxRequestQuota = 1000000
+  maxGlobalQuota = 2 * maxRequestQuota
+    ## Roughly, this means we allow 2 peers to sync from us at a time
   fullReplenishTime = 5.seconds
-  replenishRate = (maxRequestQuota / fullReplenishTime.nanoseconds.float)
 
-proc updateRequestQuota*(peer: Peer, reqCost: float) =
+template awaitQuota*(peerParam: Peer, costParam: float, protocolIdParam: string) =
   let
-    currentTime = now(chronos.Moment)
-    nanosSinceLastReq = nanoseconds(currentTime - peer.lastReqTime)
-    replenishedQuota = peer.requestQuota + nanosSinceLastReq.float * replenishRate
+    peer = peerParam
+    cost = int(costParam)
 
-  peer.lastReqTime = currentTime
-  peer.requestQuota = min(replenishedQuota, maxRequestQuota) - reqCost
+  if not peer.quota.tryConsume(cost.int):
+    let protocolId = protocolIdParam
+    debug "Awaiting peer quota", peer, cost, protocolId
+    nbc_reqresp_messages_throttled.inc(1, [protocolId])
+    await peer.quota.consume(cost.int)
 
-template awaitNonNegativeRequestQuota*(peer: Peer) =
-  let quota = peer.requestQuota
-  if quota < 0:
-    await sleepAsync(nanoseconds(int((-quota) / replenishRate)))
+template awaitQuota*(networkParam: Eth2Node, costParam: float, protocolIdParam: string) =
+  let
+    network = networkParam
+    cost = int(costParam)
+
+  if not network.quota.tryConsume(cost.int):
+    let protocolId = protocolIdParam
+    debug "Awaiting network quota", peer, cost, protocolId
+    nbc_reqresp_messages_throttled.inc(1, [protocolId])
+    await network.quota.consume(cost.int)
 
 func allowedOpsPerSecondCost*(n: int): float =
+  const replenishRate = (maxRequestQuota / fullReplenishTime.nanoseconds.float)
   (replenishRate * 1000000000'f / n.float)
+
+const
+  libp2pRequestCost = allowedOpsPerSecondCost(8)
+    ## Maximum number of libp2p requests per peer per second
 
 proc isSeen(network: Eth2Node, peerId: PeerId): bool =
   ## Returns ``true`` if ``peerId`` present in SeenTable and time period is not
@@ -493,7 +531,7 @@ proc getRequestProtoName(fn: NimNode): NimNode =
         if pragma.len > 0 and $pragma[0] == "libp2pProtocol":
           let protoName = $(pragma[1])
           let protoVer = $(pragma[2].intVal)
-          return newLit("/eth2/beacon_chain/req/" & protoName & "/" & protoVer & "/")
+          return newLit(requestPrefix & protoName & "/" & protoVer & requestSuffix)
       except Exception as exc: raiseAssert exc.msg # TODO https://github.com/nim-lang/Nim/issues/17454
 
   return newLit("")
@@ -903,8 +941,7 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
                      ResponseMsg: type,
                      timeout: Duration): Future[NetRes[ResponseMsg]]
                     {.async.} =
-  var deadline = sleepAsync timeout
-
+  let deadline = sleepAsync timeout
   let stream = awaitWithTimeout(peer.network.openStream(peer, protocolId),
                                 deadline): return neterr StreamOpenTimeout
   try:
@@ -916,6 +953,8 @@ proc makeEth2Request(peer: Peer, protocolId: string, requestBytes: Bytes,
     # Half-close the stream to mark the end of the request - if this is not
     # done, the other peer might never send us the response.
     await stream.close()
+
+    nbc_reqresp_messages_sent.inc(1, [shortProtocolId(protocolId)])
 
     # Read the response
     return await readResponse(stream, peer, ResponseMsg, timeout)
@@ -999,6 +1038,7 @@ proc implementSendProcBody(sendProc: SendProc) =
 
 proc handleIncomingStream(network: Eth2Node,
                           conn: Connection,
+                          protocolId: string,
                           MsgType: type) {.async.} =
   mixin callUserHandler, RecType
 
@@ -1046,6 +1086,21 @@ proc handleIncomingStream(network: Eth2Node,
     template returnResourceUnavailable(msg: string) =
       returnResourceUnavailable(ErrorMsg msg.toBytes)
 
+    nbc_reqresp_messages_received.inc(1, [shortProtocolId(protocolId)])
+
+    # The request quota is shared between all requests - it represents the
+    # cost to perform a service on behalf of a client and is incurred
+    # regardless if the request succeeds or fails - we don't count waiting
+    # for this quota against timeouts so as not to prematurely disconnect
+    # clients that are on the edge - nonetheless, the client will count it.
+    #
+    # When a client exceeds their quota, they will be slowed down without
+    # notification - as long as they don't make parallel requests (which is
+    # limited by libp2p), this will naturally adapt them to the available
+    # quota.
+
+    awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
+
     # TODO(zah) The TTFB timeout is not implemented in LibP2P streams back-end
     let deadline = sleepAsync RESP_TIMEOUT
 
@@ -1067,20 +1122,25 @@ proc handleIncomingStream(network: Eth2Node,
           readChunkPayload(conn, peer, MsgRec), deadline):
             # Timeout, e.g., cancellation due to fulfillment by different peer.
             # Treat this similarly to `UnexpectedEOF`, `PotentiallyExpectedEOF`.
+            nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
             await sendErrorResponse(
               peer, conn, InvalidRequest,
               errorMsgLit "Request full data not sent in time")
             return
 
       except SerializationError as err:
+        nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
         returnInvalidRequest err.formatMsg("msg")
 
       except SnappyError as err:
+        nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
         returnInvalidRequest err.msg
 
     if msg.isErr:
+      nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
       let (responseCode, errMsg) = case msg.error.kind
         of UnexpectedEOF, PotentiallyExpectedEOF:
+          nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
           (InvalidRequest, errorMsgLit "Incomplete request")
 
         of InvalidContextBytes:
@@ -1118,14 +1178,16 @@ proc handleIncomingStream(network: Eth2Node,
       logReceivedMsg(peer, MsgType(msg.get))
       await callUserHandler(MsgType, peer, conn, msg.get)
     except InvalidInputsError as err:
+      nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
       returnInvalidRequest err.msg
     except ResourceUnavailableError as err:
       returnResourceUnavailable err.msg
     except CatchableError as err:
-      await sendErrorResponse(peer, conn, ServerError,
-                              ErrorMsg err.msg.toBytes)
+      nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
+      await sendErrorResponse(peer, conn, ServerError, ErrorMsg err.msg.toBytes)
 
   except CatchableError as err:
+    nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
     debug "Error processing an incoming request", err = err.msg, msgName
 
   finally:
@@ -1734,7 +1796,8 @@ proc new(T: type Eth2Node,
     discoveryEnabled: discovery,
     rng: rng,
     connectTimeout: connectTimeout,
-    seenThreshold: seenThreshold
+    seenThreshold: seenThreshold,
+    quota: TokenBucket.new(maxGlobalQuota, fullReplenishTime)
   )
 
   newSeq node.protocolStates, allProtocols.len
@@ -1853,7 +1916,8 @@ proc init(T: type Peer, network: Eth2Node, peerId: PeerId): Peer =
     connectionState: ConnectionState.None,
     lastReqTime: now(chronos.Moment),
     lastMetadataTime: now(chronos.Moment),
-    protocolStates: newSeq[RootRef](len(allProtocols))
+    protocolStates: newSeq[RootRef](len(allProtocols)),
+    quota: TokenBucket.new(maxRequestQuota.int, fullReplenishTime)
   )
   for i in 0 ..< len(allProtocols):
     let proto = allProtocols[i]
@@ -1965,12 +2029,11 @@ proc p2pProtocolBackendImpl*(p: P2PProtocol): Backend =
       proc `protocolMounterName`(`networkVar`: `Eth2Node`) =
         proc snappyThunk(`streamVar`: `Connection`,
                          `protocolVar`: string): Future[void] {.gcsafe.} =
-          return handleIncomingStream(`networkVar`, `streamVar`,
+          return handleIncomingStream(`networkVar`, `streamVar`, `protocolVar`,
                                       `MsgStrongRecName`)
 
         mount `networkVar`.switch,
-              LPProtocol(codecs: @[`codecNameLit` & "ssz_snappy"],
-                         handler: snappyThunk)
+              LPProtocol(codecs: @[`codecNameLit`], handler: snappyThunk)
 
     ##
     ## Implement Senders and Handshake
@@ -2099,7 +2162,7 @@ proc getPersistentNetKeys(
     let
       keys = rng.getRandomNetKeys()
       pres = PeerId.init(keys.pubkey).valueOr:
-        fatal "Could not obtain PeerId from network key"
+        fatal "Could not obtain PeerId from network key", error
         quit QuitFailure
     info "Generating new networking key",
       network_public_key = keys.pubkey, network_peer_id = $pres
@@ -2167,8 +2230,8 @@ proc getPersistentNetKeys*(
 
 func gossipId(
     data: openArray[byte], phase0Prefix, topic: string): seq[byte] =
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/p2p-interface.md#topics-and-messages
   const
     MESSAGE_DOMAIN_INVALID_SNAPPY = [0x00'u8, 0x00, 0x00, 0x00]
     MESSAGE_DOMAIN_VALID_SNAPPY = [0x01'u8, 0x00, 0x00, 0x00]
@@ -2433,7 +2496,7 @@ proc broadcast(node: Eth2Node, topic: string, msg: auto):
 
 proc subscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now, we just rely on block and
   # aggregate which are more stable and reliable
 
@@ -2444,7 +2507,7 @@ proc subscribeAttestationSubnets*(
 
 proc unsubscribeAttestationSubnets*(
     node: Eth2Node, subnets: AttnetBits, forkDigest: ForkDigest) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # Nimbus won't score attestation subnets for now; we just rely on block and
   # aggregate which are more stable and reliable
 
@@ -2453,15 +2516,15 @@ proc unsubscribeAttestationSubnets*(
       node.unsubscribe(getAttestationTopic(forkDigest, SubnetId(subnet_id)))
 
 proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#metadata
   if node.metadata.attnets == attnets:
     return
 
   node.metadata.seq_number += 1
   node.metadata.attnets = attnets
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#attestation-subnet-bitfield
   let res = node.discovery.updateRecord({
     enrAttestationSubnetsField: SSZ.encode(node.metadata.attnets)
   })
@@ -2473,7 +2536,7 @@ proc updateStabilitySubnetMetadata*(node: Eth2Node, attnets: AttnetBits) =
     debug "Stability subnets changed; updated ENR attnets", attnets
 
 proc updateSyncnetsMetadata*(node: Eth2Node, syncnets: SyncnetBits) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/validator.md#sync-committee-subnet-stability
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/validator.md#sync-committee-subnet-stability
   if node.metadata.syncnets == syncnets:
     return
 
@@ -2514,7 +2577,7 @@ proc broadcastAttestation*(
     node: Eth2Node, subnet_id: SubnetId, attestation: Attestation):
     Future[SendResult] =
   # Regardless of the contents of the attestation,
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/p2p-interface.md#transitioning-the-gossip
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/p2p-interface.md#transitioning-the-gossip
   # implies that pre-fork, messages using post-fork digests might be
   # ignored, whilst post-fork, there is effectively a seen_ttl-based
   # timer unsubscription point that means no new pre-fork-forkdigest
@@ -2560,6 +2623,14 @@ proc broadcastBeaconBlock*(
 proc broadcastBeaconBlock*(
     node: Eth2Node, blck: bellatrix.SignedBeaconBlock): Future[SendResult] =
   let topic = getBeaconBlocksTopic(node.forkDigests.bellatrix)
+  node.broadcast(topic, blck)
+
+# TODO when forks re-exports this, use that instead and rm this
+from ../spec/datatypes/capella import SignedBeaconBlock
+
+proc broadcastBeaconBlock*(
+    node: Eth2Node, blck: capella.SignedBeaconBlock): Future[SendResult] =
+  let topic = getBeaconBlocksTopic(node.forkDigests.capella)
   node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(

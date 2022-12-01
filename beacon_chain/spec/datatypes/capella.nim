@@ -19,7 +19,6 @@ else:
   {.push raises: [].}
 
 import
-  stew/byteutils,
   json_serialization,
   ssz_serialization/types as sszTypes,
   ../digest,
@@ -28,20 +27,23 @@ import
 export json_serialization, base
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#withdrawal
+  SignedBLSToExecutionChangeList* =
+    List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#withdrawal
   Withdrawal* = object
     index*: WithdrawalIndex
     validator_index*: uint64
     address*: ExecutionAddress
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#blstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#blstoexecutionchange
   BLSToExecutionChange* = object
     validator_index*: uint64
     from_bls_pubkey*: ValidatorPubKey
     to_execution_address*: ExecutionAddress
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#signedblstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#signedblstoexecutionchange
   SignedBLSToExecutionChange* = object
     message*: BLSToExecutionChange
     signature*: ValidatorSig
@@ -89,7 +91,7 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -138,19 +140,18 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]  # [New in Altair]
+    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
 
     # Light client sync committees
-    current_sync_committee*: SyncCommittee     # [New in Altair]
-    next_sync_committee*: SyncCommittee        # [New in Altair]
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
 
     # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader
 
     # Withdrawals
-    withdrawal_queue*: HashList[Withdrawal, WITHDRAWAL_QUEUE_LIMIT]  # [New in Capella]
     next_withdrawal_index*: WithdrawalIndex # [New in Capella]
-    next_partial_withdrawal_validator_index*: uint64  # [New in Capella]
+    next_withdrawal_validator_index*: uint64  # [New in Capella]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -162,7 +163,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -219,7 +220,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -241,7 +242,7 @@ type
     execution_payload*: ExecutionPayload
 
     # Capella operations
-    bls_to_execution_changes*: List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList  # [New in Capella]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -277,7 +278,7 @@ type
     execution_payload*: ExecutionPayload
 
     # Capella operations
-    bls_to_execution_changes*: List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList  # [New in Capella]
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -301,9 +302,9 @@ type
     execution_payload*: ExecutionPayload
 
     # Capella operations
-    bls_to_execution_changes*: List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+    bls_to_execution_changes*: SignedBLSToExecutionChangeList  # [New in Capella]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
@@ -359,32 +360,6 @@ type
     parentHash*: string
     timestamp*: string
 
-  BoolReturnValidRPC = object
-    valid*: bool
-
-  BoolReturnSuccessRPC = object
-    success*: bool
-
-func fromHex*(T: typedesc[BloomLogs], s: string): T {.
-     raises: [Defect, ValueError].} =
-  hexToByteArray(s, result.data)
-
-func fromHex*(T: typedesc[ExecutionAddress], s: string): T {.
-     raises: [Defect, ValueError].} =
-  hexToByteArray(s, result.data)
-
-proc writeValue*(writer: var JsonWriter, value: ExecutionAddress) {.
-     raises: [Defect, IOError].} =
-  writer.writeValue to0xHex(value.data)
-
-proc readValue*(reader: var JsonReader, value: var ExecutionAddress) {.
-     raises: [Defect, IOError, SerializationError].} =
-  try:
-    hexToByteArray(reader.readValue(string), value.data)
-  except ValueError:
-    raiseUnexpectedValue(reader,
-                         "ExecutionAddress value should be a valid hex string")
-
 func shortLog*(v: SomeBeaconBlock): auto =
   (
     slot: shortLog(v.slot),
@@ -398,7 +373,10 @@ func shortLog*(v: SomeBeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
-    sync_committee_participants: countOnes(v.body.sync_aggregate.sync_committee_bits)
+    sync_committee_participants:
+      countOnes(v.body.sync_aggregate.sync_committee_bits),
+    block_number: 0'u64, # Bellatrix compat
+    fee_recipient: "",
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =

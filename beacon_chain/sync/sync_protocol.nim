@@ -13,7 +13,7 @@ else:
 import
   std/[options, tables, sets, macros],
   chronicles, chronos, snappy/codec,
-  stew/ranges/bitranges, libp2p/switch,
+  libp2p/switch,
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/[helpers, forks, network],
   ".."/[beacon_clock],
@@ -26,17 +26,15 @@ logScope:
 
 const
   MAX_REQUEST_BLOCKS* = 1024
-  blockByRootLookupCost = allowedOpsPerSecondCost(50)
-  blockResponseCost = allowedOpsPerSecondCost(100)
-  blockByRangeLookupCost = allowedOpsPerSecondCost(20)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#configuration
+  blockResponseCost = allowedOpsPerSecondCost(64) # Allow syncing ~64 blocks/sec (minus request costs)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#configuration
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
-  lightClientEmptyResponseCost = allowedOpsPerSecondCost(50)
-  lightClientBootstrapLookupCost = allowedOpsPerSecondCost(5)
-  lightClientBootstrapResponseCost = allowedOpsPerSecondCost(100)
-  lightClientUpdateResponseCost = allowedOpsPerSecondCost(100)
-  lightClientUpdateByRangeLookupCost = allowedOpsPerSecondCost(20)
+  lightClientBootstrapResponseCost = allowedOpsPerSecondCost(1)
+    ## Only one bootstrap per peer should ever be needed - no need to allow more
+  lightClientUpdateResponseCost = allowedOpsPerSecondCost(1000)
+    ## Updates are tiny - we can allow lots of them
   lightClientFinalityUpdateResponseCost = allowedOpsPerSecondCost(100)
   lightClientOptimisticUpdateResponseCost = allowedOpsPerSecondCost(100)
 
@@ -295,7 +293,7 @@ p2pProtocol BeaconSync(version = 1,
 
     if startSlot.epoch >= dag.cfg.ALTAIR_FORK_EPOCH:
       # "Clients MAY limit the number of blocks in the response."
-      # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/p2p-interface.md#beaconblocksbyrange
+      # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#beaconblocksbyrange
       debug "Block range v1 request for post-altair range",
         peer, startSlot, reqCount, reqStep
       return
@@ -310,9 +308,6 @@ p2pProtocol BeaconSync(version = 1,
       endIndex = count - 1
       startIndex =
         dag.getBlockRange(startSlot, reqStep, blocks.toOpenArray(0, endIndex))
-
-    peer.updateRequestQuota(blockByRangeLookupCost)
-    peer.awaitNonNegativeRequestQuota()
 
     var
       found = 0
@@ -333,8 +328,9 @@ p2pProtocol BeaconSync(version = 1,
             bytes = bytes.len(), blck = shortLog(blocks[i])
           continue
 
-        peer.updateRequestQuota(blockResponseCost)
-        peer.awaitNonNegativeRequestQuota()
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(blockResponseCost, "beacon_blocks_by_range/1")
+        peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_range/1")
 
         await response.writeBytesSZ(uncompressedLen, bytes, []) # phase0 bytes
 
@@ -375,9 +371,6 @@ p2pProtocol BeaconSync(version = 1,
       found = 0
       bytes: seq[byte]
 
-    peer.updateRequestQuota(count.float * blockByRootLookupCost)
-    peer.awaitNonNegativeRequestQuota()
-
     for i in 0..<count:
       let
         blockRef = dag.getBlockRef(blockRoots[i]).valueOr:
@@ -386,7 +379,7 @@ p2pProtocol BeaconSync(version = 1,
       if blockRef.slot.epoch >= dag.cfg.ALTAIR_FORK_EPOCH:
         # Skipping this block should be fine because the spec says:
         # "Clients MAY limit the number of blocks in the response."
-        # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/phase0/p2p-interface.md#beaconblocksbyroot
+        # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#beaconblocksbyroot
         #
         # Also, our response would be indistinguishable from a node
         # that have been synced exactly to the altair transition slot.
@@ -400,8 +393,9 @@ p2pProtocol BeaconSync(version = 1,
             bytes = bytes.len(), blck = shortLog(blockRef)
           continue
 
-        peer.updateRequestQuota(blockResponseCost)
-        peer.awaitNonNegativeRequestQuota()
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(blockResponseCost, "beacon_blocks_by_root/1")
+        peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_root/1")
 
         await response.writeBytesSZ(uncompressedLen, bytes, []) # phase0
         inc found
@@ -447,9 +441,6 @@ p2pProtocol BeaconSync(version = 1,
         dag.getBlockRange(startSlot, reqStep,
                           blocks.toOpenArray(0, endIndex))
 
-    peer.updateRequestQuota(blockByRangeLookupCost)
-    peer.awaitNonNegativeRequestQuota()
-
     var
       found = 0
       bytes: seq[byte]
@@ -468,8 +459,9 @@ p2pProtocol BeaconSync(version = 1,
             bytes = bytes.len(), blck = shortLog(blocks[i])
           continue
 
-        peer.updateRequestQuota(blockResponseCost)
-        peer.awaitNonNegativeRequestQuota()
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(blockResponseCost, "beacon_blocks_by_range/2")
+        peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_range/2")
 
         await response.writeBytesSZ(
           uncompressedLen, bytes,
@@ -507,9 +499,6 @@ p2pProtocol BeaconSync(version = 1,
       dag = peer.networkState.dag
       count = blockRoots.len
 
-    peer.updateRequestQuota(count.float * blockByRootLookupCost)
-    peer.awaitNonNegativeRequestQuota()
-
     var
       found = 0
       bytes: seq[byte]
@@ -532,8 +521,9 @@ p2pProtocol BeaconSync(version = 1,
             bytes = bytes.len(), blck = shortLog(blockRef)
           continue
 
-        peer.updateRequestQuota(blockResponseCost)
-        peer.awaitNonNegativeRequestQuota()
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(blockResponseCost, "beacon_blocks_by_root/2")
+        peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_root/2")
 
         await response.writeBytesSZ(
           uncompressedLen, bytes,
@@ -544,7 +534,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
   proc lightClientBootstrap(
       peer: Peer,
       blockRoot: Eth2Digest,
@@ -555,24 +545,22 @@ p2pProtocol BeaconSync(version = 1,
     let dag = peer.networkState.dag
     doAssert dag.lcDataStore.serve
 
-    peer.updateRequestQuota(lightClientBootstrapLookupCost)
-    peer.awaitNonNegativeRequestQuota()
-
     let bootstrap = dag.getLightClientBootstrap(blockRoot)
     if bootstrap.isOk:
       let
         contextEpoch = bootstrap.get.contextEpoch
         contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
+
+      # TODO extract from libp2pProtocol
+      peer.awaitQuota(
+        lightClientBootstrapResponseCost, "light_client_bootstrap/1")
       await response.send(bootstrap.get, contextBytes)
     else:
-      peer.updateRequestQuota(lightClientEmptyResponseCost)
       raise newException(ResourceUnavailableError, LCBootstrapUnavailable)
-
-    peer.updateRequestQuota(lightClientBootstrapResponseCost)
 
     debug "LC bootstrap request done", peer, blockRoot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
   proc lightClientUpdatesByRange(
       peer: Peer,
       startPeriod: SyncCommitteePeriod,
@@ -595,11 +583,6 @@ p2pProtocol BeaconSync(version = 1,
           min(headPeriod + 1 - startPeriod, MAX_REQUEST_LIGHT_CLIENT_UPDATES)
       count = min(reqCount, maxSupportedCount)
       onePastPeriod = startPeriod + count
-    if count == 0:
-      peer.updateRequestQuota(lightClientEmptyResponseCost)
-
-    peer.updateRequestQuota(count.float * lightClientUpdateByRangeLookupCost)
-    peer.awaitNonNegativeRequestQuota()
 
     var found = 0
     for period in startPeriod..<onePastPeriod:
@@ -608,14 +591,16 @@ p2pProtocol BeaconSync(version = 1,
         let
           contextEpoch = update.get.contextEpoch
           contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
+
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(
+          lightClientUpdateResponseCost, "light_client_updates_by_range/1")
         await response.write(update.get, contextBytes)
         inc found
 
-    peer.updateRequestQuota(found.float * lightClientUpdateResponseCost)
-
     debug "LC updates by range request done", peer, startPeriod, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
   proc lightClientFinalityUpdate(
       peer: Peer,
       response: SingleChunkResponse[altair.LightClientFinalityUpdate])
@@ -625,23 +610,23 @@ p2pProtocol BeaconSync(version = 1,
     let dag = peer.networkState.dag
     doAssert dag.lcDataStore.serve
 
-    peer.awaitNonNegativeRequestQuota()
-
     let finality_update = dag.getLightClientFinalityUpdate()
     if finality_update.isSome:
       let
         contextEpoch = finality_update.get.contextEpoch
         contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
+
+      # TODO extract from libp2pProtocol
+      peer.awaitQuota(
+        lightClientFinalityUpdateResponseCost, "light_client_finality_update/1")
       await response.send(finality_update.get, contextBytes)
     else:
-      peer.updateRequestQuota(lightClientEmptyResponseCost)
       raise newException(ResourceUnavailableError, LCFinUpdateUnavailable)
 
-    peer.updateRequestQuota(lightClientFinalityUpdateResponseCost)
 
     debug "LC finality update request done", peer
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
   proc lightClientOptimisticUpdate(
       peer: Peer,
       response: SingleChunkResponse[altair.LightClientOptimisticUpdate])
@@ -651,19 +636,18 @@ p2pProtocol BeaconSync(version = 1,
     let dag = peer.networkState.dag
     doAssert dag.lcDataStore.serve
 
-    peer.awaitNonNegativeRequestQuota()
-
     let optimistic_update = dag.getLightClientOptimisticUpdate()
     if optimistic_update.isSome:
       let
         contextEpoch = optimistic_update.get.contextEpoch
         contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
+
+      # TODO extract from libp2pProtocol
+      peer.awaitQuota(
+        lightClientOptimisticUpdateResponseCost, "light_client_optimistic_update/1")
       await response.send(optimistic_update.get, contextBytes)
     else:
-      peer.updateRequestQuota(lightClientEmptyResponseCost)
       raise newException(ResourceUnavailableError, LCOptUpdateUnavailable)
-
-    peer.updateRequestQuota(lightClientOptimisticUpdateResponseCost)
 
     debug "LC optimistic update request done", peer
 

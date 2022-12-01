@@ -1,4 +1,4 @@
-# Command line options
+# Command line
 
 Command line options allow you to customize the way your beacon node operates.
 
@@ -60,7 +60,6 @@ The following options are available:
                                this functionality [=false].
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format block_root:epoch_number.
      --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
-     --finalized-checkpoint-block  SSZ file specifying a recent finalized block.
      --node-name               A name for this node that will appear in the logs. If you set this to 'auto', a
                                persistent automatically generated ID will be selected for each --data-dir
                                folder.
@@ -83,7 +82,7 @@ The following options are available:
                                [=infinite].
      --rest-max-body-size      Maximum size of REST request body (kilobytes) [=16384].
      --rest-max-headers-size   Maximum size of REST request headers (kilobytes) [=64].
-     --keymanager              Enable the REST keymanager API (BETA version) [=false].
+     --keymanager              Enable the REST keymanager API [=false].
      --keymanager-port         Listening port for the REST keymanager API [=5052].
      --keymanager-address      Listening port for the REST keymanager API [=127.0.0.1].
      --keymanager-allow-origin  Limit the access to the Keymanager API to a particular hostname (for
@@ -107,11 +106,11 @@ The following options are available:
                                a validator with the same index (a doppelganger), before sending an attestation
                                itself. This protects against slashing (due to double-voting) but means you will
                                miss two attestations when restarting. [=true].
-     --validator-monitor-auto  Automatically monitor locally active validators (BETA) [=false].
+     --validator-monitor-auto  Automatically monitor locally active validators [=false].
      --validator-monitor-pubkey  One or more validators to monitor - works best when --subscribe-all-subnets is
-                               enabled (BETA).
+                               enabled.
      --validator-monitor-totals  Publish metrics to single 'totals' label for better collection performance when
-                               monitoring many validators (BETA) [=false].
+                               monitoring many validators [=false].
      --suggested-fee-recipient  Suggested fee recipient.
      --payload-builder         Enable external payload builder [=false].
      --payload-builder-url     Payload builder URL.
@@ -139,7 +138,7 @@ Here is an example config file illustrating all of the above:
     ```toml
     # Comments look like this
     doppelganger-detection = true
-    web3-url = ["ws://192.168.1.10:8000"]
+    web3-url = ["http://127.0.0.1:8551"]
     num-threads = 0
 
     [trustedNodeSync]

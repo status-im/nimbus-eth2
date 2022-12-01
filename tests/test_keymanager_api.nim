@@ -28,9 +28,17 @@ import
 
 type
   KeymanagerToTest = object
+    ident: string
     port: int
     validatorsDir: string
     secretsDir: string
+
+  # Individual port numbers derived by adding `ord` to configurable base port
+  PortKind {.pure.} = enum
+    PeerToPeer,
+    Metrics,
+    KeymanagerBN,
+    KeymanagerVC
 
 const
   simulationDepositsCount = 128
@@ -41,8 +49,7 @@ const
   genesisFile = dataDir / "genesis.ssz"
   bootstrapEnrFile = dataDir / "bootstrap_node.enr"
   tokenFilePath = dataDir / "keymanager-token.txt"
-  keymanagerPortBN = 47000
-  keymanagerPortVC = 48000
+  defaultBasePort = 49000
   correctTokenValue = "some secret token"
   defaultFeeRecipient = Eth1Address.fromHex("0x000000000000000000000000000000000000DEAD")
 
@@ -95,16 +102,6 @@ const
   vcDataDir = dataDir / "validator-0"
   vcValidatorsDir = vcDataDir / "validators"
   vcSecretsDir = vcDataDir / "secrets"
-
-  beaconNodeKeymanager = KeymanagerToTest(
-    port: keymanagerPortBN,
-    validatorsDir: nodeValidatorsDir,
-    secretsDir: nodeSecretsDir)
-
-  validatorClientKeymanager = KeymanagerToTest(
-    port: keymanagerPortVC,
-    validatorsDir: vcValidatorsDir,
-    secretsDir: vcSecretsDir)
 
 func specifiedFeeRecipient(x: int): Eth1Address =
   copyMem(addr result, unsafeAddr x, sizeof x)
@@ -258,27 +255,28 @@ proc addPreTestRemoteKeystores(validatorsDir: string) =
             err = res.error
       quit 1
 
-proc startBeaconNode {.raises: [Defect, CatchableError].} =
+proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
   let rng = keys.newRng()
 
   copyHalfValidators(nodeDataDir, true)
   addPreTestRemoteKeystores(nodeValidatorsDir)
 
   let runNodeConf = try: BeaconNodeConf.load(cmdLine = mapIt([
-    "--tcp-port=49000",
-    "--udp-port=49000",
+    "--tcp-port=" & $(basePort + PortKind.PeerToPeer.ord),
+    "--udp-port=" & $(basePort + PortKind.PeerToPeer.ord),
+    "--discv5=off",
     "--network=" & dataDir,
     "--data-dir=" & nodeDataDir,
     "--validators-dir=" & nodeValidatorsDir,
     "--secrets-dir=" & nodeSecretsDir,
     "--metrics-address=127.0.0.1",
-    "--metrics-port=48008",
+    "--metrics-port=" & $(basePort + PortKind.Metrics.ord),
     "--rest=true",
     "--rest-address=127.0.0.1",
-    "--rest-port=" & $keymanagerPortBN,
+    "--rest-port=" & $(basePort + PortKind.KeymanagerBN.ord),
     "--keymanager=true",
     "--keymanager-address=127.0.0.1",
-    "--keymanager-port=" & $keymanagerPortBN,
+    "--keymanager-port=" & $(basePort + PortKind.KeymanagerBN.ord),
     "--keymanager-token-file=" & tokenFilePath,
     "--suggested-fee-recipient=" & $defaultFeeRecipient,
     "--doppelganger-detection=off"], it))
@@ -302,21 +300,21 @@ proc startBeaconNode {.raises: [Defect, CatchableError].} =
 
   # os.removeDir dataDir
 
-proc startValidatorClient {.async, thread.} =
+proc startValidatorClient(basePort: int) {.async, thread.} =
   let rng = keys.newRng()
 
   copyHalfValidators(vcDataDir, false)
   addPreTestRemoteKeystores(vcValidatorsDir)
 
   let runValidatorClientConf = try: ValidatorClientConf.load(cmdLine = mapIt([
-    "--beacon-node=http://127.0.0.1:47000",
+    "--beacon-node=http://127.0.0.1:" & $(basePort + PortKind.KeymanagerBN.ord),
     "--data-dir=" & vcDataDir,
     "--validators-dir=" & vcValidatorsDir,
     "--secrets-dir=" & vcSecretsDir,
     "--suggested-fee-recipient=" & $defaultFeeRecipient,
     "--keymanager=true",
     "--keymanager-address=127.0.0.1",
-    "--keymanager-port=" & $keymanagerPortVC,
+    "--keymanager-port=" & $(basePort + PortKind.KeymanagerVC.ord),
     "--keymanager-token-file=" & tokenFilePath], it))
   except:
     quit 1
@@ -498,13 +496,7 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
           ]
         )
 
-    keymanagerKind =
-      if keymanager.port == keymanagerPortBN:
-        " [Beacon Node]"
-      else:
-        " [Validator Client]"
-
-    testFlavour = keymanagerKind & preset()
+    testFlavour = " [" & keymanager.ident & "]" & preset()
 
   suite "Serialization/deserialization" & testFlavour:
     proc `==`(a, b: Kdf): bool =
@@ -1277,11 +1269,24 @@ proc runTests(keymanager: KeymanagerToTest) {.async.} =
         response.status == 403
         responseJson["message"].getStr() == InvalidAuthorizationError
 
-proc delayedTests {.async.} =
+proc delayedTests(basePort: int) {.async.} =
+  let
+    beaconNodeKeymanager = KeymanagerToTest(
+      ident: "Beacon Node",
+      port: basePort + PortKind.KeymanagerBN.ord,
+      validatorsDir: nodeValidatorsDir,
+      secretsDir: nodeSecretsDir)
+
+    validatorClientKeymanager = KeymanagerToTest(
+      ident: "Validator Client",
+      port: basePort + PortKind.KeymanagerVC.ord,
+      validatorsDir: vcValidatorsDir,
+      secretsDir: vcSecretsDir)
+
   while bnStatus != BeaconNodeStatus.Running:
     await sleepAsync(1.seconds)
 
-  asyncSpawn startValidatorClient()
+  asyncSpawn startValidatorClient(basePort)
 
   await sleepAsync(2.seconds)
 
@@ -1295,13 +1300,26 @@ proc delayedTests {.async.} =
 
   bnStatus = BeaconNodeStatus.Stopping
 
-proc main() {.async.} =
+proc main(basePort: int) {.async.} =
   if dirExists(dataDir):
     os.removeDir dataDir
 
-  asyncSpawn delayedTests()
+  asyncSpawn delayedTests(basePort)
 
   prepareNetwork()
-  startBeaconNode()
+  startBeaconNode(basePort)
 
-waitFor main()
+let
+  basePortStr = os.getEnv("NIMBUS_TEST_KEYMANAGER_BASE_PORT", $defaultBasePort)
+  basePort =
+    try:
+      let val = parseInt(basePortStr)
+      if val < 0 or val > (uint16.high.int - PortKind.high.ord):
+        fatal "Invalid base port arg", basePort = basePortStr
+        quit 1
+      val
+    except ValueError as exc:
+      fatal "Invalid base port arg", basePort = basePortStr, exc = exc.msg
+      quit 1
+
+waitFor main(basePort)

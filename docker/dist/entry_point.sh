@@ -29,8 +29,14 @@ fi
 
 echo -e "\nPLATFORM=${PLATFORM}"
 
-#- we need to build everything against libraries available inside this container, including the Nim compiler
+# we need to build everything against libraries available inside this container, including the Nim compiler
+# we need to build everything against libraries available inside this container, including the Nim compiler
+# the nimbus-build-system.paths file needs to be re-created because it may include absolute paths that are
+# valid only on the host system (and not in the docker container where the build is executing)
+rm -f nimbus-build-system.paths
 make clean
+make update -j$(nproc)
+
 NIMFLAGS_COMMON="-d:disableMarchNative --gcc.options.debug:'-g1' --clang.options.debug:'-gline-tables-only'"
 if [[ "${PLATFORM}" == "Windows_amd64" ]]; then
   # Cross-compilation using the MXE distribution of Mingw-w64

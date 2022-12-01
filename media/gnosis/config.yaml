@@ -7,6 +7,11 @@ PRESET_BASE: mainnet
 
 CONFIG_NAME: gnosis
 
+# Transition
+# ---------------------------------------------------------------
+# Estimated on Dec 5, 2022
+TERMINAL_TOTAL_DIFFICULTY: 8626000000000000000000058750000000000000000000
+
 # Misc
 # ---------------------------------------------------------------
 # 2**2 (= 4)
@@ -56,6 +61,9 @@ SHARD_COMMITTEE_PERIOD: 256
 
 ALTAIR_FORK_VERSION: 0x01000064
 ALTAIR_FORK_EPOCH: 512
+
+BELLATRIX_FORK_VERSION: 0x02000064
+BELLATRIX_FORK_EPOCH: 385536
 
 INACTIVITY_SCORE_BIAS: 4
 # 2**4 (= 16)

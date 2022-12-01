@@ -30,11 +30,13 @@ EXECUTOR_NUMBER ?= 0
 
 SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
 GOERLI_WEB3_URL := "--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
-GNOSIS_WEB3_URLS := "--web3-url=wss://rpc.gnosischain.com/wss --web3-url=wss://xdai.poanetwork.dev/wss"
+GNOSIS_WEB3_URLS := "--web3-url=https://rpc.gnosischain.com/"
 
 VALIDATORS := 1
 CPU_LIMIT := 0
 BUILD_END_MSG := "\\x1B[92mBuild completed successfully:\\x1B[39m"
+
+TEST_MODULES_FLAGS := -d:chronicles_log_level=TRACE -d:chronicles_sinks=json[file]
 
 ifeq ($(CPU_LIMIT), 0)
 	CPU_LIMIT_CMD :=
@@ -157,16 +159,28 @@ libbacktrace:
 # EXECUTOR_NUMBER: [0, 1] (depends on max number of concurrent CI jobs)
 #
 # The following port ranges are allocated (entire continuous range):
+#
+# Unit tests:
+# - NIMBUS_TEST_KEYMANAGER_BASE_PORT + [0, 4)
+#
+# REST tests:
+# - --base-port
+# - --base-rest-port
+# - --base-metrics-port
+#
+# Local testnets (entire continuous range):
 # - --base-port + [0, --nodes + --light-clients)
 # - --base-rest-port + [0, --nodes)
 # - --base-metrics-port + [0, --nodes)
+# - --base-vc-metrics-port + [0, --nodes]
 # - --base-remote-signer-port + [0, --remote-signers)
 #
-# If --run-geth or --run-nimbus is specified (only these ports):
+# Local testnets with --run-geth or --run-nimbus (only these ports):
 # - --base-el-net-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-http-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-ws-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
+UNIT_TEST_BASE_PORT := 9950
 
 restapi-test:
 	./tests/simulation/restapi.sh \
@@ -194,11 +208,12 @@ local-testnet-minimal:
 		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 6031 + EXECUTOR_NUMBER * 500 )) \
 		--base-metrics-port $$(( 6061 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-port $$(( 6101 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-net-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-http-port $$(( 6202 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-ws-port $$(( 6203 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-auth-rpc-port $$(( 6204 + EXECUTOR_NUMBER * 500 )) \
+		--base-vc-metrics-port $$(( 6161 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-net-port $$(( 6301 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 6302 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-ws-port $$(( 6303 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-auth-rpc-port $$(( 6304 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
 		--timeout 648 \
 		--kill-old-processes \
@@ -217,11 +232,12 @@ local-testnet-mainnet:
 		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 7031 + EXECUTOR_NUMBER * 500 )) \
 		--base-metrics-port $$(( 7061 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-port $$(( 7101 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-net-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-http-port $$(( 7202 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-ws-port $$(( 7203 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-auth-rpc-port $$(( 7204 + EXECUTOR_NUMBER * 500 )) \
+		--base-vc-metrics-port $$(( 7161 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-net-port $$(( 7301 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 7302 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-ws-port $$(( 7303 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-auth-rpc-port $$(( 7304 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
 		--timeout 2784 \
 		--kill-old-processes \
@@ -248,7 +264,7 @@ consensus_spec_tests_mainnet: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/consensus_spec/consensus_spec_tests_preset.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=mainnet -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) -d:const_preset=mainnet $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 consensus_spec_tests_minimal: | build deps
@@ -256,7 +272,7 @@ consensus_spec_tests_minimal: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/consensus_spec/consensus_spec_tests_preset.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:const_preset=minimal -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) -d:const_preset=minimal $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # Tests we only run for the default preset
@@ -265,7 +281,7 @@ proto_array: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"beacon_chain/fork_choice/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 fork_choice: | build deps
@@ -273,7 +289,7 @@ fork_choice: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"beacon_chain/fork_choice/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 all_tests: | build deps
@@ -281,7 +297,7 @@ all_tests: | build deps
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
 			"tests/$@.nim" \
-			$(NIM_PARAMS) -d:chronicles_log_level=TRACE -d:chronicles_sinks="json[file]" && \
+			$(NIM_PARAMS) $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
 # State and block sims; getting to 4th epoch triggers consensus checks
@@ -310,7 +326,11 @@ endif
 	for TEST_BINARY in $(XML_TEST_BINARIES); do \
 		PARAMS="--xml:build/$${TEST_BINARY}.xml --console"; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Aborting."; exit 1; }; \
+		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 )) \
+			build/$${TEST_BINARY} $${PARAMS} || { \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
+				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+			}; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 	for TEST_BINARY in $(TEST_BINARIES); do \
@@ -319,7 +339,10 @@ endif
 		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
 		fi; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Aborting."; exit 1; }; \
+		build/$${TEST_BINARY} $${PARAMS} || { \
+			echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
+			tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+		}; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 
@@ -329,7 +352,7 @@ build/generate_makefile: | libbacktrace
 endif
 build/generate_makefile: tools/generate_makefile.nim | deps-common
 	+ echo -e $(BUILD_MSG) "$@" && \
-	$(ENV_SCRIPT) nim c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim $(SILENCE_WARNINGS) && \
+	$(ENV_SCRIPT) $(NIMC) c -o:$@ $(NIM_PARAMS) tools/generate_makefile.nim $(SILENCE_WARNINGS) && \
 	echo -e $(BUILD_END_MSG) "$@"
 
 # GCC's LTO parallelisation is able to detect a GNU Make jobserver and get its
@@ -636,13 +659,9 @@ nimbus-pkg: | nimbus_beacon_node
 	xcodebuild -project installer/macos/nimbus-pkg.xcodeproj -scheme nimbus-pkg build
 	packagesbuild installer/macos/nimbus-pkg.pkgproj
 
-ctail: | build deps
-	mkdir -p vendor/.nimble/bin/
-	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ctail c vendor/nim-chronicles-tail/ctail.nim
-
 ntu: | build deps
 	mkdir -p vendor/.nimble/bin/
-	+ $(ENV_SCRIPT) nim -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
+	+ $(ENV_SCRIPT) $(NIMC) -d:danger -o:vendor/.nimble/bin/ntu c vendor/nim-testutils/ntu.nim
 
 clean: | clean-common
 	rm -rf build/{$(TOOLS_CSV),all_tests,test_*,proto_array,fork_choice,*.a,*.so,*_node,*ssz*,nimbus_*,beacon_node*,block_sim,state_sim,transition*,generate_makefile,nimbus-wix/obj}
@@ -652,7 +671,7 @@ endif
 
 libnfuzz.so: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
+		$(ENV_SCRIPT) $(NIMC) c -d:release --app:lib --noMain --nimcache:nimcache/libnfuzz -o:build/$@.0 $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@" && \
 		rm -f build/$@ && \
 		ln -s $@.0 build/$@
@@ -660,7 +679,7 @@ libnfuzz.so: | build deps
 libnfuzz.a: | build deps
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		rm -f build/$@ && \
-		$(ENV_SCRIPT) nim c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
+		$(ENV_SCRIPT) $(NIMC) c -d:release --app:staticlib --noMain --nimcache:nimcache/libnfuzz_static -o:build/$@ $(NIM_PARAMS) nfuzz/libnfuzz.nim $(SILENCE_WARNINGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@" && \
 		[[ -e "$@" ]] && mv "$@" build/ || true # workaround for https://github.com/nim-lang/Nim/issues/12745
 
