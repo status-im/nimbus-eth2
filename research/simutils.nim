@@ -76,7 +76,6 @@ proc loadGenesis*(validators: Natural, validate: bool):
       &"deposit_contract_snapshot_{const_preset}_{validators}_{SPEC_VERSION}.ssz"
     cfg = defaultRuntimeConfig
 
-
   if fileExists(genesisFn) and fileExists(contractSnapshotFn):
     let res = newClone(readSszForkedHashedBeaconState(
       cfg, readAllBytes(genesisFn).tryGet()))

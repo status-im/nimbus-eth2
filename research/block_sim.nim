@@ -590,7 +590,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     while true:
       let nextBlockTime = lastEth1BlockAt +
-                          max(1.0, gauss(r, float defaultRuntimeConfig.SECONDS_PER_ETH1_BLOCK, 3.0))
+                          max(1.0, gauss(r, float cfg.SECONDS_PER_ETH1_BLOCK, 3.0))
       if nextBlockTime > now:
         break
 
