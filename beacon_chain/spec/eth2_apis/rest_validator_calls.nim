@@ -99,3 +99,9 @@ proc registerValidator*(body: seq[SignedValidatorRegistrationV1]): RestPlainResp
      rest, endpoint: "/eth/v1/validator/register_validator",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Validator/registerValidator
+
+proc getValidatorsLiveness*(epoch: Epoch,
+                            body: seq[ValidatorIndex]
+                           ): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/liveness/{epoch}",
+     meth: MethodPost.}

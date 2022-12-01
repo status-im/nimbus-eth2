@@ -2364,6 +2364,43 @@ proc readValue*(reader: var JsonReader[RestJson],
   value = RestActivityItem(index: index.get(), epoch: epoch.get(),
                            active: active.get())
 
+## RestLivenessItem
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: RestLivenessItem) {.
+     raises: [IOError, Defect].} =
+  writer.beginRecord()
+  writer.writeField("index", value.index)
+  writer.writeField("is_live", value.is_live)
+  writer.endRecord()
+
+proc readValue*(reader: var JsonReader[RestJson],
+                value: var RestLivenessItem) {.
+     raises: [SerializationError, IOError, Defect].} =
+  var index: Option[ValidatorIndex]
+  var isLive: Option[bool]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "index":
+      if index.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `index` fields found", "RestLivenessItem")
+      index = some(reader.readValue(ValidatorIndex))
+    of "is_live":
+      if isLive.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `is_live` fields found", "RestLivenessItem")
+      isLive = some(reader.readValue(bool))
+    else:
+      discard
+
+  if index.isNone():
+    reader.raiseUnexpectedValue("Missing or empty `index` value")
+  if isLive.isNone():
+    reader.raiseUnexpectedValue("Missing or empty `is_live` value")
+
+  value = RestLivenessItem(index: index.get(), is_live: isLive.get())
+
 ## HeadChangeInfoObject
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: HeadChangeInfoObject) {.

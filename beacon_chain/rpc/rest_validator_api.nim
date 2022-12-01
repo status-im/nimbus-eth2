@@ -4,7 +4,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/[typetraits, sets]
+import std/[typetraits, sets, sequtils]
 import stew/[results, base10], chronicles
 import ".."/[beacon_chain_db, beacon_node],
        ".."/networking/eth2_network,
@@ -853,3 +853,66 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         signedValidatorRegistration
 
     return RestApiResponse.response("", Http200, "text/plain")
+
+  router.api(MethodPost, "/eth/v1/validator/liveness/{epoch}") do (
+    epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let
+      qepoch =
+        block:
+          if epoch.isErr():
+            return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                             $epoch.error())
+          let
+            res = epoch.get()
+            wallEpoch = node.currentSlot().epoch()
+            nextEpoch =
+              if wallEpoch == FAR_FUTURE_EPOCH:
+                wallEpoch
+              else:
+                wallEpoch + 1
+            prevEpoch = get_previous_epoch(wallEpoch)
+          if (res < prevEpoch) or (res > nextEpoch):
+            return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                    "Requested epoch is more than one epoch from current epoch")
+          res
+      indexList =
+        block:
+          if contentBody.isNone():
+            return RestApiResponse.jsonError(Http400, EmptyRequestBodyError)
+          let dres = decodeBody(seq[RestValidatorIndex], contentBody.get())
+          if dres.isErr():
+            return RestApiResponse.jsonError(Http400,
+                                             InvalidValidatorIndexValueError,
+                                             $dres.error())
+          var
+            res: seq[ValidatorIndex]
+            dupset: HashSet[ValidatorIndex]
+
+          let items = dres.get()
+          for item in items:
+            let vres = item.toValidatorIndex()
+            if vres.isErr():
+              case vres.error()
+              of ValidatorIndexError.TooHighValue:
+                return RestApiResponse.jsonError(Http400,
+                                                TooHighValidatorIndexValueError)
+              of ValidatorIndexError.UnsupportedValue:
+                return RestApiResponse.jsonError(Http500,
+                                            UnsupportedValidatorIndexValueError)
+            let index = vres.get()
+            if index in dupset:
+              return RestApiResponse.jsonError(Http400,
+                                              DuplicateValidatorIndexArrayError)
+            dupset.incl(index)
+            res.add(index)
+          if len(res) == 0:
+            return RestApiResponse.jsonError(Http400,
+                                             EmptyValidatorIndexArrayError)
+          res
+      response = indexList.mapIt(
+        RestLivenessItem(
+          index: it,
+          is_live: node.attestationPool[].validatorSeenAtEpoch(qepoch, it)
+        )
+      )
+    return RestApiResponse.jsonResponse(response)

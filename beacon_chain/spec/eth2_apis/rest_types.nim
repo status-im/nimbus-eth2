@@ -252,6 +252,10 @@ type
     epoch*: Epoch
     active*: bool
 
+  RestLivenessItem* = object
+    index*: ValidatorIndex
+    is_live*: bool
+
   PrepareBeaconProposer* = object
     validator_index*: ValidatorIndex
     fee_recipient*: Eth1Address
@@ -608,6 +612,7 @@ type
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
   SubmitBlindedBlockResponse* = DataEnclosedObject[bellatrix.ExecutionPayload]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
+  GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)

@@ -30,7 +30,7 @@ proc waitForNextEpoch(service: DoppelgangerServiceRef) {.async.} =
   await sleepAsync(sleepTime)
 
 proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
-                       activities: GetValidatorsActivityResponse) =
+                       activities: GetValidatorsLivenessResponse) =
   let vc = service.client
   if len(activities.data) == 0:
     debug "Unable to monitor validator's activity for epoch", epoch = epoch
@@ -39,10 +39,10 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
         value.epochsCount = 0'u64
         value.lastAttempt = DoppelgangerAttempt.Failure
   else:
-    for activity in activities.data:
-      let vindex = activity.index
+    for item in activities.data:
+      let vindex = item.index
       vc.doppelgangerDetection.validators.withValue(vindex, value):
-        if activity.active:
+        if item.is_live:
           if value.status == DoppelgangerStatus.Checking:
             value.epochsCount = 0'u64
             value.lastAttempt = DoppelgangerAttempt.SuccessTrue
@@ -86,7 +86,7 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
               currentEpoch - 1'u64
           validators = vc.getCheckingList()
         if len(validators) > 0:
-          let activities = await vc.getValidatorsActivity(previousEpoch,
+          let activities = await vc.getValidatorsLiveness(previousEpoch,
                                                           validators)
           service.processActivities(previousEpoch, activities)
         else:
