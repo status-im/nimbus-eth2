@@ -15,6 +15,8 @@ import ".."/[beacon_chain_db, beacon_node],
        ".."/spec/datatypes/[phase0, altair],
        "."/[rest_utils, state_ttl_cache]
 
+from ".."/spec/datatypes/bellatrix import ExecutionPayload
+
 export rest_utils
 
 logScope: topics = "rest_validatorapi"
@@ -364,8 +366,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let proposer = node.dag.getProposer(qhead, qslot)
         if proposer.isNone():
           return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
-        let res = await makeBeaconBlockForHeadAndSlot(
-          node, qrandao, proposer.get(), qgraffiti, qhead, qslot, qskip_randao_verification)
+        let res =
+          await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
+            node, qrandao, proposer.get(), qgraffiti, qhead, qslot,
+            qskip_randao_verification)
         if res.isErr():
           return RestApiResponse.jsonError(Http400, res.error())
         res.get()
@@ -453,7 +457,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         bellatrixData: res.get()))
     else:
       # Pre-Bellatrix, this endpoint will return a BeaconBlock
-      let res = await makeBeaconBlockForHeadAndSlot(
+      let res = await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
         node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())

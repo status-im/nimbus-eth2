@@ -17,6 +17,9 @@ import
     attestation_pool, blockchain_dag, block_quarantine, block_clearance],
   ./testutil, ./testdbutil, ./testblockutil
 
+from ../beacon_chain/spec/datatypes/capella import
+  SignedBLSToExecutionChangeList
+
 func `$`(x: BlockRef): string = shortLog(x)
 
 const
@@ -228,6 +231,7 @@ suite "Block pool processing" & preset():
           getStateField(tmpState[], eth1_data),
           default(GraffitiBytes), @[], @[], BeaconBlockExits(),
           default(SyncAggregate), default(ExecutionPayload),
+          default(SignedBLSToExecutionChangeList),
           noRollback, cache)
       check: message.isErr
 
@@ -240,6 +244,7 @@ suite "Block pool processing" & preset():
           getStateField(tmpState[], eth1_data),
           default(GraffitiBytes), @[], @[], BeaconBlockExits(),
           default(SyncAggregate), default(ExecutionPayload),
+          default(SignedBLSToExecutionChangeList),
           noRollback, cache, {skipRandaoVerification})
       check: message.isErr
 
@@ -252,6 +257,7 @@ suite "Block pool processing" & preset():
           getStateField(tmpState[], eth1_data),
           default(GraffitiBytes), @[], @[], BeaconBlockExits(),
           default(SyncAggregate), default(ExecutionPayload),
+          default(SignedBLSToExecutionChangeList),
           noRollback, cache, {})
       check: message.isErr
 
@@ -264,6 +270,7 @@ suite "Block pool processing" & preset():
           getStateField(tmpState[], eth1_data),
           default(GraffitiBytes), @[], @[], BeaconBlockExits(),
           default(SyncAggregate), default(ExecutionPayload),
+          default(SignedBLSToExecutionChangeList),
           noRollback, cache, {skipRandaoVerification})
       check: message.isOk
 
