@@ -153,10 +153,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "0x" & $cfg.CAPELLA_FORK_VERSION,
           CAPELLA_FORK_EPOCH:
             Base10.toString(uint64(cfg.CAPELLA_FORK_EPOCH)),
-          SHARDING_FORK_VERSION:
-            "0x" & $cfg.SHARDING_FORK_VERSION,
-          SHARDING_FORK_EPOCH:
-            Base10.toString(uint64(cfg.SHARDING_FORK_EPOCH)),
           SECONDS_PER_SLOT:
             Base10.toString(SECONDS_PER_SLOT),
           SECONDS_PER_ETH1_BLOCK:
