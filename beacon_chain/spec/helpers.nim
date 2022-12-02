@@ -19,6 +19,7 @@ import
   stew/[bitops2, byteutils, endians2, objects, saturation_arith],
   chronicles,
   eth/eip1559, eth/common/[eth_types, eth_types_rlp],
+  eth/rlp, eth/trie/[db, hexary],
   # Internal
   ./datatypes/[phase0, altair, bellatrix, capella],
   "."/[eth2_merkleization, forks, ssz_codec]
@@ -29,6 +30,7 @@ export
   forks, eth2_merkleization, ssz_codec
 
 type
+  ExecutionWithdrawal = eth_types.Withdrawal
   ExecutionBlockHeader = eth_types.BlockHeader
 
   FinalityCheckpoints* = object
@@ -200,25 +202,25 @@ func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   (flags and flag) == flag
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
 template is_sync_committee_update*(update: SomeLightClientUpdate): bool =
   when update is SomeLightClientUpdateWithSyncCommittee:
     not isZeroMemory(update.next_sync_committee_branch)
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#is_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/sync-protocol.md#is_finality_update
 template is_finality_update*(update: SomeLightClientUpdate): bool =
   when update is SomeLightClientUpdateWithFinality:
     not isZeroMemory(update.finality_branch)
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
 template is_next_sync_committee_known*(store: LightClientStore): bool =
   not isZeroMemory(store.next_sync_committee)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#get_safety_threshold
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/sync-protocol.md#get_safety_threshold
 func get_safety_threshold*(store: LightClientStore): uint64 =
   max(
     store.previous_max_active_participants,
@@ -318,14 +320,14 @@ func contextEpoch*(bootstrap: altair.LightClientBootstrap): Epoch =
 func contextEpoch*(update: SomeLightClientUpdate): Epoch =
   update.attested_header.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState): bool =
   const defaultExecutionPayloadHeader =
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/sync/optimistic.md#helpers
 func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
   when typeof(blck).toFork >= BeaconBlockFork.Bellatrix:
     const defaultExecutionPayload =
@@ -360,32 +362,71 @@ func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   let slots_since_genesis = slot - GENESIS_SLOT
   state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT
 
+func gweiToWei*(gwei: Gwei): UInt256 =
+  gwei.u256 * 1_000_000_000.u256
+
+func toExecutionWithdrawal*(
+    withdrawal: capella.Withdrawal): ExecutionWithdrawal =
+  ExecutionWithdrawal(
+    index: withdrawal.index,
+    validatorIndex: withdrawal.validatorIndex,
+    address: EthAddress withdrawal.address.data,
+    amount: gweiToWei withdrawal.amount)
+
+# https://eips.ethereum.org/EIPS/eip-4895
+proc computeWithdrawalsTrieRoot*(
+    payload: capella.ExecutionPayload): Hash256 =
+  if payload.withdrawals.len == 0:
+    return EMPTY_ROOT_HASH
+
+  var tr = initHexaryTrie(newMemoryDB())
+  for i, withdrawal in payload.withdrawals:
+    try:
+      tr.put(rlp.encode(i), rlp.encode(toExecutionWithdrawal(withdrawal)))
+    except RlpError as exc:
+      doAssert false, "HexaryTrie.put failed: " & $exc.msg
+  tr.rootHash()
+
 proc emptyPayloadToBlockHeader*(
-    payload: bellatrix.ExecutionPayload): ExecutionBlockHeader =
+    payload: bellatrix.ExecutionPayload | capella.ExecutionPayload
+): ExecutionBlockHeader =
+  static:  # `GasInt` is signed. We only use it for hashing.
+    doAssert sizeof(GasInt) == sizeof(payload.gas_limit)
+    doAssert sizeof(GasInt) == sizeof(payload.gas_used)
+
   ## This function assumes that the payload is empty!
   doAssert payload.transactions.len == 0
 
-  ExecutionBlockHeader(
-    parentHash    : payload.parent_hash,
-    ommersHash    : EMPTY_UNCLE_HASH,
-    coinbase      : EthAddress payload.fee_recipient.data,
-    stateRoot     : payload.state_root,
-    txRoot        : EMPTY_ROOT_HASH,
-    receiptRoot   : payload.receipts_root,
-    bloom         : payload.logs_bloom.data,
-    difficulty    : default(DifficultyInt),
-    blockNumber   : payload.block_number.u256,
-    gasLimit      : GasInt payload.gas_limit,
-    gasUsed       : GasInt payload.gas_used,
-    timestamp     : fromUnix(int64.saturate payload.timestamp),
-    extraData     : payload.extra_data.asSeq,
-    mixDigest     : payload.prev_randao, # EIP-4399 redefine `mixDigest` -> `prevRandao`
-    nonce         : default(BlockNonce),
-    fee           : some payload.base_fee_per_gas
-  )
+  let
+    txRoot = EMPTY_ROOT_HASH
+    withdrawalsRoot =
+      when payload is bellatrix.ExecutionPayload:
+        none(Hash256)
+      else:
+        some payload.computeWithdrawalsTrieRoot()
 
-func build_empty_execution_payload*[BS, EP](
-    state: BS, feeRecipient: Eth1Address): EP =
+  ExecutionBlockHeader(
+    parentHash     : payload.parent_hash,
+    ommersHash     : EMPTY_UNCLE_HASH,
+    coinbase       : EthAddress payload.fee_recipient.data,
+    stateRoot      : payload.state_root,
+    txRoot         : txRoot,
+    receiptRoot    : payload.receipts_root,
+    bloom          : payload.logs_bloom.data,
+    difficulty     : default(DifficultyInt),
+    blockNumber    : payload.block_number.u256,
+    gasLimit       : cast[GasInt](payload.gas_limit),
+    gasUsed        : cast[GasInt](payload.gas_used),
+    timestamp      : fromUnix(int64.saturate payload.timestamp),
+    extraData      : payload.extra_data.asSeq,
+    mixDigest      : payload.prev_randao, # EIP-4399 `mixDigest` -> `prevRandao`
+    nonce          : default(BlockNonce),
+    fee            : some payload.base_fee_per_gas,
+    withdrawalsRoot: withdrawalsRoot)
+
+func build_empty_execution_payload*(
+    state: bellatrix.BeaconState,
+    feeRecipient: Eth1Address): bellatrix.ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.
   let
@@ -396,7 +437,7 @@ func build_empty_execution_payload*[BS, EP](
                                   GasInt.saturate latest.gas_used,
                                   latest.base_fee_per_gas)
 
-  var payload = EP(
+  var payload = bellatrix.ExecutionPayload(
     parent_hash: latest.block_hash,
     fee_recipient: bellatrix.ExecutionAddress(data: distinctBase(feeRecipient)),
     state_root: latest.state_root, # no changes to the state
@@ -407,6 +448,38 @@ func build_empty_execution_payload*[BS, EP](
     gas_used: 0, # empty block, 0 gas
     timestamp: timestamp,
     base_fee_per_gas: base_fee)
+
+  payload.block_hash = rlpHash emptyPayloadToBlockHeader(payload)
+
+  payload
+
+proc build_empty_execution_payload*(
+    state: capella.BeaconState,
+    feeRecipient: Eth1Address,
+    expectedWithdrawals = newSeq[capella.Withdrawal](0)): capella.ExecutionPayload =
+  ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
+  ## without any transactions.
+  let
+    latest = state.latest_execution_payload_header
+    timestamp = compute_timestamp_at_slot(state, state.slot)
+    randao_mix = get_randao_mix(state, get_current_epoch(state))
+    base_fee = calcEip1599BaseFee(GasInt.saturate latest.gas_limit,
+                                  GasInt.saturate latest.gas_used,
+                                  latest.base_fee_per_gas)
+
+  var payload = capella.ExecutionPayload(
+    parent_hash: latest.block_hash,
+    fee_recipient: bellatrix.ExecutionAddress(data: distinctBase(feeRecipient)),
+    state_root: latest.state_root, # no changes to the state
+    receipts_root: EMPTY_ROOT_HASH,
+    block_number: latest.block_number + 1,
+    prev_randao: randao_mix,
+    gas_limit: latest.gas_limit, # retain same limit
+    gas_used: 0, # empty block, 0 gas
+    timestamp: timestamp,
+    base_fee_per_gas: base_fee)
+  for withdrawal in expectedWithdrawals:
+    doAssert payload.withdrawals.add withdrawal
 
   payload.block_hash = rlpHash emptyPayloadToBlockHeader(payload)
 

@@ -4,6 +4,9 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+## This module implements the version tagging details of all binaries included
+## in the Nimbus release process (i.e. beacon_node, validator_client, etc)
+
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
@@ -17,8 +20,8 @@ when not defined(nimscript):
 
 const
   versionMajor* = 22
-  versionMinor* = 10
-  versionBuild* = 1
+  versionMinor* = 11
+  versionBuild* = 0
 
   versionBlob* = "stateofus" # Single word - ends up in the default graffiti
 

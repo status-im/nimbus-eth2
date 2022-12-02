@@ -209,6 +209,7 @@ elif const_preset == "mainnet":
     for network in [
         mainnetMetadata, praterMetadata, ropstenMetadata, sepoliaMetadata]:
       checkForkConsistency(network.cfg)
+      doAssert network.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 proc getMetadataForNetwork*(
     networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =

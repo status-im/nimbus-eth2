@@ -388,9 +388,10 @@ proc getExecutionPayload[T](
 
   template empty_execution_payload(): auto =
     withState(proposalState[]):
-      when stateFork >= BeaconStateFork.Bellatrix:
-        build_empty_execution_payload[typeof forkyState.data, T](
-          forkyState.data, feeRecipient)
+      when stateFork >= BeaconStateFork.Capella:
+        raiseAssert $capellaImplementationMissing
+      elif stateFork >= BeaconStateFork.Bellatrix:
+        build_empty_execution_payload(forkyState.data, feeRecipient)
       else:
         default(T)
 
@@ -461,41 +462,48 @@ proc getExecutionPayload[T](
       msg = err.msg
     return Opt.some empty_execution_payload
 
-proc makeBeaconBlockForHeadAndSlot*(
+proc makeBeaconBlockForHeadAndSlot*[EP](
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
-    skip_randao_verification_bool: bool = false,
-    execution_payload: Opt[bellatrix.ExecutionPayload] = Opt.none(bellatrix.ExecutionPayload),
-    transactions_root: Opt[Eth2Digest] = Opt.none(Eth2Digest),
-    execution_payload_root: Opt[Eth2Digest] = Opt.none(Eth2Digest)):
+    skip_randao_verification_bool: bool,
+    execution_payload: Opt[EP],
+    transactions_root: Opt[Eth2Digest],
+    execution_payload_root: Opt[Eth2Digest]):
     Future[ForkedBlockResult] {.async.} =
   # Advance state to the slot that we're proposing for
-  var
-    cache = StateCache()
+  var cache = StateCache()
 
   let
     # The clearance state already typically sits at the right slot per
     # `advanceClearanceState`
-    state = node.dag.getProposalState(head, slot, cache).valueOr:
-      beacon_block_production_errors.inc()
-      return err($error)
+
+    # TODO can use `valueOr:`/`return err($error)` if/when
+    # https://github.com/status-im/nim-stew/issues/161 is addressed
+    maybeState = node.dag.getProposalState(head, slot, cache)
+
+  if maybeState.isErr:
+    beacon_block_production_errors.inc()
+    return err($maybeState.error)
+
+  let
+    state = maybeState.get
     payloadFut =
       if executionPayload.isSome:
-        let fut = newFuture[Opt[bellatrix.ExecutionPayload]]("given-payload")
+        let fut = newFuture[Opt[EP]]("given-payload")
         fut.complete(executionPayload)
         fut
       elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
             not (
               is_merge_transition_complete(state[]) or
               ((not node.eth1Monitor.isNil) and node.eth1Monitor.ttdReached)):
-        let fut = newFuture[Opt[bellatrix.ExecutionPayload]]("empty-payload")
+        let fut = newFuture[Opt[EP]]("empty-payload")
         # https://github.com/nim-lang/Nim/issues/19802
-        fut.complete(Opt.some(default(bellatrix.ExecutionPayload)))
+        fut.complete(Opt.some(default(EP)))
         fut
       else:
         # Create execution payload while packing attestations
-        getExecutionPayload[bellatrix.ExecutionPayload](
+        getExecutionPayload[EP](
           node, state, slot.epoch, validator_index)
 
     eth1Proposal = node.getBlockProposalEth1Data(state[])
@@ -533,6 +541,7 @@ proc makeBeaconBlockForHeadAndSlot*(
       exits,
       syncAggregate,
       payload,
+      (static(default(SignedBLSToExecutionChangeList))),
       noRollback, # Temporary state - no need for rollback
       cache,
       # makeBeaconBlock doesn't verify BLS at all, but does have special case
@@ -549,6 +558,29 @@ proc makeBeaconBlockForHeadAndSlot*(
       slot, head = shortLog(head), error
     $error
 
+# workaround for https://github.com/nim-lang/Nim/issues/20900 to avoid default
+# parameters
+proc makeBeaconBlockForHeadAndSlot*[EP](
+    node: BeaconNode, randao_reveal: ValidatorSig,
+    validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
+    slot: Slot):
+    Future[ForkedBlockResult] {.async.} =
+  return await makeBeaconBlockForHeadAndSlot[EP](
+    node, randao_reveal, validator_index, graffiti, head, slot,
+    false, execution_payload = Opt.none(EP),
+    transactions_root = Opt.none(Eth2Digest),
+    execution_payload_root = Opt.none(Eth2Digest))
+
+proc makeBeaconBlockForHeadAndSlot*[EP](
+    node: BeaconNode, randao_reveal: ValidatorSig,
+    validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
+    slot: Slot, skip_randao_verification: bool):
+    Future[ForkedBlockResult] {.async.} =
+  return await makeBeaconBlockForHeadAndSlot[EP](
+    node, randao_reveal, validator_index, graffiti, head, slot,
+    skip_randao_verification, execution_payload = Opt.none(EP),
+    transactions_root = Opt.none(Eth2Digest),
+    execution_payload_root = Opt.none(Eth2Digest))
 
 proc getBlindedExecutionPayload(
     node: BeaconNode, slot: Slot, executionBlockRoot: Eth2Digest,
@@ -694,8 +726,9 @@ proc getBlindedBlockParts(
     shimExecutionPayload, executionPayloadHeader.get,
     getFieldNames(bellatrix.ExecutionPayloadHeader))
 
-  let newBlock = await makeBeaconBlockForHeadAndSlot(
+  let newBlock = await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
     node, randao, validator_index, node.graffitiBytes, head, slot,
+    skip_randao_verification_bool = false,
     execution_payload = Opt.some shimExecutionPayload,
     transactions_root = Opt.some executionPayloadHeader.get.transactions_root,
     execution_payload_root =
@@ -754,10 +787,15 @@ proc proposeBlockMEV(
     # the block failed to validate and integrate into the DAG, which for the
     # purpose of this return value, is equivalent. It's used to drive Beacon
     # REST API output.
+    let errMsg =
+      if unblindedBlockRef.isErr:
+        unblindedBlockRef.error
+      else:
+        "Unblinded block failed either to validate or integrate into validated store"
     warn "proposeBlockMEV: blinded block not successfully unblinded and proposed",
       head = shortLog(head), slot, validator_index,
       validator = shortLog(validator),
-      err = unblindedBlockRef.error, blindedBlck = shortLog(blindedBlock.get)
+      err = errMsg, blindedBlck = shortLog(blindedBlock.get)
     Opt.some head
 
 proc makeBlindedBeaconBlockForHeadAndSlot*(
@@ -838,7 +876,8 @@ proc proposeBlock(node: BeaconNode,
         beacon_block_builder_missed_without_fallback.inc()
       return newBlockMEV.get
 
-  let newBlock = await makeBeaconBlockForHeadAndSlot(
+  discard $capellaImplementationMissing & ": use capella.ExecutionPayload here as appropriate"
+  let newBlock = await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
     node, randao, validator_index, node.graffitiBytes, head, slot)
 
   if newBlock.isErr():
@@ -1523,7 +1562,7 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

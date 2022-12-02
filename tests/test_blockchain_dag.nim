@@ -17,6 +17,9 @@ import
     attestation_pool, blockchain_dag, block_quarantine, block_clearance],
   ./testutil, ./testdbutil, ./testblockutil
 
+from ../beacon_chain/spec/datatypes/capella import
+  SignedBLSToExecutionChangeList
+
 func `$`(x: BlockRef): string = shortLog(x)
 
 const
@@ -228,6 +231,7 @@ suite "Block pool processing" & preset():
           getStateField(tmpState[], eth1_data),
           default(GraffitiBytes), @[], @[], BeaconBlockExits(),
           default(SyncAggregate), default(ExecutionPayload),
+          default(SignedBLSToExecutionChangeList),
           noRollback, cache)
       check: message.isErr
 
@@ -240,6 +244,7 @@ suite "Block pool processing" & preset():
           getStateField(tmpState[], eth1_data),
           default(GraffitiBytes), @[], @[], BeaconBlockExits(),
           default(SyncAggregate), default(ExecutionPayload),
+          default(SignedBLSToExecutionChangeList),
           noRollback, cache, {skipRandaoVerification})
       check: message.isErr
 
@@ -252,6 +257,7 @@ suite "Block pool processing" & preset():
           getStateField(tmpState[], eth1_data),
           default(GraffitiBytes), @[], @[], BeaconBlockExits(),
           default(SyncAggregate), default(ExecutionPayload),
+          default(SignedBLSToExecutionChangeList),
           noRollback, cache, {})
       check: message.isErr
 
@@ -264,6 +270,7 @@ suite "Block pool processing" & preset():
           getStateField(tmpState[], eth1_data),
           default(GraffitiBytes), @[], @[], BeaconBlockExits(),
           default(SyncAggregate), default(ExecutionPayload),
+          default(SignedBLSToExecutionChangeList),
           noRollback, cache, {skipRandaoVerification})
       check: message.isOk
 
@@ -699,15 +706,18 @@ suite "Old database versions" & preset():
 
   test "pre-1.1.0":
     # only kvstore, no immutable validator keys
-
-    let db = BeaconChainDB.new("", inMemory = true)
+    let
+      sq = SqStoreRef.init("", "test", inMemory = true).expect(
+        "working database (out of memory?)")
+      v0 = BeaconChainDBV0.new(sq, readOnly = false)
+      db = BeaconChainDB.new(sq)
 
     # preInit a database to a v1.0.12 state
+    v0.putStateV0(genState[].root, genState[].data)
+    v0.putBlockV0(genBlock)
+
     db.putStateRoot(
       genState[].latest_block_root, genState[].data.slot, genState[].root)
-    db.putStateV0(genState[].root, genState[].data)
-
-    db.putBlockV0(genBlock)
     db.putTailBlock(genBlock.root)
     db.putHeadBlock(genBlock.root)
     db.putGenesisBlock(genBlock.root)

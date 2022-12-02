@@ -30,7 +30,7 @@ EXECUTOR_NUMBER ?= 0
 
 SEPOLIA_WEB3_URL := "--web3-url=https://rpc.sepolia.dev --web3-url=https://www.sepoliarpc.space"
 GOERLI_WEB3_URL := "--web3-url=wss://goerli.infura.io/ws/v3/809a18497dd74102b5f37d25aae3c85a"
-GNOSIS_WEB3_URLS := "--web3-url=wss://rpc.gnosischain.com/wss --web3-url=wss://xdai.poanetwork.dev/wss"
+GNOSIS_WEB3_URLS := "--web3-url=https://rpc.gnosischain.com/"
 
 VALIDATORS := 1
 CPU_LIMIT := 0
@@ -159,16 +159,28 @@ libbacktrace:
 # EXECUTOR_NUMBER: [0, 1] (depends on max number of concurrent CI jobs)
 #
 # The following port ranges are allocated (entire continuous range):
+#
+# Unit tests:
+# - NIMBUS_TEST_KEYMANAGER_BASE_PORT + [0, 4)
+#
+# REST tests:
+# - --base-port
+# - --base-rest-port
+# - --base-metrics-port
+#
+# Local testnets (entire continuous range):
 # - --base-port + [0, --nodes + --light-clients)
 # - --base-rest-port + [0, --nodes)
 # - --base-metrics-port + [0, --nodes)
+# - --base-vc-metrics-port + [0, --nodes]
 # - --base-remote-signer-port + [0, --remote-signers)
 #
-# If --run-geth or --run-nimbus is specified (only these ports):
+# Local testnets with --run-geth or --run-nimbus (only these ports):
 # - --base-el-net-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-http-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-ws-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
+UNIT_TEST_BASE_PORT := 9950
 
 restapi-test:
 	./tests/simulation/restapi.sh \
@@ -196,11 +208,12 @@ local-testnet-minimal:
 		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 6031 + EXECUTOR_NUMBER * 500 )) \
 		--base-metrics-port $$(( 6061 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-port $$(( 6101 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-net-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-http-port $$(( 6202 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-ws-port $$(( 6203 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-auth-rpc-port $$(( 6204 + EXECUTOR_NUMBER * 500 )) \
+		--base-vc-metrics-port $$(( 6161 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-net-port $$(( 6301 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 6302 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-ws-port $$(( 6303 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-auth-rpc-port $$(( 6304 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
 		--timeout 648 \
 		--kill-old-processes \
@@ -219,11 +232,12 @@ local-testnet-mainnet:
 		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 7031 + EXECUTOR_NUMBER * 500 )) \
 		--base-metrics-port $$(( 7061 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-port $$(( 7101 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-net-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-http-port $$(( 7202 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-ws-port $$(( 7203 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-auth-rpc-port $$(( 7204 + EXECUTOR_NUMBER * 500 )) \
+		--base-vc-metrics-port $$(( 7161 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-net-port $$(( 7301 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 7302 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-ws-port $$(( 7303 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-auth-rpc-port $$(( 7304 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
 		--timeout 2784 \
 		--kill-old-processes \
@@ -312,7 +326,11 @@ endif
 	for TEST_BINARY in $(XML_TEST_BINARIES); do \
 		PARAMS="--xml:build/$${TEST_BINARY}.xml --console"; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; tail -n50 "$${TEST_BINARY}.log"; exit 1; }; \
+		NIMBUS_TEST_KEYMANAGER_BASE_PORT=$$(( $(UNIT_TEST_BASE_PORT) + EXECUTOR_NUMBER * 25 )) \
+			build/$${TEST_BINARY} $${PARAMS} || { \
+				echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
+				tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+			}; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 	for TEST_BINARY in $(TEST_BINARIES); do \
@@ -321,7 +339,10 @@ endif
 		elif [[ "$${TEST_BINARY}" == "block_sim" ]]; then PARAMS="--validators=8000 --slots=160"; \
 		fi; \
 		echo -e "\nRunning $${TEST_BINARY} $${PARAMS}\n"; \
-		build/$${TEST_BINARY} $${PARAMS} || { echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; tail -n50 "$${TEST_BINARY}.log"; exit 1; }; \
+		build/$${TEST_BINARY} $${PARAMS} || { \
+			echo -e "\n$${TEST_BINARY} $${PARAMS} failed; Last 50 lines from the log:"; \
+			tail -n50 "$${TEST_BINARY}.log"; exit 1; \
+		}; \
 		done; \
 		rm -rf 0000-*.json t_slashprot_migration.* *.log block_sim_db
 

@@ -63,6 +63,7 @@ pipeline {
         stage('General') {
           steps { timeout(60) {
             sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
+            sh 'git diff --exit-code'  /* Check no uncommitted changes. */
           } }
         }
 

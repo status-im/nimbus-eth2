@@ -113,12 +113,6 @@ declareGauge ticks_delay,
 declareGauge next_action_wait,
   "Seconds until the next attestation will be sent"
 
-declareGauge versionGauge, "Nimbus version info (as metric labels)", ["version", "commit"], name = "version"
-versionGauge.set(1, labelValues=[fullVersionStr, gitRevision])
-
-declareGauge nimVersionGauge, "Nim version info", ["version", "nim_commit"], name = "nim_version"
-nimVersionGauge.set(1, labelValues=[NimVersion, getNimGitHash()])
-
 logScope: topics = "beacnde"
 
 func getPandas(stdoutKind: StdoutLogKind): VanityLogs =

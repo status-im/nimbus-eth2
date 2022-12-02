@@ -449,7 +449,7 @@ type
         name: "rest-max-headers-size" .}: Natural
 
       keymanagerEnabled* {.
-        desc: "Enable the REST keymanager API (BETA version)"
+        desc: "Enable the REST keymanager API"
         defaultValue: false
         name: "keymanager" .}: bool
 
@@ -860,7 +860,7 @@ type
       name: "suggested-fee-recipient" .}: Option[Address]
 
     keymanagerEnabled* {.
-      desc: "Enable the REST keymanager API (BETA version)"
+      desc: "Enable the REST keymanager API"
       defaultValue: false
       name: "keymanager" .}: bool
 
@@ -886,18 +886,18 @@ type
       name: "keymanager-token-file" .}: Option[InputFile]
 
     metricsEnabled* {.
-      desc: "Enable the metrics server"
+      desc: "Enable the metrics server (BETA)"
       defaultValue: false
       name: "metrics" .}: bool
 
     metricsAddress* {.
-      desc: "Listening address of the metrics server"
+      desc: "Listening address of the metrics server (BETA)"
       defaultValue: defaultAdminListenAddress
       defaultValueDesc: $defaultAdminListenAddressDesc
       name: "metrics-address" .}: ValidIpAddress
 
     metricsPort* {.
-      desc: "Listening HTTP port of the metrics server"
+      desc: "Listening HTTP port of the metrics server (BETA)"
       defaultValue: 8108
       name: "metrics-port" .}: Port
 
@@ -913,7 +913,7 @@ type
       name: "stop-at-epoch" .}: uint64
 
     payloadBuilderEnable* {.
-      desc: "Enable usage of beacon node with external payload builder"
+      desc: "Enable usage of beacon node with external payload builder (BETA)"
       defaultValue: false
       name: "payload-builder" .}: bool
 
@@ -973,19 +973,19 @@ type
       name: "request-timeout" .}: int
 
     bindPort* {.
-      desc: "Port for the REST (BETA version) HTTP server"
+      desc: "Port for the REST HTTP server"
       defaultValue: defaultEth2RestPort
       defaultValueDesc: $defaultEth2RestPortDesc
       name: "bind-port" .}: Port
 
     bindAddress* {.
-      desc: "Listening address of the REST (BETA version) HTTP server"
+      desc: "Listening address of the REST HTTP server"
       defaultValue: defaultAdminListenAddress
       defaultValueDesc: $defaultAdminListenAddressDesc
       name: "bind-address" .}: ValidIpAddress
 
     tlsEnabled* {.
-      desc: "Use secure TLS communication for REST (BETA version) server"
+      desc: "Use secure TLS communication for REST server"
       defaultValue: false
       name: "tls" .}: bool
 
@@ -1169,8 +1169,11 @@ func outWalletFile*(config: BeaconNodeConf): Option[OutFile] =
   else:
     fail()
 
-func databaseDir*(config: AnyConf): string =
-  config.dataDir / "db"
+func databaseDir*(dataDir: OutDir): string =
+  dataDir / "db"
+
+template databaseDir*(config: AnyConf): string =
+  config.dataDir.databaseDir
 
 func runAsService*(config: BeaconNodeConf): bool =
   config.cmd == noCommand and config.runAsServiceFlag

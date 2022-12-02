@@ -321,6 +321,8 @@ func asEth2Digest*(x: BlockHash): Eth2Digest =
 template asBlockHash*(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
+const weiInGwei = 1_000_000_000.u256
+
 func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     bellatrix.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
@@ -346,6 +348,41 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
 
+from ../spec/datatypes/capella import ExecutionPayload, Withdrawal
+
+func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV2):
+    capella.ExecutionPayload =
+  template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
+    bellatrix.Transaction.init(tt.distinctBase)
+  template getConsensusWithdrawal(w: WithdrawalV1): capella.Withdrawal =
+    capella.Withdrawal(
+      index: w.index.uint64,
+      validator_index: w.validatorIndex.uint64,
+      address: ExecutionAddress(data: w.address.distinctBase),
+      amount: (w.amount.u256 div weiInGwei).truncate(uint64))   # TODO spec doesn't mention non-even-multiples, also overflow
+
+  capella.ExecutionPayload(
+    parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
+    feeRecipient:
+      ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
+    state_root: rpcExecutionPayload.stateRoot.asEth2Digest,
+    receipts_root: rpcExecutionPayload.receiptsRoot.asEth2Digest,
+    logs_bloom: BloomLogs(data: rpcExecutionPayload.logsBloom.distinctBase),
+    prev_randao: rpcExecutionPayload.prevRandao.asEth2Digest,
+    block_number: rpcExecutionPayload.blockNumber.uint64,
+    gas_limit: rpcExecutionPayload.gasLimit.uint64,
+    gas_used: rpcExecutionPayload.gasUsed.uint64,
+    timestamp: rpcExecutionPayload.timestamp.uint64,
+    extra_data:
+      List[byte, MAX_EXTRA_DATA_BYTES].init(
+        rpcExecutionPayload.extraData.distinctBase),
+    base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
+    block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
+    transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
+    withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
+      mapIt(rpcExecutionPayload.withdrawals, it.getConsensusWithdrawal)))
+
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
@@ -369,17 +406,18 @@ func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
 
-from ../spec/datatypes/capella import ExecutionPayload
-
 func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
-    ExecutionPayloadV1 =
+    ExecutionPayloadV2 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
+  template getEngineWithdrawal(w: capella.Withdrawal): WithdrawalV1 =
+    WithdrawalV1(
+      index: Quantity(w.index),
+      validatorIndex: Quantity(w.validator_index),
+      address: Address(w.address.data),
+      amount: w.amount.u256 * weiInGwei)
 
-  if true:
-    raiseAssert $capellaImplementationMissing & ": needs nim-web3 support for ExecutionPayloadV2"
-
-  engine_api.ExecutionPayloadV1(
+  engine_api.ExecutionPayloadV2(
     parentHash: executionPayload.parent_hash.asBlockHash,
     feeRecipient: Address(executionPayload.fee_recipient.data),
     stateRoot: executionPayload.state_root.asBlockHash,
@@ -395,7 +433,8 @@ func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
       DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
     baseFeePerGas: executionPayload.base_fee_per_gas,
     blockHash: executionPayload.block_hash.asBlockHash,
-    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
+    withdrawals: mapIt(executionPayload.withdrawals, it.getEngineWithdrawal))
 
 func shortLog*(b: Eth1Block): string =
   try:
@@ -525,6 +564,17 @@ proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV1):
     return epr
 
   p.dataProvider.web3.provider.engine_newPayloadV1(payload)
+
+proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV2):
+    Future[PayloadStatusV1] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.dataProvider.isNil:
+    let epr = newFuture[PayloadStatusV1]("newPayload")
+    epr.complete(PayloadStatusV1(status: PayloadExecutionStatus.syncing))
+    return epr
+
+  p.dataProvider.web3.provider.engine_newPayloadV2(payload)
 
 proc forkchoiceUpdated*(p: Eth1Monitor,
                         headBlock, safeBlock, finalizedBlock: Eth2Digest):

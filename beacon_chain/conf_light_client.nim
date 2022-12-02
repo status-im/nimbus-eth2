@@ -140,6 +140,9 @@ type LightClientConf* = object
     defaultValue: 0
     name: "stop-at-epoch" .}: uint64
 
+template databaseDir*(config: LightClientConf): string =
+  config.dataDir.databaseDir
+
 template loadJwtSecret*(
     rng: var HmacDrbgContext,
     config: LightClientConf,

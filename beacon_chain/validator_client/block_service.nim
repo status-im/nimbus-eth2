@@ -426,25 +426,39 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
           res
       vc.proposers[epoch] = ProposedData.init(epoch, dependentRoot, tasks)
 
-proc waitForBlockPublished*(vc: ValidatorClientRef, slot: Slot) {.async.} =
+proc waitForBlockPublished*(vc: ValidatorClientRef,
+                            slot: Slot, timediff: TimeDiff) {.async.} =
   ## This procedure will wait for all the block proposal tasks to be finished at
-  ## slot ``slot``
-  let pendingTasks =
-    block:
-      var res: seq[Future[void]]
-      let epochDuties = vc.proposers.getOrDefault(slot.epoch())
-      for task in epochDuties.duties:
-        if task.duty.slot == slot:
-          if not(task.future.finished()):
-            res.add(task.future)
-      res
+  ## slot ``slot``.
+  let
+    startTime = Moment.now()
+    pendingTasks =
+      block:
+        var res: seq[Future[void]]
+        let epochDuties = vc.proposers.getOrDefault(slot.epoch())
+        for task in epochDuties.duties:
+          if task.duty.slot == slot:
+            if not(task.future.finished()):
+              res.add(task.future)
+        res
+  logScope:
+    start_time = startTime
+    pending_tasks = len(pendingTasks)
+    slot = slot
+    timediff = timediff
+
   if len(pendingTasks) > 0:
-    try:
-      await allFutures(pendingTasks)
-    except CancelledError as exc:
-      var pending: seq[Future[void]]
-      for future in pendingTasks:
-        if not(future.finished()):
-          pending.add(future.cancelAndWait())
-      await allFutures(pending)
-      raise exc
+    let waitTime = (start_beacon_time(slot) + timediff) - vc.beaconClock.now()
+    logScope:
+      wait_time = waitTime
+    if waitTime.nanoseconds > 0'i64:
+      try:
+        await allFutures(pendingTasks).wait(nanoseconds(waitTime.nanoseconds))
+        trace "Block proposal awaited"
+      except CancelledError as exc:
+        let dur = Moment.now() - startTime
+        debug "Waiting for block publication interrupted", duration = dur
+        raise exc
+      except AsyncTimeoutError:
+        let dur = Moment.now() - startTime
+        debug "Block was not published in time", duration = dur
