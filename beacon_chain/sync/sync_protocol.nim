@@ -261,36 +261,6 @@ p2pProtocol BeaconSync(version = 1,
     {.libp2pProtocol("metadata", 2, isRequired = true).} =
     return peer.network.metadata
 
-  proc beaconBlocksByRange(
-      peer: Peer,
-      startSlot: Slot,
-      reqCount: uint64,
-      reqStep: uint64,
-      response: MultipleChunksResponse[
-        phase0.SignedBeaconBlock, MAX_REQUEST_BLOCKS])
-      {.async, libp2pProtocol("beacon_blocks_by_range", 1).} =
-    # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyrange
-    # `/eth2/beacon_chain/req/beacon_blocks_by_range/1/` is deprecated. Clients
-    # MAY respond with an empty list during the deprecation transition period.
-
-    # TODO extract from libp2pProtocol
-    peer.awaitQuota(blockResponseCost, "beacon_blocks_by_range/1")
-    peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_range/1")
-
-  proc beaconBlocksByRoot(
-      peer: Peer,
-      blockRoots: BlockRootsList,
-      response: MultipleChunksResponse[
-        phase0.SignedBeaconBlock, MAX_REQUEST_BLOCKS])
-      {.async, libp2pProtocol("beacon_blocks_by_root", 1).} =
-    # https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#beaconblocksbyroot
-    # `/eth2/beacon_chain/req/beacon_blocks_by_root/1/` is deprecated. Clients
-    # MAY respond with an empty list during the deprecation transition period.
-
-    # TODO extract from libp2pProtocol
-    peer.awaitQuota(blockResponseCost, "beacon_blocks_by_root/1")
-    peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_root/1")
-
   proc beaconBlocksByRange_v2(
       peer: Peer,
       startSlot: Slot,
