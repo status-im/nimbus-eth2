@@ -65,6 +65,10 @@ from ../beacon_chain/spec/state_transition_block import process_block
 # version, so isolate these here pending refactoring of block_sim to prefer,
 # when possible, to also use the forked version. It'll be worth keeping some
 # example of the non-forked version because it enables fork bootstrapping.
+
+const defaultSignedBLSToExecutionChangeList =
+  default(SignedBLSToExecutionChangeList)
+
 proc makeBeaconBlock(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
@@ -94,7 +98,8 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload,
+    defaultSignedBLSToExecutionChangeList)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -137,7 +142,8 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload,
+    defaultSignedBLSToExecutionChangeList)
 
   # Signatures are verified elsewhere, so don't duplicate inefficiently here
   let res = process_block(
@@ -181,7 +187,8 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload,
+    defaultSignedBLSToExecutionChangeList)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -462,7 +469,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           default(capella.ExecutionPayload)
         else:
           default(bellatrix.ExecutionPayload),
-        default(SignedBLSToExecutionChangeList),
+        defaultSignedBLSToExecutionChangeList,
         noRollback,
         cache)
 

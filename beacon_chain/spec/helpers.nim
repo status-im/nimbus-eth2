@@ -456,7 +456,7 @@ func build_empty_execution_payload*(
 proc build_empty_execution_payload*(
     state: capella.BeaconState,
     feeRecipient: Eth1Address,
-    expectedWithdrawals: seq[capella.Withdrawal]): capella.ExecutionPayload =
+    expectedWithdrawals = newSeq[capella.Withdrawal](0)): capella.ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.
   let
