@@ -627,6 +627,9 @@ suite "Eth1 monitor":
         base_fee_per_gas: UInt256.fromHex("0xf1daaa067663bf3277b9149aab162f4e330f988f0be8f83a556743a57ae5c8fd"),
         block_hash:       Eth2Digest.fromHex("0x5d462b4b243c6292b6a3b32f4e05849c0613d0a61954734c524f75f8df66cf8d"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
+        withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
+          capella.Withdrawal(index: 5416630176463173042'u64, validator_index: 0'u64, address: ExecutionAddress.fromHex("0xd7b1d18e4eb7b5041b4b08bae2ce8e22982d6e6c"), amount: 911474'u64.Gwei),
+        ])
       ),
       (capella.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x2629683cfc70198038837270bde3c60176c2a4aeeced0d4a4f14dc99a380c377"),

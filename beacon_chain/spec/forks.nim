@@ -225,7 +225,6 @@ type
     altair*:    ForkDigest
     bellatrix*: ForkDigest
     capella*:   ForkDigest
-    sharding*:  ForkDigest
 
 template toFork*[T: phase0.BeaconState | phase0.HashedBeaconState](
     t: type T): BeaconStateFork =
@@ -840,9 +839,7 @@ func init*(T: type ForkDigests,
     bellatrix:
       compute_fork_digest(cfg.BELLATRIX_FORK_VERSION, genesis_validators_root),
     capella:
-      compute_fork_digest(cfg.CAPELLA_FORK_VERSION, genesis_validators_root),
-    sharding:
-      compute_fork_digest(cfg.SHARDING_FORK_VERSION, genesis_validators_root),
+      compute_fork_digest(cfg.CAPELLA_FORK_VERSION, genesis_validators_root)
   )
 
 func toBlockId*(header: BeaconBlockHeader): BlockId =

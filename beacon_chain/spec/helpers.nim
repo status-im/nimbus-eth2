@@ -202,14 +202,14 @@ func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   (flags and flag) == flag
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
 template is_sync_committee_update*(update: SomeLightClientUpdate): bool =
   when update is SomeLightClientUpdateWithSyncCommittee:
     not isZeroMemory(update.next_sync_committee_branch)
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#is_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/sync-protocol.md#is_finality_update
 template is_finality_update*(update: SomeLightClientUpdate): bool =
   when update is SomeLightClientUpdateWithFinality:
     not isZeroMemory(update.finality_branch)
