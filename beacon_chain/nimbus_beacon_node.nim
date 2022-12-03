@@ -813,7 +813,8 @@ proc updateBlocksGossipStatus*(
         dagIsBehind
 
     targetGossipState = getTargetGossipState(
-      slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH, isBehind)
+      slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
+      cfg.CAPELLA_FORK_EPOCH, isBehind)
 
   template currentGossipState(): auto = node.blocksGossipState
   if currentGossipState == targetGossipState:
@@ -1024,6 +1025,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
         slot.epoch,
         node.dag.cfg.ALTAIR_FORK_EPOCH,
         node.dag.cfg.BELLATRIX_FORK_EPOCH,
+        node.dag.cfg.CAPELLA_FORK_EPOCH,
         isBehind)
 
   doAssert targetGossipState.card <= 2
@@ -1374,6 +1376,8 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
   if node.dag.lcDataStore.serve:
     restServer.router.installLightClientApiHandlers(node)
 
+from ./spec/datatypes/capella import SignedBeaconBlock
+
 proc installMessageValidators(node: BeaconNode) =
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
@@ -1433,10 +1437,11 @@ proc installMessageValidators(node: BeaconNode) =
 
   installPhase0Validators(forkDigests.phase0)
 
-  # Validators introduced in phase0 are also used in altair and merge, but with
-  # different fork digest
+  # Validators introduced in phase0 are also used in Altair and Bellatrix, but
+  # with different fork digests
   installPhase0Validators(forkDigests.altair)
   installPhase0Validators(forkDigests.bellatrix)
+  installPhase0Validators(forkDigests.capella)
 
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.altair),
@@ -1451,6 +1456,16 @@ proc installMessageValidators(node: BeaconNode) =
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.bellatrix),
     proc (signedBlock: bellatrix.SignedBeaconBlock): ValidationResult =
+      if node.shouldSyncOptimistically(node.currentSlot):
+        toValidationResult(
+          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
+      else:
+        toValidationResult(node.processor[].processSignedBeaconBlock(
+          MsgSource.gossip, signedBlock)))
+
+  node.network.addValidator(
+    getBeaconBlocksTopic(forkDigests.capella),
+    proc (signedBlock: capella.SignedBeaconBlock): ValidationResult =
       if node.shouldSyncOptimistically(node.currentSlot):
         toValidationResult(
           node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
@@ -1479,6 +1494,7 @@ proc installMessageValidators(node: BeaconNode) =
 
   installSyncCommitteeeValidators(forkDigests.altair)
   installSyncCommitteeeValidators(forkDigests.bellatrix)
+  installSyncCommitteeeValidators(forkDigests.capella)
 
   node.installLightClientMessageValidators()
 

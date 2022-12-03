@@ -816,11 +816,13 @@ func chunkMaxSize[T](): uint32 =
 func maxGossipMaxSize(): auto {.compileTime.} =
   max(GOSSIP_MAX_SIZE, GOSSIP_MAX_SIZE_BELLATRIX)
 
+from ../spec/datatypes/capella import SignedBeaconBlock
+
 template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
     when isFixedSize(T):
       fixedPortionSize(T)
-    elif T is bellatrix.SignedBeaconBlock:
+    elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock:
       GOSSIP_MAX_SIZE_BELLATRIX
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -2624,9 +2626,6 @@ proc broadcastBeaconBlock*(
     node: Eth2Node, blck: bellatrix.SignedBeaconBlock): Future[SendResult] =
   let topic = getBeaconBlocksTopic(node.forkDigests.bellatrix)
   node.broadcast(topic, blck)
-
-# TODO when forks re-exports this, use that instead and rm this
-from ../spec/datatypes/capella import SignedBeaconBlock
 
 proc broadcastBeaconBlock*(
     node: Eth2Node, blck: capella.SignedBeaconBlock): Future[SendResult] =
