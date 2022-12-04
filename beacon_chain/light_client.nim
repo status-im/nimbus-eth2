@@ -291,7 +291,8 @@ proc installMessageValidators*(
     ValidationResult.Ignore
 
   let forkDigests = lightClient.forkDigests
-  for digest in [forkDigests.altair, forkDigests.bellatrix]:
+  for digest in [
+      forkDigests.altair, forkDigests.bellatrix, forkDigests.capella]:
     lightClient.network.addValidator(
       getLightClientFinalityUpdateTopic(digest),
       proc(msg: altair.LightClientFinalityUpdate): ValidationResult =
@@ -321,7 +322,8 @@ proc updateGossipStatus*(
     isBehind = lcBehind and dagBehind
 
     currentEpochTargetGossipState = getTargetGossipState(
-      epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH, isBehind)
+      epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
+      cfg.CAPELLA_FORK_EPOCH, isBehind)
     targetGossipState =
       if lcBehind or epoch < 1:
         currentEpochTargetGossipState
@@ -330,7 +332,8 @@ proc updateGossipStatus*(
         # which is in the past relative to the signature slot (current slot).
         # Therefore, LC topic subscriptions are kept for 1 extra epoch.
         let previousEpochTargetGossipState = getTargetGossipState(
-          epoch - 1, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH, isBehind)
+          epoch - 1, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
+          cfg.CAPELLA_FORK_EPOCH, isBehind)
         currentEpochTargetGossipState + previousEpochTargetGossipState
 
   template currentGossipState(): auto = lightClient.gossipState

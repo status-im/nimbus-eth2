@@ -334,6 +334,7 @@ proc forkchoice_updated(
     head_block_hash
     finalized_block_hash
 
+  discard $capellaImplementationMissing & ": ensure fcU usage updated for capella"
   let
     forkchoiceResponse =
       try:
@@ -355,15 +356,18 @@ proc forkchoice_updated(
   else:
     none(bellatrix.PayloadID)
 
-proc get_execution_payload(
+proc get_execution_payload[EP](
     payload_id: Option[bellatrix.PayloadID], execution_engine: Eth1Monitor):
-    Future[bellatrix.ExecutionPayload] {.async.} =
+    Future[EP] {.async.} =
   return if payload_id.isNone():
     # Pre-merge, empty payload
-    default(bellatrix.ExecutionPayload)
+    default(EP)
   else:
-    asConsensusExecutionPayload(
-      await execution_engine.getPayload(payload_id.get))
+    when EP is bellatrix.ExecutionPayload:
+      asConsensusExecutionPayload(
+        await execution_engine.getPayload(payload_id.get))
+    else:
+      raiseAssert $capellaImplementationMissing & ": implement getPayload V2"
 
 proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
@@ -372,6 +376,7 @@ proc getFeeRecipient(node: BeaconNode,
   node.consensusManager[].getFeeRecipient(pubkey, Opt.some(validatorIdx), epoch)
 
 from web3/engine_api_types import PayloadExecutionStatus
+from ../spec/datatypes/capella import BeaconBlock, ExecutionPayload
 
 proc getExecutionPayload[T](
     node: BeaconNode, proposalState: ref ForkedHashedBeaconState,
@@ -387,11 +392,17 @@ proc getExecutionPayload[T](
       node.getFeeRecipient(pubkey.get().toPubKey(), validator_index, epoch)
 
   template empty_execution_payload(): auto =
+    # Callers should already ensure these match, but type system doesn't
+    # transmit this information through the Forked types, so this has to
+    # be re-proven here.
     withState(proposalState[]):
-      when stateFork >= BeaconStateFork.Capella:
-        raiseAssert $capellaImplementationMissing
-      elif stateFork >= BeaconStateFork.Bellatrix:
+      when (stateFork == BeaconStateFork.Capella and
+            T is capella.ExecutionPayload) or
+           (stateFork == BeaconStateFork.Bellatrix and
+            T is bellatrix.ExecutionPayload):
         build_empty_execution_payload(forkyState.data, feeRecipient)
+      elif stateFork >= BeaconStateFork.Bellatrix:
+        raiseAssert "getExecutionPayload: mismatched proposalState and ExecutionPayload fork"
       else:
         default(T)
 
@@ -444,7 +455,7 @@ proc getExecutionPayload[T](
            feeRecipient, node.consensusManager.eth1Monitor))
       payload = try:
         awaitWithTimeout(
-          get_execution_payload(payload_id, node.consensusManager.eth1Monitor),
+          get_execution_payload[T](payload_id, node.consensusManager.eth1Monitor),
           GETPAYLOAD_TIMEOUT):
             beacon_block_payload_errors.inc()
             warn "Getting execution payload from Engine API timed out", payload_id
@@ -828,9 +839,6 @@ proc makeBlindedBeaconBlockForHeadAndSlot*(
   return ok constructPlainBlindedBlock[BlindedBeaconBlock](
     forkedBlck, executionPayloadHeader)
 
-# TODO once forks re-exports these, use that instead
-from ../spec/datatypes/capella import BeaconBlock
-
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
                   validator_index: ValidatorIndex,
@@ -876,9 +884,13 @@ proc proposeBlock(node: BeaconNode,
         beacon_block_builder_missed_without_fallback.inc()
       return newBlockMEV.get
 
-  discard $capellaImplementationMissing & ": use capella.ExecutionPayload here as appropriate"
-  let newBlock = await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
-    node, randao, validator_index, node.graffitiBytes, head, slot)
+  let newBlock =
+    if slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
+      await makeBeaconBlockForHeadAndSlot[capella.ExecutionPayload](
+        node, randao, validator_index, node.graffitiBytes, head, slot)
+    else:
+      await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
+        node, randao, validator_index, node.graffitiBytes, head, slot)
 
   if newBlock.isErr():
     return head # already logged elsewhere!
