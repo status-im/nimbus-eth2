@@ -53,7 +53,8 @@ suite "Light client processor" & preset():
           const nilCallback = OnBellatrixBlockAdded(nil)
           dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
         of BeaconBlockFork.Capella:
-          raiseAssert $capellaImplementationMissing
+          const nilCallback = OnCapellaBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
       doAssert added.isOk()
       dag.updateHead(added[], quarantine[])
 

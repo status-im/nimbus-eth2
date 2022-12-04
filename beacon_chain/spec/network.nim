@@ -26,20 +26,20 @@ const
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix* = "bls_to_execution_change/ssz_snappy"
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.2/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#configuration
   MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
   GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
   TTFB_TIMEOUT* = 5.seconds
   RESP_TIMEOUT* = 10.seconds
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/bellatrix/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/bellatrix/p2p-interface.md#configuration
   GOSSIP_MAX_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
   MAX_CHUNK_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
 
   defaultEth2TcpPort* = 9000
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
 
-  # This is not part of the spec! But its port which uses Lighthouse
+  # This is not part of the spec! But it's port which Lighthouse uses
   defaultEth2RestPort* = 5052
   defaultEth2RestPortDesc* = $defaultEth2RestPort
 
@@ -147,44 +147,43 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/p2p-interface.md#transitioning-the-gossip
 type GossipState* = set[BeaconStateFork]
 func getTargetGossipState*(
-    epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH: Epoch, isBehind: bool):
-    GossipState =
+    epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH: Epoch,
+    isBehind: bool): GossipState =
   if isBehind:
-    {}
+    return {}
 
-  # The order of these checks doesn't matter.
-  elif epoch >= BELLATRIX_FORK_EPOCH:
-    {BeaconStateFork.Bellatrix}
-  elif epoch + 1 < ALTAIR_FORK_EPOCH:
-    {BeaconStateFork.Phase0}
+  # When EIP4844 comes in, can be transformed to discard of that symbol
+  static: doAssert high(BeaconStateFork) == BeaconStateFork.Capella
 
-  # Order remaining checks so ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH works
-  # and when the transition zones align contiguously, or are separated by
-  # intermediate pure-Altair epochs.
-  #
-  # In the first case, should never enable Altair, and there's also never
-  # a Phase -> Altair, or Altair -> Bellatrix gossip transition epoch. In
-  # contiguous Phase0 -> Altair and Altair -> Bellatrix transitions, that
-  # pure Altair state gossip state never occurs, but it works without any
-  # special cases so long as one checks for transition-to-fork+1 before a
-  # pure fork gossip state.
-  #
-  # Therefore, check for transition-to-merge before pure-Altair.
-  elif epoch + 1 >= BELLATRIX_FORK_EPOCH:
-    # As there are only two fork epochs and there's no transition to phase0
-    {if ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH:
-       BeaconStateFork.Phase0
-     else:
-       BeaconStateFork.Altair,
-     BeaconStateFork.Bellatrix}
-  elif epoch >= ALTAIR_FORK_EPOCH:
-    {BeaconStateFork.Altair}
+  doAssert BELLATRIX_FORK_EPOCH >= ALTAIR_FORK_EPOCH
+  doAssert CAPELLA_FORK_EPOCH >= BELLATRIX_FORK_EPOCH
 
-  # Must be after the case which catches phase0 => merge
-  elif epoch + 1 >= ALTAIR_FORK_EPOCH:
-    {BeaconStateFork.Phase0, BeaconStateFork.Altair}
-  else:
-    raiseAssert "Unknown target gossip state"
+  # https://github.com/ethereum/consensus-specs/issues/2902
+  # Don't care whether ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH or
+  # BELLATRIX_FORK_EPOCH == CAPELLA_FORK_EPOCH works, because those
+  # theoretically possible networks are ill-defined regardless, and
+  # consequently prohibited by checkForkConsistency(). Therefore, a
+  # transitional epoch always exists, for every fork.
+  var targetForks: GossipState
+
+  template maybeIncludeFork(
+      targetFork: BeaconStateFork, targetForkEpoch: Epoch,
+      successiveForkEpoch: Epoch) =
+    # Subscribe one epoch ahead
+    if epoch + 1 >= targetForkEpoch and epoch < successiveForkEpoch:
+      targetForks.incl targetFork
+
+  maybeIncludeFork(
+    BeaconStateFork.Phase0,    GENESIS_EPOCH,        ALTAIR_FORK_EPOCH)
+  maybeIncludeFork(
+    BeaconStateFork.Altair,    ALTAIR_FORK_EPOCH,    BELLATRIX_FORK_EPOCH)
+  maybeIncludeFork(
+    BeaconStateFork.Bellatrix, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH)
+  maybeIncludeFork(
+    BeaconStateFork.Capella,   CAPELLA_FORK_EPOCH,   FAR_FUTURE_EPOCH)
+
+  doAssert len(targetForks) <= 2
+  targetForks
 
 func nearSyncCommitteePeriod*(epoch: Epoch): Option[uint64] =
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/validator.md#sync-committee-subnet-stability

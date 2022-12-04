@@ -966,7 +966,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
       firstForkEpoch: Epoch, secondForkEpoch: Epoch) =
     doAssert distinctBase(firstForkEpoch) <= distinctBase(secondForkEpoch)
 
-    # TODO https://github.com/ethereum/consensus-specs/issues/2902 multiple
+    # https://github.com/ethereum/consensus-specs/issues/2902 multiple
     # fork transitions per epoch don't work in a well-defined way.
     doAssert distinctBase(firstForkEpoch) < distinctBase(secondForkEpoch) or
              firstForkEpoch in [GENESIS_EPOCH, FAR_FUTURE_EPOCH]
