@@ -48,6 +48,9 @@ proc unblindAndRouteBlockMEV*(
     Future[Result[Opt[BlockRef], string]] {.async.} =
   # By time submitBlindedBlock is called, must already have done slashing
   # protection check
+  if node.payloadBuilderRestClient.isNil:
+    return err "unblindAndRouteBlockMEV: nil REST client"
+
   let unblindedPayload =
     try:
       awaitWithTimeout(
