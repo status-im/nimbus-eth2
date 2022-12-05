@@ -51,7 +51,7 @@ sudo systemctl edit nimbus_beacon_node.service
 
 The service file contains several options for controlling Nimbus. Important options include:
 
-* `Environment=NETWORK`: set this to `mainnet`, `prater` or `ropsten`, depending on which network you want to connect to
+* `Environment=NETWORK`: set this to `mainnet`, `prater` or `sepolia`, depending on which network you want to connect to
 * `Environment=WEB3_URL`: point this to your execution client - see the [Execution Client](./eth1.md) setup guide
 * `Environment=REST_ENABLED`: REST is used to interact with the beacon node, in particular when setting up a separate Validator Client - see the [REST API](./rest-api.md) guide
 * `Environment=METRICS_ENABLED`: Metrics are used for monitoring the node - see the [metrics](./metrics-pretty-pictures.md) setup guide
