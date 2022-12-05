@@ -394,7 +394,7 @@ proc process_voluntary_exit*(
   ? initiate_validator_exit(cfg, state, exited_validator, cache)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 proc process_bls_to_execution_change*(
     state: var capella.BeaconState,
     signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =

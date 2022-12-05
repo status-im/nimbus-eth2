@@ -90,7 +90,7 @@ type
 
 proc `<`*(x, y: KeystoreInfo | RemoteKeystoreInfo): bool =
   for a, b in fields(x, y):
-    var c = cmp(a, b)
+    let c = cmp(a, b)
     if c < 0: return true
     if c > 0: return false
   return false

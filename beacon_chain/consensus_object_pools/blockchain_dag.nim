@@ -665,7 +665,7 @@ proc getStateByParent(
     dag: ChainDAGRef, bid: BlockId, state: var ForkedHashedBeaconState): bool =
   ## Try to load the state referenced by the parent of the given `bid` - this
   ## state can be used to advance to the `bid` state itself.
-  var slot = bid.slot
+  let slot = bid.slot
 
   let
     summary = dag.db.getBeaconBlockSummary(bid.root).valueOr:

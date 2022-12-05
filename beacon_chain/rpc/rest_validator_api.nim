@@ -562,7 +562,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         dres.get()
     # Since our validation logic supports batch processing, we will submit all
     # aggregated attestations for validation.
-    var pending =
+    let pending =
       block:
         var res: seq[Future[SendResult]]
         for proof in proofs:
