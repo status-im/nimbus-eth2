@@ -203,11 +203,10 @@ elif const_preset == "mainnet":
   const
     mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
     praterMetadata* = eth2Network("shared/prater", goerli)
-    ropstenMetadata* = mergeTestnet("ropsten-beacon-chain", ropsten)
     sepoliaMetadata* = mergeTestnet("sepolia", sepolia)
   static:
     for network in [
-        mainnetMetadata, praterMetadata, ropstenMetadata, sepoliaMetadata]:
+        mainnetMetadata, praterMetadata, sepoliaMetadata]:
       checkForkConsistency(network.cfg)
       doAssert network.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
 
@@ -223,6 +222,9 @@ proc getMetadataForNetwork*(
     else:
       fatal "config.yaml not found for network", networkName
       quit 1
+
+  if networkName == "ropsten":
+    warn "Ropsten is unsupported; https://blog.ethereum.org/2022/11/30/ropsten-shutdown-announcement suggests migrating to Goerli or Sepolia"
 
   let metadata =
     when defined(gnosisChainBinary) and const_preset == "mainnet":
@@ -242,8 +244,6 @@ proc getMetadataForNetwork*(
         mainnetMetadata
       of "prater", "goerli":
         praterMetadata
-      of "ropsten":
-        ropstenMetadata
       of "sepolia":
         sepoliaMetadata
       else:
