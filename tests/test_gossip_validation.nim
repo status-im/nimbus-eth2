@@ -210,6 +210,8 @@ suite "Gossip validation - Extra": # Not based on preset config
             of BeaconBlockFork.Capella:
               const nilCallback = OnCapellaBlockAdded(nil)
               dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
+            of BeaconBlockFork.EIP4844:
+              raiseAssert $eip4844ImplementationMissing
           check: added.isOk()
           dag.updateHead(added[], quarantine[])
         dag

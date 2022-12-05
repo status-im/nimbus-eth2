@@ -979,6 +979,8 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
+  of BeaconBlockFork.EIP4844:
+    reader.raiseUnexpectedValue($eip4844ImplementationMissing)
 
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        reader: var JsonReader[RestJson],
@@ -1030,6 +1032,9 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
                                      bellatrixData: res)
   of BeaconBlockFork.Capella:
     reader.raiseUnexpectedValue($capellaImplementationMissing)
+
+  of BeaconBlockFork.EIP4844:
+    reader.raiseUnexpectedValue($eip4844ImplementationMissing)
 
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
@@ -1098,6 +1103,9 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     value = Web3SignerForkedBeaconBlock(
       kind: BeaconBlockFork.Capella,
       capellaData: res.get())
+  of BeaconBlockFork.EIP4844:
+    reader.raiseUnexpectedValue($eip4844ImplementationMissing)
+
 
 proc writeValue*[
     BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock|ForkedBlindedBeaconBlock](
@@ -1124,6 +1132,8 @@ proc writeValue*[
   of BeaconBlockFork.Capella:
     writer.writeField("version", forkIdentifier "capella")
     writer.writeField("data", value.capellaData)
+  of BeaconBlockFork.EIP4844:
+    raiseAssert $eip4844ImplementationMissing
   writer.endRecord()
 
 ## RestPublishedBeaconBlockBody
@@ -1280,6 +1290,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     )
   of BeaconBlockFork.Capella:
     reader.raiseUnexpectedValue($capellaImplementationMissing)
+  of BeaconBlockFork.EIP4844:
+    reader.raiseUnexpectedValue($eip4844ImplementationMissing)
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
@@ -1376,6 +1388,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           body: body.capellaBody
         )
       )
+    of BeaconBlockFork.EIP4844:
+      reader.raiseUnexpectedValue($eip4844ImplementationMissing)
   )
 
 ## RestPublishedSignedBeaconBlock
@@ -1435,6 +1449,8 @@ proc readValue*(reader: var JsonReader[RestJson],
           signature: signature.get()
         )
       )
+    of BeaconBlockFork.EIP4844:
+      reader.raiseUnexpectedValue($eip4844ImplementationMissing)
   )
 
 ## ForkedSignedBeaconBlock
@@ -1525,6 +1541,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = ForkedSignedBeaconBlock.init(res.get())
+  of BeaconBlockFork.EIP4844:
+    reader.raiseUnexpectedValue($eip4844ImplementationMissing)
   withBlck(value):
     blck.root = hash_tree_root(blck.message)
 
@@ -1545,6 +1563,8 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   of BeaconBlockFork.Capella:
     writer.writeField("version", "capella")
     writer.writeField("data", value.capellaData)
+  of BeaconBlockFork.EIP4844:
+    raiseAssert $eip4844ImplementationMissing
   writer.endRecord()
 
 # ForkedHashedBeaconState is used where a `ForkedBeaconState` normally would
@@ -2552,6 +2572,8 @@ proc decodeBody*(
         except CatchableError:
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
+    of BeaconBlockFork.EIP4844:
+      return err($eip4844ImplementationMissing)
   else:
     return err("Unsupported or invalid content media type")
 

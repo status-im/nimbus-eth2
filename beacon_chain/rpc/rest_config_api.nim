@@ -272,6 +272,8 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/config/spec") do () -> RestApiResponse:
     return RestApiResponse.response(cachedConfigSpec, Http200,
                                     "application/json")
+  # EIP4844_FORK_EPOCH and EIP4844_FORK_VERSION not yet in config
+  discard $eip4844ImplementationMissing
 
   # https://ethereum.github.io/beacon-APIs/#/Config/getDepositContract
   router.api(MethodGet,

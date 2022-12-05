@@ -16,11 +16,11 @@ import
   metrics, snappy, chronicles,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   ".."/[beacon_chain_db, era_db],
   "."/[block_pools_types, block_quarantine]
 
-from ../spec/datatypes/capella import shortLog
+from ../spec/datatypes/eip4844 import shortLog
 
 export
   eth2_merkleization, eth2_ssz_serialization,
@@ -855,6 +855,12 @@ proc applyBlock(
       dag.updateFlags + {slotProcessed}, noRollback)
   of BeaconBlockFork.Capella:
     let data = getBlock(dag, bid, capella.TrustedSignedBeaconBlock).valueOr:
+      return err("Block load failed")
+    state_transition(
+      dag.cfg, state, data, cache, info,
+      dag.updateFlags + {slotProcessed}, noRollback)
+  of BeaconBlockFork.EIP4844:
+    let data = getBlock(dag, bid, eip4844.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
       dag.cfg, state, data, cache, info,
