@@ -19,6 +19,8 @@ import
   ./datatypes/[phase0, altair, bellatrix, capella],
   ./eth2_merkleization
 
+from ./datatypes/eip4844 import SignedBeaconBlock, TrustedSignedBeaconBlock
+
 export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
 
 proc readAndUpdateRoot(data: openArray[byte], val: var auto, updateRoot = true) {.
@@ -53,6 +55,12 @@ template readSszBytes*(
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
     data: openArray[byte], val: var capella.TrustedSignedBeaconBlock, updateRoot = true) =
+  readAndUpdateRoot(data, val, updateRoot)
+template readSszBytes*(
+    data: openArray[byte], val: var eip4844.SignedBeaconBlock, updateRoot = true) =
+  readAndUpdateRoot(data, val, updateRoot)
+template readSszBytes*(
+    data: openArray[byte], val: var eip4844.TrustedSignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 
 template readSszBytes*(

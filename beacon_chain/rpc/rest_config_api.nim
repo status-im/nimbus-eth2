@@ -246,7 +246,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           ATTESTATION_SUBNET_COUNT:
             Base10.toString(ATTESTATION_SUBNET_COUNT),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/altair/validator.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/validator.md#constants
           TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE:
             Base10.toString(uint64(TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE)),
           SYNC_COMMITTEE_SUBNET_COUNT:

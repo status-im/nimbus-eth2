@@ -180,7 +180,7 @@ template validateBeaconBlockBellatrix(
     parent: BlockRef): untyped =
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/bellatrix/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/bellatrix/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
        signed_beacon_block: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock,
        parent: BlockRef): untyped =
@@ -532,7 +532,7 @@ proc validateAttestation*(
 
       let (cryptoFut, sig) = deferredCrypto.get()
       # Await the crypto check
-      var x = (await cryptoFut)
+      let x = (await cryptoFut)
       case x
       of BatchResult.Invalid:
         return checkedReject("Attestation: invalid signature")
@@ -702,7 +702,7 @@ proc validateAggregate*(
 
       block:
         # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-        var x = await aggregatorFut
+        let x = await aggregatorFut
         case x
         of BatchResult.Invalid:
           return checkedReject("Aggregate: invalid aggregator signature")
@@ -714,7 +714,7 @@ proc validateAggregate*(
 
       block:
         # [REJECT] aggregate_and_proof.selection_proof
-        var x = await slotFut
+        let x = await slotFut
         case x
         of BatchResult.Invalid:
           return checkedReject("Aggregate: invalid slot signature")
@@ -726,7 +726,7 @@ proc validateAggregate*(
 
       block:
         # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-        var x = await aggregateFut
+        let x = await aggregateFut
         case x
         of BatchResult.Invalid:
           return checkedReject("Aggregate: invalid aggregate signature")
@@ -903,7 +903,7 @@ proc validateSyncCommitteeMessage*(
       let
         (cryptoFut, sig) = deferredCrypto.get()
 
-      var x = (await cryptoFut)
+      let x = (await cryptoFut)
       case x
       of BatchResult.Invalid:
         return errReject("SyncCommitteeMessage: invalid signature")
@@ -1000,7 +1000,7 @@ proc validateContribution*(
 
     block:
       # [REJECT] The aggregator signature, signed_contribution_and_proof.signature, is valid
-      var x = await aggregatorFut
+      let x = await aggregatorFut
       case x
       of BatchResult.Invalid:
         return errReject("SignedContributionAndProof: invalid aggregator signature")
@@ -1011,7 +1011,7 @@ proc validateContribution*(
         discard
 
     block:
-      var x = await proofFut
+      let x = await proofFut
       case x
       of BatchResult.Invalid:
         return errReject("SignedContributionAndProof: invalid proof")
@@ -1023,7 +1023,7 @@ proc validateContribution*(
 
     block:
       # [REJECT] The aggregator signature, signed_aggregate_and_proof.signature, is valid.
-      var x = await contributionFut
+      let x = await contributionFut
       case x
       of BatchResult.Invalid:
         return errReject("SignedContributionAndProof: invalid contribution signature")

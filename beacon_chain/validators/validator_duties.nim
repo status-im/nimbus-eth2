@@ -310,7 +310,7 @@ proc getBlockProposalEth1Data*(node: BeaconNode,
                                state: ForkedHashedBeaconState):
                                BlockProposalEth1Data =
   if node.eth1Monitor.isNil:
-    var pendingDepositsCount =
+    let pendingDepositsCount =
       getStateField(state, eth1_data).deposit_count -
         getStateField(state, eth1_deposit_index)
     if pendingDepositsCount > 0:

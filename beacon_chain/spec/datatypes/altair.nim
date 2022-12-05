@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# Types specific to altair (ie known to have changed across hard forks) - see
+# Types specific to altair (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
@@ -45,7 +45,7 @@ const
   TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE* = 16
   SYNC_COMMITTEE_SUBNET_COUNT* = 4
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/sync-protocol.md#constants
   # All of these indices are rooted in `BeaconState`.
   # The first member (`genesis_time`) is 32, subsequent members +1 each.
   # If there are ever more than 32 members in `BeaconState`, indices change!

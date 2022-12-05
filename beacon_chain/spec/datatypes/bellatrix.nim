@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# Types specific to bellatrix (ie known to have changed across hard forks) - see
+# Types specific to bellatrix (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will

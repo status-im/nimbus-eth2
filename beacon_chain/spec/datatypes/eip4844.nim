@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# Types specific to capella (ie known to have changed across hard forks) - see
+# Types specific to eip4844 (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
@@ -26,15 +26,18 @@ import
 
 export json_serialization, base
 
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/polynomial-commitments.md#constants
+const BYTES_PER_FIELD_ELEMENT = 32
+
 type
   # this block belongs elsewhere - will figure out after implementing c-kzg bindings
   KZGCommitment* = array[48, byte]
   KZGProof* = array[48, byte]
   BLSFieldElement* = array[32, byte]
 
-  Blob* = List[BLSFieldElement, Limit FIELD_ELEMENTS_PER_BLOB]
+  Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
-  BlobsSideCar* = object
+  BlobsSidecar* = object
     beacon_block_root*: Eth2Digest
     beacon_block_slot*: Slot
     blobs*: List[Blob, Limit MAX_BLOBS_PER_BLOCK]
@@ -44,7 +47,7 @@ type
     beacon_block*: SignedBeaconBlock
     blobs_sidecar*: BlobsSidecar
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/eip4844/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
@@ -65,7 +68,7 @@ type
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/eip4844/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -89,7 +92,80 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#beaconstate
+  # changes indirectly via ExecutionPayloadHeader
+  BeaconState* = object
+    # Versioning
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
+    fork*: Fork
+
+    # History
+    latest_block_header*: BeaconBlockHeader
+      ## `latest_block_header.state_root == ZERO_HASH` temporarily
+
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      ## Needed to process attestations, older to newer
+
+    state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+
+    # Eth1
+    eth1_data*: Eth1Data
+    eth1_data_votes*:
+      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+    eth1_deposit_index*: uint64
+
+    # Registry
+    validators*: HashList[Validator, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Randomness
+    randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+
+    # Slashings
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]
+      ## Per-epoch sums of slashed effective balances
+
+    # Participation
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
+
+    # Finality
+    justification_bits*: JustificationBits
+
+    previous_justified_checkpoint*: Checkpoint
+      ## Previous epoch snapshot
+
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
+    # Inactivity
+    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Light client sync committees
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
+
+    # Execution
+    latest_execution_payload_header*: ExecutionPayloadHeader
+
+    # Withdrawals
+    next_withdrawal_index*: WithdrawalIndex # [New in Capella]
+    next_withdrawal_validator_index*: uint64  # [New in Capella]
+
+  # TODO Careful, not nil analysis is broken / incomplete and the semantics will
+  #      likely change in future versions of the language:
+  #      https://github.com/nim-lang/RFCs/issues/250
+  BeaconStateRef* = ref BeaconState not nil
+  NilableBeaconStateRef* = ref BeaconState
+
+  HashedBeaconState* = object
+    data*: BeaconState
+    root*: Eth2Digest # hash_tree_root(data)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -146,7 +222,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -166,9 +242,8 @@ type
 
     # Execution
     execution_payload*: ExecutionPayload
-
-    # Capella operations
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
+    blob_kzg_commitments*: List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]  # [New in EIP-4844]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -202,9 +277,8 @@ type
 
     # Execution
     execution_payload*: ExecutionPayload
-
-    # Capella operations
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
+    blob_kzg_commitments*: List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]  # [New in EIP-4844]
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -226,11 +300,10 @@ type
 
     # Execution
     execution_payload*: ExecutionPayload
-
-    # Capella operations
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
+    blob_kzg_commitments*: List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]  # [New in EIP-4844]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig

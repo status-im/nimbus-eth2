@@ -1642,6 +1642,56 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    Withdrawal                                                                    OK
 ```
 OK: 44/44 Fail: 0/44 Skip: 0/44
+## EF - EIP4844 - SSZ consensus objects  [Preset: minimal]
+```diff
++   Testing    AggregateAndProof                                                             OK
++   Testing    Attestation                                                                   OK
++   Testing    AttestationData                                                               OK
++   Testing    AttesterSlashing                                                              OK
++   Testing    BLSToExecutionChange                                                          OK
++   Testing    BeaconBlock                                                                   OK
++   Testing    BeaconBlockBody                                                               OK
++   Testing    BeaconBlockHeader                                                             OK
++   Testing    BeaconState                                                                   OK
++   Testing    BlobsSidecar                                                                  OK
++   Testing    Checkpoint                                                                    OK
++   Testing    ContributionAndProof                                                          OK
++   Testing    Deposit                                                                       OK
++   Testing    DepositData                                                                   OK
++   Testing    DepositMessage                                                                OK
++   Testing    Eth1Block                                                                     OK
++   Testing    Eth1Data                                                                      OK
++   Testing    ExecutionPayload                                                              OK
++   Testing    ExecutionPayloadHeader                                                        OK
++   Testing    Fork                                                                          OK
++   Testing    ForkData                                                                      OK
++   Testing    HistoricalBatch                                                               OK
++   Testing    IndexedAttestation                                                            OK
++   Testing    LightClientBootstrap                                                          OK
++   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientOptimisticUpdate                                                   OK
++   Testing    LightClientUpdate                                                             OK
++   Testing    PendingAttestation                                                            OK
++   Testing    PowBlock                                                                      OK
++   Testing    ProposerSlashing                                                              OK
++   Testing    SignedAggregateAndProof                                                       OK
++   Testing    SignedBLSToExecutionChange                                                    OK
++   Testing    SignedBeaconBlock                                                             OK
++   Testing    SignedBeaconBlockAndBlobsSidecar                                              OK
++   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedContributionAndProof                                                    OK
++   Testing    SignedVoluntaryExit                                                           OK
++   Testing    SigningData                                                                   OK
++   Testing    SyncAggregate                                                                 OK
++   Testing    SyncAggregatorSelectionData                                                   OK
++   Testing    SyncCommittee                                                                 OK
++   Testing    SyncCommitteeContribution                                                     OK
++   Testing    SyncCommitteeMessage                                                          OK
++   Testing    Validator                                                                     OK
++   Testing    VoluntaryExit                                                                 OK
++   Testing    Withdrawal                                                                    OK
+```
+OK: 46/46 Fail: 0/46 Skip: 0/46
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -2078,4 +2128,4 @@ OK: 52/52 Fail: 0/52 Skip: 0/52
 OK: 51/51 Fail: 0/51 Skip: 0/51
 
 ---TOTAL---
-OK: 1820/1828 Fail: 0/1828 Skip: 8/1828
+OK: 1866/1874 Fail: 0/1874 Skip: 8/1874
