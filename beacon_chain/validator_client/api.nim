@@ -2241,3 +2241,107 @@ proc registerValidator*(
                 status = response.status, endpoint = apiResponse.node,
                 message = response.getErrorMessage()
     return count
+
+proc getValidatorsLiveness*(
+       vc: ValidatorClientRef, epoch: Epoch,
+       validators: seq[ValidatorIndex]
+     ): Future[GetValidatorsLivenessResponse] {.async.} =
+  logScope: request = "getValidatorsActivity"
+  let resp = vc.onceToAll(RestPlainResponse, SlotDuration,
+                          {BeaconNodeRole.Duties},
+                          getValidatorsLiveness(it, epoch, validators))
+  case resp.status
+  of ApiOperation.Timeout:
+    debug "Unable to perform validator's liveness request in time",
+          timeout = SlotDuration
+    return GetValidatorsLivenessResponse()
+  of ApiOperation.Interrupt:
+    debug "Validator's liveness request was interrupted"
+    return GetValidatorsLivenessResponse()
+  of ApiOperation.Failure:
+    debug "Unexpected error happened while receiving validator's liveness"
+    return GetValidatorsLivenessResponse()
+  of ApiOperation.Success:
+    let defaultLiveness = RestLivenessItem(index: ValidatorIndex(high(uint32)))
+    var activities: Table[ValidatorIndex, RestLivenessItem]
+    for apiResponse in resp.data:
+      if apiResponse.data.isErr():
+        debug "Unable to retrieve validators liveness data",
+              endpoint = apiResponse.node, error = apiResponse.data.error()
+      else:
+        let response = apiResponse.data.get()
+        case response.status
+        of 200:
+          let res = decodeBytes(GetValidatorsLivenessResponse,
+                                response.data, response.contentType)
+          if res.isOk():
+            let list = res.get().data
+            if len(list) != len(validators):
+              debug "Received incomplete validators liveness response",
+                    endpoint = apiResponse.node,
+                    validators_count = len(validators),
+                    activities_count = len(list)
+              continue
+            else:
+              var updated = 0
+              for item in list:
+                activities.withValue(item.index, stored):
+                  if item.is_live:
+                    stored[].is_live = true
+                    inc(updated)
+                do:
+                  activities[item.index] = item
+                  inc(updated)
+              debug "Received validators liveness response",
+                    endpoint = apiResponse.node,
+                    validators_count = len(validators),
+                    activities_count = len(list),
+                    updated_count = updated
+          else:
+            debug "Received invalid/incomplete response",
+                  endpoint = apiResponse.node, error_message = res.error()
+            apiResponse.node.status = RestBeaconNodeStatus.Incompatible
+            continue
+        of 400:
+          debug "Server reports invalid request",
+                response_code = response.status,
+                endpoint = apiResponse.node,
+                response_error = response.getErrorMessage()
+          apiResponse.node.status = RestBeaconNodeStatus.Incompatible
+          continue
+        of 500:
+          debug "Server reports internal error",
+                response_code = response.status,
+                endpoint = apiResponse.node,
+                response_error = response.getErrorMessage()
+          apiResponse.node.status = RestBeaconNodeStatus.Offline
+          continue
+        of 503:
+          debug "Server reports that it not in sync",
+                response_code = response.status,
+                endpoint = apiResponse.node,
+                response_error = response.getErrorMessage()
+          apiResponse.node.status = RestBeaconNodeStatus.NotSynced
+          continue
+        else:
+          debug "Server reports unexpected error code",
+                response_code = response.status,
+                endpoint = apiResponse.node,
+                response_error = response.getErrorMessage()
+          apiResponse.node.status = RestBeaconNodeStatus.Offline
+          continue
+
+    var response =
+      block:
+        var res: seq[RestLivenessItem]
+        for vindex in validators:
+          let item = activities.getOrDefault(vindex, defaultLiveness)
+          if item == defaultLiveness:
+            debug "Validator is missing in response",
+                  validator_index = vindex
+            return GetValidatorsLivenessResponse()
+          else:
+            res.add(item)
+        res
+
+    return GetValidatorsLivenessResponse(data: response)
