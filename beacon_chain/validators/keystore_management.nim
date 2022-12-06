@@ -1603,7 +1603,7 @@ proc pickPasswordAndSaveWallet(rng: var HmacDrbgContext,
     echo ""
 
     while true:
-      var enteredName = ask "Wallet name"
+      let enteredName = ask "Wallet name"
       if enteredName.len > 0:
         name =
           try:

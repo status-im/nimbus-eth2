@@ -51,7 +51,8 @@ type
     phase0.BeaconState |
     altair.BeaconState |
     bellatrix.BeaconState |
-    capella.BeaconState
+    capella.BeaconState |
+    eip4844.BeaconState
 
   ForkyHashedBeaconState* =
     phase0.HashedBeaconState |

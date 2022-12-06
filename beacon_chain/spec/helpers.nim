@@ -320,9 +320,11 @@ func contextEpoch*(bootstrap: altair.LightClientBootstrap): Epoch =
 func contextEpoch*(update: SomeLightClientUpdate): Epoch =
   update.attested_header.slot.epoch
 
+from ./datatypes/eip4844 import BeaconState
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
-    state: bellatrix.BeaconState | capella.BeaconState): bool =
+    state: bellatrix.BeaconState | capella.BeaconState | eip4844.BeaconState): bool =
   const defaultExecutionPayloadHeader =
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader

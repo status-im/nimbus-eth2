@@ -748,7 +748,7 @@ proc processHeadChangeForLightClient*(dag: ChainDAGRef) =
       tailPeriod = dag.lcDataStore.cache.tailSlot.sync_committee_period
       lowPeriod = max(dag.firstNonFinalizedPeriod, tailPeriod)
     if headPeriod > lowPeriod:
-      var tmpState = assignClone(dag.headState)
+      let tmpState = assignClone(dag.headState)
       for period in lowPeriod ..< headPeriod:
         let
           syncCommitteeRoot =
@@ -853,7 +853,7 @@ proc getLightClientBootstrap*(
       if branch.isZeroMemory:
         if dag.lcDataStore.importMode == LightClientDataImportMode.OnDemand:
           let bsi = ? dag.getExistingBlockIdAtSlot(slot)
-          var tmpState = assignClone(dag.headState)
+          let tmpState = assignClone(dag.headState)
           dag.withUpdatedExistingState(tmpState[], bsi) do:
             branch = withState(updatedState):
               when stateFork >= BeaconStateFork.Altair:
@@ -867,7 +867,7 @@ proc getLightClientBootstrap*(
           return err()
 
       let period = slot.sync_committee_period
-      var tmpState = assignClone(dag.headState)
+      let tmpState = assignClone(dag.headState)
       var bootstrap {.noinit.}: altair.LightClientBootstrap
       bootstrap.header =
         blck.toBeaconBlockHeader()
