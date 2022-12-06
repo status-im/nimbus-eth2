@@ -2090,15 +2090,14 @@ when defined(windows):
 
     info "Service thread started"
 
-    let config = makeBannerAndConfig(clientId, BeaconNodeConf)
+    var config = makeBannerAndConfig(clientId, BeaconNodeConf)
     handleStartUpCmd(config)
 
     info "Service thread stopped"
     reportServiceStatus(SERVICE_STOPPED, NO_ERROR, 0) # we have to report back when we stopped!
 
 programMain:
-  var
-    config = makeBannerAndConfig(clientId, BeaconNodeConf)
+  var config = makeBannerAndConfig(clientId, BeaconNodeConf)
 
   if not(checkAndCreateDataDir(string(config.dataDir))):
     # We are unable to access/create data folder or data folder's
