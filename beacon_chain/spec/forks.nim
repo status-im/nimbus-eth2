@@ -557,7 +557,10 @@ func blockForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconBlockFork =
 
 func stateForkForDigest*(
     forkDigests: ForkDigests, forkDigest: ForkDigest): Opt[BeaconStateFork] =
-  if   forkDigest == forkDigests.capella:
+  if   forkDigest == forkDigests.eip4844:
+    discard $eip4844ImplementationMissing & ": when forkedstate appears, use it here"
+    ok BeaconStateFork.Capella
+  elif forkDigest == forkDigests.capella:
     ok BeaconStateFork.Capella
   elif forkDigest == forkDigests.bellatrix:
     ok BeaconStateFork.Bellatrix

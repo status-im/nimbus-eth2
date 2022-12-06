@@ -266,7 +266,7 @@ elif const_preset == "minimal":
     CAPELLA_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x01],
     CAPELLA_FORK_EPOCH: Epoch(uint64.high),
     # eip4844
-    EIP4844_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x00],
+    EIP4844_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x01],
     EIP4844_FORK_EPOCH: Epoch(uint64.high),
     # Sharding
     SHARDING_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x00],

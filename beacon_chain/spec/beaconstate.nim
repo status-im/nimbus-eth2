@@ -763,7 +763,8 @@ proc process_attestation*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/beacon-chain.md#get_next_sync_committee_indices
 func get_next_sync_committee_keys(
-    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState):
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
+           eip4844.BeaconState):
     array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
   ## Return the sequence of sync committee indices, with possible duplicates,
   ## for the next sync committee.
@@ -800,7 +801,8 @@ func get_next_sync_committee_keys(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/beacon-chain.md#get_next_sync_committee
 func get_next_sync_committee*(
-    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState):
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
+           eip4844.BeaconState):
     SyncCommittee =
   ## Return the *next* sync committee for a given ``state``.
   var res: SyncCommittee
@@ -1038,6 +1040,86 @@ func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
     # Withdrawals
     next_withdrawal_index: 0,
     next_withdrawal_validator_index: 0
+  )
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/fork.md#upgrading-the-state
+func upgrade_to_eip4844*(cfg: RuntimeConfig, pre: capella.BeaconState):
+    ref eip4844.BeaconState =
+  let
+    epoch = get_current_epoch(pre)
+    latest_execution_payload_header = eip4844.ExecutionPayloadHeader(
+      parent_hash: pre.latest_execution_payload_header.parent_hash,
+      fee_recipient: pre.latest_execution_payload_header.fee_recipient,
+      state_root: pre.latest_execution_payload_header.state_root,
+      receipts_root: pre.latest_execution_payload_header.receipts_root,
+      logs_bloom: pre.latest_execution_payload_header.logs_bloom,
+      prev_randao: pre.latest_execution_payload_header.prev_randao,
+      block_number: pre.latest_execution_payload_header.block_number,
+      gas_limit: pre.latest_execution_payload_header.gas_limit,
+      gas_used: pre.latest_execution_payload_header.gas_used,
+      timestamp: pre.latest_execution_payload_header.timestamp,
+      extra_data: pre.latest_execution_payload_header.extra_data,
+      base_fee_per_gas: pre.latest_execution_payload_header.base_fee_per_gas,
+      excess_data_gas: 0.u256,  # [New in EIP-4844]
+      block_hash: pre.latest_execution_payload_header.block_hash,
+      transactions_root: pre.latest_execution_payload_header.transactions_root,
+      withdrawals_root: pre.latest_execution_payload_header.withdrawals_root
+    )
+
+  (ref eip4844.BeaconState)(
+    # Versioning
+    genesis_time: pre.genesis_time,
+    genesis_validators_root: pre.genesis_validators_root,
+    slot: pre.slot,
+    fork: Fork(
+      previous_version: pre.fork.current_version,
+      current_version: cfg.EIP4844_FORK_VERSION,  # [Modified in EIP4844]
+      epoch: epoch
+    ),
+
+    # History
+    latest_block_header: pre.latest_block_header,
+    block_roots: pre.block_roots,
+    state_roots: pre.state_roots,
+    historical_roots: pre.historical_roots,
+
+    # Eth1
+    eth1_data: pre.eth1_data,
+    eth1_data_votes: pre.eth1_data_votes,
+    eth1_deposit_index: pre.eth1_deposit_index,
+
+    # Registry
+    validators: pre.validators,
+    balances: pre.balances,
+
+    # Randomness
+    randao_mixes: pre.randao_mixes,
+
+    # Slashings
+    slashings: pre.slashings,
+
+    # Participation
+    previous_epoch_participation: pre.previous_epoch_participation,
+    current_epoch_participation: pre.current_epoch_participation,
+
+    # Finality
+    justification_bits: pre.justification_bits,
+    previous_justified_checkpoint: pre.previous_justified_checkpoint,
+    current_justified_checkpoint: pre.current_justified_checkpoint,
+    finalized_checkpoint: pre.finalized_checkpoint,
+
+    # Inactivity
+    inactivity_scores: pre.inactivity_scores,
+    # Sync
+    current_sync_committee: pre.current_sync_committee,
+    next_sync_committee: pre.next_sync_committee,
+
+    # Execution-layer
+    latest_execution_payload_header: latest_execution_payload_header,  # [Modified in EIP4844]
+
+    # Withdrawals
+    next_withdrawal_index: pre.next_withdrawal_index,
+    next_withdrawal_validator_index: pre.next_withdrawal_validator_index
   )
 
 template isValidInState*(idx: ValidatorIndex, state: ForkyBeaconState): bool =

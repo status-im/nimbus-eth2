@@ -167,6 +167,40 @@ ConsensusSpecPreset-mainnet
 + EF - Capella - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
 + EF - Capella - Transition - transition_with_random_half_participation [Preset: mainnet]    OK
 + EF - Capella - Transition - transition_with_random_three_quarters_participation [Preset: m OK
++ EF - EIP4844 - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
++ EF - EIP4844 - Rewards - empty [Preset: mainnet]                                           OK
++ EF - EIP4844 - Rewards - empty_leak [Preset: mainnet]                                      OK
++ EF - EIP4844 - Rewards - full_all_correct [Preset: mainnet]                                OK
++ EF - EIP4844 - Rewards - full_but_partial_participation [Preset: mainnet]                  OK
++ EF - EIP4844 - Rewards - full_but_partial_participation_leak [Preset: mainnet]             OK
++ EF - EIP4844 - Rewards - full_leak [Preset: mainnet]                                       OK
++ EF - EIP4844 - Rewards - full_random_0 [Preset: mainnet]                                   OK
++ EF - EIP4844 - Rewards - full_random_1 [Preset: mainnet]                                   OK
++ EF - EIP4844 - Rewards - full_random_2 [Preset: mainnet]                                   OK
++ EF - EIP4844 - Rewards - full_random_3 [Preset: mainnet]                                   OK
++ EF - EIP4844 - Rewards - full_random_4 [Preset: mainnet]                                   OK
++ EF - EIP4844 - Rewards - full_random_leak [Preset: mainnet]                                OK
++ EF - EIP4844 - Rewards - full_random_low_balances_0 [Preset: mainnet]                      OK
++ EF - EIP4844 - Rewards - full_random_low_balances_1 [Preset: mainnet]                      OK
++ EF - EIP4844 - Rewards - full_random_misc_balances [Preset: mainnet]                       OK
++ EF - EIP4844 - Rewards - full_random_seven_epoch_leak [Preset: mainnet]                    OK
++ EF - EIP4844 - Rewards - full_random_ten_epoch_leak [Preset: mainnet]                      OK
++ EF - EIP4844 - Rewards - full_random_without_leak_0 [Preset: mainnet]                      OK
++ EF - EIP4844 - Rewards - full_random_without_leak_and_current_exit_0 [Preset: mainnet]     OK
++ EF - EIP4844 - Rewards - half_full [Preset: mainnet]                                       OK
++ EF - EIP4844 - Rewards - half_full_leak [Preset: mainnet]                                  OK
++ EF - EIP4844 - Rewards - quarter_full [Preset: mainnet]                                    OK
++ EF - EIP4844 - Rewards - quarter_full_leak [Preset: mainnet]                               OK
++ EF - EIP4844 - Rewards - some_very_low_effective_balances_that_attested [Preset: mainnet]  OK
++ EF - EIP4844 - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: main OK
++ EF - EIP4844 - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: mai OK
++ EF - EIP4844 - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
++ EF - EIP4844 - Rewards - with_exited_validators [Preset: mainnet]                          OK
++ EF - EIP4844 - Rewards - with_exited_validators_leak [Preset: mainnet]                     OK
++ EF - EIP4844 - Rewards - with_not_yet_activated_validators [Preset: mainnet]               OK
++ EF - EIP4844 - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]          OK
++ EF - EIP4844 - Rewards - with_slashed_validators [Preset: mainnet]                         OK
++ EF - EIP4844 - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
 + EF - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: mainnet]           OK
 + EF - Phase 0 - Rewards - empty [Preset: mainnet]                                           OK
@@ -600,6 +634,12 @@ ConsensusSpecPreset-mainnet
 + capella_fork_random_3                                                                      OK
 + capella_fork_random_low_balances                                                           OK
 + capella_fork_random_misc_balances                                                          OK
++ eip4844_fork_random_0                                                                      OK
++ eip4844_fork_random_1                                                                      OK
++ eip4844_fork_random_2                                                                      OK
++ eip4844_fork_random_3                                                                      OK
++ eip4844_fork_random_low_balances                                                           OK
++ eip4844_fork_random_misc_balances                                                          OK
 + fork_base_state                                                                            OK
 + fork_many_next_epoch                                                                       OK
 + fork_next_epoch                                                                            OK
@@ -607,7 +647,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 596/604 Fail: 0/604 Skip: 8/604
+OK: 636/644 Fail: 0/644 Skip: 8/644
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -1612,6 +1652,126 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    Withdrawal                                                                    OK
 ```
 OK: 44/44 Fail: 0/44 Skip: 0/44
+## EF - EIP4844 - Epoch Processing - Effective balance updates [Preset: mainnet]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - EIP4844 - Epoch Processing - Eth1 data reset [Preset: mainnet]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: mainnet]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## EF - EIP4844 - Epoch Processing - Historical roots update [Preset: mainnet]
+```diff
++ Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - EIP4844 - Epoch Processing - Inactivity [Preset: mainnet]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: mainnet]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: mainnet]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: mainnet]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: mainnet]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: mainnet]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: mainnet]     OK
++ Inactivity - genesis [Preset: mainnet]                                                     OK
++ Inactivity - genesis_random_scores [Preset: mainnet]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: mainnet]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: mainnet]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: mainnet]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: mainnet]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: mainnet]       OK
++ Inactivity - some_exited_full_random_leaking [Preset: mainnet]                             OK
++ Inactivity - some_slashed_full_random [Preset: mainnet]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: mainnet]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: mainnet]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: mainnet]         OK
+```
+OK: 19/19 Fail: 0/19 Skip: 0/19
+## EF - EIP4844 - Epoch Processing - Justification & Finalization [Preset: mainnet]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 123_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 12_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: mainnet]               OK
++ Justification & Finalization - 12_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - 234_ok_support [Preset: mainnet]                            OK
++ Justification & Finalization - 234_poor_support [Preset: mainnet]                          OK
++ Justification & Finalization - 23_ok_support [Preset: mainnet]                             OK
++ Justification & Finalization - 23_poor_support [Preset: mainnet]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: mainnet]  OK
+```
+OK: 10/10 Fail: 0/10 Skip: 0/10
+## EF - EIP4844 - Epoch Processing - Participation flag updates [Preset: mainnet]
+```diff
++ Participation flag updates - all_zeroed [Preset: mainnet]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: mainnet]                        OK
++ Participation flag updates - current_filled [Preset: mainnet]                              OK
++ Participation flag updates - filled [Preset: mainnet]                                      OK
++ Participation flag updates - previous_epoch_zeroed [Preset: mainnet]                       OK
++ Participation flag updates - previous_filled [Preset: mainnet]                             OK
++ Participation flag updates - random_0 [Preset: mainnet]                                    OK
++ Participation flag updates - random_1 [Preset: mainnet]                                    OK
++ Participation flag updates - random_2 [Preset: mainnet]                                    OK
++ Participation flag updates - random_genesis [Preset: mainnet]                              OK
+```
+OK: 10/10 Fail: 0/10 Skip: 0/10
+## EF - EIP4844 - Epoch Processing - RANDAO mixes reset [Preset: mainnet]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: mainnet]                                OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - EIP4844 - Epoch Processing - Registry updates [Preset: mainnet]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: mainnet]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: mainnet] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: mainnet]                       OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: mainnet]            OK
++ Registry updates - activation_queue_sorting [Preset: mainnet]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: mainnet]            OK
++ Registry updates - add_to_activation_queue [Preset: mainnet]                               OK
++ Registry updates - ejection [Preset: mainnet]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: mainnet]                         OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: mainnet]                      OK
+```
+OK: 11/11 Fail: 0/11 Skip: 0/11
+## EF - EIP4844 - Epoch Processing - Rewards and penalties [Preset: mainnet]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: mainnet]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: mainnet]              OK
++ Rewards and penalties - almost_full_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: mainnet]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: mainnet]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: mainnet]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: mainnet]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: mainnet]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: mainnet]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: mainnet]          OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: mainnet]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: mainnet]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: mainnet]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: mainnet]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: mainnet]               OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
+## EF - EIP4844 - Epoch Processing - Slashings [Preset: mainnet]
+```diff
++ Slashings - low_penalty [Preset: mainnet]                                                  OK
++ Slashings - max_penalties [Preset: mainnet]                                                OK
++ Slashings - minimal_penalty [Preset: mainnet]                                              OK
++ Slashings - scaled_penalties [Preset: mainnet]                                             OK
++ Slashings - slashings_with_random_state [Preset: mainnet]                                  OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
+## EF - EIP4844 - Epoch Processing - Slashings reset [Preset: mainnet]
+```diff
++ Slashings reset - flush_slashings [Preset: mainnet]                                        OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - EIP4844 - SSZ consensus objects  [Preset: mainnet]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -2162,4 +2322,4 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 OK: 51/51 Fail: 0/51 Skip: 0/51
 
 ---TOTAL---
-OK: 1912/1920 Fail: 0/1920 Skip: 8/1920
+OK: 2028/2036 Fail: 0/2036 Skip: 8/2036
