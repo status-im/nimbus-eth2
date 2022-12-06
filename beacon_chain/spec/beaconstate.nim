@@ -132,6 +132,8 @@ func initiate_validator_exit*(
 
   ok()
 
+from ./datatypes/eip4844 import BeaconState
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/beacon-chain.md#modified-slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/bellatrix/beacon-chain.md#modified-slash_validator
@@ -143,9 +145,8 @@ func get_slashing_penalty*(state: ForkyBeaconState,
       validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT
   elif state is altair.BeaconState:
       validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR
-  elif state is bellatrix.BeaconState:
-      validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX
-  elif state is capella.BeaconState:
+  elif state is bellatrix.BeaconState or state is capella.BeaconState or
+       state is eip4844.BeaconState:
       validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX
   else:
     {.fatal: "invalid BeaconState type".}
@@ -163,7 +164,7 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
   when state is phase0.BeaconState:
     whistleblower_reward div PROPOSER_REWARD_QUOTIENT
   elif state is altair.BeaconState or state is bellatrix.BeaconState or
-       state is capella.BeaconState:
+       state is capella.BeaconState or state is eip4844.BeaconState:
     whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
   else:
     {.fatal: "invalid BeaconState type".}
@@ -581,7 +582,8 @@ func check_attestation_index*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
-    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState,
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
+           eip4844.BeaconState,
     data: AttestationData, inclusion_delay: uint64): seq[int] =
   ## Return the flag indices that are satisfied by an attestation.
   let justified_checkpoint =
@@ -635,7 +637,8 @@ func get_base_reward_per_increment*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
-    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState,
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
+           eip4844.BeaconState,
     index: ValidatorIndex, base_reward_per_increment: Gwei): Gwei =
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
@@ -747,7 +750,7 @@ proc process_attestation*(
     else:
       addPendingAttestation(state.previous_epoch_attestations)
   elif state is altair.BeaconState or state is bellatrix.BeaconState or
-       state is capella.BeaconState:
+       state is capella.BeaconState or state is eip4844.BeaconState:
     doAssert base_reward_per_increment > 0.Gwei
     if attestation.data.target.epoch == get_current_epoch(state):
       updateParticipationFlags(state.current_epoch_participation)
@@ -1069,7 +1072,8 @@ func latest_block_root*(state: ForkedHashedBeaconState): Eth2Digest =
   withState(state): latest_block_root(forkyState)
 
 func get_sync_committee_cache*(
-    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState,
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
+           eip4844.BeaconState,
     cache: var StateCache): SyncCommitteeCache =
   let period = state.slot.sync_committee_period()
 

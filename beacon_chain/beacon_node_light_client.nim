@@ -151,7 +151,7 @@ proc updateLightClientFromDag*(node: BeaconNode) =
       return
     header = bdata.toBeaconBlockHeader
     current_sync_committee = block:
-      var tmpState = assignClone(node.dag.headState)
+      let tmpState = assignClone(node.dag.headState)
       node.dag.currentSyncCommitteeForPeriod(tmpState[], dagPeriod).valueOr:
         return
   node.lightClient.resetToFinalizedHeader(header, current_sync_committee)

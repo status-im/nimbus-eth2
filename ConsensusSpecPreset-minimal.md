@@ -763,6 +763,30 @@ OK: 677/685 Fail: 0/685 Skip: 8/685
 + [Invalid] EF - Capella - Operations - Attestation - wrong_index_for_committee_signature    OK
 + [Invalid] EF - Capella - Operations - Attestation - wrong_index_for_slot_0                 OK
 + [Invalid] EF - Capella - Operations - Attestation - wrong_index_for_slot_1                 OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - after_epoch_slots                      OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - bad_source_root                        OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - before_inclusion_delay                 OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - correct_after_epoch_delay              OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - empty_participants_seemingly_valid_sig OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - empty_participants_zeroes_sig          OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - future_target_epoch                    OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - incorrect_head_after_epoch_delay       OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - incorrect_head_and_target_after_epoch_ OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - incorrect_target_after_epoch_delay     OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - invalid_attestation_signature          OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - invalid_current_source_root            OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - invalid_index                          OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - invalid_previous_source_root           OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - mismatched_target_and_slot             OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - new_source_epoch                       OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - old_source_epoch                       OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - old_target_epoch                       OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - source_root_is_target_root             OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - too_few_aggregation_bits               OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - too_many_aggregation_bits              OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - wrong_index_for_committee_signature    OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - wrong_index_for_slot_0                 OK
++ [Invalid] EF - EIP4844 - Operations - Attestation - wrong_index_for_slot_1                 OK
 + [Invalid] EF - Phase 0 - Operations - Attestation - after_epoch_slots                      OK
 + [Invalid] EF - Phase 0 - Operations - Attestation - bad_source_root                        OK
 + [Invalid] EF - Phase 0 - Operations - Attestation - before_inclusion_delay                 OK
@@ -832,6 +856,21 @@ OK: 677/685 Fail: 0/685 Skip: 8/685
 + [Valid]   EF - Capella - Operations - Attestation - success                                OK
 + [Valid]   EF - Capella - Operations - Attestation - success_multi_proposer_index_iteration OK
 + [Valid]   EF - Capella - Operations - Attestation - success_previous_epoch                 OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - correct_epoch_delay                    OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - correct_min_inclusion_delay            OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - correct_sqrt_epoch_delay               OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - incorrect_head_and_target_epoch_delay  OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - incorrect_head_and_target_min_inclusio OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - incorrect_head_and_target_sqrt_epoch_d OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - incorrect_head_epoch_delay             OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - incorrect_head_min_inclusion_delay     OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - incorrect_head_sqrt_epoch_delay        OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - incorrect_target_epoch_delay           OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - incorrect_target_min_inclusion_delay   OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - incorrect_target_sqrt_epoch_delay      OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - success                                OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - success_multi_proposer_index_iteration OK
++ [Valid]   EF - EIP4844 - Operations - Attestation - success_previous_epoch                 OK
 + [Valid]   EF - Phase 0 - Operations - Attestation - correct_epoch_delay                    OK
 + [Valid]   EF - Phase 0 - Operations - Attestation - correct_min_inclusion_delay            OK
 + [Valid]   EF - Phase 0 - Operations - Attestation - correct_sqrt_epoch_delay               OK
@@ -848,7 +887,7 @@ OK: 677/685 Fail: 0/685 Skip: 8/685
 + [Valid]   EF - Phase 0 - Operations - Attestation - success_multi_proposer_index_iteration OK
 + [Valid]   EF - Phase 0 - Operations - Attestation - success_previous_epoch                 OK
 ```
-OK: 156/156 Fail: 0/156 Skip: 0/156
+OK: 195/195 Fail: 0/195 Skip: 0/195
 ## Attester Slashing
 ```diff
 + [Invalid] EF - Altair - Operations - Attester Slashing - all_empty_indices                 OK
@@ -914,6 +953,27 @@ OK: 156/156 Fail: 0/156 Skip: 0/156
 + [Invalid] EF - Capella - Operations - Attester Slashing - same_data                        OK
 + [Invalid] EF - Capella - Operations - Attester Slashing - unsorted_att_1                   OK
 + [Invalid] EF - Capella - Operations - Attester Slashing - unsorted_att_2                   OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - all_empty_indices                OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - att1_bad_extra_index             OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - att1_bad_replaced_index          OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - att1_duplicate_index_double_sign OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - att1_duplicate_index_normal_sign OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - att1_empty_indices               OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - att1_high_index                  OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - att2_bad_extra_index             OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - att2_bad_replaced_index          OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - att2_duplicate_index_double_sign OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - att2_duplicate_index_normal_sign OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - att2_empty_indices               OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - att2_high_index                  OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - invalid_sig_1                    OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - invalid_sig_1_and_2              OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - invalid_sig_2                    OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - no_double_or_surround            OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - participants_already_slashed     OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - same_data                        OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - unsorted_att_1                   OK
++ [Invalid] EF - EIP4844 - Operations - Attester Slashing - unsorted_att_2                   OK
 + [Invalid] EF - Phase 0 - Operations - Attester Slashing - all_empty_indices                OK
 + [Invalid] EF - Phase 0 - Operations - Attester Slashing - att1_bad_extra_index             OK
 + [Invalid] EF - Phase 0 - Operations - Attester Slashing - att1_bad_replaced_index          OK
@@ -962,6 +1022,15 @@ OK: 156/156 Fail: 0/156 Skip: 0/156
 + [Valid]   EF - Capella - Operations - Attester Slashing - success_proposer_index_slashed   OK
 + [Valid]   EF - Capella - Operations - Attester Slashing - success_surround                 OK
 + [Valid]   EF - Capella - Operations - Attester Slashing - success_with_effective_balance_d OK
++ [Valid]   EF - EIP4844 - Operations - Attester Slashing - success_already_exited_long_ago  OK
++ [Valid]   EF - EIP4844 - Operations - Attester Slashing - success_already_exited_recent    OK
++ [Valid]   EF - EIP4844 - Operations - Attester Slashing - success_attestation_from_future  OK
++ [Valid]   EF - EIP4844 - Operations - Attester Slashing - success_double                   OK
++ [Valid]   EF - EIP4844 - Operations - Attester Slashing - success_low_balances             OK
++ [Valid]   EF - EIP4844 - Operations - Attester Slashing - success_misc_balances            OK
++ [Valid]   EF - EIP4844 - Operations - Attester Slashing - success_proposer_index_slashed   OK
++ [Valid]   EF - EIP4844 - Operations - Attester Slashing - success_surround                 OK
++ [Valid]   EF - EIP4844 - Operations - Attester Slashing - success_with_effective_balance_d OK
 + [Valid]   EF - Phase 0 - Operations - Attester Slashing - success_already_exited_long_ago  OK
 + [Valid]   EF - Phase 0 - Operations - Attester Slashing - success_already_exited_recent    OK
 + [Valid]   EF - Phase 0 - Operations - Attester Slashing - success_attestation_from_future  OK
@@ -972,7 +1041,7 @@ OK: 156/156 Fail: 0/156 Skip: 0/156
 + [Valid]   EF - Phase 0 - Operations - Attester Slashing - success_surround                 OK
 + [Valid]   EF - Phase 0 - Operations - Attester Slashing - success_with_effective_balance_d OK
 ```
-OK: 120/120 Fail: 0/120 Skip: 0/120
+OK: 150/150 Fail: 0/150 Skip: 0/150
 ## BLS to execution change
 ```diff
 + [Invalid] EF - Capella - Operations - BLS to execution change - fail_already_0x01          OK
@@ -985,8 +1054,9 @@ OK: 120/120 Fail: 0/120 Skip: 0/120
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_in_exit_queue      OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_not_activated      OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_withdrawable       OK
++ [Valid]   EF - EIP4844 - Operations - BLS to execution change - no_op                      OK
 ```
-OK: 10/10 Fail: 0/10 Skip: 0/10
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Block Header
 ```diff
 + [Invalid] EF - Altair - Operations - Block Header - invalid_multiple_blocks_single_slot    OK
@@ -1004,6 +1074,11 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + [Invalid] EF - Capella - Operations - Block Header - invalid_proposer_index                OK
 + [Invalid] EF - Capella - Operations - Block Header - invalid_slot_block_header             OK
 + [Invalid] EF - Capella - Operations - Block Header - proposer_slashed                      OK
++ [Invalid] EF - EIP4844 - Operations - Block Header - invalid_multiple_blocks_single_slot   OK
++ [Invalid] EF - EIP4844 - Operations - Block Header - invalid_parent_root                   OK
++ [Invalid] EF - EIP4844 - Operations - Block Header - invalid_proposer_index                OK
++ [Invalid] EF - EIP4844 - Operations - Block Header - invalid_slot_block_header             OK
++ [Invalid] EF - EIP4844 - Operations - Block Header - proposer_slashed                      OK
 + [Invalid] EF - Phase 0 - Operations - Block Header - invalid_multiple_blocks_single_slot   OK
 + [Invalid] EF - Phase 0 - Operations - Block Header - invalid_parent_root                   OK
 + [Invalid] EF - Phase 0 - Operations - Block Header - invalid_proposer_index                OK
@@ -1012,9 +1087,10 @@ OK: 10/10 Fail: 0/10 Skip: 0/10
 + [Valid]   EF - Altair - Operations - Block Header - success_block_header                   OK
 + [Valid]   EF - Bellatrix - Operations - Block Header - success_block_header                OK
 + [Valid]   EF - Capella - Operations - Block Header - success_block_header                  OK
++ [Valid]   EF - EIP4844 - Operations - Block Header - success_block_header                  OK
 + [Valid]   EF - Phase 0 - Operations - Block Header - success_block_header                  OK
 ```
-OK: 24/24 Fail: 0/24 Skip: 0/24
+OK: 30/30 Fail: 0/30 Skip: 0/30
 ## Deposit
 ```diff
 + [Invalid] EF - Altair - Operations - Deposit - bad_merkle_proof                            OK
@@ -1023,6 +1099,8 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Invalid] EF - Bellatrix - Operations - Deposit - wrong_deposit_for_deposit_count          OK
 + [Invalid] EF - Capella - Operations - Deposit - bad_merkle_proof                           OK
 + [Invalid] EF - Capella - Operations - Deposit - wrong_deposit_for_deposit_count            OK
++ [Invalid] EF - EIP4844 - Operations - Deposit - bad_merkle_proof                           OK
++ [Invalid] EF - EIP4844 - Operations - Deposit - wrong_deposit_for_deposit_count            OK
 + [Invalid] EF - Phase 0 - Operations - Deposit - bad_merkle_proof                           OK
 + [Invalid] EF - Phase 0 - Operations - Deposit - wrong_deposit_for_deposit_count            OK
 + [Valid]   EF - Altair - Operations - Deposit - invalid_sig_new_deposit                     OK
@@ -1077,6 +1155,24 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Valid]   EF - Capella - Operations - Deposit - success_top_up__zero_balance               OK
 + [Valid]   EF - Capella - Operations - Deposit - success_top_up_to_withdrawn_validator      OK
 + [Valid]   EF - Capella - Operations - Deposit - valid_sig_but_forked_state                 OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - deposit_with_bad_fork_version__valid_ineff OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - deposit_with_genesis_fork_version__valid_e OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - deposit_with_previous_fork_version__valid_ OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - invalid_sig_new_deposit                    OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - invalid_sig_other_version                  OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - invalid_sig_top_up                         OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - invalid_withdrawal_credentials_top_up      OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - key_validate_invalid_decompression         OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - key_validate_invalid_subgroup              OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - new_deposit_eth1_withdrawal_credentials    OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - new_deposit_max                            OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - new_deposit_non_versioned_withdrawal_crede OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - new_deposit_over_max                       OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - new_deposit_under_max                      OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - success_top_up__less_effective_balance     OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - success_top_up__max_effective_balance      OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - success_top_up__zero_balance               OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - valid_sig_but_forked_state                 OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_sig_new_deposit                    OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_sig_other_version                  OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - invalid_sig_top_up                         OK
@@ -1093,7 +1189,7 @@ OK: 24/24 Fail: 0/24 Skip: 0/24
 + [Valid]   EF - Phase 0 - Operations - Deposit - success_top_up__zero_balance               OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - valid_sig_but_forked_state                 OK
 ```
-OK: 75/75 Fail: 0/75 Skip: 0/75
+OK: 95/95 Fail: 0/95 Skip: 0/95
 ## EF - Altair - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1847,6 +1943,19 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Invalid] EF - Capella - Operations - Execution Payload - past_timestamp_regular_payload   OK
 + [Invalid] EF - Capella - Operations - Execution Payload - randomized_non_validated_executi OK
 + [Invalid] EF - Capella - Operations - Execution Payload - randomized_non_validated_executi OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - bad_everything_first_payload     OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - bad_everything_regular_payload   OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - bad_execution_first_payload      OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - bad_execution_regular_payload    OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - bad_parent_hash_regular_payload  OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - bad_pre_randao_regular_payload   OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - bad_prev_randao_first_payload    OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - future_timestamp_first_payload   OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - future_timestamp_regular_payload OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - past_timestamp_first_payload     OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - past_timestamp_regular_payload   OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - randomized_non_validated_executi OK
++ [Invalid] EF - EIP4844 - Operations - Execution Payload - randomized_non_validated_executi OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - bad_parent_hash_first_payload  OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - non_empty_extra_data_first_pay OK
 + [Valid]   EF - Bellatrix - Operations - Execution Payload - non_empty_extra_data_regular_p OK
@@ -1873,8 +1982,21 @@ OK: 27/27 Fail: 0/27 Skip: 0/27
 + [Valid]   EF - Capella - Operations - Execution Payload - success_regular_payload_with_gap OK
 + [Valid]   EF - Capella - Operations - Execution Payload - zero_length_transaction_first_pa OK
 + [Valid]   EF - Capella - Operations - Execution Payload - zero_length_transaction_regular_ OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - bad_parent_hash_first_payload    OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - non_empty_extra_data_first_paylo OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - non_empty_extra_data_regular_pay OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - non_empty_transactions_first_pay OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - non_empty_transactions_regular_p OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - randomized_non_validated_executi OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - randomized_non_validated_executi OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - success_first_payload            OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - success_first_payload_with_gap_s OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - success_regular_payload          OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - success_regular_payload_with_gap OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - zero_length_transaction_first_pa OK
++ [Valid]   EF - EIP4844 - Operations - Execution Payload - zero_length_transaction_regular_ OK
 ```
-OK: 52/52 Fail: 0/52 Skip: 0/52
+OK: 78/78 Fail: 0/78 Skip: 0/78
 ## Proposer Slashing
 ```diff
 + [Invalid] EF - Altair - Operations - Proposer Slashing - epochs_are_different              OK
@@ -1913,6 +2035,18 @@ OK: 52/52 Fail: 0/52 Skip: 0/52
 + [Invalid] EF - Capella - Operations - Proposer Slashing - proposer_is_not_activated        OK
 + [Invalid] EF - Capella - Operations - Proposer Slashing - proposer_is_slashed              OK
 + [Invalid] EF - Capella - Operations - Proposer Slashing - proposer_is_withdrawn            OK
++ [Invalid] EF - EIP4844 - Operations - Proposer Slashing - epochs_are_different             OK
++ [Invalid] EF - EIP4844 - Operations - Proposer Slashing - headers_are_same_sigs_are_differ OK
++ [Invalid] EF - EIP4844 - Operations - Proposer Slashing - headers_are_same_sigs_are_same   OK
++ [Invalid] EF - EIP4844 - Operations - Proposer Slashing - invalid_different_proposer_indic OK
++ [Invalid] EF - EIP4844 - Operations - Proposer Slashing - invalid_proposer_index           OK
++ [Invalid] EF - EIP4844 - Operations - Proposer Slashing - invalid_sig_1                    OK
++ [Invalid] EF - EIP4844 - Operations - Proposer Slashing - invalid_sig_1_and_2              OK
++ [Invalid] EF - EIP4844 - Operations - Proposer Slashing - invalid_sig_1_and_2_swap         OK
++ [Invalid] EF - EIP4844 - Operations - Proposer Slashing - invalid_sig_2                    OK
++ [Invalid] EF - EIP4844 - Operations - Proposer Slashing - proposer_is_not_activated        OK
++ [Invalid] EF - EIP4844 - Operations - Proposer Slashing - proposer_is_slashed              OK
++ [Invalid] EF - EIP4844 - Operations - Proposer Slashing - proposer_is_withdrawn            OK
 + [Invalid] EF - Phase 0 - Operations - Proposer Slashing - epochs_are_different             OK
 + [Invalid] EF - Phase 0 - Operations - Proposer Slashing - headers_are_same_sigs_are_differ OK
 + [Invalid] EF - Phase 0 - Operations - Proposer Slashing - headers_are_same_sigs_are_same   OK
@@ -1934,11 +2068,14 @@ OK: 52/52 Fail: 0/52 Skip: 0/52
 + [Valid]   EF - Capella - Operations - Proposer Slashing - success                          OK
 + [Valid]   EF - Capella - Operations - Proposer Slashing - success_block_header_from_future OK
 + [Valid]   EF - Capella - Operations - Proposer Slashing - success_slashed_and_proposer_ind OK
++ [Valid]   EF - EIP4844 - Operations - Proposer Slashing - success                          OK
++ [Valid]   EF - EIP4844 - Operations - Proposer Slashing - success_block_header_from_future OK
++ [Valid]   EF - EIP4844 - Operations - Proposer Slashing - success_slashed_and_proposer_ind OK
 + [Valid]   EF - Phase 0 - Operations - Proposer Slashing - success                          OK
 + [Valid]   EF - Phase 0 - Operations - Proposer Slashing - success_block_header_from_future OK
 + [Valid]   EF - Phase 0 - Operations - Proposer Slashing - success_slashed_and_proposer_ind OK
 ```
-OK: 60/60 Fail: 0/60 Skip: 0/60
+OK: 75/75 Fail: 0/75 Skip: 0/75
 ## Sync Aggregate
 ```diff
 + [Invalid] EF - Altair - Operations - Sync Aggregate - invalid_signature_bad_domain         OK
@@ -1965,6 +2102,14 @@ OK: 60/60 Fail: 0/60 Skip: 0/60
 + [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_no_participants   OK
 + [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_past_block        OK
 + [Invalid] EF - Capella - Operations - Sync Aggregate - invalid_signature_previous_committe OK
++ [Invalid] EF - EIP4844 - Operations - Sync Aggregate - invalid_signature_bad_domain        OK
++ [Invalid] EF - EIP4844 - Operations - Sync Aggregate - invalid_signature_extra_participant OK
++ [Invalid] EF - EIP4844 - Operations - Sync Aggregate - invalid_signature_infinite_signatur OK
++ [Invalid] EF - EIP4844 - Operations - Sync Aggregate - invalid_signature_infinite_signatur OK
++ [Invalid] EF - EIP4844 - Operations - Sync Aggregate - invalid_signature_missing_participa OK
++ [Invalid] EF - EIP4844 - Operations - Sync Aggregate - invalid_signature_no_participants   OK
++ [Invalid] EF - EIP4844 - Operations - Sync Aggregate - invalid_signature_past_block        OK
++ [Invalid] EF - EIP4844 - Operations - Sync Aggregate - invalid_signature_previous_committe OK
 + [Valid]   EF - Altair - Operations - Sync Aggregate - proposer_in_committee_with_participa OK
 + [Valid]   EF - Altair - Operations - Sync Aggregate - proposer_in_committee_without_partic OK
 + [Valid]   EF - Altair - Operations - Sync Aggregate - random_all_but_one_participating_wit OK
@@ -2013,8 +2158,24 @@ OK: 60/60 Fail: 0/60 Skip: 0/60
 + [Valid]   EF - Capella - Operations - Sync Aggregate - sync_committee_with_participating_e OK
 + [Valid]   EF - Capella - Operations - Sync Aggregate - sync_committee_with_participating_w OK
 + [Valid]   EF - Capella - Operations - Sync Aggregate - valid_signature_future_committee    OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - proposer_in_committee_with_particip OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - proposer_in_committee_without_parti OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - random_all_but_one_participating_wi OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - random_high_participation_without_d OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - random_low_participation_without_du OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - random_misc_balances_and_half_parti OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - random_only_one_participant_without OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - random_with_exits_without_duplicate OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - sync_committee_rewards_empty_partic OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - sync_committee_rewards_nonduplicate OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - sync_committee_rewards_not_full_par OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - sync_committee_with_nonparticipatin OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - sync_committee_with_nonparticipatin OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - sync_committee_with_participating_e OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - sync_committee_with_participating_w OK
++ [Valid]   EF - EIP4844 - Operations - Sync Aggregate - valid_signature_future_committee    OK
 ```
-OK: 72/72 Fail: 0/72 Skip: 0/72
+OK: 96/96 Fail: 0/96 Skip: 0/96
 ## Voluntary Exit
 ```diff
 + [Invalid] EF - Altair - Operations - Voluntary Exit - invalid_signature                    OK
@@ -2043,6 +2204,16 @@ OK: 72/72 Fail: 0/72 Skip: 0/72
 + [Invalid] EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_genesis_fork_ve OK
 + [Invalid] EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_genesis_fork_ve OK
 + [Invalid] EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
++ [Invalid] EF - EIP4844 - Operations - Voluntary Exit - invalid_signature                   OK
++ [Invalid] EF - EIP4844 - Operations - Voluntary Exit - validator_already_exited            OK
++ [Invalid] EF - EIP4844 - Operations - Voluntary Exit - validator_exit_in_future            OK
++ [Invalid] EF - EIP4844 - Operations - Voluntary Exit - validator_invalid_validator_index   OK
++ [Invalid] EF - EIP4844 - Operations - Voluntary Exit - validator_not_active                OK
++ [Invalid] EF - EIP4844 - Operations - Voluntary Exit - validator_not_active_long_enough    OK
++ [Invalid] EF - EIP4844 - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ve OK
++ [Invalid] EF - EIP4844 - Operations - Voluntary Exit - voluntary_exit_with_genesis_fork_ve OK
++ [Invalid] EF - EIP4844 - Operations - Voluntary Exit - voluntary_exit_with_genesis_fork_ve OK
++ [Invalid] EF - EIP4844 - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
 + [Invalid] EF - Phase 0 - Operations - Voluntary Exit - invalid_signature                   OK
 + [Invalid] EF - Phase 0 - Operations - Voluntary Exit - validator_already_exited            OK
 + [Invalid] EF - Phase 0 - Operations - Voluntary Exit - validator_exit_in_future            OK
@@ -2065,12 +2236,18 @@ OK: 72/72 Fail: 0/72 Skip: 0/72
 + [Valid]   EF - Capella - Operations - Voluntary Exit - success_exit_queue__scaled_churn    OK
 + [Valid]   EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ve OK
 + [Valid]   EF - Capella - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
++ [Valid]   EF - EIP4844 - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit  OK
++ [Valid]   EF - EIP4844 - Operations - Voluntary Exit - success                             OK
++ [Valid]   EF - EIP4844 - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
++ [Valid]   EF - EIP4844 - Operations - Voluntary Exit - success_exit_queue__scaled_churn    OK
++ [Valid]   EF - EIP4844 - Operations - Voluntary Exit - voluntary_exit_with_current_fork_ve OK
++ [Valid]   EF - EIP4844 - Operations - Voluntary Exit - voluntary_exit_with_previous_fork_v OK
 + [Valid]   EF - Phase 0 - Operations - Voluntary Exit - default_exit_epoch_subsequent_exit  OK
 + [Valid]   EF - Phase 0 - Operations - Voluntary Exit - success                             OK
 + [Valid]   EF - Phase 0 - Operations - Voluntary Exit - success_exit_queue__min_churn       OK
 + [Valid]   EF - Phase 0 - Operations - Voluntary Exit - success_exit_queue__scaled_churn    OK
 ```
-OK: 52/52 Fail: 0/52 Skip: 0/52
+OK: 68/68 Fail: 0/68 Skip: 0/68
 ## Withdrawals
 ```diff
 + [Invalid] EF - Capella - Operations - Withdrawals - fail_a_lot_fully_withdrawable_too_few_ OK
@@ -2124,8 +2301,9 @@ OK: 52/52 Fail: 0/52 Skip: 0/52
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_balance       OK
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - no_op                                  OK
 ```
-OK: 51/51 Fail: 0/51 Skip: 0/51
+OK: 52/52 Fail: 0/52 Skip: 0/52
 
 ---TOTAL---
-OK: 1866/1874 Fail: 0/1874 Skip: 8/1874
+OK: 2044/2052 Fail: 0/2052 Skip: 8/2052

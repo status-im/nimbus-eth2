@@ -277,6 +277,8 @@ func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
     if state.validators.asSeq[vidx].pubkey == pubkey:
       return Opt[ValidatorIndex].ok(vidx)
 
+from ./datatypes/eip4844 import BeaconState
+
 proc process_deposit*(cfg: RuntimeConfig,
                       state: var ForkyBeaconState,
                       deposit: Deposit,
@@ -315,7 +317,8 @@ proc process_deposit*(cfg: RuntimeConfig,
         static: doAssert state.balances.maxLen == state.validators.maxLen
         raiseAssert "adding validator succeeded, so should balances"
 
-      when state is altair.BeaconState or state is bellatrix.BeaconState or state is capella.BeaconState:
+      when state is altair.BeaconState or state is bellatrix.BeaconState or
+           state is capella.BeaconState or state is eip4844.BeaconState:
         if not state.previous_epoch_participation.add(ParticipationFlags(0)):
           return err("process_deposit: too many validators (previous_epoch_participation)")
         if not state.current_epoch_participation.add(ParticipationFlags(0)):
@@ -409,7 +412,6 @@ proc process_bls_to_execution_change*(
   if not (withdrawal_credentials.data[0] == BLS_WITHDRAWAL_PREFIX):
     return err("process_bls_to_execution_change: invalid withdrawal prefix")
 
-  # TODO what's usual convention here re 32 hardcoded constant?
   if not (withdrawal_credentials.data.toOpenArray(1, 31) ==
       eth2digest(address_change.from_bls_pubkey.blob).data.toOpenArray(1, 31)):
     return err("process_bls_to_execution_change: invalid withdrawal credentials")
@@ -427,6 +429,16 @@ proc process_bls_to_execution_change*(
   state.validators.mitem(address_change.validator_index).withdrawal_credentials =
     withdrawal_credentials
 
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#disabling-withdrawals
+proc process_bls_to_execution_change*(
+    state: var eip4844.BeaconState,
+    signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
+  # During testing we avoid Capella-specific updates to the state transition.
+  # We do this by replacing the following functions with a no-op
+  # implementation:
+  # `process_bls_to_execution_change`
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#operations
@@ -481,7 +493,8 @@ func get_proposer_reward*(participant_reward: Gwei): Gwei =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
-    state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
+    state: var (altair.BeaconState | bellatrix.BeaconState |
+                capella.BeaconState | eip4844.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
     cache: var StateCache):
     Result[void, cstring]  =
@@ -620,6 +633,50 @@ proc process_execution_payload*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#process_execution_payload
+proc process_execution_payload*(
+    state: var eip4844.BeaconState, payload: eip4844.ExecutionPayload,
+    notify_new_payload: eip4844.ExecutePayload): Result[void, cstring] =
+  ## Verify consistency of the parent hash with respect to the previous
+  ## execution payload header
+  if is_merge_transition_complete(state):
+    if not (payload.parent_hash ==
+        state.latest_execution_payload_header.block_hash):
+      return err("process_execution_payload: payload and state parent hash mismatch")
+
+  # Verify prev_randao
+  if not (payload.prev_randao == get_randao_mix(state, get_current_epoch(state))):
+    return err("process_execution_payload: payload and state randomness mismatch")
+
+  # Verify timestamp
+  if not (payload.timestamp == compute_timestamp_at_slot(state, state.slot)):
+    return err("process_execution_payload: invalid timestamp")
+
+  # Verify the execution payload is valid
+  if not notify_new_payload(payload):
+    return err("process_execution_payload: execution payload invalid")
+
+  # Cache execution payload header
+  state.latest_execution_payload_header = eip4844.ExecutionPayloadHeader(
+    parent_hash: payload.parent_hash,
+    fee_recipient: payload.fee_recipient,
+    state_root: payload.state_root,
+    receipts_root: payload.receipts_root,
+    logs_bloom: payload.logs_bloom,
+    prev_randao: payload.prev_randao,
+    block_number: payload.block_number,
+    gas_limit: payload.gas_limit,
+    gas_used: payload.gas_used,
+    timestamp: payload.timestamp,
+    base_fee_per_gas: payload.base_fee_per_gas,
+    excess_data_gas: payload.excess_data_gas,  # [New in EIP-4844]
+    block_hash: payload.block_hash,
+    extra_data: payload.extra_data,
+    transactions_root: hash_tree_root(payload.transactions),
+    withdrawals_root: hash_tree_root(payload.withdrawals))
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#has_eth1_withdrawal_credential
 func has_eth1_withdrawal_credential(validator: Validator): bool =
   ## Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
@@ -644,7 +701,8 @@ func is_partially_withdrawable_validator(
     has_max_effective_balance and has_excess_balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-get_expected_withdrawals
-func get_expected_withdrawals(state: capella.BeaconState): seq[Withdrawal] =
+func get_expected_withdrawals(
+    state: capella.BeaconState | eip4844.BeaconState): seq[Withdrawal] =
   let epoch = get_current_epoch(state)
   var
     withdrawal_index = state.next_withdrawal_index
@@ -677,7 +735,8 @@ func get_expected_withdrawals(state: capella.BeaconState): seq[Withdrawal] =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
-    state: var capella.BeaconState, payload: capella.ExecutionPayload):
+    state: var capella.BeaconState,
+    payload: capella.ExecutionPayload):
     Result[void, cstring] =
   let expected_withdrawals = get_expected_withdrawals(state)
 
@@ -699,6 +758,17 @@ func process_withdrawals*(
       (latest_withdrawal.validator_index + 1) mod lenu64(state.validators)
     state.next_withdrawal_validator_index = next_validator_index
 
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#disabling-withdrawals
+func process_withdrawals*(
+    state: var eip4844.BeaconState,
+    payload: eip4844.ExecutionPayload):
+    Result[void, cstring] =
+  # During testing we avoid Capella-specific updates to the state transition.
+  # We do this by replacing the following functions with a no-op
+  # implementation:
+  # `process_withdrawals`
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#block-processing
