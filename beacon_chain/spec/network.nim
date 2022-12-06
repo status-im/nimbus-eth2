@@ -19,12 +19,14 @@ export base
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz_snappy"
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz_snappy"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix* = "bls_to_execution_change/ssz_snappy"
+  topicBeaconBlockAndBlobsSidecarTopicSuffix* = "beacon_block_and_blobs_sidecar/ssz_snappy"
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#configuration
   MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
@@ -69,6 +71,10 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/p2p-interface.md#topics-and-messages
+func getBeaconBlockAndBlobsSidecarTopic*(forkDigest: ForkDigest): string =
+  eth2Prefix(forkDigest) & topicBeaconBlockAndBlobsSidecarTopicSuffix
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(
     committees_per_slot: uint64, slot: Slot, committee_index: CommitteeIndex):
@@ -102,7 +108,7 @@ func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string 
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
   eth2Prefix(forkDigest) & "light_client_finality_update/ssz_snappy"
@@ -147,8 +153,8 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/p2p-interface.md#transitioning-the-gossip
 type GossipState* = set[BeaconStateFork]
 func getTargetGossipState*(
-    epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH: Epoch,
-    isBehind: bool): GossipState =
+    epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH,
+    EIP4844_FORK_EPOCH: Epoch, isBehind: bool): GossipState =
   if isBehind:
     return {}
 
@@ -157,6 +163,7 @@ func getTargetGossipState*(
 
   doAssert BELLATRIX_FORK_EPOCH >= ALTAIR_FORK_EPOCH
   doAssert CAPELLA_FORK_EPOCH >= BELLATRIX_FORK_EPOCH
+  doAssert EIP4844_FORK_EPOCH >= CAPELLA_FORK_EPOCH
 
   # https://github.com/ethereum/consensus-specs/issues/2902
   # Don't care whether ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH or
@@ -180,7 +187,11 @@ func getTargetGossipState*(
   maybeIncludeFork(
     BeaconStateFork.Bellatrix, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH)
   maybeIncludeFork(
-    BeaconStateFork.Capella,   CAPELLA_FORK_EPOCH,   FAR_FUTURE_EPOCH)
+    BeaconStateFork.Capella,   CAPELLA_FORK_EPOCH,   EIP4844_FORK_EPOCH)
+
+  discard $eip4844ImplementationMissing & ": should be BeaconStateFork.EIP4844"
+  maybeIncludeFork(
+    BeaconStateFork.Capella,   EIP4844_FORK_EPOCH,   FAR_FUTURE_EPOCH)
 
   doAssert len(targetForks) <= 2
   targetForks

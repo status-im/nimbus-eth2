@@ -701,8 +701,7 @@ func is_partially_withdrawable_validator(
     has_max_effective_balance and has_excess_balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-get_expected_withdrawals
-func get_expected_withdrawals(
-    state: capella.BeaconState | eip4844.BeaconState): seq[Withdrawal] =
+func get_expected_withdrawals(state: capella.BeaconState): seq[Withdrawal] =
   let epoch = get_current_epoch(state)
   var
     withdrawal_index = state.next_withdrawal_index
@@ -732,6 +731,16 @@ func get_expected_withdrawals(
       break
     validator_index = (validator_index + 1) mod lenu64(state.validators)
   withdrawals
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#disabling-withdrawals
+func get_expected_withdrawals(state: eip4844.BeaconState): seq[Withdrawal] =
+  # During testing we avoid Capella-specific updates to the state transition.
+  #
+  # ...
+  #
+  # The `get_expected_withdrawals` function is also modified to return an empty
+  # withdrawals list.
+  @[]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
@@ -820,7 +829,7 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.2.0/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/bellatrix/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock

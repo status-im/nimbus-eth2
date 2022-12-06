@@ -179,6 +179,40 @@ ConsensusSpecPreset-minimal
 + EF - Capella - Transition - transition_with_random_three_quarters_participation [Preset: m OK
 + EF - Capella - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minim OK
 + EF - Capella - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
++ EF - EIP4844 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
++ EF - EIP4844 - Rewards - empty [Preset: minimal]                                           OK
++ EF - EIP4844 - Rewards - empty_leak [Preset: minimal]                                      OK
++ EF - EIP4844 - Rewards - full_all_correct [Preset: minimal]                                OK
++ EF - EIP4844 - Rewards - full_but_partial_participation [Preset: minimal]                  OK
++ EF - EIP4844 - Rewards - full_but_partial_participation_leak [Preset: minimal]             OK
++ EF - EIP4844 - Rewards - full_leak [Preset: minimal]                                       OK
++ EF - EIP4844 - Rewards - full_random_0 [Preset: minimal]                                   OK
++ EF - EIP4844 - Rewards - full_random_1 [Preset: minimal]                                   OK
++ EF - EIP4844 - Rewards - full_random_2 [Preset: minimal]                                   OK
++ EF - EIP4844 - Rewards - full_random_3 [Preset: minimal]                                   OK
++ EF - EIP4844 - Rewards - full_random_4 [Preset: minimal]                                   OK
++ EF - EIP4844 - Rewards - full_random_leak [Preset: minimal]                                OK
++ EF - EIP4844 - Rewards - full_random_low_balances_0 [Preset: minimal]                      OK
++ EF - EIP4844 - Rewards - full_random_low_balances_1 [Preset: minimal]                      OK
++ EF - EIP4844 - Rewards - full_random_misc_balances [Preset: minimal]                       OK
++ EF - EIP4844 - Rewards - full_random_seven_epoch_leak [Preset: minimal]                    OK
++ EF - EIP4844 - Rewards - full_random_ten_epoch_leak [Preset: minimal]                      OK
++ EF - EIP4844 - Rewards - full_random_without_leak_0 [Preset: minimal]                      OK
++ EF - EIP4844 - Rewards - full_random_without_leak_and_current_exit_0 [Preset: minimal]     OK
++ EF - EIP4844 - Rewards - half_full [Preset: minimal]                                       OK
++ EF - EIP4844 - Rewards - half_full_leak [Preset: minimal]                                  OK
++ EF - EIP4844 - Rewards - quarter_full [Preset: minimal]                                    OK
++ EF - EIP4844 - Rewards - quarter_full_leak [Preset: minimal]                               OK
++ EF - EIP4844 - Rewards - some_very_low_effective_balances_that_attested [Preset: minimal]  OK
++ EF - EIP4844 - Rewards - some_very_low_effective_balances_that_attested_leak [Preset: mini OK
++ EF - EIP4844 - Rewards - some_very_low_effective_balances_that_did_not_attest [Preset: min OK
++ EF - EIP4844 - Rewards - some_very_low_effective_balances_that_did_not_attest_leak [Preset OK
++ EF - EIP4844 - Rewards - with_exited_validators [Preset: minimal]                          OK
++ EF - EIP4844 - Rewards - with_exited_validators_leak [Preset: minimal]                     OK
++ EF - EIP4844 - Rewards - with_not_yet_activated_validators [Preset: minimal]               OK
++ EF - EIP4844 - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
++ EF - EIP4844 - Rewards - with_slashed_validators [Preset: minimal]                         OK
++ EF - EIP4844 - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
 + EF - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: minimal]           OK
 + EF - Phase 0 - Rewards - empty [Preset: minimal]                                           OK
@@ -680,6 +714,13 @@ ConsensusSpecPreset-minimal
 + capella_fork_random_large_validator_set                                                    OK
 + capella_fork_random_low_balances                                                           OK
 + capella_fork_random_misc_balances                                                          OK
++ eip4844_fork_random_0                                                                      OK
++ eip4844_fork_random_1                                                                      OK
++ eip4844_fork_random_2                                                                      OK
++ eip4844_fork_random_3                                                                      OK
++ eip4844_fork_random_large_validator_set                                                    OK
++ eip4844_fork_random_low_balances                                                           OK
++ eip4844_fork_random_misc_balances                                                          OK
 + fork_base_state                                                                            OK
 + fork_many_next_epoch                                                                       OK
 + fork_next_epoch                                                                            OK
@@ -688,7 +729,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 677/685 Fail: 0/685 Skip: 8/685
+OK: 718/726 Fail: 0/726 Skip: 8/726
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -1738,6 +1779,141 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    Withdrawal                                                                    OK
 ```
 OK: 44/44 Fail: 0/44 Skip: 0/44
+## EF - EIP4844 - Epoch Processing - Effective balance updates [Preset: minimal]
+```diff
++ Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - EIP4844 - Epoch Processing - Eth1 data reset [Preset: minimal]
+```diff
++ Eth1 data reset - eth1_vote_no_reset [Preset: minimal]                                     OK
++ Eth1 data reset - eth1_vote_reset [Preset: minimal]                                        OK
+```
+OK: 2/2 Fail: 0/2 Skip: 0/2
+## EF - EIP4844 - Epoch Processing - Historical roots update [Preset: minimal]
+```diff
++ Historical roots update - historical_root_accumulator [Preset: minimal]                    OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - EIP4844 - Epoch Processing - Inactivity [Preset: minimal]
+```diff
++ Inactivity - all_zero_inactivity_scores_empty_participation [Preset: minimal]              OK
++ Inactivity - all_zero_inactivity_scores_empty_participation_leaking [Preset: minimal]      OK
++ Inactivity - all_zero_inactivity_scores_full_participation [Preset: minimal]               OK
++ Inactivity - all_zero_inactivity_scores_full_participation_leaking [Preset: minimal]       OK
++ Inactivity - all_zero_inactivity_scores_random_participation [Preset: minimal]             OK
++ Inactivity - all_zero_inactivity_scores_random_participation_leaking [Preset: minimal]     OK
++ Inactivity - genesis [Preset: minimal]                                                     OK
++ Inactivity - genesis_random_scores [Preset: minimal]                                       OK
++ Inactivity - random_inactivity_scores_empty_participation [Preset: minimal]                OK
++ Inactivity - random_inactivity_scores_empty_participation_leaking [Preset: minimal]        OK
++ Inactivity - random_inactivity_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - random_inactivity_scores_full_participation_leaking [Preset: minimal]         OK
++ Inactivity - random_inactivity_scores_random_participation [Preset: minimal]               OK
++ Inactivity - random_inactivity_scores_random_participation_leaking [Preset: minimal]       OK
++ Inactivity - some_exited_full_random_leaking [Preset: minimal]                             OK
++ Inactivity - some_slashed_full_random [Preset: minimal]                                    OK
++ Inactivity - some_slashed_full_random_leaking [Preset: minimal]                            OK
++ Inactivity - some_slashed_zero_scores_full_participation [Preset: minimal]                 OK
++ Inactivity - some_slashed_zero_scores_full_participation_leaking [Preset: minimal]         OK
+```
+OK: 19/19 Fail: 0/19 Skip: 0/19
+## EF - EIP4844 - Epoch Processing - Justification & Finalization [Preset: minimal]
+```diff
++ Justification & Finalization - 123_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 123_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 12_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 12_ok_support_messed_target [Preset: minimal]               OK
++ Justification & Finalization - 12_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - 234_ok_support [Preset: minimal]                            OK
++ Justification & Finalization - 234_poor_support [Preset: minimal]                          OK
++ Justification & Finalization - 23_ok_support [Preset: minimal]                             OK
++ Justification & Finalization - 23_poor_support [Preset: minimal]                           OK
++ Justification & Finalization - balance_threshold_with_exited_validators [Preset: minimal]  OK
+```
+OK: 10/10 Fail: 0/10 Skip: 0/10
+## EF - EIP4844 - Epoch Processing - Participation flag updates [Preset: minimal]
+```diff
++ Participation flag updates - all_zeroed [Preset: minimal]                                  OK
++ Participation flag updates - current_epoch_zeroed [Preset: minimal]                        OK
++ Participation flag updates - current_filled [Preset: minimal]                              OK
++ Participation flag updates - filled [Preset: minimal]                                      OK
++ Participation flag updates - large_random [Preset: minimal]                                OK
++ Participation flag updates - previous_epoch_zeroed [Preset: minimal]                       OK
++ Participation flag updates - previous_filled [Preset: minimal]                             OK
++ Participation flag updates - random_0 [Preset: minimal]                                    OK
++ Participation flag updates - random_1 [Preset: minimal]                                    OK
++ Participation flag updates - random_2 [Preset: minimal]                                    OK
++ Participation flag updates - random_genesis [Preset: minimal]                              OK
++ Participation flag updates - slightly_larger_random [Preset: minimal]                      OK
+```
+OK: 12/12 Fail: 0/12 Skip: 0/12
+## EF - EIP4844 - Epoch Processing - RANDAO mixes reset [Preset: minimal]
+```diff
++ RANDAO mixes reset - updated_randao_mixes [Preset: minimal]                                OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - EIP4844 - Epoch Processing - Registry updates [Preset: minimal]
+```diff
++ Registry updates - activation_queue_activation_and_ejection__1 [Preset: minimal]           OK
++ Registry updates - activation_queue_activation_and_ejection__churn_limit [Preset: minimal] OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_churn_limit [Preset: m OK
++ Registry updates - activation_queue_activation_and_ejection__exceed_scaled_churn_limit [Pr OK
++ Registry updates - activation_queue_activation_and_ejection__scaled_churn_limit [Preset: m OK
++ Registry updates - activation_queue_efficiency_min [Preset: minimal]                       OK
++ Registry updates - activation_queue_efficiency_scaled [Preset: minimal]                    OK
++ Registry updates - activation_queue_no_activation_no_finality [Preset: minimal]            OK
++ Registry updates - activation_queue_sorting [Preset: minimal]                              OK
++ Registry updates - activation_queue_to_activated_if_finalized [Preset: minimal]            OK
++ Registry updates - add_to_activation_queue [Preset: minimal]                               OK
++ Registry updates - ejection [Preset: minimal]                                              OK
++ Registry updates - ejection_past_churn_limit_min [Preset: minimal]                         OK
++ Registry updates - ejection_past_churn_limit_scaled [Preset: minimal]                      OK
++ Registry updates - invalid_large_withdrawable_epoch [Preset: minimal]                      OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
+## EF - EIP4844 - Epoch Processing - Rewards and penalties [Preset: minimal]
+```diff
++ Rewards and penalties - almost_empty_attestations [Preset: minimal]                        OK
++ Rewards and penalties - almost_empty_attestations_with_leak [Preset: minimal]              OK
++ Rewards and penalties - almost_full_attestations [Preset: minimal]                         OK
++ Rewards and penalties - almost_full_attestations_with_leak [Preset: minimal]               OK
++ Rewards and penalties - attestations_some_slashed [Preset: minimal]                        OK
++ Rewards and penalties - duplicate_attestation [Preset: minimal]                            OK
++ Rewards and penalties - full_attestation_participation [Preset: minimal]                   OK
++ Rewards and penalties - full_attestation_participation_with_leak [Preset: minimal]         OK
++ Rewards and penalties - full_attestations_misc_balances [Preset: minimal]                  OK
++ Rewards and penalties - full_attestations_one_validaor_one_gwei [Preset: minimal]          OK
++ Rewards and penalties - genesis_epoch_full_attestations_no_rewards [Preset: minimal]       OK
++ Rewards and penalties - genesis_epoch_no_attestations_no_penalties [Preset: minimal]       OK
++ Rewards and penalties - no_attestations_all_penalties [Preset: minimal]                    OK
++ Rewards and penalties - random_fill_attestations [Preset: minimal]                         OK
++ Rewards and penalties - random_fill_attestations_with_leak [Preset: minimal]               OK
+```
+OK: 15/15 Fail: 0/15 Skip: 0/15
+## EF - EIP4844 - Epoch Processing - Slashings [Preset: minimal]
+```diff
++ Slashings - low_penalty [Preset: minimal]                                                  OK
++ Slashings - max_penalties [Preset: minimal]                                                OK
++ Slashings - minimal_penalty [Preset: minimal]                                              OK
++ Slashings - scaled_penalties [Preset: minimal]                                             OK
++ Slashings - slashings_with_random_state [Preset: minimal]                                  OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
+## EF - EIP4844 - Epoch Processing - Slashings reset [Preset: minimal]
+```diff
++ Slashings reset - flush_slashings [Preset: minimal]                                        OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
+## EF - EIP4844 - Epoch Processing - Sync committee updates [Preset: minimal]
+```diff
++ Sync committee updates - sync_committees_no_progress_not_boundary [Preset: minimal]        OK
++ Sync committee updates - sync_committees_progress_genesis [Preset: minimal]                OK
++ Sync committee updates - sync_committees_progress_misc_balances_genesis [Preset: minimal]  OK
++ Sync committee updates - sync_committees_progress_misc_balances_not_genesis [Preset: minim OK
++ Sync committee updates - sync_committees_progress_not_genesis [Preset: minimal]            OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## EF - EIP4844 - SSZ consensus objects  [Preset: minimal]
 ```diff
 +   Testing    AggregateAndProof                                                             OK
@@ -2306,4 +2482,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 52/52 Fail: 0/52 Skip: 0/52
 
 ---TOTAL---
-OK: 2044/2052 Fail: 0/2052 Skip: 8/2052
+OK: 2172/2180 Fail: 0/2180 Skip: 8/2180

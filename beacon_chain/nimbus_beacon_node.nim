@@ -483,7 +483,7 @@ proc init*(T: type BeaconNode,
 
   var eth1Monitor: Eth1Monitor
 
-  var genesisState =
+  let genesisState =
     if genesisStateContents.len > 0:
       try:
         newClone(readSszForkedHashedBeaconState(
@@ -814,7 +814,7 @@ proc updateBlocksGossipStatus*(
 
     targetGossipState = getTargetGossipState(
       slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-      cfg.CAPELLA_FORK_EPOCH, isBehind)
+      cfg.CAPELLA_FORK_EPOCH, cfg.EIP4844_FORK_EPOCH, isBehind)
 
   template currentGossipState(): auto = node.blocksGossipState
   if currentGossipState == targetGossipState:
@@ -834,6 +834,7 @@ proc updateBlocksGossipStatus*(
     newGossipForks = targetGossipState - currentGossipState
     oldGossipForks = currentGossipState - targetGossipState
 
+  discard $eip4844ImplementationMissing & ": for EIP4844, https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/p2p-interface.md#beacon_block notes use beacon_block_and_blobs_sidecar rather than beacon_block"
   for gossipFork in oldGossipForks:
     let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
     node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
@@ -1026,6 +1027,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
         node.dag.cfg.ALTAIR_FORK_EPOCH,
         node.dag.cfg.BELLATRIX_FORK_EPOCH,
         node.dag.cfg.CAPELLA_FORK_EPOCH,
+        node.dag.cfg.EIP4844_FORK_EPOCH,
         isBehind)
 
   doAssert targetGossipState.card <= 2
@@ -1442,6 +1444,7 @@ proc installMessageValidators(node: BeaconNode) =
   installPhase0Validators(forkDigests.altair)
   installPhase0Validators(forkDigests.bellatrix)
   installPhase0Validators(forkDigests.capella)
+  installPhase0Validators(forkDigests.eip4844)
 
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.altair),
@@ -1473,6 +1476,8 @@ proc installMessageValidators(node: BeaconNode) =
         toValidationResult(node.processor[].processSignedBeaconBlock(
           MsgSource.gossip, signedBlock)))
 
+  discard $eip4844ImplementationMissing & ": add validation here, but per https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/p2p-interface.md#beacon_block it's not beacon_block but beacon_block_and_blobs_sidecar"
+
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:
       closureScope:
@@ -1495,6 +1500,7 @@ proc installMessageValidators(node: BeaconNode) =
   installSyncCommitteeeValidators(forkDigests.altair)
   installSyncCommitteeeValidators(forkDigests.bellatrix)
   installSyncCommitteeeValidators(forkDigests.capella)
+  installSyncCommitteeeValidators(forkDigests.eip4844)
 
   node.installLightClientMessageValidators()
 
@@ -1811,7 +1817,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # There are no managed event loops in here, to do a graceful shutdown, but
   # letting the default Ctrl+C handler exit is safe, since we only read from
   # the db.
-  var metadata = config.loadEth2Network()
+  let metadata = config.loadEth2Network()
 
   # Updating the config based on the metadata certainly is not beautiful but it
   # works
@@ -2084,7 +2090,7 @@ when defined(windows):
 
     info "Service thread started"
 
-    var config = makeBannerAndConfig(clientId, BeaconNodeConf)
+    let config = makeBannerAndConfig(clientId, BeaconNodeConf)
     handleStartUpCmd(config)
 
     info "Service thread stopped"
