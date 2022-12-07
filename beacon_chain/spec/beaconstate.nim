@@ -362,6 +362,17 @@ func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
   bellatrix.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
+func get_initial_beacon_block*(state: eip4844.HashedBeaconState):
+    eip4844.TrustedSignedBeaconBlock =
+  # The genesis block is implicitly trusted
+  let message = eip4844.TrustedBeaconBlock(
+    slot: state.data.slot,
+    state_root: state.root)
+    # parent_root, randao_reveal, eth1_data, signature, and body automatically
+    # initialized to default values.
+  eip4844.TrustedSignedBeaconBlock(
+    message: message, root: hash_tree_root(message))
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#testing
 func get_initial_beacon_block*(state: capella.HashedBeaconState):
     capella.TrustedSignedBeaconBlock =

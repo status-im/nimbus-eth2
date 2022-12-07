@@ -327,6 +327,9 @@ ConsensusSpecPreset-mainnet
 + Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
 + Slots - double_empty_epoch                                                                 OK
 + Slots - empty_epoch                                                                        OK
 + Slots - over_epoch_boundary                                                                OK
@@ -647,7 +650,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 636/644 Fail: 0/644 Skip: 8/644
+OK: 639/647 Fail: 0/647 Skip: 8/647
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -2322,4 +2325,4 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 OK: 51/51 Fail: 0/51 Skip: 0/51
 
 ---TOTAL---
-OK: 2028/2036 Fail: 0/2036 Skip: 8/2036
+OK: 2031/2039 Fail: 0/2039 Skip: 8/2039

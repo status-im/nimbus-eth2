@@ -165,6 +165,8 @@ proc loadOps(path: string, fork: BeaconStateFork): seq[Operation] =
         )
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
+      of BeaconStateFork.EIP4844:
+        raiseAssert $eip4844ImplementationMissing & ": test_fixture_fork_choice.nim:loadOps"
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       let attesterSlashing = parseTest(
@@ -318,6 +320,8 @@ proc doRunTest(path: string, fork: BeaconStateFork) =
 
   let stores =
     case fork
+    of BeaconStateFork.EIP4844:
+      raiseAssert $eip4844ImplementationMissing & ": test_fixture_fork_choice.nim:doRunTest"
     of BeaconStateFork.Capella:
       initialLoad(path, db, capella.BeaconState, capella.BeaconBlock)
     of BeaconStateFork.Bellatrix:
@@ -402,11 +406,9 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not dirExists(testsPath):
         continue
+      if path.contains("eip4844"):
+        continue
       let fork = forkForPathComponent(path).valueOr:
-        if path.contains("eip4844"):
-          # TODO can either wait if/when 4844 is incorporated into capella or
-          # add it as next fork even not as part of 4844
-          continue
         raiseAssert "Unknown test fork: " & testsPath
       for kind, path in walkDir(testsPath, relative = true, checkDir = true):
         let basePath = testsPath/path/"pyspec_tests"

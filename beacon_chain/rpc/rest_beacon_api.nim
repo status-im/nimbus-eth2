@@ -840,6 +840,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
     case currentEpochFork
+    of BeaconStateFork.EIP4844:
+      return RestApiResponse.jsonError(Http500, $eip4844ImplementationMissing)
     of BeaconStateFork.Capella:
       return RestApiResponse.jsonError(Http500, $capellaImplementationMissing)
     of BeaconStateFork.Bellatrix:

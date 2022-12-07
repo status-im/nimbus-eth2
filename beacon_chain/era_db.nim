@@ -386,6 +386,8 @@ iterator getBlockIds*(
         state = nil # No `return` in iterators
     of BeaconStateFork.Capella:
       raiseAssert $capellaImplementationMissing
+    of BeaconStateFork.EIP4844:
+      raiseAssert $eip4844ImplementationMissing
 
     if state == nil:
       break

@@ -19,16 +19,20 @@ import
   "."/[block_pools_types, blockchain_dag]
 
 from ../spec/datatypes/capella import TrustedSignedBeaconBlock
+from ../spec/datatypes/eip4844 import
+  HashedBeaconState, TrustedSignedBeaconBlock
 
 logScope: topics = "chaindag_lc"
 
 type
   HashedBeaconStateWithSyncCommittee =
+    eip4844.HashedBeaconState |
     capella.HashedBeaconState |
     bellatrix.HashedBeaconState |
     altair.HashedBeaconState
 
   TrustedSignedBeaconBlockWithSyncAggregate =
+    eip4844.TrustedSignedBeaconBlock |
     capella.TrustedSignedBeaconBlock |
     bellatrix.TrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock
@@ -218,6 +222,7 @@ proc initLightClientBootstrapForPeriod(
   res
 
 from ../spec/datatypes/capella import asSigned
+from ../spec/datatypes/eip4844 import asSigned
 
 proc initLightClientUpdateForPeriod(
     dag: ChainDAGRef, period: SyncCommitteePeriod): Opt[void] =

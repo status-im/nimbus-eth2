@@ -146,7 +146,9 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
           var unrealized: FinalityCheckpoints
           if enableTestFeatures in dag.updateFlags and blckRef == dag.head:
             unrealized = withState(dag.headState):
-              when stateFork >= BeaconStateFork.Altair:
+              when stateFork == BeaconStateFork.EIP4844:
+                raiseAssert $eip4844ImplementationMissing & ": attestation_pool.nim:init"
+              elif stateFork >= BeaconStateFork.Altair:
                 forkyState.data.compute_unrealized_finality()
               else:
                 var cache: StateCache
@@ -558,6 +560,8 @@ proc check_attestation_compatible*(
 
   ok()
 
+from ../spec/datatypes/eip4844 import HashedBeaconState
+
 proc getAttestationsForBlock*(pool: var AttestationPool,
                               state: ForkyHashedBeaconState,
                               cache: var StateCache): seq[Attestation] =
@@ -584,6 +588,10 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       elif state is altair.HashedBeaconState or state is bellatrix.HashedBeaconState or
            state is capella.HashedBeaconState:
         AttestationCache.init(state, cache)
+      elif state is eip4844.HashedBeaconState:
+        if true:
+          raiseAssert $eip4844ImplementationMissing & ": attestation_pool.nim:getAttestationsForBlock"
+        default(AttestationCache)
       else:
         static: doAssert false
 
@@ -643,8 +651,10 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
   var
     prevEpoch = state.data.get_previous_epoch()
     prevEpochSpace =
-      when state is altair.HashedBeaconState or state is bellatrix.HashedBeaconState or
-           state is capella.HashedBeaconState:
+      when state is altair.HashedBeaconState or
+           state is bellatrix.HashedBeaconState or
+           state is capella.HashedBeaconState or
+           state is eip4844.HashedBeaconState:
         MAX_ATTESTATIONS
       elif state is phase0.HashedBeaconState:
         state.data.previous_epoch_attestations.maxLen -

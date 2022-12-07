@@ -45,7 +45,8 @@ type
     Phase0,
     Altair,
     Bellatrix,
-    Capella
+    Capella,
+    EIP4844
 
   ForkyBeaconState* =
     phase0.BeaconState |
@@ -58,7 +59,8 @@ type
     phase0.HashedBeaconState |
     altair.HashedBeaconState |
     bellatrix.HashedBeaconState |
-    capella.HashedBeaconState
+    capella.HashedBeaconState |
+    eip4844.HashedBeaconState
 
   ForkedHashedBeaconState* = object
     case kind*: BeaconStateFork
@@ -66,6 +68,7 @@ type
     of BeaconStateFork.Altair:    altairData*:    altair.HashedBeaconState
     of BeaconStateFork.Bellatrix: bellatrixData*: bellatrix.HashedBeaconState
     of BeaconStateFork.Capella:   capellaData*:   capella.HashedBeaconState
+    of BeaconStateFork.EIP4844:   eip4844Data*:   eip4844.HashedBeaconState
 
   BeaconBlockFork* {.pure.} = enum
     Phase0,
@@ -259,6 +262,9 @@ template toFork*[T: bellatrix.BeaconState | bellatrix.HashedBeaconState](
 template toFork*[T: capella.BeaconState | capella.HashedBeaconState](
     t: type T): BeaconStateFork =
   BeaconStateFork.Capella
+template toFork*[T: eip4844.BeaconState | eip4844.HashedBeaconState](
+    t: type T): BeaconStateFork =
+  BeaconStateFork.EIP4844
 
 # TODO these cause stack overflows due to large temporaries getting allocated
 # template init*(T: type ForkedHashedBeaconState, data: phase0.HashedBeaconState): T =
@@ -401,6 +407,8 @@ template toString*(kind: BeaconStateFork): string =
     "bellatrix"
   of BeaconStateFork.Capella:
     "capella"
+  of BeaconStateFork.EIP4844:
+    "eip4844"
 
 template toFork*[T:
     phase0.BeaconBlock |
@@ -411,6 +419,7 @@ template toFork*[T:
     phase0.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Phase0
+
 template toFork*[T:
     altair.BeaconBlock |
     altair.SignedBeaconBlock |
@@ -420,6 +429,7 @@ template toFork*[T:
     altair.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Altair
+
 template toFork*[T:
     bellatrix.BeaconBlock |
     bellatrix.SignedBeaconBlock |
@@ -429,6 +439,7 @@ template toFork*[T:
     bellatrix.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.Bellatrix
+
 template toFork*[T:
     capella.BeaconBlock |
     capella.SignedBeaconBlock |
@@ -456,6 +467,10 @@ template init*(T: type ForkedEpochInfo, info: altair.EpochInfo): T =
 
 template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
   case x.kind
+  of BeaconStateFork.EIP4844:
+    const stateFork {.inject, used.} = BeaconStateFork.EIP4844
+    template forkyState: untyped {.inject, used.} = x.eip4844Data
+    body
   of BeaconStateFork.Capella:
     const stateFork {.inject, used.} = BeaconStateFork.Capella
     template forkyState: untyped {.inject, used.} = x.capellaData
@@ -493,7 +508,8 @@ template withEpochInfo*(
   body
 
 template withEpochInfo*(
-    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState,
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
+           eip4844.BeaconState,
     x: var ForkedEpochInfo, body: untyped): untyped =
   if x.kind != EpochInfoFork.Altair:
     # Rare, so efficiency not critical
@@ -504,6 +520,8 @@ template withEpochInfo*(
 func assign*(tgt: var ForkedHashedBeaconState, src: ForkedHashedBeaconState) =
   if tgt.kind == src.kind:
     case tgt.kind
+    of BeaconStateFork.EIP4844:
+      assign(tgt.eip4844Data, src.eip4844Data):
     of BeaconStateFork.Capella:
       assign(tgt.capellaData, src.capellaData):
     of BeaconStateFork.Bellatrix:
@@ -524,6 +542,7 @@ template getStateField*(x: ForkedHashedBeaconState, y: untyped): untyped =
   # ```
   # Without `unsafeAddr`, the `validators` list would be copied to a temporary variable.
   (case x.kind
+  of BeaconStateFork.EIP4844:   unsafeAddr x.eip4844Data.data.y
   of BeaconStateFork.Capella:   unsafeAddr x.capellaData.data.y
   of BeaconStateFork.Bellatrix: unsafeAddr x.bellatrixData.data.y
   of BeaconStateFork.Altair:    unsafeAddr x.altairData.data.y
@@ -574,6 +593,8 @@ func stateForkForDigest*(
 func atStateFork*(
     forkDigests: ForkDigests, stateFork: BeaconStateFork): ForkDigest =
   case stateFork
+  of BeaconStateFork.EIP4844:
+    forkDigests.eip4844
   of BeaconStateFork.Capella:
     forkDigests.capella
   of BeaconStateFork.Bellatrix:
@@ -710,6 +731,11 @@ template withStateAndBlck*(
        ForkedTrustedSignedBeaconBlock,
     body: untyped): untyped =
   case s.kind
+  of BeaconStateFork.EIP4844:
+    const stateFork {.inject.} = BeaconStateFork.EIP4844
+    template forkyState: untyped {.inject.} = s.eip4844Data
+    template blck: untyped {.inject.} = b.eip4844Data
+    body
   of BeaconStateFork.Capella:
     const stateFork {.inject.} = BeaconStateFork.Capella
     template forkyState: untyped {.inject.} = s.capellaData
@@ -784,6 +810,7 @@ func eip4844Fork*(cfg: RuntimeConfig): Fork =
 
 func forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.stateForkAtEpoch(epoch)
+  of BeaconStateFork.EIP4844:   cfg.eip4844Fork
   of BeaconStateFork.Capella:   cfg.capellaFork
   of BeaconStateFork.Bellatrix: cfg.bellatrixFork
   of BeaconStateFork.Altair:    cfg.altairFork
@@ -791,6 +818,7 @@ func forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
 
 func forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
   case cfg.stateForkAtEpoch(epoch)
+  of BeaconStateFork.EIP4844:   cfg.EIP4844_FORK_VERSION
   of BeaconStateFork.Capella:   cfg.CAPELLA_FORK_VERSION
   of BeaconStateFork.Bellatrix: cfg.BELLATRIX_FORK_VERSION
   of BeaconStateFork.Altair:    cfg.ALTAIR_FORK_VERSION
@@ -798,7 +826,8 @@ func forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
 
 func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   case cfg.stateForkAtEpoch(epoch)
-  of BeaconStateFork.Capella:   FAR_FUTURE_EPOCH
+  of BeaconStateFork.EIP4844:   FAR_FUTURE_EPOCH
+  of BeaconStateFork.Capella:   cfg.EIP4844_FORK_EPOCH
   of BeaconStateFork.Bellatrix: cfg.CAPELLA_FORK_EPOCH
   of BeaconStateFork.Altair:    cfg.BELLATRIX_FORK_EPOCH
   of BeaconStateFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
@@ -867,6 +896,7 @@ func toBeaconBlockFork*(fork: BeaconStateFork): BeaconBlockFork =
   of BeaconStateFork.Altair:    BeaconBlockFork.Altair
   of BeaconStateFork.Bellatrix: BeaconBlockFork.Bellatrix
   of BeaconStateFork.Capella:   BeaconBlockFork.Capella
+  of BeaconStateFork.EIP4844:   BeaconBlockFork.EIP4844
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,

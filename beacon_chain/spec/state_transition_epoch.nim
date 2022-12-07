@@ -1120,7 +1120,8 @@ func init*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig,
-    state: var (altair.BeaconState | bellatrix.BeaconState | capella.BeaconState),
+    state: var (altair.BeaconState | bellatrix.BeaconState |
+                capella.BeaconState | eip4844.BeaconState),
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
     Result[void, cstring] =
   let currentEpoch = get_current_epoch(state)
@@ -1142,7 +1143,7 @@ proc process_epoch*(
     # the finalization rules triggered.
     doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
 
-  process_inactivity_updates(cfg, state, info)  # [New in Altair]
+  process_inactivity_updates(cfg, state, info)
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#process_rewards_and_penalties
   process_rewards_and_penalties(cfg, state, info)
@@ -1158,7 +1159,7 @@ proc process_epoch*(
   process_slashings_reset(state)
   process_randao_mixes_reset(state)
   process_historical_roots_update(state)
-  process_participation_flag_updates(state)  # [New in Altair]
-  process_sync_committee_updates(state)  # [New in Altair]
+  process_participation_flag_updates(state)
+  process_sync_committee_updates(state)
 
   ok()

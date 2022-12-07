@@ -19,6 +19,7 @@ import ".."/[eth2_ssz_serialization, forks, keystore],
 import nimcrypto/utils as ncrutils
 
 from ".."/datatypes/capella import SignedBeaconBlock
+from ".."/datatypes/eip4844 import BeaconState
 
 export
   eth2_ssz_serialization, results, peerid, common, serialization, chronicles,
@@ -1588,6 +1589,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       of "altair": some(BeaconStateFork.Altair)
       of "bellatrix": some(BeaconStateFork.Bellatrix)
       of "capella": some(BeaconStateFork.Capella)
+      of "eip4844": some(BeaconStateFork.EIP4844)
       else: reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
@@ -1657,6 +1659,16 @@ proc readValue*(reader: var JsonReader[RestJson],
     except SerializationError:
       reader.raiseUnexpectedValue("Incorrect capella beacon state format")
     toValue(capellaData)
+  of BeaconStateFork.EIP4844:
+    try:
+      tmp[].eip4844Data.data = RestJson.decode(
+        string(data.get()),
+        eip4844.BeaconState,
+        requireAllFields = true,
+        allowUnknownFields = true)
+    except SerializationError:
+      reader.raiseUnexpectedValue("Incorrect EIP4844 beacon state format")
+    toValue(eip4844Data)
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState)
                 {.raises: [IOError, Defect].} =
@@ -1674,6 +1686,9 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
   of BeaconStateFork.Capella:
     writer.writeField("version", "capella")
     writer.writeField("data", value.capellaData.data)
+  of BeaconStateFork.EIP4844:
+    writer.writeField("version", "eip4844")
+    writer.writeField("data", value.eip4844Data.data)
   writer.endRecord()
 
 ## Web3SignerRequest

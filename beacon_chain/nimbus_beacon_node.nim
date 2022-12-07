@@ -719,7 +719,8 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.phase0,
     node.dag.forkDigests.altair,
     node.dag.forkDigests.bellatrix,
-    node.dag.forkDigests.capella]
+    node.dag.forkDigests.capella,
+    node.dag.forkDigests.eip4844]
   forkDigestsArray
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
@@ -1050,20 +1051,24 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
   let forkDigests = node.forkDigests()
 
+  discard $eip4844ImplementationMissing & "nimbus_beacon_node.nim:updateGossipStatus check EIP4844 removeMessageHandlers"
   const removeMessageHandlers: array[BeaconStateFork, auto] = [
     removePhase0MessageHandlers,
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # with different forkDigest
+    removeCapellaMessageHandlers,
     removeCapellaMessageHandlers
   ]
 
   for gossipFork in oldGossipForks:
     removeMessageHandlers[gossipFork](node, forkDigests[gossipFork])
 
+  discard $eip4844ImplementationMissing & "nimbus_beacon_node.nim:updateGossipStatus check EIP4844 message addMessageHandlers"
   const addMessageHandlers: array[BeaconStateFork, auto] = [
     addPhase0MessageHandlers,
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # with different forkDigest
+    addCapellaMessageHandlers,
     addCapellaMessageHandlers
   ]
 

@@ -371,6 +371,9 @@ ConsensusSpecPreset-minimal
 + Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - minimal/eip4844/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - minimal/eip4844/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - minimal/eip4844/light_client/single_merkle_proof/Beac OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/advance_finality_witho OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync      OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/supply_sync_committee_ OK
@@ -729,7 +732,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 718/726 Fail: 0/726 Skip: 8/726
+OK: 721/729 Fail: 0/729 Skip: 8/729
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -2482,4 +2485,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 52/52 Fail: 0/52 Skip: 0/52
 
 ---TOTAL---
-OK: 2172/2180 Fail: 0/2180 Skip: 8/2180
+OK: 2175/2183 Fail: 0/2183 Skip: 8/2183
