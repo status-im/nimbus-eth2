@@ -275,6 +275,8 @@ template toFork*[T: eip4844.BeaconState | eip4844.HashedBeaconState](
 #   T(kind: BeaconStateFork.Bellatrix, bellatrixData: data)
 # template init*(T: type ForkedHashedBeaconState, data: capella.HashedBeaconState): T =
 #   T(kind: BeaconStateFork.Capella, capellaData: data)
+# template init*(T: type ForkedHashedBeaconState, data: eip4844.HashedBeaconState): T =
+#   T(kind: BeaconStateFork.EIP4844, eip4844Data: data)
 
 template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)

@@ -277,7 +277,8 @@ func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
     if state.validators.asSeq[vidx].pubkey == pubkey:
       return Opt[ValidatorIndex].ok(vidx)
 
-from ./datatypes/eip4844 import BeaconState
+from ./datatypes/eip4844 import
+  BLOB_TX_TYPE, BeaconState, KZGCommitment, VersionedHash
 
 proc process_deposit*(cfg: RuntimeConfig,
                       state: var ForkyBeaconState,
@@ -780,6 +781,89 @@ func process_withdrawals*(
   # `process_withdrawals`
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#tx_peek_blob_versioned_hashes
+func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
+    Result[seq[VersionedHash], cstring] =
+  ## This function retrieves the hashes from the `SignedBlobTransaction` as
+  ## defined in EIP-4844, using SSZ offsets. Offsets are little-endian `uint32`
+  ## values, as defined in the SSZ specification. See the full details of
+  ## `blob_versioned_hashes` offset calculation.
+  if not (opaque_tx[0] == BLOB_TX_TYPE):
+    return err("tx_peek_blob_versioned_hashes: invalid opaque transaction type")
+  let
+    message_offset = 1 + bytes_to_uint32(opaque_tx.asSeq.toOpenArray(1, 4))
+    # field offset: 32 + 8 + 32 + 32 + 8 + 4 + 32 + 4 + 4 + 32 = 188
+    blob_versioned_hashes_offset = (
+      message_offset + bytes_to_uint32(opaque_tx[(message_offset + 188) .. (message_offset + 191)])
+    )
+
+  if blob_versioned_hashes_offset.uint64 > high(int).uint64:
+    return err("tx_peek_blob_versioned_hashes: blob_versioned_hashes_offset too high")
+
+  var res: seq[VersionedHash]
+  for x in countup(blob_versioned_hashes_offset.int, len(opaque_tx) - 1, 32):
+    var versionedHash: VersionedHash
+    versionedHash[0 .. 31] = opaque_tx.asSeq.toOpenArray(x, x + 31)
+
+    # TODO there's otherwise a mismatch here where test vectors show valid but
+    # the first byte is 0?
+    # `kzg_commitment_to_versioned_hash` is very clear about the equivalent
+    # first byte having to be 0x01 for it ever to match
+    # this is not in spec per se though
+    if versionedHash[0] == 0:
+      versionedHash[0] = 0x01'u8
+
+    res.add versionedHash
+  ok res
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#kzg_commitment_to_versioned_hash
+func kzg_commitment_to_versioned_hash(
+    kzg_commitment: KZGCommitment): VersionedHash =
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#blob
+  const VERSIONED_HASH_VERSION_KZG = 0x01'u8
+
+  var res: VersionedHash
+  res[0] = VERSIONED_HASH_VERSION_KZG
+  res[1 .. 31] = eth2digest(kzg_commitment).data.toOpenArray(1, 31)
+  res
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#verify_kzg_commitments_against_transactions
+func verify_kzg_commitments_against_transactions(
+    transactions: seq[Transaction],
+    kzg_commitments: seq[KZGCommitment]): bool =
+  var all_versioned_hashes: seq[VersionedHash]
+  for tx in transactions:
+    if tx[0] == BLOB_TX_TYPE:
+      let maybe_versioned_hashed = tx_peek_blob_versioned_hashes(tx)
+      if maybe_versioned_hashed.isErr:
+        return false
+      all_versioned_hashes.add maybe_versioned_hashed.get
+      # TODO valueOr version fails to compile
+      #all_versioned_hashes.add tx_peek_blob_versioned_hashes(tx).valueOr:
+      #  return false
+
+  all_versioned_hashes == mapIt(kzg_commitments, it.kzg_commitment_to_versioned_hash)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#blob-kzg-commitments
+func process_blob_kzg_commitments(
+    state: var eip4844.BeaconState,
+    body: eip4844.BeaconBlockBody | eip4844.TrustedBeaconBlockBody):
+    Result[void, cstring] =
+  if verify_kzg_commitments_against_transactions(
+      body.execution_payload.transactions.asSeq,
+      body.blob_kzg_commitments.asSeq):
+    return ok()
+  else:
+    return err("process_blob_kzg_commitments: verify_kzg_commitments_against_transactions failed")
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#is_data_available
+func is_data_available(
+    slot: Slot, beacon_block_root: Eth2Digest,
+    blob_kzg_commitments: seq[KZGCommitment]): bool =
+  discard $eip4844ImplementationMissing & ": state_transition_block.nim:is_data_available"
+
+  true
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/phase0.nim
@@ -889,5 +973,45 @@ proc process_block*(
     cfg, state, blck.body, base_reward_per_increment, flags, cache)
   ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, cache)
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#block-processing
+# TODO workaround for https://github.com/nim-lang/Nim/issues/18095
+type SomeEIP4844Block =
+  eip4844.BeaconBlock | eip4844.SigVerifiedBeaconBlock | eip4844.TrustedBeaconBlock
+proc process_block*(
+    cfg: RuntimeConfig,
+    state: var eip4844.BeaconState, blck: SomeEIP4844Block,
+    flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
+  ## When there's a new block, we need to verify that the block is sane and
+  ## update the state accordingly - the state is left in an unknown state when
+  ## block application fails (!)
+
+  ? process_block_header(state, blck, flags, cache)
+  if is_execution_enabled(state, blck.body):
+    ? process_withdrawals(state, blck.body.execution_payload)
+    ? process_execution_payload(
+        state, blck.body.execution_payload,
+        func(_: eip4844.ExecutionPayload): bool = true)  # [Modified in EIP-4844]
+  ? process_randao(state, blck.body, flags, cache)
+  ? process_eth1_data(state, blck.body)
+
+  let
+    total_active_balance = get_total_active_balance(state, cache)
+    base_reward_per_increment =
+      get_base_reward_per_increment(total_active_balance)
+  ? process_operations(
+    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+  ? process_sync_aggregate(
+    state, blck.body.sync_aggregate, total_active_balance, cache)
+
+  ? process_blob_kzg_commitments(state, blck.body)  # [New in EIP-4844]
+
+  # New in EIP-4844, note: Can sync optimistically without this condition, see
+  # note on `is_data_available`
+  if not is_data_available(
+      blck.slot, hash_tree_root(blck), blck.body.blob_kzg_commitments.asSeq):
+    return err("not is_data_available")
 
   ok()
