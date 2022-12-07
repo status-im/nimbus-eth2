@@ -254,7 +254,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
        blockRatio {.desc: "ratio of slots with blocks"} = 1.0,
        replay = true):
   let
-    (genesisState, depositContractSnapshot) = loadGenesis(validators, false)
+    (genesisState, depositTreeSnapshot) = loadGenesis(validators, false)
     genesisTime = float getStateField(genesisState[], genesis_time)
 
   var
@@ -270,13 +270,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   defer: db.close()
 
   ChainDAGRef.preInit(db, genesisState[])
-  putInitialDepositContractSnapshot(db, depositContractSnapshot)
+  db.putDepositTreeSnapshot(depositTreeSnapshot)
 
   var
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
     eth1Chain = Eth1Chain.init(cfg, db)
-    merkleizer = DepositsMerkleizer.init(depositContractSnapshot.depositContractState)
+    merkleizer = DepositsMerkleizer.init(depositTreeSnapshot.depositContractState)
     taskpool = Taskpool.new()
     verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
     quarantine = newClone(Quarantine.init())

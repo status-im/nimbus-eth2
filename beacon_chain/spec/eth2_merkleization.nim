@@ -38,14 +38,23 @@ func hash_tree_root*(
        bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock) {.
   error: "SignedBeaconBlock should not be hashed".}
 
-func depositCountU64(s: DepositContractState): uint64 =
-  for i in 0 .. 23:
-    doAssert s.deposit_count[i] == 0
+func depositCountBytes*(x: uint64): array[32, byte] =
+  doAssert(x <= 4294967295'u64)
+  var z = x
+  for i in 0..3:
+    result[31-i] = byte(int64(z) %% 256'i64)
+    z = z div 256
 
-  uint64.fromBytesBE s.deposit_count.toOpenArray(24, 31)
+func depositCountU64*(xs: openArray[byte]): uint64 =
+  ## depositCountU64 considers just the first 4 bytes as
+  ## MAX_DEPOSIT_COUNT is defined as 2^32 - 1.
+  for i in 0 .. 27:
+    doAssert xs[i] == 0
+  return uint64.fromBytesBE(xs[24..31])
 
 func init*(T: type DepositsMerkleizer, s: DepositContractState): DepositsMerkleizer =
-  DepositsMerkleizer.init(s.branch, s.depositCountU64)
+  let count = depositCountU64(s.deposit_count)
+  DepositsMerkleizer.init(s.branch, count)
 
 func toDepositContractState*(merkleizer: DepositsMerkleizer): DepositContractState =
   # TODO There is an off by one discrepancy in the size of the arrays here that

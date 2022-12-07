@@ -120,6 +120,14 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
+## DepositTreeSnapshot
+```diff
++ Migration                                                                                  OK
++ SSZ                                                                                        OK
++ depositCount                                                                               OK
++ isValid                                                                                    OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Discovery fork ID
 ```diff
 + Expected fork IDs                                                                          OK
@@ -615,4 +623,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 340/345 Fail: 0/345 Skip: 5/345
+OK: 344/349 Fail: 0/349 Skip: 5/349

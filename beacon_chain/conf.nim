@@ -784,6 +784,11 @@ type
         desc: "Recreate historical state index at end of backfill, allowing full history access (requires full backfill)"
         defaultValue: false .}: bool
 
+      downloadDepositSnapshot* {.
+        desc: "Also try to download a snapshot of the deposit contract state"
+        defaultValue: false
+        name: "with-deposit-snapshot" .}: bool
+
   ValidatorClientConf* = object
     configFile* {.
       desc: "Loads the configuration from a TOML file"

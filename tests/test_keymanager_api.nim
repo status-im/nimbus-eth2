@@ -283,17 +283,9 @@ proc startBeaconNode(basePort: int) {.raises: [Defect, CatchableError].} =
   except Exception as exc: # TODO fix confutils exceptions
     raiseAssert exc.msg
 
-  let metadata = loadEth2NetworkMetadata(dataDir)
-
-  let node = BeaconNode.init(
-    metadata.cfg,
-    rng,
-    runNodeConf,
-    metadata.depositContractDeployedAt,
-    metadata.eth1Network,
-    metadata.genesisData,
-    metadata.genesisDepositsSnapshot
-  )
+  let
+    metadata = loadEth2NetworkMetadata(dataDir)
+    node = BeaconNode.init(rng, runNodeConf, metadata)
 
   node.start() # This will run until the node is terminated by
                #  setting its `bnStatus` to `Stopping`.

@@ -17,9 +17,9 @@ import
   chronos, metrics, chronicles/timings, stint/endians2,
   web3, web3/ethtypes as web3Types, web3/ethhexstrings, web3/engine_api,
   eth/common/eth_types,
-  eth/async_utils, stew/[byteutils, objects, shims/hashes],
+  eth/async_utils, stew/[byteutils, objects, results, shims/hashes],
   # Local modules:
-  ../spec/[eth2_merkleization, forks, helpers],
+  ../spec/[deposit_snapshots, eth2_merkleization, forks, helpers],
   ../spec/datatypes/[base, phase0, bellatrix],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
@@ -30,8 +30,7 @@ from std/times import getTime, inSeconds, initTime, `-`
 from ../spec/engine_authentication import getSignedIatToken
 
 export
-  web3Types, deques, base,
-  beacon_chain_db.DepositContractSnapshot
+  web3Types, deques, base, DepositTreeSnapshot
 
 logScope:
   topics = "eth1"
@@ -124,6 +123,7 @@ type
     web3Urls: seq[string]
     eth1Network: Option[Eth1Network]
     depositContractAddress*: Eth1Address
+    depositContractDeployedAt: BlockHashOrNumber
     forcePolling: bool
     jwtSecret: Option[seq[byte]]
     blocksPerLogsRequest: uint64
@@ -809,6 +809,7 @@ proc onBlockHeaders(p: Web3DataProviderRef,
     p.web3.subscribeForBlockHeaders(blockHeaderHandler, errorHandler))
 
 proc pruneOldBlocks(chain: var Eth1Chain, depositIndex: uint64) =
+  ## Called on block finalization to delete old and now redundant data.
   let initialChunks = chain.finalizedDepositsMerkleizer.getChunkCount
   var lastBlock: Eth1Block
 
@@ -824,9 +825,11 @@ proc pruneOldBlocks(chain: var Eth1Chain, depositIndex: uint64) =
 
   if chain.finalizedDepositsMerkleizer.getChunkCount > initialChunks:
     chain.finalizedBlockHash = lastBlock.hash
-    chain.db.putEth2FinalizedTo DepositContractSnapshot(
+    chain.db.putDepositTreeSnapshot DepositTreeSnapshot(
       eth1Block: lastBlock.hash,
-      depositContractState: chain.finalizedDepositsMerkleizer.toDepositContractState)
+      depositContractState: chain.finalizedDepositsMerkleizer.toDepositContractState,
+      blockHeight: lastBlock.number,
+    )
 
     eth1_finalized_head.set lastBlock.number.toGaugeValue
     eth1_finalized_deposits.set lastBlock.depositCount.toGaugeValue
@@ -1057,12 +1060,6 @@ proc new*(T: type Web3DataProvider,
 
   return ok Web3DataProviderRef(url: web3Url, web3: web3, ns: ns)
 
-proc putInitialDepositContractSnapshot*(db: BeaconChainDB,
-                                        s: DepositContractSnapshot) =
-  let existingStart = db.getEth2FinalizedTo()
-  if not existingStart.isOk:
-    db.putEth2FinalizedTo(s)
-
 template getOrDefault[T, E](r: Result[T, E]): T =
   type TT = T
   get(r, default(TT))
@@ -1071,9 +1068,9 @@ proc init*(T: type Eth1Chain, cfg: RuntimeConfig, db: BeaconChainDB): T =
   let
     finalizedDeposits =
       if db != nil:
-        db.getEth2FinalizedTo().getOrDefault()
+        db.getDepositTreeSnapshot().getOrDefault()
       else:
-        default(DepositContractSnapshot)
+        default(DepositTreeSnapshot)
     m = DepositsMerkleizer.init(finalizedDeposits.depositContractState)
 
   T(db: db,
@@ -1082,31 +1079,13 @@ proc init*(T: type Eth1Chain, cfg: RuntimeConfig, db: BeaconChainDB): T =
     finalizedDepositsMerkleizer: m,
     headMerkleizer: copy m)
 
-proc createInitialDepositSnapshot*(
-    depositContractAddress: Eth1Address,
-    depositContractDeployedAt: BlockHashOrNumber,
-    web3Url: string,
-    jwtSecret: Option[seq[byte]]): Future[Result[DepositContractSnapshot, string]]
-    {.async.} =
-
-  let dataProviderRes =
-    await Web3DataProvider.new(depositContractAddress, web3Url, jwtSecret)
-  if dataProviderRes.isErr:
-    return err(dataProviderRes.error)
-  var dataProvider = dataProviderRes.get
-
-  let knownStartBlockHash =
-    if depositContractDeployedAt.isHash:
-      depositContractDeployedAt.hash
-    else:
-      try:
-        var blk = awaitWithRetries(
-          dataProvider.getBlockByNumber(depositContractDeployedAt.number))
-        blk.hash.asEth2Digest
-      except CatchableError as err:
-        return err(err.msg)
-
-  return ok DepositContractSnapshot(eth1Block: knownStartBlockHash)
+proc getBlock(provider: Web3DataProviderRef, id: BlockHashOrNumber):
+             Future[BlockObject] =
+  if id.isHash:
+    let hash = id.hash.asBlockHash()
+    return provider.getBlockByHash(hash)
+  else:
+    return provider.getBlockByNumber(id.number)
 
 proc currentEpoch(m: Eth1Monitor): Epoch =
   if m.getBeaconTime != nil:
@@ -1116,10 +1095,10 @@ proc currentEpoch(m: Eth1Monitor): Epoch =
 
 proc init*(T: type Eth1Monitor,
            cfg: RuntimeConfig,
+           depositContractDeployedAt: BlockHashOrNumber,
            db: BeaconChainDB,
            getBeaconTime: GetBeaconTimeFn,
            web3Urls: seq[string],
-           depositContractSnapshot: Option[DepositContractSnapshot],
            eth1Network: Option[Eth1Network],
            forcePolling: bool,
            jwtSecret: Option[seq[byte]],
@@ -1129,12 +1108,10 @@ proc init*(T: type Eth1Monitor,
   for url in mitems(web3Urls):
     fixupWeb3Urls url
 
-  if depositContractSnapshot.isSome:
-    putInitialDepositContractSnapshot(db, depositContractSnapshot.get)
-
   T(state: Initialized,
     depositsChain: Eth1Chain.init(cfg, db),
     depositContractAddress: cfg.DEPOSIT_CONTRACT_ADDRESS,
+    depositContractDeployedAt: depositContractDeployedAt,
     getBeaconTime: getBeaconTime,
     web3Urls: web3Urls,
     eth1Network: eth1Network,
@@ -1143,6 +1120,37 @@ proc init*(T: type Eth1Monitor,
     jwtSecret: jwtSecret,
     blocksPerLogsRequest: targetBlocksPerLogsRequest,
     ttdReachedField: ttdReached)
+
+proc runDbMigrations*(m: Eth1Monitor) {.async.} =
+  template db: auto = m.depositsChain.db
+
+  if db.hasDepositTreeSnapshot():
+    return
+
+  # There might be an old deposit snapshot in the database that needs upgrade.
+  let oldSnapshot = db.getUpgradableDepositSnapshot()
+  if oldSnapshot.isSome:
+    let
+      hash = oldSnapshot.get.eth1Block.asBlockHash()
+      blk = awaitWithRetries m.dataProvider.getBlockByHash(hash)
+      blockNumber = uint64(blk.number)
+
+    db.putDepositTreeSnapshot oldSnapshot.get.toDepositTreeSnapshot(blockNumber)
+  elif not m.depositContractAddress.isZeroMemory:
+    # If there is no DCS record at all, create one pointing to the deployment block
+    # of the deposit contract and insert it as a starting point.
+    let blk = try:
+      awaitWithRetries m.dataProvider.getBlock(m.depositContractDeployedAt)
+    except CatchableError as e:
+      fatal "Failed to fetch deployment block",
+            depositContract = m.depositContractAddress,
+            deploymentBlock = $m.depositContractDeployedAt,
+            err = e.msg
+      quit 1
+    doAssert blk != nil, "getBlock should not return nil"
+    db.putDepositTreeSnapshot DepositTreeSnapshot(
+      eth1Block: blk.hash.asEth2Digest,
+      blockHeight: uint64 blk.number)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
@@ -1341,11 +1349,14 @@ proc syncBlockRange(m: Eth1Monitor,
             m.processGenesisDeposit(deposit)
           blk.activeValidatorsCount = m.genesisValidators.lenu64
 
-        let depositContractState = DepositContractSnapshot(
-          eth1Block: blocksWithDeposits[^1].hash,
-          depositContractState: m.headMerkleizer.toDepositContractState)
+        let
+          lastBlock = blocksWithDeposits[^1]
+          depositTreeSnapshot = DepositTreeSnapshot(
+            eth1Block: lastBlock.hash,
+            depositContractState: m.headMerkleizer.toDepositContractState,
+            blockNumber: lastBlock.number)
 
-        m.depositsChain.db.putEth2FinalizedTo depositContractState
+        m.depositsChain.db.putDepositTreeSnapshot depositTreeSnapshot
 
       if m.genesisStateFut != nil and m.chainHasEnoughValidators:
         let lastIdx = m.depositsChain.blocks.len - 1
@@ -1405,6 +1416,48 @@ func init(T: type FullBlockId, blk: Eth1BlockHeader|BlockObject): T =
 func isNewLastBlock(m: Eth1Monitor, blk: Eth1BlockHeader|BlockObject): bool =
   m.latestEth1Block.isNone or blk.number.uint64 > m.latestEth1BlockNumber
 
+proc findTerminalBlock(provider: Web3DataProviderRef,
+                       ttd: Uint256): Future[BlockObject] {.async.} =
+  ## Find the first execution block with a difficulty higher than the
+  ## specified `ttd`.
+  var
+    cache = initTable[uint64, BlockObject]()
+    step = -0x4000'i64
+
+  proc next(x: BlockObject): Future[BlockObject] {.async.} =
+    ## Returns the next block that's `step` steps away.
+    let key = uint64(max(int64(x.number) + step, 1))
+    # Check if present in cache.
+    if key in cache:
+      return cache[key]
+    # Not cached, fetch.
+    let value = awaitWithRetries provider.getBlockByNumber(key)
+    cache[key] = value
+    return value
+
+  # Block A follows, B leads.
+  var
+    a = awaitWithRetries(
+      provider.web3.provider.eth_getBlockByNumber("latest", false))
+    b = await next(a)
+
+  while true:
+    let one = a.totalDifficulty > ttd
+    let two = b.totalDifficulty > ttd
+    if one != two:
+      step = step div -2i64
+      if step == 0:
+        # Since we can't know in advance from which side the block is
+        # approached, one last check is needed to determine the proper
+        # terminal block.
+        if one: return a
+        else  : return b
+    a = b
+    b = await next(b)
+
+  # This is unreachable.
+  doAssert(false)
+
 proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   if m.state == Started:
     return
@@ -1429,6 +1482,8 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
   await m.ensureDataProvider()
   doAssert m.dataProvider != nil, "close not called concurrently"
+
+  await m.runDbMigrations()
 
   # We might need to reset the chain if the new provider disagrees
   # with the previous one regarding the history of the chain or if
@@ -1510,7 +1565,10 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
     await m.dataProvider.onBlockHeaders(newBlockHeadersHandler,
                                         subscriptionErrorHandler)
 
-  let shouldProcessDeposits = not m.depositContractAddress.isZeroMemory
+  let shouldProcessDeposits = not (
+    m.depositContractAddress.isZeroMemory or
+    m.depositsChain.finalizedBlockHash.data.isZeroMemory)
+
   var eth1SyncedTo: Eth1BlockNumber
   if shouldProcessDeposits:
     if m.depositsChain.blocks.len == 0:
@@ -1581,40 +1639,22 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
       doAssert m.latestEth1Block.isSome
       awaitWithRetries m.dataProvider.getBlockByHash(m.latestEth1Block.get.hash)
 
-    # TODO when a terminal block has is configured in cfg.TERMINAL_BLOCK_HASH,
+    # TODO when a terminal block hash is configured in cfg.TERMINAL_BLOCK_HASH,
     #      we should try to fetch that block from the EL - this facility is not
     #      in use on any current network, but should be implemented for full
     #      compliance
     if m.terminalBlockHash.isNone and shouldCheckForMergeTransition:
-      var terminalBlockCandidate = nextBlock
+      let terminalBlock = await findTerminalBlock(m.dataProvider, m.cfg.TERMINAL_TOTAL_DIFFICULTY)
+      m.terminalBlockHash = some(terminalBlock.hash)
+      m.ttdReachedField = true
 
-      debug "startEth1Syncing: checking for merge terminal block",
+      debug "startEth1Syncing: found merge terminal block",
         currentEpoch = m.currentEpoch,
         BELLATRIX_FORK_EPOCH = m.cfg.BELLATRIX_FORK_EPOCH,
         totalDifficulty = $nextBlock.totalDifficulty,
         ttd = $m.cfg.TERMINAL_TOTAL_DIFFICULTY,
         terminalBlockHash = m.terminalBlockHash,
-        candidateBlockHash = terminalBlockCandidate.hash,
-        candidateBlockNumber = distinctBase(terminalBlockCandidate.number)
-
-      if terminalBlockCandidate.totalDifficulty >= m.cfg.TERMINAL_TOTAL_DIFFICULTY:
-        while not terminalBlockCandidate.parentHash.isZeroMemory:
-          var parentBlock = awaitWithRetries(
-            m.dataProvider.getBlockByHash(terminalBlockCandidate.parentHash))
-          if parentBlock.totalDifficulty < m.cfg.TERMINAL_TOTAL_DIFFICULTY:
-            break
-          terminalBlockCandidate = parentBlock
-        m.terminalBlockHash = some terminalBlockCandidate.hash
-        m.ttdReachedField = true
-
-        debug "startEth1Syncing: found merge terminal block",
-          currentEpoch = m.currentEpoch,
-          BELLATRIX_FORK_EPOCH = m.cfg.BELLATRIX_FORK_EPOCH,
-          totalDifficulty = $nextBlock.totalDifficulty,
-          ttd = $m.cfg.TERMINAL_TOTAL_DIFFICULTY,
-          terminalBlockHash = m.terminalBlockHash,
-          candidateBlockHash = terminalBlockCandidate.hash,
-          candidateBlockNumber = distinctBase(terminalBlockCandidate.number)
+        candidateBlockNumber = distinctBase(terminalBlock.number)
 
     if shouldProcessDeposits:
       if m.latestEth1BlockNumber <= m.cfg.ETH1_FOLLOW_DISTANCE:
