@@ -97,6 +97,7 @@ nav:
       - 'logging.md'
       - 'validator-client-options.md'
       - 'validator-monitor.md'
+      - 'doppelganger-detection.md'
     - "REST APIs":
       - 'rest-api.md'
       - 'keymanager-api.md'

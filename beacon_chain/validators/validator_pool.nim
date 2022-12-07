@@ -30,7 +30,9 @@ export
 
 const
   WEB3_SIGNER_DELAY_TOLERANCE = 3.seconds
-  DOPPELGANGER_EPOCHS_COUNT = 2
+  DOPPELGANGER_EPOCHS_COUNT = 1
+    ## The number of full epochs that we monitor validators for doppelganger
+    ## protection
 
 declareGauge validators,
   "Number of validators attached to the beacon node"
@@ -41,6 +43,9 @@ type
 
   ValidatorConnection* = RestClientRef
 
+  DoppelgangerStatus {.pure.} = enum
+    Unknown, Checking, Checked
+
   AttachedValidator* = ref object
     data*: KeystoreData
     case kind*: ValidatorKind
@@ -50,14 +55,16 @@ type
       clients*: seq[(RestClientRef, RemoteSignerInfo)]
       threshold*: uint32
 
-    # The index at which this validator has been observed in the chain -
-    # it does not change as long as there are no reorgs on eth1 - however, the
-    # index might not be valid in all eth2 histories, so it should not be
-    # assumed that a valid index is stored here!
     index*: Opt[ValidatorIndex]
+      ## Validator index which is assigned after the eth1 deposit has been
+      ## processed - this index is valid across all eth2 forks for fork depths
+      ## up to ETH1_FOLLOW_DISTANCE - we don't support changing indices.
 
-    # Epoch when validator activated.
-    activationEpoch*: Opt[Epoch]
+    activationEpoch*: Epoch
+      ## Epoch when validator activated - this happens at the time or some time
+      ## after the validator index has been assigned depending on how many
+      ## validators are in the activation queue - this is the first epoch that
+      ## the validator starts performing duties
 
     # Cache the latest slot signature - the slot signature is used to determine
     # if the validator will be aggregating (in the near future)
@@ -67,7 +74,9 @@ type
     # builder should be informed of current validators
     externalBuilderRegistration*: Opt[SignedValidatorRegistrationV1]
 
-    startSlot*: Slot
+    doppelStatus: DoppelgangerStatus
+    doppelEpoch*: Opt[Epoch]
+      ## The epoch where doppelganger detection started doing its monitoring
 
     lastWarning*: Opt[Slot]
 
@@ -79,6 +88,7 @@ type
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
     slashingProtection*: SlashingProtectionDB
+    doppelGangerDetectionEnabled*: bool
 
 template pubkey*(v: AttachedValidator): ValidatorPubKey =
   v.data.pubkey
@@ -102,16 +112,14 @@ template count*(pool: ValidatorPool): int =
   len(pool.validators)
 
 proc addLocalValidator*(
-    pool: var ValidatorPool, keystore: KeystoreData, index: Opt[ValidatorIndex],
-    feeRecipient: Eth1Address, slot: Slot, activationEpoch: Opt[Epoch]) =
+    pool: var ValidatorPool, keystore: KeystoreData,
+    feeRecipient: Eth1Address): AttachedValidator =
   doAssert keystore.kind == KeystoreKind.Local
   let v = AttachedValidator(
     kind: ValidatorKind.Local,
-    index: index,
     data: keystore,
     externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
-    startSlot: slot,
-    activationEpoch: activationEpoch
+    activationEpoch: FAR_FUTURE_EPOCH
   )
   pool.validators[v.pubkey] = v
 
@@ -119,37 +127,32 @@ proc addLocalValidator*(
   notice "Local validator attached",
     pubkey = v.pubkey,
     validator = shortLog(v),
-    initial_fee_recipient = feeRecipient.toHex(),
-    start_slot = slot
+    initial_fee_recipient = feeRecipient.toHex()
   validators.set(pool.count().int64)
 
-proc addLocalValidator*(
-    pool: var ValidatorPool, keystore: KeystoreData, feeRecipient: Eth1Address,
-    slot: Slot) =
-  addLocalValidator(pool, keystore, feeRecipient, slot)
+  v
 
 proc addRemoteValidator*(pool: var ValidatorPool, keystore: KeystoreData,
                          clients: seq[(RestClientRef, RemoteSignerInfo)],
-                         index: Opt[ValidatorIndex], feeRecipient: Eth1Address,
-                         slot: Slot, activationEpoch: Opt[Epoch]) =
+                         feeRecipient: Eth1Address): AttachedValidator =
   doAssert keystore.kind == KeystoreKind.Remote
   let v = AttachedValidator(
     kind: ValidatorKind.Remote,
-    index: index,
     data: keystore,
     clients: clients,
     externalBuilderRegistration: Opt.none SignedValidatorRegistrationV1,
-    startSlot: slot,
-    activationEpoch: activationEpoch
+    activationEpoch: FAR_FUTURE_EPOCH,
   )
   pool.validators[v.pubkey] = v
   notice "Remote validator attached",
     pubkey = v.pubkey,
     validator = shortLog(v),
     remote_signer = $keystore.remotes,
-    initial_fee_recipient = feeRecipient.toHex(),
-    start_slot = slot
+    initial_fee_recipient = feeRecipient.toHex()
+
   validators.set(pool.count().int64)
+
+  v
 
 proc getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
@@ -172,16 +175,22 @@ proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
              validator = shortLog(validator)
     validators.set(pool.count().int64)
 
-proc updateValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey,
-                      index: ValidatorIndex) =
-  ## Set validator ``index`` to validator with public key ``pubkey`` stored
-  ## in ``pool``.
-  ## This procedure will not raise if validator with public key ``pubkey`` is
-  ## not present in the pool.
-  var v: AttachedValidator
-  if pool.validators.pop(pubkey, v):
-    v.index = Opt.some(index)
-    pool.validators[pubkey] = v
+proc needsUpdate*(validator: AttachedValidator): bool =
+  validator.index.isNone() or validator.activationEpoch == FAR_FUTURE_EPOCH
+
+proc updateValidator*(validator: AttachedValidator,
+                      index: ValidatorIndex, activationEpoch: Epoch) =
+  ## Update activation information for a validator
+  validator.index = Opt.some(index)
+  validator.activationEpoch = activationEpoch
+
+  if validator.doppelStatus == DoppelgangerStatus.Unknown and
+      validator.doppelEpoch.isSome() and activationEpoch != FAR_FUTURE_EPOCH:
+    let doppelEpoch = validator.doppelEpoch.get()
+    if doppelEpoch >= validator.activationEpoch + DOPPELGANGER_EPOCHS_COUNT:
+      validator.doppelStatus = DoppelgangerStatus.Checking
+    else:
+      validator.doppelStatus = DoppelgangerStatus.Checked
 
 proc close*(pool: var ValidatorPool) =
   ## Unlock and close all validator keystore's files managed by ``pool``.
@@ -193,10 +202,7 @@ proc close*(pool: var ValidatorPool) =
 
 proc addRemoteValidator*(pool: var ValidatorPool,
                          keystore: KeystoreData,
-                         index: Opt[ValidatorIndex],
-                         feeRecipient: Eth1Address,
-                         slot: Slot,
-                         activationEpoch: Opt[Epoch]) =
+                         feeRecipient: Eth1Address): AttachedValidator =
   var clients: seq[(RestClientRef, RemoteSignerInfo)]
   let httpFlags =
     block:
@@ -212,8 +218,7 @@ proc addRemoteValidator*(pool: var ValidatorPool,
       warn "Unable to resolve distributed signer address",
           remote_url = $remote.url, validator = $remote.pubkey
     clients.add((client.get(), remote))
-  pool.addRemoteValidator(keystore, clients, index, feeRecipient, slot,
-                          activationEpoch)
+  pool.addRemoteValidator(keystore, clients, feeRecipient)
 
 iterator publicKeys*(pool: ValidatorPool): ValidatorPubKey =
   for item in pool.validators.keys():
@@ -228,46 +233,78 @@ iterator items*(pool: ValidatorPool): AttachedValidator =
   for item in pool.validators.values():
     yield item
 
-proc doppelgangerCheck*(validator: AttachedValidator,
-                        epoch: Epoch,
-                        broadcastEpoch: Epoch): Result[bool, cstring] =
-  ## Perform check of ``validator`` for doppelganger.
-  ##
-  ## Returns ``true`` if `validator` do not have doppelganger and could perform
-  ## validator actions.
-  ##
-  ## Returns ``false`` if `validator` has doppelganger in network and MUST not
-  ## perform any validator actions.
-  ##
-  ## Returns error, if its impossible to perform doppelganger check.
-  let
-    startEpoch = validator.startSlot.epoch() # startEpoch is epoch when /
-      # validator appeared in beacon_node.
-    activationEpoch = validator.activationEpoch # validator's activation_epoch
-    currentStartEpoch = max(startEpoch, broadcastEpoch)
+proc checkingDoppelganger*(validator: AttachedValidator): bool =
+  ## Return true if the validator is still being checked for doppelgangers
+  validator.doppelStatus != DoppelgangerStatus.Checked
 
-  if activationEpoch.isNone() or activationEpoch.get() > epoch:
-    # If validator's `activation_epoch` is not set or `activation_epoch` is far
-    # from current wall epoch - it should not participate in the network.
-    err("Validator is not activated yet, or beacon node clock is invalid")
-  else:
-    if currentStartEpoch > epoch:
-      err("Validator is not started or broadcast is not started, or " &
-          "beacon node clock is invalid")
+proc updateDoppelganger*(
+    validator: AttachedValidator, epoch: Epoch, isLive: bool): Result[void, cstring] =
+  ## `Epoch` is the slot that doppelganger detection was first known to start
+  ## monitoring the gossip networks or any epoch after that where monitoring is
+  ## happening
+
+  if validator.doppelEpoch.isNone():
+    validator.doppelEpoch = Opt.some epoch
+
+  let doppelEpoch = validator.doppelEpoch.get()
+
+  let res = case validator.doppelStatus
+  of DoppelgangerStatus.Checked:
+    ok()
+
+  of DoppelgangerStatus.Unknown:
+    if validator.activationEpoch == FAR_FUTURE_EPOCH:
+      ok()
     else:
-      let actEpoch = activationEpoch.get()
-      # max(startEpoch, broadcastEpoch) <= activateEpoch <= epoch
-      if (currentStartEpoch <= actEpoch) and (actEpoch <= epoch):
-        # Validator was activated, we going to skip doppelganger protection
-        ok(true)
-      else:
-        if epoch - currentStartEpoch < DOPPELGANGER_EPOCHS_COUNT:
-          # Validator is started in unsafe period.
-          ok(false)
+      # We don't do doppelganger checking for validators that are about to be
+      # activated since both clients would be waiting for the other to start
+      # performing duties - this accounts for genesis as well
+      # The slot is rounded up to ensure we cover all slots
+      if doppelEpoch >= validator.activationEpoch + DOPPELGANGER_EPOCHS_COUNT:
+        if isLive:
+          err("Doppelganger detection triggered")
         else:
-          # Validator is already passed checking period, so we allow
-          # validator to participate in the network.
-          ok(true)
+          validator.doppelStatus = DoppelgangerStatus.Checking
+          ok()
+      else:
+        validator.doppelStatus = DoppelgangerStatus.Checked
+
+        ok()
+
+  of DoppelgangerStatus.Checking:
+    if epoch >= doppelEpoch + DOPPELGANGER_EPOCHS_COUNT:
+      validator.doppelStatus = DoppelgangerStatus.Checked
+      ok()
+    elif isLive:
+      err("Doppelganger detection triggered")
+    else:
+      ok()
+
+  if res.isErr(): # TODO log elsewhere
+    fatal "Doppelganger detection triggered! It appears a validator loaded into " &
+      "this process is already live on the network - the validator is at high " &
+      "risk of being slashed due to the same keys being used in two setups. " &
+      "See https://nimbus.guide/doppelganger-detection.html for more information!",
+      validator = shortLog(validator)
+
+  res
+
+proc getValidatorForDuties*(
+    pool: ValidatorPool,
+    key: ValidatorPubKey): Opt[AttachedValidator] =
+  ## Return validator only if it is ready for duties (has index and has passed
+  ## doppelganger check where applicable)
+  let validator = pool.getValidator(key)
+  if isNil(validator) or validator.index.isNone():
+    return Opt.none(AttachedValidator)
+
+  if pool.doppelGangerDetectionEnabled and validator.checkingDoppelganger():
+    notice "Doppelganger detection active - skipping validator " &
+            "duties while observing activity on the network",
+            validator = shortLog(validator)
+    return Opt.none(AttachedValidator)
+
+  return Opt.some(validator)
 
 proc signWithDistributedKey(v: AttachedValidator,
                             request: Web3SignerRequest): Future[SignatureResult]

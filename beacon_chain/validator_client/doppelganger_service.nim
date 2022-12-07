@@ -13,14 +13,11 @@ const
 
 logScope: service = ServiceName
 
-const
-  DOPPELGANGER_EPOCHS_COUNT = 1
-
 proc getCheckingList*(vc: ValidatorClientRef): seq[ValidatorIndex] =
   var res: seq[ValidatorIndex]
-  for index, value in vc.doppelgangerDetection.validators.pairs():
-    if value.status == DoppelgangerStatus.Checking:
-      res.add(index)
+  for validator in vc.attachedValidators[]:
+    if validator.index.isSome and validator.checkingDoppelganger():
+      res.add validator.index.get()
   res
 
 proc waitForNextEpoch(service: DoppelgangerServiceRef) {.async.} =
@@ -34,34 +31,14 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
   let vc = service.client
   if len(activities.data) == 0:
     debug "Unable to monitor validator's activity for epoch", epoch = epoch
-    for index, value in vc.doppelgangerDetection.validators.mpairs():
-      if value.status == DoppelgangerStatus.Checking:
-        value.epochsCount = 0'u64
-        value.lastAttempt = DoppelgangerAttempt.Failure
   else:
     for item in activities.data:
       let vindex = item.index
-      vc.doppelgangerDetection.validators.withValue(vindex, value):
-        if item.is_live:
-          if value.status == DoppelgangerStatus.Checking:
-            value.epochsCount = 0'u64
-            value.lastAttempt = DoppelgangerAttempt.SuccessTrue
-            warn "Validator's activity has been seen",
-                  validator_index = vindex, epoch = epoch
-            vc.gracefulExit.fire()
+      for validator in vc.attachedValidators[]:
+        if validator.index == Opt.some(vindex):
+          if validator.updateDoppelganger(epoch, item.is_live).isErr:
+            vc.doppelExit.fire()
             return
-        else:
-          if value.status == DoppelgangerStatus.Checking:
-            value.lastAttempt = DoppelgangerAttempt.SuccessFalse
-            if value.epochsCount == DOPPELGANGER_EPOCHS_COUNT:
-              value.status = DoppelgangerStatus.Passed
-              info "Validator successfully passed doppelganger detection",
-                    validator_index = vindex
-            else:
-              inc(value.epochsCount)
-              debug "Validator's activity was not seen",
-                     validator_index = vindex, epoch = epoch,
-                     epochs_count = value.epochsCount
 
 proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
   let vc = service.client
@@ -73,36 +50,32 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
     debug "Service disabled because of configuration settings"
     return
 
-  while true:
-    let breakLoop =
-      try:
-        await service.waitForNextEpoch()
-        let
-          currentEpoch = vc.currentSlot().epoch()
-          previousEpoch =
-            if currentEpoch == Epoch(0):
-              currentEpoch
-            else:
-              currentEpoch - 1'u64
-          validators = vc.getCheckingList()
-        if len(validators) > 0:
-          let activities = await vc.getValidatorsLiveness(previousEpoch,
-                                                          validators)
-          service.processActivities(previousEpoch, activities)
+  while try:
+    await service.waitForNextEpoch()
+    let
+      currentEpoch = vc.currentSlot().epoch()
+      previousEpoch =
+        if currentEpoch == Epoch(0):
+          currentEpoch
         else:
-          debug "No validators found that require doppelganger protection"
-          discard
-        false
-      except CancelledError:
-        debug "Service interrupted"
-        true
-      except CatchableError as exc:
-        warn "Service crashed with unexpected error", err_name = exc.name,
-             err_msg = exc.msg
-        true
-
-    if breakLoop:
-      break
+          currentEpoch - 1'u64
+      validators = vc.getCheckingList()
+    if len(validators) > 0:
+      let activities = await vc.getValidatorsLiveness(previousEpoch,
+                                                      validators)
+      service.processActivities(previousEpoch, activities)
+    else:
+      debug "No validators found that require doppelganger protection"
+      discard
+    true
+  except CancelledError:
+    debug "Service interrupted"
+    false
+  except CatchableError as exc:
+    warn "Service crashed with unexpected error", err_name = exc.name,
+          err_msg = exc.msg
+    false
+  : discard
 
 proc init*(t: type DoppelgangerServiceRef,
            vc: ValidatorClientRef): Future[DoppelgangerServiceRef] {.async.} =

@@ -1340,19 +1340,10 @@ proc addLocalValidator*(host: KeymanagerHost, keystore: KeystoreData) =
     data = host.getValidatorData(keystore.pubkey)
     feeRecipient = host.getSuggestedFeeRecipient(keystore.pubkey).valueOr(
       host.defaultFeeRecipient)
-    index =
-      if data.isSome():
-        Opt.some(data.get().index)
-      else:
-        Opt.none(ValidatorIndex)
-    activationEpoch =
-      if data.isSome():
-        Opt.some(data.get().validator.activation_epoch)
-      else:
-        Opt.none(Epoch)
 
-  host.validatorPool[].addLocalValidator(keystore, index, feeRecipient, slot,
-                                         activationEpoch)
+  let v = host.validatorPool[].addLocalValidator(keystore, feeRecipient)
+  if data.isSome():
+    v.updateValidator(data.get().index, data.get().validator.activation_epoch)
 
 proc generateDeposits*(cfg: RuntimeConfig,
                        rng: var HmacDrbgContext,

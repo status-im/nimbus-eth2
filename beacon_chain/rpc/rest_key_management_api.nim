@@ -128,21 +128,13 @@ proc handleAddRemoteValidatorReq(host: KeymanagerHost,
   if res.isOk:
     let
       slot = host.getBeaconTimeFn().slotOrZero
-      validator = host.getValidatorData(keystore.pubkey)
+      data = host.getValidatorData(keystore.pubkey)
       feeRecipient = host.getSuggestedFeeRecipient(keystore.pubkey).valueOr(
         host.defaultFeeRecipient)
-      index =
-        if validator.isSome():
-          Opt.some(validator.get().index)
-        else:
-          Opt.none(ValidatorIndex)
-      activationEpoch =
-        if validator.isSome():
-          Opt.some(validator.get().validator.activation_epoch)
-        else:
-          Opt.none(Epoch)
-    host.validatorPool[].addRemoteValidator(
-      res.get, index, feeRecipient, slot, activationEpoch)
+      v = host.validatorPool[].addRemoteValidator(res.get, feeRecipient)
+    if data.isSome():
+      v.updateValidator(data.get().index, data.get().validator.activation_epoch)
+
     RequestItemStatus(status: $KeystoreStatus.imported)
   else:
     case res.error().status

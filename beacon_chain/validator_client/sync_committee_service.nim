@@ -36,7 +36,7 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
     vindex = duty.validator_index
     subcommitteeIdx = getSubcommitteeIndex(
       duty.validator_sync_committee_index)
-    validator = vc.getValidator(duty.pubkey).valueOr: return false
+    validator = vc.getValidatorForDuties(duty.pubkey).valueOr: return false
     message =
       block:
         let res = await getSyncCommitteeMessage(validator, fork,
@@ -212,8 +212,9 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
   var validators: seq[(AttachedValidator, SyncSubcommitteeIndex)]
 
   for duty in duties:
-    let validator = vc.attachedValidators[].getValidator(duty.pubkey)
-    if isNil(validator): continue # This should never happen
+    let validator = vc.attachedValidators[].getValidatorForDuties(
+        duty.pubkey).valueOr:
+      continue
     let
       subCommitteeIdx =
         getSubcommitteeIndex(duty.validator_sync_committee_index)

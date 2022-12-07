@@ -858,6 +858,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return RestApiResponse.response("", Http200, "text/plain")
 
+  # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/liveness.yaml
   router.api(MethodPost, "/eth/v1/validator/liveness/{epoch}") do (
     epoch: Epoch, contentBody: Option[ContentBody]) -> RestApiResponse:
     let
@@ -878,6 +879,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           if (res < prevEpoch) or (res > nextEpoch):
             return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
                     "Requested epoch is more than one epoch from current epoch")
+
+          if res < node.processor[].doppelgangerDetection.broadcastStartEpoch:
+            # We can't accurately respond if we're not in sync and aren't
+            # processing gossip
+            return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
           res
       indexList =
         block:

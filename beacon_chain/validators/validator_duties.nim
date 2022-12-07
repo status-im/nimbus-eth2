@@ -16,7 +16,7 @@ else:
 
 import
   # Standard library
-  std/[os, tables],
+  std/[os, tables, sequtils],
 
   # Nimble packages
   stew/byteutils,
@@ -107,7 +107,7 @@ proc getValidator*(validators: auto,
 
 proc addValidators*(node: BeaconNode) =
   debug "Loading validators", validatorsDir = node.config.validatorsDir()
-  let slot = node.currentSlot()
+  let epoch = node.currentSlot().epoch()
   for keystore in listLoadableKeystores(node.config):
     let
       data = withState(node.dag.headState):
@@ -118,76 +118,29 @@ proc addValidators*(node: BeaconNode) =
         else:
           Opt.none(ValidatorIndex)
       feeRecipient = node.consensusManager[].getFeeRecipient(
-        keystore.pubkey, index, slot.epoch)
-      activationEpoch =
-        if data.isSome():
-          Opt.some(data.get().validator.activation_epoch)
-        else:
-          Opt.none(Epoch)
+        keystore.pubkey, index, epoch)
 
-    case keystore.kind
+    let v = case keystore.kind
     of KeystoreKind.Local:
-      node.attachedValidators[].addLocalValidator(
-        keystore, index, feeRecipient, slot, activationEpoch)
+      node.attachedValidators[].addLocalValidator(keystore, feeRecipient)
     of KeystoreKind.Remote:
-      node.attachedValidators[].addRemoteValidator(
-        keystore, index, feeRecipient, slot, activationEpoch)
+      node.attachedValidators[].addRemoteValidator(keystore, feeRecipient)
+
+    if data.isSome:
+      v.updateValidator(data.get().index, data.get().validator.activation_epoch)
 
 proc getAttachedValidator(node: BeaconNode,
                           pubkey: ValidatorPubKey): AttachedValidator =
   node.attachedValidators[].getValidator(pubkey)
 
-proc getAttachedValidator(node: BeaconNode,
-                          idx: ValidatorIndex,
-                          slot: Slot): Opt[AttachedValidator] =
+proc getValidatorForDuties*(
+    node: BeaconNode,
+    idx: ValidatorIndex): Opt[AttachedValidator] =
   let key = node.dag.validatorKey(idx)
-  if key.isNone():
-    return Opt.some(AttachedValidator(nil))
+  if key.isNone:
+    return Opt.none(AttachedValidator)
 
-  let validator = node.getAttachedValidator(key.get().toPubKey())
-  if isNil(validator):
-    return Opt.some(AttachedValidator(nil))
-
-  if validator.index != Opt.some(idx):
-    # Update index and activation_epoch, in case the validator was activated!
-    notice "Validator activated", pubkey = validator.pubkey, index = idx,
-                                  activation_epoch = slot.epoch()
-    validator.index = Opt.some(idx)
-    if validator.activationEpoch.isNone():
-      validator.activationEpoch = Opt.some(slot.epoch())
-
-  if not(node.config.doppelgangerDetection):
-    Opt.some(validator)
-  else:
-    let
-      doppelgangerDetection = node.processor[].doppelgangerDetection
-      broadcastStartEpoch = doppelgangerDetection.broadcastStartEpoch
-      res = validator.doppelgangerCheck(slot.epoch(), broadcastStartEpoch)
-
-    if res.isErr():
-      if validator.lastWarning != Opt.some(slot):
-        validator.lastWarning = Opt.some(slot)
-        warn "Doppelganger detection check failed - skipping validator " &
-             "duties while observing activity on the network",
-             pubkey = validator.pubkey, index = idx,
-             activation_epoch = validator.activationEpoch,
-             broadcast_start_epoch = broadcastStartEpoch,
-             slot = slot, epoch = slot.epoch(),
-             error_msg = res.error()
-      Opt.none(AttachedValidator)
-    else:
-      if res.get():
-        Opt.some(validator)
-      else:
-        if validator.lastWarning != Opt.some(slot):
-          validator.lastWarning = Opt.some(slot)
-          notice "Doppelganger detection active - skipping validator " &
-                 "duties while observing activity on the network",
-                 slot = slot, epoch = slot.epoch(),
-                 validator = shortLog(validator),
-                 index = idx, broadcast_start_epoch = broadcastStartEpoch,
-                 activation_epoch = validator.activationEpoch
-        Opt.none(AttachedValidator)
+  node.attachedValidators[].getValidatorForDuties(key.get().toPubKey())
 
 proc isSynced*(node: BeaconNode, head: BlockRef): SyncStatus =
   ## TODO This function is here as a placeholder for some better heurestics to
@@ -1013,9 +966,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       epochRef.shufflingRef, slot, committee_index)
 
     for index_in_committee, validator_index in committee:
-      let validator = node.getAttachedValidator(validator_index, slot).valueOr:
-        continue
-      if isNil(validator):
+      let validator = node.getValidatorForDuties(validator_index).valueOr:
         continue
 
       let
@@ -1086,9 +1037,7 @@ proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
-      let validator = node.getAttachedValidator(valIdx, slot).valueOr:
-        continue
-      if isNil(validator) or validator.index.isNone():
+      let validator = node.getValidatorForDuties(valIdx).valueOr:
         continue
       asyncSpawn createAndSendSyncCommitteeMessage(node, validator, slot,
                                                    subcommitteeIdx, head)
@@ -1155,10 +1104,7 @@ proc handleSyncCommitteeContributions(
 
   for subcommitteeIdx in SyncSubCommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
-      let validator = node.getAttachedValidator(valIdx, slot).valueOr:
-        continue
-      # Why there no check on `validator.index`?
-      if isNil(validator):
+      let validator = node.getValidatorForDuties(valIdx).valueOr:
         continue
 
       asyncSpawn signAndSendContribution(
@@ -1176,18 +1122,14 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
 
   let
     proposerKey = node.dag.validatorKey(proposer.get()).get().toPubKey
-    validator = node.getAttachedValidator(proposer.get(), slot).valueOr:
-      return head
-
-  return
-    if isNil(validator):
+    validator = node.getValidatorForDuties(proposer.get()).valueOr:
       debug "Expecting block proposal", headRoot = shortLog(head.root),
                                         slot = shortLog(slot),
                                         proposer_index = proposer.get(),
                                         proposer = shortLog(proposerKey)
-      head
-    else:
-      await proposeBlock(node, validator, proposer.get(), head, slot)
+      return head
+
+  return await proposeBlock(node, validator, proposer.get(), head, slot)
 
 proc signAndSendAggregate(
     node: BeaconNode, validator: AttachedValidator, shufflingRef: ShufflingRef,
@@ -1245,7 +1187,7 @@ proc signAndSendAggregate(
 proc sendAggregatedAttestations(
     node: BeaconNode, head: BlockRef, slot: Slot) {.async.} =
   # Aggregated attestations must be sent by members of the beacon committees for
-  # the given slot, for which `is_aggregator` returns `true.
+  # the given slot, for which `is_aggregator` returns `true`.
 
   let
     shufflingRef = node.dag.getShufflingRef(head, slot.epoch, false).valueOr:
@@ -1257,11 +1199,10 @@ proc sendAggregatedAttestations(
   for committee_index in get_committee_indices(committees_per_slot):
     for _, validator_index in
         get_beacon_committee(shufflingRef, slot, committee_index):
-      let validator = node.getAttachedValidator(validator_index, slot).valueOr:
+      let validator = node.getValidatorForDuties(validator_index).valueOr:
         continue
-      if not(isNil(validator)):
-        asyncSpawn signAndSendAggregate(node, validator, shufflingRef, slot,
-                                        committee_index)
+      asyncSpawn signAndSendAggregate(node, validator, shufflingRef, slot,
+                                      committee_index)
 
 proc updateValidatorMetrics*(node: BeaconNode) =
   # Technically, this only needs to be done on epoch transitions and if there's
@@ -1492,6 +1433,19 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   of SyncStatus.synced:
     discard # keep going
 
+  for validator in node.attachedValidators[]:
+    # Check if any validators have been activated
+    # TODO we could do this the other way around and update only validators
+    #      based on a "last-updated" index since only the tail end of the
+    #      validator list in the state ever changes
+    if validator.needsUpdate:
+      let data = withState(node.dag.headState):
+        getValidator(forkyState.data.validators.asSeq(), validator.pubkey)
+      if data.isSome():
+        # Activation epoch can change after index is assigned..
+        validator.updateValidator(
+          data.get().index, data.get().validator.activation_epoch)
+
   var curSlot = lastSlot + 1
 
   # Start by checking if there's work we should have done in the past that we
@@ -1623,21 +1577,19 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
       let committee = get_beacon_committee(shufflingRef, slot, committee_index)
 
       for index_in_committee, validator_index in committee:
-        let validator = node.getAttachedValidator(validator_index,
-                                                  slot).valueOr:
+        let validator = node.getValidatorForDuties(validator_index).valueOr:
           continue
-        if not(isNil(validator)):
-          let
-            subnet_id = compute_subnet_for_attestation(
-              committees_per_slot, slot, committee_index)
-            slotSigRes = await validator.getSlotSignature(
-              fork, genesis_validators_root, slot)
-          if slotSigRes.isErr():
-            error "Unable to create slot signature",
-                  validator = shortLog(validator),
-                  error_msg = slotSigRes.error()
-            continue
-          let isAggregator = is_aggregator(committee.lenu64, slotSigRes.get())
+        let
+          subnet_id = compute_subnet_for_attestation(
+            committees_per_slot, slot, committee_index)
+          slotSigRes = await validator.getSlotSignature(
+            fork, genesis_validators_root, slot)
+        if slotSigRes.isErr():
+          error "Unable to create slot signature",
+                validator = shortLog(validator),
+                error_msg = slotSigRes.error()
+          continue
+        let isAggregator = is_aggregator(committee.lenu64, slotSigRes.get())
 
-          node.consensusManager[].actionTracker.registerDuty(
-            slot, subnet_id, validator_index, isAggregator)
+        node.consensusManager[].actionTracker.registerDuty(
+          slot, subnet_id, validator_index, isAggregator)

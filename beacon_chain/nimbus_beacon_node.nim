@@ -963,6 +963,19 @@ proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
 
   node.network.updateSyncnetsMetadata(syncnets)
 
+proc updateDoppelganger(node: BeaconNode, epoch: Epoch) =
+  if not node.processor[].doppelgangerDetectionEnabled:
+    return
+
+  # broadcastStartEpoch is set to FAR_FUTURE_EPOCH when we're not monitoring
+  # gossip - it is only viable to assert liveness in epochs where gossip is
+  # active
+  if epoch >= node.processor[].doppelgangerDetection.broadcastStartEpoch:
+    for validator in node.attachedValidators[]:
+      if validator.checkingDoppelganger():
+        validator.updateDoppelganger(epoch, false).expect(
+          "no failures on isLive = false")
+
 proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   ## Subscribe to subnets that we are providing stability for or aggregating
   ## and unsubscribe from the ones that are no longer relevant.
@@ -1049,6 +1062,8 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
       headSlot = head.slot,
       headDistance
 
+    node.processor[].clearDoppelgangerProtection()
+
   let forkDigests = node.forkDigests()
 
   discard $eip4844ImplementationMissing & "nimbus_beacon_node.nim:updateGossipStatus check EIP4844 removeMessageHandlers"
@@ -1076,6 +1091,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addMessageHandlers[gossipFork](node, forkDigests[gossipFork], slot)
 
   node.gossipState = targetGossipState
+  node.updateDoppelganger(slot.epoch)
   node.updateAttestationSubnetHandlers(slot)
   node.updateBlocksGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)

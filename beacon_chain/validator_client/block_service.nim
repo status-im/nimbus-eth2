@@ -107,10 +107,6 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     slot = slot
     wall_slot = currentSlot
 
-  if not(vc.doppelgangerCheck(validator)):
-    info "Block has not been produced (doppelganger check still active)"
-    return
-
   debug "Publishing block", delay = vc.getDelay(slot.block_deadline()),
                             genesis_root = genesisRoot,
                             graffiti = graffiti, fork = fork
@@ -316,7 +312,7 @@ proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
     if sres.isSome():
       let
         currentSlot = sres.get()
-        validator = vc.getValidator(proposerKey).valueOr: return
+        validator = vc.getValidatorForDuties(proposerKey).valueOr: return
       await vc.publishBlock(currentSlot, slot, validator)
   except CancelledError as exc:
     debug "Block proposing was interrupted", slot = slot,

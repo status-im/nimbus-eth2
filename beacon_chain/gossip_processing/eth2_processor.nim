@@ -21,7 +21,8 @@ import
     light_client_pool, sync_committee_msg_pool],
   ../validators/validator_pool,
   ../beacon_clock,
-  "."/[gossip_validation, block_processor, batch_validation]
+  "."/[gossip_validation, block_processor, batch_validation],
+  ../nimbus_binary_common
 
 export
   results, taskpools, block_clearance, blockchain_dag, exit_pool, attestation_pool,
@@ -247,13 +248,19 @@ proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # can be up to around 10,000 Wei. Thus, skipping attestations isn't cheap
   # and one should gauge the likelihood of this simultaneous launch to tune
   # the epoch delay to one's perceived risk.
-  if self.doppelgangerDetectionEnabled:
-    self.doppelgangerDetection.broadcastStartEpoch = slot.epoch
 
+  # Round up to ensure that we cover the entire epoch - used by rest api also
+  self.doppelgangerDetection.broadcastStartEpoch =
+    (slot + SLOTS_PER_EPOCH - 1).epoch
+
+  if self.doppelgangerDetectionEnabled:
     notice "Setting up doppelganger detection",
       epoch = slot.epoch,
       broadcast_epoch = self.doppelgangerDetection.broadcastStartEpoch,
       nodestart_epoch = self.doppelgangerDetection.nodeLaunchSlot.epoch()
+
+proc clearDoppelgangerProtection*(self: var Eth2Processor) =
+  self.doppelgangerDetection.broadcastStartEpoch = FAR_FUTURE_EPOCH
 
 proc checkForPotentialDoppelganger(
     self: var Eth2Processor, attestation: Attestation,
@@ -275,28 +282,15 @@ proc checkForPotentialDoppelganger(
       validator = self.validatorPool[].getValidator(validatorPubkey)
 
     if not(isNil(validator)):
-      let res = validator.doppelgangerCheck(attestation.data.slot.epoch(),
-                                            broadcastStartEpoch)
-      if res.isOk() and not(res.get()):
-        warn "We believe you are currently running another instance of the " &
-             "same validator. We've disconnected you from the network as " &
-             "this presents a significant slashing risk. Possible next steps "&
-             "are (a) making sure you've disconnected your validator from " &
-             "your old machine before restarting the client; and (b) running " &
-             "the client again with the gossip-slashing-protection option " &
-             "disabled, only if you are absolutely sure this is the only " &
-             "instance of your validator running, and reporting the issue " &
-             "at https://github.com/status-im/nimbus-eth2/issues.",
+      let res = validator.updateDoppelganger(broadcastStartEpoch, true)
+      if res.isErr():
+        warn "Doppelganger attestation",
           validator = shortLog(validator),
-          start_slot = validator.startSlot,
           validator_index = validatorIndex,
-          activation_epoch = validator.activationEpoch.get(),
+          activation_epoch = validator.activationEpoch,
           broadcast_epoch = broadcastStartEpoch,
           attestation = shortLog(attestation)
-        # Avoid colliding with
-        # https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Process%20Exit%20Codes
-        const QuitDoppelganger = 129
-        quit QuitDoppelganger
+        quitDoppelganger()
 
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,
