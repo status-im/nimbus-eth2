@@ -44,6 +44,11 @@ func readValue*(r: var JsonReader, a: var seq[byte]) =
 func genesisTestRuntimeConfig*(stateFork: BeaconStateFork): RuntimeConfig =
   var res = defaultRuntimeConfig
   case stateFork
+  of BeaconStateFork.EIP4844:
+    res.EIP4844_FORK_EPOCH = GENESIS_EPOCH
+    res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
+    res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
   of BeaconStateFork.Capella:
     res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
     res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
@@ -119,13 +124,20 @@ proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
     quit 1
 
 from ../../beacon_chain/spec/datatypes/capella import BeaconState
+from ../../beacon_chain/spec/datatypes/eip4844 import BeaconState
 
 proc loadForkedState*(
     path: string, fork: BeaconStateFork): ref ForkedHashedBeaconState =
   # TODO stack usage. newClone and assignClone do not seem to
   # prevent temporaries created by case objects
+  # TODO depends on something like nimOldCaseObjects
   let forkedState = new ForkedHashedBeaconState
   case fork
+  of BeaconStateFork.EIP4844:
+    let state = newClone(parseTest(path, SSZ, eip4844.BeaconState))
+    forkedState.kind = BeaconStateFork.EIP4844
+    forkedState.eip4844Data.data = state[]
+    forkedState.eip4844Data.root = hash_tree_root(state[])
   of BeaconStateFork.Capella:
     let state = newClone(parseTest(path, SSZ, capella.BeaconState))
     forkedState.kind = BeaconStateFork.Capella

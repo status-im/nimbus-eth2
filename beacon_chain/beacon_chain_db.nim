@@ -497,7 +497,8 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("state_no_validators2").expectDb(),
       kvStore db.openKvStore("altair_state_no_validators").expectDb(),
       kvStore db.openKvStore("bellatrix_state_no_validators").expectDb(),
-      kvStore db.openKvStore("capella_state_no_validators").expectDb()]
+      kvStore db.openKvStore("capella_state_no_validators").expectDb(),
+      kvStore db.openKvStore("eip4844_state_no_validators").expectDb()]
 
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
@@ -747,7 +748,8 @@ proc putBlock*(
 proc putBlock*(
     db: BeaconChainDB,
     value: bellatrix.TrustedSignedBeaconBlock |
-           capella.TrustedSignedBeaconBlock) =
+           capella.TrustedSignedBeaconBlock |
+           eip4844.TrustedSignedBeaconBlock) =
   db.withManyWrites:
     db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
@@ -782,6 +784,10 @@ template toBeaconStateNoImmutableValidators(state: capella.BeaconState):
     CapellaBeaconStateNoImmutableValidators =
   isomorphicCast[CapellaBeaconStateNoImmutableValidators](state)
 
+template toBeaconStateNoImmutableValidators(state: eip4844.BeaconState):
+    EIP4844BeaconStateNoImmutableValidators =
+  isomorphicCast[EIP4844BeaconStateNoImmutableValidators](state)
+
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
     value: phase0.BeaconState | altair.BeaconState) =
@@ -791,7 +797,7 @@ proc putState*(
 
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
-    value: bellatrix.BeaconState | capella.BeaconState) =
+    value: bellatrix.BeaconState | capella.BeaconState | eip4844.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
   db.statesNoVal[type(value).toFork()].putSZSSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
@@ -1059,7 +1065,8 @@ proc getStateOnlyMutableValidators(
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
     store: KvStoreRef, key: openArray[byte],
-    output: var (bellatrix.BeaconState | capella.BeaconState),
+    output: var (bellatrix.BeaconState | capella.BeaconState |
+                 eip4844.BeaconState),
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -1151,7 +1158,7 @@ proc getState*(
 proc getState*(
     db: BeaconChainDB, key: Eth2Digest,
     output: var (altair.BeaconState | bellatrix.BeaconState |
-                 capella.BeaconState),
+                 capella.BeaconState | eip4844.BeaconState),
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible

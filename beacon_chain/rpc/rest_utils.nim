@@ -270,6 +270,8 @@ proc getStateOptimistic*(node: BeaconNode,
     case state.kind
     of BeaconStateFork.Phase0, BeaconStateFork.Altair:
       some[bool](false)
+    of BeaconStateFork.EIP4844:
+      raiseAssert $eip4844ImplementationMissing & "rest_utils.nim:getStateOptimistic"
     of BeaconStateFork.Bellatrix, BeaconStateFork.Capella:
       # A state is optimistic iff the block which created it is
       withState(state):

@@ -15,6 +15,7 @@ import
   ./spec/[eth2_ssz_serialization, eth2_merkleization]
 
 from ./spec/datatypes/capella import ExecutionPayloadHeader, Withdrawal
+from ./spec/datatypes/eip4844 import ExecutionPayloadHeader
 
 type
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#beaconstate
@@ -186,6 +187,7 @@ type
     latest_execution_payload_header*: bellatrix.ExecutionPayloadHeader  # [New in Bellatrix]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#beaconstate
+  # with indirect changes via ExecutionPayload
   # Memory-representation-equivalent to a Capella BeaconState for in-place SSZ
   # reading and writing
   CapellaBeaconStateNoImmutableValidators* = object
@@ -248,3 +250,68 @@ type
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex # [New in Capella]
     next_withdrawal_validator_index*: uint64  # [New in Capella]
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#beaconstate
+  # with indirect changes via ExecutionPayloadHeader
+  # Memory-representation-equivalent to a Capella BeaconState for in-place SSZ
+  # reading and writing
+  EIP4844BeaconStateNoImmutableValidators* = object
+    # Versioning
+    genesis_time*: uint64
+    genesis_validators_root*: Eth2Digest
+    slot*: Slot
+    fork*: Fork
+
+    # History
+    latest_block_header*: BeaconBlockHeader
+      ## `latest_block_header.state_root == ZERO_HASH` temporarily
+
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      ## Needed to process attestations, older to newer
+
+    state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+
+    # Eth1
+    eth1_data*: Eth1Data
+    eth1_data_votes*:
+      HashList[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+    eth1_deposit_index*: uint64
+
+    # Registry
+    validators*: HashList[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
+    balances*: HashList[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Randomness
+    randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
+
+    # Slashings
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, Gwei]
+      ## Per-epoch sums of slashed effective balances
+
+    # Participation
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
+
+    # Finality
+    justification_bits*: JustificationBits
+
+    previous_justified_checkpoint*: Checkpoint
+      ## Previous epoch snapshot
+
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
+    # Inactivity
+    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Light client sync committees
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
+
+    # Execution
+    latest_execution_payload_header*: eip4844.ExecutionPayloadHeader
+
+    # Withdrawals
+    next_withdrawal_index*: WithdrawalIndex
+    next_withdrawal_validator_index*: uint64

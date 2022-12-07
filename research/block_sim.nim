@@ -623,6 +623,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.stateForkAtEpoch(slot.epoch)
+        of BeaconStateFork.EIP4844:   raiseAssert $eip4844ImplementationMissing & ": block_sim.nim"
         of BeaconStateFork.Capella:   proposeCapellaBlock(slot)
         of BeaconStateFork.Bellatrix: proposeBellatrixBlock(slot)
         of BeaconStateFork.Altair:    proposeAltairBlock(slot)

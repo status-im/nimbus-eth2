@@ -158,9 +158,6 @@ func getTargetGossipState*(
   if isBehind:
     return {}
 
-  # When EIP4844 comes in, can be transformed to discard of that symbol
-  static: doAssert high(BeaconStateFork) == BeaconStateFork.Capella
-
   doAssert BELLATRIX_FORK_EPOCH >= ALTAIR_FORK_EPOCH
   doAssert CAPELLA_FORK_EPOCH >= BELLATRIX_FORK_EPOCH
   doAssert EIP4844_FORK_EPOCH >= CAPELLA_FORK_EPOCH
@@ -188,10 +185,8 @@ func getTargetGossipState*(
     BeaconStateFork.Bellatrix, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH)
   maybeIncludeFork(
     BeaconStateFork.Capella,   CAPELLA_FORK_EPOCH,   EIP4844_FORK_EPOCH)
-
-  discard $eip4844ImplementationMissing & ": should be BeaconStateFork.EIP4844"
   maybeIncludeFork(
-    BeaconStateFork.Capella,   EIP4844_FORK_EPOCH,   FAR_FUTURE_EPOCH)
+    BeaconStateFork.EIP4844,   EIP4844_FORK_EPOCH,   FAR_FUTURE_EPOCH)
 
   doAssert len(targetForks) <= 2
   targetForks

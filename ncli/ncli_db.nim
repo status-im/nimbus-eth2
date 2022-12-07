@@ -330,6 +330,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of BeaconStateFork.Capella:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[3][].data, noRollback)
+              of BeaconStateFork.EIP4844:
+                raiseAssert $eip4844ImplementationMissing & ": ncli_db.nim: cmdBench (1)"
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case stateFork
@@ -337,6 +339,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of BeaconStateFork.Altair:    hash_tree_root(loadedState[1][].data)
                 of BeaconStateFork.Bellatrix: hash_tree_root(loadedState[2][].data)
                 of BeaconStateFork.Capella:   hash_tree_root(loadedState[3][].data)
+                of BeaconStateFork.EIP4844:   raiseAssert $eip4844ImplementationMissing & ": ncli_db.nim: cmdBench (2)"
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])
@@ -996,8 +999,11 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       if nextSlot.is_epoch:
         withState(tmpState[]):
           var stateData = newClone(forkyState.data)
-          rewardsAndPenalties.collectEpochRewardsAndPenalties(
-            stateData[], cache, cfg, flags)
+          when stateFork == BeaconStateFork.EIP4844:
+            raiseAssert $eip4844ImplementationMissing & ": ncli_db.nim:cmdValidatorDb"
+          else:
+            rewardsAndPenalties.collectEpochRewardsAndPenalties(
+              stateData[], cache, cfg, flags)
 
       let res = process_slots(cfg, tmpState[], nextSlot, cache, forkedInfo, flags)
       doAssert res.isOk, "Slot processing can't fail with correct inputs"

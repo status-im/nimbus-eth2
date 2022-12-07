@@ -236,6 +236,8 @@ proc addTestBlock*(
     addTestBlockAux[capella.ExecutionPayload](
       state, cache, eth1_data, attestations, deposits, sync_aggregate,
       graffiti, flags, nextSlot, cfg)
+  of BeaconStateFork.EIP4844:
+    raiseAssert $eip4844ImplementationMissing & ": tests/testblockutil.nim addTestBlock"
 
 proc makeTestBlock*(
     state: ForkedHashedBeaconState,
