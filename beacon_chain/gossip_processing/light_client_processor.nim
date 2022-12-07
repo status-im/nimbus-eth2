@@ -31,10 +31,23 @@ declareHistogram light_client_store_object_duration_seconds,
   "storeObject() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
 type
+  Nothing = object
+
   GetTrustedBlockRootCallback* =
     proc(): Option[Eth2Digest] {.gcsafe, raises: [Defect].}
   VoidCallback* =
     proc() {.gcsafe, raises: [Defect].}
+
+  ValueObserver[V] =
+    proc(v: V) {.gcsafe, raises: [Defect].}
+  BootstrapObserver* =
+    ValueObserver[altair.LightClientBootstrap]
+  UpdateObserver* =
+    ValueObserver[altair.LightClientUpdate]
+  FinalityUpdateObserver* =
+    ValueObserver[altair.LightClientFinalityUpdate]
+  OptimisticUpdateObserver* =
+    ValueObserver[altair.LightClientOptimisticUpdate]
 
   LightClientFinalizationMode* {.pure.} = enum
     Strict
@@ -91,6 +104,10 @@ type
     getBeaconTime: GetBeaconTimeFn
     getTrustedBlockRoot: GetTrustedBlockRootCallback
     onStoreInitialized, onFinalizedHeader, onOptimisticHeader: VoidCallback
+    bootstrapObserver: BootstrapObserver
+    updateObserver: UpdateObserver
+    finalityUpdateObserver: FinalityUpdateObserver
+    optimisticUpdateObserver: OptimisticUpdateObserver
 
     cfg: RuntimeConfig
     genesis_validators_root: Eth2Digest
@@ -127,7 +144,11 @@ proc new*(
     getTrustedBlockRoot: GetTrustedBlockRootCallback,
     onStoreInitialized: VoidCallback = nil,
     onFinalizedHeader: VoidCallback = nil,
-    onOptimisticHeader: VoidCallback = nil
+    onOptimisticHeader: VoidCallback = nil,
+    bootstrapObserver: BootstrapObserver = nil,
+    updateObserver: UpdateObserver = nil,
+    finalityUpdateObserver: FinalityUpdateObserver = nil,
+    optimisticUpdateObserver: OptimisticUpdateObserver = nil
 ): ref LightClientProcessor =
   (ref LightClientProcessor)(
     dumpEnabled: dumpEnabled,
@@ -139,6 +160,10 @@ proc new*(
     onStoreInitialized: onStoreInitialized,
     onFinalizedHeader: onFinalizedHeader,
     onOptimisticHeader: onOptimisticHeader,
+    bootstrapObserver: bootstrapObserver,
+    updateObserver: updateObserver,
+    finalityUpdateObserver: finalityUpdateObserver,
+    optimisticUpdateObserver: optimisticUpdateObserver,
     cfg: cfg,
     genesis_validators_root: genesis_validators_root,
     finalizationMode: finalizationMode)
@@ -252,7 +277,8 @@ proc processObject(
 
   res
 
-template withReportedProgress(expectFinalityUpdate: bool, body: untyped): bool =
+template withReportedProgress(
+    obj: SomeLightClientObject | Nothing, body: untyped): bool =
   block:
     let
       previousWasInitialized = store[].isSome
@@ -269,29 +295,51 @@ template withReportedProgress(expectFinalityUpdate: bool, body: untyped): bool =
 
     body
 
-    var didProgress = false
+    var
+      didProgress = false
+      didSignificantProgress = false
 
     if store[].isSome != previousWasInitialized:
       didProgress = true
+      didSignificantProgress = true
       if self.onStoreInitialized != nil:
         self.onStoreInitialized()
         self.onStoreInitialized = nil
 
     if store[].get.optimistic_header != previousOptimistic:
-      when not expectFinalityUpdate:
-        didProgress = true
+      didProgress = true
+      when obj isnot SomeLightClientUpdateWithFinality:
+        didSignificantProgress = true
       if self.onOptimisticHeader != nil:
         self.onOptimisticHeader()
 
     if store[].get.finalized_header != previousFinalized:
       didProgress = true
+      didSignificantProgress = true
       if self.onFinalizedHeader != nil:
         self.onFinalizedHeader()
 
-    didProgress
+    if didProgress:
+      when obj is Nothing:
+        discard
+      elif obj is altair.LightClientBootstrap:
+        if self.bootstrapObserver != nil:
+          self.bootstrapObserver(obj)
+      elif obj is altair.LightClientUpdate:
+        if self.updateObserver != nil:
+          self.updateObserver(obj)
+      elif obj is altair.LightClientFinalityUpdate:
+        if self.finalityUpdateObserver != nil:
+          self.finalityUpdateObserver(obj)
+      elif obj is altair.LightClientOptimisticUpdate:
+        if self.optimisticUpdateObserver != nil:
+          self.optimisticUpdateObserver(obj)
+      else: raiseAssert "Unreachable"
+
+    didSignificantProgress
 
 template withReportedProgress(body: untyped): bool =
-  withReportedProgress(false, body)
+  withReportedProgress(Nothing(), body)
 
 proc storeObject*(
     self: var LightClientProcessor,
@@ -304,8 +352,8 @@ proc storeObject*(
     startTick = Moment.now()
     store = self.store
 
-    didProgress =
-      withReportedProgress(obj is SomeLightClientUpdateWithFinality):
+    didSignificantProgress =
+      withReportedProgress(obj):
         ? self.processObject(obj, wallTime)
 
         let
@@ -328,7 +376,7 @@ proc storeObject*(
           kind = typeof(obj).name,
           objectSlot = objSlot,
           storeObjectDur
-  ok didProgress
+  ok didSignificantProgress
 
 proc resetToFinalizedHeader*(
     self: var LightClientProcessor,
@@ -393,8 +441,8 @@ func toValidationError(
     wallTime: BeaconTime,
     obj: SomeLightClientObject): Result[void, ValidationError] =
   if r.isOk:
-    let didProgress = r.get
-    if didProgress:
+    let didSignificantProgress = r.get
+    if didSignificantProgress:
       let
         signature_slot = obj.signature_slot
         currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
