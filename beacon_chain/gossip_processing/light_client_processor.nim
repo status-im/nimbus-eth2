@@ -283,7 +283,7 @@ template withReportedProgress(
     let
       previousWasInitialized = store[].isSome
       previousNextCommitteeKnown =
-        if store[].sSome:
+        if store[].isSome:
           store[].get.is_next_sync_committee_known
         else:
           false
