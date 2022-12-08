@@ -1100,7 +1100,31 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
       capellaData: res.get())
 
 proc writeValue*[
-    BlockType: Web3SignerForkedBeaconBlock|ForkedBeaconBlock|ForkedBlindedBeaconBlock](
+    BlockType: Web3SignerForkedBeaconBlock](
+    writer: var JsonWriter[RestJson],
+    value: BlockType) {.raises: [IOError, Defect].} =
+  template forkIdentifier(id: string): auto = (static toUpperAscii id)
+
+  # https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Signing/operation/ETH2_SIGN
+  # https://github.com/ConsenSys/web3signer/blob/d51337e96ba5ce410222943556bed7c4856b8e57/core/src/main/java/tech/pegasys/web3signer/core/service/http/handlers/signing/eth2/json/BlockRequestDeserializer.java#L42-L58
+  writer.beginRecord()
+  case value.kind
+  of BeaconBlockFork.Phase0:
+    writer.writeField("version", forkIdentifier "phase0")
+    writer.writeField("block", value.phase0Data)
+  of BeaconBlockFork.Altair:
+    writer.writeField("version", forkIdentifier "altair")
+    writer.writeField("block", value.altairData)
+  of BeaconBlockFork.Bellatrix:
+    writer.writeField("version", forkIdentifier "bellatrix")
+    writer.writeField("block_header", value.bellatrixData)
+  of BeaconBlockFork.Capella:
+    writer.writeField("version", forkIdentifier "capella")
+    writer.writeField("block_header", value.capellaData)
+  writer.endRecord()
+
+proc writeValue*[
+    BlockType: ForkedBeaconBlock|ForkedBlindedBeaconBlock](
     writer: var JsonWriter[RestJson],
     value: BlockType) {.raises: [IOError, Defect].} =
 
@@ -1702,9 +1726,9 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     if isSome(value.signingRoot):
       writer.writeField("signingRoot", value.signingRoot)
 
-    # https://github.com/ConsenSys/web3signer/blob/41834a927088f1bde7a097e17d19e954d0058e54/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L421-L425 (branch v22.7.0)
-    # It's the "beacon_block" field even when it's not a block, but a header
+    # https://github.com/ConsenSys/web3signer/blob/41c0cbfabcb1fca9587b59e058b7eb29f152c60c/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L418-L497
     writer.writeField("beacon_block", value.beaconBlock)
+
   of Web3SignerRequestKind.Deposit:
     writer.writeField("type", "DEPOSIT")
     if isSome(value.signingRoot):
