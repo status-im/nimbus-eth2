@@ -164,6 +164,11 @@ from ./datatypes/capella import
 func noRollback*(state: var capella.HashedBeaconState) =
   trace "Skipping rollback of broken Capella state"
 
+from ./datatypes/eip4844 import HashedBeaconState
+
+func noRollback*(state: var eip4844.HashedBeaconState) =
+  trace "Skipping rollback of broken EIP4844 state"
+
 func maybeUpgradeStateToAltair(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   # Both process_slots() and state_transition_block() call this, so only run it
@@ -441,6 +446,41 @@ template partialBeaconBlock*(
     proposer_index: proposer_index.uint64,
     parent_root: state.latest_block_root,
     body: capella.BeaconBlockBody(
+      randao_reveal: randao_reveal,
+      eth1_data: eth1data,
+      graffiti: graffiti,
+      proposer_slashings: exits.proposer_slashings,
+      attester_slashings: exits.attester_slashings,
+      attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
+      deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
+      voluntary_exits: exits.voluntary_exits,
+      sync_aggregate: sync_aggregate,
+      execution_payload: execution_payload,
+      bls_to_execution_changes: bls_to_execution_changes
+      ))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/validator.md#block-proposal
+template partialBeaconBlock*(
+    cfg: RuntimeConfig,
+    state: var eip4844.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    exits: BeaconBlockExits,
+    sync_aggregate: SyncAggregate,
+    execution_payload: eip4844.ExecutionPayload,
+    bls_to_execution_changes: SignedBLSToExecutionChangeList
+    ):
+    eip4844.BeaconBlock =
+  discard $eip4844ImplementationMissing & ": state_transition.nim: partialBeaconBlock, leaves additional fields default, okay for block_sim"
+  eip4844.BeaconBlock(
+    slot: state.data.slot,
+    proposer_index: proposer_index.uint64,
+    parent_root: state.latest_block_root,
+    body: eip4844.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,

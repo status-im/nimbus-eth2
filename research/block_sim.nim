@@ -15,13 +15,10 @@
 # a database, as if a real node was running.
 
 import
-  math, stats, times, strformat,
-  tables, options, random, tables, os,
   confutils, chronicles, eth/db/kvstore_sqlite3,
   chronos/timer, eth/keys, taskpools,
   ../tests/testblockutil,
-  ../beacon_chain/spec/[
-    beaconstate, forks, helpers, signatures, state_transition],
+  ../beacon_chain/spec/[forks, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../beacon_chain/[beacon_chain_db, beacon_clock],
   ../beacon_chain/eth1/eth1_monitor,
@@ -32,7 +29,16 @@ import
                                           sync_committee_msg_pool],
   ./simutils
 
+from std/math import E, ln, sqrt
+from std/random import Rand, initRand, rand
+from std/stats import RunningStat
+from std/strformat import `&`
 from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
+from ../beacon_chain/spec/datatypes/eip4844 import
+  HashedBeaconState, asSigVerified
+from ../beacon_chain/spec/beaconstate import
+  get_beacon_committee, get_beacon_proposer_index,
+  get_committee_count_per_slot, get_committee_indices
 
 type Timers = enum
   tBlock = "Process non-epoch slot with block"
@@ -246,6 +252,50 @@ proc makeBeaconBlock(
 
   ok(blck)
 
+proc makeBeaconBlock(
+    cfg: RuntimeConfig,
+    state: var eip4844.HashedBeaconState,
+    proposer_index: ValidatorIndex,
+    randao_reveal: ValidatorSig,
+    eth1_data: Eth1Data,
+    graffiti: GraffitiBytes,
+    attestations: seq[Attestation],
+    deposits: seq[Deposit],
+    exits: BeaconBlockExits,
+    sync_aggregate: SyncAggregate,
+    execution_payload: eip4844.ExecutionPayload,
+    bls_to_execution_changes: SignedBLSToExecutionChangeList,
+    rollback: RollbackHashedProc[eip4844.HashedBeaconState],
+    cache: var StateCache,
+    # TODO:
+    # `verificationFlags` is needed only in tests and can be
+    # removed if we don't use invalid signatures there
+    verificationFlags: UpdateFlags = {}): Result[eip4844.BeaconBlock, cstring] =
+  ## Create a block for the given state. The latest block applied to it will
+  ## be used for the parent_root value, and the slot will be take from
+  ## state.slot meaning process_slots must be called up to the slot for which
+  ## the block is to be created.
+
+  # To create a block, we'll first apply a partial block to the state, skipping
+  # some validations.
+
+  var blck = partialBeaconBlock(
+    cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
+    attestations, deposits, exits, sync_aggregate, execution_payload,
+    bls_to_execution_changes)
+
+  let res = process_block(
+    cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
+
+  if res.isErr:
+    rollback(state)
+    return err(res.error())
+
+  state.root = hash_tree_root(state.data)
+  blck.state_root = state.root
+
+  ok(blck)
+
 # TODO confutils is an impenetrable black box. how can a help text be added here?
 cli do(slots = SLOTS_PER_EPOCH * 6,
        validators = SLOTS_PER_EPOCH * 400, # One per shard is minimum
@@ -263,6 +313,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   cfg.ALTAIR_FORK_EPOCH = 1.Epoch
   cfg.BELLATRIX_FORK_EPOCH = 2.Epoch
   cfg.CAPELLA_FORK_EPOCH = 3.Epoch
+  cfg.EIP4844_FORK_EPOCH = 4.Epoch
 
   echo "Starting simulation..."
 
@@ -438,8 +489,10 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         when T is phase0.SignedBeaconBlock:
           SyncAggregate.init()
         elif T is altair.SignedBeaconBlock or T is bellatrix.SignedBeaconBlock or
-             T is capella.SignedBeaconBlock:
+             T is capella.SignedBeaconBlock or T is eip4844.SignedBeaconBlock:
           syncCommitteePool[].produceSyncAggregate(dag.head.root)
+        else:
+          static: doAssert false
       hashedState =
         when T is phase0.SignedBeaconBlock:
           addr state.phase0Data
@@ -449,6 +502,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           addr state.bellatrixData
         elif T is capella.SignedBeaconBlock:
           addr state.capellaData
+        elif T is eip4844.SignedBeaconBlock:
+          addr state.eip4844Data
         else:
           static: doAssert false
       message = makeBeaconBlock(
@@ -465,7 +520,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         eth1ProposalData.deposits,
         BeaconBlockExits(),
         sync_aggregate,
-        when T is capella.SignedBeaconBlock:
+        when T is eip4844.SignedBeaconBlock:
+          default(eip4844.ExecutionPayload)
+        elif T is capella.SignedBeaconBlock:
           default(capella.ExecutionPayload)
         else:
           default(bellatrix.ExecutionPayload),
@@ -583,6 +640,28 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     do:
       raiseAssert "withUpdatedState failed"
 
+  proc proposeEIP4844Block(slot: Slot) =
+    if rand(r, 1.0) > blockRatio:
+      return
+
+    dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
+      let
+        newBlock = getNewBlock[eip4844.SignedBeaconBlock](updatedState, slot, cache)
+        added = dag.addHeadBlock(verifier, newBlock) do (
+            blckRef: BlockRef, signedBlock: eip4844.TrustedSignedBeaconBlock,
+            epochRef: EpochRef, unrealized: FinalityCheckpoints):
+          # Callback add to fork choice if valid
+          attPool.addForkChoice(
+            epochRef, blckRef, unrealized, signedBlock.message,
+            blckRef.slot.start_beacon_time)
+
+      dag.updateHead(added[], quarantine[])
+      if dag.needStateCachesAndForkChoicePruning():
+        dag.pruneStateCachesDAG()
+        attPool.prune()
+    do:
+      raiseAssert "withUpdatedState failed"
+
   var
     lastEth1BlockAt = genesisTime
     eth1BlockNum = 1000
@@ -623,7 +702,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.stateForkAtEpoch(slot.epoch)
-        of BeaconStateFork.EIP4844:   raiseAssert $eip4844ImplementationMissing & ": block_sim.nim"
+        of BeaconStateFork.EIP4844:   proposeEIP4844Block(slot)
         of BeaconStateFork.Capella:   proposeCapellaBlock(slot)
         of BeaconStateFork.Bellatrix: proposeBellatrixBlock(slot)
         of BeaconStateFork.Altair:    proposeAltairBlock(slot)
