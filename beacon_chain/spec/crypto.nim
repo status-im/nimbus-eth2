@@ -28,13 +28,17 @@ else:
 
 import
   # Standard library
-  std/[options, hashes, sequtils, tables],
+  std/options,
   # Status
   stew/[endians2, objects, results, byteutils],
   blscurve,
   chronicles,
   bearssl/rand,
   json_serialization
+
+from std/hashes import Hash
+from std/sequtils import mapIt
+from std/tables import Table, withValue, `[]=`
 
 from nimcrypto/utils import burnMem
 

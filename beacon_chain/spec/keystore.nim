@@ -275,7 +275,7 @@ macro wordListArray*(filename: static string,
                      minWordLen: static int = 0,
                      maxWordLen: static int = high(int)): untyped =
   result = newTree(nnkBracket)
-  var words = slurp(filename.replace('\\', '/')).splitLines()
+  let words = slurp(filename.replace('\\', '/')).splitLines()
   for word in words:
     if word.len >= minWordLen and word.len <= maxWordLen:
       result.add newCall("cstring", newLit(word))
@@ -489,7 +489,7 @@ proc writeJsonHexString(s: OutputStream, data: openArray[byte])
 
 proc readValue*(r: var JsonReader, value: var Pbkdf2Salt)
                {.raises: [SerializationError, IOError, Defect].} =
-  var s = r.readValue(string)
+  let s = r.readValue(string)
 
   if s.len == 0 or s.len mod 16 != 0:
     r.raiseUnexpectedValue(
@@ -503,7 +503,7 @@ proc readValue*(r: var JsonReader, value: var Pbkdf2Salt)
 
 proc readValue*(r: var JsonReader, value: var Aes128CtrIv)
                {.raises: [SerializationError, IOError, Defect].} =
-  var s = r.readValue(string)
+  let s = r.readValue(string)
 
   if s.len != 32:
     r.raiseUnexpectedValue(

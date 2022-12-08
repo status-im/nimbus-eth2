@@ -408,6 +408,9 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/advance_finality_with OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync     OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/supply_sync_committee OK
++ Light client - Sync - minimal/eip4844/light_client/sync/pyspec_tests/advance_finality_with OK
++ Light client - Sync - minimal/eip4844/light_client/sync/pyspec_tests/light_client_sync     OK
++ Light client - Sync - minimal/eip4844/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Update ranking - minimal/altair/light_client/update_ranking/pyspec_tests/up OK
 + Light client - Update ranking - minimal/bellatrix/light_client/update_ranking/pyspec_tests OK
 + Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u OK
@@ -835,7 +838,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 824/832 Fail: 0/832 Skip: 8/832
+OK: 827/835 Fail: 0/835 Skip: 8/835
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -2588,4 +2591,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 52/52 Fail: 0/52 Skip: 0/52
 
 ---TOTAL---
-OK: 2278/2286 Fail: 0/2286 Skip: 8/2286
+OK: 2281/2289 Fail: 0/2289 Skip: 8/2289

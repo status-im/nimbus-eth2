@@ -11,13 +11,16 @@ else:
   {.push raises: [].}
 
 import
-  std/[algorithm, collections/heapqueue, math, sequtils, tables],
   stew/assign2,
   json_serialization/std/sets,
   chronicles,
   ../extras,
   ./datatypes/[phase0, altair, bellatrix],
   "."/[eth2_merkleization, forks, signatures, validator]
+
+from std/algorithm import fill
+from std/math import `^`
+from std/sequtils import anyIt, mapIt
 
 from ./datatypes/capella import BeaconState, ExecutionPayloadHeader, Withdrawal
 

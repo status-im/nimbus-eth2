@@ -300,7 +300,7 @@ proc close*(s: var DbSeq) =
 
 proc add*[T](s: var DbSeq[T], val: T) =
   doAssert(distinctBase(s.insertStmt) != nil, "database closed or table not preset")
-  var bytes = SSZ.encode(val)
+  let bytes = SSZ.encode(val)
   s.insertStmt.exec(bytes).expectDb()
   inc s.recordCount
 
@@ -993,7 +993,8 @@ proc getBlockSSZ*(
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
 
 proc getBlockSSZ*[
-    X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock](
+    X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
+       eip4844.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: type X): bool =
   let dataPtr = addr data # Short-lived
   var success = true
@@ -1015,7 +1016,7 @@ proc getBlockSSZ*(
   of BeaconBlockFork.Capella:
     getBlockSSZ(db, key, data, capella.TrustedSignedBeaconBlock)
   of BeaconBlockFork.EIP4844:
-    raiseAssert $eip4844ImplementationMissing
+    getBlockSSZ(db, key, data, eip4844.TrustedSignedBeaconBlock)
 
 
 proc getBlockSZ*(
@@ -1042,7 +1043,8 @@ proc getBlockSZ*(
   db.blocks[T.toFork].get(key.data, decode).expectDb() and success
 
 proc getBlockSZ*[
-    X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock](
+    X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
+       eip4844.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: type X): bool =
   let dataPtr = addr data # Short-lived
   var success = true
@@ -1063,7 +1065,7 @@ proc getBlockSZ*(
   of BeaconBlockFork.Capella:
     getBlockSZ(db, key, data, capella.TrustedSignedBeaconBlock)
   of BeaconBlockFork.EIP4844:
-    raiseAssert $eip4844ImplementationMissing
+    getBlockSZ(db, key, data, eip4844.TrustedSignedBeaconBlock)
 
 
 proc getStateOnlyMutableValidators(

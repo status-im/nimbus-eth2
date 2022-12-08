@@ -65,6 +65,9 @@ type
 from ../../beacon_chain/spec/datatypes/capella import
   BeaconBlock, BeaconState, SignedBeaconBlock
 
+from ../../beacon_chain/spec/datatypes/eip4844 import
+  BeaconBlock, BeaconState, SignedBeaconBlock
+
 proc initialLoad(
     path: string, db: BeaconChainDB,
     StateType, BlockType: typedesc
@@ -78,7 +81,13 @@ proc initialLoad(
       path/"anchor_block.ssz_snappy",
       SSZ, BlockType)
 
-  when BlockType is capella.BeaconBlock:
+  when BlockType is eip4844.BeaconBlock:
+    let signedBlock = ForkedSignedBeaconBlock.init(eip4844.SignedBeaconBlock(
+      message: blck,
+      # signature: - unused as it's trusted
+      root: hash_tree_root(blck)
+    ))
+  elif BlockType is capella.BeaconBlock:
     let signedBlock = ForkedSignedBeaconBlock.init(capella.SignedBeaconBlock(
       message: blck,
       # signature: - unused as it's trusted
@@ -166,7 +175,12 @@ proc loadOps(path: string, fork: BeaconStateFork): seq[Operation] =
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
       of BeaconStateFork.EIP4844:
-        raiseAssert $eip4844ImplementationMissing & ": test_fixture_fork_choice.nim:loadOps"
+        let blck = parseTest(
+          path/filename & ".ssz_snappy",
+          SSZ, eip4844.SignedBeaconBlock
+        )
+        result.add Operation(kind: opOnBlock,
+          blck: ForkedSignedBeaconBlock.init(blck))
     elif step.hasKey"attester_slashing":
       let filename = step["attester_slashing"].getStr()
       let attesterSlashing = parseTest(
@@ -214,6 +228,7 @@ proc stepOnBlock(
   )
 
   # 2. Add block to DAG
+  static: doAssert high(BeaconBlockFork) == BeaconBlockFork.EIP4844
   when signedBlock is phase0.SignedBeaconBlock:
     type TrustedBlock = phase0.TrustedSignedBeaconBlock
   elif signedBlock is altair.SignedBeaconBlock:
@@ -222,6 +237,8 @@ proc stepOnBlock(
     type TrustedBlock = bellatrix.TrustedSignedBeaconBlock
   elif signedBlock is capella.SignedBeaconBlock:
     type TrustedBlock = capella.TrustedSignedBeaconBlock
+  elif signedBlock is eip4844.SignedBeaconBlock:
+    type TrustedBlock = eip4844.TrustedSignedBeaconBlock
   else:
     doAssert false, "Unknown TrustedSignedBeaconBlock fork"
 
@@ -321,7 +338,7 @@ proc doRunTest(path: string, fork: BeaconStateFork) =
   let stores =
     case fork
     of BeaconStateFork.EIP4844:
-      raiseAssert $eip4844ImplementationMissing & ": test_fixture_fork_choice.nim:doRunTest"
+      initialLoad(path, db, eip4844.BeaconState, eip4844.BeaconBlock)
     of BeaconStateFork.Capella:
       initialLoad(path, db, capella.BeaconState, capella.BeaconBlock)
     of BeaconStateFork.Bellatrix:
@@ -407,6 +424,10 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       if kind != pcDir or not dirExists(testsPath):
         continue
       if path.contains("eip4844"):
+        # TODO 1.3.0-alpha.1 test prestates have forks of
+        # (previous_version: 02000000, current_version: 04000000, epoch: 0)
+        # which is probably broken, and chaindag certainly doesn't like
+        discard $eip4844ImplementationMissing & ": re-enable when test pre-state forks fixed"
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath

@@ -18,9 +18,9 @@ import
   ../beacon_chain_db_light_client,
   "."/[block_pools_types, blockchain_dag]
 
-from ../spec/datatypes/capella import TrustedSignedBeaconBlock
+from ../spec/datatypes/capella import TrustedSignedBeaconBlock, asSigned
 from ../spec/datatypes/eip4844 import
-  HashedBeaconState, TrustedSignedBeaconBlock
+  HashedBeaconState, TrustedSignedBeaconBlock, asSigned
 
 logScope: topics = "chaindag_lc"
 
@@ -220,9 +220,6 @@ proc initLightClientBootstrapForPeriod(
         else: raiseAssert "Unreachable"
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(bid.slot, branch)
   res
-
-from ../spec/datatypes/capella import asSigned
-from ../spec/datatypes/eip4844 import asSigned
 
 proc initLightClientUpdateForPeriod(
     dag: ChainDAGRef, period: SyncCommitteePeriod): Opt[void] =
@@ -439,7 +436,7 @@ proc cacheLightClientData(
   if dag.lcDataStore.cache.data.hasKeyOrPut(bid, cachedData):
     doAssert false, "Redundant `cacheLightClientData` call"
 
-func shouldImportLcData(dag: ChainDAGref): bool =
+func shouldImportLcData(dag: ChainDAGRef): bool =
   dag.lcDataStore.importMode != LightClientDataImportMode.None and
   dag.cfg.ALTAIR_FORK_EPOCH != FAR_FUTURE_EPOCH
 
@@ -723,7 +720,10 @@ proc processNewBlockForLightClient*(
   if signedBlock.message.slot < dag.lcDataStore.cache.tailSlot:
     return
 
-  when signedBlock is capella.TrustedSignedBeaconBlock:
+  when signedBlock is eip4844.TrustedSignedBeaconBlock:
+    dag.cacheLightClientData(state.eip4844Data, signedBlock.toBlockId())
+    dag.createLightClientUpdates(state.eip4844Data, signedBlock, parentBid)
+  elif signedBlock is capella.TrustedSignedBeaconBlock:
     dag.cacheLightClientData(state.capellaData, signedBlock.toBlockId())
     dag.createLightClientUpdates(state.capellaData, signedBlock, parentBid)
   elif signedBlock is bellatrix.TrustedSignedBeaconBlock:

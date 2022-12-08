@@ -198,6 +198,8 @@ when defined(gnosisChainBinary) and const_preset == "mainnet":
   static:
     for network in [gnosisMetadata]:
       checkForkConsistency(network.cfg)
+    doAssert network.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
+    doAssert network.cfg.EIP4844_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 elif const_preset == "mainnet":
   const
@@ -209,6 +211,7 @@ elif const_preset == "mainnet":
         mainnetMetadata, praterMetadata, sepoliaMetadata]:
       checkForkConsistency(network.cfg)
       doAssert network.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
+      doAssert network.cfg.EIP4844_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 proc getMetadataForNetwork*(
     networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =

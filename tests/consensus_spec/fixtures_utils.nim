@@ -69,7 +69,7 @@ type
   UnconsumedInput* = object of CatchableError
   TestSizeError* = object of ValueError
 
-  # https://github.com/ethereum/consensus-specs/tree/v1.2.0-rc.1/tests/formats/rewards#rewards-tests
+  # https://github.com/ethereum/consensus-specs/tree/v1.3.0-alpha.1/tests/formats/rewards#rewards-tests
   Deltas* = object
     rewards*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
     penalties*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
@@ -130,32 +130,31 @@ proc loadForkedState*(
     path: string, fork: BeaconStateFork): ref ForkedHashedBeaconState =
   # TODO stack usage. newClone and assignClone do not seem to
   # prevent temporaries created by case objects
-  # TODO depends on something like nimOldCaseObjects
   let forkedState = new ForkedHashedBeaconState
   case fork
   of BeaconStateFork.EIP4844:
     let state = newClone(parseTest(path, SSZ, eip4844.BeaconState))
-    forkedState.kind = BeaconStateFork.EIP4844
+    forkedState[] = ForkedHashedBeaconState(kind: BeaconStateFork.EIP4844)
     forkedState.eip4844Data.data = state[]
     forkedState.eip4844Data.root = hash_tree_root(state[])
   of BeaconStateFork.Capella:
     let state = newClone(parseTest(path, SSZ, capella.BeaconState))
-    forkedState.kind = BeaconStateFork.Capella
+    forkedState[] = ForkedHashedBeaconState(kind: BeaconStateFork.Capella)
     forkedState.capellaData.data = state[]
     forkedState.capellaData.root = hash_tree_root(state[])
   of BeaconStateFork.Bellatrix:
     let state = newClone(parseTest(path, SSZ, bellatrix.BeaconState))
-    forkedState.kind = BeaconStateFork.Bellatrix
+    forkedState[] = ForkedHashedBeaconState(kind: BeaconStateFork.Bellatrix)
     forkedState.bellatrixData.data = state[]
     forkedState.bellatrixData.root = hash_tree_root(state[])
   of BeaconStateFork.Altair:
     let state = newClone(parseTest(path, SSZ, altair.BeaconState))
-    forkedState.kind = BeaconStateFork.Altair
+    forkedState[] = ForkedHashedBeaconState(kind: BeaconStateFork.Altair)
     forkedState.altairData.data = state[]
     forkedState.altairData.root = hash_tree_root(state[])
   of BeaconStateFork.Phase0:
     let state = newClone(parseTest(path, SSZ, phase0.BeaconState))
-    forkedState.kind = BeaconStateFork.Phase0
+    forkedState[] = ForkedHashedBeaconState(kind: BeaconStateFork.Phase0)
     forkedState.phase0Data.data = state[]
     forkedState.phase0Data.root = hash_tree_root(state[])
   forkedState
