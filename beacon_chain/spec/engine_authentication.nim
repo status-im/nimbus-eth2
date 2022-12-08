@@ -6,11 +6,16 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[base64, json, options, os, strutils],
   chronicles,
   bearssl/rand,
   nimcrypto/[hmac, utils],
   stew/[byteutils, results]
+
+from std/base64 import encode
+from std/json import JsonNode, `$`, `%*`
+from std/options import Option, get, isNone
+from std/os import `/`
+from std/strutils import replace
 
 export rand, results
 

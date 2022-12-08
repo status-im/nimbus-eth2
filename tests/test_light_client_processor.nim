@@ -56,7 +56,8 @@ suite "Light client processor" & preset():
           const nilCallback = OnCapellaBlockAdded(nil)
           dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
         of BeaconBlockFork.EIP4844:
-          raiseAssert $eip4844ImplementationMissing
+          const nilCallback = OnEIP4844BlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.eip4844Data, nilCallback)
       doAssert added.isOk()
       dag.updateHead(added[], quarantine[])
 

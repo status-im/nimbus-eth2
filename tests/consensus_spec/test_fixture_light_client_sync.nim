@@ -116,14 +116,9 @@ proc runTest(path: string) =
         store.optimistic_header.slot == step.checks.optimistic_slot
         hash_tree_root(store.optimistic_header) == step.checks.optimistic_root
 
-from std/strutils import contains
-
 suite "EF - Light client - Sync" & preset():
   const presetPath = SszTestsDir/const_preset
   for kind, path in walkDir(presetPath, relative = true, checkDir = true):
-    if path.contains("eip4844"):
-      # this is a maybe temporary fork, maybe folded into capella soon
-      continue
     let basePath =
       presetPath/path/"light_client"/"sync"/"pyspec_tests"
     if kind != pcDir or not dirExists(basePath):

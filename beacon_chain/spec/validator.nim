@@ -12,7 +12,6 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, math, tables],
   ./datatypes/[phase0, altair, bellatrix],
   ./helpers
 

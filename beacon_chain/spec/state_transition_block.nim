@@ -23,12 +23,13 @@ else:
   {.push raises: [].}
 
 import
-  std/[algorithm, sequtils, sets, tables],
   chronicles, metrics,
   ../extras,
   ./datatypes/[phase0, altair, bellatrix],
   "."/[beaconstate, eth2_merkleization, helpers, validator, signatures]
 
+from std/algorithm import fill, sorted
+from std/sequtils import count, filterIt, mapIt
 from ./datatypes/capella import
   BeaconState, MAX_WITHDRAWALS_PER_PAYLOAD, SignedBLSToExecutionChange,
   Withdrawal
@@ -847,7 +848,8 @@ func verify_kzg_commitments_against_transactions(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#blob-kzg-commitments
 func process_blob_kzg_commitments(
     state: var eip4844.BeaconState,
-    body: eip4844.BeaconBlockBody | eip4844.TrustedBeaconBlockBody):
+    body: eip4844.BeaconBlockBody | eip4844.TrustedBeaconBlockBody |
+          eip4844.SigVerifiedBeaconBlockBody):
     Result[void, cstring] =
   if verify_kzg_commitments_against_transactions(
       body.execution_payload.transactions.asSeq,

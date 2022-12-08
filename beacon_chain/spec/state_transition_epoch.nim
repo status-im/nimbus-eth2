@@ -24,12 +24,13 @@ else:
   {.push raises: [].}
 
 import
-  std/[algorithm, math],
   stew/bitops2, chronicles,
   ../extras,
   ./datatypes/[phase0, altair, bellatrix],
   "."/[beaconstate, eth2_merkleization, helpers, validator]
 
+from std/algorithm import sort
+from std/math import sum, `^`
 from ./datatypes/capella import BeaconState, Withdrawal, WithdrawalIndex
 
 export extras, phase0, altair
@@ -441,8 +442,8 @@ proc process_justification_and_finalization*(
     balances.current_epoch_TIMELY_TARGET, flags)
 
 proc compute_unrealized_finality*(
-    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState):
-    FinalityCheckpoints =
+    state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
+           eip4844.BeaconState): FinalityCheckpoints =
   if get_current_epoch(state) <= GENESIS_EPOCH + 1:
     return FinalityCheckpoints(
       justified: state.current_justified_checkpoint,
