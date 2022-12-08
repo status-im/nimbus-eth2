@@ -187,13 +187,13 @@ proc updateValidator*(validator: AttachedValidator,
   validator.index = Opt.some(index)
   validator.activationEpoch = activationEpoch
 
-  if validator.doppelStatus == DoppelgangerStatus.Unknown and
-      validator.doppelEpoch.isSome() and activationEpoch != FAR_FUTURE_EPOCH:
-    let doppelEpoch = validator.doppelEpoch.get()
-    if doppelEpoch >= validator.activationEpoch + DOPPELGANGER_EPOCHS_COUNT:
-      validator.doppelStatus = DoppelgangerStatus.Checking
-    else:
-      validator.doppelStatus = DoppelgangerStatus.Checked
+  if validator.doppelStatus == DoppelgangerStatus.Unknown:
+    if validator.doppelEpoch.isSome() and activationEpoch != FAR_FUTURE_EPOCH:
+      let doppelEpoch = validator.doppelEpoch.get()
+      if doppelEpoch >= validator.activationEpoch + DOPPELGANGER_EPOCHS_COUNT:
+        validator.doppelStatus = DoppelgangerStatus.Checking
+      else:
+        validator.doppelStatus = DoppelgangerStatus.Checked
 
 proc close*(pool: var ValidatorPool) =
   ## Unlock and close all validator keystore's files managed by ``pool``.
@@ -236,72 +236,63 @@ iterator items*(pool: ValidatorPool): AttachedValidator =
   for item in pool.validators.values():
     yield item
 
-proc checkingDoppelganger*(validator: AttachedValidator): bool =
-  ## Return true if the validator is still being checked for doppelgangers
-  validator.doppelStatus != DoppelgangerStatus.Checked
+proc triggersDoppelganger*(v: AttachedValidator, epoch: Epoch): bool =
+  ## Returns true iff detected activity in the given epoch would trigger
+  ## doppelganger detection
+  if v.doppelStatus != DoppelgangerStatus.Checked:
+    if v.activationEpoch == FAR_FUTURE_EPOCH:
+      false
+    elif epoch < v.activationEpoch + DOPPELGANGER_EPOCHS_COUNT:
+      v.doppelStatus = DoppelgangerStatus.Checked
+      false
+    else:
+      true
+  else:
+    false
 
-proc updateDoppelganger*(
-    validator: AttachedValidator, epoch: Epoch, isLive: bool): Result[void, cstring] =
-  ## `Epoch` is the slot that doppelganger detection was first known to start
-  ## monitoring the gossip networks or any epoch after that where monitoring is
-  ## happening
+proc updateDoppelganger*(validator: AttachedValidator, epoch: Epoch) =
+  ## Called when the validator has proven to be inactive in the given epoch -
+  ## this call should be made after the end of `epoch` before acting on duties
+  ## in `epoch + 1`.
+
+  if validator.doppelStatus == DoppelgangerStatus.Checked:
+    return
 
   if validator.doppelEpoch.isNone():
     validator.doppelEpoch = Opt.some epoch
 
   let doppelEpoch = validator.doppelEpoch.get()
 
-  let res = case validator.doppelStatus
-  of DoppelgangerStatus.Checked:
-    ok()
-
-  of DoppelgangerStatus.Unknown:
+  if validator.doppelStatus == DoppelgangerStatus.Unknown:
     if validator.activationEpoch == FAR_FUTURE_EPOCH:
-      ok()
-    else:
-      # We don't do doppelganger checking for validators that are about to be
-      # activated since both clients would be waiting for the other to start
-      # performing duties - this accounts for genesis as well
-      # The slot is rounded up to ensure we cover all slots
-      if doppelEpoch >= validator.activationEpoch + DOPPELGANGER_EPOCHS_COUNT:
-        if isLive:
-          err("Doppelganger detection triggered")
-        else:
-          validator.doppelStatus = DoppelgangerStatus.Checking
-          ok()
-      else:
-        validator.doppelStatus = DoppelgangerStatus.Checked
+      return
 
-        ok()
-
-  of DoppelgangerStatus.Checking:
-    if epoch >= doppelEpoch + DOPPELGANGER_EPOCHS_COUNT:
+    # We don't do doppelganger checking for validators that are about to be
+    # activated since both clients would be waiting for the other to start
+    # performing duties - this accounts for genesis as well
+    # The slot is rounded up to ensure we cover all slots
+    if doppelEpoch + 1 <= validator.activationEpoch + DOPPELGANGER_EPOCHS_COUNT:
       validator.doppelStatus = DoppelgangerStatus.Checked
-      ok()
-    elif isLive:
-      err("Doppelganger detection triggered")
-    else:
-      ok()
+      return
 
-  if res.isErr(): # TODO log elsewhere
-    fatal "Doppelganger detection triggered! It appears a validator loaded into " &
-      "this process is already live on the network - the validator is at high " &
-      "risk of being slashed due to the same keys being used in two setups. " &
-      "See https://nimbus.guide/doppelganger-detection.html for more information!",
-      validator = shortLog(validator)
+    validator.doppelStatus = DoppelgangerStatus.Checking
 
-  res
+  if epoch + 1 >= doppelEpoch + DOPPELGANGER_EPOCHS_COUNT:
+    validator.doppelStatus = DoppelgangerStatus.Checked
 
 proc getValidatorForDuties*(
-    pool: ValidatorPool,
-    key: ValidatorPubKey): Opt[AttachedValidator] =
+    pool: ValidatorPool, key: ValidatorPubKey, slot: Slot):
+    Opt[AttachedValidator] =
   ## Return validator only if it is ready for duties (has index and has passed
   ## doppelganger check where applicable)
   let validator = pool.getValidator(key)
   if isNil(validator) or validator.index.isNone():
     return Opt.none(AttachedValidator)
 
-  if pool.doppelgangerDetectionEnabled and validator.checkingDoppelganger():
+  if pool.doppelgangerDetectionEnabled and
+      validator.triggersDoppelganger(slot.epoch):
+    # If the validator would trigger for an activity in the given slot, we don't
+    # return it for duties
     notice "Doppelganger detection active - " &
            "skipped validator duty while observing the network",
             validator = shortLog(validator)

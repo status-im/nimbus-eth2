@@ -971,11 +971,9 @@ proc updateDoppelganger(node: BeaconNode, epoch: Epoch) =
   # broadcastStartEpoch is set to FAR_FUTURE_EPOCH when we're not monitoring
   # gossip - it is only viable to assert liveness in epochs where gossip is
   # active
-  if epoch >= node.processor[].doppelgangerDetection.broadcastStartEpoch:
+  if epoch > node.processor[].doppelgangerDetection.broadcastStartEpoch:
     for validator in node.attachedValidators[]:
-      if validator.checkingDoppelganger():
-        validator.updateDoppelganger(epoch, false).expect(
-          "no failures on isLive = false")
+      validator.updateDoppelganger(epoch - 1)
 
 proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   ## Subscribe to subnets that we are providing stability for or aggregating

@@ -127,7 +127,6 @@ proc handleAddRemoteValidatorReq(host: KeymanagerHost,
   let res = importKeystore(host.validatorPool[], host.validatorsDir, keystore)
   if res.isOk:
     let
-      slot = host.getBeaconTimeFn().slotOrZero
       data = host.getValidatorData(keystore.pubkey)
       feeRecipient = host.getSuggestedFeeRecipient(keystore.pubkey).valueOr(
         host.defaultFeeRecipient)

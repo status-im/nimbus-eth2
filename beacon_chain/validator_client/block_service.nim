@@ -312,7 +312,7 @@ proc proposeBlock(vc: ValidatorClientRef, slot: Slot,
     if sres.isSome():
       let
         currentSlot = sres.get()
-        validator = vc.getValidatorForDuties(proposerKey).valueOr: return
+        validator = vc.getValidatorForDuties(proposerKey, slot).valueOr: return
       await vc.publishBlock(currentSlot, slot, validator)
   except CancelledError as exc:
     debug "Block proposing was interrupted", slot = slot,

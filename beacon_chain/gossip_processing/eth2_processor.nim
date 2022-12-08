@@ -282,8 +282,7 @@ proc checkForPotentialDoppelganger(
       validator = self.validatorPool[].getValidator(validatorPubkey)
 
     if not(isNil(validator)):
-      let res = validator.updateDoppelganger(broadcastStartEpoch, true)
-      if res.isErr():
+      if validator.triggersDoppelganger(broadcastStartEpoch):
         warn "Doppelganger attestation",
           validator = shortLog(validator),
           validator_index = validatorIndex,

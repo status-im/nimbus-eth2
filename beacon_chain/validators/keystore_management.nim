@@ -1336,7 +1336,6 @@ proc getSuggestedFeeRecipient*(
 
 proc addLocalValidator*(host: KeymanagerHost, keystore: KeystoreData) =
   let
-    slot = host.getBeaconTimeFn().slotOrZero
     data = host.getValidatorData(keystore.pubkey)
     feeRecipient = host.getSuggestedFeeRecipient(keystore.pubkey).valueOr(
       host.defaultFeeRecipient)

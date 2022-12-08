@@ -25,7 +25,7 @@ type
 proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
                       duty: DutyAndProof): Future[bool] {.async.} =
   let vc = service.client
-  let validator = vc.getValidatorForDuties(duty.data.pubkey).valueOr:
+  let validator = vc.getValidatorForDuties(duty.data.pubkey, adata.slot).valueOr:
     return false
   let fork = vc.forkAtEpoch(adata.slot.epoch)
 
@@ -261,7 +261,7 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
       var res: seq[AggregateItem]
       for duty in duties:
         let validator = vc.attachedValidators[].getValidatorForDuties(
-            duty.data.pubkey).valueOr:
+            duty.data.pubkey, slot).valueOr:
           continue
 
         if (duty.data.slot != slot) or

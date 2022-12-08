@@ -107,7 +107,8 @@ proc getValidator*(validators: auto,
 
 proc addValidators*(node: BeaconNode) =
   debug "Loading validators", validatorsDir = node.config.validatorsDir()
-  let epoch = node.currentSlot().epoch()
+  let
+    epoch = node.currentSlot().epoch
   for keystore in listLoadableKeystores(node.config):
     let
       data = withState(node.dag.headState):
@@ -135,12 +136,12 @@ proc getAttachedValidator(node: BeaconNode,
 
 proc getValidatorForDuties*(
     node: BeaconNode,
-    idx: ValidatorIndex): Opt[AttachedValidator] =
+    idx: ValidatorIndex, slot: Slot): Opt[AttachedValidator] =
   let key = node.dag.validatorKey(idx)
   if key.isNone:
     return Opt.none(AttachedValidator)
 
-  node.attachedValidators[].getValidatorForDuties(key.get().toPubKey())
+  node.attachedValidators[].getValidatorForDuties(key.get().toPubKey(), slot)
 
 proc isSynced*(node: BeaconNode, head: BlockRef): SyncStatus =
   ## TODO This function is here as a placeholder for some better heurestics to
@@ -966,7 +967,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       epochRef.shufflingRef, slot, committee_index)
 
     for index_in_committee, validator_index in committee:
-      let validator = node.getValidatorForDuties(validator_index).valueOr:
+      let validator = node.getValidatorForDuties(validator_index, slot).valueOr:
         continue
 
       let
@@ -1037,7 +1038,7 @@ proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
-      let validator = node.getValidatorForDuties(valIdx).valueOr:
+      let validator = node.getValidatorForDuties(valIdx, slot).valueOr:
         continue
       asyncSpawn createAndSendSyncCommitteeMessage(node, validator, slot,
                                                    subcommitteeIdx, head)
@@ -1104,7 +1105,7 @@ proc handleSyncCommitteeContributions(
 
   for subcommitteeIdx in SyncSubCommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
-      let validator = node.getValidatorForDuties(valIdx).valueOr:
+      let validator = node.getValidatorForDuties(valIdx, slot).valueOr:
         continue
 
       asyncSpawn signAndSendContribution(
@@ -1122,7 +1123,7 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
 
   let
     proposerKey = node.dag.validatorKey(proposer.get()).get().toPubKey
-    validator = node.getValidatorForDuties(proposer.get()).valueOr:
+    validator = node.getValidatorForDuties(proposer.get(), slot).valueOr:
       debug "Expecting block proposal", headRoot = shortLog(head.root),
                                         slot = shortLog(slot),
                                         proposer_index = proposer.get(),
@@ -1199,7 +1200,7 @@ proc sendAggregatedAttestations(
   for committee_index in get_committee_indices(committees_per_slot):
     for _, validator_index in
         get_beacon_committee(shufflingRef, slot, committee_index):
-      let validator = node.getValidatorForDuties(validator_index).valueOr:
+      let validator = node.getValidatorForDuties(validator_index, slot).valueOr:
         continue
       asyncSpawn signAndSendAggregate(node, validator, shufflingRef, slot,
                                       committee_index)
@@ -1577,7 +1578,7 @@ proc registerDuties*(node: BeaconNode, wallSlot: Slot) {.async.} =
       let committee = get_beacon_committee(shufflingRef, slot, committee_index)
 
       for index_in_committee, validator_index in committee:
-        let validator = node.getValidatorForDuties(validator_index).valueOr:
+        let validator = node.getValidatorForDuties(validator_index, slot).valueOr:
           continue
         let
           subnet_id = compute_subnet_for_attestation(

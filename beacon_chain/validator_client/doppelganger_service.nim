@@ -13,10 +13,10 @@ const
 
 logScope: service = ServiceName
 
-proc getCheckingList*(vc: ValidatorClientRef): seq[ValidatorIndex] =
+proc getCheckingList*(vc: ValidatorClientRef, epoch: Epoch): seq[ValidatorIndex] =
   var res: seq[ValidatorIndex]
   for validator in vc.attachedValidators[]:
-    if validator.index.isSome and validator.checkingDoppelganger():
+    if validator.index.isSome and validator.triggersDoppelganger(epoch):
       res.add validator.index.get()
   res
 
@@ -36,9 +36,12 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
       let vindex = item.index
       for validator in vc.attachedValidators[]:
         if validator.index == Opt.some(vindex):
-          if validator.updateDoppelganger(epoch, item.is_live).isErr:
-            vc.doppelExit.fire()
-            return
+          if item.is_live:
+            if validator.triggersDoppelganger(epoch):
+              vc.doppelExit.fire()
+              return
+        else:
+          validator.updateDoppelganger(epoch)
 
 proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
   let vc = service.client
@@ -50,7 +53,14 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
     debug "Service disabled because of configuration settings"
     return
 
+  # On (re)start, we skip the remainder of the epoch before we start monitoring
+  # for doppelgangers so we don't trigger on the attestations we produced before
+  # the epoch
+  await service.waitForNextEpoch()
+
   while try:
+    # Wait for the epoch to end - at the end (or really, the beginning of the
+    # next one, we ask what happened
     await service.waitForNextEpoch()
     let
       currentEpoch = vc.currentSlot().epoch()
@@ -59,7 +69,7 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
           currentEpoch
         else:
           currentEpoch - 1'u64
-      validators = vc.getCheckingList()
+      validators = vc.getCheckingList(previousEpoch)
     if len(validators) > 0:
       let activities = await vc.getValidatorsLiveness(previousEpoch,
                                                       validators)

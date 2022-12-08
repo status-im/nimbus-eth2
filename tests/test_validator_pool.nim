@@ -16,37 +16,56 @@ suite "Validator pool":
     let
       v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
 
+    check:
+      not v.triggersDoppelganger(GENESIS_EPOCH)
+
     v.updateValidator(ValidatorIndex(1), GENESIS_EPOCH)
 
     check:
-      v.checkingDoppelganger()
+      not v.triggersDoppelganger(GENESIS_EPOCH)
 
-      v.updateDoppelganger(GENESIS_EPOCH, false).isOk()
-      v.updateDoppelganger(GENESIS_EPOCH, true).isOk()
-
-      not v.checkingDoppelganger()
-
-  test "Doppelganger for validator that activates while running":
+  test "Doppelganger for validator that activates in same epoch as check":
     let
       v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
       now = Epoch(10).start_slot()
 
-    check:
-      v.checkingDoppelganger()
+    check: # We don't know when validator activates so we wouldn't trigger
+      not v.triggersDoppelganger(GENESIS_EPOCH)
+      not v.triggersDoppelganger(now.epoch())
 
     v.updateValidator(ValidatorIndex(5), FAR_FUTURE_EPOCH)
 
-    check:
-      v.updateDoppelganger(now.epoch(), false).isOk()
-      v.updateDoppelganger(now.epoch(), true).isOk()
+    check: # We still don't know when validator activates so we wouldn't trigger
+      not v.triggersDoppelganger(GENESIS_EPOCH)
+      not v.triggersDoppelganger(now.epoch())
 
-      v.checkingDoppelganger()
+    v.updateValidator(ValidatorIndex(5), now.epoch())
+
+    check:
+      # Activates in current epoch, shouldn't trigger
+      not v.triggersDoppelganger(now.epoch())
+
+  test "Doppelganger for validator that activates in previous epoch":
+    let
+      v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
+      now = Epoch(10).start_slot()
+
+    v.updateValidator(ValidatorIndex(5), now.epoch() - 1)
+
+    check:
+      # Already activated, should trigger
+      v.triggersDoppelganger(now.epoch())
+
+  test "Doppelganger for validator that activates in future epoch":
+    let
+      v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
+      now = Epoch(10).start_slot()
 
     v.updateValidator(ValidatorIndex(5), now.epoch() + 1)
 
     check:
       # Activates in the future, should not be checked
-      not v.checkingDoppelganger()
+      not v.triggersDoppelganger(now.epoch())
 
   test "Doppelganger for already active validator":
     let
@@ -56,25 +75,35 @@ suite "Validator pool":
     v.updateValidator(ValidatorIndex(5), now.epoch() - 4)
 
     check:
-      v.checkingDoppelganger()
-      v.updateDoppelganger(now.epoch(), false).isOk()
+      v.triggersDoppelganger(now.epoch)
+
+    v.updateDoppelganger(now.epoch())
 
     check:
-      v.checkingDoppelganger()
+      not v.triggersDoppelganger(now.epoch + 1)
 
-    check:
-      v.updateDoppelganger(now.epoch() + 1, false).isOk()
-
-    check:
-      not v.checkingDoppelganger()
-
-  test "Trigger doppelganger check":
+  test "Activation after check":
     let
       v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
       now = Epoch(10).start_slot()
 
-    v.updateValidator(ValidatorIndex(5), now.epoch() - 4)
+    v.updateDoppelganger(now.epoch())
 
     check:
-      v.checkingDoppelganger()
-      v.updateDoppelganger(now.epoch(), true).isErr()
+      not v.triggersDoppelganger(now.epoch)
+
+    v.updateValidator(ValidatorIndex(5), now.epoch())
+
+    check: # already proven not to validate
+      not v.triggersDoppelganger(now.epoch)
+
+  test "Future activation after check":
+    let
+      v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
+      now = Epoch(10).start_slot()
+
+    v.updateDoppelganger(now.epoch())
+    v.updateValidator(ValidatorIndex(5), now.epoch() + 1)
+
+    check: # doesn't trigger check just after activation
+      not v.triggersDoppelganger(now.epoch() + 1)

@@ -482,8 +482,8 @@ proc getDelay*(vc: ValidatorClientRef, deadline: BeaconTime): TimeDiff =
   vc.beaconClock.now() - deadline
 
 proc getValidatorForDuties*(vc: ValidatorClientRef,
-                            key: ValidatorPubKey): Opt[AttachedValidator] =
-  vc.attachedValidators[].getValidatorForDuties(key)
+                            key: ValidatorPubKey, slot: Slot): Opt[AttachedValidator] =
+  vc.attachedValidators[].getValidatorForDuties(key, slot)
 
 proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
   # If schedule is present, it MUST not be empty.
