@@ -255,7 +255,8 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
       SlashingProtectionDB.init(
         vc.beaconGenesis.genesis_validators_root,
         vc.config.validatorsDir(), "slashing_protection")
-    validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
+    validatorPool = newClone(ValidatorPool.init(
+      slashingProtectionDB, vc.config.doppelgangerDetection))
 
   vc.attachedValidators = validatorPool
 

@@ -622,7 +622,8 @@ proc init*(T: type BeaconNode,
       SlashingProtectionDB.init(
           getStateField(dag.headState, genesis_validators_root),
           config.validatorsDir(), SlashingDbName)
-    validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
+    validatorPool = newClone(ValidatorPool.init(
+      slashingProtectionDB, config.doppelgangerDetection))
 
     keymanagerInitResult = initKeymanagerServer(config, restServer)
     keymanagerHost = if keymanagerInitResult.server != nil:

@@ -88,7 +88,7 @@ type
   ValidatorPool* = object
     validators*: Table[ValidatorPubKey, AttachedValidator]
     slashingProtection*: SlashingProtectionDB
-    doppelGangerDetectionEnabled*: bool
+    doppelgangerDetectionEnabled*: bool
 
 template pubkey*(v: AttachedValidator): ValidatorPubKey =
   v.data.pubkey
@@ -101,12 +101,15 @@ func shortLog*(v: AttachedValidator): string =
     shortLog(v.pubkey)
 
 func init*(T: type ValidatorPool,
-            slashingProtectionDB: SlashingProtectionDB): T =
+           slashingProtectionDB: SlashingProtectionDB,
+           doppelgangerDetectionEnabled: bool): T =
   ## Initialize the validator pool and the slashing protection service
   ## `genesis_validators_root` is used as an unique ID for the
   ## blockchain
   ## `backend` is the KeyValue Store backend
-  T(slashingProtection: slashingProtectionDB)
+  T(
+    slashingProtection: slashingProtectionDB,
+    doppelgangerDetectionEnabled: doppelgangerDetectionEnabled)
 
 template count*(pool: ValidatorPool): int =
   len(pool.validators)
@@ -298,9 +301,9 @@ proc getValidatorForDuties*(
   if isNil(validator) or validator.index.isNone():
     return Opt.none(AttachedValidator)
 
-  if pool.doppelGangerDetectionEnabled and validator.checkingDoppelganger():
-    notice "Doppelganger detection active - skipping validator " &
-            "duties while observing activity on the network",
+  if pool.doppelgangerDetectionEnabled and validator.checkingDoppelganger():
+    notice "Doppelganger detection active - " &
+           "skipped validator duty while observing the network",
             validator = shortLog(validator)
     return Opt.none(AttachedValidator)
 
