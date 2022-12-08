@@ -26,14 +26,22 @@ import
 
 export json_serialization, base
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/polynomial-commitments.md#constants
-const BYTES_PER_FIELD_ELEMENT = 32
+const
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/polynomial-commitments.md#constants
+  BYTES_PER_FIELD_ELEMENT = 32
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#blob
+  BLOB_TX_TYPE* = 0x05'u8
 
 type
   # this block belongs elsewhere - will figure out after implementing c-kzg bindings
   KZGCommitment* = array[48, byte]
   KZGProof* = array[48, byte]
   BLSFieldElement* = array[32, byte]
+
+  # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
+  # current spec doesn't ever SSZ-serialize it or hash_tree_root it
+  VersionedHash* = array[32, byte]
 
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 

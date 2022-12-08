@@ -1,4 +1,3 @@
-from std/sequtils import all
 from stew/objects import isZeroMemory
 
 import ./eth2_merkleization

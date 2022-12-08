@@ -13,8 +13,6 @@ else:
   {.push raises: [].}
 
 import
-  # Standard lib
-  std/[algorithm, math, sets, tables, times],
   # Status libraries
   stew/[bitops2, byteutils, endians2, objects, saturation_arith],
   chronicles,
@@ -116,6 +114,12 @@ func get_previous_epoch*(
 func get_randao_mix*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Returns the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
+
+func bytes_to_uint32*(data: openArray[byte]): uint32 =
+  doAssert data.len == 4
+
+  # Little-endian data representation
+  uint32.fromBytesLE(data)
 
 func bytes_to_uint64*(data: openArray[byte]): uint64 =
   doAssert data.len == 8
@@ -340,22 +344,26 @@ func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
-    state: bellatrix.BeaconState | capella.BeaconState,
+    state: bellatrix.BeaconState | capella.BeaconState | eip4844.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
           bellatrix.SigVerifiedBeaconBlockBody |
           capella.BeaconBlockBody | capella.TrustedBeaconBlockBody |
-          capella.SigVerifiedBeaconBlockBody): bool =
+          capella.SigVerifiedBeaconBlockBody |
+          eip4844.BeaconBlockBody | eip4844.TrustedBeaconBlockBody |
+          eip4844.SigVerifiedBeaconBlockBody): bool =
   const defaultExecutionPayload = default(typeof(body.execution_payload))
   not is_merge_transition_complete(state) and
     body.execution_payload != defaultExecutionPayload
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
-    state: bellatrix.BeaconState | capella.BeaconState,
+    state: bellatrix.BeaconState | capella.BeaconState | eip4844.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
           bellatrix.SigVerifiedBeaconBlockBody |
           capella.BeaconBlockBody | capella.TrustedBeaconBlockBody |
-          capella.SigVerifiedBeaconBlockBody): bool =
+          capella.SigVerifiedBeaconBlockBody |
+          eip4844.BeaconBlockBody | eip4844.TrustedBeaconBlockBody |
+          eip4844.SigVerifiedBeaconBlockBody): bool =
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
