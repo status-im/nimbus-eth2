@@ -282,6 +282,11 @@ template withReportedProgress(
   block:
     let
       previousWasInitialized = store[].isSome
+      previousNextCommitteeKnown =
+        if store[].sSome:
+          store[].get.is_next_sync_committee_known
+        else:
+          false
       previousFinalized =
         if store[].isSome:
           store[].get.finalized_header
@@ -306,18 +311,22 @@ template withReportedProgress(
         self.onStoreInitialized()
         self.onStoreInitialized = nil
 
-    if store[].get.optimistic_header != previousOptimistic:
-      didProgress = true
-      when obj isnot SomeLightClientUpdateWithFinality:
-        didSignificantProgress = true
-      if self.onOptimisticHeader != nil:
-        self.onOptimisticHeader()
+    if store[].isSome:
+      if store[].get.optimistic_header != previousOptimistic:
+        didProgress = true
+        when obj isnot SomeLightClientUpdateWithFinality:
+          didSignificantProgress = true
+        if self.onOptimisticHeader != nil:
+          self.onOptimisticHeader()
 
-    if store[].get.finalized_header != previousFinalized:
-      didProgress = true
-      didSignificantProgress = true
-      if self.onFinalizedHeader != nil:
-        self.onFinalizedHeader()
+      if store[].get.finalized_header != previousFinalized:
+        didProgress = true
+        didSignificantProgress = true
+        if self.onFinalizedHeader != nil:
+          self.onFinalizedHeader()
+
+      if store[].get.is_next_sync_committee_known != previousNextCommitteeKnown:
+        didProgress = true
 
     if didProgress:
       when obj is Nothing:
