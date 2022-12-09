@@ -521,18 +521,6 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + default initialization of signatures                                                       OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
-## [Unit - Spec - Epoch processing] Justification and Finalization  [Preset: mainnet]
-```diff
-+  Rule I - 234 finalization with enough support                                             OK
-+  Rule I - 234 finalization without support                                                 OK
-+  Rule II - 23 finalization with enough support                                             OK
-+  Rule II - 23 finalization without support                                                 OK
-+  Rule III - 123 finalization with enough support                                           OK
-+  Rule III - 123 finalization without support                                               OK
-+  Rule IV - 12 finalization with enough support                                             OK
-+  Rule IV - 12 finalization without support                                                 OK
-```
-OK: 8/8 Fail: 0/8 Skip: 0/8
 ## chain DAG finalization tests [Preset: mainnet]
 ```diff
 + init with gaps [Preset: mainnet]                                                           OK
@@ -620,4 +608,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 345/350 Fail: 0/350 Skip: 5/350
+OK: 337/342 Fail: 0/342 Skip: 5/342
