@@ -515,15 +515,6 @@ OK: 23/23 Fail: 0/23 Skip: 0/23
 + default initialization of signatures                                                       OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
-## [Unit - Spec - Block processing] Deposits  [Preset: mainnet]
-```diff
-+ Deposit at MAX_EFFECTIVE_BALANCE balance (32 ETH)                                          OK
-+ Deposit over MAX_EFFECTIVE_BALANCE balance (32 ETH)                                        OK
-+ Deposit under MAX_EFFECTIVE_BALANCE balance (32 ETH)                                       OK
-+ Invalid deposit at MAX_EFFECTIVE_BALANCE balance (32 ETH)                                  OK
-+ Validator top-up                                                                           OK
-```
-OK: 5/5 Fail: 0/5 Skip: 0/5
 ## [Unit - Spec - Epoch processing] Justification and Finalization  [Preset: mainnet]
 ```diff
 +  Rule I - 234 finalization with enough support                                             OK
@@ -623,4 +614,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 344/349 Fail: 0/349 Skip: 5/349
+OK: 339/344 Fail: 0/344 Skip: 5/344
