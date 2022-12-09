@@ -387,6 +387,14 @@ proc validateBeaconBlock*(
 
   ok()
 
+from ../spec/datatypes/eip4844 import SignedBeaconBlock
+
+proc validateBeaconBlock*(
+    dag: ChainDAGRef, quarantine: ref Quarantine,
+    signed_beacon_block: eip4844.SignedBeaconBlock,
+    wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
+  raiseAssert $eip4844ImplementationMissing & ": gossip_validation.nim: validateBeaconBlock not how EIP4844 works anymore"
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
     pool: ref AttestationPool,

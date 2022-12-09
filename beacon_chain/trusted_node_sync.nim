@@ -46,6 +46,8 @@ proc fetchDepositSnapshot(client: RestClientRef):
 
   return ok snapshot
 
+from ./spec/datatypes/eip4844 import asSigVerified, shortLog
+
 proc doTrustedNodeSync*(
     cfg: RuntimeConfig,
     databaseDir: string,

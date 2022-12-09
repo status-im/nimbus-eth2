@@ -9,8 +9,6 @@
 
 import
   yaml,
-  # Standard library
-  std/[os, sequtils, strutils],
   # Status internal
   faststreams, streams,
   # Beacon chain internals
@@ -19,6 +17,9 @@ import
   # Test utilities
   ../../testutil,
   ../fixtures_utils
+
+from std/os import walkDir, walkPattern, `/`
+from std/sequtils import toSeq
 
 const
   TransitionDir = SszTestsDir/const_preset/"capella"/"transition"/"core"/"pyspec_tests"
