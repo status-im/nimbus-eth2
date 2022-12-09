@@ -44,6 +44,7 @@ build/
 *.sqlite3-shm
 *.sqlite3-wal
 
+/local-testnet-*/
 /local_testnet_data*/
 /local_testnet*_data*/
 

@@ -29,6 +29,17 @@ type
     proc(lightClient: LightClient, header: BeaconBlockHeader) {.
       gcsafe, raises: [Defect].}
 
+  LightClientValueObserver[V] =
+    proc(lightClient: LightClient, v: V) {.gcsafe, raises: [Defect].}
+  LightClientBootstrapObserver* =
+    LightClientValueObserver[altair.LightClientBootstrap]
+  LightClientUpdateObserver* =
+    LightClientValueObserver[altair.LightClientUpdate]
+  LightClientFinalityUpdateObserver* =
+    LightClientValueObserver[altair.LightClientFinalityUpdate]
+  LightClientOptimisticUpdateObserver* =
+    LightClientValueObserver[altair.LightClientOptimisticUpdate]
+
   LightClient* = ref object
     network: Eth2Node
     cfg: RuntimeConfig
@@ -39,6 +50,10 @@ type
     manager: LightClientManager
     gossipState: GossipState
     onFinalizedHeader*, onOptimisticHeader*: LightClientHeaderCallback
+    bootstrapObserver*: LightClientBootstrapObserver
+    updateObserver*: LightClientUpdateObserver
+    finalityUpdateObserver*: LightClientFinalityUpdateObserver
+    optimisticUpdateObserver*: LightClientOptimisticUpdateObserver
     trustedBlockRoot*: Option[Eth2Digest]
 
 func finalizedHeader*(lightClient: LightClient): Opt[BeaconBlockHeader] =
@@ -94,11 +109,28 @@ proc createLightClient(
       lightClient.onOptimisticHeader(
         lightClient, lightClient.optimisticHeader.get)
 
+  proc bootstrapObserver(obj: altair.LightClientBootstrap) =
+    if lightClient.bootstrapObserver != nil:
+      lightClient.bootstrapObserver(lightClient, obj)
+
+  proc updateObserver(obj: altair.LightClientUpdate) =
+    if lightClient.updateObserver != nil:
+      lightClient.updateObserver(lightClient, obj)
+
+  proc finalityObserver(obj: altair.LightClientFinalityUpdate) =
+    if lightClient.finalityUpdateObserver != nil:
+      lightClient.finalityUpdateObserver(lightClient, obj)
+
+  proc optimisticObserver(obj: altair.LightClientOptimisticUpdate) =
+    if lightClient.optimisticUpdateObserver != nil:
+      lightClient.optimisticUpdateObserver(lightClient, obj)
+
   lightClient.processor = LightClientProcessor.new(
     dumpEnabled, dumpDirInvalid, dumpDirIncoming,
     cfg, genesis_validators_root, finalizationMode,
     lightClient.store, getBeaconTime, getTrustedBlockRoot,
-    onStoreInitialized, onFinalizedHeader, onOptimisticHeader)
+    onStoreInitialized, onFinalizedHeader, onOptimisticHeader,
+    bootstrapObserver, updateObserver, finalityObserver, optimisticObserver)
 
   proc lightClientVerifier(obj: SomeLightClientObject):
       Future[Result[void, VerifierError]] =

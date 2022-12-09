@@ -200,11 +200,26 @@ func maybeUpgradeStateToCapella(
       capellaData: capella.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
+from ./datatypes/eip4844 import HashedBeaconState
+
+func maybeUpgradeStateToEIP4844(
+    cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
+  # Both process_slots() and state_transition_block() call this, so only run it
+  # once by checking for existing fork.
+  if getStateField(state, slot).epoch == cfg.EIP4844_FORK_EPOCH and
+      state.kind == BeaconStateFork.Capella:
+    let newState = upgrade_to_eip4844(cfg, state.capellaData.data)
+    state = (ref ForkedHashedBeaconState)(
+      kind: BeaconStateFork.EIP4844,
+      eip4844Data: eip4844.HashedBeaconState(
+        root: hash_tree_root(newState[]), data: newState[]))[]
+
 func maybeUpgradeState*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   cfg.maybeUpgradeStateToAltair(state)
   cfg.maybeUpgradeStateToBellatrix(state)
   cfg.maybeUpgradeStateToCapella(state)
+  cfg.maybeUpgradeStateToEIP4844(state)
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
@@ -277,9 +292,7 @@ proc state_transition_block*(
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
   let res = withState(state):
-    when stateFork == BeaconStateFork.EIP4844:
-      raiseAssert $eip4844ImplementationMissing & ": state_transition.nim: state_transition_block()"
-    elif stateFork.toBeaconBlockFork() == type(signedBlock).toFork:
+    when stateFork.toBeaconBlockFork() == type(signedBlock).toFork:
       state_transition_block_aux(cfg, forkyState, signedBlock, cache, flags)
     else:
       err("State/block fork mismatch")
@@ -441,8 +454,6 @@ template partialBeaconBlock*(
       bls_to_execution_changes: bls_to_execution_changes
       ))
 
-from ./datatypes/eip4844 import ExecutionPayload
-
 proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
@@ -530,7 +541,12 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
       raiseAssert "Attempt to use Capella payload with non-Capella state"
     of BeaconStateFork.Capella:   makeBeaconBlock(capella)
   elif T is eip4844.ExecutionPayload:
-    raiseAssert $eip4844ImplementationMissing & ": state_transition"
+    case state.kind
+    of  BeaconStateFork.Phase0, BeaconStateFork.Altair,
+        BeaconStateFork.Bellatrix, BeaconStateFork.Capella:
+      raiseAssert "Attempt to use EIP4844 payload with non-EIP4844 state"
+    of BeaconStateFork.EIP4844:
+      raiseAssert $eip4844ImplementationMissing & ": state_transition"
 
 # workaround for https://github.com/nim-lang/Nim/issues/20900 rather than have
 # these be default arguments

@@ -26,14 +26,22 @@ import
 
 export json_serialization, base
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/polynomial-commitments.md#constants
-const BYTES_PER_FIELD_ELEMENT = 32
+const
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/polynomial-commitments.md#constants
+  BYTES_PER_FIELD_ELEMENT = 32
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#blob
+  BLOB_TX_TYPE* = 0x05'u8
 
 type
   # this block belongs elsewhere - will figure out after implementing c-kzg bindings
   KZGCommitment* = array[48, byte]
   KZGProof* = array[48, byte]
   BLSFieldElement* = array[32, byte]
+
+  # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
+  # current spec doesn't ever SSZ-serialize it or hash_tree_root it
+  VersionedHash* = array[32, byte]
 
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
@@ -359,6 +367,30 @@ type
     parentHash*: string
     timestamp*: string
 
+func shortLog*(v: SomeBeaconBlock): auto =
+  (
+    slot: shortLog(v.slot),
+    proposer_index: v.proposer_index,
+    parent_root: shortLog(v.parent_root),
+    state_root: shortLog(v.state_root),
+    eth1data: v.body.eth1_data,
+    graffiti: $v.body.graffiti,
+    proposer_slashings_len: v.body.proposer_slashings.len(),
+    attester_slashings_len: v.body.attester_slashings.len(),
+    attestations_len: v.body.attestations.len(),
+    deposits_len: v.body.deposits.len(),
+    voluntary_exits_len: v.body.voluntary_exits.len(),
+    sync_committee_participants:
+      countOnes(v.body.sync_aggregate.sync_committee_bits),
+    block_number: 0'u64, # Bellatrix compat
+    fee_recipient: "",
+  )
+
+func shortLog*(v: SomeSignedBeaconBlock): auto =
+  (
+    blck: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
        MsgTrustedSignedBeaconBlock |

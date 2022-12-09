@@ -18,8 +18,8 @@ import
     state_transition, state_transition_epoch],
   "."/[block_dag, blockchain_dag, blockchain_dag_light_client]
 
-# TODO remove when forks re-exports this
 from ../spec/datatypes/capella import asSigVerified, asTrusted, shortLog
+from ../spec/datatypes/eip4844 import asSigVerified, asTrusted, shortLog
 
 export results, signatures_batch, block_dag, blockchain_dag
 
@@ -108,9 +108,7 @@ proc addResolvedHeadBlock(
     if enableTestFeatures in dag.updateFlags:
       unrealized = withState(state):
         static: doAssert high(BeaconStateFork) == BeaconStateFork.EIP4844
-        when stateFork == BeaconStateFork.EIP4844:
-          raiseAssert $eip4844ImplementationMissing & ": block_clearance.nim:addResolvedHeadBlock"
-        elif stateFork >= BeaconStateFork.Altair:
+        when stateFork >= BeaconStateFork.Altair:
           forkyState.data.compute_unrealized_finality()
         else:
           forkyState.data.compute_unrealized_finality(cache)

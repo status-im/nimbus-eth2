@@ -48,9 +48,9 @@ func loadFragmentsLayout(contentLayout: string): ContentFragments {.
 
 func loadCellsLayout(cellsLayout: string): seq[StatusBarCell] {.
     raises: [Defect, ValueError].} =
-  var cells = cellsLayout.split(';')
+  let cells = cellsLayout.split(';')
   for cell in cells:
-    var columns = cell.split(':', maxSplit = 1)
+    let columns = cell.split(':', maxSplit = 1)
     if columns.len == 2:
       result.add StatusBarCell(
         label: strip(columns[0]),
@@ -60,7 +60,7 @@ func loadCellsLayout(cellsLayout: string): seq[StatusBarCell] {.
         contentFragments: loadFragmentsLayout(columns[0]))
 
 func loadLayout(layout: string): Layout {.raises: [Defect, ValueError].} =
-  var sections = layout.split('|', maxSplit = 1)
+  let sections = layout.split('|', maxSplit = 1)
   result.cellsLeft = loadCellsLayout(sections[0])
   if sections.len == 2: result.cellsRight = loadCellsLayout(sections[1])
 

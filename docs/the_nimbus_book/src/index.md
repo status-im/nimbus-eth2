@@ -15,7 +15,7 @@ This book describes the consensus layer client, [`nimbus-eth2`](https://github.c
 
 * [Beacon node](./quick-start.md) with integrated validator client, slashing protection and doppelganger detection
 * Stand-alone [validator client](./validator-client.md) with [sentry node](./validator-client.md#sentry-node-setup) support
-* Fast [Beacon](./rest-api.md) and [KeyManager](./keymanager-api.md) API:s with extensions
+* Fast [Beacon](./rest-api.md) and [KeyManager](./keymanager-api.md) APIs with extensions
 * [Web3Signer](https://docs.web3signer.consensys.net/en/latest/) remote signing
 * [Validator monitoring](./validator-monitor.md) and [performance analysis](./attestation-performance.md) tooling
 * [External block builder](./external-block-builder.md) (PBS / mev-boost) support with execution client fallback

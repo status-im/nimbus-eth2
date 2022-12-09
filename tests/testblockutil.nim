@@ -79,7 +79,7 @@ func signBlock(
   ForkedSignedBeaconBlock.init(forked, root, signature)
 
 from ../beacon_chain/spec/datatypes/capella import
-  BeaconState, ExecutionPayload
+  BeaconState, ExecutionPayload, SignedBLSToExecutionChangeList
 
 func build_empty_merge_execution_payload(state: bellatrix.BeaconState):
     bellatrix.ExecutionPayload =
@@ -134,9 +134,6 @@ proc build_empty_merge_execution_payload(state: capella.BeaconState):
   payload.block_hash = rlpHash emptyPayloadToBlockHeader(payload)
 
   payload
-
-from ../beacon_chain/spec/datatypes/capella import
-  SignedBLSToExecutionChangeList
 
 proc addTestBlockAux[EP: bellatrix.ExecutionPayload | capella.ExecutionPayload](
     state: var ForkedHashedBeaconState,

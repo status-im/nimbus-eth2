@@ -275,6 +275,8 @@ template toFork*[T: eip4844.BeaconState | eip4844.HashedBeaconState](
 #   T(kind: BeaconStateFork.Bellatrix, bellatrixData: data)
 # template init*(T: type ForkedHashedBeaconState, data: capella.HashedBeaconState): T =
 #   T(kind: BeaconStateFork.Capella, capellaData: data)
+# template init*(T: type ForkedHashedBeaconState, data: eip4844.HashedBeaconState): T =
+#   T(kind: BeaconStateFork.EIP4844, eip4844Data: data)
 
 template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
@@ -557,28 +559,33 @@ func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
 func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconStateFork =
   ## Return the current fork for the given epoch.
   static:
+    doAssert high(BeaconStateFork) == BeaconStateFork.EIP4844
+    doAssert BeaconStateFork.EIP4844   > BeaconStateFork.Capella
     doAssert BeaconStateFork.Capella   > BeaconStateFork.Bellatrix
     doAssert BeaconStateFork.Bellatrix > BeaconStateFork.Altair
     doAssert BeaconStateFork.Altair    > BeaconStateFork.Phase0
     doAssert GENESIS_EPOCH == 0
 
-  if   epoch >= cfg.CAPELLA_FORK_EPOCH:   BeaconStateFork.Capella
+  if   epoch >= cfg.EIP4844_FORK_EPOCH:   BeaconStateFork.EIP4844
+  elif epoch >= cfg.CAPELLA_FORK_EPOCH:   BeaconStateFork.Capella
   elif epoch >= cfg.BELLATRIX_FORK_EPOCH: BeaconStateFork.Bellatrix
   elif epoch >= cfg.ALTAIR_FORK_EPOCH:    BeaconStateFork.Altair
   else:                                   BeaconStateFork.Phase0
 
 func blockForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): BeaconBlockFork =
   ## Return the current fork for the given epoch.
-  if   epoch >= cfg.CAPELLA_FORK_EPOCH:   BeaconBlockFork.Capella
+  static: doAssert high(BeaconBlockFork) == BeaconBlockFork.EIP4844
+  if   epoch >= cfg.EIP4844_FORK_EPOCH:   BeaconBlockFork.EIP4844
+  elif epoch >= cfg.CAPELLA_FORK_EPOCH:   BeaconBlockFork.Capella
   elif epoch >= cfg.BELLATRIX_FORK_EPOCH: BeaconBlockFork.Bellatrix
   elif epoch >= cfg.ALTAIR_FORK_EPOCH:    BeaconBlockFork.Altair
   else:                                   BeaconBlockFork.Phase0
 
 func stateForkForDigest*(
     forkDigests: ForkDigests, forkDigest: ForkDigest): Opt[BeaconStateFork] =
+  static: doAssert high(BeaconStateFork) == BeaconStateFork.EIP4844
   if   forkDigest == forkDigests.eip4844:
-    discard $eip4844ImplementationMissing & ": when forkedstate appears, use it here"
-    ok BeaconStateFork.Capella
+    ok BeaconStateFork.EIP4844
   elif forkDigest == forkDigests.capella:
     ok BeaconStateFork.Capella
   elif forkDigest == forkDigests.bellatrix:
@@ -832,13 +839,14 @@ func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   of BeaconStateFork.Altair:    cfg.BELLATRIX_FORK_EPOCH
   of BeaconStateFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
 
-func getForkSchedule*(cfg: RuntimeConfig): array[3, Fork] =
+func getForkSchedule*(cfg: RuntimeConfig): array[5, Fork] =
   ## This procedure returns list of known and/or scheduled forks.
   ##
   ## This procedure is used by HTTP REST framework and validator client.
   ##
   ## NOTE: Update this procedure when new fork will be scheduled.
-  [cfg.genesisFork(), cfg.altairFork(), cfg.bellatrixFork()]
+  [cfg.genesisFork(), cfg.altairFork(), cfg.bellatrixFork(), cfg.capellaFork(),
+   cfg.eip4844Fork()]
 
 type
   # The first few fields of a state, shared across all forks
@@ -924,6 +932,7 @@ func compute_fork_digest*(current_version: Version,
 func init*(T: type ForkDigests,
            cfg: RuntimeConfig,
            genesis_validators_root: Eth2Digest): T =
+  static: doAssert high(BeaconStateFork) == BeaconStateFork.EIP4844
   T(
     phase0:
       compute_fork_digest(cfg.GENESIS_FORK_VERSION, genesis_validators_root),
@@ -932,7 +941,9 @@ func init*(T: type ForkDigests,
     bellatrix:
       compute_fork_digest(cfg.BELLATRIX_FORK_VERSION, genesis_validators_root),
     capella:
-      compute_fork_digest(cfg.CAPELLA_FORK_VERSION, genesis_validators_root)
+      compute_fork_digest(cfg.CAPELLA_FORK_VERSION, genesis_validators_root),
+    eip4844:
+      compute_fork_digest(cfg.EIP4844_FORK_VERSION, genesis_validators_root)
   )
 
 func toBlockId*(header: BeaconBlockHeader): BlockId =

@@ -201,6 +201,27 @@ ConsensusSpecPreset-mainnet
 + EF - EIP4844 - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]          OK
 + EF - EIP4844 - Rewards - with_slashed_validators [Preset: mainnet]                         OK
 + EF - EIP4844 - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
++ EF - EIP4844 - Transition - normal_transition [Preset: mainnet]                            OK
++ EF - EIP4844 - Transition - simple_transition [Preset: mainnet]                            OK
++ EF - EIP4844 - Transition - transition_missing_first_post_block [Preset: mainnet]          OK
++ EF - EIP4844 - Transition - transition_missing_last_pre_fork_block [Preset: mainnet]       OK
++ EF - EIP4844 - Transition - transition_only_blocks_post_fork [Preset: mainnet]             OK
++ EF - EIP4844 - Transition - transition_randomized_state [Preset: mainnet]                  OK
++ EF - EIP4844 - Transition - transition_with_activation_at_fork_epoch [Preset: mainnet]     OK
++ EF - EIP4844 - Transition - transition_with_attester_slashing_right_after_fork [Preset: ma OK
++ EF - EIP4844 - Transition - transition_with_attester_slashing_right_before_fork [Preset: m OK
++ EF - EIP4844 - Transition - transition_with_deposit_right_after_fork [Preset: mainnet]     OK
++ EF - EIP4844 - Transition - transition_with_deposit_right_before_fork [Preset: mainnet]    OK
++ EF - EIP4844 - Transition - transition_with_finality [Preset: mainnet]                     OK
++ EF - EIP4844 - Transition - transition_with_leaking_at_fork [Preset: mainnet]              OK
++ EF - EIP4844 - Transition - transition_with_leaking_pre_fork [Preset: mainnet]             OK
++ EF - EIP4844 - Transition - transition_with_no_attestations_until_after_fork [Preset: main OK
++ EF - EIP4844 - Transition - transition_with_non_empty_activation_queue [Preset: mainnet]   OK
++ EF - EIP4844 - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pr OK
++ EF - EIP4844 - Transition - transition_with_proposer_slashing_right_after_fork [Preset: ma OK
++ EF - EIP4844 - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
++ EF - EIP4844 - Transition - transition_with_random_half_participation [Preset: mainnet]    OK
++ EF - EIP4844 - Transition - transition_with_random_three_quarters_participation [Preset: m OK
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
 + EF - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: mainnet]           OK
 + EF - Phase 0 - Rewards - empty [Preset: mainnet]                                           OK
@@ -385,6 +406,21 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Capella - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]     OK
 + [Invalid] EF - Capella - Sanity - Blocks - withdrawal_fail_second_block_payload_isnt_compa OK
 + [Invalid] EF - Capella - Sanity - Blocks - zero_block_sig [Preset: mainnet]                OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - expected_deposit_in_block [Preset: mainnet]     OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_block_sig [Preset: mainnet]             OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block  OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_proposer_index_sig_from_expected_propos OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_proposer_index_sig_from_proposer_index  OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_state_root [Preset: mainnet]            OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - parent_from_same_slot [Preset: mainnet]         OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - prev_slot_block_transition [Preset: mainnet]    OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - same_slot_block_transition [Preset: mainnet]    OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]     OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - zero_block_sig [Preset: mainnet]                OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - expected_deposit_in_block [Preset: mainnet]     OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_block_sig [Preset: mainnet]             OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block  OK
@@ -572,6 +608,64 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Capella - Sanity - Blocks - success_exit_and_bls_change [Preset: mainnet]   OK
 + [Valid]   EF - Capella - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 + [Valid]   EF - Capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
++ [Valid]   EF - EIP4844 - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
++ [Valid]   EF - EIP4844 - Finality - finality_rule_1 [Preset: mainnet]                      OK
++ [Valid]   EF - EIP4844 - Finality - finality_rule_2 [Preset: mainnet]                      OK
++ [Valid]   EF - EIP4844 - Finality - finality_rule_3 [Preset: mainnet]                      OK
++ [Valid]   EF - EIP4844 - Finality - finality_rule_4 [Preset: mainnet]                      OK
++ [Valid]   EF - EIP4844 - Random - randomized_0 [Preset: mainnet]                           OK
++ [Valid]   EF - EIP4844 - Random - randomized_1 [Preset: mainnet]                           OK
++ [Valid]   EF - EIP4844 - Random - randomized_10 [Preset: mainnet]                          OK
++ [Valid]   EF - EIP4844 - Random - randomized_11 [Preset: mainnet]                          OK
++ [Valid]   EF - EIP4844 - Random - randomized_12 [Preset: mainnet]                          OK
++ [Valid]   EF - EIP4844 - Random - randomized_13 [Preset: mainnet]                          OK
++ [Valid]   EF - EIP4844 - Random - randomized_14 [Preset: mainnet]                          OK
++ [Valid]   EF - EIP4844 - Random - randomized_15 [Preset: mainnet]                          OK
++ [Valid]   EF - EIP4844 - Random - randomized_2 [Preset: mainnet]                           OK
++ [Valid]   EF - EIP4844 - Random - randomized_3 [Preset: mainnet]                           OK
++ [Valid]   EF - EIP4844 - Random - randomized_4 [Preset: mainnet]                           OK
++ [Valid]   EF - EIP4844 - Random - randomized_5 [Preset: mainnet]                           OK
++ [Valid]   EF - EIP4844 - Random - randomized_6 [Preset: mainnet]                           OK
++ [Valid]   EF - EIP4844 - Random - randomized_7 [Preset: mainnet]                           OK
++ [Valid]   EF - EIP4844 - Random - randomized_8 [Preset: mainnet]                           OK
++ [Valid]   EF - EIP4844 - Random - randomized_9 [Preset: mainnet]                           OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - attestation [Preset: mainnet]                   OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - attester_slashing [Preset: mainnet]             OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - balance_driven_status_transitions [Preset: main OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - deposit_in_block [Preset: mainnet]              OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - deposit_top_up [Preset: mainnet]                OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainn OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - empty_block_transition [Preset: mainnet]        OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - empty_block_transition_no_tx [Preset: mainnet]  OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - empty_block_transition_randomized_payload [Pres OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]        OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - empty_sync_committee_committee [Preset: mainnet OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - empty_sync_committee_committee_genesis [Preset: OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]      OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]      OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]      OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - full_random_operations_3 [Preset: mainnet]      OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - full_sync_committee_committee [Preset: mainnet] OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - full_sync_committee_committee_genesis [Preset:  OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - half_sync_committee_committee [Preset: mainnet] OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - half_sync_committee_committee_genesis [Preset:  OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - high_proposer_index [Preset: mainnet]           OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - historical_batch [Preset: mainnet]              OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]     OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - is_execution_enabled_false [Preset: mainnet]    OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pr OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - multiple_blobs [Preset: mainnet]                OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - one_blob [Preset: mainnet]                      OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet] OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]        OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - proposer_slashing [Preset: mainnet]             OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - skipped_slots [Preset: mainnet]                 OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 + [Valid]   EF - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
 + [Valid]   EF - Phase 0 - Finality - finality_rule_1 [Preset: mainnet]                      OK
 + [Valid]   EF - Phase 0 - Finality - finality_rule_2 [Preset: mainnet]                      OK
@@ -650,7 +744,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 639/647 Fail: 0/647 Skip: 8/647
+OK: 733/741 Fail: 0/741 Skip: 8/741
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -2325,4 +2419,4 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 OK: 51/51 Fail: 0/51 Skip: 0/51
 
 ---TOTAL---
-OK: 2031/2039 Fail: 0/2039 Skip: 8/2039
+OK: 2125/2133 Fail: 0/2133 Skip: 8/2133

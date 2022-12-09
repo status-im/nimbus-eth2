@@ -40,6 +40,7 @@ proc findValidator(validators: seq[Validator], pubKey: ValidatorPubKey):
     Opt.some idx.ValidatorIndex
 
 from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
+from ../beacon_chain/spec/datatypes/eip4844 import SignedBeaconBlock
 
 cli do(validatorsDir: string, secretsDir: string,
        startState: string, network: string):
@@ -204,7 +205,14 @@ cli do(validatorsDir: string, secretsDir: string,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
       of BeaconBlockFork.EIP4844:
-        raiseAssert $eip4844ImplementationMissing
+        blockRoot = hash_tree_root(message.eip4844Data)
+        let signedBlock = eip4844.SignedBeaconBlock(
+          message: message.eip4844Data,
+          root: blockRoot,
+          signature: get_block_signature(
+            fork, genesis_validators_root, slot, blockRoot,
+            validators[proposer]).toValidatorSig())
+        dump(".", signedBlock)
       notice "Block proposed", message, blockRoot
 
       aggregates.setLen(0)

@@ -23,6 +23,7 @@ import
   ./block_dag, block_pools_types_light_client
 
 from ../spec/datatypes/capella import TrustedSignedBeaconBlock
+from ../spec/datatypes/eip4844 import TrustedSignedBeaconBlock
 
 from "."/vanity_logs/pandas import VanityLogs
 
@@ -311,9 +312,15 @@ type
     epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
+  OnEIP4844BlockAdded* = proc(
+    blckRef: BlockRef,
+    blck: eip4844.TrustedSignedBeaconBlock,
+    epochRef: EpochRef,
+    unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
+
   OnForkyBlockAdded* =
     OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
-    OnCapellaBlockAdded
+    OnCapellaBlockAdded | OnEIP4844BlockAdded
 
   HeadChangeInfoObject* = object
     slot*: Slot

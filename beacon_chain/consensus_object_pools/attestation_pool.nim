@@ -146,9 +146,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
           var unrealized: FinalityCheckpoints
           if enableTestFeatures in dag.updateFlags and blckRef == dag.head:
             unrealized = withState(dag.headState):
-              when stateFork == BeaconStateFork.EIP4844:
-                raiseAssert $eip4844ImplementationMissing & ": attestation_pool.nim:init"
-              elif stateFork >= BeaconStateFork.Altair:
+              when stateFork >= BeaconStateFork.Altair:
                 forkyState.data.compute_unrealized_finality()
               else:
                 var cache: StateCache
@@ -483,10 +481,12 @@ func init(T: type AttestationCache, state: phase0.HashedBeaconState): T =
       state.data.current_epoch_attestations[i].data,
       state.data.current_epoch_attestations[i].aggregation_bits)
 
+from ../spec/datatypes/eip4844 import HashedBeaconState
+
 func init(
     T: type AttestationCache,
     state: altair.HashedBeaconState | bellatrix.HashedBeaconState |
-           capella.HashedBeaconState,
+           capella.HashedBeaconState | eip4844.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let
@@ -560,8 +560,6 @@ proc check_attestation_compatible*(
 
   ok()
 
-from ../spec/datatypes/eip4844 import HashedBeaconState
-
 proc getAttestationsForBlock*(pool: var AttestationPool,
                               state: ForkyHashedBeaconState,
                               cache: var StateCache): seq[Attestation] =
@@ -586,12 +584,8 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       when state is phase0.HashedBeaconState:
         AttestationCache.init(state)
       elif state is altair.HashedBeaconState or state is bellatrix.HashedBeaconState or
-           state is capella.HashedBeaconState:
+           state is capella.HashedBeaconState or state is eip4844.HashedBeaconState:
         AttestationCache.init(state, cache)
-      elif state is eip4844.HashedBeaconState:
-        if true:
-          raiseAssert $eip4844ImplementationMissing & ": attestation_pool.nim:getAttestationsForBlock"
-        default(AttestationCache)
       else:
         static: doAssert false
 
