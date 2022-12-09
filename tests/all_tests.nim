@@ -50,10 +50,6 @@ import # Unit test
   ./slashing_protection/test_fixtures,
   ./slashing_protection/test_slashing_protection_db
 
-import # Refactor state transition unit tests
-  # In mainnet these take 2 minutes and are empty TODOs
-  ./spec_epoch_processing/test_process_justification_and_finalization
-
 when not defined(i386):
   # Avoids "Out of memory" CI failures
   import
