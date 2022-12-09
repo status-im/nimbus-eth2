@@ -10,6 +10,10 @@ on:
     paths-ignore: ['media/**', 'docs/**', '**/*.md']
   workflow_dispatch:
 
+concurrency: # Cancel stale PR builds (but not push builds)
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   build:
     strategy:
@@ -44,29 +48,10 @@ jobs:
     name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch }})'
     runs-on: ${{ matrix.builder }}
     steps:
-      - name: Get branch name
-        shell: bash
-        run: |
-          if [[ '${{  github.event_name }}' == 'pull_request' ]]; then
-            echo "##[set-output name=branch_name;]$(echo ${GITHUB_HEAD_REF})"
-            echo "Branch found (PR): ${GITHUB_HEAD_REF}"
-          else
-            echo "##[set-output name=branch_name;]$(echo ${GITHUB_REF#refs/heads/})"
-            echo "Branch found (not PR): ${GITHUB_REF#refs/heads/}"
-          fi
-        id: get_branch
-
-      - name: Cancel Previous Runs (except main branches)
-        if: >
-          steps.get_branch.outputs.branch_name != 'stable' &&
-          steps.get_branch.outputs.branch_name != 'unstable' &&
-          steps.get_branch.outputs.branch_name != 'testing'
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}
-
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+        with:
+          submodules: true
 
       - name: MSYS2 (Windows amd64)
         if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
@@ -84,7 +69,7 @@ jobs:
         id: windows-dlls-cache
         uses: actions/cache@v2
         with:
-          path: external/dlls
+          path: external/dlls-${{ matrix.target.cpu }}
           key: 'dlls-${{ matrix.target.cpu }}'
 
       - name: Install DLLs dependencies (Windows)
@@ -94,13 +79,13 @@ jobs:
         run: |
           mkdir -p external
           curl -L "https://nim-lang.org/download/windeps.zip" -o external/windeps.zip
-          7z x -y external/windeps.zip -oexternal/dlls
+          7z x -y external/windeps.zip -oexternal/dlls-${{ matrix.target.cpu }}
 
       - name: Path to cached dependencies (Windows)
         if: >
           runner.os == 'Windows'
         run: |
-          echo "${{ github.workspace }}/external/dlls" >> $GITHUB_PATH
+          echo "${{ github.workspace }}/external/dlls-${{ matrix.target.cpu }}" >> $GITHUB_PATH
           # for miniupnp that runs "wingenminiupnpcstrings.exe" from the current dir
           echo "." >> $GITHUB_PATH
 
@@ -117,7 +102,7 @@ jobs:
           else
             PLATFORM=x86
           fi
-          echo "PLATFORM=${PLATFORM}" >> $GITHUB_ENV
+          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
 
           # Stack usage test on recent enough gcc:
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
