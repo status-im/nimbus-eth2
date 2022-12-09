@@ -141,16 +141,6 @@ type
   DoppelgangerAttempt* {.pure.} = enum
     None, Failure, SuccessTrue, SuccessFalse
 
-  DoppelgangerState* = object
-    startEpoch*: Epoch
-    epochsCount*: uint64
-    lastAttempt*: DoppelgangerAttempt
-    status*: DoppelgangerStatus
-
-  DoppelgangerDetection* = object
-    startSlot*: Slot
-    validators*: Table[ValidatorIndex, DoppelgangerState]
-
   ValidatorClient* = object
     config*: ValidatorClientConf
     metricsServer*: Option[MetricsHttpServerRef]
@@ -169,13 +159,12 @@ type
     keymanagerHost*: ref KeymanagerHost
     keymanagerServer*: RestServerRef
     beaconClock*: BeaconClock
-    doppelgangerDetection*: DoppelgangerDetection
     attachedValidators*: ref ValidatorPool
     forks*: seq[Fork]
     forksAvailable*: AsyncEvent
     nodesAvailable*: AsyncEvent
     indicesAvailable*: AsyncEvent
-    gracefulExit*: AsyncEvent
+    doppelExit*: AsyncEvent
     attesters*: AttesterMap
     proposers*: ProposerMap
     syncCommitteeDuties*: SyncCommitteeDutiesMap
@@ -492,18 +481,9 @@ proc syncMembersSubscriptionInfoForEpoch*(
 proc getDelay*(vc: ValidatorClientRef, deadline: BeaconTime): TimeDiff =
   vc.beaconClock.now() - deadline
 
-proc getValidator*(vc: ValidatorClientRef,
-                   key: ValidatorPubKey): Opt[AttachedValidator] =
-  let validator = vc.attachedValidators[].getValidator(key)
-  if isNil(validator):
-    info "Validator not in pool anymore", validator = shortLog(validator)
-    Opt.none(AttachedValidator)
-  else:
-    if validator.index.isNone():
-      info "Validator index is missing", validator = shortLog(validator)
-      Opt.none(AttachedValidator)
-    else:
-      Opt.some(validator)
+proc getValidatorForDuties*(vc: ValidatorClientRef,
+                            key: ValidatorPubKey, slot: Slot): Opt[AttachedValidator] =
+  vc.attachedValidators[].getValidatorForDuties(key, slot)
 
 proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
   # If schedule is present, it MUST not be empty.
@@ -522,91 +502,6 @@ proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
 proc currentSlot*(vc: ValidatorClientRef): Slot =
   vc.beaconClock.now().slotOrZero()
 
-proc addDoppelganger*(vc: ValidatorClientRef,
-                      validators: openArray[AttachedValidator]) =
-  if vc.config.doppelgangerDetection:
-    let startEpoch = vc.currentSlot().epoch()
-    var
-      check: seq[string]
-      skip: seq[string]
-      exist: seq[string]
-
-    for validator in validators:
-      let
-        vindex = validator.index.get()
-        state =
-          if (startEpoch == GENESIS_EPOCH) and
-             (validator.startSlot == GENESIS_SLOT):
-            DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
-                              lastAttempt: DoppelgangerAttempt.None,
-                              status: DoppelgangerStatus.Passed)
-          else:
-            if validator.activationEpoch.isSome() and
-               (validator.activationEpoch.get() >= startEpoch):
-              DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
-                                lastAttempt: DoppelgangerAttempt.None,
-                                status: DoppelgangerStatus.Passed)
-            else:
-              DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
-                                lastAttempt: DoppelgangerAttempt.None,
-                                status: DoppelgangerStatus.Checking)
-        res = vc.doppelgangerDetection.validators.hasKeyOrPut(vindex, state)
-      if res:
-        exist.add(validatorLog(validator.pubkey, vindex))
-      else:
-        if state.status == DoppelgangerStatus.Checking:
-          check.add(validatorLog(validator.pubkey, vindex))
-        else:
-          skip.add(validatorLog(validator.pubkey, vindex))
-    info "Validator's doppelganger protection activated",
-         validators_count = len(validators),
-         pending_check_count = len(check),
-         skipped_count = len(skip),
-         exist_count = len(exist)
-    debug "Validator's doppelganger protection dump",
-          checking_validators = check,
-          skip_validators = skip,
-          existing_validators = exist
-
-proc addDoppelganger*(vc: ValidatorClientRef, validator: AttachedValidator) =
-  logScope:
-    validator = shortLog(validator)
-
-  if vc.config.doppelgangerDetection:
-    let
-      vindex = validator.index.get()
-      startEpoch = vc.currentSlot().epoch()
-      state =
-        if (startEpoch == GENESIS_EPOCH) and
-           (validator.startSlot == GENESIS_SLOT):
-          DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
-                            lastAttempt: DoppelgangerAttempt.None,
-                            status: DoppelgangerStatus.Passed)
-        else:
-          DoppelgangerState(startEpoch: startEpoch, epochsCount: 0'u64,
-                            lastAttempt: DoppelgangerAttempt.None,
-                            status: DoppelgangerStatus.Checking)
-      res = vc.doppelgangerDetection.validators.hasKeyOrPut(vindex, state)
-
-    if res:
-      warn "Validator is already in doppelganger table",
-           validator_index = vindex, start_epoch = startEpoch,
-           start_slot = validator.startSlot
-    else:
-      if state.status == DoppelgangerStatus.Checking:
-        info "Doppelganger protection activated", validator_index = vindex,
-             start_epoch = startEpoch, start_slot = validator.startSlot
-      else:
-        info "Doppelganger protection skipped", validator_index = vindex,
-             start_epoch = startEpoch, start_slot = validator.startSlot
-
-proc removeDoppelganger*(vc: ValidatorClientRef, index: ValidatorIndex) =
-  if vc.config.doppelgangerDetection:
-    var state: DoppelgangerState
-    # We do not care about race condition, when validator is not yet added to
-    # the doppelganger's table, but it should be removed.
-    discard vc.doppelgangerDetection.validators.pop(index, state)
-
 proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
   let
     slot = vc.currentSlot()
@@ -615,9 +510,7 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
         vc.config.defaultFeeRecipient)
   case keystore.kind
   of KeystoreKind.Local:
-    vc.attachedValidators[].addLocalValidator(keystore, Opt.none ValidatorIndex,
-                                              feeRecipient, slot,
-                                              Opt.none(Epoch))
+    discard vc.attachedValidators[].addLocalValidator(keystore, feeRecipient)
   of KeystoreKind.Remote:
     let
       httpFlags =
@@ -641,10 +534,8 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
               res.add((client.get(), remote))
           res
     if len(clients) > 0:
-      vc.attachedValidators[].addRemoteValidator(keystore, clients,
-                                                 Opt.none(ValidatorIndex),
-                                                 feeRecipient, slot,
-                                                 Opt.none(Epoch))
+      discard vc.attachedValidators[].addRemoteValidator(keystore, clients,
+                                                         feeRecipient)
     else:
       warn "Unable to initialize remote validator",
            validator = $keystore.pubkey
@@ -653,9 +544,6 @@ proc removeValidator*(vc: ValidatorClientRef,
                       pubkey: ValidatorPubKey) {.async.} =
   let validator = vc.attachedValidators[].getValidator(pubkey)
   if not(isNil(validator)):
-    if vc.config.doppelgangerDetection:
-      if validator.index.isSome():
-        vc.removeDoppelganger(validator.index.get())
     case validator.kind
     of ValidatorKind.Local:
       discard
@@ -670,43 +558,6 @@ proc removeValidator*(vc: ValidatorClientRef,
       await allFutures(pending)
     # Remove validator from ValidatorPool.
     vc.attachedValidators[].removeValidator(pubkey)
-
-proc doppelgangerCheck*(vc: ValidatorClientRef,
-                        validator: AttachedValidator): bool =
-  if vc.config.doppelgangerDetection:
-    if validator.index.isNone():
-      false
-    else:
-      let
-        vindex = validator.index.get()
-        default = DoppelgangerState(status: DoppelgangerStatus.None)
-        state = vc.doppelgangerDetection.validators.getOrDefault(vindex,
-                                                                 default)
-      state.status == DoppelgangerStatus.Passed
-  else:
-    true
-
-proc doppelgangerCheck*(vc: ValidatorClientRef,
-                        key: ValidatorPubKey): bool =
-  let validator = vc.getValidator(key).valueOr: return false
-  vc.doppelgangerCheck(validator)
-
-proc doppelgangerFilter*(
-       vc: ValidatorClientRef,
-       duties: openArray[DutyAndProof]
-     ): tuple[filtered: seq[DutyAndProof], skipped: seq[string]] =
-  var
-    pending: seq[string]
-    ready: seq[DutyAndProof]
-  for duty in duties:
-    let
-      vindex = duty.data.validator_index
-      vkey = duty.data.pubkey
-    if vc.doppelgangerCheck(vkey):
-      ready.add(duty)
-    else:
-      pending.add(validatorLog(vkey, vindex))
-  (ready, pending)
 
 proc getFeeRecipient*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
                       validatorIdx: ValidatorIndex,

@@ -20,6 +20,7 @@ import # Unit test
   ./test_block_quarantine,
   ./test_conf,
   ./test_datatypes,
+  ./test_deposit_snapshots,
   ./test_discovery,
   ./test_engine_authentication,
   ./test_eth1_monitor,
@@ -31,24 +32,23 @@ import # Unit test
   ./test_helpers,
   ./test_honest_validator,
   ./test_interop,
-  ./test_light_client,
+  ./test_key_splitting,
   ./test_light_client_processor,
+  ./test_light_client,
   ./test_message_signatures,
   ./test_peer_pool,
+  ./test_remote_keystore,
+  ./test_serialization,
   ./test_spec,
   ./test_statediff,
   ./test_sync_committee_pool,
   ./test_sync_manager,
+  ./test_validator_pool,
   ./test_zero_signature,
-  ./test_key_splitting,
-  ./test_remote_keystore,
-  ./test_serialization,
-  ./test_deposit_snapshots,
   ./fork_choice/tests_fork_choice,
   ./consensus_spec/all_tests as consensus_all_tests,
   ./slashing_protection/test_fixtures,
-  ./slashing_protection/test_slashing_protection_db,
-  ./test_doppelganger
+  ./slashing_protection/test_slashing_protection_db
 
 import # Refactor state transition unit tests
   # In mainnet these take 2 minutes and are empty TODOs

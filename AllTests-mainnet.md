@@ -139,11 +139,6 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Tail block only in common                                                                  OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## Doppelganger protection test suite
-```diff
-+ doppelgangerCheck() test                                                                   OK
-```
-OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - SSZ generic types
 ```diff
   Testing basic_vector inputs - invalid                                                      Skip
@@ -508,6 +503,17 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
 OK: 23/23 Fail: 0/23 Skip: 0/23
+## Validator pool
+```diff
++ Activation after check                                                                     OK
++ Doppelganger for already active validator                                                  OK
++ Doppelganger for genesis validator                                                         OK
++ Doppelganger for validator that activates in future epoch                                  OK
++ Doppelganger for validator that activates in previous epoch                                OK
++ Doppelganger for validator that activates in same epoch as check                           OK
++ Future activation after check                                                              OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -614,4 +620,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 339/344 Fail: 0/344 Skip: 5/344
+OK: 345/350 Fail: 0/350 Skip: 5/350

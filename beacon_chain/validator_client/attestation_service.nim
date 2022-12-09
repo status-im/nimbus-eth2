@@ -25,7 +25,8 @@ type
 proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
                       duty: DutyAndProof): Future[bool] {.async.} =
   let vc = service.client
-  let validator = vc.getValidator(duty.data.pubkey).valueOr: return false
+  let validator = vc.getValidatorForDuties(duty.data.pubkey, adata.slot).valueOr:
+    return false
   let fork = vc.forkAtEpoch(adata.slot.epoch)
 
   doAssert(validator.index.isSome())
@@ -259,23 +260,25 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
     block:
       var res: seq[AggregateItem]
       for duty in duties:
-        let validator = vc.attachedValidators[].getValidator(duty.data.pubkey)
-        if not(isNil(validator)):
-          if (duty.data.slot != slot) or
-             (duty.data.committee_index != committeeIndex):
-            error "Inconsistent validator duties during aggregate signing",
-                  duty_slot = duty.data.slot, slot = slot,
-                  duty_committee_index = duty.data.committee_index,
-                  committee_index = committeeIndex
-            continue
-          if duty.slotSig.isSome():
-            let slotSignature = duty.slotSig.get()
-            if is_aggregator(duty.data.committee_length, slotSignature):
-              res.add(AggregateItem(
-                aggregator_index: uint64(duty.data.validator_index),
-                selection_proof: slotSignature,
-                validator: validator
-              ))
+        let validator = vc.attachedValidators[].getValidatorForDuties(
+            duty.data.pubkey, slot).valueOr:
+          continue
+
+        if (duty.data.slot != slot) or
+            (duty.data.committee_index != committeeIndex):
+          error "Inconsistent validator duties during aggregate signing",
+                duty_slot = duty.data.slot, slot = slot,
+                duty_committee_index = duty.data.committee_index,
+                committee_index = committeeIndex
+          continue
+        if duty.slotSig.isSome():
+          let slotSignature = duty.slotSig.get()
+          if is_aggregator(duty.data.committee_length, slotSignature):
+            res.add(AggregateItem(
+              aggregator_index: uint64(duty.data.validator_index),
+              selection_proof: slotSignature,
+              validator: validator
+            ))
       res
 
   if len(aggregateItems) > 0:
@@ -395,11 +398,7 @@ proc spawnAttestationTasks(service: AttestationServiceRef,
 
   var dutiesSkipped: seq[string]
   for index, duties in dutiesByCommittee:
-    let (protectedDuties, skipped) = vc.doppelgangerFilter(duties)
-    if len(skipped) > 0: dutiesSkipped.add(skipped)
-    if len(protectedDuties) > 0:
-      asyncSpawn service.publishAttestationsAndAggregates(slot, index,
-                                                          protectedDuties)
+    asyncSpawn service.publishAttestationsAndAggregates(slot, index, duties)
   if len(dutiesSkipped) > 0:
     info "Doppelganger protection disabled validator duties",
          validators = len(dutiesSkipped)

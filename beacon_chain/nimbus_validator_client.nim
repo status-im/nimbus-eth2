@@ -210,7 +210,7 @@ proc new*(T: type ValidatorClientRef,
       graffitiBytes: config.graffiti.get(defaultGraffitiBytes()),
       nodesAvailable: newAsyncEvent(),
       forksAvailable: newAsyncEvent(),
-      gracefulExit: newAsyncEvent(),
+      doppelExit: newAsyncEvent(),
       indicesAvailable: newAsyncEvent(),
       dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
       sigintHandleFut: waitSignal(SIGINT),
@@ -225,7 +225,7 @@ proc new*(T: type ValidatorClientRef,
       nodesAvailable: newAsyncEvent(),
       forksAvailable: newAsyncEvent(),
       indicesAvailable: newAsyncEvent(),
-      gracefulExit: newAsyncEvent(),
+      doppelExit: newAsyncEvent(),
       dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
       sigintHandleFut: newFuture[void]("sigint_placeholder"),
       sigtermHandleFut: newFuture[void]("sigterm_placeholder")
@@ -255,7 +255,8 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
       SlashingProtectionDB.init(
         vc.beaconGenesis.genesis_validators_root,
         vc.config.validatorsDir(), "slashing_protection")
-    validatorPool = newClone(ValidatorPool.init(slashingProtectionDB))
+    validatorPool = newClone(ValidatorPool.init(
+      slashingProtectionDB, vc.config.doppelgangerDetection))
 
   vc.attachedValidators = validatorPool
 
@@ -315,10 +316,10 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
     vc.keymanagerServer.router.installKeymanagerHandlers(vc.keymanagerHost[])
     vc.keymanagerServer.start()
 
-  var exitEventFut = vc.gracefulExit.wait()
+  var doppelEventFut = vc.doppelExit.wait()
   try:
     vc.runSlotLoopFut = runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
-    discard await race(vc.runSlotLoopFut, exitEventFut)
+    discard await race(vc.runSlotLoopFut, doppelEventFut)
     if not(vc.runSlotLoopFut.finished()):
       notice "Received shutdown event, exiting"
   except CancelledError:
@@ -329,12 +330,20 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
 
   await vc.shutdownMetrics()
   vc.shutdownSlashingProtection()
+
+  if doppelEventFut.finished:
+    # Critically, database has been shut down - the rest doesn't matter, we need
+    # to stop as soon as possible
+    # TODO we need to actually quit _before_ any other async tasks have had the
+    #      chance to happen
+    quitDoppelganger()
+
   debug "Stopping main processing loop"
   var pending: seq[Future[void]]
   if not(vc.runSlotLoopFut.finished()):
     pending.add(vc.runSlotLoopFut.cancelAndWait())
-  if not(exitEventFut.finished()):
-    pending.add(exitEventFut.cancelAndWait())
+  if not(doppelEventFut.finished()):
+    pending.add(doppelEventFut.cancelAndWait())
   debug "Stopping running services"
   pending.add(vc.fallbackService.stop())
   pending.add(vc.forkService.stop())

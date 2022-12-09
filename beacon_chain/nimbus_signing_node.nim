@@ -103,10 +103,7 @@ proc initValidators(sn: var SigningNode): bool =
     let feeRecipient = default(Eth1Address)
     case keystore.kind
     of KeystoreKind.Local:
-      # Signing node is not supposed to know genesis time, so we just set
-      # `start_slot` to GENESIS_SLOT.
-      sn.attachedValidators.addLocalValidator(
-        keystore, feeRecipient, GENESIS_SLOT)
+      discard sn.attachedValidators.addLocalValidator(keystore, feeRecipient)
       publicKeyIdents.add("\"0x" & keystore.pubkey.toHex() & "\"")
     of KeystoreKind.Remote:
       error "Signing node do not support remote validators",
