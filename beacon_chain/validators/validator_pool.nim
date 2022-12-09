@@ -294,7 +294,7 @@ proc getValidatorForDuties*(
     # If the validator would trigger for an activity in the given slot, we don't
     # return it for duties
     notice "Doppelganger detection active - " &
-           "skipped validator duty while observing the network",
+           "skipping validator duties while observing the network",
             validator = shortLog(validator)
     return Opt.none(AttachedValidator)
 
