@@ -405,6 +405,8 @@ func covers*(
 
   false
 
+from ../spec/datatypes/eip4844 import HashedBeaconState, shortLog
+
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
                     blckRef: BlockRef,
@@ -480,8 +482,6 @@ func init(T: type AttestationCache, state: phase0.HashedBeaconState): T =
     result.add(
       state.data.current_epoch_attestations[i].data,
       state.data.current_epoch_attestations[i].aggregation_bits)
-
-from ../spec/datatypes/eip4844 import HashedBeaconState
 
 func init(
     T: type AttestationCache,
