@@ -332,6 +332,14 @@ proc getExecutionValidity(
     error "getExecutionValidity: newPayload failed", err = err.msg
     return NewPayloadStatus.noResponse
 
+from ../spec/datatypes/eip4844 import SignedBeaconBlock, asTrusted, shortLog
+
+proc getExecutionValidity(
+    eth1Monitor: Eth1Monitor,
+    blck: eip4844.SignedBeaconBlock):
+    Future[NewPayloadStatus] {.async.} =
+  raiseAssert $eip4844ImplementationMissing & ": block_processor.nim:getExecutionValidity"
+
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock, queueTick: Moment = Moment.now(),

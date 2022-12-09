@@ -8,8 +8,6 @@
 {.used.}
 
 import
-  # Standard library
-  os,
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, helpers],
   ../../../beacon_chain/spec/datatypes/[phase0, altair],
@@ -17,6 +15,8 @@ import
   ../../testutil,
   ../fixtures_utils,
   ../../helpers/debug_state
+
+from std/os import walkDir, `/`
 
 const OpForkDir = SszTestsDir/const_preset/"altair"/"fork"/"fork"/"pyspec_tests"
 

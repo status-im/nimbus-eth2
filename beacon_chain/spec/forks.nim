@@ -675,8 +675,8 @@ template withBlck*(
     template blck: untyped {.inject.} = x.capellaData
     body
   of BeaconBlockFork.EIP4844:
-    const stateFork {.inject, used.} = BeaconStateFork.Capella
-    template blck: untyped {.inject.} = x.capellaData
+    const stateFork {.inject, used.} = BeaconStateFork.EIP4844
+    template blck: untyped {.inject.} = x.eip4844Data
     body
 
 func proposer_index*(x: ForkedBeaconBlock): uint64 =
