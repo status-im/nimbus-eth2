@@ -8,14 +8,14 @@
       
       
       
-        <link rel="canonical" href="https://nimbus.guide/checksums.html">
+        <link rel="canonical" href="https://nimbus.guide/doppelganger-detection.html">
       
       <link rel="icon" href="assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.3.1, mkdocs-material-8.3.9">
     
     
       
-        <title>Checksums - The Nimbus Guide</title>
+        <title>Doppelganger detection - The Nimbus Guide</title>
       
     
     
@@ -66,7 +66,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#checksums" class="md-skip">
+        <a href="#doppelganger-detection" class="md-skip">
           Skip to content
         </a>
       
@@ -99,7 +99,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Checksums
+              Doppelganger detection
             
           </span>
         </div>
@@ -242,13 +242,15 @@
         
   
   
+    
+  
 
 
   
   
   
     <li class="md-tabs__item">
-      <a href="hardware.html" class="md-tabs__link">
+      <a href="hardware.html" class="md-tabs__link md-tabs__link--active">
         Reference
       </a>
     </li>
@@ -258,15 +260,13 @@
         
   
   
-    
-  
 
 
   
   
   
     <li class="md-tabs__item">
-      <a href="binaries.html" class="md-tabs__link md-tabs__link--active">
+      <a href="binaries.html" class="md-tabs__link">
         Downloads
       </a>
     </li>
@@ -1090,12 +1090,14 @@
 
   
   
+    
+  
   
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5" type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_5" type="checkbox" id="__nav_5" checked>
       
       
       
@@ -1130,12 +1132,14 @@
               
   
   
+    
+  
   
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_5_2" type="checkbox" id="__nav_5_2" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_5_2" type="checkbox" id="__nav_5_2" checked>
       
       
       
@@ -1254,11 +1258,52 @@
               
   
   
+    
   
-    <li class="md-nav__item">
-      <a href="doppelganger-detection.html" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Doppelganger detection
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="doppelganger-detection.html" class="md-nav__link md-nav__link--active">
         Doppelganger detection
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#command-line" class="md-nav__link">
+    Command line
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1503,14 +1548,12 @@
 
   
   
-    
-  
   
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_6" type="checkbox" id="__nav_6" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_6" type="checkbox" id="__nav_6" checked>
       
       
       
@@ -1559,21 +1602,11 @@
               
   
   
-    
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="checksums.html" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="checksums.html" class="md-nav__link">
         Checksums
       </a>
-      
     </li>
   
 
@@ -1605,6 +1638,21 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#command-line" class="md-nav__link">
+    Command line
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1615,25 +1663,33 @@
             <article class="md-content__inner md-typeset">
               
                 
-  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/checksums.md" title="Edit this page" class="md-content__button md-icon">
+  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/doppelganger-detection.md" title="Edit this page" class="md-content__button md-icon">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
   </a>
 
 
 
-<h1 id="checksums">Checksums</h1>
-<p>Checksums for each build are included in the <a href="https://github.com/status-im/nimbus-eth2/releases/">release notes</a>. Please make sure you get into the habit of verifying these 🙏</p>
-<p>For those of you who are unfamiliar, a <a href="https://en.wikipedia.org/wiki/Checksum">checksum</a> is a special type of <a href="https://en.wikipedia.org/wiki/Hash_function">hash</a> used to verify the integrity of a file. Verifying a checksum ensures there was no corruption or manipulation during the download and that the file was downloaded completely and correctly. For a short and simple guide on how to do so, <a href="https://www.devdungeon.com/content/how-verify-checksum">see here</a>.</p>
-<p>In the case of the <a href="https://github.com/status-im/nimbus-eth2/releases/tag/v1.1.0">v1.1.0</a> release for example, the SHA512 checksums are:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a># Linux AMD64
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>8d553ea5422645b5f06001e7f47051706ae5cffd8d88c45e4669939f3abb6caf41a2477431fce3e647265cdb4f8671fa360d392f423ac68ffb9459607eaab462  nimbus_beacon_node
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a># Linux ARM64
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>93ffd03a0ce67f7d035e3dc45e97de3c2c9a05a8dd0c6d5f45402ddb04404dc3cf15b80fee972f34152ef171ce97c40f794448bc779ca056081c945f71f19788  nimbus_beacon_node
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a># Linux ARM
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>f2e75f3fae2aea0a9f8d45861d52b0e2546c3990f453b509fab538692d18c64e65f58441c5492064fc371e0bc77de6bab970e05394cfd124417601b55cb4a825  nimbus_beacon_node
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a># Windows AMD64
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>fd68c8792ea60c2c72e9c2201745f9698bfd1dae4af4fa9e1683f082109045efebd1d80267f13cafeb1cd7414dc0f589a8a73f12161ac2758779369289d5a832  nimbus_beacon_node
+<h1 id="doppelganger-detection">Doppelganger detection</h1>
+<p>Doppelganger detection is a safety feature for preventing slashing in the event that two setups are using the same validator keys, for example after a migration of keys from one setup to another.</p>
+<p>Doppelganger detection works by monitoring network activity for a short period for each validator while preventing duties from being performed.</p>
+<p>If any activity is detected, the node shuts down with exit code 129.</p>
+<p>Because detection depends on network detection, there are cases where it may fail to find duplicate validators even though they are live - you should never use it as a mechanism for running redundant setups!</p>
+<h2 id="command-line">Command line</h2>
+<p>Doppelganger detection is turned on by default - disable it with:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Beacon node</label><label for="__tabbed_1_2">Validator client</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Disable doppelganger detection</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>./run-mainnet-beacon-node.sh --doppelganger-detection<span class="o">=</span>off ...
 </code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Disable doppelganger detection</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>build/nimbus_validator_client --doppelganger-detection<span class="o">=</span>off ...
+</code></pre></div>
+</div>
+</div>
+</div>
 
               
             </article>
@@ -1656,7 +1712,7 @@
     <nav class="md-footer__inner md-grid" aria-label="Footer" >
       
         
-        <a href="docker.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Docker images" rel="prev">
+        <a href="validator-monitor.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Validator monitoring" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -1665,11 +1721,26 @@
               <span class="md-footer__direction">
                 Previous
               </span>
-              Docker images
+              Validator monitoring
             </div>
           </div>
         </a>
       
+      
+        
+        <a href="rest-api.html" class="md-footer__link md-footer__link--next" aria-label="Next: Beacon API" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              Beacon API
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
       
     </nav>
   

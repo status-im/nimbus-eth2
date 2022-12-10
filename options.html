@@ -1309,6 +1309,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="doppelganger-detection.html" class="md-nav__link">
+        Doppelganger detection
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -1756,7 +1770,7 @@
 <a id="__codelineno-2-61" name="__codelineno-2-61" href="#__codelineno-2-61"></a>                               [=infinite].
 <a id="__codelineno-2-62" name="__codelineno-2-62" href="#__codelineno-2-62"></a>     --rest-max-body-size      Maximum size of REST request body (kilobytes) [=16384].
 <a id="__codelineno-2-63" name="__codelineno-2-63" href="#__codelineno-2-63"></a>     --rest-max-headers-size   Maximum size of REST request headers (kilobytes) [=64].
-<a id="__codelineno-2-64" name="__codelineno-2-64" href="#__codelineno-2-64"></a>     --keymanager              Enable the REST keymanager API (BETA version) [=false].
+<a id="__codelineno-2-64" name="__codelineno-2-64" href="#__codelineno-2-64"></a>     --keymanager              Enable the REST keymanager API [=false].
 <a id="__codelineno-2-65" name="__codelineno-2-65" href="#__codelineno-2-65"></a>     --keymanager-port         Listening port for the REST keymanager API [=5052].
 <a id="__codelineno-2-66" name="__codelineno-2-66" href="#__codelineno-2-66"></a>     --keymanager-address      Listening port for the REST keymanager API [=127.0.0.1].
 <a id="__codelineno-2-67" name="__codelineno-2-67" href="#__codelineno-2-67"></a>     --keymanager-allow-origin  Limit the access to the Keymanager API to a particular hostname (for
@@ -1780,11 +1794,11 @@
 <a id="__codelineno-2-85" name="__codelineno-2-85" href="#__codelineno-2-85"></a>                               a validator with the same index (a doppelganger), before sending an attestation
 <a id="__codelineno-2-86" name="__codelineno-2-86" href="#__codelineno-2-86"></a>                               itself. This protects against slashing (due to double-voting) but means you will
 <a id="__codelineno-2-87" name="__codelineno-2-87" href="#__codelineno-2-87"></a>                               miss two attestations when restarting. [=true].
-<a id="__codelineno-2-88" name="__codelineno-2-88" href="#__codelineno-2-88"></a>     --validator-monitor-auto  Automatically monitor locally active validators (BETA) [=false].
+<a id="__codelineno-2-88" name="__codelineno-2-88" href="#__codelineno-2-88"></a>     --validator-monitor-auto  Automatically monitor locally active validators [=false].
 <a id="__codelineno-2-89" name="__codelineno-2-89" href="#__codelineno-2-89"></a>     --validator-monitor-pubkey  One or more validators to monitor - works best when --subscribe-all-subnets is
-<a id="__codelineno-2-90" name="__codelineno-2-90" href="#__codelineno-2-90"></a>                               enabled (BETA).
+<a id="__codelineno-2-90" name="__codelineno-2-90" href="#__codelineno-2-90"></a>                               enabled.
 <a id="__codelineno-2-91" name="__codelineno-2-91" href="#__codelineno-2-91"></a>     --validator-monitor-totals  Publish metrics to single &#39;totals&#39; label for better collection performance when
-<a id="__codelineno-2-92" name="__codelineno-2-92" href="#__codelineno-2-92"></a>                               monitoring many validators (BETA) [=false].
+<a id="__codelineno-2-92" name="__codelineno-2-92" href="#__codelineno-2-92"></a>                               monitoring many validators [=false].
 <a id="__codelineno-2-93" name="__codelineno-2-93" href="#__codelineno-2-93"></a>     --suggested-fee-recipient  Suggested fee recipient.
 <a id="__codelineno-2-94" name="__codelineno-2-94" href="#__codelineno-2-94"></a>     --payload-builder         Enable external payload builder [=false].
 <a id="__codelineno-2-95" name="__codelineno-2-95" href="#__codelineno-2-95"></a>     --payload-builder-url     Payload builder URL.

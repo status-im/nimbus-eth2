@@ -1322,6 +1322,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="doppelganger-detection.html" class="md-nav__link">
+        Doppelganger detection
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -1773,7 +1787,7 @@
 <p>The execution client will be syncing the chain through the merge transition block. Once it reaches this point, it will wait for the beacon node to provide further sync instructions.</p>
 <p>It is safe to start the beacon node even if the execution client is not yet fully synced and vice versa.</p>
 <h3 id="3-pass-the-url-and-jwt-secret-to-nimbus">3. Pass the URL and JWT secret to Nimbus</h3>
-<p>The <code>--web3-url</code> option informs the beacon node how to connect to the execution client - both <code>http://</code> and <code>ws://</code> URL:s are supported.</p>
+<p>The <code>--web3-url</code> option informs the beacon node how to connect to the execution client - both <code>http://</code> and <code>ws://</code> URLs are supported.</p>
 <p>Once started, the execution client will create a file containing a JWT secret token. The token file is needed for Nimbus to authenticate itself with the execution client and perform trusted operations. You will need to pass the path to the token file to Nimbus together with the web3 URL.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Prater</label></div>
 <div class="tabbed-content">
@@ -1793,7 +1807,7 @@
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Multiple execution clients</p>
-<p>You can pass one or more <code>--web3-url</code> parameters to the node as long as they share JWT secret. Any additional web3 url:s will be used for backup, should the first one become unavailable:</p>
+<p>You can pass one or more <code>--web3-url</code> parameters to the node as long as they share JWT secret. Any additional web3 URLs will be used for backup, should the first one become unavailable:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./run-mainnet-beacon-node.sh <span class="se">\</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  --web3-url<span class="o">=</span>http://127.0.0.1:8551 <span class="se">\</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  --web3-url<span class="o">=</span>ws://other:8551 <span class="se">\</span>

@@ -8,14 +8,14 @@
       
       
       
-        <link rel="canonical" href="https://nimbus.guide/checksums.html">
+        <link rel="canonical" href="https://nimbus.guide/run-an-ethereum-node-with-nimbus.html">
       
       <link rel="icon" href="assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.3.1, mkdocs-material-8.3.9">
     
     
       
-        <title>Checksums - The Nimbus Guide</title>
+        <title>Run an Ethereum node with Nimbus - The Nimbus Guide</title>
       
     
     
@@ -66,7 +66,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#checksums" class="md-skip">
+        <a href="#run-an-ethereum-node-with-nimbus" class="md-skip">
           Skip to content
         </a>
       
@@ -99,7 +99,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Checksums
+              Run an Ethereum node with Nimbus
             
           </span>
         </div>
@@ -258,15 +258,13 @@
         
   
   
-    
-  
 
 
   
   
   
     <li class="md-tabs__item">
-      <a href="binaries.html" class="md-tabs__link md-tabs__link--active">
+      <a href="binaries.html" class="md-tabs__link">
         Downloads
       </a>
     </li>
@@ -1503,14 +1501,12 @@
 
   
   
-    
-  
   
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_6" type="checkbox" id="__nav_6" checked>
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" data-md-toggle="__nav_6" type="checkbox" id="__nav_6" checked>
       
       
       
@@ -1559,21 +1555,11 @@
               
   
   
-    
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="checksums.html" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="checksums.html" class="md-nav__link">
         Checksums
       </a>
-      
     </li>
   
 
@@ -1605,6 +1591,63 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#synchronize-system-time" class="md-nav__link">
+    Synchronize system time
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install-nimbus" class="md-nav__link">
+    Install Nimbus
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run-the-nimbus-consensus-client" class="md-nav__link">
+    Run the Nimbus consensus client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run-an-execution-client" class="md-nav__link">
+    Run an execution client
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#create-a-validator" class="md-nav__link">
+    Create a validator
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#activate-the-validator" class="md-nav__link">
+    Activate the validator
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1615,25 +1658,315 @@
             <article class="md-content__inner md-typeset">
               
                 
-  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/checksums.md" title="Edit this page" class="md-content__button md-icon">
+  <a href="https://github.com/status-im/nimbus-eth2/edit/unstable/docs/the_nimbus_book/src/run-an-ethereum-node-with-nimbus.md" title="Edit this page" class="md-content__button md-icon">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
   </a>
 
 
 
-<h1 id="checksums">Checksums</h1>
-<p>Checksums for each build are included in the <a href="https://github.com/status-im/nimbus-eth2/releases/">release notes</a>. Please make sure you get into the habit of verifying these 🙏</p>
-<p>For those of you who are unfamiliar, a <a href="https://en.wikipedia.org/wiki/Checksum">checksum</a> is a special type of <a href="https://en.wikipedia.org/wiki/Hash_function">hash</a> used to verify the integrity of a file. Verifying a checksum ensures there was no corruption or manipulation during the download and that the file was downloaded completely and correctly. For a short and simple guide on how to do so, <a href="https://www.devdungeon.com/content/how-verify-checksum">see here</a>.</p>
-<p>In the case of the <a href="https://github.com/status-im/nimbus-eth2/releases/tag/v1.1.0">v1.1.0</a> release for example, the SHA512 checksums are:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a># Linux AMD64
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>8d553ea5422645b5f06001e7f47051706ae5cffd8d88c45e4669939f3abb6caf41a2477431fce3e647265cdb4f8671fa360d392f423ac68ffb9459607eaab462  nimbus_beacon_node
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a># Linux ARM64
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>93ffd03a0ce67f7d035e3dc45e97de3c2c9a05a8dd0c6d5f45402ddb04404dc3cf15b80fee972f34152ef171ce97c40f794448bc779ca056081c945f71f19788  nimbus_beacon_node
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a># Linux ARM
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>f2e75f3fae2aea0a9f8d45861d52b0e2546c3990f453b509fab538692d18c64e65f58441c5492064fc371e0bc77de6bab970e05394cfd124417601b55cb4a825  nimbus_beacon_node
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a># Windows AMD64
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>fd68c8792ea60c2c72e9c2201745f9698bfd1dae4af4fa9e1683f082109045efebd1d80267f13cafeb1cd7414dc0f589a8a73f12161ac2758779369289d5a832  nimbus_beacon_node
+<h1 id="run-an-ethereum-node-with-nimbus">Run an Ethereum node with Nimbus</h1>
+<p>This guide assists you in setting up an Ethereum node and running a validator. You need to run a consensus client using Nimbus and an execution client of your choice. To prevent asset loss, practice on the Goerli/Prater testnet before you use the Ethereum Mainnet.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>Before you start, first learn what is <a href="https://ethereum.org/en/developers/docs/intro-to-ethereum/">Ethereum :octicons-tab-external-16:</a>{:target="_blank"} and how to command line. The guide assumes you run both clients on the same machine using Ubuntu Linix. Here are more detailed requirements for your system:</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Requirement</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Memory</td>
+<td>8 GB RAM</td>
+<td>-</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>2 TB SSD</td>
+<td>Here’s a list of <a href="https://gist.github.com/yorickdowne/f3a3e79a573bf35767cd002cc977b038">known good models :octicons-tab-external-16:</a>{:target="_blank"}</td>
+</tr>
+<tr>
+<td>Network</td>
+<td>Broadband without data cap</td>
+<td>Data consumption at 2-4 TB/month based on the number of your validtors and other load on the network</td>
+</tr>
+<tr>
+<td>Operating system</td>
+<td>Linux 64-bit</td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<h2 id="synchronize-system-time">Synchronize system time</h2>
+<p>Install <a href="https://chrony.tuxfamily.org/">chrony :octicons-tab-external-16:</a>{:target="_blank"} using the <code>apt-get install</code> command to ensure the system time is periodically synchronized with an NTP server.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>sudo apt-get install -y chrony
 </code></pre></div>
+<h2 id="install-nimbus">Install Nimbus</h2>
+<p>To use Nimbus to run a consensus client, you need to download and install it on your computer.</p>
+<ol>
+<li>
+<p>Use the <code>mkdir</code> command to create a directory with the name <code>nimbus-eth2</code> to hold Nimbus data and applications.<br />
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mkdir -p nimbus-eth2
+</code></pre></div></p>
+</li>
+<li>
+<p>Download Nimbus using the <code>wget</code> command. In the following command, replace the URL with the link to the <a href="https://github.com/status-im/nimbus-eth2/releases">latest release :octicons-tab-external-16:</a>{:target="_blank"}.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>wget https://github.com/status-im/nimbus-eth2/releases/download/v22.10.1/nimbus-eth2_Linux_amd64_22.10.1_97a1cdc4.tar.gz
+</code></pre></div></p>
+</li>
+<li>
+<p>Unpack the <code>tar.gz</code> file using the <code>tar xvf</code> command into the <code>nimbus-eth2</code> directory.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>tar xvf nimbus-eth2_Linux_amd64_22.10.1_97a1cdc4.tar.gz --strip-components <span class="m">1</span> -C nimbus-eth2
+</code></pre></div></p>
+</li>
+</ol>
+<h2 id="run-the-nimbus-consensus-client">Run the Nimbus consensus client</h2>
+<p>Having Nimbus installed, you can start running the consensus client on the Ethereum Mainnet or the Goerli/Prater testnet, and start downloading the blockchain data. </p>
+<ol>
+<li>
+<p>Go to the Nimbus directory using the <code>cd</code> command.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cd nimbus-eth2
+</code></pre></div></p>
+</li>
+<li>
+<p>Start Nimbus with the following command.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Goerli/Prater</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./run-mainnet-beacon-node.sh
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./run-prater-beacon-node.sh
+</code></pre></div>
+</div>
+</div>
+</div>
+<p>Once successfully started, Nimbus automatically begins to look for peers and synchronize data from them. It starts logging information like this:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>INF <span class="m">2022</span>-07-19 <span class="m">15</span>:42:58.145+02:00 Launching beacon node                      <span class="nv">topics</span><span class="o">=</span><span class="s2">&quot;beacnde&quot;</span> <span class="nv">version</span><span class="o">=</span>v22.10.1-97a1cdc4-stateofus ...
+</code></pre></div>
+<p>Data synchronization may take hours to a few days.</p>
+</li>
+</ol>
+<h2 id="run-an-execution-client">Run an execution client</h2>
+<p>Along with the consensus client, you need to set up an execution client. Nimbus has been tested with all <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients">major execution clients :octicons-tab-external-16:</a>{:target="_blank"}, you can choose one that suits your needs.</p>
+<p>In parallel to the <a href="https://github.com/status-im/nimbus-eth2">Nimbus consensus client</a>, we are working hard on an execution client. While this project is still in development, we welcome you to experiment with it. To learn how the execution client works, check out its <a href="https://github.com/status-im/nimbus-eth1">GitHub repository</a>.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Geth</label><label for="__tabbed_2_2">Besu</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<ol>
+<li>Enable a launchpad PPA repository using the <code>add-apt-repository</code> command.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>sudo add-apt-repository -y ppa:ethereum/ethereum
+</code></pre></div></li>
+<li>Install Geth with the <code>apt-get</code> command.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>sudo apt-get update
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>sudo apt-get install ethereum
+</code></pre></div></li>
+<li>
+<p>Allow Geth to connect to Nimbus. With the following command, you can start Geth while exposing an RPC port for Nimbus at the same time. Geth accepts connections from the localhost interface <code>127.0.0.1</code>, with the default authenticated RPC port <code>8551</code>. If you're interested in learning more about this process, read the details in the <a href="https://geth.ethereum.org/docs/interface/consensus-clients">Geth documentation :octicons-tab-external-16:</a>{:target="_blank"}.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">Mainnet</label><label for="__tabbed_3_2">Goerli/Prater</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>geth --ws --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>geth --goerli --ws --authrpc.addr localhost --authrpc.port 8551 --authrpc.vhosts localhost --authrpc.jwtsecret /tmp/jwtsecret
+</code></pre></div>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Connect Nimbus to Geth. A Nimbus beacon node can be connected to Geth using <code>http://</code> or <code>ws://</code> URLs. The default URL is <code>http://127.0.0.1:8551</code>. Also, Geth generates a JSON web token for the consensus client to authenticate itself for communication. By running the below command, you can inform Nimbus the URL for connection and the path to the <code>jwtsecret</code> file.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Mainnet</label><label for="__tabbed_4_2">Goerli/Prater</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>./run-mainnet-beacon-node.sh <span class="se">\</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>  --web3-url<span class="o">=</span>http://127.0.0.1:8551 <span class="se">\</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>  --jwt-secret<span class="o">=</span>/tmp/jwtsecret
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>./run-prater-beacon-node.sh <span class="se">\</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>  --web3-url<span class="o">=</span>http://127.0.0.1:8551 <span class="se">\</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>  --jwt-secret<span class="o">=</span>/tmp/jwtsecret
+</code></pre></div>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Synchronize data. Geth starts its synchronization after Nimbus is mostly synced. The synchronization process may take hours to days, depending on your hardware performance. You only need to leave Geth running. </p>
+</li>
+</ol>
+</div>
+<div class="tabbed-block">
+<p>This is summary from the Besu documentation, you can check it out for details such as the prerequisites of using Besu. </p>
+<ol>
+<li>
+<p>Install Besu following the <a href="https://besu.hyperledger.org/en/stable/public-networks/get-started/install/binary-distribution/#install-from-packaged-binaries">Besu documentation :octicons-tab-external-16:</a>{:target="_blank"}.</p>
+</li>
+<li>
+<p>Use the <code>openssl rand</code> command to create a <code>jwtsecret</code> file for the clients to authenticate each other.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>openssl rand -hex <span class="m">32</span> <span class="p">|</span> tr -d <span class="s2">&quot;\n&quot;</span> &gt; jwtsecret.hex
+</code></pre></div></p>
+</li>
+<li>
+<p>Run the following command to start Besu, 
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>besu <span class="se">\</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>  --sync-mode<span class="o">=</span>X_SNAP           <span class="se">\</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>  --data-storage-format<span class="o">=</span>BONSAI <span class="se">\</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>  --rpc-http-enabled<span class="o">=</span><span class="nb">true</span>      <span class="se">\</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>  --rpc-http-host<span class="o">=</span><span class="m">0</span>.0.0.0      <span class="se">\</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>  --rpc-ws-enabled<span class="o">=</span><span class="nb">true</span>        <span class="se">\</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>  --rpc-ws-host<span class="o">=</span><span class="m">0</span>.0.0.0        <span class="se">\</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>  --host-allowlist<span class="o">=</span>&lt;IP of Besu node&gt;,127.0.0.1,localhost        <span class="se">\</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>  --engine-host-allowlist<span class="o">=</span>&lt;IP of Besu node&gt;,127.0.0.1,localhost <span class="se">\</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>  --engine-rpc-enabled        <span class="se">\</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>  --engine-jwt-secret<span class="o">=</span>&lt;path to jwtsecret.hex&gt;
+</code></pre></div></p>
+</li>
+<li>
+<p>Synchronize data. Geth starts its synchronization after Nimbus is mostly synced. The synchronization process may take hours to days, depending on your hardware performance. You only need to leave Geth running.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<h2 id="create-a-validator">Create a validator</h2>
+<p>If you want to stake on Ethereum or validate transactions for the Ethereum network, you need to create one or more validators. If you only plan to use the Ethereum node for synchronizing the blockchain data, you don't need to follow the rest of this guide.</p>
+<ol>
+<li>
+<p>Enter the nimbus folder using the <code>cd</code> command.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nb">cd</span> nimbus-eth2
+</code></pre></div></p>
+</li>
+<li>
+<p>Download the Ethereum Staking Deposit CLI with the <code>wget</code> command. In the following command, replace the link to the <a href="https://github.com/ethereum/staking-deposit-cli/releases">latest release :octicons-tab-external-16:</a>{:target="_blank"}.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>wget https://github.com/ethereum/staking-deposit-cli/releases/download/v2.2.0/staking_deposit-cli-9ab0b05-linux-amd64.tar.gz
+</code></pre></div></p>
+</li>
+<li>
+<p>Unpack the <code>tar.gz</code> file with the <code>tar xvf</code> command.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>tar xvf staking_deposit-cli-9ab0b05-linux-amd64.tar.gz --strip-components <span class="m">2</span>
+</code></pre></div></p>
+</li>
+<li>
+<p>Prepare a safe environment for running the deposit CLI. You are going to use the deposit CLI to generate validator keys, which are for allowing validator actions. You need a safe environment to avoid risks such as key leakage.</p>
+<p>One option is to run a live Ubuntu from a USB stick. Follow <a href="https://ubuntu.com/tutorials/try-ubuntu-before-you-install#1-getting-started">Ubuntu's instructions :octicons-tab-external-16:</a>{:target="_blank"} to set up a live Ubuntu. Another option is to copy the deposit CLI to a machine that has never been connected to the internet, and run it there.</p>
+</li>
+<li>
+<p>Copy the deposit CLI (the executable file with the name <code>deposit</code>) to the safe environment. For example, you can use a USB stick.</p>
+</li>
+<li>
+<p>Disable all internet connections during this process to prevent security risks. Open the terminal and run the following command to create a validator and associated keys using the deposit CLI.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Mainnet</label><label for="__tabbed_5_2">Goerli/Prater</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>./deposit new-mnemonic --chain mainnet
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>./deposit new-mnemonic --chain prater
+</code></pre></div>
+</div>
+</div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Backup your mnemonic and password in a safe place and do not share them with anyone. You need the mnemonic and the password to operate the validator and access your funds. If you lose them, it's impossible to recover.</p>
+</div>
+<p>After running the command, follow the instructions on the screen to create these credentials and files for your validator:</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Format</th>
+<th>Location</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Password for the validator keystore</td>
+<td>Charaters and symbols you choose</td>
+<td>Keep it by yourself</td>
+<td>Access validator keystore</td>
+</tr>
+<tr>
+<td>Mnemonic</td>
+<td>12 words generated randomly</td>
+<td>Keep it by yourself</td>
+<td>Generate withdrawal keys, access funds in the validator</td>
+</tr>
+<tr>
+<td>Validator keystore</td>
+<td><code>keystore-[..].json</code></td>
+<td><code>validator_keys</code> folder</td>
+<td>Authorize validator actions</td>
+</tr>
+<tr>
+<td>Deposit data</td>
+<td><code>deposit_data-[timestamp].json</code></td>
+<td><code>validator_keys</code> folder</td>
+<td>Upload it when you stake deposit in the next step</td>
+</tr>
+</tbody>
+</table>
+</li>
+</ol>
+<h2 id="activate-the-validator">Activate the validator</h2>
+<p>After your execution client and consensus client are fully synced, you can activate your validator. You might receive inactivity penalties if your validator is active before your clients are ready.</p>
+<ol>
+<li>
+<p>Move the <code>validator_keys</code> folder containing the validator keystore and the deposit data to the <code>nimbus-eth2</code> directory in the computer running the clients.</p>
+</li>
+<li>
+<p>Import validator keys into Nimbus data directory by running the following command.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="6:2"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">Mainnet</label><label for="__tabbed_6_2">Goerli/Prater</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>build/nimbus_beacon_node deposits import --data-dir<span class="o">=</span>build/data/shared_mainnet_0
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>build/nimbus_beacon_node deposits import --data-dir<span class="o">=</span>build/data/shared_prater_0
+</code></pre></div>
+</div>
+</div>
+</div>
+<p>After importing the keys, you can see this message:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>NOT 2022-07-19 17:36:37.578+02:00 Keystore imported
+</code></pre></div>
+</li>
+<li>
+<p>Deposit 32 ETH into the deposit contract via the Ethereum Launchpad page for each validator.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="7:2"><input checked="checked" id="__tabbed_7_1" name="__tabbed_7" type="radio" /><input id="__tabbed_7_2" name="__tabbed_7" type="radio" /><div class="tabbed-labels"><label for="__tabbed_7_1">Mainnet</label><label for="__tabbed_7_2">Goerli/Prater</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<ul>
+<li>Visit the <a href="https://launchpad.ethereum.org/en/">Mainnet lanuchpad page :octicons-tab-external-16:</a>{:target="_blank"} and follow the instructions.</li>
+<li>Confirm the deposit contract address is <code>0x00000000219ab540356cBB839Cbe05303d7705Fa</code> before sending transactions. You can view details of the deposit contract on <a href="https://etherscan.io/address/0x00000000219ab540356cbb839cbe05303d7705fa">Etherscan :octicons-tab-external-16:</a>.</li>
+<li>Do not deposit directly to the deposit contract address, only use the launchpad page to deposit.</li>
+<li>You can check the status of your validator by searching for your wallet address on <a href="https://beaconcha.in/">beaconcha.in :octicons-tab-external-16:</a>{:target="_blank"}.</li>
+<li></li>
+</ul>
+</div>
+<div class="tabbed-block">
+<ul>
+<li>Visit the <a href="https://goerli.launchpad.ethstaker.cc/en/">testnet lanuchpad page :octicons-tab-external-16:</a>{:target="_blank"} and follow the instructions.</li>
+<li>If you don't have Goerli testnet ETH, follow the instructions in the #cheap-goerli-validator channel of the <a href="https://discord.io/ethstaker">EthStaker Discord :octicons-tab-external-16:</a>{:target="_blank"}.</li>
+<li>You can check the status of your validator by searching for your wallet address on <a href="https://goerli.beaconcha.in/">goerli.beaconcha.in :octicons-tab-external-16:</a>{:target="_blank"}.</li>
+</ul>
+</div>
+</div>
+</div>
+<p>Once you send off the deposit transaction, your validator is put in an activation queue based on the deposit time. Getting through the queue may take a few hours or days, you can leave your clients and validator running. As soon as your validator becomes active, it begins validating automatically.</p>
+</li>
+</ol>
 
               
             </article>
@@ -1651,27 +1984,6 @@
       </main>
       
         <footer class="md-footer">
-  
-    
-    <nav class="md-footer__inner md-grid" aria-label="Footer" >
-      
-        
-        <a href="docker.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Docker images" rel="prev">
-          <div class="md-footer__button md-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
-          </div>
-          <div class="md-footer__title">
-            <div class="md-ellipsis">
-              <span class="md-footer__direction">
-                Previous
-              </span>
-              Docker images
-            </div>
-          </div>
-        </a>
-      
-      
-    </nav>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
