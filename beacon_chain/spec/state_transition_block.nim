@@ -805,15 +805,6 @@ func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
   for x in countup(blob_versioned_hashes_offset.int, len(opaque_tx) - 1, 32):
     var versionedHash: VersionedHash
     versionedHash[0 .. 31] = opaque_tx.asSeq.toOpenArray(x, x + 31)
-
-    # TODO there's otherwise a mismatch here where test vectors show valid but
-    # the first byte is 0?
-    # `kzg_commitment_to_versioned_hash` is very clear about the equivalent
-    # first byte having to be 0x01 for it ever to match
-    # this is not in spec per se though
-    if versionedHash[0] == 0:
-      versionedHash[0] = 0x01'u8
-
     res.add versionedHash
   ok res
 
