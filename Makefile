@@ -201,20 +201,20 @@ local-testnet-minimal:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--preset minimal \
-		--nodes 4 \
-		--stop-at-epoch 6 \
+		--nodes 1 \
 		--disable-htop \
 		--enable-logtrace \
-		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
-		--base-rest-port $$(( 6031 + EXECUTOR_NUMBER * 500 )) \
-		--base-metrics-port $$(( 6061 + EXECUTOR_NUMBER * 500 )) \
-		--base-vc-metrics-port $$(( 6161 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-net-port $$(( 6301 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-http-port $$(( 6302 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-ws-port $$(( 6303 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-auth-rpc-port $$(( 6304 + EXECUTOR_NUMBER * 500 )) \
+		--base-port $$(( 8001 + EXECUTOR_NUMBER * 500 )) \
+		--base-rest-port $$(( 8031 + EXECUTOR_NUMBER * 500 )) \
+		--base-metrics-port $$(( 8061 + EXECUTOR_NUMBER * 500 )) \
+		--base-vc-metrics-port $$(( 8161 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-port $$(( 8201 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-net-port $$(( 8301 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 8302 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-ws-port $$(( 8303 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-auth-rpc-port $$(( 8304 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
+		--disable-vc \
 		--timeout 648 \
 		--kill-old-processes \
 		$(TESTNET_EXTRA_FLAGS) \

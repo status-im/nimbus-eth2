@@ -357,7 +357,7 @@ SECRETS_DIR="${DATA_DIR}/secrets"
 scripts/makedir.sh "${SECRETS_DIR}"
 
 USER_VALIDATORS=8
-TOTAL_VALIDATORS=1024
+TOTAL_VALIDATORS=128
 
 # "Make" binary
 if [[ "${OS}" == "windows" ]]; then
@@ -821,7 +821,7 @@ dump_logtrace() {
   fi
 }
 
-NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
+NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-1}
 BOOTSTRAP_NODE=0
 SYSTEM_VALIDATORS=$(( TOTAL_VALIDATORS - USER_VALIDATORS ))
 VALIDATORS_PER_NODE=$(( SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS ))
@@ -993,6 +993,10 @@ for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
     --data-dir="${CONTAINER_NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
     "${WEB3_ARG[@]}" \
+    --dump:on \
+    --light-client-data-serve=on \
+    --light-client-data-import-mode=full \
+    --light-client-data-max-periods=999999 \
     ${STOP_AT_EPOCH_FLAG} \
     ${KEYMANAGER_FLAG} \
     --keymanager-token-file="${DATA_DIR}/keymanager-token" \

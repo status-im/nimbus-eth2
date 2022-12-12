@@ -80,7 +80,7 @@ func `$`*(x: Eth2Digest): string =
   x.data.toHex()
 
 func shortLog*(x: Eth2Digest): string =
-  x.data.toOpenArray(0, 3).toHex()
+  x.data.toHex()
 
 chronicles.formatIt Eth2Digest:
   shortLog(it)

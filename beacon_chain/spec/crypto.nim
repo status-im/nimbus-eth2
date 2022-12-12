@@ -450,18 +450,18 @@ template fromSszBytes*(T: type[ValidatorPubKey | ValidatorSig], bytes: openArray
 func shortLog*(x: ValidatorPubKey | ValidatorSig): string =
   ## Logging for wrapped BLS types
   ## that may contain valid or non-validated data
-  byteutils.toHex(x.blob.toOpenArray(0, 3))
+  byteutils.toHex(x.blob)
 
 func shortLog*(x: CookedPubKey): string =
   let raw = x.toRaw()
-  byteutils.toHex(raw.toOpenArray(0, 3))
+  byteutils.toHex(raw)
 
 func shortLog*(x: ValidatorPrivKey): string =
   ## Logging for raw unwrapped BLS types
   "<private key>"
 
 func shortLog*(x: TrustedSig): string =
-  byteutils.toHex(x.data.toOpenArray(0, 3))
+  byteutils.toHex(x.data)
 
 # Initialization
 # ----------------------------------------------------------------------
