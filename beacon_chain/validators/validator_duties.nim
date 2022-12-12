@@ -657,7 +657,8 @@ proc getBlindedBeaconBlock[T](
 
 proc getBlindedBlockParts(
     node: BeaconNode, head: BlockRef, pubkey: ValidatorPubKey,
-    slot: Slot, randao: ValidatorSig, validator_index: ValidatorIndex):
+    slot: Slot, randao: ValidatorSig, validator_index: ValidatorIndex,
+    graffiti: GraffitiBytes):
     Future[Result[(bellatrix.ExecutionPayloadHeader, ForkedBeaconBlock), string]]
     {.async.} =
   let
@@ -696,7 +697,7 @@ proc getBlindedBlockParts(
     getFieldNames(bellatrix.ExecutionPayloadHeader))
 
   let newBlock = await makeBeaconBlockForHeadAndSlot(
-    node, randao, validator_index, node.graffitiBytes, head, slot,
+    node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,
     transactions_root = Opt.some executionPayloadHeader.get.transactions_root,
     execution_payload_root =
@@ -715,7 +716,8 @@ proc proposeBlockMEV(
     randao: ValidatorSig, validator_index: ValidatorIndex):
     Future[Opt[BlockRef]] {.async.} =
   let blindedBlockParts = await getBlindedBlockParts(
-    node, head, validator.pubkey, slot, randao, validator_index)
+    node, head, validator.pubkey, slot, randao, validator_index,
+    node.graffitiBytes)
   if blindedBlockParts.isErr:
     # Not signed yet, fine to try to fall back on EL
     beacon_block_builder_missed_with_fallback.inc()
@@ -787,7 +789,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*(
         forkyState.data.validators.item(validator_index).pubkey
 
     blindedBlockParts = await getBlindedBlockParts(
-      node, head, pubkey, slot, randao_reveal, validator_index)
+      node, head, pubkey, slot, randao_reveal, validator_index, graffiti)
   if blindedBlockParts.isErr:
     # Don't try EL fallback -- VC specifically requested a blinded block
     return err("Unable to create blinded block")
