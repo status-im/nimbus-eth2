@@ -1,3 +1,21 @@
+2022-12-12 v22.11.1
+===================
+
+Nimbus `v22.11.1` is a `high-urgency` hotfix for users that use remote
+keystores with a web3signer. It addresses a compatibility problem
+that may result in missed block proposals. If you are not using a
+remote signer, you can safely skip this release.
+
+### Fixes
+
+* Incompatible encoding used in the web3signer block signing requests
+  after the merge:
+  https://github.com/status-im/nimbus-eth2/pull/4407
+
+* Ignored `graffiti` option of the validator client:
+  https://github.com/status-im/nimbus-eth2/pull/4417
+
+
 2022-11-30 v22.11.0
 ===================
 
