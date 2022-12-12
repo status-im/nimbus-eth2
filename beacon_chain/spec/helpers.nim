@@ -372,6 +372,19 @@ func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   let slots_since_genesis = slot - GENESIS_SLOT
   state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT
 
+proc computeTransactionsTrieRoot*(
+    payload: bellatrix.ExecutionPayload | capella.ExecutionPayload): Hash256 =
+  if payload.transactions.len == 0:
+    return EMPTY_ROOT_HASH
+
+  var tr = initHexaryTrie(newMemoryDB())
+  for i, transaction in payload.transactions:
+    try:
+      tr.put(rlp.encode(i), distinctBase(transaction))  # Already RLP encoded
+    except RlpError as exc:
+      doAssert false, "HexaryTrie.put failed: " & $exc.msg
+  tr.rootHash()
+
 func gweiToWei*(gwei: Gwei): UInt256 =
   gwei.u256 * 1_000_000_000.u256
 
@@ -397,18 +410,15 @@ proc computeWithdrawalsTrieRoot*(
       doAssert false, "HexaryTrie.put failed: " & $exc.msg
   tr.rootHash()
 
-proc emptyPayloadToBlockHeader*(
+proc payloadToBlockHeader*(
     payload: bellatrix.ExecutionPayload | capella.ExecutionPayload
 ): ExecutionBlockHeader =
   static:  # `GasInt` is signed. We only use it for hashing.
     doAssert sizeof(GasInt) == sizeof(payload.gas_limit)
     doAssert sizeof(GasInt) == sizeof(payload.gas_used)
 
-  ## This function assumes that the payload is empty!
-  doAssert payload.transactions.len == 0
-
   let
-    txRoot = EMPTY_ROOT_HASH
+    txRoot = payload.computeTransactionsTrieRoot()
     withdrawalsRoot =
       when payload is bellatrix.ExecutionPayload:
         none(Hash256)
@@ -434,7 +444,12 @@ proc emptyPayloadToBlockHeader*(
     fee            : some payload.base_fee_per_gas,
     withdrawalsRoot: withdrawalsRoot)
 
-func build_empty_execution_payload*(
+proc compute_execution_block_hash*(
+    payload: bellatrix.ExecutionPayload | capella.ExecutionPayload
+): Eth2Digest =
+  rlpHash payloadToBlockHeader(payload)
+
+proc build_empty_execution_payload*(
     state: bellatrix.BeaconState,
     feeRecipient: Eth1Address): bellatrix.ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
@@ -459,7 +474,7 @@ func build_empty_execution_payload*(
     timestamp: timestamp,
     base_fee_per_gas: base_fee)
 
-  payload.block_hash = rlpHash emptyPayloadToBlockHeader(payload)
+  payload.block_hash = payload.compute_execution_block_hash()
 
   payload
 
@@ -491,6 +506,6 @@ proc build_empty_execution_payload*(
   for withdrawal in expectedWithdrawals:
     doAssert payload.withdrawals.add withdrawal
 
-  payload.block_hash = rlpHash emptyPayloadToBlockHeader(payload)
+  payload.block_hash = payload.compute_execution_block_hash()
 
   payload
