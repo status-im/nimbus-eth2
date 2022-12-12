@@ -205,8 +205,6 @@ func maybeUpgradeStateToCapella(
       capellaData: capella.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
-from ./datatypes/eip4844 import HashedBeaconState
-
 func maybeUpgradeStateToEIP4844(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   # Both process_slots() and state_transition_block() call this, so only run it

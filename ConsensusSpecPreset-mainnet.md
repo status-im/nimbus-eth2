@@ -36,6 +36,11 @@ ConsensusSpecPreset-mainnet
 + EF - Altair - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]           OK
 + EF - Altair - Rewards - with_slashed_validators [Preset: mainnet]                          OK
 + EF - Altair - Rewards - with_slashed_validators_leak [Preset: mainnet]                     OK
++ EF - Altair - Slots - double_empty_epoch [Preset: mainnet]                                 OK
++ EF - Altair - Slots - empty_epoch [Preset: mainnet]                                        OK
++ EF - Altair - Slots - over_epoch_boundary [Preset: mainnet]                                OK
++ EF - Altair - Slots - slots_1 [Preset: mainnet]                                            OK
++ EF - Altair - Slots - slots_2 [Preset: mainnet]                                            OK
 + EF - Altair - Transition - normal_transition [Preset: mainnet]                             OK
 + EF - Altair - Transition - simple_transition [Preset: mainnet]                             OK
 + EF - Altair - Transition - transition_missing_first_post_block [Preset: mainnet]           OK
@@ -91,6 +96,11 @@ ConsensusSpecPreset-mainnet
 + EF - Bellatrix - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]        OK
 + EF - Bellatrix - Rewards - with_slashed_validators [Preset: mainnet]                       OK
 + EF - Bellatrix - Rewards - with_slashed_validators_leak [Preset: mainnet]                  OK
++ EF - Bellatrix - Slots - double_empty_epoch [Preset: mainnet]                              OK
++ EF - Bellatrix - Slots - empty_epoch [Preset: mainnet]                                     OK
++ EF - Bellatrix - Slots - over_epoch_boundary [Preset: mainnet]                             OK
++ EF - Bellatrix - Slots - slots_1 [Preset: mainnet]                                         OK
++ EF - Bellatrix - Slots - slots_2 [Preset: mainnet]                                         OK
 + EF - Bellatrix - Transition - normal_transition [Preset: mainnet]                          OK
 + EF - Bellatrix - Transition - simple_transition [Preset: mainnet]                          OK
 + EF - Bellatrix - Transition - transition_missing_first_post_block [Preset: mainnet]        OK
@@ -146,6 +156,11 @@ ConsensusSpecPreset-mainnet
 + EF - Capella - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]          OK
 + EF - Capella - Rewards - with_slashed_validators [Preset: mainnet]                         OK
 + EF - Capella - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
++ EF - Capella - Slots - double_empty_epoch [Preset: mainnet]                                OK
++ EF - Capella - Slots - empty_epoch [Preset: mainnet]                                       OK
++ EF - Capella - Slots - over_epoch_boundary [Preset: mainnet]                               OK
++ EF - Capella - Slots - slots_1 [Preset: mainnet]                                           OK
++ EF - Capella - Slots - slots_2 [Preset: mainnet]                                           OK
 + EF - Capella - Transition - normal_transition [Preset: mainnet]                            OK
 + EF - Capella - Transition - simple_transition [Preset: mainnet]                            OK
 + EF - Capella - Transition - transition_missing_first_post_block [Preset: mainnet]          OK
@@ -201,6 +216,11 @@ ConsensusSpecPreset-mainnet
 + EF - EIP4844 - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]          OK
 + EF - EIP4844 - Rewards - with_slashed_validators [Preset: mainnet]                         OK
 + EF - EIP4844 - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
++ EF - EIP4844 - Slots - double_empty_epoch [Preset: mainnet]                                OK
++ EF - EIP4844 - Slots - empty_epoch [Preset: mainnet]                                       OK
++ EF - EIP4844 - Slots - over_epoch_boundary [Preset: mainnet]                               OK
++ EF - EIP4844 - Slots - slots_1 [Preset: mainnet]                                           OK
++ EF - EIP4844 - Slots - slots_2 [Preset: mainnet]                                           OK
 + EF - EIP4844 - Transition - normal_transition [Preset: mainnet]                            OK
 + EF - EIP4844 - Transition - simple_transition [Preset: mainnet]                            OK
 + EF - EIP4844 - Transition - transition_missing_first_post_block [Preset: mainnet]          OK
@@ -271,6 +291,11 @@ ConsensusSpecPreset-mainnet
 + EF - Phase 0 - Rewards - with_not_yet_activated_validators_leak [Preset: mainnet]          OK
 + EF - Phase 0 - Rewards - with_slashed_validators [Preset: mainnet]                         OK
 + EF - Phase 0 - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
++ EF - Phase 0 - Slots - double_empty_epoch [Preset: mainnet]                                OK
++ EF - Phase 0 - Slots - empty_epoch [Preset: mainnet]                                       OK
++ EF - Phase 0 - Slots - over_epoch_boundary [Preset: mainnet]                               OK
++ EF - Phase 0 - Slots - slots_1 [Preset: mainnet]                                           OK
++ EF - Phase 0 - Slots - slots_2 [Preset: mainnet]                                           OK
 + ForkChoice - mainnet/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_great OK
 + ForkChoice - mainnet/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_n OK
 + ForkChoice - mainnet/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
@@ -351,11 +376,6 @@ ConsensusSpecPreset-mainnet
 + Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
-+ Slots - double_empty_epoch                                                                 OK
-+ Slots - empty_epoch                                                                        OK
-+ Slots - over_epoch_boundary                                                                OK
-+ Slots - slots_1                                                                            OK
-+ Slots - slots_2                                                                            OK
 + Sync - mainnet/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
 + Sync - mainnet/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + [Invalid] EF - Altair - Sanity - Blocks - expected_deposit_in_block [Preset: mainnet]      OK
@@ -744,7 +764,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 733/741 Fail: 0/741 Skip: 8/741
+OK: 753/761 Fail: 0/761 Skip: 8/761
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -2419,4 +2439,4 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 OK: 51/51 Fail: 0/51 Skip: 0/51
 
 ---TOTAL---
-OK: 2125/2133 Fail: 0/2133 Skip: 8/2133
+OK: 2145/2153 Fail: 0/2153 Skip: 8/2153

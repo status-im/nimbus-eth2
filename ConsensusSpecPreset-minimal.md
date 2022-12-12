@@ -36,6 +36,11 @@ ConsensusSpecPreset-minimal
 + EF - Altair - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]           OK
 + EF - Altair - Rewards - with_slashed_validators [Preset: minimal]                          OK
 + EF - Altair - Rewards - with_slashed_validators_leak [Preset: minimal]                     OK
++ EF - Altair - Slots - double_empty_epoch [Preset: minimal]                                 OK
++ EF - Altair - Slots - empty_epoch [Preset: minimal]                                        OK
++ EF - Altair - Slots - over_epoch_boundary [Preset: minimal]                                OK
++ EF - Altair - Slots - slots_1 [Preset: minimal]                                            OK
++ EF - Altair - Slots - slots_2 [Preset: minimal]                                            OK
 + EF - Altair - Transition - normal_transition [Preset: minimal]                             OK
 + EF - Altair - Transition - simple_transition [Preset: minimal]                             OK
 + EF - Altair - Transition - transition_missing_first_post_block [Preset: minimal]           OK
@@ -95,6 +100,11 @@ ConsensusSpecPreset-minimal
 + EF - Bellatrix - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]        OK
 + EF - Bellatrix - Rewards - with_slashed_validators [Preset: minimal]                       OK
 + EF - Bellatrix - Rewards - with_slashed_validators_leak [Preset: minimal]                  OK
++ EF - Bellatrix - Slots - double_empty_epoch [Preset: minimal]                              OK
++ EF - Bellatrix - Slots - empty_epoch [Preset: minimal]                                     OK
++ EF - Bellatrix - Slots - over_epoch_boundary [Preset: minimal]                             OK
++ EF - Bellatrix - Slots - slots_1 [Preset: minimal]                                         OK
++ EF - Bellatrix - Slots - slots_2 [Preset: minimal]                                         OK
 + EF - Bellatrix - Transition - normal_transition [Preset: minimal]                          OK
 + EF - Bellatrix - Transition - simple_transition [Preset: minimal]                          OK
 + EF - Bellatrix - Transition - transition_missing_first_post_block [Preset: minimal]        OK
@@ -154,6 +164,11 @@ ConsensusSpecPreset-minimal
 + EF - Capella - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
 + EF - Capella - Rewards - with_slashed_validators [Preset: minimal]                         OK
 + EF - Capella - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
++ EF - Capella - Slots - double_empty_epoch [Preset: minimal]                                OK
++ EF - Capella - Slots - empty_epoch [Preset: minimal]                                       OK
++ EF - Capella - Slots - over_epoch_boundary [Preset: minimal]                               OK
++ EF - Capella - Slots - slots_1 [Preset: minimal]                                           OK
++ EF - Capella - Slots - slots_2 [Preset: minimal]                                           OK
 + EF - Capella - Transition - normal_transition [Preset: minimal]                            OK
 + EF - Capella - Transition - simple_transition [Preset: minimal]                            OK
 + EF - Capella - Transition - transition_missing_first_post_block [Preset: minimal]          OK
@@ -213,6 +228,11 @@ ConsensusSpecPreset-minimal
 + EF - EIP4844 - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
 + EF - EIP4844 - Rewards - with_slashed_validators [Preset: minimal]                         OK
 + EF - EIP4844 - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
++ EF - EIP4844 - Slots - double_empty_epoch [Preset: minimal]                                OK
++ EF - EIP4844 - Slots - empty_epoch [Preset: minimal]                                       OK
++ EF - EIP4844 - Slots - over_epoch_boundary [Preset: minimal]                               OK
++ EF - EIP4844 - Slots - slots_1 [Preset: minimal]                                           OK
++ EF - EIP4844 - Slots - slots_2 [Preset: minimal]                                           OK
 + EF - EIP4844 - Transition - normal_transition [Preset: minimal]                            OK
 + EF - EIP4844 - Transition - simple_transition [Preset: minimal]                            OK
 + EF - EIP4844 - Transition - transition_missing_first_post_block [Preset: minimal]          OK
@@ -287,6 +307,11 @@ ConsensusSpecPreset-minimal
 + EF - Phase 0 - Rewards - with_not_yet_activated_validators_leak [Preset: minimal]          OK
 + EF - Phase 0 - Rewards - with_slashed_validators [Preset: minimal]                         OK
 + EF - Phase 0 - Rewards - with_slashed_validators_leak [Preset: minimal]                    OK
++ EF - Phase 0 - Slots - double_empty_epoch [Preset: minimal]                                OK
++ EF - Phase 0 - Slots - empty_epoch [Preset: minimal]                                       OK
++ EF - Phase 0 - Slots - over_epoch_boundary [Preset: minimal]                               OK
++ EF - Phase 0 - Slots - slots_1 [Preset: minimal]                                           OK
++ EF - Phase 0 - Slots - slots_2 [Preset: minimal]                                           OK
 + ForkChoice - minimal/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
 + ForkChoice - minimal/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
 + ForkChoice - minimal/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
@@ -415,11 +440,6 @@ ConsensusSpecPreset-minimal
 + Light client - Update ranking - minimal/bellatrix/light_client/update_ranking/pyspec_tests OK
 + Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u OK
 + Light client - Update ranking - minimal/eip4844/light_client/update_ranking/pyspec_tests/u OK
-+ Slots - double_empty_epoch                                                                 OK
-+ Slots - empty_epoch                                                                        OK
-+ Slots - over_epoch_boundary                                                                OK
-+ Slots - slots_1                                                                            OK
-+ Slots - slots_2                                                                            OK
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
 + Sync - minimal/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + [Invalid] EF - Altair - Sanity - Blocks - expected_deposit_in_block [Preset: minimal]      OK
@@ -838,7 +858,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 827/835 Fail: 0/835 Skip: 8/835
+OK: 847/855 Fail: 0/855 Skip: 8/855
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - after_epoch_slots                       OK
@@ -2591,4 +2611,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 52/52 Fail: 0/52 Skip: 0/52
 
 ---TOTAL---
-OK: 2281/2289 Fail: 0/2289 Skip: 8/2289
+OK: 2301/2309 Fail: 0/2309 Skip: 8/2309
