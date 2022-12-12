@@ -938,7 +938,8 @@ proc getBlock*(
     result.err()
 
 proc getBlock*[
-    X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock | eip4844.TrustedSignedBeaconBlock](
+    X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
+       eip4844.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,
     T: type X): Opt[T] =
   # We only store blocks that we trust in the database
@@ -1287,7 +1288,7 @@ proc containsBlock*(
 
 proc containsBlock*[
     X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
-       capella.TrustedSignedBeaconBlock](
+       capella.TrustedSignedBeaconBlock | eip4844.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
   db.blocks[X.toFork].contains(key.data).expectDb()
 
@@ -1298,7 +1299,8 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: BeaconBlockFork): 
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
   static: doAssert high(BeaconBlockFork) == BeaconBlockFork.EIP4844
-  db.containsBlock(key, capella.TrustedSignedBeaconBlock) or
+  db.containsBlock(key, eip4844.TrustedSignedBeaconBlock) or
+    db.containsBlock(key, capella.TrustedSignedBeaconBlock) or
     db.containsBlock(key, bellatrix.TrustedSignedBeaconBlock) or
     db.containsBlock(key, altair.TrustedSignedBeaconBlock) or
     db.containsBlock(key, phase0.TrustedSignedBeaconBlock)

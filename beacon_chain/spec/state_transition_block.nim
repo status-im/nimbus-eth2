@@ -791,12 +791,15 @@ func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
   ## `blob_versioned_hashes` offset calculation.
   if not (opaque_tx[0] == BLOB_TX_TYPE):
     return err("tx_peek_blob_versioned_hashes: invalid opaque transaction type")
-  let
-    message_offset = 1 + bytes_to_uint32(opaque_tx.asSeq.toOpenArray(1, 4))
-    # field offset: 32 + 8 + 32 + 32 + 8 + 4 + 32 + 4 + 4 + 32 = 188
-    blob_versioned_hashes_offset = (
-      message_offset + bytes_to_uint32(opaque_tx[(message_offset + 188) .. (message_offset + 191)])
-    )
+  let message_offset = 1 + bytes_to_uint32(opaque_tx.asSeq.toOpenArray(1, 4))
+
+  if opaque_tx.lenu64 < (message_offset + 192).uint64:
+    return err("tx_peek_blob_versioned_hashes: opaque transaction too short")
+
+  # field offset: 32 + 8 + 32 + 32 + 8 + 4 + 32 + 4 + 4 + 32 = 188
+  let blob_versioned_hashes_offset = (
+    message_offset + bytes_to_uint32(
+      opaque_tx[(message_offset + 188) ..< (message_offset + 192)]))
 
   if blob_versioned_hashes_offset.uint64 > high(int).uint64:
     return err("tx_peek_blob_versioned_hashes: blob_versioned_hashes_offset too high")
