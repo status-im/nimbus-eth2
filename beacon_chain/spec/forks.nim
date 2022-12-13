@@ -433,6 +433,7 @@ template toFork*[T:
   BeaconBlockFork.Altair
 
 template toFork*[T:
+    bellatrix.ExecutionPayload |
     bellatrix.BeaconBlock |
     bellatrix.SignedBeaconBlock |
     bellatrix.TrustedBeaconBlock |
@@ -443,6 +444,7 @@ template toFork*[T:
   BeaconBlockFork.Bellatrix
 
 template toFork*[T:
+    capella.ExecutionPayload |
     capella.BeaconBlock |
     capella.SignedBeaconBlock |
     capella.TrustedBeaconBlock |
@@ -453,6 +455,7 @@ template toFork*[T:
   BeaconBlockFork.Capella
 
 template toFork*[T:
+    eip4844.ExecutionPayload |
     eip4844.BeaconBlock |
     eip4844.SignedBeaconBlock |
     eip4844.TrustedBeaconBlock |

@@ -19,7 +19,7 @@ import
   eth/eip1559, eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/[db, hexary],
   # Internal
-  ./datatypes/[phase0, altair, bellatrix, capella],
+  ./datatypes/[phase0, altair, bellatrix, capella, eip4844],
   "."/[eth2_merkleization, forks, ssz_codec]
 
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
@@ -385,7 +385,7 @@ func toExecutionWithdrawal*(
 
 # https://eips.ethereum.org/EIPS/eip-4895
 proc computeWithdrawalsTrieRoot*(
-    payload: capella.ExecutionPayload): Hash256 =
+    payload: capella.ExecutionPayload | eip4844.ExecutionPayload): Hash256 =
   if payload.withdrawals.len == 0:
     return EMPTY_ROOT_HASH
 
@@ -398,7 +398,10 @@ proc computeWithdrawalsTrieRoot*(
   tr.rootHash()
 
 proc emptyPayloadToBlockHeader*(
-    payload: bellatrix.ExecutionPayload | capella.ExecutionPayload
+    payload:
+      bellatrix.ExecutionPayload |
+      capella.ExecutionPayload |
+      eip4844.ExecutionPayload
 ): ExecutionBlockHeader =
   static:  # `GasInt` is signed. We only use it for hashing.
     doAssert sizeof(GasInt) == sizeof(payload.gas_limit)
@@ -410,10 +413,15 @@ proc emptyPayloadToBlockHeader*(
   let
     txRoot = EMPTY_ROOT_HASH
     withdrawalsRoot =
-      when payload is bellatrix.ExecutionPayload:
-        none(Hash256)
-      else:
+      when typeof(payload).toFork >= BeaconBlockFork.Capella:
         some payload.computeWithdrawalsTrieRoot()
+      else:
+        none(Hash256)
+    excessDataGas =
+      when typeof(payload).toFork >= BeaconBlockFork.EIP4844:
+        some payload.excess_data_gas
+      else:
+        none(UInt256)
 
   ExecutionBlockHeader(
     parentHash     : payload.parent_hash,
@@ -432,7 +440,8 @@ proc emptyPayloadToBlockHeader*(
     mixDigest      : payload.prev_randao, # EIP-4399 `mixDigest` -> `prevRandao`
     nonce          : default(BlockNonce),
     fee            : some payload.base_fee_per_gas,
-    withdrawalsRoot: withdrawalsRoot)
+    withdrawalsRoot: withdrawalsRoot,
+    excessDataGas  : excessDataGas)
 
 func build_empty_execution_payload*(
     state: bellatrix.BeaconState,
@@ -466,7 +475,8 @@ func build_empty_execution_payload*(
 proc build_empty_execution_payload*(
     state: capella.BeaconState,
     feeRecipient: Eth1Address,
-    expectedWithdrawals = newSeq[capella.Withdrawal](0)): capella.ExecutionPayload =
+    expectedWithdrawals = newSeq[capella.Withdrawal](0)
+): capella.ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.
   let
@@ -488,6 +498,55 @@ proc build_empty_execution_payload*(
     gas_used: 0, # empty block, 0 gas
     timestamp: timestamp,
     base_fee_per_gas: base_fee)
+  for withdrawal in expectedWithdrawals:
+    doAssert payload.withdrawals.add withdrawal
+
+  payload.block_hash = rlpHash emptyPayloadToBlockHeader(payload)
+
+  payload
+
+# https://eips.ethereum.org/EIPS/eip-4844#parameters
+const
+  TARGET_DATA_GAS_PER_BLOCK* = 1.u256 shl 18
+  DATA_GAS_PER_BLOB* = 1.u256 shl 17
+
+# https://eips.ethereum.org/EIPS/eip-4844#header-extension
+func calc_excess_data_gas*(
+    parent: eip4844.ExecutionPayloadHeader, new_blobs: uint): UInt256 =
+  let consumed_data_gas = new_blobs.u256 * DATA_GAS_PER_BLOB
+  return
+    if parent.excess_data_gas + consumed_data_gas < TARGET_DATA_GAS_PER_BLOCK:
+      0.u256
+    else:
+      parent.excess_data_gas + consumed_data_gas - TARGET_DATA_GAS_PER_BLOCK
+
+proc build_empty_execution_payload*(
+    state: eip4844.BeaconState,
+    feeRecipient: Eth1Address,
+    expectedWithdrawals = newSeq[capella.Withdrawal](0)
+): eip4844.ExecutionPayload =
+  ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
+  ## without any transactions.
+  let
+    latest = state.latest_execution_payload_header
+    timestamp = compute_timestamp_at_slot(state, state.slot)
+    randao_mix = get_randao_mix(state, get_current_epoch(state))
+    base_fee = calcEip1599BaseFee(GasInt.saturate latest.gas_limit,
+                                  GasInt.saturate latest.gas_used,
+                                  latest.base_fee_per_gas)
+
+  var payload = eip4844.ExecutionPayload(
+    parent_hash: latest.block_hash,
+    fee_recipient: bellatrix.ExecutionAddress(data: distinctBase(feeRecipient)),
+    state_root: latest.state_root, # no changes to the state
+    receipts_root: EMPTY_ROOT_HASH,
+    block_number: latest.block_number + 1,
+    prev_randao: randao_mix,
+    gas_limit: latest.gas_limit, # retain same limit
+    gas_used: 0, # empty block, 0 gas
+    timestamp: timestamp,
+    base_fee_per_gas: base_fee,
+    excess_data_gas: latest.calc_excess_data_gas(new_blobs = 0))
   for withdrawal in expectedWithdrawals:
     doAssert payload.withdrawals.add withdrawal
 

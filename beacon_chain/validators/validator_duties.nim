@@ -350,7 +350,9 @@ proc getExecutionPayload[T](
     # transmit this information through the Forked types, so this has to
     # be re-proven here.
     withState(proposalState[]):
-      when (stateFork == BeaconStateFork.Capella and
+      when (stateFork == BeaconStateFork.EIP4844 and
+            T is eip4844.ExecutionPayload) or
+           (stateFork == BeaconStateFork.Capella and
             T is capella.ExecutionPayload) or
            (stateFork == BeaconStateFork.Bellatrix and
             T is bellatrix.ExecutionPayload):
