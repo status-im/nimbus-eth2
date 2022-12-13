@@ -244,7 +244,6 @@ proc newExecutionPayload*(
     executionPayload: bellatrix.ExecutionPayload | capella.ExecutionPayload):
     Future[Opt[PayloadExecutionStatus]] {.async.} =
   if eth1Monitor.isNil:
-    warn "newPayload: attempting to process execution payload without Eth1Monitor. Ensure --web3-url setting is correct and JWT is configured."
     return Opt.none PayloadExecutionStatus
 
   debug "newPayload: inserting block into execution engine",
@@ -364,7 +363,13 @@ proc storeBlock*(
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
     payloadStatus =
-      await self.consensusManager.eth1Monitor.getExecutionValidity(signedBlock)
+      if self.consensusManager.eth1Monitor.isNil:
+        if not self.optimistic:
+          warn "Attempting to process execution payload without execution client. Ensure --web3-url setting is correct and JWT is configured."
+        NewPayloadStatus.noResponse
+      else:
+        await self.consensusManager.eth1Monitor.getExecutionValidity(
+          signedBlock)
     payloadValid = payloadStatus == NewPayloadStatus.valid
 
   # The block is certainly not missing any more

@@ -271,10 +271,7 @@ proc initFullNode(
     dag.backfill.slot
 
   func getFrontfillSlot(): Slot =
-    if dag.frontfill.isSome():
-      dag.frontfill.get().slot
-    else:
-      GENESIS_SLOT
+    max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
   let
     quarantine = newClone(
@@ -445,10 +442,7 @@ proc init*(T: type BeaconNode,
   let optJwtSecret = rng[].loadJwtSecret(config, allowCreate = false)
 
   if config.web3Urls.len() == 0:
-    if cfg.BELLATRIX_FORK_EPOCH == FAR_FUTURE_EPOCH:
-      notice "Running without execution client - validator features partially disabled (see https://nimbus.guide/eth1.html)"
-    else:
-      notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
+    notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
 
   var eth1Monitor: Eth1Monitor
 
@@ -1624,11 +1618,6 @@ proc start*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
     notice "Waiting for genesis", genesisIn = genesisTime.offset
 
   waitFor node.initializeNetworking()
-
-  if node.eth1Monitor != nil:
-    node.eth1Monitor.start()
-  else:
-    notice "Running without execution chain monitor, block producation partially disabled"
 
   node.run()
 
