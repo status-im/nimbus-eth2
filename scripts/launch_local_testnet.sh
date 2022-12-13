@@ -450,12 +450,12 @@ fi
 
 
 download_geth() {
+  GETH_VERSION="1.11.0-unstable-262bd38f"
 
-  GETH_VERSION="1.10.18-de23cf91"
-
-#  "https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.10.18-de23cf91.tar.gz"
-#  "https://gethstore.blob.core.windows.net/builds/geth-darwin-amd64-1.10.18-de23cf91.tar.gz"
-#  "https://gethstore.blob.core.windows.net/builds/geth-windows-amd64-1.10.18-de23cf91.zip"
+# https://geth.ethereum.org/downloads/
+#  "https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.11.0-unstable-262bd38f.tar.gz"
+#  "https://gethstore.blob.core.windows.net/builds/geth-darwin-amd64-1.11.0-unstable-262bd38f.tar.gz"
+#  "https://gethstore.blob.core.windows.net/builds/geth-windows-amd64-1.11.0-unstable-262bd38f.zip"
 
   GETH_URL="https://gethstore.blob.core.windows.net/builds/"
 
