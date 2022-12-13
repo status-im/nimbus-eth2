@@ -804,7 +804,7 @@ func chunkMaxSize[T](): uint32 =
   when T is ForkySignedBeaconBlock:
     when T is phase0.SignedBeaconBlock or T is altair.SignedBeaconBlock:
       MAX_CHUNK_SIZE
-    elif T is bellatrix.SignedBeaconBlock:
+    elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock:
       MAX_CHUNK_SIZE_BELLATRIX
     else:
       {.fatal: "what's the chunk size here?".}

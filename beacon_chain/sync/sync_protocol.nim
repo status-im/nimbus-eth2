@@ -14,7 +14,7 @@ import
   std/[options, tables, sets, macros],
   chronicles, chronos, snappy/codec,
   libp2p/switch,
-  ../spec/datatypes/[phase0, altair, bellatrix],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella],
   ../spec/[helpers, forks, network],
   ".."/[beacon_clock],
   ../networking/eth2_network,
@@ -102,6 +102,12 @@ proc readChunkPayload*(
       return err(res.error)
   elif contextBytes == peer.network.forkDigests.bellatrix:
     let res = await readChunkPayload(conn, peer, bellatrix.SignedBeaconBlock)
+    if res.isOk:
+      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
+    else:
+      return err(res.error)
+  elif contextBytes == peer.network.forkDigests.capella:
+    let res = await readChunkPayload(conn, peer, capella.SignedBeaconBlock)
     if res.isOk:
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:
