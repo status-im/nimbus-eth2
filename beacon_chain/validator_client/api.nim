@@ -1688,7 +1688,10 @@ proc publishBlock*(
         of BeaconBlockFork.Capella:
           publishBlock(it, data.capellaData)
         of BeaconBlockFork.EIP4844:
-          raiseAssert $eip4844ImplementationMissing
+          debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlock (1)"
+          let f = newFuture[RestPlainResponse]("")
+          f.fail(new RestError)
+          f
 
       do:
         if apiResponse.isErr():
@@ -1740,7 +1743,10 @@ proc publishBlock*(
       of BeaconBlockFork.Capella:
         publishBlock(it, data.capellaData)
       of BeaconBlockFork.EIP4844:
-        raiseAssert $eip4844ImplementationMissing
+        debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlock (2)"
+        let f = newFuture[RestPlainResponse]("")
+        f.fail(new RestError)
+        f
     do:
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1887,7 +1893,10 @@ proc publishBlindedBlock*(
         of BeaconBlockFork.Capella:
           publishBlindedBlock(it, data.capellaData)
         of BeaconBlockFork.EIP4844:
-          raiseAssert $eip4844ImplementationMissing
+          debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlindedBlock (1)"
+          let f = newFuture[RestPlainResponse]("")
+          f.fail(new RestError)
+          f
       do:
         if apiResponse.isErr():
           debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1938,7 +1947,10 @@ proc publishBlindedBlock*(
       of BeaconBlockFork.Capella:
         publishBlindedBlock(it, data.capellaData)
       of BeaconBlockFork.EIP4844:
-        raiseAssert $eip4844ImplementationMissing
+        debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlindedBlock (2)"
+        let f = newFuture[RestPlainResponse]("")
+        f.fail(new RestError)
+        f
     do:
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()

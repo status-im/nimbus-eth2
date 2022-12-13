@@ -49,7 +49,7 @@ proc initLightClient*(
         wallSlot = node.currentSlot
       withBlck(signedBlock):
         when stateFork == BeaconStateFork.EIP4844:
-          raiseAssert $eip4844ImplementationMissing & ": beacon_node_light_client.nim:initLightClient"
+          debugRaiseAssert $eip4844ImplementationMissing & ": beacon_node_light_client.nim:initLightClient"
         elif stateFork >= BeaconStateFork.Bellatrix:
           if blck.message.is_execution_block:
             template payload(): auto = blck.message.body.execution_payload

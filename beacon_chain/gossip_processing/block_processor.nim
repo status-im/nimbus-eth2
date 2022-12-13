@@ -299,7 +299,7 @@ proc newExecutionPayload*(
     eth1Monitor: Eth1Monitor,
     executionPayload: eip4844.ExecutionPayload):
     Future[Opt[PayloadExecutionStatus]] {.async.} =
-  raiseAssert $eip4844ImplementationMissing & ": block_processor.nim:newExecutionPayload"
+  debugRaiseAssert $eip4844ImplementationMissing & ": block_processor.nim:newExecutionPayload"
 
 proc getExecutionValidity(
     eth1Monitor: Eth1Monitor,
@@ -347,7 +347,7 @@ proc getExecutionValidity(
     eth1Monitor: Eth1Monitor,
     blck: eip4844.SignedBeaconBlock):
     Future[NewPayloadStatus] {.async.} =
-  raiseAssert $eip4844ImplementationMissing & ": block_processor.nim:getExecutionValidity"
+  debugRaiseAssert $eip4844ImplementationMissing & ": block_processor.nim:getExecutionValidity"
 
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,

@@ -389,7 +389,9 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                 kind: BeaconBlockFork.Capella,
                 capellaData: blck.capellaData.toBeaconBlockHeader)
             of BeaconBlockFork.EIP4844:
-              raiseAssert $eip4844ImplementationMissing
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.EIP4844,
+                eip4844Data: blck.eip4844Data.toBeaconBlockHeader)
 
           request = Web3SignerRequest.init(
             fork, genesis_validators_root, web3SignerBlock)
@@ -422,7 +424,9 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                 kind: BeaconBlockFork.Capella,
                 capellaData: blck.capellaData.toBeaconBlockHeader)
             of BeaconBlockFork.EIP4844:
-              raiseAssert $eip4844ImplementationMissing
+              Web3SignerForkedBeaconBlock(
+                kind: BeaconBlockFork.EIP4844,
+                eip4844Data: blck.eip4844Data.toBeaconBlockHeader)
 
           request = Web3SignerRequest.init(
             fork, genesis_validators_root, web3SignerBlock)

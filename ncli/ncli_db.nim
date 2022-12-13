@@ -1000,7 +1000,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
         withState(tmpState[]):
           var stateData = newClone(forkyState.data)
           when stateFork == BeaconStateFork.EIP4844:
-            raiseAssert $eip4844ImplementationMissing & ": ncli_db.nim:cmdValidatorDb"
+            debugRaiseAssert $eip4844ImplementationMissing & ": ncli_db.nim:cmdValidatorDb"
           else:
             rewardsAndPenalties.collectEpochRewardsAndPenalties(
               stateData[], cache, cfg, flags)

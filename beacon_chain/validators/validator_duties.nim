@@ -321,7 +321,8 @@ proc get_execution_payload[EP](
       asConsensusExecutionPayload(
         await execution_engine.getPayload(payload_id.get))
     else:
-      raiseAssert $capellaImplementationMissing & ": implement getPayload V2"
+      debugRaiseAssert $capellaImplementationMissing & ": implement getPayload V2"
+      default(EP)
 
 proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,

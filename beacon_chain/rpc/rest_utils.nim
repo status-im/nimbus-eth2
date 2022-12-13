@@ -301,11 +301,8 @@ proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
   case blck.kind
   of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
     false
-  of BeaconBlockFork.Bellatrix, BeaconBlockFork.Capella:
+  of BeaconBlockFork.Bellatrix, BeaconBlockFork.Capella, BeaconBlockFork.EIP4844:
     node.dag.is_optimistic(blck.root)
-  of BeaconBlockFork.EIP4844:
-    if true: raiseAssert $eip4844ImplementationMissing
-    true
 
 const
   jsonMediaType* = MediaType.init("application/json")
