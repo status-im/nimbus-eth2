@@ -26,7 +26,7 @@ proc runTest(T: type, testDir, forkName: static[string], identifier: string) =
         preState = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
         postState = newClone(parseTest(testDir/"post.ssz_snappy", SSZ, T))
       var
-        fhPreState = ForkedHashedBeaconState.init(preState[])
+        fhPreState = ForkedHashedBeaconState.new(preState[])
         cache = StateCache()
         info: ForkedEpochInfo
 

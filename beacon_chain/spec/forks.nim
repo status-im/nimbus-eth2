@@ -266,27 +266,27 @@ template toFork*[T: eip4844.BeaconState | eip4844.HashedBeaconState](
     t: type T): BeaconStateFork =
   BeaconStateFork.EIP4844
 
-# TODO using "ref T" doesn't work -- some kind of reference to type being
-# treated differently than type?
-func init*(T: type ForkedHashedBeaconState, data: phase0.BeaconState):
+# TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
+# `ref T`
+func new*(T: type ForkedHashedBeaconState, data: phase0.BeaconState):
     ref ForkedHashedBeaconState =
-  (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0, phase0Data: phase0.HashedBeaconState(
+  (ref T)(kind: BeaconStateFork.Phase0, phase0Data: phase0.HashedBeaconState(
     data: data, root: hash_tree_root(data)))
-func init*(T: type ForkedHashedBeaconState, data: altair.BeaconState):
+func new*(T: type ForkedHashedBeaconState, data: altair.BeaconState):
     ref ForkedHashedBeaconState =
-  (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Altair, altairData: altair.HashedBeaconState(
+  (ref T)(kind: BeaconStateFork.Altair, altairData: altair.HashedBeaconState(
     data: data, root: hash_tree_root(data)))
-func init*(T: type ForkedHashedBeaconState, data: bellatrix.BeaconState):
+func new*(T: type ForkedHashedBeaconState, data: bellatrix.BeaconState):
     ref ForkedHashedBeaconState =
-  (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Bellatrix, bellatrixData: bellatrix.HashedBeaconState(
+  (ref T)(kind: BeaconStateFork.Bellatrix, bellatrixData: bellatrix.HashedBeaconState(
     data: data, root: hash_tree_root(data)))
-func init*(T: type ForkedHashedBeaconState, data: capella.BeaconState):
+func new*(T: type ForkedHashedBeaconState, data: capella.BeaconState):
     ref ForkedHashedBeaconState =
-  (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Capella, capellaData: capella.HashedBeaconState(
+  (ref T)(kind: BeaconStateFork.Capella, capellaData: capella.HashedBeaconState(
     data: data, root: hash_tree_root(data)))
-func init*(T: type ForkedHashedBeaconState, data: eip4844.BeaconState):
+func new*(T: type ForkedHashedBeaconState, data: eip4844.BeaconState):
     ref ForkedHashedBeaconState =
-  (ref ForkedHashedBeaconState)(kind: BeaconStateFork.EIP4844, eip4844Data: eip4844.HashedBeaconState(
+  (ref T)(kind: BeaconStateFork.EIP4844, eip4844Data: eip4844.HashedBeaconState(
     data: data, root: hash_tree_root(data)))
 
 template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =
