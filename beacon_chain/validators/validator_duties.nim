@@ -331,6 +331,7 @@ proc getFeeRecipient(node: BeaconNode,
 
 from web3/engine_api_types import PayloadExecutionStatus
 from ../spec/datatypes/capella import BeaconBlock, ExecutionPayload
+from ../spec/datatypes/eip4844 import BeaconBlock, ExecutionPayload
 
 proc getExecutionPayload[T](
     node: BeaconNode, proposalState: ref ForkedHashedBeaconState,
