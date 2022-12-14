@@ -9,7 +9,7 @@ Before you start, first learn the basics of [Ethereum :octicons-tab-external-16:
 | Item | Requirement| Note |
 |----|------| --- |
 | Memory | 8 GB RAM| - |
-| Storage| 2 TB SSD| Here’s a list of [known good models :octicons-tab-external-16:](https://gist.github.com/yorickdowne/f3a3e79a573bf35767cd002cc977b038){:target="_blank"}. |
+| Storage| 2 TB SSD| Here's a list of [known good models :octicons-tab-external-16:](https://gist.github.com/yorickdowne/f3a3e79a573bf35767cd002cc977b038){:target="_blank"}. |
 | Network |Broadband without data cap| Data consumption at 2-4 TB/month based on the number of your validtors and other load on the network. |
 | Operating system | Linux 64-bit | - |
 
