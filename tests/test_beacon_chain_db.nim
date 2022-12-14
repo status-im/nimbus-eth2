@@ -8,8 +8,7 @@
 {.used.}
 
 import
-  std/[algorithm, options, sequtils],
-  unittest2, snappy,
+  unittest2,
   ../beacon_chain/[beacon_chain_db, interop],
   ../beacon_chain/spec/[beaconstate, forks, state_transition],
   ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
@@ -17,6 +16,10 @@ import
   eth/db/kvstore,
   # test utilies
   ./testutil, ./testdbutil, ./testblockutil, ./teststateutil
+
+from std/algorithm import sort
+from std/sequtils import toSeq
+from snappy import encodeFramed, uncompressedLenFramed
 
 when isMainModule:
   import chronicles # or some random compile error happens...
@@ -109,12 +112,18 @@ proc getTestStates(stateFork: BeaconStateFork): auto =
 
   testStates
 
-# Each of phase 0/altair/bellatrix states gets used twice, so scope them to
-# module
+# Each set of states gets used twice, so scope them to module
 let
   testStatesPhase0    = getTestStates(BeaconStateFork.Phase0)
   testStatesAltair    = getTestStates(BeaconStateFork.Altair)
   testStatesBellatrix = getTestStates(BeaconStateFork.Bellatrix)
+  testStatesCapella   = getTestStates(BeaconStateFork.Capella)
+  testStatesEIP4844   = getTestStates(BeaconStateFork.EIP4844)
+doAssert len(testStatesPhase0) > 8
+doAssert len(testStatesAltair) > 8
+doAssert len(testStatesBellatrix) > 8
+doAssert len(testStatesCapella) > 8
+doAssert len(testStatesEIP4844) > 8
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
@@ -413,6 +422,42 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
+  test "sanity check Capella states" & preset():
+    let db = makeTestDB(SLOTS_PER_EPOCH)
+
+    for state in testStatesCapella:
+      let root = state[].capellaData.root
+      db.putState(root, state[].capellaData.data)
+
+      check:
+        db.containsState(root)
+        hash_tree_root(db.getCapellaStateRef(root)[]) == root
+
+      db.delState(root)
+      check:
+        not db.containsState(root)
+        db.getCapellaStateRef(root).isNil
+
+    db.close()
+
+  test "sanity check EIP4844 states" & preset():
+    let db = makeTestDB(SLOTS_PER_EPOCH)
+
+    for state in testStatesEIP4844:
+      let root = state[].eip4844Data.root
+      db.putState(root, state[].eip4844Data.data)
+
+      check:
+        db.containsState(root)
+        hash_tree_root(db.getEIP4844StateRef(root)[]) == root
+
+      db.delState(root)
+      check:
+        not db.containsState(root)
+        db.getEIP4844StateRef(root).isNil
+
+    db.close()
+
   test "sanity check phase 0 states, reusing buffers" & preset():
     let db = makeTestDB(SLOTS_PER_EPOCH)
     let stateBuffer = (phase0.BeaconStateRef)()
@@ -460,6 +505,46 @@ suite "Beacon chain DB" & preset():
     for state in testStatesBellatrix:
       let root = state[].bellatrixData.root
       db.putState(root, state[].bellatrixData.data)
+
+      check:
+        db.getState(root, stateBuffer[], noRollback)
+        db.containsState(root)
+        hash_tree_root(stateBuffer[]) == root
+
+      db.delState(root)
+      check:
+        not db.containsState(root)
+        not db.getState(root, stateBuffer[], noRollback)
+
+    db.close()
+
+  test "sanity check Capella states, reusing buffers" & preset():
+    let db = makeTestDB(SLOTS_PER_EPOCH)
+    let stateBuffer = (capella.BeaconStateRef)()
+
+    for state in testStatesCapella:
+      let root = state[].capellaData.root
+      db.putState(root, state[].capellaData.data)
+
+      check:
+        db.getState(root, stateBuffer[], noRollback)
+        db.containsState(root)
+        hash_tree_root(stateBuffer[]) == root
+
+      db.delState(root)
+      check:
+        not db.containsState(root)
+        not db.getState(root, stateBuffer[], noRollback)
+
+    db.close()
+
+  test "sanity check EIP4844 states, reusing buffers" & preset():
+    let db = makeTestDB(SLOTS_PER_EPOCH)
+    let stateBuffer = (eip4844.BeaconStateRef)()
+
+    for state in testStatesEIP4844:
+      let root = state[].eip4844Data.root
+      db.putState(root, state[].eip4844Data.data)
 
       check:
         db.getState(root, stateBuffer[], noRollback)
@@ -543,6 +628,58 @@ suite "Beacon chain DB" & preset():
     check:
       state[].bellatrixData.data.slot == 10.Slot
       not db.getState(root, state[].bellatrixData.data, restore)
+
+      # assign() has switched the case object fork
+      state[].kind == BeaconStateFork.Phase0
+      state[].phase0Data.data.slot != 10.Slot
+
+  test "sanity check Capella and cross-fork getState rollback" & preset():
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+      state = (ref ForkedHashedBeaconState)(
+        kind: BeaconStateFork.Capella,
+        capellaData: capella.HashedBeaconState(data: capella.BeaconState(
+          slot: 10.Slot)))
+      root = Eth2Digest()
+
+    db.putCorruptState(BeaconStateFork.Capella, root)
+
+    let restoreAddr = addr dag.headState
+
+    func restore() =
+      assign(state[], restoreAddr[])
+
+    check:
+      state[].capellaData.data.slot == 10.Slot
+      not db.getState(root, state[].capellaData.data, restore)
+
+      # assign() has switched the case object fork
+      state[].kind == BeaconStateFork.Phase0
+      state[].phase0Data.data.slot != 10.Slot
+
+  test "sanity check EIP4844 and cross-fork getState rollback" & preset():
+    var
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
+      state = (ref ForkedHashedBeaconState)(
+        kind: BeaconStateFork.EIP4844,
+        eip4844Data: eip4844.HashedBeaconState(data: eip4844.BeaconState(
+          slot: 10.Slot)))
+      root = Eth2Digest()
+
+    db.putCorruptState(BeaconStateFork.EIP4844, root)
+
+    let restoreAddr = addr dag.headState
+
+    func restore() =
+      assign(state[], restoreAddr[])
+
+    check:
+      state[].eip4844Data.data.slot == 10.Slot
+      not db.getState(root, state[].eip4844Data.data, restore)
 
       # assign() has switched the case object fork
       state[].kind == BeaconStateFork.Phase0
