@@ -702,14 +702,15 @@ func is_partially_withdrawable_validator(
   has_eth1_withdrawal_credential(validator) and
     has_max_effective_balance and has_excess_balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-get_expected_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/capella/beacon-chain.md#new-get_expected_withdrawals
 func get_expected_withdrawals(state: capella.BeaconState): seq[Withdrawal] =
   let epoch = get_current_epoch(state)
   var
     withdrawal_index = state.next_withdrawal_index
     validator_index = state.next_withdrawal_validator_index
     withdrawals: seq[Withdrawal] = @[]
-  for _ in 0 ..< len(state.validators):
+    bound = min(len(state.validators), MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
+  for _ in 0 ..< bound:
     let
       validator = state.validators[validator_index]
       balance = state.balances[validator_index]
@@ -762,11 +763,26 @@ func process_withdrawals*(
         return err("process_withdrawals: invalid validator index")
     decrease_balance(
       state, validator_index, expected_withdrawals[i].amount)
-  if len(expected_withdrawals) > 0:
+
+  # Update the next withdrawal index if this block contained withdrawals
+  if len(expected_withdrawals) != 0:
     let latest_withdrawal = expected_withdrawals[^1]
     state.next_withdrawal_index = WithdrawalIndex(latest_withdrawal.index + 1)
+
+  # Update the next validator index to start the next withdrawal sweep
+  if len(expected_withdrawals) == MAX_WITHDRAWALS_PER_PAYLOAD:
+    # Next sweep starts after the latest withdrawal's validator index
     let next_validator_index =
-      (latest_withdrawal.validator_index + 1) mod lenu64(state.validators)
+      (expected_withdrawals[^1].validator_index + 1) mod
+        lenu64(state.validators)
+    state.next_withdrawal_validator_index = next_validator_index
+  else:
+    # Advance sweep by the max length of the sweep if there was not a full set
+    # of withdrawals
+    let next_index =
+      state.next_withdrawal_validator_index +
+        MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP
+    let next_validator_index = next_index mod lenu64(state.validators)
     state.next_withdrawal_validator_index = next_validator_index
 
   ok()
@@ -808,15 +824,6 @@ func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
   for x in countup(blob_versioned_hashes_offset.int, len(opaque_tx) - 1, 32):
     var versionedHash: VersionedHash
     versionedHash[0 .. 31] = opaque_tx.asSeq.toOpenArray(x, x + 31)
-
-    # TODO there's otherwise a mismatch here where test vectors show valid but
-    # the first byte is 0?
-    # `kzg_commitment_to_versioned_hash` is very clear about the equivalent
-    # first byte having to be 0x01 for it ever to match
-    # this is not in spec per se though
-    if versionedHash[0] == 0:
-      versionedHash[0] = 0x01'u8
-
     res.add versionedHash
   ok res
 

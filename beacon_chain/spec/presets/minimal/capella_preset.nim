@@ -1,5 +1,5 @@
 # Minimal preset - Capella
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/presets/minimal/capella.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/presets/minimal/capella.yaml
 const
   # Max operations per block
   # ---------------------------------------------------------------
@@ -11,3 +11,9 @@ const
   # ---------------------------------------------------------------
   # [customized] 2**2 (= 4)
   MAX_WITHDRAWALS_PER_PAYLOAD* = 4
+
+
+  # Withdrawals processing
+  # ---------------------------------------------------------------
+  # [customized] 2**4 (= 16) validators
+  MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP* = 16

@@ -77,7 +77,7 @@ export
   tables, results, json_serialization, timer, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.3.0-alpha.1"
+const SPEC_VERSION* = "1.3.0-alpha.2"
 ## Spec version we're aiming to be compatible with, right now
 
 const
