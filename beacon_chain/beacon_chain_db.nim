@@ -668,7 +668,7 @@ type GetResult = enum
 proc getSSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult =
   var status = GetResult.notFound
 
-  var outputPtr = addr output # callback is local, ptr wont escape
+  let outputPtr = addr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     status =
       if decodeSSZ(data, outputPtr[]): GetResult.found
@@ -684,7 +684,7 @@ proc putSSZ(db: KvStoreRef, key: openArray[byte], v: auto) =
 proc getSnappySSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult =
   var status = GetResult.notFound
 
-  var outputPtr = addr output # callback is local, ptr wont escape
+  let outputPtr = addr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     status =
       if decodeSnappySSZ(data, outputPtr[]): GetResult.found
@@ -700,7 +700,7 @@ proc putSnappySSZ(db: KvStoreRef, key: openArray[byte], v: auto) =
 proc getSZSSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult =
   var status = GetResult.notFound
 
-  var outputPtr = addr output # callback is local, ptr wont escape
+  let outputPtr = addr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     status =
       if decodeSZSSZ(data, outputPtr[]): GetResult.found
@@ -1312,6 +1312,8 @@ proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
     db.backend.contains(subkey(phase0.BeaconState, key)).expectDb()
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bool =
+  db.statesNoVal[BeaconStateFork.EIP4844].contains(key.data).expectDb or
+  db.statesNoVal[BeaconStateFork.Capella].contains(key.data).expectDb or
   db.statesNoVal[BeaconStateFork.Bellatrix].contains(key.data).expectDb or
   db.statesNoVal[BeaconStateFork.Altair].contains(key.data).expectDb or
   db.statesNoVal[BeaconStateFork.Phase0].contains(key.data).expectDb or

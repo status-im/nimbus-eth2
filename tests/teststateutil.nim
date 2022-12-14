@@ -68,11 +68,15 @@ proc getTestStates*(
     info = ForkedEpochInfo()
     cfg = defaultRuntimeConfig
 
-  if stateFork in [BeaconStateFork.Altair, BeaconStateFork.Bellatrix]:
+  static: doAssert high(BeaconStateFork) == BeaconStateFork.EIP4844
+  if stateFork >= BeaconStateFork.Altair:
     cfg.ALTAIR_FORK_EPOCH = 1.Epoch
-
-  if stateFork == BeaconStateFork.Bellatrix:
-    cfg.BELLATRIX_FORK_EPOCH = 1.Epoch
+  if stateFork >= BeaconStateFork.Bellatrix:
+    cfg.BELLATRIX_FORK_EPOCH = 2.Epoch
+  if stateFork >= BeaconStateFork.Capella:
+    cfg.CAPELLA_FORK_EPOCH = 3.Epoch
+  if stateFork >= BeaconStateFork.EIP4844:
+    cfg.EIP4844_FORK_EPOCH = 4.Epoch
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.start_slot
