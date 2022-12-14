@@ -1160,7 +1160,8 @@ proc writeValue*[
     writer.writeField("version", forkIdentifier "capella")
     writer.writeField("data", value.capellaData)
   of BeaconBlockFork.EIP4844:
-    raiseAssert $eip4844ImplementationMissing
+    writer.writeField("version", forkIdentifier "eip4844")
+    writer.writeField("data", value.eip4844Data)
   writer.endRecord()
 
 ## RestPublishedBeaconBlockBody
@@ -1591,7 +1592,8 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("version", "capella")
     writer.writeField("data", value.capellaData)
   of BeaconBlockFork.EIP4844:
-    raiseAssert $eip4844ImplementationMissing
+    writer.writeField("version", "eip4844")
+    writer.writeField("data", value.eip4844Data)
   writer.endRecord()
 
 # ForkedHashedBeaconState is used where a `ForkedBeaconState` normally would

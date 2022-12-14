@@ -725,6 +725,8 @@ proc registerAttestationInBlock*(
       update_if_lt(
         epochSummary.attestation_min_block_inclusion_distance, inclusion_lag)
 
+from ../spec/datatypes/eip4844 import shortLog
+
 proc registerBeaconBlock*(
     self: var ValidatorMonitor,
     src: MsgSource,

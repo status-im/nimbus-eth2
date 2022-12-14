@@ -321,7 +321,8 @@ proc get_execution_payload[EP](
       asConsensusExecutionPayload(
         await execution_engine.getPayload(payload_id.get))
     else:
-      raiseAssert $capellaImplementationMissing & ": implement getPayload V2"
+      debugRaiseAssert $capellaImplementationMissing & ": implement getPayload V2"
+      default(EP)
 
 proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
@@ -795,6 +796,8 @@ proc makeBlindedBeaconBlockForHeadAndSlot*(
   return ok constructPlainBlindedBlock[BlindedBeaconBlock](
     forkedBlck, executionPayloadHeader)
 
+from ../spec/datatypes/eip4844 import shortLog
+
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
                   validator_index: ValidatorIndex,
@@ -894,6 +897,9 @@ proc proposeBlock(node: BeaconNode,
             message: blck, signature: signature, root: blockRoot)
         elif blck is capella.BeaconBlock:
           capella.SignedBeaconBlock(
+            message: blck, signature: signature, root: blockRoot)
+        elif blck is eip4844.BeaconBlock:
+          eip4844.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
         else:
           static: doAssert "Unknown SignedBeaconBlock type"

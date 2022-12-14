@@ -584,7 +584,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
         BeaconStateFork.Bellatrix, BeaconStateFork.Capella:
       raiseAssert "Attempt to use EIP4844 payload with non-EIP4844 state"
     of BeaconStateFork.EIP4844:
-      raiseAssert $eip4844ImplementationMissing & ": state_transition"
+      debugRaiseAssert $eip4844ImplementationMissing & ": state_transition"
 
 # workaround for https://github.com/nim-lang/Nim/issues/20900 rather than have
 # these be default arguments

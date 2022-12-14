@@ -984,3 +984,6 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
 const capellaImplementationMissing* = false
 
 const eip4844ImplementationMissing* = false
+
+#template debugRaiseAssert*(x: string) = raiseAssert x
+template debugRaiseAssert*(x: string) = discard

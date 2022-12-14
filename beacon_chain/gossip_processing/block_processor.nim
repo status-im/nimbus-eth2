@@ -290,6 +290,17 @@ proc newExecutionPayload*(
     error "newPayload failed", msg = err.msg
     return Opt.none PayloadExecutionStatus
 
+# TODO investigate why this seems to allow compilation even though it doesn't
+# directly address eip4844.ExecutionPayload when complaint was that it didn't
+# know about "eip4844"
+from ../spec/datatypes/eip4844 import SignedBeaconBlock, asTrusted, shortLog
+
+proc newExecutionPayload*(
+    eth1Monitor: Eth1Monitor,
+    executionPayload: eip4844.ExecutionPayload):
+    Future[Opt[PayloadExecutionStatus]] {.async.} =
+  debugRaiseAssert $eip4844ImplementationMissing & ": block_processor.nim:newExecutionPayload"
+
 proc getExecutionValidity(
     eth1Monitor: Eth1Monitor,
     blck: phase0.SignedBeaconBlock | altair.SignedBeaconBlock):
@@ -331,6 +342,12 @@ proc getExecutionValidity(
   except CatchableError as err:
     error "getExecutionValidity: newPayload failed", err = err.msg
     return NewPayloadStatus.noResponse
+
+proc getExecutionValidity(
+    eth1Monitor: Eth1Monitor,
+    blck: eip4844.SignedBeaconBlock):
+    Future[NewPayloadStatus] {.async.} =
+  debugRaiseAssert $eip4844ImplementationMissing & ": block_processor.nim:getExecutionValidity"
 
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
