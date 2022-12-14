@@ -8,6 +8,7 @@
 {.used.}
 
 import
+  chronicles,
   ../../beacon_chain/spec/datatypes/phase0,
   ../../beacon_chain/spec/state_transition,
   ../testutil

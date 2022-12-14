@@ -5,8 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import
-  ../testutil
+import ../testutil
 
 # Tests that depend on `mainnet` vs `minimal` compile-time configuration
 
@@ -21,6 +20,7 @@ import
   ./test_fixture_light_client_sync,
   ./test_fixture_light_client_update_ranking,
   ./test_fixture_sanity_blocks,
-  ./test_fixture_sanity_slots
+  ./test_fixture_sanity_slots,
+  ./test_fixture_transition
 
 summarizeLongTests("ConsensusSpecPreset")
