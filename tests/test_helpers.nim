@@ -135,7 +135,7 @@ suite "Spec helpers":
     cfg.EIP4844_FORK_EPOCH = GENESIS_EPOCH
 
     let
-      state = newClone(initGenesisState(cfg = cfg).capellaData)
+      state = newClone(initGenesisState(cfg = cfg).eip4844Data)
       recipient = Eth1Address.fromHex(
         "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
       withdrawals = @[
