@@ -114,6 +114,20 @@ suite "EF - Bellatrix - Transition " & preset():
 
 from ../../beacon_chain/spec/datatypes/capella import
   BeaconState, SignedBeaconBlock
+
+suite "EF - Capella - Transition " & preset():
+  const TransitionDir =
+    SszTestsDir/const_preset/"capella"/"transition"/"core"/"pyspec_tests"
+
+  for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
+    let transitionInfo = getTransitionInfo(TransitionDir / path)
+    var cfg = defaultRuntimeConfig
+    cfg.CAPELLA_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
+    runTest(
+      bellatrix.BeaconState, capella.BeaconState, bellatrix.SignedBeaconBlock,
+      capella.SignedBeaconBlock, cfg, "EF - Capella - Transition",
+      TransitionDir, path, transitionInfo.fork_block)
+
 from ../../beacon_chain/spec/datatypes/eip4844 import
   BeaconState, SignedBeaconBlock
 
