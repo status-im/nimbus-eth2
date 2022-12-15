@@ -388,6 +388,30 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_update_justified_c OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
++ ForkChoice - minimal/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
++ ForkChoice - minimal/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att OK
++ ForkChoice - minimal/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              OK
++ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/chain_no_attestations       OK
++ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/discard_equivocations       OK
++ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/filtered_block_tree         OK
++ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/genesis                     OK
++ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
++ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
++ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/basic                       OK
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justi OK
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_j OK
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/new_justified_is_later_than OK
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_before_finalized   OK
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_checkpoints        OK
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo OK
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo OK
+  ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots OK
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_update_justified_c OK
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/proposer_boost              OK
++ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
@@ -442,6 +466,7 @@ ConsensusSpecPreset-minimal
 + Light client - Update ranking - minimal/eip4844/light_client/update_ranking/pyspec_tests/u OK
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
 + Sync - minimal/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
++ Sync - minimal/eip4844/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mi OK
@@ -858,7 +883,7 @@ ConsensusSpecPreset-minimal
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 847/855 Fail: 0/855 Skip: 8/855
+OK: 871/880 Fail: 0/880 Skip: 9/880
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2613,4 +2638,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 52/52 Fail: 0/52 Skip: 0/52
 
 ---TOTAL---
-OK: 2303/2311 Fail: 0/2311 Skip: 8/2311
+OK: 2327/2336 Fail: 0/2336 Skip: 9/2336
