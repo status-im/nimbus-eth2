@@ -904,7 +904,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 ```
-OK: 871/880 Fail: 0/880 Skip: 9/880
+OK: 892/901 Fail: 0/901 Skip: 9/901
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2659,4 +2659,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 52/52 Fail: 0/52 Skip: 0/52
 
 ---TOTAL---
-OK: 2327/2336 Fail: 0/2336 Skip: 9/2336
+OK: 2348/2357 Fail: 0/2357 Skip: 9/2357
