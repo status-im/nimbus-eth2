@@ -8,7 +8,6 @@
 {.used.}
 
 import
-  ./test_fixture_fork,
   ./test_fixture_light_client_sync_protocol,
   ./test_fixture_operations,
   ./test_fixture_ssz_consensus_objects,

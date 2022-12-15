@@ -8,7 +8,6 @@
 {.used.}
 
 import
-  ./test_fixture_fork,
   ./test_fixture_operations,
   ./test_fixture_ssz_consensus_objects,
   ./test_fixture_state_transition_epoch
