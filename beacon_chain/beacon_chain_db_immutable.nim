@@ -18,7 +18,7 @@ from ./spec/datatypes/capella import ExecutionPayloadHeader, Withdrawal
 from ./spec/datatypes/eip4844 import ExecutionPayloadHeader
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a phase0 BeaconState for in-place SSZ reading and writing
   Phase0BeaconStateNoImmutableValidators* = object
     # Versioning
@@ -69,7 +69,7 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to an Altair BeaconState for in-place SSZ
   # reading and writing
   AltairBeaconStateNoImmutableValidators* = object
@@ -126,7 +126,7 @@ type
     current_sync_committee*: SyncCommittee     # [New in Altair]
     next_sync_committee*: SyncCommittee        # [New in Altair]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/bellatrix/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/bellatrix/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to a Bellatrix BeaconState for in-place SSZ
   # reading and writing
   BellatrixBeaconStateNoImmutableValidators* = object

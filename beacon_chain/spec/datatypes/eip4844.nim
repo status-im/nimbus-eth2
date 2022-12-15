@@ -173,7 +173,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -311,7 +311,7 @@ type
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
     blob_kzg_commitments*: List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]  # [New in EIP-4844]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
