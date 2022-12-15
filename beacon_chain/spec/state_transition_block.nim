@@ -988,7 +988,7 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeEIP4844Block =
   eip4844.BeaconBlock | eip4844.SigVerifiedBeaconBlock | eip4844.TrustedBeaconBlock
@@ -1020,8 +1020,7 @@ proc process_block*(
 
   ? process_blob_kzg_commitments(state, blck.body)  # [New in EIP-4844]
 
-  # New in EIP-4844, note: Can sync optimistically without this condition, see
-  # note on `is_data_available`
+  # New in EIP-4844
   if not is_data_available(
       blck.slot, hash_tree_root(blck), blck.body.blob_kzg_commitments.asSeq):
     return err("not is_data_available")

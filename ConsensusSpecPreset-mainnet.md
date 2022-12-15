@@ -2,6 +2,20 @@ ConsensusSpecPreset-mainnet
 ===
 ## 
 ```diff
++ EF - Altair - Fork - altair_fork_random_0 [Preset: mainnet]                                OK
++ EF - Altair - Fork - altair_fork_random_1 [Preset: mainnet]                                OK
++ EF - Altair - Fork - altair_fork_random_2 [Preset: mainnet]                                OK
++ EF - Altair - Fork - altair_fork_random_3 [Preset: mainnet]                                OK
++ EF - Altair - Fork - altair_fork_random_duplicate_attestations [Preset: mainnet]           OK
++ EF - Altair - Fork - altair_fork_random_low_balances [Preset: mainnet]                     OK
++ EF - Altair - Fork - altair_fork_random_misc_balances [Preset: mainnet]                    OK
++ EF - Altair - Fork - altair_fork_random_mismatched_attestations [Preset: mainnet]          OK
++ EF - Altair - Fork - fork_base_state [Preset: mainnet]                                     OK
++ EF - Altair - Fork - fork_many_next_epoch [Preset: mainnet]                                OK
++ EF - Altair - Fork - fork_next_epoch [Preset: mainnet]                                     OK
++ EF - Altair - Fork - fork_next_epoch_with_block [Preset: mainnet]                          OK
++ EF - Altair - Fork - fork_random_low_balances [Preset: mainnet]                            OK
++ EF - Altair - Fork - fork_random_misc_balances [Preset: mainnet]                           OK
 + EF - Altair - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                  OK
 + EF - Altair - Rewards - empty [Preset: mainnet]                                            OK
 + EF - Altair - Rewards - empty_leak [Preset: mainnet]                                       OK
@@ -62,6 +76,18 @@ ConsensusSpecPreset-mainnet
 + EF - Altair - Transition - transition_with_proposer_slashing_right_before_fork [Preset: ma OK
 + EF - Altair - Transition - transition_with_random_half_participation [Preset: mainnet]     OK
 + EF - Altair - Transition - transition_with_random_three_quarters_participation [Preset: ma OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_0 [Preset: mainnet]                          OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_1 [Preset: mainnet]                          OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_2 [Preset: mainnet]                          OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_3 [Preset: mainnet]                          OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_low_balances [Preset: mainnet]               OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_misc_balances [Preset: mainnet]              OK
++ EF - Bellatrix - Fork - fork_base_state [Preset: mainnet]                                  OK
++ EF - Bellatrix - Fork - fork_many_next_epoch [Preset: mainnet]                             OK
++ EF - Bellatrix - Fork - fork_next_epoch [Preset: mainnet]                                  OK
++ EF - Bellatrix - Fork - fork_next_epoch_with_block [Preset: mainnet]                       OK
++ EF - Bellatrix - Fork - fork_random_low_balances [Preset: mainnet]                         OK
++ EF - Bellatrix - Fork - fork_random_misc_balances [Preset: mainnet]                        OK
 + EF - Bellatrix - Rewards - all_balances_too_low_for_reward [Preset: mainnet]               OK
 + EF - Bellatrix - Rewards - empty [Preset: mainnet]                                         OK
 + EF - Bellatrix - Rewards - empty_leak [Preset: mainnet]                                    OK
@@ -122,6 +148,18 @@ ConsensusSpecPreset-mainnet
 + EF - Bellatrix - Transition - transition_with_proposer_slashing_right_before_fork [Preset: OK
 + EF - Bellatrix - Transition - transition_with_random_half_participation [Preset: mainnet]  OK
 + EF - Bellatrix - Transition - transition_with_random_three_quarters_participation [Preset: OK
++ EF - Capella - Fork - capella_fork_random_0 [Preset: mainnet]                              OK
++ EF - Capella - Fork - capella_fork_random_1 [Preset: mainnet]                              OK
++ EF - Capella - Fork - capella_fork_random_2 [Preset: mainnet]                              OK
++ EF - Capella - Fork - capella_fork_random_3 [Preset: mainnet]                              OK
++ EF - Capella - Fork - capella_fork_random_low_balances [Preset: mainnet]                   OK
++ EF - Capella - Fork - capella_fork_random_misc_balances [Preset: mainnet]                  OK
++ EF - Capella - Fork - fork_base_state [Preset: mainnet]                                    OK
++ EF - Capella - Fork - fork_many_next_epoch [Preset: mainnet]                               OK
++ EF - Capella - Fork - fork_next_epoch [Preset: mainnet]                                    OK
++ EF - Capella - Fork - fork_next_epoch_with_block [Preset: mainnet]                         OK
++ EF - Capella - Fork - fork_random_low_balances [Preset: mainnet]                           OK
++ EF - Capella - Fork - fork_random_misc_balances [Preset: mainnet]                          OK
 + EF - Capella - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
 + EF - Capella - Rewards - empty [Preset: mainnet]                                           OK
 + EF - Capella - Rewards - empty_leak [Preset: mainnet]                                      OK
@@ -182,6 +220,18 @@ ConsensusSpecPreset-mainnet
 + EF - Capella - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
 + EF - Capella - Transition - transition_with_random_half_participation [Preset: mainnet]    OK
 + EF - Capella - Transition - transition_with_random_three_quarters_participation [Preset: m OK
++ EF - EIP4844 - Fork - eip4844_fork_random_0 [Preset: mainnet]                              OK
++ EF - EIP4844 - Fork - eip4844_fork_random_1 [Preset: mainnet]                              OK
++ EF - EIP4844 - Fork - eip4844_fork_random_2 [Preset: mainnet]                              OK
++ EF - EIP4844 - Fork - eip4844_fork_random_3 [Preset: mainnet]                              OK
++ EF - EIP4844 - Fork - eip4844_fork_random_low_balances [Preset: mainnet]                   OK
++ EF - EIP4844 - Fork - eip4844_fork_random_misc_balances [Preset: mainnet]                  OK
++ EF - EIP4844 - Fork - fork_base_state [Preset: mainnet]                                    OK
++ EF - EIP4844 - Fork - fork_many_next_epoch [Preset: mainnet]                               OK
++ EF - EIP4844 - Fork - fork_next_epoch [Preset: mainnet]                                    OK
++ EF - EIP4844 - Fork - fork_next_epoch_with_block [Preset: mainnet]                         OK
++ EF - EIP4844 - Fork - fork_random_low_balances [Preset: mainnet]                           OK
++ EF - EIP4844 - Fork - fork_random_misc_balances [Preset: mainnet]                          OK
 + EF - EIP4844 - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
 + EF - EIP4844 - Rewards - empty [Preset: mainnet]                                           OK
 + EF - EIP4844 - Rewards - empty_leak [Preset: mainnet]                                      OK
@@ -748,40 +798,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Phase 0 - Sanity - Blocks - skipped_slots [Preset: mainnet]                 OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
-+ altair_fork_random_0                                                                       OK
-+ altair_fork_random_1                                                                       OK
-+ altair_fork_random_2                                                                       OK
-+ altair_fork_random_3                                                                       OK
-+ altair_fork_random_duplicate_attestations                                                  OK
-+ altair_fork_random_low_balances                                                            OK
-+ altair_fork_random_misc_balances                                                           OK
-+ altair_fork_random_mismatched_attestations                                                 OK
-+ bellatrix_fork_random_0                                                                    OK
-+ bellatrix_fork_random_1                                                                    OK
-+ bellatrix_fork_random_2                                                                    OK
-+ bellatrix_fork_random_3                                                                    OK
-+ bellatrix_fork_random_low_balances                                                         OK
-+ bellatrix_fork_random_misc_balances                                                        OK
-+ capella_fork_random_0                                                                      OK
-+ capella_fork_random_1                                                                      OK
-+ capella_fork_random_2                                                                      OK
-+ capella_fork_random_3                                                                      OK
-+ capella_fork_random_low_balances                                                           OK
-+ capella_fork_random_misc_balances                                                          OK
-+ eip4844_fork_random_0                                                                      OK
-+ eip4844_fork_random_1                                                                      OK
-+ eip4844_fork_random_2                                                                      OK
-+ eip4844_fork_random_3                                                                      OK
-+ eip4844_fork_random_low_balances                                                           OK
-+ eip4844_fork_random_misc_balances                                                          OK
-+ fork_base_state                                                                            OK
-+ fork_many_next_epoch                                                                       OK
-+ fork_next_epoch                                                                            OK
-+ fork_next_epoch_with_block                                                                 OK
-+ fork_random_low_balances                                                                   OK
-+ fork_random_misc_balances                                                                  OK
 ```
-OK: 769/778 Fail: 0/778 Skip: 9/778
+OK: 787/796 Fail: 0/796 Skip: 9/796
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2474,4 +2492,4 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 OK: 51/51 Fail: 0/51 Skip: 0/51
 
 ---TOTAL---
-OK: 2179/2188 Fail: 0/2188 Skip: 9/2188
+OK: 2197/2206 Fail: 0/2206 Skip: 9/2206

@@ -2,6 +2,22 @@ ConsensusSpecPreset-minimal
 ===
 ## 
 ```diff
++ EF - Altair - Fork - altair_fork_random_0 [Preset: minimal]                                OK
++ EF - Altair - Fork - altair_fork_random_1 [Preset: minimal]                                OK
++ EF - Altair - Fork - altair_fork_random_2 [Preset: minimal]                                OK
++ EF - Altair - Fork - altair_fork_random_3 [Preset: minimal]                                OK
++ EF - Altair - Fork - altair_fork_random_duplicate_attestations [Preset: minimal]           OK
++ EF - Altair - Fork - altair_fork_random_large_validator_set [Preset: minimal]              OK
++ EF - Altair - Fork - altair_fork_random_low_balances [Preset: minimal]                     OK
++ EF - Altair - Fork - altair_fork_random_misc_balances [Preset: minimal]                    OK
++ EF - Altair - Fork - altair_fork_random_mismatched_attestations [Preset: minimal]          OK
++ EF - Altair - Fork - fork_base_state [Preset: minimal]                                     OK
++ EF - Altair - Fork - fork_many_next_epoch [Preset: minimal]                                OK
++ EF - Altair - Fork - fork_next_epoch [Preset: minimal]                                     OK
++ EF - Altair - Fork - fork_next_epoch_with_block [Preset: minimal]                          OK
++ EF - Altair - Fork - fork_random_large_validator_set [Preset: minimal]                     OK
++ EF - Altair - Fork - fork_random_low_balances [Preset: minimal]                            OK
++ EF - Altair - Fork - fork_random_misc_balances [Preset: minimal]                           OK
 + EF - Altair - Rewards - all_balances_too_low_for_reward [Preset: minimal]                  OK
 + EF - Altair - Rewards - empty [Preset: minimal]                                            OK
 + EF - Altair - Rewards - empty_leak [Preset: minimal]                                       OK
@@ -66,6 +82,20 @@ ConsensusSpecPreset-minimal
 + EF - Altair - Transition - transition_with_random_three_quarters_participation [Preset: mi OK
 + EF - Altair - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minima OK
 + EF - Altair - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minim OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_0 [Preset: minimal]                          OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_1 [Preset: minimal]                          OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_2 [Preset: minimal]                          OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_3 [Preset: minimal]                          OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_large_validator_set [Preset: minimal]        OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_low_balances [Preset: minimal]               OK
++ EF - Bellatrix - Fork - bellatrix_fork_random_misc_balances [Preset: minimal]              OK
++ EF - Bellatrix - Fork - fork_base_state [Preset: minimal]                                  OK
++ EF - Bellatrix - Fork - fork_many_next_epoch [Preset: minimal]                             OK
++ EF - Bellatrix - Fork - fork_next_epoch [Preset: minimal]                                  OK
++ EF - Bellatrix - Fork - fork_next_epoch_with_block [Preset: minimal]                       OK
++ EF - Bellatrix - Fork - fork_random_large_validator_set [Preset: minimal]                  OK
++ EF - Bellatrix - Fork - fork_random_low_balances [Preset: minimal]                         OK
++ EF - Bellatrix - Fork - fork_random_misc_balances [Preset: minimal]                        OK
 + EF - Bellatrix - Rewards - all_balances_too_low_for_reward [Preset: minimal]               OK
 + EF - Bellatrix - Rewards - empty [Preset: minimal]                                         OK
 + EF - Bellatrix - Rewards - empty_leak [Preset: minimal]                                    OK
@@ -130,6 +160,20 @@ ConsensusSpecPreset-minimal
 + EF - Bellatrix - Transition - transition_with_random_three_quarters_participation [Preset: OK
 + EF - Bellatrix - Transition - transition_with_voluntary_exit_right_after_fork [Preset: min OK
 + EF - Bellatrix - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mi OK
++ EF - Capella - Fork - capella_fork_random_0 [Preset: minimal]                              OK
++ EF - Capella - Fork - capella_fork_random_1 [Preset: minimal]                              OK
++ EF - Capella - Fork - capella_fork_random_2 [Preset: minimal]                              OK
++ EF - Capella - Fork - capella_fork_random_3 [Preset: minimal]                              OK
++ EF - Capella - Fork - capella_fork_random_large_validator_set [Preset: minimal]            OK
++ EF - Capella - Fork - capella_fork_random_low_balances [Preset: minimal]                   OK
++ EF - Capella - Fork - capella_fork_random_misc_balances [Preset: minimal]                  OK
++ EF - Capella - Fork - fork_base_state [Preset: minimal]                                    OK
++ EF - Capella - Fork - fork_many_next_epoch [Preset: minimal]                               OK
++ EF - Capella - Fork - fork_next_epoch [Preset: minimal]                                    OK
++ EF - Capella - Fork - fork_next_epoch_with_block [Preset: minimal]                         OK
++ EF - Capella - Fork - fork_random_large_validator_set [Preset: minimal]                    OK
++ EF - Capella - Fork - fork_random_low_balances [Preset: minimal]                           OK
++ EF - Capella - Fork - fork_random_misc_balances [Preset: minimal]                          OK
 + EF - Capella - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
 + EF - Capella - Rewards - empty [Preset: minimal]                                           OK
 + EF - Capella - Rewards - empty_leak [Preset: minimal]                                      OK
@@ -194,6 +238,20 @@ ConsensusSpecPreset-minimal
 + EF - Capella - Transition - transition_with_random_three_quarters_participation [Preset: m OK
 + EF - Capella - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minim OK
 + EF - Capella - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
++ EF - EIP4844 - Fork - eip4844_fork_random_0 [Preset: minimal]                              OK
++ EF - EIP4844 - Fork - eip4844_fork_random_1 [Preset: minimal]                              OK
++ EF - EIP4844 - Fork - eip4844_fork_random_2 [Preset: minimal]                              OK
++ EF - EIP4844 - Fork - eip4844_fork_random_3 [Preset: minimal]                              OK
++ EF - EIP4844 - Fork - eip4844_fork_random_large_validator_set [Preset: minimal]            OK
++ EF - EIP4844 - Fork - eip4844_fork_random_low_balances [Preset: minimal]                   OK
++ EF - EIP4844 - Fork - eip4844_fork_random_misc_balances [Preset: minimal]                  OK
++ EF - EIP4844 - Fork - fork_base_state [Preset: minimal]                                    OK
++ EF - EIP4844 - Fork - fork_many_next_epoch [Preset: minimal]                               OK
++ EF - EIP4844 - Fork - fork_next_epoch [Preset: minimal]                                    OK
++ EF - EIP4844 - Fork - fork_next_epoch_with_block [Preset: minimal]                         OK
++ EF - EIP4844 - Fork - fork_random_large_validator_set [Preset: minimal]                    OK
++ EF - EIP4844 - Fork - fork_random_low_balances [Preset: minimal]                           OK
++ EF - EIP4844 - Fork - fork_random_misc_balances [Preset: minimal]                          OK
 + EF - EIP4844 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
 + EF - EIP4844 - Rewards - empty [Preset: minimal]                                           OK
 + EF - EIP4844 - Rewards - empty_leak [Preset: minimal]                                      OK
@@ -845,45 +903,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
-+ altair_fork_random_0                                                                       OK
-+ altair_fork_random_1                                                                       OK
-+ altair_fork_random_2                                                                       OK
-+ altair_fork_random_3                                                                       OK
-+ altair_fork_random_duplicate_attestations                                                  OK
-+ altair_fork_random_large_validator_set                                                     OK
-+ altair_fork_random_low_balances                                                            OK
-+ altair_fork_random_misc_balances                                                           OK
-+ altair_fork_random_mismatched_attestations                                                 OK
-+ bellatrix_fork_random_0                                                                    OK
-+ bellatrix_fork_random_1                                                                    OK
-+ bellatrix_fork_random_2                                                                    OK
-+ bellatrix_fork_random_3                                                                    OK
-+ bellatrix_fork_random_large_validator_set                                                  OK
-+ bellatrix_fork_random_low_balances                                                         OK
-+ bellatrix_fork_random_misc_balances                                                        OK
-+ capella_fork_random_0                                                                      OK
-+ capella_fork_random_1                                                                      OK
-+ capella_fork_random_2                                                                      OK
-+ capella_fork_random_3                                                                      OK
-+ capella_fork_random_large_validator_set                                                    OK
-+ capella_fork_random_low_balances                                                           OK
-+ capella_fork_random_misc_balances                                                          OK
-+ eip4844_fork_random_0                                                                      OK
-+ eip4844_fork_random_1                                                                      OK
-+ eip4844_fork_random_2                                                                      OK
-+ eip4844_fork_random_3                                                                      OK
-+ eip4844_fork_random_large_validator_set                                                    OK
-+ eip4844_fork_random_low_balances                                                           OK
-+ eip4844_fork_random_misc_balances                                                          OK
-+ fork_base_state                                                                            OK
-+ fork_many_next_epoch                                                                       OK
-+ fork_next_epoch                                                                            OK
-+ fork_next_epoch_with_block                                                                 OK
-+ fork_random_large_validator_set                                                            OK
-+ fork_random_low_balances                                                                   OK
-+ fork_random_misc_balances                                                                  OK
 ```
-OK: 871/880 Fail: 0/880 Skip: 9/880
+OK: 892/901 Fail: 0/901 Skip: 9/901
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2638,4 +2659,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 52/52 Fail: 0/52 Skip: 0/52
 
 ---TOTAL---
-OK: 2327/2336 Fail: 0/2336 Skip: 9/2336
+OK: 2348/2357 Fail: 0/2357 Skip: 9/2357
