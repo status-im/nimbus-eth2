@@ -348,6 +348,22 @@ ConsensusSpecPreset-mainnet
   ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
++ ForkChoice - mainnet/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_grea OK
++ ForkChoice - mainnet/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_ OK
++ ForkChoice - mainnet/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
++ ForkChoice - mainnet/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att OK
++ ForkChoice - mainnet/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              OK
++ ForkChoice - mainnet/eip4844/fork_choice/get_head/pyspec_tests/chain_no_attestations       OK
++ ForkChoice - mainnet/eip4844/fork_choice/get_head/pyspec_tests/discard_equivocations       OK
++ ForkChoice - mainnet/eip4844/fork_choice/get_head/pyspec_tests/genesis                     OK
++ ForkChoice - mainnet/eip4844/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
++ ForkChoice - mainnet/eip4844/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
++ ForkChoice - mainnet/eip4844/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
++ ForkChoice - mainnet/eip4844/fork_choice/on_block/pyspec_tests/basic                       OK
++ ForkChoice - mainnet/eip4844/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
+  ForkChoice - mainnet/eip4844/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
++ ForkChoice - mainnet/eip4844/fork_choice/on_block/pyspec_tests/proposer_boost              OK
++ ForkChoice - mainnet/eip4844/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
 + ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_great OK
 + ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_n OK
 + ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
@@ -378,6 +394,7 @@ ConsensusSpecPreset-mainnet
 + Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
 + Sync - mainnet/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
 + Sync - mainnet/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
++ Sync - mainnet/eip4844/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]         OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: ma OK
@@ -764,7 +781,7 @@ ConsensusSpecPreset-mainnet
 + fork_random_low_balances                                                                   OK
 + fork_random_misc_balances                                                                  OK
 ```
-OK: 753/761 Fail: 0/761 Skip: 8/761
+OK: 769/778 Fail: 0/778 Skip: 9/778
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2457,4 +2474,4 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 OK: 51/51 Fail: 0/51 Skip: 0/51
 
 ---TOTAL---
-OK: 2163/2171 Fail: 0/2171 Skip: 8/2171
+OK: 2179/2188 Fail: 0/2188 Skip: 9/2188
