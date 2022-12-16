@@ -406,6 +406,7 @@ type
   # This doesn't know about forks or branches in the DAG. It's for straight,
   # linear chunks of the chain.
   StateCache* = object
+    total_active_balance*: Table[Epoch, Gwei]
     shuffled_active_validator_indices*: Table[Epoch, seq[ValidatorIndex]]
     beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
@@ -924,6 +925,14 @@ func prune*(cache: var StateCache, epoch: Epoch) =
 
   var drops: seq[Slot]
   block:
+    for k in cache.total_active_balance.keys:
+      if k < pruneEpoch:
+        drops.add pruneEpoch.start_slot
+    for drop in drops:
+      cache.total_active_balance.del drop.epoch
+    drops.setLen(0)
+
+  block:
     for k in cache.shuffled_active_validator_indices.keys:
       if k < pruneEpoch:
         drops.add pruneEpoch.start_slot
@@ -948,6 +957,7 @@ func prune*(cache: var StateCache, epoch: Epoch) =
     drops.setLen(0)
 
 func clear*(cache: var StateCache) =
+  cache.total_active_balance.clear
   cache.shuffled_active_validator_indices.clear
   cache.beacon_proposer_indices.clear
   cache.sync_committees.clear

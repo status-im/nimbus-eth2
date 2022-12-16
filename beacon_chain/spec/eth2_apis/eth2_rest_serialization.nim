@@ -612,15 +612,12 @@ proc readValue*(reader: var JsonReader[RestJson], value: var Epoch) {.
 proc writeValue*(writer: var JsonWriter[RestJson],
                  epochFlags: EpochParticipationFlags)
                 {.raises: [IOError, Defect].} =
-  for e in writer.stepwiseArrayCreation(epochFlags.asHashList):
+  for e in writer.stepwiseArrayCreation(epochFlags.asList):
     writer.writeValue $e
 
 proc readValue*(reader: var JsonReader[RestJson],
                 epochFlags: var EpochParticipationFlags)
                {.raises: [SerializationError, IOError, Defect].} =
-  # Please note that this function won't compute the cached hash tree roots
-  # immediately. They will be computed on the first HTR attempt.
-
   for e in reader.readArray(string):
     let parsed = try:
       parseBiggestUInt(e)
@@ -632,7 +629,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue(
         "The usigned integer value should fit in 8 bits")
 
-    if not epochFlags.data.add(uint8(parsed)):
+    if not epochFlags.asList.add(uint8(parsed)):
       reader.raiseUnexpectedValue(
         "The participation flags list size exceeds limit")
 

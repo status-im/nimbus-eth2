@@ -78,7 +78,7 @@ type
   ParticipationFlags* = uint8
 
   EpochParticipationFlags* =
-    distinct HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    distinct List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/beacon-chain.md#syncaggregate
   SyncAggregate* = object
@@ -589,26 +589,39 @@ template `[]`*(arr: array[SYNC_COMMITTEE_SIZE, auto] | seq;
 makeLimitedU8(SyncSubcommitteeIndex, SYNC_COMMITTEE_SUBNET_COUNT)
 makeLimitedU16(IndexInSyncCommittee, SYNC_COMMITTEE_SIZE)
 
-template asHashList*(epochFlags: EpochParticipationFlags): untyped =
-  HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
+template asList*(epochFlags: EpochParticipationFlags): untyped =
+  List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] epochFlags
+template asList*(epochFlags: var EpochParticipationFlags): untyped =
+  let tmp = cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr epochFlags)
+  tmp[]
+
+template asSeq*(epochFlags: EpochParticipationFlags): untyped =
+  seq[ParticipationFlags] asList(epochFlags)
+
+template asSeq*(epochFlags: var EpochParticipationFlags): untyped =
+  let tmp = cast[ptr seq[ParticipationFlags]](addr epochFlags)
+  tmp[]
 
 template item*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex): ParticipationFlags =
-  asHashList(epochFlags).item(idx)
+  asList(epochFlags)[idx]
 
 template `[]`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex|uint64): ParticipationFlags =
-  asHashList(epochFlags)[idx]
+  asList(epochFlags)[idx]
 
 template `[]=`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex, flags: ParticipationFlags) =
-  asHashList(epochFlags)[idx] = flags
+  asList(epochFlags)[idx] = flags
 
 template add*(epochFlags: var EpochParticipationFlags, flags: ParticipationFlags): bool =
-  asHashList(epochFlags).add flags
+  asList(epochFlags).add flags
 
 template len*(epochFlags: EpochParticipationFlags): int =
-  asHashList(epochFlags).len
+  asList(epochFlags).len
 
-template data*(epochFlags: EpochParticipationFlags): untyped =
-  asHashList(epochFlags).data
+template assign*(v: var EpochParticipationFlags, src: EpochParticipationFlags) =
+  # TODO https://github.com/nim-lang/Nim/issues/21123
+  mixin assign
+  var tmp = cast[ptr seq[ParticipationFlags]](addr v)
+  assign(tmp[], distinctBase src)
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (
