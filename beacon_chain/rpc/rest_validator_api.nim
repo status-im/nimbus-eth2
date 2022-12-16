@@ -308,8 +308,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlockV2
   router.api(MethodGet, "/eth/v2/validator/blocks/{slot}") do (
-    slot: Slot, randao_reveal: Option[ValidatorSig],
-    graffiti: Option[GraffitiBytes], skip_randao_verification: Option[string]) -> RestApiResponse:
+      slot: Slot, randao_reveal: Option[ValidatorSig],
+      graffiti: Option[GraffitiBytes],
+      skip_randao_verification: Option[string]) -> RestApiResponse:
     let message =
       block:
         let qslot = block:
@@ -363,13 +364,18 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                                $res.error())
             res.get()
-        let proposer = node.dag.getProposer(qhead, qslot)
+        let
+          proposer = node.dag.getProposer(qhead, qslot)
         if proposer.isNone():
           return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
+
+        if not node.verifyRandao(
+            qslot, proposer.get(), qrandao, qskip_randao_verification):
+          return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
+
         let res =
           await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
-            node, qrandao, proposer.get(), qgraffiti, qhead, qslot,
-            qskip_randao_verification)
+            node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
         if res.isErr():
           return RestApiResponse.jsonError(Http400, res.error())
         res.get()
@@ -378,8 +384,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
   # https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/blinded_block.yaml
   router.api(MethodGet, "/eth/v1/validator/blinded_blocks/{slot}") do (
-    slot: Slot, randao_reveal: Option[ValidatorSig],
-    graffiti: Option[GraffitiBytes]) -> RestApiResponse:
+      slot: Slot, randao_reveal: Option[ValidatorSig],
+      graffiti: Option[GraffitiBytes],
+      skip_randao_verification: Option[string]) -> RestApiResponse:
     ## Requests a beacon node to produce a valid blinded block, which can then
     ## be signed by a validator. A blinded block is a block with only a
     ## transactions root, rather than a full transactions list.
@@ -408,6 +415,15 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, InvalidSlotValueError,
                                          "Slot cannot be in the future")
       res
+    let qskip_randao_verification =
+      if skip_randao_verification.isNone():
+        false
+      else:
+        let res = skip_randao_verification.get()
+        if res.isErr() or res.get() != "":
+          return RestApiResponse.jsonError(Http400,
+                                            InvalidSkipRandaoVerificationValue)
+        true
     let qrandao =
       if randao_reveal.isNone():
         return RestApiResponse.jsonError(Http400, MissingRandaoRevealValue)
@@ -438,6 +454,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     let proposer = node.dag.getProposer(qhead, qslot)
     if proposer.isNone():
       return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
+
+    if not node.verifyRandao(
+        qslot, proposer.get(), qrandao, qskip_randao_verification):
+      return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     template responsePlain(response: untyped): untyped =
       if contentType == sszMediaType:

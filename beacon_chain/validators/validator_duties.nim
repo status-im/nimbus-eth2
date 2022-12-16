@@ -432,7 +432,6 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
-    skip_randao_verification_bool: bool,
     execution_payload: Opt[EP],
     transactions_root: Opt[Eth2Digest],
     execution_payload_root: Opt[Eth2Digest]):
@@ -455,9 +454,9 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
   let
     state = maybeState.get
     payloadFut =
-      if executionPayload.isSome:
+      if execution_payload.isSome:
         let fut = newFuture[Opt[EP]]("given-payload")
-        fut.complete(executionPayload)
+        fut.complete(execution_payload)
         fut
       elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
             not (
@@ -510,10 +509,7 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
       (static(default(SignedBLSToExecutionChangeList))),
       noRollback, # Temporary state - no need for rollback
       cache,
-      # makeBeaconBlock doesn't verify BLS at all, but does have special case
-      # for skipRandaoVerification separately
-      verificationFlags =
-        if skip_randao_verification_bool: {skipRandaoVerification} else: {},
+      verificationFlags = {},
       transactions_root = transactions_root,
       execution_payload_root = execution_payload_root).mapErr do (error: cstring) -> string:
     # This is almost certainly a bug, but it's complex enough that there's a
@@ -530,21 +526,10 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot):
-    Future[ForkedBlockResult] {.async.} =
-  return await makeBeaconBlockForHeadAndSlot[EP](
+    Future[ForkedBlockResult] =
+  return makeBeaconBlockForHeadAndSlot[EP](
     node, randao_reveal, validator_index, graffiti, head, slot,
-    false, execution_payload = Opt.none(EP),
-    transactions_root = Opt.none(Eth2Digest),
-    execution_payload_root = Opt.none(Eth2Digest))
-
-proc makeBeaconBlockForHeadAndSlot*[EP](
-    node: BeaconNode, randao_reveal: ValidatorSig,
-    validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
-    slot: Slot, skip_randao_verification: bool):
-    Future[ForkedBlockResult] {.async.} =
-  return await makeBeaconBlockForHeadAndSlot[EP](
-    node, randao_reveal, validator_index, graffiti, head, slot,
-    skip_randao_verification, execution_payload = Opt.none(EP),
+    execution_payload = Opt.none(EP),
     transactions_root = Opt.none(Eth2Digest),
     execution_payload_root = Opt.none(Eth2Digest))
 
@@ -695,7 +680,6 @@ proc getBlindedBlockParts(
 
   let newBlock = await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
     node, randao, validator_index, graffiti, head, slot,
-    skip_randao_verification_bool = false,
     execution_payload = Opt.some shimExecutionPayload,
     transactions_root = Opt.some executionPayloadHeader.get.transactions_root,
     execution_payload_root =

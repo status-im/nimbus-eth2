@@ -92,10 +92,7 @@ proc process_randao(
   # Verify RANDAO reveal
   let epoch = state.get_current_epoch()
 
-  if skipRandaoVerification in flags:
-    if body.randao_reveal.toRaw != ValidatorSig.infinity.toRaw:
-      return err("process_randao: expected point-at-infinity for skipRandaoVerification")
-  elif skipBlsValidation notin flags:
+  if skipBlsValidation notin flags and body.randao_reveal isnot TrustedSig:
     let proposer_pubkey = state.validators.item(proposer_index.get).pubkey
 
     # `state_transition.makeBeaconBlock` ensures this is run with a trusted
@@ -103,10 +100,7 @@ proc process_randao(
     # epoch signatures still have to be verified.
     if not verify_epoch_signature(
         state.fork, state.genesis_validators_root, epoch, proposer_pubkey,
-        when body.randao_reveal is ValidatorSig:
-          body.randao_reveal
-        else:
-          isomorphicCast[ValidatorSig](body.randao_reveal)):
+        body.randao_reveal):
 
       return err("process_randao: invalid epoch signature")
 
