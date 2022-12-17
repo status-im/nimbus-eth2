@@ -558,10 +558,8 @@ type
     # Represent in full; for the next epoch, current_epoch_participation in
     # epoch n is previous_epoch_participation in epoch n+1 but this doesn't
     # generalize.
-    previous_epoch_participation*:
-      List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
-    current_epoch_participation*:
-      List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
 
     justification_bits*: JustificationBits
     previous_justified_checkpoint*: Checkpoint
@@ -605,7 +603,7 @@ template asSeq*(epochFlags: var EpochParticipationFlags): untyped =
 template item*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex): ParticipationFlags =
   asList(epochFlags)[idx]
 
-template `[]`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex|uint64): ParticipationFlags =
+template `[]`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex|uint64|int): ParticipationFlags =
   asList(epochFlags)[idx]
 
 template `[]=`*(epochFlags: EpochParticipationFlags, idx: ValidatorIndex, flags: ParticipationFlags) =
@@ -616,6 +614,11 @@ template add*(epochFlags: var EpochParticipationFlags, flags: ParticipationFlags
 
 template len*(epochFlags: EpochParticipationFlags): int =
   asList(epochFlags).len
+
+template low*(epochFlags: EpochParticipationFlags): int =
+  asSeq(epochFlags).low
+template high*(epochFlags: EpochParticipationFlags): int =
+  asSeq(epochFlags).high
 
 template assign*(v: var EpochParticipationFlags, src: EpochParticipationFlags) =
   # TODO https://github.com/nim-lang/Nim/issues/21123

@@ -143,8 +143,8 @@ func diffStates*(state0, state1: bellatrix.BeaconState): BeaconStateDiff =
     slashing: state1.slashings[state0.slot.epoch.uint64 mod
       EPOCHS_PER_HISTORICAL_VECTOR.uint64],
 
-    previous_epoch_participation: state1.previous_epoch_participation.data,
-    current_epoch_participation: state1.current_epoch_participation.data,
+    previous_epoch_participation: state1.previous_epoch_participation,
+    current_epoch_participation: state1.current_epoch_participation,
 
     justification_bits: state1.justification_bits,
     previous_justified_checkpoint: state1.previous_justified_checkpoint,
@@ -192,9 +192,9 @@ func applyDiff*(
   assign(state.slashings.mitem(epochIndex), stateDiff.slashing)
 
   assign(
-    state.previous_epoch_participation.data, stateDiff.previous_epoch_participation)
+    state.previous_epoch_participation, stateDiff.previous_epoch_participation)
   assign(
-    state.current_epoch_participation.data, stateDiff.current_epoch_participation)
+    state.current_epoch_participation, stateDiff.current_epoch_participation)
 
   state.justification_bits = stateDiff.justification_bits
   assign(
