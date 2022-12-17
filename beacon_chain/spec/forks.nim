@@ -866,11 +866,21 @@ type
     genesis_validators_root: Eth2Digest
     slot: Slot
 
+func readSszForkedHashedBeaconState*(
+    cfg: RuntimeConfig, slot: Slot, data: openArray[byte]):
+    ForkedHashedBeaconState {.raises: [Defect, SszError].} =
+  # TODO https://github.com/nim-lang/Nim/issues/19357
+  result = ForkedHashedBeaconState(
+    kind: cfg.stateForkAtEpoch(slot.epoch()))
+
+  withState(result):
+    readSszBytes(data, forkyState.data)
+    forkyState.root = hash_tree_root(forkyState.data)
+
 func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
     ForkedHashedBeaconState {.raises: [Defect, SszError].} =
-  ## Helper to read a header from bytes when it's not certain what kind of state
-  ## it is - this happens for example when loading an SSZ state from command
-  ## line
+  ## Read a state picking the right fork by first reading the slot from the byte
+  ## source
   if data.len() < sizeof(BeaconStateHeader):
     raise (ref MalformedSszError)(msg: "Not enough data for BeaconState header")
   let header = SSZ.decode(
@@ -878,12 +888,7 @@ func readSszForkedHashedBeaconState*(cfg: RuntimeConfig, data: openArray[byte]):
     BeaconStateHeader)
 
   # TODO https://github.com/nim-lang/Nim/issues/19357
-  result = ForkedHashedBeaconState(
-    kind: cfg.stateForkAtEpoch(header.slot.epoch()))
-
-  withState(result):
-    readSszBytes(data, forkyState.data)
-    forkyState.root = hash_tree_root(forkyState.data)
+  result = readSszForkedHashedBeaconState(cfg, header.slot, data)
 
 type
   ForkedBeaconBlockHeader = object
