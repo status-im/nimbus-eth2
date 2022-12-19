@@ -477,7 +477,8 @@ proc init*(T: type BeaconNode,
         #      that would do only this - see Paul's proposal for this.
         let eth1Monitor = Eth1Monitor.init(
           cfg,
-          metadata.depositContractDeployedAt,
+          metadata.depositContractBlock,
+          metadata.depositContractBlockHash,
           db,
           nil,
           config.web3Urls,
@@ -573,7 +574,8 @@ proc init*(T: type BeaconNode,
   if eth1Monitor.isNil and config.web3Urls.len > 0:
     eth1Monitor = Eth1Monitor.init(
       cfg,
-      metadata.depositContractDeployedAt,
+      metadata.depositContractBlock,
+      metadata.depositContractBlockHash,
       db,
       getBeaconTime,
       config.web3Urls,

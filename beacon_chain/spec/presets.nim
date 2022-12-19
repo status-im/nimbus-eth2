@@ -202,7 +202,7 @@ when const_preset == "mainnet":
     # Ethereum PoW Mainnet
     DEPOSIT_CHAIN_ID: 1,
     DEPOSIT_NETWORK_ID: 1,
-    DEPOSIT_CONTRACT_ADDRESS: Eth1Address.fromHex("0x00000000219ab540356cBB839Cbe05303d7705Fa")
+    DEPOSIT_CONTRACT_ADDRESS: default(Eth1Address)
   )
 
 elif const_preset == "minimal":
@@ -307,7 +307,7 @@ elif const_preset == "minimal":
     DEPOSIT_CHAIN_ID: 5,
     DEPOSIT_NETWORK_ID: 5,
     # Configured on a per testnet basis
-    DEPOSIT_CONTRACT_ADDRESS: Eth1Address.fromHex("0x1234567890123456789012345678901234567890")
+    DEPOSIT_CONTRACT_ADDRESS: default(Eth1Address)
   )
 
 else:
