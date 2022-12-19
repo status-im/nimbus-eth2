@@ -17,7 +17,7 @@ import
   ./datatypes/base
 
 from ./datatypes/altair import
-  ParticipationFlags, EpochParticipationFlags, asHashList
+  ParticipationFlags, EpochParticipationFlags
 
 export codec, base, typetraits, EpochParticipationFlags
 
@@ -28,7 +28,7 @@ template toSszType*(v: BlsCurveType): auto = toRaw(v)
 template toSszType*(v: ForkDigest|GraffitiBytes): auto = distinctBase(v)
 template toSszType*(v: Version): auto = distinctBase(v)
 template toSszType*(v: JustificationBits): auto = distinctBase(v)
-template toSszType*(epochFlags: EpochParticipationFlags): auto = asHashList epochFlags
+template toSszType*(v: EpochParticipationFlags): auto = asList v
 
 func fromSszBytes*(T: type GraffitiBytes, data: openArray[byte]): T {.raisesssz.} =
   if data.len != sizeof(result):
@@ -60,4 +60,6 @@ func fromSszBytes*(T: type JustificationBits, bytes: openArray[byte]): T {.raise
   copyMem(result.addr, unsafeAddr bytes[0], sizeof(result))
 
 func fromSszBytes*(T: type EpochParticipationFlags, bytes: openArray[byte]): T {.raisesssz.} =
-  readSszValue(bytes, HashList[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT] result)
+  # TODO https://github.com/nim-lang/Nim/issues/21123
+  let tmp = cast[ptr List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]](addr result)
+  readSszValue(bytes, tmp[])

@@ -637,8 +637,13 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
 
   let epoch = state.get_current_epoch()
 
-  get_total_balance(
-    state, cache.get_shuffled_active_validator_indices(state, epoch))
+  cache.total_active_balance.withValue(epoch, tab) do:
+    return tab[]
+  do:
+    let tab = get_total_balance(
+      state, cache.get_shuffled_active_validator_indices(state, epoch))
+    cache.total_active_balance[epoch] = tab
+    return tab
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment_sqrt*(
@@ -704,15 +709,15 @@ func get_proposer_reward*(state: ForkyBeaconState,
     state, attestation.data, state.slot - attestation.data.slot)
   for index in get_attesting_indices(
       state, attestation.data, attestation.aggregation_bits, cache):
+    let
+      base_reward = get_base_reward(state, index, base_reward_per_increment)
     for flag_index, weight in PARTICIPATION_FLAG_WEIGHTS:
       if flag_index in participation_flag_indices and
          not has_flag(epoch_participation.item(index), flag_index):
-        epoch_participation[index] =
+        asList(epoch_participation)[index] =
           add_flag(epoch_participation.item(index), flag_index)
         # these are all valid; TODO statically verify or do it type-safely
-        result += get_base_reward(
-          state, index, base_reward_per_increment) * weight.uint64
-  epoch_participation.asHashList.clearCache()
+        result += base_reward * weight.uint64
 
   let proposer_reward_denominator =
     (WEIGHT_DENOMINATOR.uint64 - PROPOSER_WEIGHT.uint64) *
@@ -860,8 +865,7 @@ func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
     empty_participation: EpochParticipationFlags
     inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
 
-  doAssert empty_participation.data.setLen(pre.validators.len)
-  empty_participation.asHashList.resetCache()
+  doAssert empty_participation.asList.setLen(pre.validators.len)
 
   doAssert inactivity_scores.data.setLen(pre.validators.len)
   inactivity_scores.resetCache()

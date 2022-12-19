@@ -1005,13 +1005,11 @@ func process_participation_flag_updates*(
 
   const zero = 0.ParticipationFlags
   for i in 0 ..< state.current_epoch_participation.len:
-    state.current_epoch_participation.data[i] = zero
+    asList(state.current_epoch_participation)[i] = zero
 
   # Shouldn't be wasted zeroing, because state.current_epoch_participation only
   # grows. New elements are automatically initialized to 0, as required.
-  doAssert state.current_epoch_participation.data.setLen(state.validators.len)
-
-  state.current_epoch_participation.asHashList.resetCache()
+  doAssert state.current_epoch_participation.asList.setLen(state.validators.len)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/beacon-chain.md#sync-committee-updates
 func process_sync_committee_updates*(

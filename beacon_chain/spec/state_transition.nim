@@ -120,6 +120,7 @@ func process_slot*(
     hash_tree_root(state.latest_block_header)
 
 func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
+  cache.total_active_balance.del epoch
   cache.shuffled_active_validator_indices.del epoch
 
   for slot in epoch.slots():
