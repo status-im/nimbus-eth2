@@ -45,7 +45,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push a Docker image for end users
+      - name: Build and push a Docker images for end users
         run: |
           cd dist
           tar -xzf ${{ steps.make_dist.outputs.archive }}
@@ -56,6 +56,10 @@ jobs:
           DOCKER_BUILDKIT=1 docker build -f Dockerfile.amd64 -t statusim/nimbus-eth2:amd64-${TAG} -t statusim/nimbus-eth2:amd64-latest .
           docker push statusim/nimbus-eth2:amd64-${TAG}
           docker push statusim/nimbus-eth2:amd64-latest
+
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.vc.amd64 -t statusim/nimbus-validator-client:amd64-${TAG} -t statusim/nimbus-validator-client:amd64-latest .
+          docker push statusim/nimbus-validator-client:amd64-${TAG}
+          docker push statusim/nimbus-validator-client:amd64-latest
       - name: Setup ruby # Needed for fpm
         uses: ruby/setup-ruby@v1
         with:
@@ -118,7 +122,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push a Docker image for end users
+      - name: Build and push a Docker images for end users
         run: |
           cd dist
           tar -xzf ${{ steps.make_dist.outputs.archive }}
@@ -127,9 +131,14 @@ jobs:
           REFNAME="${{ github.ref }}"
           TAG="${REFNAME#refs/tags/}"
           cp -a /usr/bin/qemu-aarch64-static .
+
           DOCKER_BUILDKIT=1 docker build -f Dockerfile.arm64 -t statusim/nimbus-eth2:arm64-${TAG} -t statusim/nimbus-eth2:arm64-latest .
           docker push statusim/nimbus-eth2:arm64-${TAG}
           docker push statusim/nimbus-eth2:arm64-latest
+
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.vc.arm64 -t statusim/nimbus-validator-client:arm64-${TAG} -t statusim/nimbus-validator-client:arm64-latest .
+          docker push statusim/nimbus-validator-client:arm64-${TAG}
+          docker push statusim/nimbus-validator-client:arm64-latest
       - name: Setup ruby # Needed for fpm
         uses: ruby/setup-ruby@v1
         with:
@@ -192,7 +201,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push a Docker image for end users
+      - name: Build and push a Docker images for end users
         run: |
           cd dist
           tar -xzf ${{ steps.make_dist.outputs.archive }}
@@ -204,6 +213,11 @@ jobs:
           DOCKER_BUILDKIT=1 docker build -f Dockerfile.arm -t statusim/nimbus-eth2:arm-${TAG} -t statusim/nimbus-eth2:arm-latest .
           docker push statusim/nimbus-eth2:arm-${TAG}
           docker push statusim/nimbus-eth2:arm-latest
+
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.vc.arm -t statusim/nimbus-validator-client:arm-${TAG} -t statusim/nimbus-validator-client:arm-latest .
+          docker push statusim/nimbus-validator-client:arm-${TAG}
+          docker push statusim/nimbus-validator-client:arm-latest
+
       - name: Setup ruby # Needed for fpm
         uses: ruby/setup-ruby@v1
         with:
