@@ -12,8 +12,7 @@ else:
 
 import
   std/[sequtils, strutils, os],
-  stew/byteutils, stew/shims/macros, nimcrypto/hash,
-  eth/common/eth_types as commonEthTypes,
+  stew/[byteutils, objects], stew/shims/macros, nimcrypto/hash,
   web3/[ethtypes, conversions],
   chronicles,
   eth/common/eth_types_json_serialization,
@@ -59,7 +58,8 @@ type
       # Parsing `enr.Records` is still not possible at compile-time
       bootstrapNodes*: seq[string]
 
-      depositContractDeployedAt*: BlockHashOrNumber
+      depositContractBlock*: uint64
+      depositContractBlockHash*: Eth2Digest
 
       # Please note that we are using `string` here because SSZ.decode
       # is not currently usable at compile time and we want to load the
@@ -112,6 +112,7 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       configPath = path & "/config.yaml"
       deployBlockPath = path & "/deploy_block.txt"
       depositContractBlockPath = path & "/deposit_contract_block.txt"
+      depositContractBlockHashPath = path & "/deposit_contract_block_hash.txt"
       bootstrapNodesPath = path & "/bootstrap_nodes.txt"
       bootEnrPath = path & "/boot_enr.yaml"
       runtimeConfig = if fileExists(configPath):
@@ -126,22 +127,43 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       else:
         defaultRuntimeConfig
 
-      depositContractBlock = if fileExists(depositContractBlockPath):
+      depositContractBlockStr = if fileExists(depositContractBlockPath):
         readFile(depositContractBlockPath).strip
       else:
         ""
 
-      deployBlock = if fileExists(deployBlockPath):
+      depositContractBlockHashStr = if fileExists(depositContractBlockHashPath):
+        readFile(depositContractBlockHashPath).strip
+      else:
+        ""
+
+      deployBlockStr = if fileExists(deployBlockPath):
         readFile(deployBlockPath).strip
       else:
         ""
 
-      depositContractDeployedAt = if depositContractBlock.len > 0:
-        BlockHashOrNumber.init(depositContractBlock)
-      elif deployBlock.len > 0:
-        BlockHashOrNumber.init(deployBlock)
+      depositContractBlock = if depositContractBlockStr.len > 0:
+        parseBiggestUInt depositContractBlockStr
+      elif deployBlockStr.len > 0:
+        parseBiggestUInt deployBlockStr
+      elif not runtimeConfig.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue:
+        raise newException(ValueError,
+          "A network with deposit contract should specify the " &
+          "deposit contract deployment block in a file named " &
+          "deposit_contract_block.txt or deploy_block.txt")
       else:
-        BlockHashOrNumber(isHash: false, number: 1)
+        1'u64
+
+      depositContractBlockHash = if depositContractBlockHashStr.len > 0:
+        Eth2Digest.strictParse(depositContractBlockHashStr)
+      elif (not runtimeConfig.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue) and
+            depositContractBlock != 0:
+        raise newException(ValueError,
+          "A network with deposit contract should specify the " &
+          "deposit contract deployment block hash in a file " &
+          "name deposit_contract_block_hash.txt")
+      else:
+        default(Eth2Digest)
 
       bootstrapNodes = deduplicate(
         readBootstrapNodes(bootstrapNodesPath) &
@@ -162,7 +184,8 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
       eth1Network: eth1Network,
       cfg: runtimeConfig,
       bootstrapNodes: bootstrapNodes,
-      depositContractDeployedAt: depositContractDeployedAt,
+      depositContractBlock: depositContractBlock,
+      depositContractBlockHash: depositContractBlockHash,
       genesisData: genesisData,
       genesisDepositsSnapshot: genesisDepositsSnapshot)
 
@@ -261,7 +284,6 @@ proc getMetadataForNetwork*(
     quit 1
 
   metadata
-
 
 proc getRuntimeConfig*(
     eth2Network: Option[string]): RuntimeConfig {.raises: [Defect, IOError].} =
