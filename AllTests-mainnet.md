@@ -75,13 +75,12 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool processing [Preset: mainnet]
 ```diff
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
-+ Randao skip and non-skip                                                                   OK
 + Simple block add&get [Preset: mainnet]                                                     OK
 + basic ops                                                                                  OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
 + updateState sanity [Preset: mainnet]                                                       OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Block processor [Preset: mainnet]
 ```diff
 + Reverse order block add & get [Preset: mainnet]                                            OK
@@ -615,4 +614,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 344/349 Fail: 0/349 Skip: 5/349
+OK: 343/348 Fail: 0/348 Skip: 5/348
