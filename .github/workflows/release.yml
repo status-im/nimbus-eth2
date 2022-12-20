@@ -53,7 +53,7 @@ jobs:
           cd ../docker/dist/binaries
           REFNAME="${{ github.ref }}"
           TAG="${REFNAME#refs/tags/}"
-          DOCKER_BUILDKIT=1 docker build -f Dockerfile.amd64 -t statusim/nimbus-eth2:amd64-${TAG} -t statusim/nimbus-eth2:amd64-latest .
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.bn.amd64 -t statusim/nimbus-eth2:amd64-${TAG} -t statusim/nimbus-eth2:amd64-latest .
           docker push statusim/nimbus-eth2:amd64-${TAG}
           docker push statusim/nimbus-eth2:amd64-latest
 
@@ -132,7 +132,7 @@ jobs:
           TAG="${REFNAME#refs/tags/}"
           cp -a /usr/bin/qemu-aarch64-static .
 
-          DOCKER_BUILDKIT=1 docker build -f Dockerfile.arm64 -t statusim/nimbus-eth2:arm64-${TAG} -t statusim/nimbus-eth2:arm64-latest .
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.bn.arm64 -t statusim/nimbus-eth2:arm64-${TAG} -t statusim/nimbus-eth2:arm64-latest .
           docker push statusim/nimbus-eth2:arm64-${TAG}
           docker push statusim/nimbus-eth2:arm64-latest
 
@@ -210,7 +210,7 @@ jobs:
           REFNAME="${{ github.ref }}"
           TAG="${REFNAME#refs/tags/}"
           cp -a /usr/bin/qemu-arm-static .
-          DOCKER_BUILDKIT=1 docker build -f Dockerfile.arm -t statusim/nimbus-eth2:arm-${TAG} -t statusim/nimbus-eth2:arm-latest .
+          DOCKER_BUILDKIT=1 docker build -f Dockerfile.bn.arm -t statusim/nimbus-eth2:arm-${TAG} -t statusim/nimbus-eth2:arm-latest .
           docker push statusim/nimbus-eth2:arm-${TAG}
           docker push statusim/nimbus-eth2:arm-latest
 
