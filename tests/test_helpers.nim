@@ -126,3 +126,29 @@ suite "Spec helpers":
         validatorIndex: 2,
         address: bellatrix.ExecutionAddress(data: distinctBase(recipient)),
         amount: 2.Gwei)]
+
+  test "build_empty_execution_payload - EIP4844":
+    var cfg = defaultRuntimeConfig
+    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
+    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
+    cfg.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
+    cfg.EIP4844_FORK_EPOCH = GENESIS_EPOCH
+
+    let
+      state = newClone(initGenesisState(cfg = cfg).eip4844Data)
+      recipient = Eth1Address.fromHex(
+        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+      withdrawals = @[
+        capella.Withdrawal(
+          index: 42,
+          validatorIndex: 1337,
+          address: bellatrix.ExecutionAddress(data: distinctBase(recipient)),
+          amount: 25.Gwei)]
+
+      payload = build_empty_execution_payload(
+        state[].data, recipient, withdrawals)
+    check:
+      payload.fee_recipient ==
+        bellatrix.ExecutionAddress(data: distinctBase(recipient))
+      payload.withdrawals[0] == withdrawals[0]
+      payload.excess_data_gas == 0.u256

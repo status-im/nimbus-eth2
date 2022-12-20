@@ -332,6 +332,7 @@ proc getFeeRecipient(node: BeaconNode,
 
 from web3/engine_api_types import PayloadExecutionStatus
 from ../spec/datatypes/capella import BeaconBlock, ExecutionPayload
+from ../spec/datatypes/eip4844 import BeaconBlock, ExecutionPayload
 
 proc getExecutionPayload[T](
     node: BeaconNode, proposalState: ref ForkedHashedBeaconState,
@@ -351,7 +352,9 @@ proc getExecutionPayload[T](
     # transmit this information through the Forked types, so this has to
     # be re-proven here.
     withState(proposalState[]):
-      when (stateFork == BeaconStateFork.Capella and
+      when (stateFork == BeaconStateFork.EIP4844 and
+            T is eip4844.ExecutionPayload) or
+           (stateFork == BeaconStateFork.Capella and
             T is capella.ExecutionPayload) or
            (stateFork == BeaconStateFork.Bellatrix and
             T is bellatrix.ExecutionPayload):
