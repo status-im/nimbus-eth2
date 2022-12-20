@@ -96,7 +96,7 @@ suite "Spec helpers":
       for i, withdrawal in withdrawals:
         check payload.withdrawals[i] == withdrawal
 
-      let elHeader = emptyPayloadToBlockHeader(payload)
+      let elHeader = payloadToBlockHeader(payload)
       check elHeader.withdrawalsRoot.isSome
       if withdrawals.len == 0:
         check elHeader.withdrawalsRoot.get == EMPTY_ROOT_HASH

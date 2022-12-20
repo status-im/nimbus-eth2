@@ -374,14 +374,28 @@ proc storeBlock*(
     self.consensusManager.quarantine[].addUnviable(signedBlock.root)
     return err((VerifierError.UnviableFork, ProcessingStatus.completed))
 
-  if NewPayloadStatus.noResponse == payloadStatus and not self[].optimistic:
-    # Disallow the `MissingParent` from leaking to the sync/request managers
-    # as it will be descored. However sync and request managers interact via
-    # `processBlock` (indirectly). `validator_duties` does call `storeBlock`
-    # directly, so is exposed to this, but only cares about whether there is
-    # an error or not.
-    return err((
-      VerifierError.MissingParent, ProcessingStatus.notCompleted))
+  if NewPayloadStatus.noResponse == payloadStatus:
+    if not self[].optimistic:
+      # Disallow the `MissingParent` from leaking to the sync/request managers
+      # as it will be descored. However sync and request managers interact via
+      # `processBlock` (indirectly). `validator_duties` does call `storeBlock`
+      # directly, so is exposed to this, but only cares about whether there is
+      # an error or not.
+      return err((
+        VerifierError.MissingParent, ProcessingStatus.notCompleted))
+
+    # Client software MUST validate blockHash value as being equivalent to
+    # Keccak256(RLP(ExecutionBlockHeader))
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#specification
+    when typeof(signedBlock).toFork() >= BeaconBlockFork.Bellatrix:
+      template payload(): auto = signedBlock.message.body.execution_payload
+      if payload.block_hash != payload.compute_execution_block_hash():
+        debug "EL block hash validation failed", execution_payload = payload
+        doAssert strictVerification notin dag.updateFlags
+        self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+        return err((VerifierError.UnviableFork, ProcessingStatus.completed))
+    else:
+      discard
 
   # We'll also remove the block as an orphan: it's unlikely the parent is
   # missing if we get this far - should that be the case, the block will

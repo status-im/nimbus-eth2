@@ -81,7 +81,7 @@ func signBlock(
 from ../beacon_chain/spec/datatypes/capella import
   BeaconState, ExecutionPayload, SignedBLSToExecutionChangeList
 
-func build_empty_merge_execution_payload(state: bellatrix.BeaconState):
+proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
     bellatrix.ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions from a non-merged block.
@@ -104,7 +104,7 @@ func build_empty_merge_execution_payload(state: bellatrix.BeaconState):
     timestamp: timestamp,
     base_fee_per_gas: EIP1559_INITIAL_BASE_FEE)
 
-  payload.block_hash = rlpHash emptyPayloadToBlockHeader(payload)
+  payload.block_hash = rlpHash payloadToBlockHeader(payload)
 
   payload
 
@@ -131,7 +131,7 @@ proc build_empty_merge_execution_payload(state: capella.BeaconState):
     timestamp: timestamp,
     base_fee_per_gas: EIP1559_INITIAL_BASE_FEE)
 
-  payload.block_hash = rlpHash emptyPayloadToBlockHeader(payload)
+  payload.block_hash = rlpHash payloadToBlockHeader(payload)
 
   payload
 
