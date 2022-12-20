@@ -91,7 +91,8 @@ programMain:
       if config.web3Urls.len > 0:
         let res = Eth1Monitor.init(
           cfg,
-          metadata.depositContractDeployedAt,
+          metadata.depositContractBlock,
+          metadata.depositContractBlockHash,
           db = nil,
           getBeaconTime,
           config.web3Urls,

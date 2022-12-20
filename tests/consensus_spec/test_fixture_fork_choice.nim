@@ -423,12 +423,6 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
       let testsPath = presetPath/path/testPathElem
       if kind != pcDir or not dirExists(testsPath):
         continue
-      if path.contains("eip4844"):
-        # TODO 1.3.0-alpha.1 test prestates have forks of
-        # (previous_version: 02000000, current_version: 04000000, epoch: 0)
-        # which is probably broken, and chaindag certainly doesn't like
-        discard $eip4844ImplementationMissing & ": re-enable when test pre-state forks fixed"
-        continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath
       for kind, path in walkDir(testsPath, relative = true, checkDir = true):

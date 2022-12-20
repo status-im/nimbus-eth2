@@ -77,6 +77,11 @@ type
     Capella,
     EIP4844
 
+  ForkyExecutionPayload* =
+    bellatrix.ExecutionPayload |
+    capella.ExecutionPayload |
+    eip4844.ExecutionPayload
+
   ForkyBeaconBlockBody* =
     phase0.BeaconBlockBody |
     altair.BeaconBlockBody |
@@ -266,17 +271,28 @@ template toFork*[T: eip4844.BeaconState | eip4844.HashedBeaconState](
     t: type T): BeaconStateFork =
   BeaconStateFork.EIP4844
 
-# TODO these cause stack overflows due to large temporaries getting allocated
-# template init*(T: type ForkedHashedBeaconState, data: phase0.HashedBeaconState): T =
-#   T(kind: BeaconStateFork.Phase0, phase0Data: data)
-# template init*(T: type ForkedHashedBeaconState, data: altair.HashedBeaconState): T =
-#   T(kind: BeaconStateFork.Altair, altairData: data)
-# template init*(T: type ForkedHashedBeaconState, data: bellatrix.HashedBeaconState): T =
-#   T(kind: BeaconStateFork.Bellatrix, bellatrixData: data)
-# template init*(T: type ForkedHashedBeaconState, data: capella.HashedBeaconState): T =
-#   T(kind: BeaconStateFork.Capella, capellaData: data)
-# template init*(T: type ForkedHashedBeaconState, data: eip4844.HashedBeaconState): T =
-#   T(kind: BeaconStateFork.EIP4844, eip4844Data: data)
+# TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
+# `ref T`
+func new*(T: type ForkedHashedBeaconState, data: phase0.BeaconState):
+    ref ForkedHashedBeaconState =
+  (ref T)(kind: BeaconStateFork.Phase0, phase0Data: phase0.HashedBeaconState(
+    data: data, root: hash_tree_root(data)))
+func new*(T: type ForkedHashedBeaconState, data: altair.BeaconState):
+    ref ForkedHashedBeaconState =
+  (ref T)(kind: BeaconStateFork.Altair, altairData: altair.HashedBeaconState(
+    data: data, root: hash_tree_root(data)))
+func new*(T: type ForkedHashedBeaconState, data: bellatrix.BeaconState):
+    ref ForkedHashedBeaconState =
+  (ref T)(kind: BeaconStateFork.Bellatrix, bellatrixData: bellatrix.HashedBeaconState(
+    data: data, root: hash_tree_root(data)))
+func new*(T: type ForkedHashedBeaconState, data: capella.BeaconState):
+    ref ForkedHashedBeaconState =
+  (ref T)(kind: BeaconStateFork.Capella, capellaData: capella.HashedBeaconState(
+    data: data, root: hash_tree_root(data)))
+func new*(T: type ForkedHashedBeaconState, data: eip4844.BeaconState):
+    ref ForkedHashedBeaconState =
+  (ref T)(kind: BeaconStateFork.EIP4844, eip4844Data: eip4844.HashedBeaconState(
+    data: data, root: hash_tree_root(data)))
 
 template init*(T: type ForkedBeaconBlock, blck: phase0.BeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
@@ -678,8 +694,8 @@ template withBlck*(
     template blck: untyped {.inject.} = x.capellaData
     body
   of BeaconBlockFork.EIP4844:
-    const stateFork {.inject, used.} = BeaconStateFork.Capella
-    template blck: untyped {.inject.} = x.capellaData
+    const stateFork {.inject, used.} = BeaconStateFork.EIP4844
+    template blck: untyped {.inject.} = x.eip4844Data
     body
 
 func proposer_index*(x: ForkedBeaconBlock): uint64 =
@@ -909,7 +925,7 @@ func toBeaconBlockFork*(fork: BeaconStateFork): BeaconBlockFork =
   of BeaconStateFork.Capella:   BeaconBlockFork.Capella
   of BeaconStateFork.EIP4844:   BeaconBlockFork.EIP4844
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#compute_fork_data_root
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: Eth2Digest): Eth2Digest =
   ## Return the 32-byte fork data root for the ``current_version`` and
@@ -921,7 +937,7 @@ func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest*(current_version: Version,
                           genesis_validators_root: Eth2Digest): ForkDigest =
   ## Return the 4-byte fork digest for the ``current_version`` and

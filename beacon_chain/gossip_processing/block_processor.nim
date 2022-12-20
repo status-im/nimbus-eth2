@@ -290,6 +290,17 @@ proc newExecutionPayload*(
     error "newPayload failed", msg = err.msg
     return Opt.none PayloadExecutionStatus
 
+# TODO investigate why this seems to allow compilation even though it doesn't
+# directly address eip4844.ExecutionPayload when complaint was that it didn't
+# know about "eip4844"
+from ../spec/datatypes/eip4844 import SignedBeaconBlock, asTrusted, shortLog
+
+proc newExecutionPayload*(
+    eth1Monitor: Eth1Monitor,
+    executionPayload: eip4844.ExecutionPayload):
+    Future[Opt[PayloadExecutionStatus]] {.async.} =
+  debugRaiseAssert $eip4844ImplementationMissing & ": block_processor.nim:newExecutionPayload"
+
 proc getExecutionValidity(
     eth1Monitor: Eth1Monitor,
     blck: phase0.SignedBeaconBlock | altair.SignedBeaconBlock):
@@ -332,6 +343,12 @@ proc getExecutionValidity(
     error "getExecutionValidity: newPayload failed", err = err.msg
     return NewPayloadStatus.noResponse
 
+proc getExecutionValidity(
+    eth1Monitor: Eth1Monitor,
+    blck: eip4844.SignedBeaconBlock):
+    Future[NewPayloadStatus] {.async.} =
+  debugRaiseAssert $eip4844ImplementationMissing & ": block_processor.nim:getExecutionValidity"
+
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock, queueTick: Moment = Moment.now(),
@@ -357,14 +374,28 @@ proc storeBlock*(
     self.consensusManager.quarantine[].addUnviable(signedBlock.root)
     return err((VerifierError.UnviableFork, ProcessingStatus.completed))
 
-  if NewPayloadStatus.noResponse == payloadStatus and not self[].optimistic:
-    # Disallow the `MissingParent` from leaking to the sync/request managers
-    # as it will be descored. However sync and request managers interact via
-    # `processBlock` (indirectly). `validator_duties` does call `storeBlock`
-    # directly, so is exposed to this, but only cares about whether there is
-    # an error or not.
-    return err((
-      VerifierError.MissingParent, ProcessingStatus.notCompleted))
+  if NewPayloadStatus.noResponse == payloadStatus:
+    if not self[].optimistic:
+      # Disallow the `MissingParent` from leaking to the sync/request managers
+      # as it will be descored. However sync and request managers interact via
+      # `processBlock` (indirectly). `validator_duties` does call `storeBlock`
+      # directly, so is exposed to this, but only cares about whether there is
+      # an error or not.
+      return err((
+        VerifierError.MissingParent, ProcessingStatus.notCompleted))
+
+    # Client software MUST validate blockHash value as being equivalent to
+    # Keccak256(RLP(ExecutionBlockHeader))
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#specification
+    when typeof(signedBlock).toFork() >= BeaconBlockFork.Bellatrix:
+      template payload(): auto = signedBlock.message.body.execution_payload
+      if payload.block_hash != payload.compute_execution_block_hash():
+        debug "EL block hash validation failed", execution_payload = payload
+        doAssert strictVerification notin dag.updateFlags
+        self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+        return err((VerifierError.UnviableFork, ProcessingStatus.completed))
+    else:
+      discard
 
   # We'll also remove the block as an orphan: it's unlikely the parent is
   # missing if we get this far - should that be the case, the block will
@@ -584,7 +615,7 @@ proc processBlock(
     # - MUST NOT optimistically import the block.
     # - MUST NOT apply the block to the fork choice store.
     # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/sync/optimistic.md#execution-engine-errors
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].addBlock(
       entry.src, entry.blck, entry.resfut, entry.validationDur)

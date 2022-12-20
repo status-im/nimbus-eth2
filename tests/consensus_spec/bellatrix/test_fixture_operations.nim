@@ -8,8 +8,6 @@
 {.used.}
 
 import
-  # Standard library
-  std/[os, sequtils, sets, strutils],
   # Utilities
   chronicles,
   unittest2,
@@ -21,6 +19,10 @@ import
   ../../testutil,
   ../fixtures_utils,
   ../../helpers/debug_state
+
+from std/os import fileExists, walkDir, `/`
+from std/sequtils import mapIt, toSeq
+from std/strutils import contains
 
 const
   OpDir                 = SszTestsDir/const_preset/"bellatrix"/"operations"

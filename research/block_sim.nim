@@ -326,7 +326,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   var
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
-    eth1Chain = Eth1Chain.init(cfg, db)
+    eth1Chain = Eth1Chain.init(cfg, db, 0, default Eth2Digest)
     merkleizer = DepositsMerkleizer.init(depositTreeSnapshot.depositContractState)
     taskpool = Taskpool.new()
     verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)

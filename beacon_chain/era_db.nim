@@ -385,9 +385,9 @@ iterator getBlockIds*(
       if not getPartialState(db, historical_roots, stateSlot, state[]):
         state = nil # No `return` in iterators
     of BeaconStateFork.Capella:
-      raiseAssert $capellaImplementationMissing
+      debugRaiseAssert $capellaImplementationMissing & ": era_db.nim: getBlockIds"
     of BeaconStateFork.EIP4844:
-      raiseAssert $eip4844ImplementationMissing
+      debugRaiseAssert $eip4844ImplementationMissing & ": era_db.nim: getBlockIds"
 
     if state == nil:
       break

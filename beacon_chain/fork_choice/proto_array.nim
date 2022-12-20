@@ -533,7 +533,7 @@ func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool] =
 
 func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
   ## This is the equivalent of `filter_block_tree` function in eth2 spec
-  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/fork-choice.md#filter_block_tree
+  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/fork-choice.md#filter_block_tree
 
   if node.invalid:
     return false

@@ -20,7 +20,7 @@ export constants
 export stint, ethtypes.toHex, ethtypes.`==`
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0
   ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 
@@ -202,7 +202,7 @@ when const_preset == "mainnet":
     # Ethereum PoW Mainnet
     DEPOSIT_CHAIN_ID: 1,
     DEPOSIT_NETWORK_ID: 1,
-    DEPOSIT_CONTRACT_ADDRESS: Eth1Address.fromHex("0x00000000219ab540356cBB839Cbe05303d7705Fa")
+    DEPOSIT_CONTRACT_ADDRESS: default(Eth1Address)
   )
 
 elif const_preset == "minimal":
@@ -307,7 +307,7 @@ elif const_preset == "minimal":
     DEPOSIT_CHAIN_ID: 5,
     DEPOSIT_NETWORK_ID: 5,
     # Configured on a per testnet basis
-    DEPOSIT_CONTRACT_ADDRESS: Eth1Address.fromHex("0x1234567890123456789012345678901234567890")
+    DEPOSIT_CONTRACT_ADDRESS: default(Eth1Address)
   )
 
 else:
@@ -518,7 +518,7 @@ template name*(cfg: RuntimeConfig): string =
   else:
     const_preset
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/p2p-interface.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/p2p-interface.md#configuration
 func MIN_EPOCHS_FOR_BLOCK_REQUESTS*(cfg: RuntimeConfig): uint64 =
   cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
 

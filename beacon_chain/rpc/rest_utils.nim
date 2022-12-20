@@ -301,13 +301,29 @@ proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
   case blck.kind
   of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
     false
-  of BeaconBlockFork.Bellatrix, BeaconBlockFork.Capella:
+  of BeaconBlockFork.Bellatrix, BeaconBlockFork.Capella, BeaconBlockFork.EIP4844:
     node.dag.is_optimistic(blck.root)
-  of BeaconBlockFork.EIP4844:
-    if true: raiseAssert $eip4844ImplementationMissing
-    true
 
 const
   jsonMediaType* = MediaType.init("application/json")
   sszMediaType* = MediaType.init("application/octet-stream")
   textEventStreamMediaType* = MediaType.init("text/event-stream")
+
+proc verifyRandao*(
+    node: BeaconNode, slot: Slot, proposer: ValidatorIndex,
+    randao: ValidatorSig, skip_randao_verification: bool): bool =
+  let
+    proposer_pubkey = node.dag.validatorKey(proposer)
+  if proposer_pubkey.isNone():
+    return false
+
+  if skip_randao_verification:
+    randao == ValidatorSig.infinity()
+  else:
+    let
+      fork = node.dag.forkAtEpoch(slot.epoch)
+      genesis_validators_root = node.dag.genesis_validators_root
+
+    verify_epoch_signature(
+      fork, genesis_validators_root, slot.epoch, proposer_pubkey.get(),
+      randao)

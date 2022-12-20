@@ -8,9 +8,6 @@
 {.used.}
 
 import
-  # Standard library
-  os, strutils, streams, strformat,
-  macros, sets,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -19,6 +16,11 @@ import
   snappy,
   # Test utilities
   ../../testutil, ../fixtures_utils
+
+from std/os import dirExists, pcDir, walkDir, `/`
+from std/streams import close, openFileStream
+from std/strformat import `&`
+from std/strutils import toLowerAscii
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 

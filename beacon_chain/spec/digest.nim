@@ -7,7 +7,7 @@
 
 # Serenity hash function / digest
 #
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#hash
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#hash
 #
 # In Phase 0 the beacon chain is deployed with SHA256 (SHA2-256).
 # Note that is is different from Keccak256 (often mistakenly called SHA3-256)
@@ -153,6 +153,13 @@ proc readValue*(r: var JsonReader, a: var Eth2Digest) {.raises: [Defect, IOError
     a = fromHex(type(a), r.readValue(string))
   except ValueError:
     raiseUnexpectedValue(r, "Hex string expected")
+
+func strictParse*(T: type Eth2Digest, hexStr: openArray[char]): T
+                 {.raises: [Defect, ValueError].} =
+  ## TODO We use this local definition because the string parsing functions
+  ##      provided by nimcrypto are currently too lax in their requirements
+  ##      for the input string. Invalid strings are silently ignored.
+  hexToByteArrayStrict(hexStr, result.data)
 
 func toGaugeValue*(hash: Eth2Digest): int64 =
   # Only the last 8 bytes are taken into consideration in accordance

@@ -321,7 +321,8 @@ proc get_execution_payload[EP](
       asConsensusExecutionPayload(
         await execution_engine.getPayload(payload_id.get))
     else:
-      raiseAssert $capellaImplementationMissing & ": implement getPayload V2"
+      debugRaiseAssert $capellaImplementationMissing & ": implement getPayload V2"
+      default(EP)
 
 proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
@@ -434,7 +435,6 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
-    skip_randao_verification_bool: bool,
     execution_payload: Opt[EP],
     transactions_root: Opt[Eth2Digest],
     execution_payload_root: Opt[Eth2Digest]):
@@ -457,9 +457,9 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
   let
     state = maybeState.get
     payloadFut =
-      if executionPayload.isSome:
+      if execution_payload.isSome:
         let fut = newFuture[Opt[EP]]("given-payload")
-        fut.complete(executionPayload)
+        fut.complete(execution_payload)
         fut
       elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
             not (
@@ -512,10 +512,7 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
       (static(default(SignedBLSToExecutionChangeList))),
       noRollback, # Temporary state - no need for rollback
       cache,
-      # makeBeaconBlock doesn't verify BLS at all, but does have special case
-      # for skipRandaoVerification separately
-      verificationFlags =
-        if skip_randao_verification_bool: {skipRandaoVerification} else: {},
+      verificationFlags = {},
       transactions_root = transactions_root,
       execution_payload_root = execution_payload_root).mapErr do (error: cstring) -> string:
     # This is almost certainly a bug, but it's complex enough that there's a
@@ -532,21 +529,10 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot):
-    Future[ForkedBlockResult] {.async.} =
-  return await makeBeaconBlockForHeadAndSlot[EP](
+    Future[ForkedBlockResult] =
+  return makeBeaconBlockForHeadAndSlot[EP](
     node, randao_reveal, validator_index, graffiti, head, slot,
-    false, execution_payload = Opt.none(EP),
-    transactions_root = Opt.none(Eth2Digest),
-    execution_payload_root = Opt.none(Eth2Digest))
-
-proc makeBeaconBlockForHeadAndSlot*[EP](
-    node: BeaconNode, randao_reveal: ValidatorSig,
-    validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
-    slot: Slot, skip_randao_verification: bool):
-    Future[ForkedBlockResult] {.async.} =
-  return await makeBeaconBlockForHeadAndSlot[EP](
-    node, randao_reveal, validator_index, graffiti, head, slot,
-    skip_randao_verification, execution_payload = Opt.none(EP),
+    execution_payload = Opt.none(EP),
     transactions_root = Opt.none(Eth2Digest),
     execution_payload_root = Opt.none(Eth2Digest))
 
@@ -697,7 +683,6 @@ proc getBlindedBlockParts(
 
   let newBlock = await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
     node, randao, validator_index, graffiti, head, slot,
-    skip_randao_verification_bool = false,
     execution_payload = Opt.some shimExecutionPayload,
     transactions_root = Opt.some executionPayloadHeader.get.transactions_root,
     execution_payload_root =
@@ -797,6 +782,8 @@ proc makeBlindedBeaconBlockForHeadAndSlot*(
   let (executionPayloadHeader, forkedBlck) = blindedBlockParts.get
   return ok constructPlainBlindedBlock[BlindedBeaconBlock](
     forkedBlck, executionPayloadHeader)
+
+from ../spec/datatypes/eip4844 import shortLog
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
@@ -898,6 +885,9 @@ proc proposeBlock(node: BeaconNode,
         elif blck is capella.BeaconBlock:
           capella.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
+        elif blck is eip4844.BeaconBlock:
+          eip4844.SignedBeaconBlock(
+            message: blck, signature: signature, root: blockRoot)
         else:
           static: doAssert "Unknown SignedBeaconBlock type"
       newBlockRef =
@@ -956,7 +946,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#validator-assignments
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/validator.md#validator-assignments
   let
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.epoch, false).valueOr:
@@ -1155,13 +1145,13 @@ proc signAndSendAggregate(
           return
         res.get()
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#aggregation-selection
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/validator.md#aggregation-selection
     if not is_aggregator(
         shufflingRef, slot, committee_index, selectionProof):
       return
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#aggregateandproof
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/validator.md#construct-aggregate
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/validator.md#aggregateandproof
     var
       msg = SignedAggregateAndProof(
         message: AggregateAndProof(
@@ -1533,8 +1523,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

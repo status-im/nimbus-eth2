@@ -668,7 +668,7 @@ type GetResult = enum
 proc getSSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult =
   var status = GetResult.notFound
 
-  var outputPtr = addr output # callback is local, ptr wont escape
+  let outputPtr = addr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     status =
       if decodeSSZ(data, outputPtr[]): GetResult.found
@@ -684,7 +684,7 @@ proc putSSZ(db: KvStoreRef, key: openArray[byte], v: auto) =
 proc getSnappySSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult =
   var status = GetResult.notFound
 
-  var outputPtr = addr output # callback is local, ptr wont escape
+  let outputPtr = addr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     status =
       if decodeSnappySSZ(data, outputPtr[]): GetResult.found
@@ -700,7 +700,7 @@ proc putSnappySSZ(db: KvStoreRef, key: openArray[byte], v: auto) =
 proc getSZSSZ[T](db: KvStoreRef, key: openArray[byte], output: var T): GetResult =
   var status = GetResult.notFound
 
-  var outputPtr = addr output # callback is local, ptr wont escape
+  let outputPtr = addr output # callback is local, ptr wont escape
   proc decode(data: openArray[byte]) =
     status =
       if decodeSZSSZ(data, outputPtr[]): GetResult.found
@@ -1298,12 +1298,10 @@ proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: BeaconBlockFork): 
   else: db.blocks[fork].contains(key.data).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
-  static: doAssert high(BeaconBlockFork) == BeaconBlockFork.EIP4844
-  db.containsBlock(key, eip4844.TrustedSignedBeaconBlock) or
-    db.containsBlock(key, capella.TrustedSignedBeaconBlock) or
-    db.containsBlock(key, bellatrix.TrustedSignedBeaconBlock) or
-    db.containsBlock(key, altair.TrustedSignedBeaconBlock) or
-    db.containsBlock(key, phase0.TrustedSignedBeaconBlock)
+  for fork in countdown(BeaconBlockFork.high, BeaconBlockFork.low):
+    if db.containsBlock(key, fork): return true
+
+  false
 
 proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
   let sk = subkey(Phase0BeaconStateNoImmutableValidators, key)
@@ -1312,10 +1310,10 @@ proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
     db.backend.contains(subkey(phase0.BeaconState, key)).expectDb()
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bool =
-  db.statesNoVal[BeaconStateFork.Bellatrix].contains(key.data).expectDb or
-  db.statesNoVal[BeaconStateFork.Altair].contains(key.data).expectDb or
-  db.statesNoVal[BeaconStateFork.Phase0].contains(key.data).expectDb or
-    (legacy and db.v0.containsState(key))
+  for fork in countdown(BeaconStateFork.high, BeaconStateFork.low):
+    if db.statesNoVal[fork].contains(key.data).expectDb(): return true
+
+  (legacy and db.v0.containsState(key))
 
 proc getBeaconBlockSummary*(db: BeaconChainDB, root: Eth2Digest):
     Opt[BeaconBlockSummary] =
@@ -1425,6 +1423,7 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
 
   # Backwards compat for reading old databases, or those that for whatever
   # reason lost a summary along the way..
+  static: doAssert BeaconBlockFork.high == BeaconBlockFork.EIP4844
   while true:
     if db.v0.backend.getSnappySSZ(
         subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:
@@ -1434,6 +1433,10 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
     elif (let blck = db.getBlock(res.root, altair.TrustedSignedBeaconBlock); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
     elif (let blck = db.getBlock(res.root, bellatrix.TrustedSignedBeaconBlock); blck.isSome()):
+      res.summary = blck.get().message.toBeaconBlockSummary()
+    elif (let blck = db.getBlock(res.root, capella.TrustedSignedBeaconBlock); blck.isSome()):
+      res.summary = blck.get().message.toBeaconBlockSummary()
+    elif (let blck = db.getBlock(res.root, eip4844.TrustedSignedBeaconBlock); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
     else:
       break

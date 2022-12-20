@@ -1,5 +1,5 @@
 # Mainnet preset - Capella
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/presets/mainnet/capella.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/presets/mainnet/capella.yaml
 const
   # Max operations per block
   # ---------------------------------------------------------------
@@ -11,3 +11,9 @@ const
   # ---------------------------------------------------------------
   # 2**4 (= 16) withdrawals
   MAX_WITHDRAWALS_PER_PAYLOAD* = 16
+
+
+  # Withdrawals processing
+  # ---------------------------------------------------------------
+  # 2**14 (= 16384) validators
+  MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP* = 16384

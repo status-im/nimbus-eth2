@@ -35,8 +35,14 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + sanity check Bellatrix blocks [Preset: mainnet]                                            OK
 + sanity check Bellatrix states [Preset: mainnet]                                            OK
 + sanity check Bellatrix states, reusing buffers [Preset: mainnet]                           OK
++ sanity check Capella and cross-fork getState rollback [Preset: mainnet]                    OK
 + sanity check Capella blocks [Preset: mainnet]                                              OK
++ sanity check Capella states [Preset: mainnet]                                              OK
++ sanity check Capella states, reusing buffers [Preset: mainnet]                             OK
++ sanity check EIP4844 and cross-fork getState rollback [Preset: mainnet]                    OK
 + sanity check EIP4844 blocks [Preset: mainnet]                                              OK
++ sanity check EIP4844 states [Preset: mainnet]                                              OK
++ sanity check EIP4844 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
@@ -44,7 +50,7 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + sanity check phase 0 states, reusing buffers [Preset: mainnet]                             OK
 + sanity check state diff roundtrip [Preset: mainnet]                                        OK
 ```
-OK: 18/18 Fail: 0/18 Skip: 0/18
+OK: 24/24 Fail: 0/24 Skip: 0/24
 ## Beacon state [Preset: mainnet]
 ```diff
 + Smoke test initialize_beacon_state_from_eth1 [Preset: mainnet]                             OK
@@ -69,13 +75,12 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Block pool processing [Preset: mainnet]
 ```diff
 + Adding the same block twice returns a Duplicate error [Preset: mainnet]                    OK
-+ Randao skip and non-skip                                                                   OK
 + Simple block add&get [Preset: mainnet]                                                     OK
 + basic ops                                                                                  OK
 + updateHead updates head and headState [Preset: mainnet]                                    OK
 + updateState sanity [Preset: mainnet]                                                       OK
 ```
-OK: 6/6 Fail: 0/6 Skip: 0/6
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Block processor [Preset: mainnet]
 ```diff
 + Reverse order block add & get [Preset: mainnet]                                            OK
@@ -610,4 +615,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 339/344 Fail: 0/344 Skip: 5/344
+OK: 344/349 Fail: 0/349 Skip: 5/349

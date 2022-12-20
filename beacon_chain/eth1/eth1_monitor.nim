@@ -296,11 +296,11 @@ template toGaugeValue(x: Quantity): int64 =
 #  doAssert SECONDS_PER_ETH1_BLOCK * cfg.ETH1_FOLLOW_DISTANCE < GENESIS_DELAY,
 #             "Invalid configuration: GENESIS_DELAY is set too low"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/validator.md#get_eth1_data
 func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   let eth1_voting_period_start_slot =
     getStateField(state, slot) - getStateField(state, slot) mod
@@ -308,7 +308,7 @@ func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   compute_time_at_slot(
     getStateField(state, genesis_time), eth1_voting_period_start_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/validator.md#get_eth1_data
 func is_candidate_block(cfg: RuntimeConfig,
                         blk: Eth1Block,
                         period_start: uint64): bool =
@@ -940,7 +940,7 @@ template trackFinalizedState*(m: Eth1Monitor,
                               finalizedStateDepositIndex: uint64): bool =
   trackFinalizedState(m.depositsChain, finalizedEth1Data, finalizedStateDepositIndex)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/validator.md#get_eth1_data
 proc getBlockProposalData*(chain: var Eth1Chain,
                            state: ForkedHashedBeaconState,
                            finalizedEth1Data: Eth1Data,
@@ -1064,18 +1064,33 @@ template getOrDefault[T, E](r: Result[T, E]): T =
   type TT = T
   get(r, default(TT))
 
-proc init*(T: type Eth1Chain, cfg: RuntimeConfig, db: BeaconChainDB): T =
+proc init*(T: type Eth1Chain,
+           cfg: RuntimeConfig,
+           db: BeaconChainDB,
+           depositContractBlockNumber: uint64,
+           depositContractBlockHash: Eth2Digest): T =
   let
-    finalizedDeposits =
+    (finalizedBlockHash, depositContractState) =
       if db != nil:
-        db.getDepositTreeSnapshot().getOrDefault()
+        let treeSnapshot = db.getDepositTreeSnapshot()
+        if treeSnapshot.isSome:
+          (treeSnapshot.get.eth1Block, treeSnapshot.get.depositContractState)
+        else:
+          let oldSnapshot = db.getUpgradableDepositSnapshot()
+          if oldSnapshot.isSome:
+            (oldSnapshot.get.eth1Block, oldSnapshot.get.depositContractState)
+          else:
+            db.putDepositTreeSnapshot DepositTreeSnapshot(
+              eth1Block: depositContractBlockHash,
+              blockHeight: depositContractBlockNumber)
+            (depositContractBlockHash, default(DepositContractState))
       else:
-        default(DepositTreeSnapshot)
-    m = DepositsMerkleizer.init(finalizedDeposits.depositContractState)
+        (depositContractBlockHash, default(DepositContractState))
+    m = DepositsMerkleizer.init(depositContractState)
 
   T(db: db,
     cfg: cfg,
-    finalizedBlockHash: finalizedDeposits.eth1Block,
+    finalizedBlockHash: finalizedBlockHash,
     finalizedDepositsMerkleizer: m,
     headMerkleizer: copy m)
 
@@ -1095,7 +1110,8 @@ proc currentEpoch(m: Eth1Monitor): Epoch =
 
 proc init*(T: type Eth1Monitor,
            cfg: RuntimeConfig,
-           depositContractDeployedAt: BlockHashOrNumber,
+           depositContractBlockNumber: uint64,
+           depositContractBlockHash: Eth2Digest,
            db: BeaconChainDB,
            getBeaconTime: GetBeaconTimeFn,
            web3Urls: seq[string],
@@ -1108,10 +1124,15 @@ proc init*(T: type Eth1Monitor,
   for url in mitems(web3Urls):
     fixupWeb3Urls url
 
+  let eth1Chain = Eth1Chain.init(
+    cfg, db, depositContractBlockNumber, depositContractBlockHash)
+
   T(state: Initialized,
-    depositsChain: Eth1Chain.init(cfg, db),
+    depositsChain: eth1Chain,
     depositContractAddress: cfg.DEPOSIT_CONTRACT_ADDRESS,
-    depositContractDeployedAt: depositContractDeployedAt,
+    depositContractDeployedAt: BlockHashOrNumber(
+      isHash: true,
+      hash: depositContractBlockHash),
     getBeaconTime: getBeaconTime,
     web3Urls: web3Urls,
     eth1Network: eth1Network,
@@ -1120,37 +1141,6 @@ proc init*(T: type Eth1Monitor,
     jwtSecret: jwtSecret,
     blocksPerLogsRequest: targetBlocksPerLogsRequest,
     ttdReachedField: ttdReached)
-
-proc runDbMigrations*(m: Eth1Monitor) {.async.} =
-  template db: auto = m.depositsChain.db
-
-  if db.hasDepositTreeSnapshot():
-    return
-
-  # There might be an old deposit snapshot in the database that needs upgrade.
-  let oldSnapshot = db.getUpgradableDepositSnapshot()
-  if oldSnapshot.isSome:
-    let
-      hash = oldSnapshot.get.eth1Block.asBlockHash()
-      blk = awaitWithRetries m.dataProvider.getBlockByHash(hash)
-      blockNumber = uint64(blk.number)
-
-    db.putDepositTreeSnapshot oldSnapshot.get.toDepositTreeSnapshot(blockNumber)
-  elif not m.depositContractAddress.isZeroMemory:
-    # If there is no DCS record at all, create one pointing to the deployment block
-    # of the deposit contract and insert it as a starting point.
-    let blk = try:
-      awaitWithRetries m.dataProvider.getBlock(m.depositContractDeployedAt)
-    except CatchableError as e:
-      fatal "Failed to fetch deployment block",
-            depositContract = m.depositContractAddress,
-            deploymentBlock = $m.depositContractDeployedAt,
-            err = e.msg
-      quit 1
-    doAssert blk != nil, "getBlock should not return nil"
-    db.putDepositTreeSnapshot DepositTreeSnapshot(
-      eth1Block: blk.hash.asEth2Digest,
-      blockHeight: uint64 blk.number)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
@@ -1482,8 +1472,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
   await m.ensureDataProvider()
   doAssert m.dataProvider != nil, "close not called concurrently"
-
-  await m.runDbMigrations()
 
   # We might need to reset the chain if the new provider disagrees
   # with the previous one regarding the history of the chain or if

@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -54,7 +54,7 @@ import
 
 export results, extras, phase0, altair, bellatrix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc verify_block_signature(
     state: ForkyBeaconState, signed_block: SomeForkySignedBeaconBlock):
     Result[void, cstring] =
@@ -71,7 +71,7 @@ proc verify_block_signature(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func verifyStateRoot(
     state: ForkyBeaconState, blck: ForkyBeaconBlock | ForkySigVerifiedBeaconBlock):
     Result[void, cstring] =
@@ -100,7 +100,7 @@ func noRollback*() =
 # Hashed-state transition functions
 # ---------------------------------------------------------------
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 func process_slot*(
     state: var ForkyBeaconState, pre_state_root: Eth2Digest) =
   # `process_slot` is the first stage of per-slot processing - it is run for
@@ -120,12 +120,13 @@ func process_slot*(
     hash_tree_root(state.latest_block_header)
 
 func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
+  cache.total_active_balance.del epoch
   cache.shuffled_active_validator_indices.del epoch
 
   for slot in epoch.slots():
     cache.beacon_proposer_indices.del slot
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState, previous_slot_state_root: Eth2Digest,
@@ -204,8 +205,6 @@ func maybeUpgradeStateToCapella(
       kind: BeaconStateFork.Capella,
       capellaData: capella.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
-
-from ./datatypes/eip4844 import HashedBeaconState
 
 func maybeUpgradeStateToEIP4844(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
@@ -335,7 +334,7 @@ proc state_transition*(
   state_transition_block(
     cfg, state, signedBlock, cache, flags, rollback)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/phase0/validator.md#preparing-for-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/validator.md#preparing-for-a-beaconblock
 template partialBeaconBlock*(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
@@ -364,7 +363,7 @@ template partialBeaconBlock*(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: exits.voluntary_exits))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/validator.md#preparing-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/validator.md#preparing-a-beaconblock
 template partialBeaconBlock*(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,
@@ -546,7 +545,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/bellatrix/beacon-chain.md#beaconblockbody
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/bellatrix/beacon-chain.md#beaconblockbody
           # Effectively hash_tree_root(ExecutionPayload) with the beacon block
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.
@@ -586,7 +585,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
         BeaconStateFork.Bellatrix, BeaconStateFork.Capella:
       raiseAssert "Attempt to use EIP4844 payload with non-EIP4844 state"
     of BeaconStateFork.EIP4844:
-      raiseAssert $eip4844ImplementationMissing & ": state_transition"
+      debugRaiseAssert $eip4844ImplementationMissing & ": state_transition"
 
 # workaround for https://github.com/nim-lang/Nim/issues/20900 rather than have
 # these be default arguments
