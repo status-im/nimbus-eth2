@@ -106,11 +106,11 @@ The following options are available:
                                a validator with the same index (a doppelganger), before sending an attestation
                                itself. This protects against slashing (due to double-voting) but means you will
                                miss two attestations when restarting. [=true].
-     --validator-monitor-auto  Automatically monitor locally active validators [=false].
+     --validator-monitor-auto  Automatically monitor locally active validators (BETA) [=false].
      --validator-monitor-pubkey  One or more validators to monitor - works best when --subscribe-all-subnets is
-                               enabled.
+                               enabled (BETA).
      --validator-monitor-totals  Publish metrics to single 'totals' label for better collection performance when
-                               monitoring many validators [=false].
+                               monitoring many validators (BETA) [=false].
      --suggested-fee-recipient  Suggested fee recipient.
      --payload-builder         Enable external payload builder [=false].
      --payload-builder-url     Payload builder URL.

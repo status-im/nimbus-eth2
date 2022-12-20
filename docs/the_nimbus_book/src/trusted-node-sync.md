@@ -3,11 +3,11 @@
 !!! note ""
     This feature is available from `v1.7.0` onwards
 
-When you [start the beacon node](./quick-start.md) for the first time, it will connect to the beacon chain network and start syncing automatically - a process that can take several days.
+When you [start the beacon node](./quick-start.md) for the first time, it connects to the beacon chain network and starts syncing automatically - a process that can take several days.
 
 Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node - you can get started in minutes instead of days.
 
-To use trusted node sync, you must have access to a node that you trust that exposes the [Beacon API](./rest-api.md) (for example a locally running backup node).
+To use trusted node sync, you must have access to a node that you trust and that exposes the [Beacon API](./rest-api.md) (for example a locally running backup node).
 
 Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.
 
@@ -79,6 +79,13 @@ The `head` root is also printed in the log output at regular intervals.
     `curl -X GET http://testing.mainnet.beacon-api.nimbus.team/eth/v1/beacon/blocks/head/root`
 
 ## Advanced
+
+### Skip syncing the history of deposits
+
+The recently standardized Beacon API endpoint `/eth/v1/beacon/deposit_snapshot` allows a client to skip downloading the entire history of deposit by downloading a small snapshot of the state of the validator deposit contract. To take advantage of this functionality, make sure you are syncing against a beacon node which supports it (e.g. Nimbus 22.12.0 or later) and specify the the command line option `--with-deposit-snapshot` when executed the `trustedNodeSync` command.
+
+!!! tip
+    It's safe to always specify this option. Nimbus will produce a warning if the specified beacon node doesn't support the required endpoint. Future versions of Nimbus will enable the option by default.
 
 ### Delay block history backfill
 
