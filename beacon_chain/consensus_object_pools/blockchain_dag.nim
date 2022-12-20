@@ -1835,6 +1835,7 @@ proc updateHead*(
   let
     lastHeadStateRoot = getStateRoot(dag.headState)
     lastHeadMergeComplete = dag.headState.is_merge_transition_complete()
+    lastHeadKind = dag.headState.kind
 
   # Start off by making sure we have the right state - updateState will try
   # to use existing in-memory states to make this smooth
@@ -1855,6 +1856,16 @@ proc updateHead*(
       lastHeadMergeComplete and
       dag.vanityLogs.onMergeTransitionBlock != nil:
     dag.vanityLogs.onMergeTransitionBlock()
+
+  if dag.headState.kind > lastHeadKind:
+    case dag.headState.kind
+    of BeaconStateFork.Phase0 .. BeaconStateFork.Bellatrix:
+      discard
+    of BeaconStateFork.Capella:
+      if dag.vanityLogs.onUpgradeToCapella != nil:
+        dag.vanityLogs.onUpgradeToCapella()
+    of BeaconStateFork.EIP4844:
+      discard
 
   dag.db.putHeadBlock(newHead.root)
 

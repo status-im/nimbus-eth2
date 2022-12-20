@@ -17,7 +17,7 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   eth/keys,
-  ./consensus_object_pools/vanity_logs/pandas,
+  ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/topic_params,
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
@@ -115,21 +115,27 @@ declareGauge next_action_wait,
 
 logScope: topics = "beacnde"
 
-func getPandas(stdoutKind: StdoutLogKind): VanityLogs =
+func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   case stdoutKind
   of StdoutLogKind.Auto: raiseAssert "inadmissable here"
   of StdoutLogKind.Colors:
     VanityLogs(
       onMergeTransitionBlock:          color🐼,
-      onFinalizedMergeTransitionBlock: blink🐼)
+      onFinalizedMergeTransitionBlock: blink🐼,
+      onUpgradeToCapella:              color🦉)
   of StdoutLogKind.NoColors:
     VanityLogs(
       onMergeTransitionBlock:          mono🐼,
-      onFinalizedMergeTransitionBlock: mono🐼)
+      onFinalizedMergeTransitionBlock: mono🐼,
+      onUpgradeToCapella:              mono🦉)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
-      onMergeTransitionBlock:          (proc() = notice "🐼 Proof of Stake Activated 🐼"),
-      onFinalizedMergeTransitionBlock: (proc() = notice "🐼 Proof of Stake Finalized 🐼"))
+      onMergeTransitionBlock:
+        (proc() = notice "🐼 Proof of Stake Activated 🐼"),
+      onFinalizedMergeTransitionBlock:
+        (proc() = notice "🐼 Proof of Stake Finalized 🐼"),
+      onUpgradeToCapella:
+        (proc() = notice "🦉 Withdrowls now available 🦉"))
 
 proc loadChainDag(
     config: BeaconNodeConf,
@@ -161,7 +167,7 @@ proc loadChainDag(
       else: nil
     dag = ChainDAGRef.init(
       cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
-      vanityLogs = getPandas(detectTTY(config.logStdout)),
+      vanityLogs = getVanityLogs(detectTTY(config.logStdout)),
       lcDataConfig = LightClientDataConfig(
         serve: config.lightClientDataServe,
         importMode: config.lightClientDataImportMode,
