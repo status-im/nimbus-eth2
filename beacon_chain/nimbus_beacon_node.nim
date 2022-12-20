@@ -1619,6 +1619,9 @@ proc start*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
   waitFor node.initializeNetworking()
 
+  if node.eth1Monitor != nil:
+    node.eth1Monitor.start()
+
   node.run()
 
 func formatGwei(amount: uint64): string =

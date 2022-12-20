@@ -319,6 +319,9 @@ proc getExecutionValidity(
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously
 
+  if eth1Monitor.isNil:
+    return NewPayloadStatus.noResponse
+
   try:
     # Minimize window for Eth1 monitor to shut down connection
     await eth1Monitor.ensureDataProvider()
@@ -363,13 +366,7 @@ proc storeBlock*(
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
     payloadStatus =
-      if self.consensusManager.eth1Monitor.isNil:
-        if not self.optimistic:
-          warn "Attempting to process execution payload without execution client. Ensure --web3-url setting is correct and JWT is configured."
-        NewPayloadStatus.noResponse
-      else:
-        await self.consensusManager.eth1Monitor.getExecutionValidity(
-          signedBlock)
+      await self.consensusManager.eth1Monitor.getExecutionValidity(signedBlock)
     payloadValid = payloadStatus == NewPayloadStatus.valid
 
   # The block is certainly not missing any more
@@ -386,8 +383,9 @@ proc storeBlock*(
       # `processBlock` (indirectly). `validator_duties` does call `storeBlock`
       # directly, so is exposed to this, but only cares about whether there is
       # an error or not.
-      return err((
-        VerifierError.MissingParent, ProcessingStatus.notCompleted))
+      warn "Attempting to process execution payload without execution client. Ensure --web3-url setting is correct and JWT is configured."
+
+      return err((VerifierError.MissingParent, ProcessingStatus.notCompleted))
 
     # Client software MUST validate blockHash value as being equivalent to
     # Keccak256(RLP(ExecutionBlockHeader))
