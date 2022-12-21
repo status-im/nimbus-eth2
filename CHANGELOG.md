@@ -1,3 +1,68 @@
+2022-12-21 v22.12.0
+===================
+
+Nimbus `v22.12.0` is a `medium-urgency` release which improves the doppelganger detection in the Nimbus validator through the use of standardized APIs that are compatible with all third-party beacon nodes. Furthermore, it addresses several inconsistencies in the behavior between the stand-alone beacon node and the validator client. This release also allows users of trusted node sync to skip downloading the entire history of validator deposits by syncing against a server that supports the standardized `/eth/v1/beacon/deposit_snapshot` REST endpoint.
+
+### Improvements
+
+* 60% more efficient block replaying speed brings faster REST responses and
+  more resilience on the network in the face of heavy forking activity and
+  non-finalization:
+
+  https://github.com/status-im/nimbus-eth2/pull/4435
+  
+* Support for obtaining a deposit snapshot during trusted node sync from
+  servers supporting the standardized `/eth/v1/beacon/deposit_snapshot`
+  REST endpoint:
+
+  https://github.com/status-im/nimbus-eth2/pull/4303
+  
+* Official docker images for the Nimbus validator client are now available:
+
+  https://hub.docker.com/r/statusim/nimbus-validator-client
+  https://github.com/status-im/nimbus-eth2/pull/4439
+
+* The `skip_randao_verification` query parameter is now also supported in
+  the `/eth/v1/validator/blinded_blocks/{slot}` API endpoint:
+
+  https://github.com/status-im/nimbus-eth2/pull/4435
+
+* The doppelganger detection in the Nimbus validator client is now based on
+  the standardized `/eth/v1/validator/liveness/{epoch}` REST endpoint:
+
+  https://github.com/status-im/nimbus-eth2/pull/4381
+
+* The validator client will now use with the standard exit code `129` in
+  case of detected doppelganger on the network:
+  
+  https://github.com/status-im/nimbus-eth2/pull/4398
+ 
+### Fixes
+
+* A potential false-positive in the doppelganger detection logic:
+  
+  https://github.com/status-im/nimbus-eth2/pull/4398
+  
+* A potential hang in trusted node sync:
+
+  https://github.com/status-im/nimbus-eth2/pull/4303
+  
+### Breaking changes:
+
+* The built-in support for the Ropsten testnet has been removed:
+
+  https://github.com/status-im/nimbus-eth2/pull/4280
+  
+  You can still connect to the Ropsten network by specifying its
+  metadata directory on the command line through the `--network`
+  parameter.
+
+* The `statusim/nimbus-eth2` docker image no longer includes the
+  `nimbus_validator_client` binary and the shell scripts included
+  in the release tarballs. Please use the new dedicated image for
+  the Nimbus validator client.
+
+
 2022-12-12 v22.11.1
 ===================
 
