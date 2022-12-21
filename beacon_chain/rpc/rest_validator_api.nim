@@ -16,6 +16,7 @@ import ".."/[beacon_chain_db, beacon_node],
        "."/[rest_utils, state_ttl_cache]
 
 from ".."/spec/datatypes/bellatrix import ExecutionPayload
+from ".."/spec/datatypes/capella import ExecutionPayload
 
 export rest_utils
 
