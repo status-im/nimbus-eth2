@@ -183,10 +183,19 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
     return
 
 proc remainingSlots(man: SyncManager): uint64 =
+  let
+    first = man.getFirstSlot()
+    last = man.getLastSlot()
   if man.direction == SyncQueueKind.Forward:
-    man.getLastSlot() - man.getFirstSlot()
+    if last > first:
+      man.getLastSlot() - man.getFirstSlot()
+    else:
+      0'u64
   else:
-    man.getFirstSlot() - man.getLastSlot()
+    if first > last:
+      man.getFirstSlot() - man.getLastSlot()
+    else:
+      0'u64
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
   logScope:
