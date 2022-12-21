@@ -1589,13 +1589,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#wrapper-script" class="md-nav__link">
-    Wrapper script
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#docker-compose" class="md-nav__link">
     Docker compose
   </a>
@@ -1671,13 +1664,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#wrapper-script" class="md-nav__link">
-    Wrapper script
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#docker-compose" class="md-nav__link">
     Docker compose
   </a>
@@ -1708,29 +1694,33 @@
 
 
 <h1 id="docker-images">Docker images</h1>
-<p>Docker images are available from <a href="https://hub.docker.com/r/statusim/nimbus-eth2">Docker Hub</a>  .</p>
-<p>We have version-specific Docker tags (<code>statusim/nimbus-eth2:amd64-v1.2.3</code>) and a tag for the latest image (<code>statusim/nimbus-eth2:amd64-latest</code>).</p>
-<p>These images are simply the contents of <a href="binaries.html">release tarballs</a> inside a <code>debian:bullseye-slim</code> image, running under a user imaginatively named <code>user</code>, with UID:GID of 1000:1000.</p>
-<p>The unpacked archive is in <code>/home/user/nimbus-eth2</code> which is also the default <em>WORKDIR</em>. The default <em>ENTRYPOINT</em> is the binary itself: <code>/home/user/nimbus-eth2/build/nimbus_beacon_node</code></p>
+<p>Docker images for the <a href="https://hub.docker.com/r/statusim/nimbus-eth2">Nimbus beacon node</a> and the <a href="https://hub.docker.com/r/statusim/nimbus-validator-client">Nimbus validator client</a> are available at docker hub.</p>
+<p>We have version-specific Docker tags (e.g. <code>statusim/nimbus-eth2:amd64-v1.2.3</code>) and a tag for the latest image (e.g. <code>statusim/nimbus-eth2:amd64-latest</code>).</p>
+<p>These images contain the same binaries as the <a href="binaries.html">release tarballs</a> inside a <code>debian:bullseye-slim</code> image, running under a user imaginatively named <code>user</code>, with UID:GID of 1000:1000.</p>
+<p>The binaries are placed under the <code>/home/user/</code> directory which is also the default <em>WORKDIR</em>. The <em>ENTRYPOINT</em> of the image is configured to directly launch the respective binary without any extra arguments.</p>
 <h2 id="usage">Usage</h2>
 <p>Before running Nimbus via docker, you need to prepare a data directory and mount it in docker.</p>
-<p>It is recommended that you mount the directory at <code>/home/user/nimbus-eth2/build/data</code> and pass <code>--data-dir=build/data/shared_mainnet_0</code> to all <code>nimbus_beacon_node</code> commands.</p>
-<p>The wrapper script outlined below will set the data directory automatically.</p>
+<p>It is recommended that you mount the directory at <code>/home/user/data</code> and pass <code>--data-dir=data/beacon_node/mainnet_0</code> to all <code>nimbus_beacon_node</code> commands.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mkdir data
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>docker run -it --rm <span class="se">\</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  -v <span class="si">${</span><span class="nv">PWD</span><span class="si">}</span>/data:/home/user/nimbus-eth2/build/data <span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  -v <span class="si">${</span><span class="nv">PWD</span><span class="si">}</span>/data:/home/user/data <span class="se">\</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  statusim/nimbus-eth2:amd64-latest <span class="se">\</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  --data-dir<span class="o">=</span>build/data/shared_mainnet_0
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  --network<span class="o">=</span>mainnet <span class="o">[</span>other options<span class="o">]</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  --data-dir<span class="o">=</span>data/beacon_node/mainnet_0
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  --network<span class="o">=</span>mainnet <span class="se">\</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  <span class="o">[</span>other options<span class="o">]</span>
 </code></pre></div>
-<h3 id="wrapper-script">Wrapper script</h3>
-<p>If you wish, you can choose to use a wrapper script instead:</p>
+<p>Similarly, to launch a Nimbus validator client you can use the following command:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mkdir data
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>docker run -it --rm <span class="se">\</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  -v <span class="si">${</span><span class="nv">PWD</span><span class="si">}</span>/data:/home/user/nimbus-eth2/build/data <span class="se">\</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  --entrypoint /home/user/nimbus-eth2/run-mainnet-beacon-node.sh <span class="se">\</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  statusim/nimbus-eth2:amd64-latest <span class="o">[</span>other options<span class="o">]</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  -v <span class="si">${</span><span class="nv">PWD</span><span class="si">}</span>/data:/home/user/data <span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  statusim/nimbus-validator_client:amd64-latest <span class="se">\</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  --data-dir<span class="o">=</span>data/validator_client/mainnet_0 <span class="se">\</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  <span class="o">[</span>other options<span class="o">]</span>
 </code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Do not use the same data directory for beacon node and validator client - they will both try to load the same keys which may result in slashing!</p>
+</div>
 <h3 id="docker-compose">Docker compose</h3>
 <p>Our preferred setup is using <code>docker-compose</code>. You can use one of our <a href="https://github.com/status-im/nimbus-eth2/tree/stable/docker/dist/binaries">example configuration files</a> as a base for your own custom configuration:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>mkdir data
