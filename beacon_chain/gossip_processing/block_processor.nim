@@ -383,7 +383,8 @@ proc storeBlock*(
       # `processBlock` (indirectly). `validator_duties` does call `storeBlock`
       # directly, so is exposed to this, but only cares about whether there is
       # an error or not.
-      warn "Attempting to process execution payload without execution client. Ensure --web3-url setting is correct and JWT is configured."
+      if self[].consensusManager.eth1Monitor.isNil:
+        warn "Attempting to process execution payload without execution client. Ensure --web3-url setting is correct and JWT is configured."
 
       return err((VerifierError.MissingParent, ProcessingStatus.notCompleted))
 
