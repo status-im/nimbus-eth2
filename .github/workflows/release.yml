@@ -380,7 +380,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build multi-arch Docker image
+      - name: Build multi-arch Docker images
         run: |
           REFNAME="${{ github.ref }}"
           TAG="${REFNAME#refs/tags/}"
@@ -396,4 +396,15 @@ jobs:
             --amend statusim/nimbus-eth2:arm64-latest \
             --amend statusim/nimbus-eth2:arm-latest
           docker manifest push statusim/nimbus-eth2:multiarch-latest
-
+          docker manifest create \
+            statusim/nimbus-validator-client:multiarch-${TAG} \
+            --amend statusim/nimbus-validator-client:amd64-${TAG} \
+            --amend statusim/nimbus-validator-client:arm64-${TAG} \
+            --amend statusim/nimbus-validator-client:arm-${TAG}
+          docker manifest push statusim/nimbus-validator-client:multiarch-${TAG}
+          docker manifest create \
+            statusim/nimbus-validator-client:multiarch-latest \
+            --amend statusim/nimbus-validator-client:amd64-latest \
+            --amend statusim/nimbus-validator-client:arm64-latest \
+            --amend statusim/nimbus-validator-client:arm-latest
+          docker manifest push statusim/nimbus-validator-client:multiarch-latest
