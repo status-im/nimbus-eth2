@@ -410,6 +410,13 @@ proc addBackfillBlock*(
     debug "Block does not match expected backfill root"
     return err(VerifierError.MissingParent) # MissingChild really, but ..
 
+  if blck.slot < dag.horizon:
+    # This can happen as the horizon keeps moving - we'll discard it as
+    # duplicate since it would have duplicated an existing block had we been
+    # interested
+    debug "Block past horizon, dropping", horizon = dag.horizon
+    return err(VerifierError.Duplicate)
+
   checkSignature()
 
   let sigVerifyTick = Moment.now
