@@ -25,6 +25,7 @@ import
   ./batch_validation
 
 from ../spec/datatypes/capella import SignedBeaconBlock
+from ../spec/datatypes/eip4844 import SignedBeaconBlock, SignedBeaconBlockAndBlobsSidecar
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
 
@@ -182,7 +183,8 @@ template validateBeaconBlockBellatrix(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/bellatrix/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
-       signed_beacon_block: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock,
+       signed_beacon_block: bellatrix.SignedBeaconBlock |
+       capella.SignedBeaconBlock | eip4844.SignedBeaconBlock,
        parent: BlockRef): untyped =
   # If the execution is enabled for the block -- i.e.
   # is_execution_enabled(state, block.body) then validate the following:
@@ -225,7 +227,8 @@ template validateBeaconBlockBellatrix(
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                         bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock,
+                         bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+                         eip4844.SignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
@@ -387,14 +390,50 @@ proc validateBeaconBlock*(
 
   ok()
 
-from ../spec/datatypes/eip4844 import SignedBeaconBlock
+proc validateBeaconBlockAndBlobsSidecar*(signedBlock: SignedBeaconBlockAndBlobsSidecar):
+                         Result[void, ValidationError] =
+  # [REJECT] The KZG commitments of the blobs are all correctly encoded
+  # compressed BLS G1 points -- i.e. all(bls.KeyValidate(commitment) for
+  # commitment in block.body.blob_kzg_commitments)
+  # todo ^
 
-proc validateBeaconBlock*(
-    dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block: eip4844.SignedBeaconBlock,
-    wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
-  debugRaiseAssert $eip4844ImplementationMissing & ": gossip_validation.nim: validateBeaconBlock not how EIP4844 works anymore"
-  err(default(ValidationError))
+  # [REJECT] The KZG commitments correspond to the versioned hashes in
+  # the transactions list --
+  # i.e. verify_kzg_commitments_against_transactions(block.body.execution_payload.transactions,
+  # block.body.blob_kzg_commitments)
+  if not verify_kzg_commitments_against_transactions(
+    signedBlock.beacon_block.message.body.execution_payload.transactions.asSeq,
+    signedBlock.beacon_block.message.body.blob_kzg_commitments.asSeq):
+    return errReject("KZG blob commitments not correctly encoded")
+
+  let sidecar = signedBlock.blobs_sidecar
+
+  # [IGNORE] the sidecar.beacon_block_slot is for the current slot
+  # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. sidecar.beacon_block_slot == block.slot.
+  if not (sidecar.beacon_block_slot == signedBlock.beacon_block.message.slot):
+     return errIgnore("sidecar and block slots not equal")
+
+  # [REJECT] the sidecar.blobs are all well formatted, i.e. the
+  # BLSFieldElement in valid range (x < BLS_MODULUS).
+  # todo ^
+
+  # [REJECT] The KZG proof is a correctly encoded compressed BLS G1
+  # point -- i.e. bls.KeyValidate(blobs_sidecar.kzg_aggregated_proof)
+  # todo ^
+
+  # [REJECT] The KZG commitments in the block are valid against the
+  # provided blobs sidecar -- i.e. validate_blobs_sidecar(block.slot,
+  # hash_tree_root(block), block.body.blob_kzg_commitments, sidecar)
+  let res = validate_blobs_sidecar(signedBlock.beacon_block.message.slot,
+                                   hash_tree_root(signedBlock.beacon_block),
+                                   signedBlock.beacon_block.message
+                                   .body.blob_kzg_commitments.asSeq,
+                                   sidecar)
+  if res.isOk():
+    ok()
+  else:
+    errIgnore(res.error())
+
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(

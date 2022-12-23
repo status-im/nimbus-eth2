@@ -39,6 +39,8 @@ type
   KZGProof* = array[48, byte]
   BLSFieldElement* = array[32, byte]
 
+  KZGCommitmentList* = List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]
+
   # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
   # current spec doesn't ever SSZ-serialize it or hash_tree_root it
   VersionedHash* = array[32, byte]
@@ -251,7 +253,7 @@ type
     # Execution
     execution_payload*: ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]  # [New in EIP-4844]
+    blob_kzg_commitments*: KZGCommitmentList  # [New in EIP-4844]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
