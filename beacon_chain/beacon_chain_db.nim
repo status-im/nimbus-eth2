@@ -419,7 +419,7 @@ proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorDataDb2]): seq[Immuta
       pubkey: tmp.pubkey.loadValid(),
       withdrawal_credentials: tmp.withdrawal_credentials)
 
-template withManyWrites*(dbParam: BeaconChainDB, body: untyped): untyped =
+template withManyWrites*(dbParam: BeaconChainDB, body: untyped) =
   let
     db = dbParam
     nested = isInsideTransaction(db.db)
@@ -433,13 +433,8 @@ template withManyWrites*(dbParam: BeaconChainDB, body: untyped): untyped =
     expectDb db.db.exec("BEGIN TRANSACTION;")
   var commit = false
   try:
-    when typeof(body) is void:
-      block: body
+      body
       commit = true
-    else:
-      let res = block: body
-      commit = true
-      res
   finally:
     if not nested:
       if commit:
@@ -847,9 +842,11 @@ proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) 
   db.stateDiffs.putSnappySSZ(root.data, value)
 
 proc delBlock*(db: BeaconChainDB, fork: BeaconBlockFork, key: Eth2Digest): bool =
+  var deleted = false
   db.withManyWrites:
     discard db.summaries.del(key.data).expectDb()
-    db.blocks[fork].del(key.data).expectDb()
+    deleted = db.blocks[fork].del(key.data).expectDb()
+  deleted
 
 proc delState*(db: BeaconChainDB, fork: BeaconStateFork, key: Eth2Digest) =
   discard db.statesNoVal[fork].del(key.data).expectDb()
