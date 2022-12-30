@@ -66,6 +66,11 @@ template ethTimeUnit*(typ: type) {.dirty.} =
   proc `div`*(x: uint64, y: typ): uint64 {.borrow, noSideEffect.}
   proc `-`*(x: typ, y: typ): uint64 {.borrow, noSideEffect.}
 
+  iterator countdown*(a, b: typ, step: Positive = 1): typ =
+    # otherwise we use the signed version that breaks at the boundary
+    for i in countdown(distinctBase(a), distinctBase(b), step):
+      yield typ(i)
+
   proc `*`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
 
   proc `+=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
