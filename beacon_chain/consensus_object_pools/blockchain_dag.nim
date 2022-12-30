@@ -211,7 +211,14 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  if (let blck = db.getBlock(root, bellatrix.TrustedSignedBeaconBlock);
+  static: doAssert high(BeaconBlockFork) == BeaconBlockFork.EIP4844
+  if (let blck = db.getBlock(root, eip4844.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, capella.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, bellatrix.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
   elif (let blck = db.getBlock(root, altair.TrustedSignedBeaconBlock);
