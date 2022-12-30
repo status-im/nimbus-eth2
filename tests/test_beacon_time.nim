@@ -47,3 +47,10 @@ suite "Beacon time":
         Epoch(5).sync_committee_period
       SyncCommitteePeriod(5).start_slot.sync_committee_period ==
         SyncCommitteePeriod(5)
+
+    block:
+      var counts = 0
+      for i in countdown(SyncCommitteePeriod(1), SyncCommitteePeriod(0)):
+        counts += 1
+      check:
+        counts == 2
