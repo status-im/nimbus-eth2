@@ -183,10 +183,19 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
     return
 
 proc remainingSlots(man: SyncManager): uint64 =
+  let
+    first = man.getFirstSlot()
+    last = man.getLastSlot()
   if man.direction == SyncQueueKind.Forward:
-    man.getLastSlot() - man.getFirstSlot()
+    if last > first:
+      man.getLastSlot() - man.getFirstSlot()
+    else:
+      0'u64
   else:
-    man.getFirstSlot() - man.getLastSlot()
+    if first > last:
+      man.getFirstSlot() - man.getLastSlot()
+    else:
+      0'u64
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
   logScope:
@@ -297,9 +306,8 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     peer.updateScore(PeerScoreUseless)
     return
 
-  if man.direction == SyncQueueKind.Forward:
-    # Wall clock keeps ticking, so we need to update the queue
-    man.queue.updateLastSlot(man.getLastSlot())
+  # Wall clock keeps ticking, so we need to update the queue
+  man.queue.updateLastSlot(man.getLastSlot())
 
   man.workers[index].status = SyncWorkerStatus.Requesting
   let req = man.queue.pop(peerSlot, peer)
@@ -575,15 +583,27 @@ proc syncLoop[A, B](man: SyncManager[A, B]) {.async.} =
       progress =
         case man.queue.kind
         of SyncQueueKind.Forward:
-          man.queue.outSlot - pivot
+          if man.queue.outSlot >= pivot:
+            man.queue.outSlot - pivot
+          else:
+            0'u64
         of SyncQueueKind.Backward:
-          pivot - man.queue.outSlot
+          if pivot >= man.queue.outSlot:
+            pivot - man.queue.outSlot
+          else:
+            0'u64
       total =
         case man.queue.kind
         of SyncQueueKind.Forward:
-          man.queue.finalSlot + 1'u64 - pivot
+          if man.queue.finalSlot >= pivot:
+            man.queue.finalSlot + 1'u64 - pivot
+          else:
+            0'u64
         of SyncQueueKind.Backward:
-          pivot + 1'u64 - man.queue.finalSlot
+          if pivot >= man.queue.finalSlot:
+            pivot + 1'u64 - man.queue.finalSlot
+          else:
+            0'u64
       remaining = total - progress
       done =
         if total > 0:

@@ -209,18 +209,18 @@ proc doTrustedNodeSync*(
     validatorMonitor = newClone(ValidatorMonitor.init(false, false))
     dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, eraPath = eraDir)
     backfillSlot = dag.backfill.slot
-    frontfill = dag.frontfill.valueOr(BlockId())
+    horizon = max(dag.horizon, dag.frontfill.valueOr(BlockId()).slot)
 
-  let canReindex = if backfillSlot <= frontfill.slot:
-    info "Database backfilled"
+  let canReindex = if backfillSlot <= horizon:
+    info "Database backfilled", backfill = dag.backfill, horizon
     true
   elif backfill:
     # +1 because we need to download the frontfill slot for the frontfill match
     # detection to kick in, in addBackfillBlock
-    let missingSlots = dag.backfill.slot - frontfill.slot + 1
+    let missingSlots = dag.backfill.slot - horizon + 1
 
     notice "Downloading historical blocks - you can interrupt this process at any time and it automatically be completed when you start the beacon node",
-      backfillSlot, frontfill, missingSlots
+      backfillSlot, horizon, missingSlots
 
     var # Same averaging as SyncManager
       syncCount = 0
@@ -260,7 +260,7 @@ proc doTrustedNodeSync*(
         syncCount += 1
 
         let
-          remaining = dag.backfill.slot - frontfill.slot
+          remaining = dag.backfill.slot - horizon
           slotsPerSec = speed(stamp, newStamp)
         avgSyncSpeed = avgSyncSpeed + (slotsPerSec - avgSyncSpeed) / float(syncCount)
 
@@ -314,9 +314,9 @@ proc doTrustedNodeSync*(
       notice "Backfilling incomplete - blocks will be downloaded when starting the node", msg = exc.msg
       false
   else:
-    let missingSlots = dag.backfill.slot - frontfill.slot
+    let missingSlots = dag.backfill.slot - horizon
     notice "Database initialized, historical blocks will be backfilled when starting the node",
-      missingSlots
+      missingSlots, backfill = dag.backfill, horizon
 
     false
 

@@ -17,7 +17,7 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   eth/keys,
-  ./consensus_object_pools/vanity_logs/pandas,
+  ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/topic_params,
   ./rpc/[rest_api, state_ttl_cache],
   ./spec/datatypes/[altair, bellatrix, phase0],
@@ -115,21 +115,27 @@ declareGauge next_action_wait,
 
 logScope: topics = "beacnde"
 
-func getPandas(stdoutKind: StdoutLogKind): VanityLogs =
+func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
   case stdoutKind
   of StdoutLogKind.Auto: raiseAssert "inadmissable here"
   of StdoutLogKind.Colors:
     VanityLogs(
       onMergeTransitionBlock:          color🐼,
-      onFinalizedMergeTransitionBlock: blink🐼)
+      onFinalizedMergeTransitionBlock: blink🐼,
+      onUpgradeToCapella:              color🦉)
   of StdoutLogKind.NoColors:
     VanityLogs(
       onMergeTransitionBlock:          mono🐼,
-      onFinalizedMergeTransitionBlock: mono🐼)
+      onFinalizedMergeTransitionBlock: mono🐼,
+      onUpgradeToCapella:              mono🦉)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
-      onMergeTransitionBlock:          (proc() = notice "🐼 Proof of Stake Activated 🐼"),
-      onFinalizedMergeTransitionBlock: (proc() = notice "🐼 Proof of Stake Finalized 🐼"))
+      onMergeTransitionBlock:
+        (proc() = notice "🐼 Proof of Stake Activated 🐼"),
+      onFinalizedMergeTransitionBlock:
+        (proc() = notice "🐼 Proof of Stake Finalized 🐼"),
+      onUpgradeToCapella:
+        (proc() = notice "🦉 Withdrowls now available 🦉"))
 
 proc loadChainDag(
     config: BeaconNodeConf,
@@ -161,7 +167,7 @@ proc loadChainDag(
       else: nil
     dag = ChainDAGRef.init(
       cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
-      vanityLogs = getPandas(detectTTY(config.logStdout)),
+      vanityLogs = getVanityLogs(detectTTY(config.logStdout)),
       lcDataConfig = LightClientDataConfig(
         serve: config.lightClientDataServe,
         importMode: config.lightClientDataImportMode,
@@ -271,10 +277,7 @@ proc initFullNode(
     dag.backfill.slot
 
   func getFrontfillSlot(): Slot =
-    if dag.frontfill.isSome():
-      dag.frontfill.get().slot
-    else:
-      GENESIS_SLOT
+    max(dag.frontfill.get(BlockId()).slot, dag.horizon)
 
   let
     quarantine = newClone(
@@ -445,10 +448,7 @@ proc init*(T: type BeaconNode,
   let optJwtSecret = rng[].loadJwtSecret(config, allowCreate = false)
 
   if config.web3Urls.len() == 0:
-    if cfg.BELLATRIX_FORK_EPOCH == FAR_FUTURE_EPOCH:
-      notice "Running without execution client - validator features partially disabled (see https://nimbus.guide/eth1.html)"
-    else:
-      notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
+    notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
 
   var eth1Monitor: Eth1Monitor
 
@@ -1627,8 +1627,6 @@ proc start*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
   if node.eth1Monitor != nil:
     node.eth1Monitor.start()
-  else:
-    notice "Running without execution chain monitor, block producation partially disabled"
 
   node.run()
 

@@ -281,17 +281,7 @@ proc makePending*[T](sq: SyncQueue[T], req: var SyncRequest[T]) =
 
 proc updateLastSlot*[T](sq: SyncQueue[T], last: Slot) {.inline.} =
   ## Update last slot stored in queue ``sq`` with value ``last``.
-  case sq.kind
-  of SyncQueueKind.Forward:
-    doAssert(sq.finalSlot <= last,
-             "Last slot could not be lower then stored one " &
-             $sq.finalSlot & " <= " & $last)
-    sq.finalSlot = last
-  of SyncQueueKind.Backward:
-    doAssert(sq.finalSlot >= last,
-             "Last slot could not be higher then stored one " &
-             $sq.finalSlot & " >= " & $last)
-    sq.finalSlot = last
+  sq.finalSlot = last
 
 proc wakeupWaiters[T](sq: SyncQueue[T], reset = false) =
   ## Wakeup one or all blocked waiters.
@@ -793,7 +783,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
           if safeSlot > failSlot:
             let rewindSlot = sq.getRewindPoint(failSlot, safeSlot)
             # It's quite common peers give us fewer blocks than we ask for
-            info "Gap in block range response, rewinding", request = req,
+            debug "Gap in block range response, rewinding", request = req,
                  rewind_to_slot = rewindSlot, rewind_fail_slot = failSlot,
                  finalized_slot = safeSlot, blocks_count = len(item.data),
                  blocks_map = getShortMap(req, item.data)
@@ -974,22 +964,31 @@ proc len*[T](sq: SyncQueue[T]): uint64 {.inline.} =
   ## Returns number of slots left in queue ``sq``.
   case sq.kind
   of SyncQueueKind.Forward:
-    sq.finalSlot + 1'u64 - sq.outSlot
+    if sq.finalSlot >= sq.outSlot:
+      sq.finalSlot + 1'u64 - sq.outSlot
+    else:
+      0'u64
   of SyncQueueKind.Backward:
-    sq.outSlot + 1'u64 - sq.finalSlot
+    if sq.outSlot >= sq.finalSlot:
+      sq.outSlot + 1'u64 - sq.finalSlot
+    else:
+      0'u64
 
 proc total*[T](sq: SyncQueue[T]): uint64 {.inline.} =
   ## Returns total number of slots in queue ``sq``.
   case sq.kind
   of SyncQueueKind.Forward:
-    sq.finalSlot + 1'u64 - sq.startSlot
+    if sq.finalSlot >= sq.startSlot:
+      sq.finalSlot + 1'u64 - sq.startSlot
+    else:
+      0'u64
   of SyncQueueKind.Backward:
-    sq.startSlot + 1'u64 - sq.finalSlot
+    if sq.startSlot >= sq.finalSlot:
+      sq.startSlot + 1'u64 - sq.finalSlot
+    else:
+      0'u64
 
 proc progress*[T](sq: SyncQueue[T]): uint64 =
-  ## How many slots we've synced so far
-  case sq.kind
-  of SyncQueueKind.Forward:
-    sq.outSlot - sq.startSlot
-  of SyncQueueKind.Backward:
-    sq.startSlot - sq.outSlot
+  ## How many useful slots we've synced so far, adjusting for how much has
+  ## become obsolete by time movements
+  sq.total - sq.len

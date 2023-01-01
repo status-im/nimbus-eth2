@@ -211,7 +211,14 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  if (let blck = db.getBlock(root, bellatrix.TrustedSignedBeaconBlock);
+  static: doAssert high(BeaconBlockFork) == BeaconBlockFork.EIP4844
+  if (let blck = db.getBlock(root, eip4844.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, capella.TrustedSignedBeaconBlock);
+      blck.isSome()):
+    ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
+  elif (let blck = db.getBlock(root, bellatrix.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
   elif (let blck = db.getBlock(root, altair.TrustedSignedBeaconBlock);
@@ -1295,8 +1302,13 @@ proc getBlockRange*(
     head = shortLog(dag.head.root), requestedCount, startSlot, skipStep, headSlot
 
   if startSlot < dag.backfill.slot:
-    notice "Got request for pre-backfill slot",
-      startSlot, backfillSlot = dag.backfill.slot
+    if startSlot < dag.horizon:
+      # We will not backfill these
+      debug "Got request for pre-horizon slot",
+        startSlot, backfillSlot = dag.backfill.slot
+    else:
+      notice "Got request for pre-backfill slot",
+        startSlot, backfillSlot = dag.backfill.slot
     return output.len
 
   if headSlot <= startSlot or requestedCount == 0:
@@ -1835,6 +1847,7 @@ proc updateHead*(
   let
     lastHeadStateRoot = getStateRoot(dag.headState)
     lastHeadMergeComplete = dag.headState.is_merge_transition_complete()
+    lastHeadKind = dag.headState.kind
 
   # Start off by making sure we have the right state - updateState will try
   # to use existing in-memory states to make this smooth
@@ -1855,6 +1868,16 @@ proc updateHead*(
       lastHeadMergeComplete and
       dag.vanityLogs.onMergeTransitionBlock != nil:
     dag.vanityLogs.onMergeTransitionBlock()
+
+  if dag.headState.kind > lastHeadKind:
+    case dag.headState.kind
+    of BeaconStateFork.Phase0 .. BeaconStateFork.Bellatrix:
+      discard
+    of BeaconStateFork.Capella:
+      if dag.vanityLogs.onUpgradeToCapella != nil:
+        dag.vanityLogs.onUpgradeToCapella()
+    of BeaconStateFork.EIP4844:
+      discard
 
   dag.db.putHeadBlock(newHead.root)
 

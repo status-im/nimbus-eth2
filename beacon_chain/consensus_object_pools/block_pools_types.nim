@@ -25,7 +25,7 @@ import
 from ../spec/datatypes/capella import TrustedSignedBeaconBlock
 from ../spec/datatypes/eip4844 import TrustedSignedBeaconBlock
 
-from "."/vanity_logs/pandas import VanityLogs
+from "."/vanity_logs/vanity_logs import VanityLogs
 
 export
   options, sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
@@ -211,10 +211,7 @@ type
       ## full ChainDAG.
 
     vanityLogs*: VanityLogs
-      ## Upon the merge activating, these get displayed, at least once when the
-      ## head becomes post-merge and then when the merge is finalized. If chain
-      ## reorgs happen around the initial merge onMergeTransitionBlock might be
-      ## called several times.
+      ## Logs for celebratory events, typically featuring ANSI art.
 
     # -----------------------------------
     # Light client data
@@ -364,6 +361,14 @@ template frontfill*(dagParam: ChainDAGRef): Opt[BlockId] =
       slot: Slot(dag.frontfillBlocks.lenu64 - 1), root: dag.frontfillBlocks[^1])
   else:
     dag.genesis
+
+func horizon*(dag: ChainDAGRef): Slot =
+  ## The sync horizon that we target during backfill - ie we will not backfill
+  ## blocks older than this from the network
+  if dag.head.slot.epoch > dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS:
+    start_slot(dag.head.slot.epoch - dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS)
+  else:
+    GENESIS_SLOT
 
 template epoch*(e: EpochRef): Epoch = e.key.epoch
 
