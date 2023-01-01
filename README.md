@@ -63,7 +63,7 @@ If you'd like to contribute to Nimbus development, our donation address is [`0x7
 ## Branch guide
 
 * `stable` - latest stable release - **this branch is recommended for most users**
-* `testing` - pre-release branch with features and bugfixes slated for the next stable release - this branch is suitable for use on testnets and for adventerous users that want to live on the edge.
+* `testing` - pre-release branch with features and bugfixes slated for the next stable release - this branch is suitable for use on testnets and for adventurous users that want to live on the edge.
 * `unstable` - main development branch against which PR's are merged - if you want to contribute to Nimbus, start here.
 
 ## Developer resources
