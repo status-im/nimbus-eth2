@@ -25,7 +25,7 @@ import
   "."/[beacon_chain_db_light_client, filepath]
 
 from ./spec/datatypes/capella import BeaconState
-from ./spec/datatypes/eip4844 import TrustedSignedBeaconBlock
+from ./spec/datatypes/eip4844 import TrustedSignedBeaconBlock, BlobsSidecar
 
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
@@ -114,6 +114,8 @@ type
 
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
     blocks: array[BeaconBlockFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
+
+    blobs: KvStoreRef # (BlockRoot -> BlobsSidecar)
 
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
 
@@ -503,6 +505,8 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("capella_blocks").expectDb(),
       kvStore db.openKvStore("eip4844_blocks").expectDb()]
 
+    blobs = kvStore db.openKvStore("blobs").expectDb()
+
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
     statesNoVal = [
@@ -555,6 +559,7 @@ proc new*(T: type BeaconChainDB,
     checkpoint: proc() = db.checkpoint(),
     keyValues: keyValues,
     blocks: blocks,
+    blobs: blobs,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
     stateDiffs: stateDiffs,
@@ -766,6 +771,11 @@ proc putBlock*(
     db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
+proc putBlobs*(
+    db: BeaconChainDB,
+    value: BlobsSidecar) =
+    db.blobs.putSZSSZ(value.beacon_block_root.data, value)
+
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
   # Must be called before storing a state that references the new validators
@@ -948,6 +958,12 @@ proc getBlock*[
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
   else:
+    result.err()
+
+proc getBlobs*(db: BeaconChainDB, key: Eth2Digest): Opt[BlobsSidecar] =
+  var blobs: BlobsSidecar
+  result.ok(blobs)
+  if db.blobs.getSZSSZ(key.data, result.get) != GetResult.found:
     result.err()
 
 proc getPhase0BlockSSZ(

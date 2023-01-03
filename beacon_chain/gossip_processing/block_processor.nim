@@ -30,6 +30,7 @@ from ../consensus_object_pools/block_quarantine import
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
+from ../spec/datatypes/eip4844 import BlobsSidecar
 
 export sszdump, signatures_batch
 
@@ -43,6 +44,7 @@ declareHistogram beacon_store_block_duration_seconds,
 type
   BlockEntry* = object
     blck*: ForkedSignedBeaconBlock
+    blobs*: Opt[eip4844.BlobsSidecar]
     resfut*: Future[Result[void, VerifierError]]
     queueTick*: Moment # Moment when block was enqueued
     validationDur*: Duration # Time it took to perform gossip validation
@@ -102,6 +104,7 @@ type
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
+    blobs: Opt[eip4844.BlobsSidecar],
     resfut: Future[Result[void, VerifierError]] = nil,
     validationDur = Duration())
 
@@ -157,10 +160,12 @@ proc dumpBlock[T](
 
 from ../consensus_object_pools/block_clearance import
   addBackfillBlock, addHeadBlock
+from ../beacon_chain_db import putBlobs
 
 proc storeBackfillBlock(
     self: var BlockProcessor,
-    signedBlock: ForkySignedBeaconBlock): Result[void, VerifierError] =
+    signedBlock: ForkySignedBeaconBlock,
+    blobs: Opt[eip4844.BlobsSidecar]): Result[void, VerifierError] =
 
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
@@ -181,7 +186,11 @@ proc storeBackfillBlock(
       # Track unviables so that descendants can be discarded properly
       self.consensusManager.quarantine[].addUnviable(signedBlock.root)
     else: discard
+    return res
 
+  if blobs.isSome():
+    # Only store blobs after successfully establishing block viability.
+    self.consensusManager.dag.db.putBlobs(blobs.get())
   res
 
 from web3/engine_api_types import PayloadExecutionStatus, PayloadStatusV1
@@ -353,8 +362,9 @@ proc getExecutionValidity(
 
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
-    signedBlock: ForkySignedBeaconBlock, queueTick: Moment = Moment.now(),
-    validationDur = Duration()):
+    signedBlock: ForkySignedBeaconBlock,
+    blobs: Opt[eip4844.BlobsSidecar] = none(eip4844.BlobsSidecar),
+    queueTick: Moment = Moment.now(), validationDur = Duration()):
     Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async.} =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
   ## blocks, regardless of origin, pass through here. When storing a block,
@@ -447,7 +457,7 @@ proc storeBlock*(
         return err((VerifierError.UnviableFork, ProcessingStatus.completed))
 
       if not self.consensusManager.quarantine[].addOrphan(
-          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock)):
+        dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock), blobs):
         debug "Block quarantine full",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
@@ -458,6 +468,10 @@ proc storeBlock*(
     else: discard
 
     return err((blck.error, ProcessingStatus.completed))
+
+  # write blobs now that block has been written.
+  if blobs.isSome():
+    self.consensusManager.dag.db.putBlobs(blobs.get())
 
   let storeBlockTick = Moment.now()
 
@@ -554,7 +568,7 @@ proc storeBlock*(
 
   for quarantined in self.consensusManager.quarantine[].pop(blck.get().root):
     # Process the blocks that had the newly accepted block as parent
-    self[].addBlock(MsgSource.gossip, quarantined)
+    self[].addBlock(MsgSource.gossip, quarantined[0], quarantined[1])
 
   return Result[BlockRef, (VerifierError, ProcessingStatus)].ok blck.get
 
@@ -563,7 +577,7 @@ proc storeBlock*(
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    resfut: Future[Result[void, VerifierError]] = nil,
+    blobs: Opt[eip4844.BlobsSidecar], resfut: Future[Result[void, VerifierError]] = nil,
     validationDur = Duration()) =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
@@ -578,8 +592,7 @@ proc addBlock*(
     if blck.message.slot <= self.consensusManager.dag.finalizedHead.slot:
       # let backfill blocks skip the queue - these are always "fast" to process
       # because there are no state rewinds to deal with
-      let res = self.storeBackfillBlock(blck)
-
+      let res = self.storeBackfillBlock(blck, blobs)
       if resfut != nil:
         resfut.complete(res)
       return
@@ -587,6 +600,7 @@ proc addBlock*(
   try:
     self.blockQueue.addLastNoWait(BlockEntry(
       blck: blck,
+      blobs: blobs,
       resfut: resfut, queueTick: Moment.now(),
       validationDur: validationDur,
       src: src))
@@ -611,7 +625,8 @@ proc processBlock(
 
   let res = withBlck(entry.blck):
     await self.storeBlock(
-      entry.src, wallTime, blck, entry.queueTick, entry.validationDur)
+      entry.src, wallTime, blck, entry.blobs, entry.queueTick,
+      entry.validationDur)
 
   if res.isErr and res.error[1] == ProcessingStatus.notCompleted:
     # When an execution engine returns an error or fails to respond to a
@@ -622,8 +637,7 @@ proc processBlock(
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].addBlock(
-      entry.src, entry.blck, entry.resfut, entry.validationDur)
-
+      entry.src, entry.blck, entry.blobs, entry.resfut, entry.validationDur)
     # To ensure backpressure on the sync manager, do not complete these futures.
     return
 

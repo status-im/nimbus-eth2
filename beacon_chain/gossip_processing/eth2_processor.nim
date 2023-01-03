@@ -225,6 +225,7 @@ proc processSignedBeaconBlock*(
 
     self.blockProcessor[].addBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
+      none(eip4844.BlobsSidecar),
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
 
@@ -248,6 +249,7 @@ proc processSignedBeaconBlockAndBlobsSidecar*(
     (afterGenesis, wallSlot) = wallTime.toSlot()
 
   template signedBlock: auto = signedBlockAndBlobsSidecar.beacon_block
+  template blobs: auto = signedBlockAndBlobsSidecar.blobs_sidecar
 
   logScope:
     blockRoot = shortLog(signedBlock.root)
@@ -267,7 +269,8 @@ proc processSignedBeaconBlockAndBlobsSidecar*(
   debug "Block received", delay
 
   let blockRes =
-    self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {})
+    self.dag.validateBeaconBlock(self.quarantine, signedBlock, some(blobs),
+                                 wallTime, {})
   if blockRes.isErr():
     debug "Dropping block", error = blockRes.error()
     self.blockProcessor[].dumpInvalidBlock(signedBlock)
@@ -289,6 +292,7 @@ proc processSignedBeaconBlockAndBlobsSidecar*(
   trace "Block validated"
   self.blockProcessor[].addBlock(
     src, ForkedSignedBeaconBlock.init(signedBlock),
+    some(blobs),
     validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
 
