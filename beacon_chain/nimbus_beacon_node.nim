@@ -1072,7 +1072,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   const removeMessageHandlers: array[BeaconStateFork, auto] = [
     removePhase0MessageHandlers,
     removeAltairMessageHandlers,
-    removeAltairMessageHandlers,  # bellatrix (altair handlers, with different forkDigest)
+    removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
     removeCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
   ]

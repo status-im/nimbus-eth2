@@ -25,7 +25,8 @@ import
   ./batch_validation
 
 from ../spec/datatypes/capella import SignedBeaconBlock
-from ../spec/datatypes/eip4844 import SignedBeaconBlock, SignedBeaconBlockAndBlobsSidecar, BLS_MODULUS
+from ../spec/datatypes/eip4844 import
+  SignedBeaconBlock, SignedBeaconBlockAndBlobsSidecar, BLS_MODULUS
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
 
@@ -409,7 +410,8 @@ proc validateBeaconBlockAndBlobsSidecar*(signedBlock: SignedBeaconBlockAndBlobsS
   let sidecar = signedBlock.blobs_sidecar
 
   # [IGNORE] the sidecar.beacon_block_slot is for the current slot
-  # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. sidecar.beacon_block_slot == block.slot.
+  # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
+  # sidecar.beacon_block_slot == block.slot.
   if not (sidecar.beacon_block_slot == signedBlock.beacon_block.message.slot):
      return errIgnore("sidecar and block slots not equal")
 
