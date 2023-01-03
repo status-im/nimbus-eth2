@@ -1384,7 +1384,6 @@ proc installMessageValidators(node: BeaconNode) =
           toValidationResult(node.processor[].processSignedBeaconBlock(
             MsgSource.gossip, signedBlock)))
 
-
   installBeaconBlocksValidator(forkDigests.phase0, phase0)
   installBeaconBlocksValidator(forkDigests.altair, altair)
   installBeaconBlocksValidator(forkDigests.bellatrix, bellatrix)
