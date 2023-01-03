@@ -443,6 +443,32 @@ type
     withdrawable_epoch*: Epoch
       ## When validator can withdraw or transfer funds
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#validator
+  ValidatorStatusCapella* = object
+    # This is a validator without the expensive, immutable, append-only parts
+    # serialized. They're represented in memory to allow in-place SSZ reading
+    # and writing compatibly with the full Validator object.
+
+    pubkey* {.dontSerialize.}: ValidatorPubKey
+
+    withdrawal_credentials*: Eth2Digest
+      ## Commitment to pubkey for withdrawals and transfers
+
+    effective_balance*: Gwei
+      ## Balance at stake
+
+    slashed*: bool
+
+    # Status epochs
+    activation_eligibility_epoch*: Epoch
+      ## When criteria for activation were met
+
+    activation_epoch*: Epoch
+    exit_epoch*: Epoch
+
+    withdrawable_epoch*: Epoch
+      ## When validator can withdraw or transfer funds
+
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/p2p-interface.md#eth2-field
   ENRForkID* = object
     fork_digest*: ForkDigest
