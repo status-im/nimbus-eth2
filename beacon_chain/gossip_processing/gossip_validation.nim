@@ -25,7 +25,7 @@ import
   ./batch_validation
 
 from ../spec/datatypes/capella import SignedBeaconBlock
-from ../spec/datatypes/eip4844 import SignedBeaconBlock, SignedBeaconBlockAndBlobsSidecar
+from ../spec/datatypes/eip4844 import SignedBeaconBlock, SignedBeaconBlockAndBlobsSidecar, BLS_MODULUS
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
 
@@ -415,7 +415,11 @@ proc validateBeaconBlockAndBlobsSidecar*(signedBlock: SignedBeaconBlockAndBlobsS
 
   # [REJECT] the sidecar.blobs are all well formatted, i.e. the
   # BLSFieldElement in valid range (x < BLS_MODULUS).
-  # todo ^
+  for blob in sidecar.blobs:
+    for i in 0..<blob.len div 8:
+      let fe = cast[UInt256](sidecar.blobs[i*8..(i+1)*8])
+      if fe >= BLS_MODULUS:
+        return errIgnore("BLSFieldElement outside of valid range")
 
   # [REJECT] The KZG proof is a correctly encoded compressed BLS G1
   # point -- i.e. bls.KeyValidate(blobs_sidecar.kzg_aggregated_proof)

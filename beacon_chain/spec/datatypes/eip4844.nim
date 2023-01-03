@@ -33,6 +33,9 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#blob
   BLOB_TX_TYPE* = 0x05'u8
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/polynomial-commitments.md
+  BLS_MODULUS* = "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
+
 type
   # this block belongs elsewhere - will figure out after implementing c-kzg bindings
   KZGCommitment* = array[48, byte]
