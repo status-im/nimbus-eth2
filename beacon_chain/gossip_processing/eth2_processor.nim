@@ -275,25 +275,26 @@ proc processSignedBeaconBlockAndBlobsSidecar*(
     return blockRes
 
   let sidecarRes =  validateBeaconBlockAndBlobsSidecar(signedBlockAndBlobsSidecar)
-  if sidecarRes.isOk():
-    # Block passed validation - enqueue it for processing. The block processing
-    # queue is effectively unbounded as we use a freestanding task to enqueue
-    # the block - this is done so that when blocks arrive concurrently with
-    # sync, we don't lose the gossip blocks, but also don't block the gossip
-    # propagation of seemingly good blocks
-    trace "Block validated"
-    self.blockProcessor[].addBlock(
-      src, ForkedSignedBeaconBlock.init(signedBlock),
-      validationDur = nanoseconds(
-        (self.getCurrentBeaconTime() - wallTime).nanoseconds))
-
-    # Validator monitor registration for blocks is done by the processor
-    beacon_blocks_received.inc()
-    beacon_block_delay.observe(delay.toFloatSeconds())
-  else:
+  if sidecarRes.isErr():
     debug "Dropping block", error = sidecarRes.error()
     self.blockProcessor[].dumpInvalidBlock(signedBlock)
     beacon_blocks_dropped.inc(1, [$sidecarRes.error[0]])
+    return sidecarRes
+
+  # Block passed validation - enqueue it for processing. The block processing
+  # queue is effectively unbounded as we use a freestanding task to enqueue
+  # the block - this is done so that when blocks arrive concurrently with
+  # sync, we don't lose the gossip blocks, but also don't block the gossip
+  # propagation of seemingly good blocks
+  trace "Block validated"
+  self.blockProcessor[].addBlock(
+    src, ForkedSignedBeaconBlock.init(signedBlock),
+    validationDur = nanoseconds(
+        (self.getCurrentBeaconTime() - wallTime).nanoseconds))
+
+  # Validator monitor registration for blocks is done by the processor
+  beacon_blocks_received.inc()
+  beacon_block_delay.observe(delay.toFloatSeconds())
 
   sidecarRes
 
