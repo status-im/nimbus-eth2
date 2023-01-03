@@ -2184,21 +2184,13 @@ func needsBackfill*(dag: ChainDAGRef): bool =
 proc rebuildIndex*(dag: ChainDAGRef) =
   ## After a checkpoint sync, we lack intermediate states to replay from - this
   ## function rebuilds them so that historical replay can take place again
-  ## TODO handle databases without genesis state
-  if dag.backfill.slot > 0:
-    debug "Backfill not complete, cannot rebuild archive"
-    return
-
-  if dag.tail.slot == GENESIS_SLOT:
-    # The tail is the earliest slot for which we're supposed to have states -
-    # if it's sufficiently recent, don't do anything
-    debug "Archive does not need rebuilding"
-    return
-
+  ## TODO the pruning of junk states could be moved to a separate function that
+  ##      runs either on startup
   # First, we check what states we already have in the database - that allows
   # resuming the operation at any time
   let
     roots = dag.db.loadStateRoots()
+    historicalRoots = getStateField(dag.headState, historical_roots).asSeq()
 
   var
     canonical = newSeq[Eth2Digest](
@@ -2211,6 +2203,8 @@ proc rebuildIndex*(dag: ChainDAGRef) =
   for k, v in roots:
     if k[0] >= dag.finalizedHead.slot:
       continue # skip newer stuff
+    if k[0] < dag.backfill.slot:
+      continue # skip stuff for which we have no blocks
 
     if not isFinalizedStateSnapshot(k[0]):
       # `tail` will move at the end of the process, so we won't need any
@@ -2238,19 +2232,53 @@ proc rebuildIndex*(dag: ChainDAGRef) =
   var
     cache: StateCache
     info: ForkedEpochInfo
+    tailBid: Opt[BlockId]
+    states: int
 
   # `canonical` holds all slots at which a state is expected to appear, using a
   # zero root whenever a particular state is missing - this way, if there's
   # partial progress or gaps, they will be dealt with correctly
   for i, state_root in canonical.mpairs():
-    if not state_root.isZero:
+    let
+      slot = Epoch(i * EPOCHS_PER_STATE_SNAPSHOT).start_slot
+
+    if slot < dag.backfill.slot:
+      # TODO if we have era files, we could try to load blocks from them at
+      #      this point
+      # TODO if we don't do the above, we can of course compute the starting `i`
       continue
 
-    doAssert i > 0, "Genesis should always be available"
+    if tailBid.isNone():
+      if state_root.isZero:
+        # If we can find an era file with this state, use it as an alternative
+        # starting point - ignore failures for now
+        var bytes: seq[byte]
+        if dag.era.getState(historicalRoots, slot, state[]).isOk():
+          state_root = getStateRoot(state[])
+
+          withState(state[]): dag.db.putState(forkyState)
+          tailBid = Opt.some state[].latest_block_id()
+
+      else:
+        if not dag.db.getState(
+            dag.cfg.stateForkAtEpoch(slot.epoch), state_root, state[], noRollback):
+          fatal "Cannot load state, database corrupt or created for a different network?",
+            state_root, slot
+          quit 1
+        tailBid = Opt.some state[].latest_block_id()
+
+      continue
+
+    if i == 0 or canonical[i - 1].isZero:
+      reset(tailBid) # No unbroken history!
+      continue
+
+    if not state_root.isZero:
+      states += 1
+      continue
 
     let
       startSlot = Epoch((i - 1) * EPOCHS_PER_STATE_SNAPSHOT).start_slot
-      slot = Epoch(i * EPOCHS_PER_STATE_SNAPSHOT).start_slot
 
     info "Recreating state snapshot",
       slot, startStateRoot = canonical[i - 1],  startSlot
@@ -2288,18 +2316,17 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
       state_root = forkyState.root
 
-  # Now that we have states all the way to genesis, we can adjust the tail
-  # and readjust the in-memory indices to what they would look like if we had
-  # started with an earlier tail
-  let
-    genesis =
-      dag.getBlockIdAtSlot(GENESIS_SLOT).expect("Genesis in database").bid
-  dag.db.putTailBlock(genesis.root)
+  # Now that we've found a starting point and topped up with "intermediate"
+  # states, we can update the tail to start at the starting point of the
+  # first loadable state
 
-  dag.tail = genesis
+  if tailBid.isSome():
+    dag.tail = tailBid.get()
+    dag.db.putTailBlock(dag.tail.root)
 
   if junk.len > 0:
-    info "Dropping redundant states", states = junk.len
+    info "Dropping redundant states", states, redundant = junk.len
 
     for i in junk:
+      dag.db.delStateRoot(i[0][1], i[0][0])
       dag.db.delState(i[1])

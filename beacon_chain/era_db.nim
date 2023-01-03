@@ -138,7 +138,7 @@ proc getStateSZ*(
 
 proc getStateSSZ*(
     f: EraFile, slot: Slot, bytes: var seq[byte],
-    partial: Opt[int] = default(Opt[int])): Result[void, string] =
+    partial = Opt.none(int)): Result[void, string] =
   var tmp: seq[byte]
   ? f.getStateSZ(slot, tmp)
 
@@ -319,11 +319,23 @@ proc getStateSZ*(
 
 proc getStateSSZ*(
     db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
-    bytes: var seq[byte], partial = Opt[int].err()): Result[void, string] =
+    bytes: var seq[byte], partial = Opt.none(int)): Result[void, string] =
   let
     f = ? db.getEraFile(historical_roots, slot.era)
 
-  f.getStateSSZ(slot, bytes)
+  f.getStateSSZ(slot, bytes, partial)
+
+proc getState*(
+    db: EraDB, historical_roots: openArray[Eth2Digest], slot: Slot,
+    state: var ForkedHashedBeaconState): Result[void, string] =
+  var bytes: seq[byte]
+  ? db.getStateSSZ(historical_roots, slot, bytes)
+
+  try:
+    state = readSszForkedHashedBeaconState(db.cfg, slot, bytes)
+    ok()
+  except CatchableError as exc:
+    err(exc.msg)
 
 type
   PartialBeaconState = object
