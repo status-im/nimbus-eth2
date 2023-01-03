@@ -246,7 +246,8 @@ proc processSignedBeaconBlockAndBlobsSidecar*(
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
-  let signedBlock = signedBlockAndBlobsSidecar.beacon_block
+
+  template signedBlock: auto = signedBlockAndBlobsSidecar.beacon_block
 
   logScope:
     blockRoot = shortLog(signedBlock.root)
