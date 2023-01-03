@@ -509,8 +509,8 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("state_no_validators2").expectDb(),
       kvStore db.openKvStore("altair_state_no_validators").expectDb(),
       kvStore db.openKvStore("bellatrix_state_no_validators").expectDb(),
-      kvStore db.openKvStore("capella_state_no_validators").expectDb(),
-      kvStore db.openKvStore("eip4844_state_no_validators").expectDb()]
+      kvStore db.openKvStore("capella_state_no_validator_pubkeys").expectDb(),
+      kvStore db.openKvStore("eip4844_state_no_validator_pubkeys").expectDb()]
 
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
@@ -1114,8 +1114,45 @@ proc getStateOnlyMutableValidators(
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
     store: KvStoreRef, key: openArray[byte],
-    output: var (bellatrix.BeaconState | capella.BeaconState |
-                 eip4844.BeaconState),
+    output: var bellatrix.BeaconState, rollback: RollbackProc): bool =
+  ## Load state into `output` - BeaconState is large so we want to avoid
+  ## re-allocating it if possible
+  ## Return `true` iff the entry was found in the database and `output` was
+  ## overwritten.
+  ## Rollback will be called only if output was partially written - if it was
+  ## not found at all, rollback will not be called
+  # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
+  #      https://github.com/nim-lang/Nim/issues/14126
+  # TODO RVO is inefficient for large objects:
+  #      https://github.com/nim-lang/Nim/issues/13879
+
+  case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
+  of GetResult.found:
+    let numValidators = output.validators.len
+    doAssert immutableValidators.len >= numValidators
+
+    for i in 0 ..< numValidators:
+      # Bypass hash cache invalidation
+      let dstValidator = addr output.validators.data[i]
+
+      assign(dstValidator.pubkey, immutableValidators[i].pubkey.toPubKey())
+      assign(
+        dstValidator.withdrawal_credentials,
+        immutableValidators[i].withdrawal_credentials)
+
+    output.validators.resetCache()
+
+    true
+  of GetResult.notFound:
+    false
+  of GetResult.corrupted:
+    rollback()
+    false
+
+proc getStateOnlyMutableValidators(
+    immutableValidators: openArray[ImmutableValidatorData2],
+    store: KvStoreRef, key: openArray[byte],
+    output: var (capella.BeaconState | eip4844.BeaconState),
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -1134,16 +1171,9 @@ proc getStateOnlyMutableValidators(
     doAssert immutableValidators.len >= numValidators
 
     for i in 0 ..< numValidators:
-      let
-        # Bypass hash cache invalidation
-        dstValidator = addr output.validators.data[i]
-
-      assign(
-        dstValidator.pubkey,
-        immutableValidators[i].pubkey.toPubKey())
-      assign(
-        dstValidator.withdrawal_credentials,
-        immutableValidators[i].withdrawal_credentials)
+      # Bypass hash cache invalidation
+      let dstValidator = addr output.validators.data[i]
+      assign(dstValidator.pubkey, immutableValidators[i].pubkey.toPubKey())
 
     output.validators.resetCache()
 
