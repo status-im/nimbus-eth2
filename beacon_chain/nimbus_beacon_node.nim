@@ -1393,7 +1393,7 @@ proc installMessageValidators(node: BeaconNode) =
   node.network.addValidator(
     getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
     proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
-      # todo: take into account node.shouldSyncOptimistically(node.currentSlot)
+      # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
         toValidationResult(node.processor[].processSignedBeaconBlockAndBlobsSidecar(
           MsgSource.gossip, signedBlock)))
 

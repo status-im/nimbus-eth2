@@ -392,10 +392,10 @@ proc validateBeaconBlock*(
 
 proc validateBeaconBlockAndBlobsSidecar*(signedBlock: SignedBeaconBlockAndBlobsSidecar):
                          Result[void, ValidationError] =
+  # TODO
   # [REJECT] The KZG commitments of the blobs are all correctly encoded
   # compressed BLS G1 points -- i.e. all(bls.KeyValidate(commitment) for
   # commitment in block.body.blob_kzg_commitments)
-  # todo ^
 
   # [REJECT] The KZG commitments correspond to the versioned hashes in
   # the transactions list --
@@ -421,9 +421,10 @@ proc validateBeaconBlockAndBlobsSidecar*(signedBlock: SignedBeaconBlockAndBlobsS
       if fe >= BLS_MODULUS:
         return errIgnore("BLSFieldElement outside of valid range")
 
+  # TODO
   # [REJECT] The KZG proof is a correctly encoded compressed BLS G1
   # point -- i.e. bls.KeyValidate(blobs_sidecar.kzg_aggregated_proof)
-  # todo ^
+
 
   # [REJECT] The KZG commitments in the block are valid against the
   # provided blobs sidecar -- i.e. validate_blobs_sidecar(block.slot,

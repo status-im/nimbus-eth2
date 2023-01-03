@@ -876,13 +876,11 @@ proc validate_blobs_sidecar*(slot: Slot, root: Eth2Digest,
   if expected_kzg_commitments.len != blobs_sidecar.blobs.len:
     return err("validate_blobs_sidecar: different commitment lengths")
 
-  # todo:
+  # TODO
   # if not kzg_4844.verify_aggregate_kzg_proof(asSeq(blobs_sidecar.blobs), expected_kzg_commitments, blobs_sidecar.kzg_aggregated_proof):
   #  return err("validate_blobs_sidecar: aggregated kzg proof verification failed")
 
   ok()
-
-
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#is_data_available
 func is_data_available(
