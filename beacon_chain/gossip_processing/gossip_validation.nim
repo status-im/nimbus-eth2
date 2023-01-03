@@ -417,14 +417,13 @@ proc validateBeaconBlockAndBlobsSidecar*(signedBlock: SignedBeaconBlockAndBlobsS
   # BLSFieldElement in valid range (x < BLS_MODULUS).
   for blob in sidecar.blobs:
     for i in 0..<blob.len div 8:
-      let fe = cast[UInt256](sidecar.blobs[i*8..(i+1)*8])
+      let fe = UInt256.fromBytesBE(blob[i*8..(i+1)*8])
       if fe >= BLS_MODULUS:
         return errIgnore("BLSFieldElement outside of valid range")
 
   # TODO
   # [REJECT] The KZG proof is a correctly encoded compressed BLS G1
   # point -- i.e. bls.KeyValidate(blobs_sidecar.kzg_aggregated_proof)
-
 
   # [REJECT] The KZG commitments in the block are valid against the
   # provided blobs sidecar -- i.e. validate_blobs_sidecar(block.slot,
