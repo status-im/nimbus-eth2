@@ -363,10 +363,12 @@ template frontfill*(dagParam: ChainDAGRef): Opt[BlockId] =
     dag.genesis
 
 func horizon*(dag: ChainDAGRef): Slot =
-  ## The sync horizon that we target during backfill - ie we will not backfill
-  ## blocks older than this from the network
-  if dag.head.slot.epoch > dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS:
-    start_slot(dag.head.slot.epoch - dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS)
+  ## The sync horizon that we target during backfill - we will backfill and
+  ## retain this and newer blocks, but anything older may get pruned depending
+  ## on the history mode
+  let minSlots = dag.cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS * SLOTS_PER_EPOCH
+  if dag.head.slot > minSlots:
+    min(dag.finalizedHead.slot, dag.head.slot - minSlots)
   else:
     GENESIS_SLOT
 

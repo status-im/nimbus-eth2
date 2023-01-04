@@ -374,6 +374,11 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + deletePeer() test                                                                          OK
 ```
 OK: 12/12 Fail: 0/12 Skip: 0/12
+## Pruning
+```diff
++ prune states                                                                               OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Remove keystore testing suite
 ```diff
 + vesion 1                                                                                   OK
@@ -615,4 +620,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 344/349 Fail: 0/349 Skip: 5/349
+OK: 345/350 Fail: 0/350 Skip: 5/350

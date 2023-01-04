@@ -16,6 +16,7 @@ import
   metrics, snappy, chronicles,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
     state_transition, validator],
+  ../spec/forks,
   ../spec/datatypes/[phase0, altair, bellatrix, capella],
   ".."/[beacon_chain_db, era_db],
   "."/[block_pools_types, block_quarantine]
@@ -55,7 +56,7 @@ const
   # When finality happens, we prune historical states from the database except
   # for a snapshort every 32 epochs from which replays can happen - there's a
   # balance here between making long replays and saving on disk space
-  EPOCHS_PER_STATE_SNAPSHOT = 32
+  EPOCHS_PER_STATE_SNAPSHOT* = 32
 
 proc putBlock*(
     dag: ChainDAGRef, signedBlock: ForkyTrustedSignedBeaconBlock) =
@@ -630,6 +631,21 @@ proc getState(
 
   db.getState(cfg.stateForkAtEpoch(slot.epoch), state_root, state, rollback)
 
+proc containsState*(
+    db: BeaconChainDB, cfg: RuntimeConfig, block_root: Eth2Digest,
+    slots: Slice[Slot]): bool =
+  var slot = slots.b
+  while slot >= slots.a:
+    let state_root = db.getStateRoot(block_root, slot)
+    if state_root.isSome() and
+        db.containsState(cfg.stateForkAtEpoch(slot.epoch), state_root.get()):
+      return true
+
+    if slot == slots.a: # avoid underflow at genesis
+      break
+    slot -= 1
+  false
+
 proc getState*(
     db: BeaconChainDB, cfg: RuntimeConfig, block_root: Eth2Digest,
     slots: Slice[Slot], state: var ForkedHashedBeaconState,
@@ -782,17 +798,19 @@ export
 
 proc putState(dag: ChainDAGRef, state: ForkedHashedBeaconState, bid: BlockId) =
   # Store a state and its root
+  let slot = getStateField(state, slot)
   logScope:
     blck = shortLog(bid)
-    stateSlot = shortLog(getStateField(state, slot))
+    stateSlot = shortLog(slot)
     stateRoot = shortLog(getStateRoot(state))
 
-  if not dag.isStateCheckpoint(BlockSlotId.init(bid, getStateField(state, slot))):
+  if not dag.isStateCheckpoint(BlockSlotId.init(bid, slot)):
     return
 
   # Don't consider legacy tables here, they are slow to read so we'll want to
   # rewrite things in the new table anyway.
-  if dag.db.containsState(getStateRoot(state), legacy = false):
+  if dag.db.containsState(
+      dag.cfg.stateForkAtEpoch(slot.epoch), getStateRoot(state), legacy = false):
     return
 
   let startTick = Moment.now()
@@ -925,7 +943,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       onBlockAdded: onBlockCb,
       onHeadChanged: onHeadCb,
       onReorgHappened: onReorgCb,
-      onFinHappened: onFinCb
+      onFinHappened: onFinCb,
     )
     loadTick = Moment.now()
 
@@ -1433,7 +1451,6 @@ proc updateState*(
         ancestors.add(cur.bid)
 
       # Move slot by slot to capture epoch boundary states
-      # TODO https://github.com/nim-lang/Nim/issues/19613
       cur = dag.parentOrSlot(cur).valueOr:
         break
 
@@ -1477,7 +1494,6 @@ proc updateState*(
         return false
 
       # Move slot by slot to capture epoch boundary states
-      # TODO https://github.com/nim-lang/Nim/issues/19613
       cur = dag.parentOrSlot(cur).valueOr:
         if not dag.getStateByParent(cur.bid, state):
           notice "Request for pruned historical state",
@@ -1564,13 +1580,14 @@ proc updateState*(
   true
 
 proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
-  # Delete state state and mapping for a particular block+slot
+  # Delete state and mapping for a particular block+slot
   if not dag.isStateCheckpoint(bsi):
     return # We only ever save epoch states
 
   if (let root = dag.db.getStateRoot(bsi.bid.root, bsi.slot); root.isSome()):
-    dag.db.delState(root.get())
-    dag.db.delStateRoot(bsi.bid.root, bsi.slot)
+    dag.db.withManyWrites:
+      dag.db.delStateRoot(bsi.bid.root, bsi.slot)
+      dag.db.delState(dag.cfg.stateForkAtEpoch(bsi.slot.epoch), root.get())
 
 proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
   # TODO: should we move that disk I/O to `onSlotEnd`
@@ -1582,7 +1599,8 @@ proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
 
     dag.optimisticRoots.excl bs.blck.root
     dag.forkBlocks.excl(KeyedBlockRef.init(bs.blck))
-    dag.db.delBlock(bs.blck.root)
+    discard dag.db.delBlock(
+      dag.cfg.blockForkAtEpoch(bs.blck.slot.epoch), bs.blck.root)
 
 proc pruneBlocksDAG(dag: ChainDAGRef) =
   ## This prunes the block DAG
@@ -1766,10 +1784,10 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
       prev = dag.parentOrSlot(dag.stateCheckpoint(dag.lastPrunePoint))
 
     while cur.isSome and prev.isSome and cur.get() != prev.get():
-      if not isFinalizedStateSnapshot(cur.get().slot) and
-          cur.get().slot != dag.tail.slot:
-        dag.delState(cur.get())
-      # TODO https://github.com/nim-lang/Nim/issues/19613
+      let bs = cur.get()
+      if not isFinalizedStateSnapshot(bs.slot) and
+          bs.slot != dag.tail.slot:
+        dag.delState(bs)
       let tmp = cur.get()
       cur = dag.parentOrSlot(tmp)
 
@@ -1788,6 +1806,129 @@ proc pruneStateCachesDAG*(dag: ChainDAGRef) =
   debug "Pruned the state checkpoints and DAG caches.",
     statePruneDur = statePruneTick - startTick,
     epochRefPruneDur = epochRefPruneTick - statePruneTick
+
+proc pruneHistory*(dag: ChainDAGRef, startup = false) =
+  if dag.db.db.readOnly:
+    return
+
+  let horizon = dag.horizon()
+  if horizon == GENESIS_SLOT:
+    return
+
+  let
+    preTail = dag.tail
+    # Round to state snapshot boundary - this is where we'll leave the tail
+    # after pruning
+    stateHorizon = Epoch((horizon.epoch div EPOCHS_PER_STATE_SNAPSHOT) * EPOCHS_PER_STATE_SNAPSHOT)
+
+  dag.db.withManyWrites:
+    if stateHorizon > 0 and
+        stateHorizon > (dag.tail.slot + SLOTS_PER_EPOCH - 1).epoch():
+      # First, we want to see if it's possible to prune any states - we store one
+      # state every EPOCHS_PER_STATE_SNAPSHOT, so this happens infrequently.
+
+      debug "Pruning states",
+        horizon, stateHorizon, tail = dag.tail, head = dag.head
+      var
+        cur = dag.getBlockIdAtSlot(stateHorizon.start_slot)
+
+      var first = true
+      while cur.isSome():
+        let bs = cur.get()
+        if dag.db.containsState(dag.cfg, bs.bid.root, bs.slot..bs.slot):
+          if first:
+            # We leave the state on the prune horizon intact and update the tail
+            # to point to this state, indicating the new point in time from
+            # which we can load states in general.
+            debug "Updating tail", bs
+            dag.db.putTailBlock(bs.bid.root)
+            dag.tail = bs.bid
+            first = false
+          else:
+            debug "Pruning historical state", bs
+            dag.delState(bs)
+        elif not bs.isProposed:
+          debug "Reached already-pruned slot, done pruning states", bs
+          break
+
+        if bs.isProposed:
+          # We store states either at the same slot at the block (checkpoint) or
+          # by advancing the slot to the nearest epoch start - check both when
+          # pruning
+          cur = dag.parentOrSlot(bs)
+        elif bs.slot.epoch > EPOCHS_PER_STATE_SNAPSHOT:
+          # Jump one snapshot interval at a time, but don't prune genesis
+          cur = dag.getBlockIdAtSlot(start_slot(bs.slot.epoch() - EPOCHS_PER_STATE_SNAPSHOT))
+        else:
+          break
+
+    # We can now prune all blocks before the tail - however, we'll add a
+    # small lag so that we typically prune one block at a time - otherwise,
+    # we'd be pruning `EPOCHS_PER_STATE_SNAPSHOT` every time the tail is
+    # updated - if H is the "normal" pruning point, E is the adjusted one and
+    # when T0 is reset to T1, we'll continue removing block by block instead
+    # of removing all blocks between T0 and T1
+    #           T0        T1
+    #           |         |
+    # ---------------------
+    #      |          |
+    #      E          H
+
+    const extraSlots = EPOCHS_PER_STATE_SNAPSHOT * SLOTS_PER_EPOCH
+
+    if horizon < extraSlots:
+      return
+
+    let
+      # We don't need the tail block itself, but we do need everything after
+      # that in order to be able to recreate states
+      tailSlot = dag.tail.slot
+      blockHorizon =
+        min(horizon - extraSlots, tailSlot)
+
+    if dag.tail.slot - preTail.slot > 8192:
+      # First-time pruning or long offline period
+      notice "Pruning deep block history, this may take several minutes",
+        preTail, tail = dag.tail, head = dag.head, blockHorizon
+    else:
+      debug "Pruning blocks",
+        preTail, tail = dag.tail, head = dag.head, blockHorizon
+
+    block:
+      var cur = dag.getBlockIdAtSlot(blockHorizon).map(proc(x: auto): auto = x.bid)
+
+      while cur.isSome:
+        let
+          bid = cur.get()
+          fork = dag.cfg.blockForkAtEpoch(bid.slot.epoch)
+
+        if bid.slot == GENESIS_SLOT:
+          # Leave genesis block for nostalgia and the REST API
+          break
+
+        if not dag.db.delBlock(fork, bid.root):
+          # Stop at the first gap - a buggy DB might have more blocks but we
+          # have no efficient way of detecting that
+          break
+
+        cur = dag.parent(bid)
+
+    if startup:
+      # Once during start, we'll clear all "old fork" data - this ensures we get
+      # rid of any leftover junk in the tables - we do so after linear pruning
+      # so as to "mostly" clean up the phase0 tables as well (which cannot be
+      # pruned easily by fork)
+
+      let stateFork = dag.cfg.stateForkAtEpoch(tailSlot.epoch)
+      if stateFork > BeaconStateFork.Phase0:
+        for fork in BeaconStateFork.Phase0..<stateFork:
+          dag.db.clearStates(fork)
+
+      let blockFork = dag.cfg.blockForkAtEpoch(blockHorizon.epoch)
+
+      if blockFork > BeaconBlockFork.Phase0:
+        for fork in BeaconBlockFork.Phase0..<blockFork:
+          dag.db.clearBlocks(fork)
 
 proc loadExecutionBlockRoot*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
   if dag.cfg.blockForkAtEpoch(bid.slot.epoch) < BeaconBlockFork.Bellatrix:
@@ -2179,7 +2320,7 @@ proc aggregateAll*(
     ok(finish(aggregateKey))
 
 func needsBackfill*(dag: ChainDAGRef): bool =
-  dag.backfill.slot > GENESIS_SLOT
+  dag.backfill.slot > dag.horizon
 
 proc rebuildIndex*(dag: ChainDAGRef) =
   ## After a checkpoint sync, we lack intermediate states to replay from - this
@@ -2221,7 +2362,7 @@ proc rebuildIndex*(dag: ChainDAGRef) =
         junk.add((k, v))
         continue
 
-    if not dag.db.containsState(v):
+    if not dag.db.containsState(dag.cfg.stateForkAtEpoch(k[0].epoch), v):
       continue # If it's not in the database..
 
     canonical[k[0].epoch div EPOCHS_PER_STATE_SNAPSHOT] = v
@@ -2329,4 +2470,5 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
     for i in junk:
       dag.db.delStateRoot(i[0][1], i[0][0])
-      dag.db.delState(i[1])
+      dag.db.delState(dag.cfg.stateForkAtEpoch(i[0][0].epoch), i[1])
+

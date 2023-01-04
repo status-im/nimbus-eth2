@@ -42,7 +42,7 @@ type
     putBlock = "Store a given SignedBeaconBlock in the database, potentially updating some of the pointers"
     rewindState = "Extract any state from the database based on a given block and slot, replaying if needed"
     verifyEra = "Verify a single era file"
-    exportEra = "Write an experimental era file"
+    exportEra = "Export historical data to era files"
     importEra = "Import era files to the database"
     validatorPerf
     validatorDb = "Create or update attestation performance database"
@@ -507,7 +507,7 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
         else: some((era - 1).start_slot)
       endSlot = era.start_slot
       eraBid = dag.atSlot(dag.head.bid, endSlot).valueOr:
-        echo "Skipping era ", era, ", blocks not available"
+        echo "Skipping era ", era, ", history not available"
         era += 1
         continue
 

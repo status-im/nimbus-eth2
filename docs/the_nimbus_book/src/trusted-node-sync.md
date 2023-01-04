@@ -11,7 +11,7 @@ To use trusted node sync, you must have access to a node that you trust and that
 
 Should this node, or your connection to it, be compromised, your node will not be able to detect whether or not it is being served false information.
 
-It is possibly to use trusted node sync with a third-party API provider -- see [here](trusted-node-sync.md#verify-you-synced-the-correct-chain) for how to verify that the chain you are given corresponds to the canonical chain at the time.
+It is possible to use trusted node sync with a third-party API provider -- see [here](trusted-node-sync.md#verify-you-synced-the-correct-chain) for how to verify that the chain you are given corresponds to the canonical chain at the time.
 
 !!! tip
     A list of community-operated checkpoint sync nodes can be found [here](https://eth-clients.github.io/checkpoint-sync-endpoints/) - always verify after after a checkpoint sync that the right chain was provided by the node.
@@ -54,10 +54,10 @@ And eventually:
 Done, your beacon node is ready to serve you! Don't forget to check that you're on the canonical chain by comparing the checkpoint root with other online sources. See https://nimbus.guide/trusted-node-sync.html for more information.
 ```
 
-After this the application will terminate and you can now [start the `nimbus_beacon_node`](./quick-start.md) with your usual command.
+After this the application will terminate and you can now [start the beacon node](./quick-start.md) as usual.
 
 !!! note
-    Because trusted node sync by default copies all blocks via REST, you may hit API limits if you are using a third-party provider. If this happens to you, you may need to use the `--backfill` option to [delay the backfill of the block history](./trusted-node-sync.md#delay-block-history-backfill).
+    Because trusted node sync by default copies blocks via REST, you may hit API limits if you are using a third-party provider. If this happens to you, you may need to use the `--backfill` option to [delay the backfill of the block history](./trusted-node-sync.md#delay-block-history-backfill).
 
 
 ## Verify you synced the correct chain
@@ -80,16 +80,22 @@ The `head` root is also printed in the log output at regular intervals.
 
 ## Advanced
 
-### Skip syncing the history of deposits
+### Sync deposit history
 
-The recently standardized Beacon API endpoint `/eth/v1/beacon/deposit_snapshot` allows a client to skip downloading the entire history of deposit by downloading a small snapshot of the state of the validator deposit contract. To take advantage of this functionality, make sure you are syncing against a beacon node which supports it (e.g. Nimbus 22.12.0 or later) and specify the the command line option `--with-deposit-snapshot` when executed the `trustedNodeSync` command.
+!!! note ""
+    This feature is available from `v22.12.0` onwards
+
+The `--with-deposit-snapshot` allows syncing deposit history via REST, avoiding the need to search the execution client for this information and thus allowing the client to more quickly start producing blocks.
+
+!!! note
+    The API endpoint for downloading this information was recently added to the Beacon API specification and is available on nodes running Nimbus v22.12.0 and later. For other checkpoint sources, consult their documentation with regards to the `/eth/v1/beacon/deposit_snapshot` endpoint.
 
 !!! tip
     It's safe to always specify this option. Nimbus will produce a warning if the specified beacon node doesn't support the required endpoint. Future versions of Nimbus will enable the option by default.
 
 ### Delay block history backfill
 
-By default, both the state and the full block history will be downloaded from the trusted node.
+By default, both state and block history will be downloaded from the trusted node.
 
 It is possible to get started more quickly by delaying the backfill of the block history using the `--backfill=false` parameter. In this case, the beacon node will first sync to the current head so that it can start performing its duties, then backfill the blocks from the network.
 
@@ -126,7 +132,9 @@ curl -o state.32000.ssz \
 
 ## Recreate historical state access indices
 
-When performing checkpoint sync, the historical state data from the time before the checkpoint is not available. To recreate the indices and caches necessary for historical state access, run trusted node sync with the `--reindex` flag - this can be done on an already-synced node as well, in which case the process will simply resume where it left off:
+When performing trusted node sync, the historical state data from the time before the trusted is not available. To recreate the indices and caches necessary for historical state access, run trusted node sync with the `--reindex` flag - this can be done on an already-synced node as well, in which case the process will simply resume where it left off:
+
+To recreate a historical index from before the checkpoint, it is necessary to first download an [era archive](./era-store.md) containing the deep block history.
 
 ```sh
 build/nimbus_beacon_node trustedNodeSync \
