@@ -817,12 +817,14 @@ func maxGossipMaxSize(): auto {.compileTime.} =
   max(GOSSIP_MAX_SIZE, GOSSIP_MAX_SIZE_BELLATRIX)
 
 from ../spec/datatypes/capella import SignedBeaconBlock
+from ../spec/datatypes/eip4844 import SignedBeaconBlockAndBlobsSidecar
 
 template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
     when isFixedSize(T):
       fixedPortionSize(T)
-    elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock:
+    elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
+         T is eip4844.SignedBeaconBlockAndBlobsSidecar:
       GOSSIP_MAX_SIZE_BELLATRIX
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all

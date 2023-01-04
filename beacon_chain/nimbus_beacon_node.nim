@@ -30,6 +30,8 @@ import
 when defined(posix):
   import system/ansi_c
 
+from ./spec/datatypes/eip4844 import SignedBeaconBlock
+
 from
   libp2p/protocols/pubsub/gossipsub
 import
@@ -1067,25 +1069,23 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
   let forkDigests = node.forkDigests()
 
-  discard $eip4844ImplementationMissing & "nimbus_beacon_node.nim:updateGossipStatus check EIP4844 removeMessageHandlers"
   const removeMessageHandlers: array[BeaconStateFork, auto] = [
     removePhase0MessageHandlers,
     removeAltairMessageHandlers,
-    removeAltairMessageHandlers,  # with different forkDigest
+    removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeCapellaMessageHandlers
+    removeCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
   ]
 
   for gossipFork in oldGossipForks:
     removeMessageHandlers[gossipFork](node, forkDigests[gossipFork])
 
-  discard $eip4844ImplementationMissing & "nimbus_beacon_node.nim:updateGossipStatus check EIP4844 message addMessageHandlers"
   const addMessageHandlers: array[BeaconStateFork, auto] = [
     addPhase0MessageHandlers,
     addAltairMessageHandlers,
-    addAltairMessageHandlers,  # with different forkDigest
+    addAltairMessageHandlers,  # bellatrix (altair handlers, with different forkDigest)
     addCapellaMessageHandlers,
-    addCapellaMessageHandlers
+    addCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
   ]
 
   for gossipFork in newGossipForks:
@@ -1463,7 +1463,12 @@ proc installMessageValidators(node: BeaconNode) =
         toValidationResult(node.processor[].processSignedBeaconBlock(
           MsgSource.gossip, signedBlock)))
 
-  discard $eip4844ImplementationMissing & ": add validation here, but per https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/p2p-interface.md#beacon_block it's not beacon_block but beacon_block_and_blobs_sidecar"
+  node.network.addValidator(
+    getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
+    proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
+      # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
+        toValidationResult(node.processor[].processSignedBeaconBlockAndBlobsSidecar(
+          MsgSource.gossip, signedBlock)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:
