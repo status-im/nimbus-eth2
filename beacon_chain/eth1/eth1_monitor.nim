@@ -543,8 +543,9 @@ proc getBlockByNumber*(p: Web3DataProviderRef,
   except ValueError as exc: raiseAssert exc.msg # Never fails
   p.web3.provider.eth_getBlockByNumber(hexNumber, false)
 
-proc getPayload*(p: Eth1Monitor,
-                 payloadId: bellatrix.PayloadID): Future[engine_api.ExecutionPayloadV1] =
+proc getPayloadV1*(
+    p: Eth1Monitor, payloadId: bellatrix.PayloadID):
+    Future[engine_api.ExecutionPayloadV1] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil or p.dataProvider.isNil:
@@ -553,6 +554,18 @@ proc getPayload*(p: Eth1Monitor,
     return epr
 
   p.dataProvider.web3.provider.engine_getPayloadV1(FixedBytes[8] payloadId)
+
+proc getPayloadV2*(
+    p: Eth1Monitor, payloadId: bellatrix.PayloadID):
+    Future[engine_api.ExecutionPayloadV2] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil or p.dataProvider.isNil:
+    let epr = newFuture[engine_api.ExecutionPayloadV2]("getPayload")
+    epr.complete(default(engine_api.ExecutionPayloadV2))
+    return epr
+
+  p.dataProvider.web3.provider.engine_getPayloadV2(FixedBytes[8] payloadId)
 
 proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV1):
     Future[PayloadStatusV1] =
