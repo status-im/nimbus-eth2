@@ -320,9 +320,14 @@ proc get_execution_payload[EP](
     when EP is bellatrix.ExecutionPayload:
       asConsensusExecutionPayload(
         await execution_engine.getPayloadV1(payload_id.get))
-    else:
+    elif EP is capella.ExecutionPayload:
       asConsensusExecutionPayload(
         await execution_engine.getPayloadV2(payload_id.get))
+    elif EP is eip4844.ExecutionPayload:
+      debugRaiseAssert $eip4844ImplementationMissing & ": get_execution_payload"
+      default(EP)
+    else:
+      static: doAssert "unknown execution payload type"
 
 proc getFeeRecipient(node: BeaconNode,
                      pubkey: ValidatorPubKey,
