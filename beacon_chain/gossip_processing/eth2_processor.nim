@@ -225,7 +225,7 @@ proc processSignedBeaconBlock*(
 
     self.blockProcessor[].addBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
-      none(eip4844.BlobsSidecar),
+      Opt.none(eip4844.BlobsSidecar),
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
 
@@ -269,7 +269,7 @@ proc processSignedBeaconBlockAndBlobsSidecar*(
   debug "Block received", delay
 
   let blockRes =
-    self.dag.validateBeaconBlock(self.quarantine, signedBlock, some(blobs),
+    self.dag.validateBeaconBlock(self.quarantine, signedBlock, Opt.some(blobs),
                                  wallTime, {})
   if blockRes.isErr():
     debug "Dropping block", error = blockRes.error()
@@ -292,7 +292,7 @@ proc processSignedBeaconBlockAndBlobsSidecar*(
   trace "Block validated"
   self.blockProcessor[].addBlock(
     src, ForkedSignedBeaconBlock.init(signedBlock),
-    some(blobs),
+    Opt.some(blobs),
     validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
 

@@ -399,7 +399,7 @@ proc validateBeaconBlock*(
                          eip4844.SignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
     dag.validateBeaconBlock(quarantine, signed_beacon_block,
-                            none(eip4844.BlobsSidecar), wallTime, flags)
+                            Opt.none(eip4844.BlobsSidecar), wallTime, flags)
 
 proc validateBeaconBlockAndBlobsSidecar*(signedBlock: SignedBeaconBlockAndBlobsSidecar):
                          Result[void, ValidationError] =

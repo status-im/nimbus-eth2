@@ -10,7 +10,7 @@
 import
   unittest2,
   ../beacon_chain/spec/forks,
-  ../beacon_chain/spec/datatypes/phase0,
+  ../beacon_chain/spec/datatypes/[phase0,eip4844],
   ../beacon_chain/consensus_object_pools/block_quarantine
 
 func makeBlock(slot: Slot, parent: Eth2Digest): ForkedSignedBeaconBlock =
@@ -35,13 +35,13 @@ suite "Block quarantine":
     check:
       FetchRecord(root: b1.root) in quarantine.checkMissing()
 
-      quarantine.addOrphan(Slot 0, b1)
+      quarantine.addOrphan(Slot 0, b1, Opt.none(BlobsSidecar))
 
       FetchRecord(root: b1.root) notin quarantine.checkMissing()
 
-      quarantine.addOrphan(Slot 0, b2)
-      quarantine.addOrphan(Slot 0, b3)
-      quarantine.addOrphan(Slot 0, b4)
+      quarantine.addOrphan(Slot 0, b2, Opt.none(BlobsSidecar))
+      quarantine.addOrphan(Slot 0, b3, Opt.none(BlobsSidecar))
+      quarantine.addOrphan(Slot 0, b4, Opt.none(BlobsSidecar))
 
       (b4.root, ValidatorSig()) in quarantine.orphans
 

@@ -363,7 +363,7 @@ proc getExecutionValidity(
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar] = none(eip4844.BlobsSidecar),
+    blobs: Opt[eip4844.BlobsSidecar],
     queueTick: Moment = Moment.now(), validationDur = Duration()):
     Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async.} =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted

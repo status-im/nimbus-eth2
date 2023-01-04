@@ -11,6 +11,7 @@ else:
   {.push raises: [].}
 
 import
+  stew/results,
   std/sequtils,
   chronicles,
   metrics,
@@ -18,7 +19,8 @@ import
   ../consensus_object_pools/spec_cache,
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
-  ./activity_metrics
+  ./activity_metrics,
+  ../spec/datatypes/eip4844
 
 export eth2_processor, eth2_network
 
@@ -122,7 +124,7 @@ proc routeSignedBeaconBlock*(
 
   let
     newBlockRef = await router[].blockProcessor.storeBlock(
-      MsgSource.api, sendTime, blck)
+      MsgSource.api, sendTime, blck, Opt.none(eip4844.BlobsSidecar))
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain

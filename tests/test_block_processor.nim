@@ -14,6 +14,7 @@ import
   eth/keys, taskpools,
   ../beacon_chain/beacon_clock,
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
+  ../beacon_chain/spec/datatypes/eip4844,
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, block_quarantine, block_clearance,
@@ -59,7 +60,7 @@ suite "Block processor" & preset():
 
   asyncTest "Reverse order block add & get" & preset():
     let missing = await processor.storeBlock(
-      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2)
+      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2, Opt.none(BlobsSidecar))
     check: missing.error[0] == VerifierError.MissingParent
 
     check:
@@ -69,7 +70,7 @@ suite "Block processor" & preset():
 
     let
       status = await processor.storeBlock(
-        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1)
+        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1, Opt.none(BlobsSidecar))
       b1Get = dag.getBlockRef(b1.root)
 
     check:
