@@ -188,7 +188,10 @@ proc runForkchoiceUpdated*(
       forkchoiceUpdated(
         eth1Monitor, headBlockRoot, safeBlockRoot, finalizedBlockRoot),
       FORKCHOICEUPDATED_TIMEOUT):
-        debug "runForkchoiceUpdated: forkchoiceUpdated timed out"
+        debug "runForkchoiceUpdated: forkchoiceUpdated timed out",
+          headBlockRoot = shortLog(headBlockRoot),
+          safeBlockRoot = shortLog(safeBlockRoot),
+          finalizedBlockRoot = shortLog(finalizedBlockRoot)
         ForkchoiceUpdatedResponse(
           payloadStatus: PayloadStatusV1(
             status: PayloadExecutionStatus.syncing))
@@ -201,8 +204,11 @@ proc runForkchoiceUpdated*(
 
     return (fcuR.payloadStatus.status, fcuR.payloadStatus.latestValidHash)
   except CatchableError as err:
-    error "runForkchoiceUpdated: forkchoiceUpdated failed",
-      err = err.msg
+    warn "forkchoiceUpdated failed - check execution client",
+      err = err.msg,
+      headBlockRoot = shortLog(headBlockRoot),
+      safeBlockRoot = shortLog(safeBlockRoot),
+      finalizedBlockRoot = shortLog(finalizedBlockRoot)
     return (PayloadExecutionStatus.syncing, none BlockHash)
 
 proc runForkchoiceUpdatedDiscardResult*(

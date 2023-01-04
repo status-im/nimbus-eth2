@@ -180,9 +180,9 @@ type
       name: "web3-force-polling" .}: bool
 
     optimistic* {.
-      defaultValue: false
-      desc: "Run the node in optimistic mode, allowing it to optimistically sync without an execution client"
-      name: "optimistic".}: bool
+      hidden # deprecated > 22.12
+      desc: "Run the node in optimistic mode, allowing it to optimistically sync without an execution client (flag deprecated, always on)"
+      name: "optimistic".}: Option[bool]
 
     requireEngineAPI* {.
       hidden  # Deprecated > 22.9

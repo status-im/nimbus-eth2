@@ -297,8 +297,7 @@ proc initFullNode(
       config.defaultFeeRecipient)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime,
-      optimistic = config.optimistic)
+      rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime)
     blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock):
         Future[Result[void, VerifierError]] =
       # The design with a callback for block verification is unusual compared
@@ -1779,6 +1778,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   ignoreDeprecatedOption requireEngineAPI
   ignoreDeprecatedOption safeSlotsToImportOptimistically
   ignoreDeprecatedOption terminalTotalDifficultyOverride
+  ignoreDeprecatedOption optimistic
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 
