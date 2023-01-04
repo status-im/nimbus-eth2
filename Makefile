@@ -172,6 +172,7 @@ libbacktrace:
 # - --base-port + [0, --nodes + --light-clients)
 # - --base-rest-port + [0, --nodes)
 # - --base-metrics-port + [0, --nodes)
+# - --base-vc-keymanager-port + [0, --nodes)
 # - --base-vc-metrics-port + [0, --nodes]
 # - --base-remote-signer-port + [0, --remote-signers)
 #
@@ -208,6 +209,7 @@ local-testnet-minimal:
 		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 6031 + EXECUTOR_NUMBER * 500 )) \
 		--base-metrics-port $$(( 6061 + EXECUTOR_NUMBER * 500 )) \
+		--base-vc-keymanager-port $$(( 6131 + EXECUTOR_NUMBER * 500 )) \
 		--base-vc-metrics-port $$(( 6161 + EXECUTOR_NUMBER * 500 )) \
 		--base-remote-signer-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-net-port $$(( 6301 + EXECUTOR_NUMBER * 500 )) \
@@ -232,6 +234,7 @@ local-testnet-mainnet:
 		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 7031 + EXECUTOR_NUMBER * 500 )) \
 		--base-metrics-port $$(( 7061 + EXECUTOR_NUMBER * 500 )) \
+		--base-vc-keymanager-port $$(( 7131 + EXECUTOR_NUMBER * 500 )) \
 		--base-vc-metrics-port $$(( 7161 + EXECUTOR_NUMBER * 500 )) \
 		--base-remote-signer-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-net-port $$(( 7301 + EXECUTOR_NUMBER * 500 )) \

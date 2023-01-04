@@ -55,7 +55,7 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-remote-signer-port:,base-el-net-port:,base-el-http-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-eth2,light-clients:,run-nimbus-el,verbose"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-keymanager-port:,base-vc-metrics-port:,base-remote-signer-port:,base-el-net-port:,base-el-http-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-eth2,light-clients:,run-nimbus-el,verbose"
 
 # default values
 BINARIES=""
@@ -126,6 +126,7 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --base-port                 bootstrap node's Eth2 traffic port (default: ${BASE_PORT})
   --base-rest-port            bootstrap node's REST port (default: ${BASE_REST_PORT})
   --base-metrics-port         bootstrap node's metrics port (default: ${BASE_METRICS_PORT})
+  --base-vc-keymanager-port   The first validator client keymanager port (default: ${BASE_VC_KEYMANAGER_PORT})
   --base-vc-metrics-port      The first validator client metrics port (default: ${BASE_VC_METRICS_PORT})
   --base-remote-signer-port   first remote signing node's port (default: ${BASE_REMOTE_SIGNER_PORT})
   --base-el-net-port          first EL's network traffic port (default: ${BASE_EL_NET_PORT})
@@ -231,6 +232,10 @@ while true; do
       ;;
     --base-metrics-port)
       BASE_METRICS_PORT="$2"
+      shift 2
+      ;;
+    --base-vc-keymanager-port)
+      BASE_VC_KEYMANAGER_PORT="$2"
       shift 2
       ;;
     --base-vc-metrics-port)
