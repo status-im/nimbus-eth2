@@ -1373,27 +1373,14 @@ proc installMessageValidators(node: BeaconNode) =
   # subnets are subscribed to during any given epoch.
   let forkDigests = node.dag.forkDigests
 
-  template installBeaconBlocksValidator(digest: auto, phase: auto) =
-    node.network.addValidator(
-      getBeaconBlocksTopic(digest),
-      proc (signedBlock: phase.SignedBeaconBlock): ValidationResult =
-        if node.shouldSyncOptimistically(node.currentSlot):
-          toValidationResult(
-            node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
-        else:
-          toValidationResult(node.processor[].processSignedBeaconBlock(
-            MsgSource.gossip, signedBlock)))
-
-  installBeaconBlocksValidator(forkDigests.phase0, phase0)
-  installBeaconBlocksValidator(forkDigests.altair, altair)
-  installBeaconBlocksValidator(forkDigests.bellatrix, bellatrix)
-  installBeaconBlocksValidator(forkDigests.capella, capella)
-
   node.network.addValidator(
-    getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
-    proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
-      # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
-        toValidationResult(node.processor[].processSignedBeaconBlockAndBlobsSidecar(
+    getBeaconBlocksTopic(forkDigests.phase0),
+    proc (signedBlock: phase0.SignedBeaconBlock): ValidationResult =
+      if node.shouldSyncOptimistically(node.currentSlot):
+        toValidationResult(
+          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
+      else:
+        toValidationResult(node.processor[].processSignedBeaconBlock(
           MsgSource.gossip, signedBlock)))
 
   template installPhase0Validators(digest: auto) =
@@ -1445,6 +1432,43 @@ proc installMessageValidators(node: BeaconNode) =
   installPhase0Validators(forkDigests.bellatrix)
   installPhase0Validators(forkDigests.capella)
   installPhase0Validators(forkDigests.eip4844)
+
+  node.network.addValidator(
+    getBeaconBlocksTopic(forkDigests.altair),
+    proc (signedBlock: altair.SignedBeaconBlock): ValidationResult =
+      if node.shouldSyncOptimistically(node.currentSlot):
+        toValidationResult(
+          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
+      else:
+        toValidationResult(node.processor[].processSignedBeaconBlock(
+          MsgSource.gossip, signedBlock)))
+
+  node.network.addValidator(
+    getBeaconBlocksTopic(forkDigests.bellatrix),
+    proc (signedBlock: bellatrix.SignedBeaconBlock): ValidationResult =
+      if node.shouldSyncOptimistically(node.currentSlot):
+        toValidationResult(
+          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
+      else:
+        toValidationResult(node.processor[].processSignedBeaconBlock(
+          MsgSource.gossip, signedBlock)))
+
+  node.network.addValidator(
+    getBeaconBlocksTopic(forkDigests.capella),
+    proc (signedBlock: capella.SignedBeaconBlock): ValidationResult =
+      if node.shouldSyncOptimistically(node.currentSlot):
+        toValidationResult(
+          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
+      else:
+        toValidationResult(node.processor[].processSignedBeaconBlock(
+          MsgSource.gossip, signedBlock)))
+
+  node.network.addValidator(
+    getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
+    proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
+      # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
+        toValidationResult(node.processor[].processSignedBeaconBlockAndBlobsSidecar(
+          MsgSource.gossip, signedBlock)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:
