@@ -457,7 +457,7 @@ proc storeBlock*(
         return err((VerifierError.UnviableFork, ProcessingStatus.completed))
 
       if not self.consensusManager.quarantine[].addOrphan(
-        dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock), blobs):
+          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock), blobs):
         debug "Block quarantine full",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),

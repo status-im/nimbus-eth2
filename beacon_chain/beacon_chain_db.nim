@@ -774,7 +774,7 @@ proc putBlock*(
 proc putBlobs*(
     db: BeaconChainDB,
     value: BlobsSidecar) =
-    db.blobs.putSZSSZ(value.beacon_block_root.data, value)
+  db.blobs.putSZSSZ(value.beacon_block_root.data, value)
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
