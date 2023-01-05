@@ -1048,10 +1048,9 @@ proc getBlockSZ*[
        eip4844.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: type X): bool =
   let dataPtr = addr data # Short-lived
-  var success = true
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
-  db.blocks[T.toFork].get(key.data, decode).expectDb() and success
+  db.blocks[T.toFork].get(key.data, decode).expectDb()
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
