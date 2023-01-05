@@ -88,10 +88,6 @@ type
 
     verifier: BatchVerifier
 
-    optimistic: bool
-      ## Run block processor in optimistic mode allowing it to progress even
-      ## though execution client is offline
-
   NewPayloadStatus {.pure.} = enum
     valid
     notValid
@@ -117,8 +113,7 @@ proc new*(T: type BlockProcessor,
           rng: ref HmacDrbgContext, taskpool: TaskPoolPtr,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
-          getBeaconTime: GetBeaconTimeFn,
-          optimistic: bool = false): ref BlockProcessor =
+          getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
     dumpDirInvalid: dumpDirInvalid,
@@ -127,8 +122,7 @@ proc new*(T: type BlockProcessor,
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
     getBeaconTime: getBeaconTime,
-    verifier: BatchVerifier(rng: rng, taskpool: taskpool),
-    optimistic: optimistic
+    verifier: BatchVerifier(rng: rng, taskpool: taskpool)
   )
 
 # Sync callbacks
@@ -295,7 +289,11 @@ proc newExecutionPayload*(
 
     return Opt.some payloadStatus
   except CatchableError as err:
-    error "newPayload failed", msg = err.msg
+    warn "newPayload failed - check execution client",
+      msg = err.msg,
+      parentHash = shortLog(executionPayload.parent_hash),
+      blockHash = shortLog(executionPayload.block_hash),
+      blockNumber = executionPayload.block_number
     return Opt.none PayloadExecutionStatus
 
 # TODO investigate why this seems to allow compilation even though it doesn't
@@ -308,12 +306,6 @@ proc newExecutionPayload*(
     executionPayload: eip4844.ExecutionPayload):
     Future[Opt[PayloadExecutionStatus]] {.async.} =
   debugRaiseAssert $eip4844ImplementationMissing & ": block_processor.nim:newExecutionPayload"
-
-proc getExecutionValidity(
-    eth1Monitor: Eth1Monitor,
-    blck: phase0.SignedBeaconBlock | altair.SignedBeaconBlock):
-    Future[NewPayloadStatus] {.async.} =
-  return NewPayloadStatus.valid   # vacuously
 
 proc getExecutionValidity(
     eth1Monitor: Eth1Monitor,
@@ -376,7 +368,10 @@ proc storeBlock*(
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
     payloadStatus =
-      await self.consensusManager.eth1Monitor.getExecutionValidity(signedBlock)
+      when typeof(signedBlock).toFork() >= BeaconBlockFork.Bellatrix:
+         await self.consensusManager.eth1Monitor.getExecutionValidity(signedBlock)
+      else:
+        NewPayloadStatus.valid # vacuously
     payloadValid = payloadStatus == NewPayloadStatus.valid
 
   # The block is certainly not missing any more
@@ -387,16 +382,8 @@ proc storeBlock*(
     return err((VerifierError.UnviableFork, ProcessingStatus.completed))
 
   if NewPayloadStatus.noResponse == payloadStatus:
-    if not self[].optimistic:
-      # Disallow the `MissingParent` from leaking to the sync/request managers
-      # as it will be descored. However sync and request managers interact via
-      # `processBlock` (indirectly). `validator_duties` does call `storeBlock`
-      # directly, so is exposed to this, but only cares about whether there is
-      # an error or not.
-      if self[].consensusManager.eth1Monitor.isNil:
-        warn "Attempting to process execution payload without execution client. Ensure --web3-url setting is correct and JWT is configured."
-
-      return err((VerifierError.MissingParent, ProcessingStatus.notCompleted))
+    # When the execution layer is not available to verify the payload, we do the
+    # required check on the CL side instead and proceed as if the EL was syncing
 
     # Client software MUST validate blockHash value as being equivalent to
     # Keccak256(RLP(ExecutionBlockHeader))
@@ -404,10 +391,10 @@ proc storeBlock*(
     when typeof(signedBlock).toFork() >= BeaconBlockFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if payload.block_hash != payload.compute_execution_block_hash():
-        debug "EL block hash validation failed", execution_payload = payload
+        debug "Execution block hash validation failed", execution_payload = payload
         doAssert strictVerification notin dag.updateFlags
         self.consensusManager.quarantine[].addUnviable(signedBlock.root)
-        return err((VerifierError.UnviableFork, ProcessingStatus.completed))
+        return err((VerifierError.Invalid, ProcessingStatus.completed))
     else:
       discard
 
