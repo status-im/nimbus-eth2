@@ -1435,7 +1435,7 @@ proc syncBlockRange(m: Eth1Monitor,
           depositTreeSnapshot = DepositTreeSnapshot(
             eth1Block: lastBlock.hash,
             depositContractState: m.headMerkleizer.toDepositContractState,
-            blockNumber: lastBlock.number)
+            blockHeight: lastBlock.number)
 
         m.depositsChain.db.putDepositTreeSnapshot depositTreeSnapshot
 

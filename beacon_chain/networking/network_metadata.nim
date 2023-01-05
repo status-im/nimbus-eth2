@@ -219,10 +219,9 @@ when defined(gnosisChainBinary) and const_preset == "mainnet":
       currentSourcePath.parentDir.replace('\\', '/') &
       "/../../media/gnosis")
   static:
-    for network in [gnosisMetadata]:
-      checkForkConsistency(network.cfg)
-    doAssert network.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
-    doAssert network.cfg.EIP4844_FORK_EPOCH == FAR_FUTURE_EPOCH
+    checkForkConsistency(gnosisMetadata.cfg)
+    doAssert gnosisMetadata.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
+    doAssert gnosisMetadata.cfg.EIP4844_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 elif const_preset == "mainnet":
   const

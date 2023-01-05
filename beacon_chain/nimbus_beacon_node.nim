@@ -479,7 +479,7 @@ proc init*(T: type BeaconNode,
 
   var eth1Monitor: Eth1Monitor
 
-  let genesisState =
+  var genesisState =
     if metadata.genesisData.len > 0:
       try:
         newClone readSszForkedHashedBeaconState(
