@@ -771,7 +771,7 @@ proc putBlock*(
     db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
-proc putBlobs*(
+proc putBlobsSidecar*(
     db: BeaconChainDB,
     value: BlobsSidecar) =
   db.blobs.putSZSSZ(value.beacon_block_root.data, value)

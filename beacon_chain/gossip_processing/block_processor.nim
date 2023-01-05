@@ -160,7 +160,7 @@ proc dumpBlock[T](
 
 from ../consensus_object_pools/block_clearance import
   addBackfillBlock, addHeadBlock
-from ../beacon_chain_db import putBlobs
+from ../beacon_chain_db import putBlobsSidecar
 
 proc storeBackfillBlock(
     self: var BlockProcessor,
@@ -190,7 +190,7 @@ proc storeBackfillBlock(
 
   if blobs.isSome():
     # Only store blobs after successfully establishing block viability.
-    self.consensusManager.dag.db.putBlobs(blobs.get())
+    self.consensusManager.dag.db.putBlobsSidecar(blobs.get())
   res
 
 from web3/engine_api_types import PayloadExecutionStatus, PayloadStatusV1
@@ -471,7 +471,7 @@ proc storeBlock*(
 
   # write blobs now that block has been written.
   if blobs.isSome():
-    self.consensusManager.dag.db.putBlobs(blobs.get())
+    self.consensusManager.dag.db.putBlobsSidecar(blobs.get())
 
   let storeBlockTick = Moment.now()
 
