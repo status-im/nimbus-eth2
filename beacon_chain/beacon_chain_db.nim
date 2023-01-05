@@ -960,7 +960,7 @@ proc getBlock*[
   else:
     result.err()
 
-proc getBlobs*(db: BeaconChainDB, key: Eth2Digest): Opt[BlobsSidecar] =
+proc getBlobsSidecar*(db: BeaconChainDB, key: Eth2Digest): Opt[BlobsSidecar] =
   var blobs: BlobsSidecar
   result.ok(blobs)
   if db.blobs.getSZSSZ(key.data, result.get) != GetResult.found:
