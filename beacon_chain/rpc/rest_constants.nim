@@ -219,3 +219,5 @@ const
     "Block has incorrect fork"
   ValidatorNotActive* =
     "Validator inactive"
+  BlobsOutOfRange* =
+    "Requested slot is outside of blobs window"
