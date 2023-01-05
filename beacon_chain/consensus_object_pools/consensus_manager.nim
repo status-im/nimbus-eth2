@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -16,6 +16,8 @@ import
   ../consensus_object_pools/[blockchain_dag, block_quarantine, attestation_pool],
   ../eth1/eth1_monitor
 
+from ../spec/beaconstate import get_expected_withdrawals
+from ../spec/datatypes/capella import Withdrawal
 from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
 from ../validators/keystore_management import
@@ -30,6 +32,7 @@ type
     finalizedBlockRoot*: Eth2Digest
     timestamp*: uint64
     feeRecipient*: Eth1Address
+    withdrawals*: seq[Withdrawal]
 
   ConsensusManager* = object
     expectedSlot: Slot
@@ -360,6 +363,11 @@ proc runProposalForkchoiceUpdated*(
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data)).data
     feeRecipient = self[].getFeeRecipient(
       nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
+    withdrawals = withState(self.dag.headState):
+      when stateFork >= BeaconStateFork.Capella:
+        get_expected_withdrawals(forkyState.data)
+      else:
+        @[]
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
     headBlockRoot = self.dag.loadExecutionBlockRoot(beaconHead.blck)
 
@@ -369,11 +377,9 @@ proc runProposalForkchoiceUpdated*(
   try:
     let fcResult = awaitWithTimeout(
       forkchoiceUpdated(
-        self.eth1Monitor,
-        headBlockRoot,
-        beaconHead.safeExecutionPayloadHash,
-        beaconHead.finalizedExecutionPayloadHash,
-        timestamp, randomData, feeRecipient),
+        self.eth1Monitor, headBlockRoot, beaconHead.safeExecutionPayloadHash,
+        beaconHead.finalizedExecutionPayloadHash, timestamp, randomData,
+        feeRecipient, withdrawals),
       FORKCHOICEUPDATED_TIMEOUT):
         debug "runProposalForkchoiceUpdated: forkchoiceUpdated timed out"
         ForkchoiceUpdatedResponse(
@@ -389,7 +395,8 @@ proc runProposalForkchoiceUpdated*(
       safeBlockRoot: beaconHead.safeExecutionPayloadHash,
       finalizedBlockRoot: beaconHead.finalizedExecutionPayloadHash,
       timestamp: timestamp,
-      feeRecipient: feeRecipient)
+      feeRecipient: feeRecipient,
+      withdrawals: withdrawals)
   except CatchableError as err:
     error "Engine API fork-choice update failed", err = err.msg
 

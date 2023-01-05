@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -282,7 +282,8 @@ from web3/engine_api import ForkchoiceUpdatedResponse
 proc forkchoice_updated(
     head_block_hash: Eth2Digest, safe_block_hash: Eth2Digest,
     finalized_block_hash: Eth2Digest, timestamp: uint64, random: Eth2Digest,
-    fee_recipient: ethtypes.Address, execution_engine: Eth1Monitor):
+    fee_recipient: ethtypes.Address, withdrawals: seq[Withdrawal],
+    execution_engine: Eth1Monitor):
     Future[Option[bellatrix.PayloadID]] {.async.} =
   logScope:
     head_block_hash
@@ -295,7 +296,7 @@ proc forkchoice_updated(
         awaitWithTimeout(
           execution_engine.forkchoiceUpdated(
             head_block_hash, safe_block_hash, finalized_block_hash,
-            timestamp, random.data, fee_recipient),
+            timestamp, random.data, fee_recipient, withdrawals),
           FORKCHOICEUPDATED_TIMEOUT):
             error "Engine API fork-choice update timed out"
             default(ForkchoiceUpdatedResponse)
@@ -396,13 +397,19 @@ proc getExecutionPayload[T](
       lastFcU = node.consensusManager.forkchoiceUpdatedInfo
       timestamp = withState(proposalState[]):
         compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
+      withdrawals = withState(proposalState[]):
+        when stateFork >= BeaconStateFork.Capella:
+          get_expected_withdrawals(forkyState.data)
+        else:
+          @[]
       payload_id =
         if  lastFcU.isSome and
             lastFcU.get.headBlockRoot == latestHead and
             lastFcU.get.safeBlockRoot == latestSafe and
             lastFcU.get.finalizedBlockRoot == latestFinalized and
             lastFcU.get.timestamp == timestamp and
-            lastFcU.get.feeRecipient == feeRecipient:
+            lastFcU.get.feeRecipient == feeRecipient and
+            lastFcU.get.withdrawals == withdrawals:
           some bellatrix.PayloadID(lastFcU.get.payloadId)
         else:
           debug "getExecutionPayload: didn't find payloadId, re-querying",
@@ -411,11 +418,11 @@ proc getExecutionPayload[T](
             feeRecipient,
             cachedForkchoiceUpdateInformation = lastFcU
 
-          let random = withState(proposalState[]):
-            get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
+          let random = withState(proposalState[]): get_randao_mix(
+            forkyState.data, get_current_epoch(forkyState.data))
           (await forkchoice_updated(
            latestHead, latestSafe, latestFinalized, timestamp, random,
-           feeRecipient, node.consensusManager.eth1Monitor))
+           feeRecipient, withdrawals, node.consensusManager.eth1Monitor))
       payload = try:
         awaitWithTimeout(
           get_execution_payload[T](payload_id, node.consensusManager.eth1Monitor),
