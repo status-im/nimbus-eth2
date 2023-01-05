@@ -906,6 +906,11 @@ proc addCapellaMessageHandlers(
   node.addAltairMessageHandlers(forkDigest, slot)
   node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
 
+proc addEIP4844MessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  node.addCapellaMessageHandlers(forkDigest, slot)
+  node.network.subscribe(getBeaconBlockAndBlobsSidecarTopic(forkDigest), basicParams)
+
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -920,6 +925,10 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeAltairMessageHandlers(forkDigest)
   node.network.unsubscribe(getBlsToExecutionChangeTopic(forkDigest))
+
+proc removeEIP4844MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.removeCapellaMessageHandlers(forkDigest)
+  node.network.unsubscribe(getBeaconBlockAndBlobsSidecarTopic(forkDigest))
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1073,7 +1082,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
+    removeEIP4844MessageHandlers
   ]
 
   for gossipFork in oldGossipForks:
@@ -1082,9 +1091,9 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   const addMessageHandlers: array[BeaconStateFork, auto] = [
     addPhase0MessageHandlers,
     addAltairMessageHandlers,
-    addAltairMessageHandlers,  # bellatrix (altair handlers, with different forkDigest)
+    addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
-    addCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
+    addEIP4844MessageHandlers
   ]
 
   for gossipFork in newGossipForks:
