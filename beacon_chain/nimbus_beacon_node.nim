@@ -530,9 +530,14 @@ proc init*(T: type BeaconNode,
   # Doesn't use std/random directly, but dependencies might
   randomize(rng[].rand(high(int)))
 
+  # The validatorMonitorTotals flag has been deprecated and should eventually be
+  # removed - until then, it's given priority if set so as not to needlessly
+  # break existing setups
   let
     validatorMonitor = newClone(ValidatorMonitor.init(
-      config.validatorMonitorAuto, config.validatorMonitorTotals))
+      config.validatorMonitorAuto,
+      config.validatorMonitorTotals.get(
+        not config.validatorMonitorDetails)))
 
   for key in config.validatorMonitorPubkeys:
     validatorMonitor[].addMonitor(key, Opt.none(ValidatorIndex))
@@ -1782,6 +1787,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   ignoreDeprecatedOption safeSlotsToImportOptimistically
   ignoreDeprecatedOption terminalTotalDifficultyOverride
   ignoreDeprecatedOption optimistic
+  ignoreDeprecatedOption validatorMonitorTotals
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 
