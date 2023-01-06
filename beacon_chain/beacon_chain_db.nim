@@ -480,7 +480,7 @@ proc new*(T: type BeaconChainDBV0,
 
 proc new*(T: type BeaconChainDB,
           db: SqStoreRef,
-          cfg: RuntimeConfig,
+          cfg: RuntimeConfig = defaultRuntimeConfig
     ): BeaconChainDB =
   if not db.readOnly:
     # Remove the deposits table we used before we switched
@@ -574,7 +574,7 @@ proc new*(T: type BeaconChainDB,
 
 proc new*(T: type BeaconChainDB,
           dir: string,
-          cfg: RuntimeConfig,
+          cfg: RuntimeConfig = defaultRuntimeConfig,
           inMemory = false,
           readOnly = false
     ): BeaconChainDB =
