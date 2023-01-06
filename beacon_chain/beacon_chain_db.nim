@@ -20,6 +20,7 @@ import
           eth2_ssz_serialization,
           eth2_merkleization,
           forks,
+          presets,
           state_transition],
   ./spec/datatypes/[phase0, altair, bellatrix],
   "."/[beacon_chain_db_light_client, filepath]
@@ -478,7 +479,8 @@ proc new*(T: type BeaconChainDBV0,
   )
 
 proc new*(T: type BeaconChainDB,
-          db: SqStoreRef
+          db: SqStoreRef,
+          cfg: RuntimeConfig,
     ): BeaconChainDB =
   if not db.readOnly:
     # Remove the deposits table we used before we switched
@@ -505,8 +507,6 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("capella_blocks").expectDb(),
       kvStore db.openKvStore("eip4844_blocks").expectDb()]
 
-    blobs = kvStore db.openKvStore("blobs").expectDb()
-
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
     statesNoVal = [
@@ -524,6 +524,10 @@ proc new*(T: type BeaconChainDB,
       altairCurrentBranches: "lc_altair_current_branches",
       altairBestUpdates: "lc_altair_best_updates",
       sealedPeriods: "lc_sealed_periods")).expectDb()
+
+  var blobs : KvStoreRef
+  if cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    blobs = kvStore db.openKvStore("eip4844_blobs").expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
@@ -570,6 +574,7 @@ proc new*(T: type BeaconChainDB,
 
 proc new*(T: type BeaconChainDB,
           dir: string,
+          cfg: RuntimeConfig,
           inMemory = false,
           readOnly = false
     ): BeaconChainDB =
@@ -585,7 +590,7 @@ proc new*(T: type BeaconChainDB,
 
       SqStoreRef.init(
         dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
-  BeaconChainDB.new(db)
+  BeaconChainDB.new(db, cfg)
 
 template getLightClientDataDB*(db: BeaconChainDB): LightClientDataDB =
   db.lcData

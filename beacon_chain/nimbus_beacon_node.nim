@@ -421,7 +421,7 @@ proc init*(T: type BeaconNode,
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
       finalQueue: newAsyncEventQueue[FinalizationInfoObject]()
     )
-    db = BeaconChainDB.new(config.databaseDir, inMemory = false)
+    db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
   if config.finalizedCheckpointBlock.isSome:
     warn "--finalized-checkpoint-block has been deprecated, ignoring"
