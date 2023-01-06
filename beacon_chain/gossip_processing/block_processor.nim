@@ -31,6 +31,7 @@ from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
 from ../spec/datatypes/eip4844 import BlobsSidecar
+from ../spec/state_transition_block import validate_blobs_sidecar
 
 export sszdump, signatures_batch
 
@@ -163,6 +164,16 @@ proc storeBackfillBlock(
 
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
+
+  # Establish blob viability before calling addbackfillBlock to avoid
+  # writing the block in case of blob error.
+  if blobs.isSome() and not
+       validate_blobs_sidecar(signedBlock.beacon_block.message.slot,
+                              hash_tree_root(signedBlock.beacon_block),
+                              signedBlock.beacon_block.message
+                              .body.blob_kzg_commitments.asSeq,
+                              sidecar).isOk()
+     return VerifierError.Invalid
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
