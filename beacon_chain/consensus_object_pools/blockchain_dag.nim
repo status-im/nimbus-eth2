@@ -2471,4 +2471,3 @@ proc rebuildIndex*(dag: ChainDAGRef) =
     for i in junk:
       dag.db.delStateRoot(i[0][1], i[0][0])
       dag.db.delState(dag.cfg.stateForkAtEpoch(i[0][0].epoch), i[1])
-
