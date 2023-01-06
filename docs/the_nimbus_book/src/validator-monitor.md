@@ -3,7 +3,7 @@
 !!! note ""
     This feature is available from `v23.1.0` onwards - earlier Nimbus versions included a preview version this feature behind a feature flag without enabling it by default.
 
-The validator monitoring feature allows for tracking the life-cycle and performance of one or more validators in detail.
+The validator monitoring feature allows for tracking the life cycle and performance of one or more validators in detail.
 
 Monitoring can be carried out for any validator, with slightly more detail for validators that are running in the same beacon node.
 
@@ -42,9 +42,9 @@ The `--validator-monitor-details` flag can be used to enable the detailed monito
 
 When a validator performs a duty, such as signing an attestation or a sync committee message, this is broadcast to the network. Other nodes pick it up and package the message into an aggregate and later a block. The block is included in the canonical chain and a reward is given two epochs (~13 minutes) later.
 
-The monitor tracks these actions and will log each step at the `INF` level. If any step is missed, a `NOT` log is shown instead.
+The monitor tracks each of these actions and will in detailed mode log each step at the `INF` level. If any step is missed (irrespective of detail mode), a `NOT` log is shown instead.
 
-The typical lifecycle of an attestation might look something like the following:
+The typical life cycle of an attestation might look something like the following:
 
 ```
 INF 2021-11-22 11:32:44.228+01:00 Attestation seen                           topics="val_mon" attestation="(aggregation_bits: 0b0000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, data: (slot: 2656363, index: 11, beacon_block_root: \"bbe7fc25\", source: \"83010:a8a1b125\", target: \"83011:6db281cd\"), signature: \"b88ef2f2\")" src=api epoch=83011 validator=b93c290b
@@ -52,7 +52,7 @@ INF 2021-11-22 11:32:51.293+01:00 Attestation included in aggregate          top
 INF 2021-11-22 11:33:07.193+01:00 Attestation included in block              attestation_data="(slot: 2656364, index: 9, beacon_block_root: \"c7761767\", source: \"83010:a8a1b125\", target: \"83011:6db281cd\")" block_slot=2656365 inclusion_lag_slots=0 epoch=83011 validator=b65b6e1b
 ```
 
-The lifecycle of a particular message can be traced by following the `epoch=.... validator=...` fields in the message.
+The life cycle of a particular message can be traced by following the `epoch=.... validator=...` fields in the message.
 
 Failures at any point are recorded at a higher logging level, such as `NOT`(ice):
 
