@@ -159,7 +159,7 @@ from ../beacon_chain_db import putBlobsSidecar
 
 proc storeBackfillBlock(
     self: var BlockProcessor,
-    signedBlock: ForkySignedBeaconBlock,
+    signedBlock: eip4844.SignedBeaconBlock,
     blobs: Opt[eip4844.BlobsSidecar]): Result[void, VerifierError] =
 
   # The block is certainly not missing any more
@@ -168,12 +168,12 @@ proc storeBackfillBlock(
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
   if blobs.isSome() and not
-       validate_blobs_sidecar(signedBlock.beacon_block.message.slot,
-                              hash_tree_root(signedBlock.beacon_block),
-                              signedBlock.beacon_block.message
-                              .body.blob_kzg_commitments.asSeq,
-                              sidecar).isOk()
-     return VerifierError.Invalid
+      validate_blobs_sidecar(signedBlock.message.slot,
+                             hash_tree_root(signedBlock.message),
+                             signedBlock.message
+                             .body.blob_kzg_commitments.asSeq,
+                             blobs.get()).isOk():
+    return err(VerifierError.Invalid)
 
   let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
 
@@ -196,6 +196,34 @@ proc storeBackfillBlock(
   if blobs.isSome():
     # Only store blobs after successfully establishing block viability.
     self.consensusManager.dag.db.putBlobsSidecar(blobs.get())
+  res
+
+proc storeBackfillBlock(
+    self: var BlockProcessor,
+    signedBlock: ForkySignedBeaconBlock,
+    blobs: Opt[eip4844.BlobsSidecar]): Result[void, VerifierError] =
+
+  # The block is certainly not missing any more
+  self.consensusManager.quarantine[].missing.del(signedBlock.root)
+
+  let res = self.consensusManager.dag.addBackfillBlock(signedBlock)
+
+  if res.isErr():
+    case res.error
+    of VerifierError.MissingParent:
+      if signedBlock.message.parent_root in
+          self.consensusManager.quarantine[].unviable:
+        # DAG doesn't know about unviable ancestor blocks - we do! Translate
+        # this to the appropriate error so that sync etc doesn't retry the block
+        self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+
+        return err(VerifierError.UnviableFork)
+    of VerifierError.UnviableFork:
+      # Track unviables so that descendants can be discarded properly
+      self.consensusManager.quarantine[].addUnviable(signedBlock.root)
+    else: discard
+    return res
+
   res
 
 from web3/engine_api_types import PayloadExecutionStatus, PayloadStatusV1
