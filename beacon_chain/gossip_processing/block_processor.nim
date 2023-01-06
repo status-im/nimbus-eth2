@@ -420,6 +420,19 @@ proc storeBlock*(
   # be re-added later
   self.consensusManager.quarantine[].removeOrphan(signedBlock)
 
+  # Establish blob viability before calling addHeadBlock to avoid
+  # writing the block in case of blob error.
+  when typeof(signedBlock).toFork() >= BeaconBlockFork.EIP4844:
+    if blobs.isSome() and not
+         validate_blobs_sidecar(signedBlock.message.slot,
+                                hash_tree_root(signedBlock.message),
+                                signedBlock.message
+                                .body.blob_kzg_commitments.asSeq,
+                                blobs.get()).isOk():
+       return err((VerifierError.Invalid, ProcessingStatus.completed))
+    else:
+      discard
+
   type Trusted = typeof signedBlock.asTrusted()
   let blck = dag.addHeadBlock(self.verifier, signedBlock, payloadValid) do (
       blckRef: BlockRef, trustedBlock: Trusted,
