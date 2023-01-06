@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -817,6 +817,74 @@ func get_next_sync_committee_keys(
       inc index
     i += 1'u64
   res
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/capella/beacon-chain.md#has_eth1_withdrawal_credential
+func has_eth1_withdrawal_credential(validator: Validator): bool =
+  ## Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
+  validator.withdrawal_credentials.data[0] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
+func is_fully_withdrawable_validator(
+    validator: Validator, balance: Gwei, epoch: Epoch): bool =
+  ## Check if ``validator`` is fully withdrawable.
+  has_eth1_withdrawal_credential(validator) and
+    validator.withdrawable_epoch <= epoch and balance > 0
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
+func is_partially_withdrawable_validator(
+    validator: Validator, balance: Gwei): bool =
+  ## Check if ``validator`` is partially withdrawable.
+  let
+    has_max_effective_balance =
+      validator.effective_balance == MAX_EFFECTIVE_BALANCE
+    has_excess_balance = balance > MAX_EFFECTIVE_BALANCE
+  has_eth1_withdrawal_credential(validator) and
+    has_max_effective_balance and has_excess_balance
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/capella/beacon-chain.md#new-get_expected_withdrawals
+func get_expected_withdrawals*(state: capella.BeaconState): seq[Withdrawal] =
+  let
+    epoch = get_current_epoch(state)
+    num_validators = lenu64(state.validators)
+  var
+    withdrawal_index = state.next_withdrawal_index
+    validator_index = state.next_withdrawal_validator_index
+    withdrawals: seq[Withdrawal] = @[]
+    bound = min(len(state.validators), MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
+  for _ in 0 ..< bound:
+    let
+      validator = state.validators[validator_index]
+      balance = state.balances[validator_index]
+    if is_fully_withdrawable_validator(validator, balance, epoch):
+      var w = Withdrawal(
+        index: withdrawal_index,
+        validator_index: validator_index,
+        amount: balance)
+      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
+      withdrawals.add w
+      withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
+    elif is_partially_withdrawable_validator(validator, balance):
+      var w = Withdrawal(
+        index: withdrawal_index,
+        validator_index: validator_index,
+        amount: balance - MAX_EFFECTIVE_BALANCE)
+      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
+      withdrawals.add w
+      withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
+    if len(withdrawals) == MAX_WITHDRAWALS_PER_PAYLOAD:
+      break
+    validator_index = (validator_index + 1) mod num_validators
+  withdrawals
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/beacon-chain.md#disabling-withdrawals
+func get_expected_withdrawals*(state: eip4844.BeaconState): seq[Withdrawal] =
+  # During testing we avoid Capella-specific updates to the state transition.
+  #
+  # ...
+  #
+  # The `get_expected_withdrawals` function is also modified to return an empty
+  # withdrawals list.
+  @[]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/beacon-chain.md#get_next_sync_committee
 func get_next_sync_committee*(

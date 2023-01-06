@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -323,6 +323,24 @@ template asBlockHash*(x: Eth2Digest): BlockHash =
 
 const weiInGwei = 1_000_000_000.u256
 
+from ../spec/datatypes/capella import ExecutionPayload, Withdrawal
+
+func asConsensusWithdrawal(w: WithdrawalV1): capella.Withdrawal =
+  capella.Withdrawal(
+    index: w.index.uint64,
+    validator_index: w.validatorIndex.uint64,
+    address: ExecutionAddress(data: w.address.distinctBase),
+
+    # TODO spec doesn't mention non-even-multiples, also overflow
+    amount: (w.amount.u256 div weiInGwei).truncate(uint64))
+
+func asEngineWithdrawal(w: capella.Withdrawal): WithdrawalV1 =
+  WithdrawalV1(
+    index: Quantity(w.index),
+    validatorIndex: Quantity(w.validator_index),
+    address: Address(w.address.data),
+    amount: w.amount.u256 * weiInGwei)
+
 func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     bellatrix.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
@@ -348,18 +366,10 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)))
 
-from ../spec/datatypes/capella import ExecutionPayload, Withdrawal
-
 func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV2):
     capella.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
-  template getConsensusWithdrawal(w: WithdrawalV1): capella.Withdrawal =
-    capella.Withdrawal(
-      index: w.index.uint64,
-      validator_index: w.validatorIndex.uint64,
-      address: ExecutionAddress(data: w.address.distinctBase),
-      amount: (w.amount.u256 div weiInGwei).truncate(uint64))   # TODO spec doesn't mention non-even-multiples, also overflow
 
   capella.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
@@ -381,7 +391,7 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV2):
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
-      mapIt(rpcExecutionPayload.withdrawals, it.getConsensusWithdrawal)))
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
 
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     ExecutionPayloadV1 =
@@ -410,12 +420,6 @@ func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
     ExecutionPayloadV2 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
-  template getEngineWithdrawal(w: capella.Withdrawal): WithdrawalV1 =
-    WithdrawalV1(
-      index: Quantity(w.index),
-      validatorIndex: Quantity(w.validator_index),
-      address: Address(w.address.data),
-      amount: w.amount.u256 * weiInGwei)
 
   engine_api.ExecutionPayloadV2(
     parentHash: executionPayload.parent_hash.asBlockHash,
@@ -434,7 +438,7 @@ func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
     baseFeePerGas: executionPayload.base_fee_per_gas,
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
-    withdrawals: mapIt(executionPayload.withdrawals, it.getEngineWithdrawal))
+    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal))
 
 func shortLog*(b: Eth1Block): string =
   try:
@@ -589,9 +593,9 @@ proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV2):
 
   p.dataProvider.web3.provider.engine_newPayloadV2(payload)
 
-proc forkchoiceUpdated*(p: Eth1Monitor,
-                        headBlock, safeBlock, finalizedBlock: Eth2Digest):
-                        Future[engine_api.ForkchoiceUpdatedResponse] =
+proc forkchoiceUpdated*(
+    p: Eth1Monitor, headBlock, safeBlock, finalizedBlock: Eth2Digest):
+    Future[engine_api.ForkchoiceUpdatedResponse] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil or p.dataProvider.isNil:
@@ -608,12 +612,12 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
       finalizedBlockHash: finalizedBlock.asBlockHash),
     none(engine_api.PayloadAttributesV1))
 
-proc forkchoiceUpdated*(p: Eth1Monitor,
-                        headBlock, safeBlock, finalizedBlock: Eth2Digest,
-                        timestamp: uint64,
-                        randomData: array[32, byte],
-                        suggestedFeeRecipient: Eth1Address):
-                        Future[engine_api.ForkchoiceUpdatedResponse] =
+proc forkchoiceUpdated*(
+    p: Eth1Monitor, headBlock, safeBlock, finalizedBlock: Eth2Digest,
+    timestamp: uint64, randomData: array[32, byte],
+    suggestedFeeRecipient: Eth1Address,
+    withdrawals: Opt[seq[capella.Withdrawal]]):
+    Future[engine_api.ForkchoiceUpdatedResponse] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil or p.dataProvider.isNil:
@@ -623,15 +627,26 @@ proc forkchoiceUpdated*(p: Eth1Monitor,
       payloadStatus: PayloadStatusV1(status: PayloadExecutionStatus.syncing)))
     return fcuR
 
-  p.dataProvider.web3.provider.engine_forkchoiceUpdatedV1(
-    ForkchoiceStateV1(
-      headBlockHash: headBlock.asBlockHash,
-      safeBlockHash: safeBlock.asBlockHash,
-      finalizedBlockHash: finalizedBlock.asBlockHash),
-    some(engine_api.PayloadAttributesV1(
-      timestamp: Quantity timestamp,
-      prevRandao: FixedBytes[32] randomData,
-      suggestedFeeRecipient: suggestedFeeRecipient)))
+  let forkchoiceState = ForkchoiceStateV1(
+    headBlockHash: headBlock.asBlockHash,
+    safeBlockHash: safeBlock.asBlockHash,
+    finalizedBlockHash: finalizedBlock.asBlockHash)
+
+  if withdrawals.isNone:
+    p.dataProvider.web3.provider.engine_forkchoiceUpdatedV1(
+      forkchoiceState,
+      some(engine_api.PayloadAttributesV1(
+        timestamp: Quantity timestamp,
+        prevRandao: FixedBytes[32] randomData,
+        suggestedFeeRecipient: suggestedFeeRecipient)))
+  else:
+    p.dataProvider.web3.provider.engine_forkchoiceUpdatedV2(
+      forkchoiceState,
+      some(engine_api.PayloadAttributesV2(
+        timestamp: Quantity timestamp,
+        prevRandao: FixedBytes[32] randomData,
+        suggestedFeeRecipient: suggestedFeeRecipient,
+        withdrawals: mapIt(withdrawals.get, it.asEngineWithdrawal))))
 
 # TODO can't be defined within exchangeTransitionConfiguration
 proc `==`(x, y: Quantity): bool {.borrow, noSideEffect.}
