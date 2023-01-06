@@ -282,7 +282,7 @@ from web3/engine_api import ForkchoiceUpdatedResponse
 proc forkchoice_updated(
     head_block_hash: Eth2Digest, safe_block_hash: Eth2Digest,
     finalized_block_hash: Eth2Digest, timestamp: uint64, random: Eth2Digest,
-    fee_recipient: ethtypes.Address, withdrawals: seq[Withdrawal],
+    fee_recipient: ethtypes.Address, withdrawals: Opt[seq[Withdrawal]],
     execution_engine: Eth1Monitor):
     Future[Option[bellatrix.PayloadID]] {.async.} =
   logScope:
@@ -399,9 +399,9 @@ proc getExecutionPayload[T](
         compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
       withdrawals = withState(proposalState[]):
         when stateFork >= BeaconStateFork.Capella:
-          get_expected_withdrawals(forkyState.data)
+          Opt.some get_expected_withdrawals(forkyState.data)
         else:
-          @[]
+          Opt.none(seq[Withdrawal])
       payload_id =
         if  lastFcU.isSome and
             lastFcU.get.headBlockRoot == latestHead and

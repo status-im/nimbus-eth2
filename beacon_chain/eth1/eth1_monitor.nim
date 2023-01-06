@@ -615,7 +615,8 @@ proc forkchoiceUpdated*(
 proc forkchoiceUpdated*(
     p: Eth1Monitor, headBlock, safeBlock, finalizedBlock: Eth2Digest,
     timestamp: uint64, randomData: array[32, byte],
-    suggestedFeeRecipient: Eth1Address, withdrawals: seq[capella.Withdrawal]):
+    suggestedFeeRecipient: Eth1Address,
+    withdrawals: Opt[seq[capella.Withdrawal]]):
     Future[engine_api.ForkchoiceUpdatedResponse] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
@@ -631,7 +632,7 @@ proc forkchoiceUpdated*(
     safeBlockHash: safeBlock.asBlockHash,
     finalizedBlockHash: finalizedBlock.asBlockHash)
 
-  if withdrawals == @[]:
+  if withdrawals.isNone:
     p.dataProvider.web3.provider.engine_forkchoiceUpdatedV1(
       forkchoiceState,
       some(engine_api.PayloadAttributesV1(
@@ -645,7 +646,7 @@ proc forkchoiceUpdated*(
         timestamp: Quantity timestamp,
         prevRandao: FixedBytes[32] randomData,
         suggestedFeeRecipient: suggestedFeeRecipient,
-        withdrawals: mapIt(withdrawals, it.asEngineWithdrawal))))
+        withdrawals: mapIt(withdrawals.get, it.asEngineWithdrawal))))
 
 # TODO can't be defined within exchangeTransitionConfiguration
 proc `==`(x, y: Quantity): bool {.borrow, noSideEffect.}

@@ -32,7 +32,7 @@ type
     finalizedBlockRoot*: Eth2Digest
     timestamp*: uint64
     feeRecipient*: Eth1Address
-    withdrawals*: seq[Withdrawal]
+    withdrawals*: Opt[seq[Withdrawal]]
 
   ConsensusManager* = object
     expectedSlot: Slot
@@ -365,9 +365,9 @@ proc runProposalForkchoiceUpdated*(
       nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
     withdrawals = withState(self.dag.headState):
       when stateFork >= BeaconStateFork.Capella:
-        get_expected_withdrawals(forkyState.data)
+        Opt.some get_expected_withdrawals(forkyState.data)
       else:
-        @[]
+        Opt.none(seq[Withdrawal])
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
     headBlockRoot = self.dag.loadExecutionBlockRoot(beaconHead.blck)
 
