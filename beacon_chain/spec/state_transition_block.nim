@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -970,7 +970,7 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/capella/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeCapellaBlock =
   capella.BeaconBlock | capella.SigVerifiedBeaconBlock | capella.TrustedBeaconBlock
@@ -996,7 +996,8 @@ proc process_block*(
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
   ? process_operations(
-    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+    cfg, state, blck.body, base_reward_per_increment,
+    flags, cache)  # [Modified in Capella]
   ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, cache)
 
