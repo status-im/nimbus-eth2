@@ -842,7 +842,8 @@ func is_partially_withdrawable_validator(
     has_max_effective_balance and has_excess_balance
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/capella/beacon-chain.md#new-get_expected_withdrawals
-func get_expected_withdrawals*(state: capella.BeaconState): seq[Withdrawal] =
+func get_expected_withdrawals*(
+    state: capella.BeaconState | eip4844.BeaconState): seq[Withdrawal] =
   let
     epoch = get_current_epoch(state)
     num_validators = lenu64(state.validators)
@@ -875,16 +876,6 @@ func get_expected_withdrawals*(state: capella.BeaconState): seq[Withdrawal] =
       break
     validator_index = (validator_index + 1) mod num_validators
   withdrawals
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/beacon-chain.md#disabling-withdrawals
-func get_expected_withdrawals*(state: eip4844.BeaconState): seq[Withdrawal] =
-  # During testing we avoid Capella-specific updates to the state transition.
-  #
-  # ...
-  #
-  # The `get_expected_withdrawals` function is also modified to return an empty
-  # withdrawals list.
-  @[]
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/beacon-chain.md#get_next_sync_committee
 func get_next_sync_committee*(

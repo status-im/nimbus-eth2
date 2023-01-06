@@ -52,6 +52,7 @@ ConsensusSpecPreset-mainnet
 + EF - Altair - Rewards - with_slashed_validators_leak [Preset: mainnet]                     OK
 + EF - Altair - Slots - double_empty_epoch [Preset: mainnet]                                 OK
 + EF - Altair - Slots - empty_epoch [Preset: mainnet]                                        OK
++ EF - Altair - Slots - historical_accumulator [Preset: mainnet]                             OK
 + EF - Altair - Slots - over_epoch_boundary [Preset: mainnet]                                OK
 + EF - Altair - Slots - slots_1 [Preset: mainnet]                                            OK
 + EF - Altair - Slots - slots_2 [Preset: mainnet]                                            OK
@@ -124,6 +125,7 @@ ConsensusSpecPreset-mainnet
 + EF - Bellatrix - Rewards - with_slashed_validators_leak [Preset: mainnet]                  OK
 + EF - Bellatrix - Slots - double_empty_epoch [Preset: mainnet]                              OK
 + EF - Bellatrix - Slots - empty_epoch [Preset: mainnet]                                     OK
++ EF - Bellatrix - Slots - historical_accumulator [Preset: mainnet]                          OK
 + EF - Bellatrix - Slots - over_epoch_boundary [Preset: mainnet]                             OK
 + EF - Bellatrix - Slots - slots_1 [Preset: mainnet]                                         OK
 + EF - Bellatrix - Slots - slots_2 [Preset: mainnet]                                         OK
@@ -196,6 +198,7 @@ ConsensusSpecPreset-mainnet
 + EF - Capella - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
 + EF - Capella - Slots - double_empty_epoch [Preset: mainnet]                                OK
 + EF - Capella - Slots - empty_epoch [Preset: mainnet]                                       OK
++ EF - Capella - Slots - historical_accumulator [Preset: mainnet]                            OK
 + EF - Capella - Slots - over_epoch_boundary [Preset: mainnet]                               OK
 + EF - Capella - Slots - slots_1 [Preset: mainnet]                                           OK
 + EF - Capella - Slots - slots_2 [Preset: mainnet]                                           OK
@@ -268,6 +271,7 @@ ConsensusSpecPreset-mainnet
 + EF - EIP4844 - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
 + EF - EIP4844 - Slots - double_empty_epoch [Preset: mainnet]                                OK
 + EF - EIP4844 - Slots - empty_epoch [Preset: mainnet]                                       OK
++ EF - EIP4844 - Slots - historical_accumulator [Preset: mainnet]                            OK
 + EF - EIP4844 - Slots - over_epoch_boundary [Preset: mainnet]                               OK
 + EF - EIP4844 - Slots - slots_1 [Preset: mainnet]                                           OK
 + EF - EIP4844 - Slots - slots_2 [Preset: mainnet]                                           OK
@@ -343,6 +347,7 @@ ConsensusSpecPreset-mainnet
 + EF - Phase 0 - Rewards - with_slashed_validators_leak [Preset: mainnet]                    OK
 + EF - Phase 0 - Slots - double_empty_epoch [Preset: mainnet]                                OK
 + EF - Phase 0 - Slots - empty_epoch [Preset: mainnet]                                       OK
++ EF - Phase 0 - Slots - historical_accumulator [Preset: mainnet]                            OK
 + EF - Phase 0 - Slots - over_epoch_boundary [Preset: mainnet]                               OK
 + EF - Phase 0 - Slots - slots_1 [Preset: mainnet]                                           OK
 + EF - Phase 0 - Slots - slots_2 [Preset: mainnet]                                           OK
@@ -495,6 +500,7 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - Capella - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]     OK
 + [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]        OK
 + [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block  OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_duplicate_bls_changes_same_block [Prese OK
 + [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: m OK
 + [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_duplicate_proposer_slashings_same_block OK
 + [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_duplicate_validator_exit_same_block [Pr OK
@@ -507,6 +513,8 @@ ConsensusSpecPreset-mainnet
 + [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_prev_slot_block_transition [Preset: mai OK
 + [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_same_slot_block_transition [Preset: mai OK
 + [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_similar_proposer_slashings_same_block [ OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_two_bls_changes_of_different_addresses_ OK
++ [Invalid] EF - EIP4844 - Sanity - Blocks - invalid_withdrawal_fail_second_block_payload_is OK
 + [Invalid] EF - EIP4844 - Sanity - Blocks - slash_and_exit_same_index [Preset: mainnet]     OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]        OK
 + [Invalid] EF - Phase 0 - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block  OK
@@ -730,22 +738,27 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - EIP4844 - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]      OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]      OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - full_random_operations_3 [Preset: mainnet]      OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - full_withdrawal_in_epoch_transition [Preset: ma OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - high_proposer_index [Preset: mainnet]           OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - historical_batch [Preset: mainnet]              OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - inactivity_scores_full_participation_leaking [P OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - inactivity_scores_leaking [Preset: mainnet]     OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - is_execution_enabled_false [Preset: mainnet]    OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - many_partial_withdrawals_in_epoch_transition [P OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - max_blobs [Preset: mainnet]                     OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - multiple_attester_slashings_no_overlap [Preset: OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - multiple_attester_slashings_partial_overlap [Pr OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - multiple_different_proposer_slashings_same_bloc OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - multiple_different_validator_exits_same_block [ OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - one_blob [Preset: mainnet]                      OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - partial_withdrawal_in_epoch_transition [Preset: OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - proposer_after_inactive_index [Preset: mainnet] OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - proposer_self_slashing [Preset: mainnet]        OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - proposer_slashing [Preset: mainnet]             OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - skipped_slots [Preset: mainnet]                 OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - success_bls_change [Preset: mainnet]            OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - success_exit_and_bls_change [Preset: mainnet]   OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee__empty [Preset: mainne OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee__full [Preset: mainnet OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee__half [Preset: mainnet OK
@@ -753,6 +766,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
 + [Valid]   EF - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
 + [Valid]   EF - Phase 0 - Finality - finality_rule_1 [Preset: mainnet]                      OK
 + [Valid]   EF - Phase 0 - Finality - finality_rule_2 [Preset: mainnet]                      OK
@@ -799,7 +813,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 ```
-OK: 787/796 Fail: 0/796 Skip: 9/796
+OK: 801/810 Fail: 0/810 Skip: 9/810
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -1159,15 +1173,24 @@ OK: 150/150 Fail: 0/150 Skip: 0/150
 + [Invalid] EF - Capella - Operations - BLS to execution change - invalid_bad_signature      OK
 + [Invalid] EF - Capella - Operations - BLS to execution change - invalid_incorrect_from_bls OK
 + [Invalid] EF - Capella - Operations - BLS to execution change - invalid_val_index_out_of_r OK
++ [Invalid] EF - EIP4844 - Operations - BLS to execution change - invalid_already_0x01       OK
++ [Invalid] EF - EIP4844 - Operations - BLS to execution change - invalid_bad_signature      OK
++ [Invalid] EF - EIP4844 - Operations - BLS to execution change - invalid_incorrect_from_bls OK
++ [Invalid] EF - EIP4844 - Operations - BLS to execution change - invalid_val_index_out_of_r OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success                    OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_exited             OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_in_activation_queu OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_in_exit_queue      OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_not_activated      OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_withdrawable       OK
-+ [Valid]   EF - EIP4844 - Operations - BLS to execution change - no_op                      OK
++ [Valid]   EF - EIP4844 - Operations - BLS to execution change - success                    OK
++ [Valid]   EF - EIP4844 - Operations - BLS to execution change - success_exited             OK
++ [Valid]   EF - EIP4844 - Operations - BLS to execution change - success_in_activation_queu OK
++ [Valid]   EF - EIP4844 - Operations - BLS to execution change - success_in_exit_queue      OK
++ [Valid]   EF - EIP4844 - Operations - BLS to execution change - success_not_activated      OK
++ [Valid]   EF - EIP4844 - Operations - BLS to execution change - success_withdrawable       OK
 ```
-OK: 11/11 Fail: 0/11 Skip: 0/11
+OK: 20/20 Fail: 0/20 Skip: 0/20
 ## Block Header
 ```diff
 + [Invalid] EF - Altair - Operations - Block Header - invalid_multiple_blocks_single_slot    OK
@@ -1283,6 +1306,7 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Valid]   EF - EIP4844 - Operations - Deposit - new_deposit_non_versioned_withdrawal_crede OK
 + [Valid]   EF - EIP4844 - Operations - Deposit - new_deposit_over_max                       OK
 + [Valid]   EF - EIP4844 - Operations - Deposit - new_deposit_under_max                      OK
++ [Valid]   EF - EIP4844 - Operations - Deposit - success_top_up_to_withdrawn_validator      OK
 + [Valid]   EF - EIP4844 - Operations - Deposit - top_up__less_effective_balance             OK
 + [Valid]   EF - EIP4844 - Operations - Deposit - top_up__max_effective_balance              OK
 + [Valid]   EF - EIP4844 - Operations - Deposit - top_up__zero_balance                       OK
@@ -1302,7 +1326,7 @@ OK: 30/30 Fail: 0/30 Skip: 0/30
 + [Valid]   EF - Phase 0 - Operations - Deposit - top_up__max_effective_balance              OK
 + [Valid]   EF - Phase 0 - Operations - Deposit - top_up__zero_balance                       OK
 ```
-OK: 97/97 Fail: 0/97 Skip: 0/97
+OK: 98/98 Fail: 0/98 Skip: 0/98
 ## EF - Altair - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -1649,9 +1673,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## EF - Capella - Epoch Processing - Historical roots update [Preset: mainnet]
+## EF - Capella - Epoch Processing - Historical summaries update [Preset: mainnet]
 ```diff
-+ Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
++ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - Capella - Epoch Processing - Inactivity [Preset: mainnet]
@@ -1781,6 +1805,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
 +   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
 +   Testing    LightClientFinalityUpdate                                                     OK
@@ -1805,7 +1830,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 ```
-OK: 44/44 Fail: 0/44 Skip: 0/44
+OK: 45/45 Fail: 0/45 Skip: 0/45
 ## EF - EIP4844 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -1817,9 +1842,9 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 + Eth1 data reset - eth1_vote_reset [Preset: mainnet]                                        OK
 ```
 OK: 2/2 Fail: 0/2 Skip: 0/2
-## EF - EIP4844 - Epoch Processing - Historical roots update [Preset: mainnet]
+## EF - EIP4844 - Epoch Processing - Historical summaries update [Preset: mainnet]
 ```diff
-+ Historical roots update - historical_root_accumulator [Preset: mainnet]                    OK
++ Historical summaries update - historical_summaries_accumulator [Preset: mainnet]           OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## EF - EIP4844 - Epoch Processing - Inactivity [Preset: mainnet]
@@ -1950,6 +1975,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    Fork                                                                          OK
 +   Testing    ForkData                                                                      OK
 +   Testing    HistoricalBatch                                                               OK
++   Testing    HistoricalSummary                                                             OK
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
 +   Testing    LightClientFinalityUpdate                                                     OK
@@ -1975,7 +2001,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 ```
-OK: 46/46 Fail: 0/46 Skip: 0/46
+OK: 47/47 Fail: 0/47 Skip: 0/47
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -2456,6 +2482,25 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 + [Invalid] EF - Capella - Operations - Withdrawals - invalid_one_of_many_incorrectly_full   OK
 + [Invalid] EF - Capella - Operations - Withdrawals - invalid_one_of_many_incorrectly_partia OK
 + [Invalid] EF - Capella - Operations - Withdrawals - invalid_two_expected_partial_withdrawa OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_a_lot_fully_withdrawable_too_f OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_a_lot_mixed_withdrawable_in_qu OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_a_lot_partially_withdrawable_t OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_incorrect_address_full         OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_incorrect_address_partial      OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_incorrect_amount_full          OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_incorrect_amount_partial       OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_incorrect_withdrawal_index     OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_many_incorrectly_full          OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_many_incorrectly_partial       OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_max_per_slot_full_withdrawals_ OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_max_per_slot_partial_withdrawa OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_non_withdrawable_non_empty_wit OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_one_expected_full_withdrawal_a OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_one_expected_full_withdrawal_a OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_one_expected_partial_withdrawa OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_one_of_many_incorrectly_full   OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_one_of_many_incorrectly_partia OK
++ [Invalid] EF - EIP4844 - Operations - Withdrawals - invalid_two_expected_partial_withdrawa OK
 + [Valid]   EF - Capella - Operations - Withdrawals - all_withdrawal                         OK
 + [Valid]   EF - Capella - Operations - Withdrawals - no_withdrawals_but_some_next_epoch     OK
 + [Valid]   EF - Capella - Operations - Withdrawals - random_0                               OK
@@ -2487,9 +2532,39 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_balance       OK
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 + [Valid]   EF - Capella - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
-+ [Valid]   EF - EIP4844 - Operations - Withdrawals - no_op                                  OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - all_withdrawal                         OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - no_withdrawals_but_some_next_epoch     OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - random_0                               OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - random_full_withdrawals_0              OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - random_full_withdrawals_1              OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - random_full_withdrawals_2              OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - random_full_withdrawals_3              OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - random_partial_withdrawals_1           OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - random_partial_withdrawals_2           OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - random_partial_withdrawals_3           OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - random_partial_withdrawals_4           OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - random_partial_withdrawals_5           OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_all_fully_withdrawable_in_one_ OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_all_partially_withdrawable_in_ OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_max_partial_withdrawable       OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_max_per_slot                   OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_no_excess_balance              OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_no_max_effective_balance       OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_one_full_withdrawal            OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_one_partial_withdrawable_activ OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_one_partial_withdrawable_exite OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_one_partial_withdrawable_exite OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_one_partial_withdrawable_in_ex OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_one_partial_withdrawable_not_y OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_one_partial_withdrawal         OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_two_partial_withdrawable       OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_zero_expected_withdrawals      OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - withdrawable_epoch_but_0_balance       OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - withdrawable_epoch_but_0_effective_bal OK
 ```
-OK: 51/51 Fail: 0/51 Skip: 0/51
+OK: 100/100 Fail: 0/100 Skip: 0/100
 
 ---TOTAL---
-OK: 2197/2206 Fail: 0/2206 Skip: 9/2206
+OK: 2272/2281 Fail: 0/2281 Skip: 9/2281
