@@ -561,15 +561,14 @@ proc getPayloadV1*(
 
 proc getPayloadV2*(
     p: Eth1Monitor, payloadId: bellatrix.PayloadID):
-    Future[engine_api.ExecutionPayloadV2] =
+    Future[engine_api.ExecutionPayloadV2] {.async.} =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
   if p.isNil or p.dataProvider.isNil:
-    let epr = newFuture[engine_api.ExecutionPayloadV2]("getPayload")
-    epr.complete(default(engine_api.ExecutionPayloadV2))
-    return epr
+    return default(engine_api.ExecutionPayloadV2)
 
-  p.dataProvider.web3.provider.engine_getPayloadV2(FixedBytes[8] payloadId)
+  return (await p.dataProvider.web3.provider.engine_getPayloadV2(
+    FixedBytes[8] payloadId)).executionPayload
 
 proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV1):
     Future[PayloadStatusV1] =
