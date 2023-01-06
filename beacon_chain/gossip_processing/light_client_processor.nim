@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -484,13 +484,13 @@ func toValidationError(
     of VerifierError.MissingParent,
         VerifierError.UnviableFork,
         VerifierError.Duplicate:
-      # [IGNORE] No other `finality_update` with a lower or equal
-      # `finalized_header.slot` was already forwarded on the network.
-      # [IGNORE] No other `optimistic_update` with a lower or equal
-      # `attested_header.slot` was already forwarded on the network.
+      # [IGNORE] The `finalized_header.slot` is greater than that of
+      # all previously forwarded `finality_update`s
+      # [IGNORE] The `attested_header.slot` is greater than that of all
+      # previously forwarded `optimistic_update`s
       errIgnore($r.error)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var LightClientProcessor, src: MsgSource,
     finality_update: altair.LightClientFinalityUpdate
