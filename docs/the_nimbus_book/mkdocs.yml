@@ -104,6 +104,7 @@ nav:
     - Storage:
       - 'data-dir.md'
       - 'era-store.md'
+      - 'history.md'
     - 'migration-options.md'
     - 'attestation-performance.md'
     - 'troubleshooting.md'

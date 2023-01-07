@@ -157,8 +157,8 @@ suite "Beacon chain DB" & preset():
       tmp2 == encodeFramed(tmp)
       uncompressedLenFramed(tmp2).isSome
 
-    db.delBlock(root)
     check:
+      db.delBlock(BeaconBlockFork.Phase0, root)
       not db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
@@ -204,8 +204,8 @@ suite "Beacon chain DB" & preset():
       tmp2 == encodeFramed(tmp)
       uncompressedLenFramed(tmp2).isSome
 
-    db.delBlock(root)
     check:
+      db.delBlock(BeaconBlockFork.Altair, root)
       not db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
@@ -251,8 +251,8 @@ suite "Beacon chain DB" & preset():
       tmp2 == encodeFramed(tmp)
       uncompressedLenFramed(tmp2).isSome
 
-    db.delBlock(root)
     check:
+      db.delBlock(BeaconBlockFork.Bellatrix, root)
       not db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
@@ -298,8 +298,8 @@ suite "Beacon chain DB" & preset():
       tmp2 == encodeFramed(tmp)
       uncompressedLenFramed(tmp2).isSome
 
-    db.delBlock(root)
     check:
+      db.delBlock(BeaconBlockFork.Capella, root)
       not db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
@@ -345,8 +345,8 @@ suite "Beacon chain DB" & preset():
       tmp2 == encodeFramed(tmp)
       uncompressedLenFramed(tmp2).isSome
 
-    db.delBlock(root)
     check:
+      db.delBlock(BeaconBlockFork.EIP4844, root)
       not db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
@@ -379,7 +379,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(db.getPhase0StateRef(root)[]) == root
 
-      db.delState(root)
+      db.delState(BeaconStateFork.Phase0, root)
       check:
         not db.containsState(root)
         db.getPhase0StateRef(root).isNil
@@ -397,7 +397,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(db.getAltairStateRef(root)[]) == root
 
-      db.delState(root)
+      db.delState(BeaconStateFork.Altair, root)
       check:
         not db.containsState(root)
         db.getAltairStateRef(root).isNil
@@ -415,7 +415,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(db.getBellatrixStateRef(root)[]) == root
 
-      db.delState(root)
+      db.delState(BeaconStateFork.Bellatrix, root)
       check:
         not db.containsState(root)
         db.getBellatrixStateRef(root).isNil
@@ -433,7 +433,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(db.getCapellaStateRef(root)[]) == root
 
-      db.delState(root)
+      db.delState(BeaconStateFork.Capella, root)
       check:
         not db.containsState(root)
         db.getCapellaStateRef(root).isNil
@@ -451,7 +451,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(db.getEIP4844StateRef(root)[]) == root
 
-      db.delState(root)
+      db.delState(BeaconStateFork.EIP4844, root)
       check:
         not db.containsState(root)
         db.getEIP4844StateRef(root).isNil
@@ -471,7 +471,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
-      db.delState(root)
+      db.delState(BeaconStateFork.Phase0, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -491,7 +491,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
-      db.delState(root)
+      db.delState(BeaconStateFork.Altair, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -511,7 +511,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
-      db.delState(root)
+      db.delState(BeaconStateFork.Bellatrix, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -531,7 +531,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
-      db.delState(root)
+      db.delState(BeaconStateFork.Capella, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -551,7 +551,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
-      db.delState(root)
+      db.delState(BeaconStateFork.EIP4844, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -734,7 +734,7 @@ suite "Beacon chain DB" & preset():
 
     check db.containsState(state[].root)
     let state2 = db.getPhase0StateRef(state[].root)
-    db.delState(state[].root)
+    db.delState(BeaconStateFork.Phase0, state[].root)
     check not db.containsState(state[].root)
     db.close()
 

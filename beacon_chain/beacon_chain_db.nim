@@ -70,7 +70,7 @@ type
     ##
     ## 1.2 moved BeaconStateNoImmutableValidators to a separate table to
     ## alleviate some of the btree balancing issues - this doubled the speed but
-    ## was still
+    ## was still slow
     ##
     ## 1.3 creates `kvstore` with rowid, making it quite fast, but doesn't do
     ## anything about existing databases. Versions after that use a separate
@@ -420,41 +420,43 @@ proc loadImmutableValidators(vals: DbSeq[ImmutableValidatorDataDb2]): seq[Immuta
       withdrawal_credentials: tmp.withdrawal_credentials)
 
 template withManyWrites*(dbParam: BeaconChainDB, body: untyped) =
-  let db = dbParam
-  # Make sure we're not nesting transactions.
-  if isInsideTransaction(db.db):
-    raiseAssert "Sqlite does not support nested transactions"
+  let
+    db = dbParam
+    nested = isInsideTransaction(db.db)
+
   # We don't enforce strong ordering or atomicity requirements in the beacon
   # chain db in general, relying instead on readers to be able to deal with
   # minor inconsistencies - however, putting writes in a transaction is orders
   # of magnitude faster when doing many small writes, so we use this as an
   # optimization technique and the templace is named accordingly.
-  expectDb db.db.exec("BEGIN TRANSACTION;")
+  if not nested:
+    expectDb db.db.exec("BEGIN TRANSACTION;")
   var commit = false
   try:
-    body
-    commit = true
+      body
+      commit = true
   finally:
-    if commit:
-      expectDb db.db.exec("COMMIT TRANSACTION;")
-    else:
-      # https://www.sqlite.org/lang_transaction.html
-      #
-      # For all of these errors, SQLite attempts to undo just the one statement
-      # it was working on and leave changes from prior statements within the same
-      # transaction intact and continue with the transaction. However, depending
-      # on the statement being evaluated and the point at which the error occurs,
-      # it might be necessary for SQLite to rollback and cancel the entire transaction.
-      # An application can tell which course of action SQLite took by using the
-      # sqlite3_get_autocommit() C-language interface.
-      #
-      # It is recommended that applications respond to the errors listed above by
-      # explicitly issuing a ROLLBACK command. If the transaction has already been
-      # rolled back automatically by the error response, then the ROLLBACK command
-      # will fail with an error, but no harm is caused by this.
-      #
-      if isInsideTransaction(db.db): # calls `sqlite3_get_autocommit`
-        expectDb db.db.exec("ROLLBACK TRANSACTION;")
+    if not nested:
+      if commit:
+        expectDb db.db.exec("COMMIT TRANSACTION;")
+      else:
+        # https://www.sqlite.org/lang_transaction.html
+        #
+        # For all of these errors, SQLite attempts to undo just the one statement
+        # it was working on and leave changes from prior statements within the same
+        # transaction intact and continue with the transaction. However, depending
+        # on the statement being evaluated and the point at which the error occurs,
+        # it might be necessary for SQLite to rollback and cancel the entire transaction.
+        # An application can tell which course of action SQLite took by using the
+        # sqlite3_get_autocommit() C-language interface.
+        #
+        # It is recommended that applications respond to the errors listed above by
+        # explicitly issuing a ROLLBACK command. If the transaction has already been
+        # rolled back automatically by the error response, then the ROLLBACK command
+        # will fail with an error, but no harm is caused by this.
+        #
+        if isInsideTransaction(db.db): # calls `sqlite3_get_autocommit`
+          expectDb db.db.exec("ROLLBACK TRANSACTION;")
 
 proc new*(T: type BeaconChainDBV0,
           db: SqStoreRef,
@@ -839,29 +841,34 @@ proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
 proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) =
   db.stateDiffs.putSnappySSZ(root.data, value)
 
-proc delBlock*(db: BeaconChainDB, key: Eth2Digest) =
+proc delBlock*(db: BeaconChainDB, fork: BeaconBlockFork, key: Eth2Digest): bool =
+  var deleted = false
   db.withManyWrites:
-    for kv in db.blocks:
-      kv.del(key.data).expectDb()
-    db.summaries.del(key.data).expectDb()
+    discard db.summaries.del(key.data).expectDb()
+    deleted = db.blocks[fork].del(key.data).expectDb()
+  deleted
 
-proc delState*(db: BeaconChainDB, key: Eth2Digest) =
-  db.withManyWrites:
-    for kv in db.statesNoVal:
-      kv.del(key.data).expectDb()
+proc delState*(db: BeaconChainDB, fork: BeaconStateFork, key: Eth2Digest) =
+  discard db.statesNoVal[fork].del(key.data).expectDb()
+
+proc clearBlocks*(db: BeaconChainDB, fork: BeaconBlockFork) =
+  discard db.blocks[fork].clear().expectDb()
+
+proc clearStates*(db: BeaconChainDB, fork: BeaconStateFork) =
+  discard db.statesNoVal[fork].clear().expectDb()
 
 proc delKeyValue*(db: BeaconChainDB, key: array[1, byte]) =
-  db.keyValues.del(key).expectDb()
-  db.v0.backend.del(key).expectDb()
+  discard db.keyValues.del(key).expectDb()
+  discard db.v0.backend.del(key).expectDb()
 
 proc delKeyValue*(db: BeaconChainDB, key: DbKeyKind) =
   db.delKeyValue(subkey(key))
 
 proc delStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot) =
-  db.stateRoots.del(stateRootKey(root, slot)).expectDb()
+  discard db.stateRoots.del(stateRootKey(root, slot)).expectDb()
 
 proc delStateDiff*(db: BeaconChainDB, root: Eth2Digest) =
-  db.stateDiffs.del(root.data).expectDb()
+  discard db.stateDiffs.del(root.data).expectDb()
 
 proc putHeadBlock*(db: BeaconChainDB, key: Eth2Digest) =
   db.keyValues.putRaw(subkey(kHeadBlock), key)
@@ -1066,7 +1073,6 @@ proc getBlockSZ*(
     getBlockSZ(db, key, data, capella.TrustedSignedBeaconBlock)
   of BeaconBlockFork.EIP4844:
     getBlockSZ(db, key, data, eip4844.TrustedSignedBeaconBlock)
-
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
@@ -1338,6 +1344,12 @@ proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
     db.backend.contains(sk).expectDb() or
     db.backend.contains(subkey(phase0.BeaconState, key)).expectDb()
 
+proc containsState*(db: BeaconChainDB, fork: BeaconStateFork, key: Eth2Digest,
+    legacy: bool = true): bool =
+  if db.statesNoVal[fork].contains(key.data).expectDb(): return true
+
+  (legacy and fork == BeaconStateFork.Phase0 and db.v0.containsState(key))
+
 proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bool =
   for fork in countdown(BeaconStateFork.high, BeaconStateFork.low):
     if db.statesNoVal[fork].contains(key.data).expectDb(): return true
@@ -1418,7 +1430,7 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
       INNER JOIN next ON `key` == substr(v, 9, 32)
   )
   SELECT v FROM next;
-"""
+  """
   let
     stmt = expectDb db.db.prepareStmt(
       summariesQuery, array[32, byte],
