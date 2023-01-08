@@ -390,7 +390,7 @@ p2pProtocol BeaconSync(version = 1,
         peer.network.awaitQuota(blockResponseCost, "beacon_blocks_by_root/2")
 
         await response.writeBytesSZ(
-          100, bytes,
+          uncompressedLen, bytes,
           peer.networkState.forkDigestAtEpoch(blockRef.slot.epoch).data)
 
         inc found
