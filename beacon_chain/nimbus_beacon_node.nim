@@ -311,7 +311,8 @@ proc initFullNode(
       # taken in the sync/request managers - this is an architectural compromise
       # that should probably be reimagined more holistically in the future.
       let resfut = newFuture[Result[void, VerifierError]]("blockVerifier")
-      blockProcessor[].addBlock(MsgSource.gossip, signedBlock, resfut)
+      blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                Opt.none(eip4844.BlobsSidecar), resfut)
       resfut
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
@@ -424,7 +425,7 @@ proc init*(T: type BeaconNode,
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
       finalQueue: newAsyncEventQueue[FinalizationInfoObject]()
     )
-    db = BeaconChainDB.new(config.databaseDir, inMemory = false)
+    db = BeaconChainDB.new(config.databaseDir, cfg, inMemory = false)
 
   if config.finalizedCheckpointBlock.isSome:
     warn "--finalized-checkpoint-block has been deprecated, ignoring"

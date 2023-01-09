@@ -71,7 +71,7 @@ proc doTrustedNodeSync*(
       quit 1
 
   let
-    db = BeaconChainDB.new(databaseDir, inMemory = false)
+    db = BeaconChainDB.new(databaseDir, cfg, inMemory = false)
   defer:
     db.close()
 

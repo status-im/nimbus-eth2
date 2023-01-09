@@ -855,7 +855,7 @@ proc insertValidators(db: SqStoreRef, state: ForkedHashedBeaconState,
 proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   # Create a database with performance information for every epoch
   info "Opening database..."
-  let db = BeaconChainDB.new(conf.databaseDir.string, false, true)
+  let db = BeaconChainDB.new(conf.databaseDir.string, readOnly = true)
   defer: db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):

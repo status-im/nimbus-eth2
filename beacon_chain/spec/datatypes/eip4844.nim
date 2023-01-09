@@ -165,8 +165,12 @@ type
     latest_execution_payload_header*: ExecutionPayloadHeader
 
     # Withdrawals
-    next_withdrawal_index*: WithdrawalIndex # [New in Capella]
-    next_withdrawal_validator_index*: uint64  # [New in Capella]
+    next_withdrawal_index*: WithdrawalIndex
+    next_withdrawal_validator_index*: uint64
+
+    # Deep history valid from Capella onwards
+    historical_summaries*:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
