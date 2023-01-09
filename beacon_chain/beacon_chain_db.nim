@@ -20,12 +20,13 @@ import
           eth2_ssz_serialization,
           eth2_merkleization,
           forks,
+          presets,
           state_transition],
   ./spec/datatypes/[phase0, altair, bellatrix],
   "."/[beacon_chain_db_light_client, filepath]
 
 from ./spec/datatypes/capella import BeaconState
-from ./spec/datatypes/eip4844 import TrustedSignedBeaconBlock
+from ./spec/datatypes/eip4844 import TrustedSignedBeaconBlock, BlobsSidecar
 
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
@@ -114,6 +115,8 @@ type
 
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
     blocks: array[BeaconBlockFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
+
+    blobs: KvStoreRef # (BlockRoot -> BlobsSidecar)
 
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
 
@@ -478,7 +481,8 @@ proc new*(T: type BeaconChainDBV0,
   )
 
 proc new*(T: type BeaconChainDB,
-          db: SqStoreRef
+          db: SqStoreRef,
+          cfg: RuntimeConfig = defaultRuntimeConfig
     ): BeaconChainDB =
   if not db.readOnly:
     # Remove the deposits table we used before we switched
@@ -523,6 +527,10 @@ proc new*(T: type BeaconChainDB,
       altairBestUpdates: "lc_altair_best_updates",
       sealedPeriods: "lc_sealed_periods")).expectDb()
 
+  var blobs : KvStoreRef
+  if cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    blobs = kvStore db.openKvStore("eip4844_blobs").expectDb()
+
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
   # slow to load and has been superceded by `immutable_validators2` which uses
@@ -557,6 +565,7 @@ proc new*(T: type BeaconChainDB,
     checkpoint: proc() = db.checkpoint(),
     keyValues: keyValues,
     blocks: blocks,
+    blobs: blobs,
     stateRoots: stateRoots,
     statesNoVal: statesNoVal,
     stateDiffs: stateDiffs,
@@ -567,6 +576,7 @@ proc new*(T: type BeaconChainDB,
 
 proc new*(T: type BeaconChainDB,
           dir: string,
+          cfg: RuntimeConfig = defaultRuntimeConfig,
           inMemory = false,
           readOnly = false
     ): BeaconChainDB =
@@ -582,7 +592,7 @@ proc new*(T: type BeaconChainDB,
 
       SqStoreRef.init(
         dir, "nbc", readOnly = readOnly, manualCheckpoint = true).expectDb()
-  BeaconChainDB.new(db)
+  BeaconChainDB.new(db, cfg)
 
 template getLightClientDataDB*(db: BeaconChainDB): LightClientDataDB =
   db.lcData
@@ -723,6 +733,8 @@ proc close*(db: BeaconChainDB) =
   if db.db == nil: return
 
   # Close things roughly in reverse order
+  if not isNil(db.blobs):
+    discard db.blobs.close()
   db.lcData.close()
   db.finalizedBlocks.close()
   discard db.summaries.close()
@@ -767,6 +779,11 @@ proc putBlock*(
   db.withManyWrites:
     db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
+
+proc putBlobsSidecar*(
+    db: BeaconChainDB,
+    value: BlobsSidecar) =
+  db.blobs.putSZSSZ(value.beacon_block_root.data, value)
 
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
@@ -955,6 +972,12 @@ proc getBlock*[
     # set root after deserializing (so it doesn't get zeroed)
     result.get().root = key
   else:
+    result.err()
+
+proc getBlobsSidecar*(db: BeaconChainDB, key: Eth2Digest): Opt[BlobsSidecar] =
+  var blobs: BlobsSidecar
+  result.ok(blobs)
+  if db.blobs.getSZSSZ(key.data, result.get) != GetResult.found:
     result.err()
 
 proc getPhase0BlockSSZ(

@@ -230,10 +230,15 @@ proc validateBeaconBlock*(
     signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
                          bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
                          eip4844.SignedBeaconBlock,
+    blobs: Opt[eip4844.BlobsSidecar],
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
   # externally easy-to-invoke function by tossing network packets at the node.
+
+  # We should enforce this statically via the type system... but for now, assert.
+  when typeof(signed_beacon_block).toFork() < BeaconBlockFork.EIP4844:
+    doAssert blobs.isNone(), "Blobs with pre-EIP4844 block"
 
   # [IGNORE] The block is not from a future slot (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
@@ -326,7 +331,7 @@ proc validateBeaconBlock*(
     # in the quarantine for later processing
     if not quarantine[].addOrphan(
         dag.finalizedHead.slot,
-        ForkedSignedBeaconBlock.init(signed_beacon_block)):
+        ForkedSignedBeaconBlock.init(signed_beacon_block), blobs):
       debug "Block quarantine full"
 
     return errIgnore("BeaconBlock: Parent not found")
@@ -390,6 +395,15 @@ proc validateBeaconBlock*(
     return errReject("BeaconBlock: Invalid proposer signature")
 
   ok()
+
+proc validateBeaconBlock*(
+    dag: ChainDAGRef, quarantine: ref Quarantine,
+    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+                         bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+                         eip4844.SignedBeaconBlock,
+    wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
+    dag.validateBeaconBlock(quarantine, signed_beacon_block,
+                            Opt.none(eip4844.BlobsSidecar), wallTime, flags)
 
 proc validateBeaconBlockAndBlobsSidecar*(signedBlock: SignedBeaconBlockAndBlobsSidecar):
                          Result[void, ValidationError] =
