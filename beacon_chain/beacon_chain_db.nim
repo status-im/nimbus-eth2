@@ -731,6 +731,8 @@ proc close*(db: BeaconChainDB) =
   if db.db == nil: return
 
   # Close things roughly in reverse order
+  if not isNil(db.blobs):
+    discard db.blobs.close()
   db.lcData.close()
   db.finalizedBlocks.close()
   discard db.summaries.close()

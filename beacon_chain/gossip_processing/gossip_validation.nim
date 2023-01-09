@@ -236,6 +236,10 @@ proc validateBeaconBlock*(
   # verification could be quite a bit more expensive than the rest. This is an
   # externally easy-to-invoke function by tossing network packets at the node.
 
+  # We should enforce this statically via the type system... but for now, assert.
+  when typeof(signed_beacon_block).toFork() < BeaconBlockFork.EIP4844:
+    doAssert blobs.isNone(), "Blobs with pre-EIP4844 block"
+
   # [IGNORE] The block is not from a future slot (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
   # signed_beacon_block.message.slot <= current_slot (a client MAY queue future

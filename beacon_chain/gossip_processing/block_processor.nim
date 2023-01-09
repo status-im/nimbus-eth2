@@ -430,8 +430,6 @@ proc storeBlock*(
                                 .body.blob_kzg_commitments.asSeq,
                                 blobs.get()).isOk():
        return err((VerifierError.Invalid, ProcessingStatus.completed))
-    else:
-      discard
 
   type Trusted = typeof signedBlock.asTrusted()
   let blck = dag.addHeadBlock(self.verifier, signedBlock, payloadValid) do (
