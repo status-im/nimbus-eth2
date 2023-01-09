@@ -395,7 +395,7 @@ proc process_voluntary_exit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 proc process_bls_to_execution_change*(
-    state: var capella.BeaconState,
+    state: var (capella.BeaconState | eip4844.BeaconState),
     signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
   let address_change = signed_address_change.message
 
@@ -425,16 +425,6 @@ proc process_bls_to_execution_change*(
   state.validators.mitem(address_change.validator_index).withdrawal_credentials =
     withdrawal_credentials
 
-  ok()
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#disabling-withdrawals
-proc process_bls_to_execution_change*(
-    state: var eip4844.BeaconState,
-    signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
-  # During testing we avoid Capella-specific updates to the state transition.
-  # We do this by replacing the following functions with a no-op
-  # implementation:
-  # `process_bls_to_execution_change`
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#operations
@@ -675,8 +665,8 @@ proc process_execution_payload*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
-    state: var capella.BeaconState,
-    payload: capella.ExecutionPayload):
+    state: var (capella.BeaconState | eip4844.BeaconState),
+    payload: capella.ExecutionPayload | eip4844.ExecutionPayload):
     Result[void, cstring] =
   let expected_withdrawals = get_expected_withdrawals(state)
 
@@ -713,17 +703,6 @@ func process_withdrawals*(
     let next_validator_index = next_index mod lenu64(state.validators)
     state.next_withdrawal_validator_index = next_validator_index
 
-  ok()
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#disabling-withdrawals
-func process_withdrawals*(
-    state: var eip4844.BeaconState,
-    payload: eip4844.ExecutionPayload):
-    Result[void, cstring] =
-  # During testing we avoid Capella-specific updates to the state transition.
-  # We do this by replacing the following functions with a no-op
-  # implementation:
-  # `process_withdrawals`
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#tx_peek_blob_versioned_hashes

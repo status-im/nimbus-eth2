@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -35,18 +35,18 @@ const
   EffectiveBalanceUpdatesDir =   RootDir/"effective_balance_updates"
   SlashingsResetDir =            RootDir/"slashings_reset"
   RandaoMixesResetDir =          RootDir/"randao_mixes_reset"
-  HistoricalRootsUpdateDir =     RootDir/"historical_roots_update"
   ParticipationFlagDir =         RootDir/"participation_flag_updates"
   SyncCommitteeDir =             RootDir/"sync_committee_updates"
   RewardsAndPenaltiesDir =       RootDir/"rewards_and_penalties"
+  HistoricalSummariesUpdateDir = RootDir/"historical_summaries_update"
 
 doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
     toHashSet([SyncCommitteeDir])) ==
   toHashSet([
     JustificationFinalizationDir, InactivityDir, RegistryUpdatesDir,
     SlashingsDir, Eth1DataResetDir, EffectiveBalanceUpdatesDir,
-    SlashingsResetDir, RandaoMixesResetDir, HistoricalRootsUpdateDir,
-    ParticipationFlagDir, RewardsAndPenaltiesDir])
+    SlashingsResetDir, RandaoMixesResetDir, ParticipationFlagDir,
+    RewardsAndPenaltiesDir, HistoricalSummariesUpdateDir])
 
 template runSuite(
     suiteDir, testName: string, transitionProc: untyped): untyped =
@@ -129,11 +129,10 @@ runSuite(RandaoMixesResetDir, "RANDAO mixes reset"):
   process_randao_mixes_reset(state)
   Result[void, cstring].ok()
 
-# Historical roots update
+# Historical summaries update
 # ---------------------------------------------------------------
-runSuite(HistoricalRootsUpdateDir, "Historical roots update"):
-  process_historical_roots_update(state)
-  Result[void, cstring].ok()
+runSuite(HistoricalSummariesUpdateDir, "Historical summaries update"):
+  process_historical_summaries_update(state)
 
 # Participation flag updates
 # ---------------------------------------------------------------

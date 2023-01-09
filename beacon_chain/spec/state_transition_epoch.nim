@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -31,7 +31,8 @@ import
 
 from std/algorithm import sort
 from std/math import sum, `^`
-from ./datatypes/capella import BeaconState, Withdrawal, WithdrawalIndex
+from ./datatypes/capella import
+  BeaconState, HistoricalSummary, Withdrawal, WithdrawalIndex
 
 export extras, phase0, altair
 
@@ -1057,6 +1058,22 @@ func process_inactivity_updates*(
     if pre_inactivity_score != inactivity_score:
       state.inactivity_scores[index] = inactivity_score
 
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#historical-summaries-updates
+func process_historical_summaries_update*(
+    state: var (capella.BeaconState | eip4844.BeaconState)):
+    Result[void, cstring] =
+  # Set historical block root accumulator.
+  let next_epoch = get_current_epoch(state) + 1
+  if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH) == 0:
+    let historical_summary = HistoricalSummary(
+      block_summary_root: hash_tree_root(state.block_roots),
+      state_summary_root: hash_tree_root(state.state_roots),
+    )
+    if not state.historical_summaries.add(historical_summary):
+      return err("process_historical_summaries_update: state.historical_summaries full")
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig, state: var phase0.BeaconState, flags: UpdateFlags,
@@ -1119,8 +1136,7 @@ func init*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig,
-    state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | eip4844.BeaconState),
+    state: var (altair.BeaconState | bellatrix.BeaconState),
     flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
     Result[void, cstring] =
   let currentEpoch = get_current_epoch(state)
@@ -1158,6 +1174,52 @@ proc process_epoch*(
   process_slashings_reset(state)
   process_randao_mixes_reset(state)
   process_historical_roots_update(state)
+  process_participation_flag_updates(state)
+  process_sync_committee_updates(state)
+
+  ok()
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#epoch-processing
+proc process_epoch*(
+    cfg: RuntimeConfig,
+    state: var (capella.BeaconState | eip4844.BeaconState),
+    flags: UpdateFlags, cache: var StateCache, info: var altair.EpochInfo):
+    Result[void, cstring] =
+  let currentEpoch = get_current_epoch(state)
+  trace "process_epoch",
+    current_epoch = currentEpoch
+
+  info.init(state)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#justification-and-finalization
+  process_justification_and_finalization(state, info.balances, flags)
+
+  # state.slot hasn't been incremented yet.
+  if strictVerification in flags and currentEpoch >= 2:
+    doAssert state.current_justified_checkpoint.epoch + 2 >= currentEpoch
+
+  if strictVerification in flags and currentEpoch >= 3:
+    # Rule 2/3/4 finalization results in the most pessimal case. The other
+    # three finalization rules finalize more quickly as long as the any of
+    # the finalization rules triggered.
+    doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
+
+  process_inactivity_updates(cfg, state, info)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#process_rewards_and_penalties
+  process_rewards_and_penalties(cfg, state, info)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#registry-updates
+  ? process_registry_updates(cfg, state, cache)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#slashings
+  process_slashings(state, info.balances.current_epoch)
+
+  process_eth1_data_reset(state)
+  process_effective_balance_updates(state)
+  process_slashings_reset(state)
+  process_randao_mixes_reset(state)
+  ? process_historical_summaries_update(state)
   process_participation_flag_updates(state)
   process_sync_committee_updates(state)
 
