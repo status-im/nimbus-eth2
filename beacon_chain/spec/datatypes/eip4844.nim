@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -81,7 +81,7 @@ type
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -165,8 +165,12 @@ type
     latest_execution_payload_header*: ExecutionPayloadHeader
 
     # Withdrawals
-    next_withdrawal_index*: WithdrawalIndex # [New in Capella]
-    next_withdrawal_validator_index*: uint64  # [New in Capella]
+    next_withdrawal_index*: WithdrawalIndex
+    next_withdrawal_validator_index*: uint64
+
+    # Deep history valid from Capella onwards
+    historical_summaries*:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:
@@ -235,7 +239,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data

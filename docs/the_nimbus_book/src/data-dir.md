@@ -28,6 +28,8 @@ drwx------ 1 nimbus nimbus 250 Jul 19 18:18 validators
 
 The `db` folder contains historical chain data and information about the latest observed state of the chain. If you remove the `db` folder, the beacon node will have to resync.
 
+The growth of the database depends on the [history mode](./history.md).
+
 ### `secrets` and `validators`
 
 These two folders contain your validator keys as well as the passwords needed to unlock them when starting the beacon node.

@@ -79,6 +79,9 @@ type
 
   EpochParticipationFlags* =
     distinct List[ParticipationFlags, Limit VALIDATOR_REGISTRY_LIMIT]
+    ## Not a HashList because the list sees significant updates every block
+    ## effectively making the cost of clearing the cache higher than the typical
+    ## gains
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/beacon-chain.md#syncaggregate
   SyncAggregate* = object

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -22,7 +22,8 @@ import
 
 from ../../beacon_chain/spec/datatypes/bellatrix import PowBlock
 from ../../beacon_chain/spec/datatypes/capella import
-  BLSToExecutionChange, SignedBLSToExecutionChange, Withdrawal
+  BLSToExecutionChange, SignedBLSToExecutionChange, HistoricalSummary,
+  Withdrawal
 
 # SSZ tests of consensus objects (minimal/mainnet preset specific)
 
@@ -122,6 +123,7 @@ suite "EF - EIP4844 - SSZ consensus objects " & preset():
           of "Fork": checkSSZ(Fork, path, hash)
           of "ForkData": checkSSZ(ForkData, path, hash)
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
+          of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
           of "LightClientBootstrap":
             checkSSZ(LightClientBootstrap, path, hash)

@@ -107,6 +107,10 @@ type
     Json = "json"
     None = "none"
 
+  HistoryMode* {.pure.} = enum
+    Archive = "archive"
+    Prune = "prune"
+
   SlashProtCmd* = enum
     `import` = "Import a EIP-3076 slashing protection interchange file"
     `export` = "Export a EIP-3076 slashing protection interchange file"
@@ -575,6 +579,11 @@ type
         desc: "Payload builder URL"
         defaultValue: ""
         name: "payload-builder-url" .}: string
+
+      historyMode* {.
+        desc: "Retention strategy for historical data (archive/pruned)"
+        defaultValue: HistoryMode.Archive
+        name: "history".}: HistoryMode
 
     of BNStartUpCmd.createTestnet:
       testnetDepositsFile* {.

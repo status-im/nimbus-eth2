@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -77,7 +77,7 @@ export
   tables, results, json_serialization, timer, sszTypes, beacon_time, crypto,
   digest, presets
 
-const SPEC_VERSION* = "1.3.0-alpha.2"
+const SPEC_VERSION* = "1.3.0-rc.0"
 ## Spec version we're aiming to be compatible with, right now
 
 const

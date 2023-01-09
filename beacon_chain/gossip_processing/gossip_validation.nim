@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2022 Status Research & Development GmbH
+# Copyright (c) 2019-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -1107,15 +1107,15 @@ proc validateContribution*(
 
   return ok((sig, participants))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 proc validateLightClientFinalityUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     finality_update: altair.LightClientFinalityUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let finalized_slot = finality_update.finalized_header.slot
   if finalized_slot <= pool.latestForwardedFinalitySlot:
-    # [IGNORE] No other `finality_update` with a lower or equal
-    # `finalized_header.slot` was already forwarded on the network.
+    # [IGNORE] The `finalized_header.slot` is greater than that of all previously
+    # forwarded `finality_update`s
     return errIgnore("LightClientFinalityUpdate: slot already forwarded")
 
   let
@@ -1135,15 +1135,15 @@ proc validateLightClientFinalityUpdate*(
   pool.latestForwardedFinalitySlot = finalized_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
 proc validateLightClientOptimisticUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     optimistic_update: altair.LightClientOptimisticUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let attested_slot = optimistic_update.attested_header.slot
   if attested_slot <= pool.latestForwardedOptimisticSlot:
-    # [IGNORE] No other `optimistic_update` with a lower or equal
-    # `attested_header.slot` was already forwarded on the network.
+    # The `attested_header.slot` is greater than that of all previously
+    # forwarded `optimistic_update`s
     return errIgnore("LightClientOptimisticUpdate: slot already forwarded")
 
   let

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -71,7 +71,7 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/p2p-interface.md#topics-and-messages
 func getBeaconBlockAndBlobsSidecarTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBeaconBlockAndBlobsSidecarTopicSuffix
 

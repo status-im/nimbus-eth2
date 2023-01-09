@@ -187,6 +187,10 @@ proc loadChainDag(
             dataDir = config.dataDir
       quit 1
 
+  # The first pruning after restart may take a while..
+  if config.historyMode == HistoryMode.Prune:
+    dag.pruneHistory(true)
+
   dag
 
 proc checkWeakSubjectivityCheckpoint(
@@ -907,6 +911,11 @@ proc addCapellaMessageHandlers(
   node.addAltairMessageHandlers(forkDigest, slot)
   node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
 
+proc addEIP4844MessageHandlers(
+    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
+  node.addCapellaMessageHandlers(forkDigest, slot)
+  node.network.subscribe(getBeaconBlockAndBlobsSidecarTopic(forkDigest), basicParams)
+
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -921,6 +930,10 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeAltairMessageHandlers(forkDigest)
   node.network.unsubscribe(getBlsToExecutionChangeTopic(forkDigest))
+
+proc removeEIP4844MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
+  node.removeCapellaMessageHandlers(forkDigest)
+  node.network.unsubscribe(getBeaconBlockAndBlobsSidecarTopic(forkDigest))
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1074,7 +1087,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
+    removeEIP4844MessageHandlers
   ]
 
   for gossipFork in oldGossipForks:
@@ -1083,9 +1096,9 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   const addMessageHandlers: array[BeaconStateFork, auto] = [
     addPhase0MessageHandlers,
     addAltairMessageHandlers,
-    addAltairMessageHandlers,  # bellatrix (altair handlers, with different forkDigest)
+    addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
-    addCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
+    addEIP4844MessageHandlers
   ]
 
   for gossipFork in newGossipForks:
@@ -1115,6 +1128,9 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   # ----
   # This is the last pruning to do as it clears the "needPruning" condition.
   node.consensusManager[].pruneStateCachesAndForkChoice()
+
+  if node.config.historyMode == HistoryMode.Prune:
+    node.dag.pruneHistory()
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -14,7 +14,8 @@ import
   ./spec/datatypes/[base, altair, bellatrix],
   ./spec/[eth2_ssz_serialization, eth2_merkleization]
 
-from ./spec/datatypes/capella import ExecutionPayloadHeader, Withdrawal
+from ./spec/datatypes/capella import
+  ExecutionPayloadHeader, HistoricalSummary, Withdrawal
 from ./spec/datatypes/eip4844 import ExecutionPayloadHeader
 
 type
@@ -252,6 +253,11 @@ type
     next_withdrawal_index*: WithdrawalIndex # [New in Capella]
     next_withdrawal_validator_index*: uint64  # [New in Capella]
 
+    # Deep history valid from Capella onwards
+    historical_summaries*:
+      HashList[HistoricalSummary,
+        Limit HISTORICAL_ROOTS_LIMIT]  # [New in Capella]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#beaconstate
   # with indirect changes via ExecutionPayloadHeader
   # Memory-representation-equivalent to a Capella BeaconState for in-place SSZ
@@ -317,3 +323,7 @@ type
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex
     next_withdrawal_validator_index*: uint64
+
+    # Deep history valid from Capella onwards
+    historical_summaries*:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]

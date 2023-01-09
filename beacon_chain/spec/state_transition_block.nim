@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -395,7 +395,7 @@ proc process_voluntary_exit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 proc process_bls_to_execution_change*(
-    state: var capella.BeaconState,
+    state: var (capella.BeaconState | eip4844.BeaconState),
     signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
   let address_change = signed_address_change.message
 
@@ -425,16 +425,6 @@ proc process_bls_to_execution_change*(
   state.validators.mitem(address_change.validator_index).withdrawal_credentials =
     withdrawal_credentials
 
-  ok()
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#disabling-withdrawals
-proc process_bls_to_execution_change*(
-    state: var eip4844.BeaconState,
-    signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
-  # During testing we avoid Capella-specific updates to the state transition.
-  # We do this by replacing the following functions with a no-op
-  # implementation:
-  # `process_bls_to_execution_change`
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/phase0/beacon-chain.md#operations
@@ -673,76 +663,10 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#has_eth1_withdrawal_credential
-func has_eth1_withdrawal_credential(validator: Validator): bool =
-  ## Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
-  validator.withdrawal_credentials.data[0] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
-func is_fully_withdrawable_validator(
-    validator: Validator, balance: Gwei, epoch: Epoch): bool =
-  ## Check if ``validator`` is fully withdrawable.
-  has_eth1_withdrawal_credential(validator) and
-    validator.withdrawable_epoch <= epoch and balance > 0
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
-func is_partially_withdrawable_validator(
-    validator: Validator, balance: Gwei): bool =
-  ## Check if ``validator`` is partially withdrawable.
-  let
-    has_max_effective_balance =
-      validator.effective_balance == MAX_EFFECTIVE_BALANCE
-    has_excess_balance = balance > MAX_EFFECTIVE_BALANCE
-  has_eth1_withdrawal_credential(validator) and
-    has_max_effective_balance and has_excess_balance
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/capella/beacon-chain.md#new-get_expected_withdrawals
-func get_expected_withdrawals(state: capella.BeaconState): seq[Withdrawal] =
-  let epoch = get_current_epoch(state)
-  var
-    withdrawal_index = state.next_withdrawal_index
-    validator_index = state.next_withdrawal_validator_index
-    withdrawals: seq[Withdrawal] = @[]
-    bound = min(len(state.validators), MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP)
-  for _ in 0 ..< bound:
-    let
-      validator = state.validators[validator_index]
-      balance = state.balances[validator_index]
-    if is_fully_withdrawable_validator(validator, balance, epoch):
-      var w = Withdrawal(
-        index: withdrawal_index,
-        validator_index: validator_index,
-        amount: balance)
-      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
-      withdrawals.add w
-      withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
-    elif is_partially_withdrawable_validator(validator, balance):
-      var w = Withdrawal(
-        index: withdrawal_index,
-        validator_index: validator_index,
-        amount: balance - MAX_EFFECTIVE_BALANCE)
-      w.address.data[0..19] = validator.withdrawal_credentials.data[12..^1]
-      withdrawals.add w
-      withdrawal_index = WithdrawalIndex(withdrawal_index + 1)
-    if len(withdrawals) == MAX_WITHDRAWALS_PER_PAYLOAD:
-      break
-    validator_index = (validator_index + 1) mod lenu64(state.validators)
-  withdrawals
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#disabling-withdrawals
-func get_expected_withdrawals(state: eip4844.BeaconState): seq[Withdrawal] =
-  # During testing we avoid Capella-specific updates to the state transition.
-  #
-  # ...
-  #
-  # The `get_expected_withdrawals` function is also modified to return an empty
-  # withdrawals list.
-  @[]
-
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
-    state: var capella.BeaconState,
-    payload: capella.ExecutionPayload):
+    state: var (capella.BeaconState | eip4844.BeaconState),
+    payload: capella.ExecutionPayload | eip4844.ExecutionPayload):
     Result[void, cstring] =
   let expected_withdrawals = get_expected_withdrawals(state)
 
@@ -779,17 +703,6 @@ func process_withdrawals*(
     let next_validator_index = next_index mod lenu64(state.validators)
     state.next_withdrawal_validator_index = next_validator_index
 
-  ok()
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#disabling-withdrawals
-func process_withdrawals*(
-    state: var eip4844.BeaconState,
-    payload: eip4844.ExecutionPayload):
-    Result[void, cstring] =
-  # During testing we avoid Capella-specific updates to the state transition.
-  # We do this by replacing the following functions with a no-op
-  # implementation:
-  # `process_withdrawals`
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#tx_peek_blob_versioned_hashes
@@ -970,7 +883,7 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/capella/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeCapellaBlock =
   capella.BeaconBlock | capella.SigVerifiedBeaconBlock | capella.TrustedBeaconBlock
@@ -996,7 +909,8 @@ proc process_block*(
     base_reward_per_increment =
       get_base_reward_per_increment(total_active_balance)
   ? process_operations(
-    cfg, state, blck.body, base_reward_per_increment, flags, cache)
+    cfg, state, blck.body, base_reward_per_increment,
+    flags, cache)  # [Modified in Capella]
   ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, cache)
 

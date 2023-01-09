@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -30,14 +30,14 @@ type
   SignedBLSToExecutionChangeList* =
     List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#withdrawal
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/capella/beacon-chain.md#withdrawal
   Withdrawal* = object
     index*: WithdrawalIndex
     validator_index*: uint64
     address*: ExecutionAddress
     amount*: Gwei
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#blstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/capella/beacon-chain.md#blstoexecutionchange
   BLSToExecutionChange* = object
     validator_index*: uint64
     from_bls_pubkey*: ValidatorPubKey
@@ -47,6 +47,13 @@ type
   SignedBLSToExecutionChange* = object
     message*: BLSToExecutionChange
     signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#historicalsummary
+  HistoricalSummary* = object
+    # `HistoricalSummary` matches the components of the phase0
+    # `HistoricalBatch` making the two hash_tree_root-compatible.
+    block_summary_root*: Eth2Digest
+    state_summary_root*: Eth2Digest
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#executionpayload
   ExecutionPayload* = object
@@ -107,7 +114,8 @@ type
       ## Needed to process attestations, older to newer
 
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
-    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+    historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT] # \
+    # Frozen in Capella, replaced by historical_summaries
 
     # Eth1
     eth1_data*: Eth1Data
@@ -152,6 +160,11 @@ type
     # Withdrawals
     next_withdrawal_index*: WithdrawalIndex # [New in Capella]
     next_withdrawal_validator_index*: uint64  # [New in Capella]
+
+    # Deep history valid from Capella onwards
+    historical_summaries*:
+      HashList[HistoricalSummary,
+        Limit HISTORICAL_ROOTS_LIMIT]  # [New in Capella]
 
   # TODO Careful, not nil analysis is broken / incomplete and the semantics will
   #      likely change in future versions of the language:

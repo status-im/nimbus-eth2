@@ -1109,3 +1109,59 @@ suite "Latest valid hash" & preset():
       dag.getEarliestInvalidBlockRoot(
         b2Add[].root, b2.message.body.execution_payload.block_hash,
           fallbackEarliestInvalid) == fallbackEarliestInvalid
+
+suite "Pruning":
+  setup:
+    let
+      cfg = block:
+        var res = defaultRuntimeConfig
+        res.MIN_VALIDATOR_WITHDRAWABILITY_DELAY = 4
+        res.CHURN_LIMIT_QUOTIENT = 1
+        doAssert res.MIN_EPOCHS_FOR_BLOCK_REQUESTS == 4
+        res
+      db = makeTestDB(SLOTS_PER_EPOCH)
+      validatorMonitor = newClone(ValidatorMonitor.init())
+      dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+      tmpState = assignClone(dag.headState)
+
+    var
+      verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
+      quarantine = Quarantine.init()
+      cache = StateCache()
+      blocks = @[dag.head]
+
+    for i in 0 ..< (SLOTS_PER_EPOCH * (EPOCHS_PER_STATE_SNAPSHOT + cfg.MIN_EPOCHS_FOR_BLOCK_REQUESTS)):
+      let blck = addTestBlock(
+        tmpState[], cache,
+        attestations = makeFullAttestations(
+          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
+      let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
+      check: added.isOk()
+      blocks.add(added[])
+      dag.updateHead(added[], quarantine)
+      dag.pruneAtFinalization()
+
+  test "prune states":
+    dag.pruneHistory()
+
+    check:
+      dag.tail.slot == Epoch(EPOCHS_PER_STATE_SNAPSHOT).start_slot - 1
+      db.containsBlock(blocks[0].root)
+      db.containsBlock(blocks[1].root)
+
+    # Add a block
+    for i in 0..2:
+      let blck = addTestBlock(
+        tmpState[], cache,
+        attestations = makeFullAttestations(
+          tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
+      let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
+      check: added.isOk()
+      dag.updateHead(added[], quarantine)
+      dag.pruneAtFinalization()
+
+    dag.pruneHistory()
+
+    check:
+      dag.tail.slot == Epoch(EPOCHS_PER_STATE_SNAPSHOT).start_slot - 1
+      not db.containsBlock(blocks[1].root)
