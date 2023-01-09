@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -642,8 +642,7 @@ func shortLog*(v: SomeBeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
-    sync_committee_participants:
-      countOnes(v.body.sync_aggregate.sync_committee_bits),
+    sync_committee_participants: v.body.sync_aggregate.num_active_participants,
     block_number: 0'u64, # Bellatrix compat
     fee_recipient: "",
   )
@@ -672,6 +671,9 @@ func shortLog*(v: SyncCommitteeMessage): auto =
 
 func init*(T: type SyncAggregate): SyncAggregate =
   SyncAggregate(sync_committee_signature: ValidatorSig.infinity)
+
+func num_active_participants*(v: SomeSyncAggregate): int =
+  countOnes(v.sync_committee_bits)
 
 func shortLog*(v: SyncAggregate): auto =
   $(v.sync_committee_bits)
@@ -704,7 +706,7 @@ func shortLog*(v: LightClientUpdate): auto =
     attested: shortLog(v.attested_header),
     has_next_sync_committee: not v.next_sync_committee.isZeroMemory,
     finalized: shortLog(v.finalized_header),
-    num_active_participants: countOnes(v.sync_aggregate.sync_committee_bits),
+    num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot
   )
 
@@ -712,14 +714,14 @@ func shortLog*(v: LightClientFinalityUpdate): auto =
   (
     attested: shortLog(v.attested_header),
     finalized: shortLog(v.finalized_header),
-    num_active_participants: countOnes(v.sync_aggregate.sync_committee_bits),
+    num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot
   )
 
 func shortLog*(v: LightClientOptimisticUpdate): auto =
   (
     attested: shortLog(v.attested_header),
-    num_active_participants: countOnes(v.sync_aggregate.sync_committee_bits),
+    num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot,
   )
 

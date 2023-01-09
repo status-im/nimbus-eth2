@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -226,7 +226,7 @@ func putBestUpdate*(
     db: LightClientDataDB, period: SyncCommitteePeriod,
     update: altair.LightClientUpdate) =
   doAssert period.isSupportedBySQLite
-  let numParticipants = countOnes(update.sync_aggregate.sync_committee_bits)
+  let numParticipants = update.sync_aggregate.num_active_participants
   if numParticipants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
     let res = db.bestUpdates.delStmt.exec(period.int64)
     res.expect("SQL query OK")
