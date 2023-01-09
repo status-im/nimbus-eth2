@@ -323,9 +323,7 @@ proc installMessageValidators*(
     ValidationResult.Ignore
 
   let forkDigests = lightClient.forkDigests
-  for digest in [
-      forkDigests.altair, forkDigests.bellatrix, forkDigests.capella,
-      forkDigests.eip4844]:
+  for digest in [forkDigests.altair, forkDigests.bellatrix]:
     lightClient.network.addValidator(
       getLightClientFinalityUpdateTopic(digest),
       proc(msg: altair.LightClientFinalityUpdate): ValidationResult =
@@ -389,6 +387,9 @@ proc updateGossipStatus*(
 
   for gossipFork in oldGossipForks:
     if gossipFork >= BeaconStateFork.Altair:
+      if gossipFork >= BeaconStateFork.Capella:
+        # Format is still in development, do not use Gossip at this time.
+        continue
       let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
       lightClient.network.unsubscribe(
         getLightClientFinalityUpdateTopic(forkDigest))
@@ -397,6 +398,9 @@ proc updateGossipStatus*(
 
   for gossipFork in newGossipForks:
     if gossipFork >= BeaconStateFork.Altair:
+      if gossipFork >= BeaconStateFork.Capella:
+        # Format is still in development, do not use Gossip at this time.
+        continue
       let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
       lightClient.network.subscribe(
         getLightClientFinalityUpdateTopic(forkDigest),
