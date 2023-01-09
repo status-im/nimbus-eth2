@@ -135,7 +135,7 @@ proc readChunkPayload*(
       return neterr InvalidContextBytes
   if res.isErr:
     return err(res.error)
-  if stateFork != node.cfg.stateForkAtEpoch(res.contextEpoch):
+  if stateFork != peer.network.cfg.stateForkAtEpoch(res.get.contextEpoch):
     return neterr InvalidContextBytes
   return ok res.get
 
