@@ -1458,9 +1458,12 @@ proc findTerminalBlock(provider: Web3DataProviderRef,
       provider.web3.provider.eth_getBlockByNumber("latest", false))
     b = await next(a)
 
+  if a.number.uint64 == 0 and a.totalDifficulty >= ttd:
+    return a
+
   while true:
-    let one = a.totalDifficulty > ttd
-    let two = b.totalDifficulty > ttd
+    let one = a.totalDifficulty >= ttd
+    let two = b.totalDifficulty >= ttd
     if one != two:
       step = step div -2i64
       if step == 0:
