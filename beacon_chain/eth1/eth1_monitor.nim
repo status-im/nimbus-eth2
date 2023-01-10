@@ -1747,9 +1747,6 @@ proc testWeb3Provider*(web3Url: Uri,
     res
 
   let
-    clientVersion = request "Client version":
-      web3.provider.web3_clientVersion()
-
     chainId = request "Chain ID":
       web3.provider.eth_chainId()
 
@@ -1758,12 +1755,6 @@ proc testWeb3Provider*(web3Url: Uri,
 
     syncStatus = request "Sync status":
       web3.provider.eth_syncing()
-
-    peers = request "Peers":
-      web3.provider.net_peerCount()
-
-    miningStatus = request "Mining status":
-      web3.provider.eth_mining()
 
     ns = web3.contractSender(DepositContract, depositContractAddress)
 
