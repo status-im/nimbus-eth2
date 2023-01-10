@@ -139,6 +139,10 @@ ifeq ($(USE_LIBBACKTRACE), 0)
 NIM_PARAMS += -d:disable_libbacktrace
 endif
 
+ifeq ($(DEBUG_CAPELLA_USE_SSZ), 1)
+NIM_PARAMS += -d:DEBUG_CAPELLA_USE_SSZ
+endif
+
 deps: | deps-common nat-libs build/generate_makefile
 ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace

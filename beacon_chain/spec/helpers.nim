@@ -372,43 +372,55 @@ func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   let slots_since_genesis = slot - GENESIS_SLOT
   state.genesis_time + slots_since_genesis * SECONDS_PER_SLOT
 
+const DEBUG_CAPELLA_USE_SSZ* {.booldefine.} = false
+
 proc computeTransactionsTrieRoot*(
     payload: ForkyExecutionPayload): Hash256 =
-  if payload.transactions.len == 0:
-    return EMPTY_ROOT_HASH
+  when DEBUG_CAPELLA_USE_SSZ and
+      typeof(payload).toFork >= BeaconBlockFork.Capella:
+    hash_tree_root(payload.transactions).Hash256
 
-  var tr = initHexaryTrie(newMemoryDB())
-  for i, transaction in payload.transactions:
-    try:
-      tr.put(rlp.encode(i), distinctBase(transaction))  # Already RLP encoded
-    except RlpError as exc:
-      doAssert false, "HexaryTrie.put failed: " & $exc.msg
-  tr.rootHash()
+  else:
+    if payload.transactions.len == 0:
+      return EMPTY_ROOT_HASH
 
-func gweiToWei*(gwei: Gwei): UInt256 =
-  gwei.u256 * 1_000_000_000.u256
+    var tr = initHexaryTrie(newMemoryDB())
+    for i, transaction in payload.transactions:
+      try:
+        tr.put(rlp.encode(i), distinctBase(transaction))  # Already RLP encoded
+      except RlpError as exc:
+        doAssert false, "HexaryTrie.put failed: " & $exc.msg
+    tr.rootHash()
 
-func toExecutionWithdrawal*(
-    withdrawal: capella.Withdrawal): ExecutionWithdrawal =
-  ExecutionWithdrawal(
-    index: withdrawal.index,
-    validatorIndex: withdrawal.validator_index,
-    address: EthAddress withdrawal.address.data,
-    amount: gweiToWei withdrawal.amount)
+when DEBUG_CAPELLA_USE_SSZ:
+  proc computeWithdrawalsTrieRoot*(
+      payload: capella.ExecutionPayload | eip4844.ExecutionPayload): Hash256 =
+    hash_tree_root(payload.withdrawals).Hash256
+else:
+  func gweiToWei*(gwei: Gwei): UInt256 =
+    gwei.u256 * 1_000_000_000.u256
 
-# https://eips.ethereum.org/EIPS/eip-4895
-proc computeWithdrawalsTrieRoot*(
-    payload: capella.ExecutionPayload | eip4844.ExecutionPayload): Hash256 =
-  if payload.withdrawals.len == 0:
-    return EMPTY_ROOT_HASH
+  func toExecutionWithdrawal*(
+      withdrawal: capella.Withdrawal): ExecutionWithdrawal =
+    ExecutionWithdrawal(
+      index: withdrawal.index,
+      validatorIndex: withdrawal.validator_index,
+      address: EthAddress withdrawal.address.data,
+      amount: gweiToWei withdrawal.amount)
 
-  var tr = initHexaryTrie(newMemoryDB())
-  for i, withdrawal in payload.withdrawals:
-    try:
-      tr.put(rlp.encode(i), rlp.encode(toExecutionWithdrawal(withdrawal)))
-    except RlpError as exc:
-      doAssert false, "HexaryTrie.put failed: " & $exc.msg
-  tr.rootHash()
+  # https://eips.ethereum.org/EIPS/eip-4895
+  proc computeWithdrawalsTrieRoot*(
+      payload: capella.ExecutionPayload | eip4844.ExecutionPayload): Hash256 =
+    if payload.withdrawals.len == 0:
+      return EMPTY_ROOT_HASH
+
+    var tr = initHexaryTrie(newMemoryDB())
+    for i, withdrawal in payload.withdrawals:
+      try:
+        tr.put(rlp.encode(i), rlp.encode(toExecutionWithdrawal(withdrawal)))
+      except RlpError as exc:
+        doAssert false, "HexaryTrie.put failed: " & $exc.msg
+    tr.rootHash()
 
 proc payloadToBlockHeader*(
     payload: ForkyExecutionPayload): ExecutionBlockHeader =

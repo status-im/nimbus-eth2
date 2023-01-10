@@ -321,7 +321,12 @@ func asEth2Digest*(x: BlockHash): Eth2Digest =
 template asBlockHash*(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
-const weiInGwei = 1_000_000_000.u256
+const
+  weiInGwei =
+    when DEBUG_CAPELLA_USE_SSZ:
+      1.u256
+    else:
+      1_000_000_000.u256
 
 from ../spec/datatypes/capella import ExecutionPayload, Withdrawal
 
