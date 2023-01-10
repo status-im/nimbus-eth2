@@ -795,7 +795,7 @@ proc validate_blobs_sidecar*(slot: Slot, root: Eth2Digest,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#is_data_available
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/fork-choice.md#is_data_available
 func is_data_available(
     slot: Slot, beacon_block_root: Eth2Digest,
     blob_kzg_commitments: seq[eip4844.KZGCommitment]): bool =
