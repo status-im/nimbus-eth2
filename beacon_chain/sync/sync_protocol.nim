@@ -135,6 +135,8 @@ proc readChunkPayload*(
       return neterr InvalidContextBytes
   if res.isErr:
     return err(res.error)
+  if stateFork != peer.network.cfg.stateForkAtEpoch(res.get.contextEpoch):
+    return neterr InvalidContextBytes
   return ok res.get
 
 func shortLog*(s: StatusMsg): auto =
