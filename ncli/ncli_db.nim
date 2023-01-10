@@ -42,22 +42,25 @@ type
     putBlock = "Store a given SignedBeaconBlock in the database, potentially updating some of the pointers"
     rewindState = "Extract any state from the database based on a given block and slot, replaying if needed"
     verifyEra = "Verify a single era file"
-    exportEra = "Export historical data to era files"
+    exportEra = "Export historical data to era store in current directory"
     importEra = "Import era files to the database"
     validatorPerf
     validatorDb = "Create or update attestation performance database"
 
-  # TODO:
-  # This should probably allow specifying a run-time preset
   DbConf = object
     databaseDir* {.
-        defaultValue: ""
-        desc: "Directory where `nbc.sqlite` is stored"
-        name: "db" }: InputDir
+      defaultValue: "db"
+      desc: "Directory where `nbc.sqlite` is stored"
+      name: "db".}: InputDir
+
+    eraDir* {.
+      defaultValue: "era"
+      desc: "Directory where era files are read from"
+      name: "era-dir".}: string
 
     eth2Network* {.
       desc: "The Eth2 network preset to use"
-      name: "network" }: Option[string]
+      name: "network".}: Option[string]
 
     case cmd* {.
       command
@@ -229,7 +232,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
   let
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = withTimerRet(timers[tInit]):
-      ChainDAGRef.init(cfg, db, validatorMonitor, {})
+      ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   var
     (start, ends) = dag.getSlotRange(conf.benchSlot, conf.benchSlots)
@@ -444,7 +447,7 @@ proc cmdRewindState(conf: DbConf, cfg: RuntimeConfig) =
 
   let
     validatorMonitor = newClone(ValidatorMonitor.init())
-    dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let bid = dag.getBlockId(fromHex(Eth2Digest, conf.blockRoot)).valueOr:
     echo "Block not found in database"
@@ -479,26 +482,31 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
   defer: db.close()
 
   if (let v = ChainDAGRef.isInitialized(db); v.isErr()):
-    echo "Database not initialized: ", v.error()
+    fatal "Database not initialized", error = v.error()
     quit 1
 
   type Timers = enum
     tState
     tBlocks
 
-  echo "Initializing block pool..."
   let
     validatorMonitor = newClone(ValidatorMonitor.init())
-    dag = init(ChainDAGRef, cfg, db, validatorMonitor, {})
+    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let tmpState = assignClone(dag.headState)
   var
     tmp: seq[byte]
     timers: array[Timers, RunningStat]
 
-  var era = Era(conf.era)
+  var
+    era = Era(conf.era)
+    missingHistory = false
   while conf.eraCount == 0 or era < Era(conf.era) + conf.eraCount:
-    if shouldShutDown: quit QuitSuccess
+    defer: era += 1
+
+    if shouldShutDown:
+      break
+
     # Era files hold the blocks for the "previous" era, and the first state in
     # the era itself
     let
@@ -506,13 +514,9 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
         if era == 0: none(Slot)
         else: some((era - 1).start_slot)
       endSlot = era.start_slot
-      eraBid = dag.atSlot(dag.head.bid, endSlot).valueOr:
-        echo "Skipping era ", era, ", history not available"
-        era += 1
-        continue
 
     if endSlot > dag.head.slot:
-      echo "Written all complete eras"
+      notice "Written all complete eras", era, endSlot, head = dag.head
       break
 
     let
@@ -524,11 +528,37 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
       name = eraFileName(cfg, era, eraRoot)
 
     if isFile(name):
-      echo "Skipping ", name, " (already exists)"
-    else:
-      echo "Writing ", name
+      debug "Era file already exists", era, name
+      era += 1
+      continue
 
-      let e2 = openFile(name, {OpenFlags.Write, OpenFlags.Create}).get()
+    # Check if we reasonably could write the era file given what's in the
+    # database - we perform this check after checking for existing era files
+    # since the database might have been pruned up to the "existing" era files!
+    if endSlot < dag.tail.slot and era != 0:
+      notice "Skipping era, state history not available",
+        era, tail = shortLog(dag.tail)
+      missingHistory = true
+      continue
+
+    let
+      eraBid = dag.atSlot(dag.head.bid, endSlot).valueOr:
+        notice "Skipping era, blocks not available", era, name
+        missingHistory = true
+        continue
+
+    withTimer(timers[tState]):
+      var cache: StateCache
+      if not updateState(dag, tmpState[], eraBid, false, cache):
+        notice "Skipping era, state history not available", era, name
+        missingHistory = true
+        continue
+
+    info "Writing ", name
+    let tmpName = name & ".tmp"
+    var completed = false
+    block writeFileBlock:
+      let e2 = openFile(tmpName, {OpenFlags.Write, OpenFlags.Create, OpenFlags.Truncate}).get()
       defer: discard closeFile(e2)
 
       var group = EraGroup.init(e2, firstSlot).get()
@@ -536,19 +566,25 @@ proc cmdExportEra(conf: DbConf, cfg: RuntimeConfig) =
         withTimer(timers[tBlocks]):
           var blocks: array[SLOTS_PER_HISTORICAL_ROOT.int, BlockId]
           for i in dag.getBlockRange(firstSlot.get(), 1, blocks)..<blocks.len:
-            if dag.getBlockSZ(blocks[i], tmp):
-              group.update(e2, blocks[i].slot, tmp).get()
+            if not dag.getBlockSZ(blocks[i], tmp):
+              break writeFileBlock
+            group.update(e2, blocks[i].slot, tmp).get()
 
-      withTimer(timers[tState]):
-        dag.withUpdatedState(tmpState[], eraBid) do:
-          withState(updatedState):
-            group.finish(e2, forkyState.data).get()
-        do:
-          echo "Unable to load historical state - export requires fully indexed history node - see https://nimbus.guide/trusted-node-sync.html#recreate-historical-state-access-indices"
-          quit 1
+      withState(tmpState[]):
+        group.finish(e2, forkyState.data).get()
+        completed = true
+    if completed:
+      try:
+        moveFile(tmpName, name)
+      except IOError as e:
+        warn "Failed to rename era file to its final name",
+          name, tmpName, error = e.msg
+    else:
+      if (let e = io2.removeFile(name); e.isErr):
+        warn "Failed to clean up incomplete era file", tmpName, error = e.error
 
-    era += 1
-
+  if missingHistory:
+    notice "Some era files were not written due to missing state history - see https://nimbus.guide/trusted-node-sync.html#recreate-historical-state-access-indices for more information"
   printTimers(true, timers)
 
 proc cmdImportEra(conf: DbConf, cfg: RuntimeConfig) =
@@ -628,7 +664,7 @@ proc cmdValidatorPerf(conf: DbConf, cfg: RuntimeConfig) =
   echo "# Initializing block pool..."
   let
     validatorMonitor = newClone(ValidatorMonitor.init())
-    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
+    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   var
     (start, ends) = dag.getSlotRange(conf.perfSlot, conf.perfSlots)
@@ -865,7 +901,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
   echo "Initializing block pool..."
   let
     validatorMonitor = newClone(ValidatorMonitor.init())
-    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {})
+    dag = ChainDAGRef.init(cfg, db, validatorMonitor, {}, conf.eraDir)
 
   let outDb = SqStoreRef.init(conf.outDir, "validatorDb").expect("DB")
   defer: outDb.close()
