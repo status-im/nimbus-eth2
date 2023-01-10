@@ -382,8 +382,7 @@ func shortLog*(v: SomeBeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
-    sync_committee_participants:
-      countOnes(v.body.sync_aggregate.sync_committee_bits),
+    sync_committee_participants: v.body.sync_aggregate.num_active_participants,
     block_number: v.body.execution_payload.block_number,
     # TODO checksum hex? shortlog?
     fee_recipient: to0xHex(v.body.execution_payload.fee_recipient.data),

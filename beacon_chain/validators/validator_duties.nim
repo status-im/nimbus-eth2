@@ -187,9 +187,7 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
   if slot != signature_slot:
     return
 
-  template sync_aggregate(): auto = latest.sync_aggregate
-  template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
-  let num_active_participants = countOnes(sync_committee_bits).uint64
+  let num_active_participants = latest.sync_aggregate.num_active_participants
   if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
     return
 
