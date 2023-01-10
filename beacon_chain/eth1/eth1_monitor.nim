@@ -20,7 +20,7 @@ import
   eth/async_utils, stew/[byteutils, objects, results, shims/hashes],
   # Local modules:
   ../spec/[deposit_snapshots, eth2_merkleization, forks, helpers],
-  ../spec/datatypes/[base, phase0, bellatrix],
+  ../spec/datatypes/[base, phase0, bellatrix, eip4844],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_chain_db, beacon_node_status, beacon_clock],
@@ -440,6 +440,31 @@ func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal))
 
+func asEngineExecutionPayload*(executionPayload: eip4844.ExecutionPayload):
+    ExecutionPayloadV3 =
+  template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
+    TypedTransaction(tt.distinctBase)
+
+  engine_api.ExecutionPayloadV3(
+    parentHash: executionPayload.parent_hash.asBlockHash,
+    feeRecipient: Address(executionPayload.fee_recipient.data),
+    stateRoot: executionPayload.state_root.asBlockHash,
+    receiptsRoot: executionPayload.receipts_root.asBlockHash,
+    logsBloom:
+      FixedBytes[BYTES_PER_LOGS_BLOOM](executionPayload.logs_bloom.data),
+    prevRandao: executionPayload.prev_randao.asBlockHash,
+    blockNumber: Quantity(executionPayload.block_number),
+    gasLimit: Quantity(executionPayload.gas_limit),
+    gasUsed: Quantity(executionPayload.gas_used),
+    timestamp: Quantity(executionPayload.timestamp),
+    extraData:
+      DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    baseFeePerGas: executionPayload.base_fee_per_gas,
+    excessDataGas: executionPayload.excess_data_gas,
+    blockHash: executionPayload.block_hash.asBlockHash,
+    transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
+    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal))
+
 func shortLog*(b: Eth1Block): string =
   try:
     &"{b.number}:{shortLog b.hash}(deposits = {b.depositCount})"
@@ -591,6 +616,17 @@ proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV2):
     return epr
 
   p.dataProvider.web3.provider.engine_newPayloadV2(payload)
+
+proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV3):
+    Future[PayloadStatusV1] =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.dataProvider.isNil:
+    let epr = newFuture[PayloadStatusV1]("newPayload")
+    epr.complete(PayloadStatusV1(status: PayloadExecutionStatus.syncing))
+    return epr
+
+  p.dataProvider.web3.provider.engine_newPayloadV3(payload)
 
 proc forkchoiceUpdated*(
     p: Eth1Monitor, headBlock, safeBlock, finalizedBlock: Eth2Digest):
