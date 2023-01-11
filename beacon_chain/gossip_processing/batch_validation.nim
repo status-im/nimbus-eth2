@@ -273,13 +273,6 @@ proc scheduleBatch(batchCrypto: ref BatchCrypto, fresh: bool) =
     # If there's a full batch, process it eagerly assuming the callback allows
     batchCrypto.processBatch()
 
-template orReturnErr(v: Option, error: cstring): untyped =
-  ## Returns with given error string if the option does not have a value
-  let tmp = v
-  if tmp.isNone:
-    return err(error) # this exits the calling scope, as templates are inlined.
-  tmp.unsafeGet()
-
 template withBatch(
     batchCrypto: ref BatchCrypto, name: cstring,
     body: untyped): Future[BatchResult] =
@@ -328,7 +321,8 @@ proc scheduleAttestationCheck*(
   ## and a future with the deferred attestation check otherwise.
   ##
   let
-    sig = signature.load().orReturnErr("attestation: cannot load signature")
+    sig = signature.load().valueOr:
+      return err("attestation: cannot load signature")
     fut = batchCrypto.withBatch("batch_validation.scheduleAttestationCheck"):
       attestation_signature_set(
         fork, genesis_validators_root, attestationData, pubkey, sig)
@@ -364,15 +358,15 @@ proc scheduleAggregateChecks*(
   # Do the eager steps first to avoid polluting batches with needlessly
   let
     aggregatorKey =
-      dag.validatorKey(aggregate_and_proof.aggregator_index).orReturnErr(
-        "SignedAggregateAndProof: invalid aggregator index")
-    aggregatorSig = signedAggregateAndProof.signature.load().orReturnErr(
-      "aggregateAndProof: invalid proof signature")
-    slotSig = aggregate_and_proof.selection_proof.load().orReturnErr(
-      "aggregateAndProof: invalid selection signature")
+      dag.validatorKey(aggregate_and_proof.aggregator_index).valueOr:
+        return err("SignedAggregateAndProof: invalid aggregator index")
+    aggregatorSig = signedAggregateAndProof.signature.load().valueOr:
+      return err("aggregateAndProof: invalid proof signature")
+    slotSig = aggregate_and_proof.selection_proof.load().valueOr:
+      return err("aggregateAndProof: invalid selection signature")
     aggregateKey = ? aggregateAll(dag, attesting_indices)
-    aggregateSig = aggregate.signature.load().orReturnErr(
-      "aggregateAndProof: invalid aggregate signature")
+    aggregateSig = aggregate.signature.load().valueOr:
+      return err("aggregateAndProof: invalid aggregate signature")
 
   let
     aggregatorFut = batchCrypto.withBatch("scheduleAggregateChecks.aggregator"):
@@ -406,8 +400,8 @@ proc scheduleSyncCommitteeMessageCheck*(
   ## and a future with the deferred attestation check otherwise.
   ##
   let
-    sig = signature.load().orReturnErr(
-      "SyncCommitteMessage: cannot load signature")
+    sig = signature.load().valueOr:
+      return err("SyncCommitteMessage: cannot load signature")
     fut = batchCrypto.withBatch("scheduleSyncCommitteeMessageCheck"):
       sync_committee_message_signature_set(
         fork, genesis_validators_root, slot, beacon_block_root, pubkey, sig)
@@ -438,14 +432,14 @@ proc scheduleContributionChecks*(
   # Do the eager steps first to avoid polluting batches with needlessly
   let
     aggregatorKey =
-      dag.validatorKey(contribution_and_proof.aggregator_index).orReturnErr(
-        "SignedAggregateAndProof: invalid contributor index")
-    aggregatorSig = signedContributionAndProof.signature.load().orReturnErr(
-      "SignedContributionAndProof: invalid proof signature")
-    proofSig = contribution_and_proof.selection_proof.load().orReturnErr(
-      "SignedContributionAndProof: invalid selection signature")
-    contributionSig = contribution.signature.load().orReturnErr(
-      "SignedContributionAndProof: invalid contribution signature")
+      dag.validatorKey(contribution_and_proof.aggregator_index).valueOr:
+        return err("SignedAggregateAndProof: invalid contributor index")
+    aggregatorSig = signedContributionAndProof.signature.load().valueOr:
+      return err("SignedContributionAndProof: invalid proof signature")
+    proofSig = contribution_and_proof.selection_proof.load().valueOr:
+      return err("SignedContributionAndProof: invalid selection signature")
+    contributionSig = contribution.signature.load().valueOr:
+      return err("SignedContributionAndProof: invalid contribution signature")
 
     contributionKey = ? aggregateAll(
       dag, dag.syncCommitteeParticipants(contribution.slot + 1, subcommitteeIdx),

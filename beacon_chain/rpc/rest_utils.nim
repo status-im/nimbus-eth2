@@ -313,9 +313,8 @@ proc verifyRandao*(
     node: BeaconNode, slot: Slot, proposer: ValidatorIndex,
     randao: ValidatorSig, skip_randao_verification: bool): bool =
   let
-    proposer_pubkey = node.dag.validatorKey(proposer)
-  if proposer_pubkey.isNone():
-    return false
+    proposer_pubkey = node.dag.validatorKey(proposer).valueOr:
+      return false
 
   if skip_randao_verification:
     randao == ValidatorSig.infinity()
@@ -325,5 +324,4 @@ proc verifyRandao*(
       genesis_validators_root = node.dag.genesis_validators_root
 
     verify_epoch_signature(
-      fork, genesis_validators_root, slot.epoch, proposer_pubkey.get(),
-      randao)
+      fork, genesis_validators_root, slot.epoch, proposer_pubkey, randao)

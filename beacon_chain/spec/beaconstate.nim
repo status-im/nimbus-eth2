@@ -204,19 +204,18 @@ proc slash_validator*(
     get_slashing_penalty(state, validator.effective_balance))
 
   # The rest doesn't make sense without there being any proposer index, so skip
-  let proposer_index = get_beacon_proposer_index(state, cache)
-  if proposer_index.isNone:
+  let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     debug "No beacon proposer index and probably no active validators"
     return ok()
 
   # Apply proposer and whistleblower rewards
   let
     # Spec has whistleblower_index as optional param, but it's never used.
-    whistleblower_index = proposer_index.get
+    whistleblower_index = proposer_index
     whistleblower_reward = get_whistleblower_reward(validator.effective_balance)
     proposer_reward = get_proposer_reward(state, whistleblower_reward)
 
-  increase_balance(state, proposer_index.get, proposer_reward)
+  increase_balance(state, proposer_index, proposer_reward)
   # TODO: evaluate if spec bug / underflow can be triggered
   doAssert(whistleblower_reward >= proposer_reward, "Spec bug: underflow in slash_validator")
   increase_balance(
@@ -737,8 +736,7 @@ proc process_attestation*(
   # https://github.com/nim-lang/Nim/issues/18202 means that this being called
   # by process_operations() in state_transition_block fails that way.
 
-  let proposer_index = get_beacon_proposer_index(state, cache)
-  if proposer_index.isNone:
+  let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_attestation: no beacon proposer index and probably no active validators")
 
   ? check_attestation(state, attestation, flags, cache)
@@ -754,13 +752,13 @@ proc process_attestation*(
     assign(pa[].aggregation_bits, attestation.aggregation_bits)
     pa[].data = attestation.data
     pa[].inclusion_delay = state.slot - attestation.data.slot
-    pa[].proposer_index = proposer_index.get().uint64
+    pa[].proposer_index = proposer_index.uint64
 
   # Altair, Bellatrix, and Capella
   template updateParticipationFlags(epoch_participation: untyped) =
     let proposer_reward = get_proposer_reward(
       state, attestation, base_reward_per_increment, cache, epoch_participation)
-    increase_balance(state, proposer_index.get, proposer_reward)
+    increase_balance(state, proposer_index, proposer_reward)
 
   when state is phase0.BeaconState:
     doAssert base_reward_per_increment == 0.Gwei
@@ -1196,7 +1194,10 @@ func upgrade_to_eip4844*(cfg: RuntimeConfig, pre: capella.BeaconState):
 
     # Withdrawals
     next_withdrawal_index: pre.next_withdrawal_index,
-    next_withdrawal_validator_index: pre.next_withdrawal_validator_index
+    next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
+
+    # Deep history valid from Capella onwards
+    historical_summaries: pre.historical_summaries
   )
 
 template isValidInState*(idx: ValidatorIndex, state: ForkyBeaconState): bool =
