@@ -156,8 +156,7 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
 
       depositContractBlockHash = if depositContractBlockHashStr.len > 0:
         Eth2Digest.strictParse(depositContractBlockHashStr)
-      elif (not runtimeConfig.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue) and
-            depositContractBlock != 0:
+      elif not runtimeConfig.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue:
         raise newException(ValueError,
           "A network with deposit contract should specify the " &
           "deposit contract deployment block hash in a file " &
