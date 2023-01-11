@@ -287,7 +287,7 @@ proc installMessageValidators*(
     var obj {.noinit.}: T.forked
     if contextFork >= BeaconStateFork.Altair:
       const lcDataFork = LightClientDataFork.Altair
-      var obj = T.forked(kind: lcDataFork)
+      obj = T.forked(kind: lcDataFork)
       template forkyObj: untyped = obj.forky(lcDataFork)
       forkyObj = msg
     else:
