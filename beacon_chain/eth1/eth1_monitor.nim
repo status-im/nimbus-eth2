@@ -1458,9 +1458,12 @@ proc findTerminalBlock(provider: Web3DataProviderRef,
       provider.web3.provider.eth_getBlockByNumber("latest", false))
     b = await next(a)
 
+  if a.number.uint64 == 0 and a.totalDifficulty >= ttd:
+    return a
+
   while true:
-    let one = a.totalDifficulty > ttd
-    let two = b.totalDifficulty > ttd
+    let one = a.totalDifficulty >= ttd
+    let two = b.totalDifficulty >= ttd
     if one != two:
       step = step div -2i64
       if step == 0:
@@ -1747,9 +1750,6 @@ proc testWeb3Provider*(web3Url: Uri,
     res
 
   let
-    clientVersion = request "Client version":
-      web3.provider.web3_clientVersion()
-
     chainId = request "Chain ID":
       web3.provider.eth_chainId()
 
@@ -1758,12 +1758,6 @@ proc testWeb3Provider*(web3Url: Uri,
 
     syncStatus = request "Sync status":
       web3.provider.eth_syncing()
-
-    peers = request "Peers":
-      web3.provider.net_peerCount()
-
-    miningStatus = request "Mining status":
-      web3.provider.eth_mining()
 
     ns = web3.contractSender(DepositContract, depositContractAddress)
 

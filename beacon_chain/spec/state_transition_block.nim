@@ -49,11 +49,10 @@ func process_block_header*(
     return err("process_block_header: block not newer than latest block header")
 
   # Verify that proposer index is the correct index
-  let proposer_index = get_beacon_proposer_index(state, cache)
-  if proposer_index.isNone:
+  let proposer_index = get_beacon_proposer_index(state, cache).valueOr:
     return err("process_block_header: proposer missing")
 
-  if not (blck.proposer_index == proposer_index.get):
+  if not (blck.proposer_index == proposer_index):
     return err("process_block_header: proposer index incorrect")
 
   # Verify that the parent matches
@@ -84,16 +83,14 @@ proc process_randao(
     state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody, flags: UpdateFlags,
     cache: var StateCache): Result[void, cstring] =
   let
-    proposer_index = get_beacon_proposer_index(state, cache)
-
-  if proposer_index.isNone:
-    return err("process_randao: proposer index missing, probably along with any active validators")
+    proposer_index = get_beacon_proposer_index(state, cache).valueOr:
+      return err("process_randao: proposer index missing, probably along with any active validators")
 
   # Verify RANDAO reveal
   let epoch = state.get_current_epoch()
 
   if skipBlsValidation notin flags and body.randao_reveal isnot TrustedSig:
-    let proposer_pubkey = state.validators.item(proposer_index.get).pubkey
+    let proposer_pubkey = state.validators.item(proposer_index).pubkey
 
     # `state_transition.makeBeaconBlock` ensures this is run with a trusted
     # signature, but unless the full skipBlsValidation is specified, RANDAO
@@ -512,11 +509,9 @@ proc process_sync_aggregate*(
   let
     participant_reward = get_participant_reward(total_active_balance)
     proposer_reward = state_transition_block.get_proposer_reward(participant_reward)
-    proposer_index = get_beacon_proposer_index(state, cache)
-
-  if proposer_index.isNone:
-    # We're processing a block, so this can't happen, in theory (!)
-    return err("process_sync_aggregate: no proposer")
+    proposer_index = get_beacon_proposer_index(state, cache).valueOr:
+      # We're processing a block, so this can't happen, in theory (!)
+      return err("process_sync_aggregate: no proposer")
 
   # Apply participant and proposer rewards
   let indices = get_sync_committee_cache(state, cache).current_sync_committee
@@ -528,7 +523,7 @@ proc process_sync_aggregate*(
     let participant_index = indices[i]
     if sync_aggregate.sync_committee_bits[i]:
       increase_balance(state, participant_index, participant_reward)
-      increase_balance(state, proposer_index.get, proposer_reward)
+      increase_balance(state, proposer_index, proposer_reward)
     else:
       decrease_balance(state, participant_index, participant_reward)
 
@@ -795,7 +790,7 @@ proc validate_blobs_sidecar*(slot: Slot, root: Eth2Digest,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#is_data_available
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/fork-choice.md#is_data_available
 func is_data_available(
     slot: Slot, beacon_block_root: Eth2Digest,
     blob_kzg_commitments: seq[eip4844.KZGCommitment]): bool =

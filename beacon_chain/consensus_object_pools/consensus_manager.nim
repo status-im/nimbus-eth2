@@ -313,15 +313,14 @@ proc checkNextProposer(
   if not dag.isSynced(wallSlot):
     return Opt.none((ValidatorIndex, ValidatorPubKey))
 
-  let proposer = dag.getProposer(dag.head, nextWallSlot)
-  if proposer.isNone():
-    return Opt.none((ValidatorIndex, ValidatorPubKey))
+  let proposer = ? dag.getProposer(dag.head, nextWallSlot)
+
   if  actionTracker.getNextProposalSlot(wallSlot) != nextWallSlot and
       dynamicFeeRecipientsStore[].getDynamicFeeRecipient(
-        proposer.get, nextWallSlot.epoch).isNone:
+        proposer, nextWallSlot.epoch).isNone:
     return Opt.none((ValidatorIndex, ValidatorPubKey))
-  let proposerKey = dag.validatorKey(proposer.get).get().toPubKey
-  Opt.some((proposer.get, proposerKey))
+  let proposerKey = dag.validatorKey(proposer).get().toPubKey
+  Opt.some((proposer, proposerKey))
 
 proc checkNextProposer*(self: ref ConsensusManager, wallSlot: Slot):
     Opt[(ValidatorIndex, ValidatorPubKey)] =

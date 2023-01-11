@@ -223,7 +223,7 @@ proc process_light_client_update*(
   # if the timeout elapses
   if store.best_valid_update.isNone or
       is_better_update(update, store.best_valid_update.get):
-    store.best_valid_update = some(update.toFull)
+    store.best_valid_update = Opt.some(update.toFull)
     didProgress = true
 
   # Track the maximum number of active participants in the committee signatures

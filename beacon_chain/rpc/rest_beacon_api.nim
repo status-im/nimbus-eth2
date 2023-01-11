@@ -126,21 +126,19 @@ proc toString*(kind: ValidatorFilterKind): string =
 proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4881.md
   router.api(MethodGet, "/eth/v1/beacon/deposit_snapshot") do () -> RestApiResponse:
-    let snapshotOpt = node.db.getDepositTreeSnapshot()
-    if snapshotOpt.isSome():
-      let snapshot = snapshotOpt.get()
-      return RestApiResponse.jsonResponse(
-        RestDepositSnapshot(
-          finalized: snapshot.depositContractState.branch,
-          deposit_root: snapshot.getDepositRoot(),
-          deposit_count: snapshot.getDepositCountU64(),
-          execution_block_hash: snapshot.eth1Block,
-          execution_block_height: snapshot.blockHeight))
-    else:
+    let snapshot = node.db.getDepositTreeSnapshot().valueOr:
       # This can happen in a very short window after the client is started, but the
       # snapshot record still haven't been upgraded in the database. Returning 404
       # should be easy to handle for the clients - they just need to retry.
       return RestApiResponse.jsonError(Http404, NoFinalizedSnapshotAvailableError)
+
+    return RestApiResponse.jsonResponse(
+      RestDepositSnapshot(
+        finalized: snapshot.depositContractState.branch,
+        deposit_root: snapshot.getDepositRoot(),
+        deposit_count: snapshot.getDepositCountU64(),
+        execution_block_hash: snapshot.eth1Block,
+        execution_block_height: snapshot.blockHeight))
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis
   router.api(MethodGet, "/eth/v1/beacon/genesis") do () -> RestApiResponse:
@@ -1067,14 +1065,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolAttesterSlashings
   router.api(MethodGet, "/eth/v1/beacon/pool/attester_slashings") do (
     ) -> RestApiResponse:
-    var res: seq[AttesterSlashing]
-    if isNil(node.exitPool):
-      return RestApiResponse.jsonResponse(res)
-    let length = len(node.exitPool.attester_slashings)
-    res = newSeqOfCap[AttesterSlashing](length)
-    for item in node.exitPool.attester_slashings.items():
-      res.add(item)
-    return RestApiResponse.jsonResponse(res)
+    return RestApiResponse.jsonResponse(toSeq(node.exitPool.attester_slashings))
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolAttesterSlashings
   router.api(MethodPost, "/eth/v1/beacon/pool/attester_slashings") do (
@@ -1099,14 +1090,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolProposerSlashings
   router.api(MethodGet, "/eth/v1/beacon/pool/proposer_slashings") do (
     ) -> RestApiResponse:
-    var res: seq[ProposerSlashing]
-    if isNil(node.exitPool):
-      return RestApiResponse.jsonResponse(res)
-    let length = len(node.exitPool.proposer_slashings)
-    res = newSeqOfCap[ProposerSlashing](length)
-    for item in node.exitPool.proposer_slashings.items():
-      res.add(item)
-    return RestApiResponse.jsonResponse(res)
+    return RestApiResponse.jsonResponse(toSeq(node.exitPool.proposer_slashings))
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolProposerSlashings
   router.api(MethodPost, "/eth/v1/beacon/pool/proposer_slashings") do (
@@ -1162,14 +1146,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getPoolVoluntaryExits
   router.api(MethodGet, "/eth/v1/beacon/pool/voluntary_exits") do (
     ) -> RestApiResponse:
-    var res: seq[SignedVoluntaryExit]
-    if isNil(node.exitPool):
-      return RestApiResponse.jsonResponse(res)
-    let length = len(node.exitPool.voluntary_exits)
-    res = newSeqOfCap[SignedVoluntaryExit](length)
-    for item in node.exitPool.voluntary_exits.items():
-      res.add(item)
-    return RestApiResponse.jsonResponse(res)
+    return RestApiResponse.jsonResponse(toSeq(node.exitPool.voluntary_exits))
 
   # https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolVoluntaryExit
   router.api(MethodPost, "/eth/v1/beacon/pool/voluntary_exits") do (
