@@ -468,11 +468,13 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             signedContributionAndProof,
             contributionsTime,
             false)
+        if res.isOk():
+          syncCommitteePool[].addContribution(
+            signedContributionAndProof, res.get()[0])
+        else:
+          # We ignore duplicates / already-covered contributions
+          doAssert res.error()[0] == ValidationResult.Ignore
 
-        doAssert res.isOk or (res.error()[0] == ValidationResult.Ignore)
-
-        syncCommitteePool[].addContribution(
-          signedContributionAndProof, res.get()[0])
 
   proc getNewBlock[T](
       state: var ForkedHashedBeaconState, slot: Slot, cache: var StateCache): T =
