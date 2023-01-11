@@ -256,9 +256,8 @@ suite "Gossip validation - Extra": # Not based on preset config
           syncCommitteeMsgPool[].produceContribution(
             slot, state[].root, subcommitteeIdx,
             contribution.message.contribution)
-        let addContributionRes = syncCommitteeMsgPool[].addContribution(
+        syncCommitteeMsgPool[].addContribution(
           contribution[], contribution.message.contribution.signature.load.get)
-        check addContributionRes == newBest
         let signRes = waitFor validator.getContributionAndProofSignature(
           state[].data.fork, state[].data.genesis_validators_root,
           contribution[].message)

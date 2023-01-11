@@ -469,9 +469,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             contributionsTime,
             false)
 
-        doAssert res.isOk
+        doAssert res.isOk or (res.error()[0] == ValidationResult.Ignore)
 
-        discard syncCommitteePool[].addContribution(
+        syncCommitteePool[].addContribution(
           signedContributionAndProof, res.get()[0])
 
   proc getNewBlock[T](
