@@ -1194,7 +1194,10 @@ func upgrade_to_eip4844*(cfg: RuntimeConfig, pre: capella.BeaconState):
 
     # Withdrawals
     next_withdrawal_index: pre.next_withdrawal_index,
-    next_withdrawal_validator_index: pre.next_withdrawal_validator_index
+    next_withdrawal_validator_index: pre.next_withdrawal_validator_index,
+
+    # Deep history valid from Capella onwards
+    historical_summaries: pre.historical_summaries
   )
 
 template isValidInState*(idx: ValidatorIndex, state: ForkyBeaconState): bool =
