@@ -27,8 +27,6 @@ else:
   {.push raises: [].}
 
 import
-  # Standard library
-  std/options,
   # Status
   stew/[endians2, objects, results, byteutils],
   blscurve,
@@ -42,7 +40,7 @@ from std/tables import Table, withValue, `[]=`
 
 from nimcrypto/utils import burnMem
 
-export options, results, blscurve, rand, json_serialization
+export results, blscurve, rand, json_serialization
 
 # Type definitions
 # ----------------------------------------------------------------------
@@ -122,21 +120,21 @@ func toPubKey*(pubKey: CookedPubKey): ValidatorPubKey =
   # Un-specced in either hash-to-curve or Eth2
   ValidatorPubKey(blob: pubKey.toRaw())
 
-func load*(v: ValidatorPubKey): Option[CookedPubKey] =
+func load*(v: ValidatorPubKey): Opt[CookedPubKey] =
   ## Parse signature blob - this may fail
   var val: blscurve.PublicKey
   if fromBytes(val, v.blob):
-    some CookedPubKey(val)
+    Opt.some CookedPubKey(val)
   else:
-    none CookedPubKey
+    Opt.none CookedPubKey
 
-func load*(v: UncompressedPubKey): Option[CookedPubKey] =
+func load*(v: UncompressedPubKey): Opt[CookedPubKey] =
   ## Parse signature blob - this may fail
   var val: blscurve.PublicKey
   if fromBytes(val, v.blob):
-    some CookedPubKey(val)
+    Opt.some CookedPubKey(val)
   else:
-    none CookedPubKey
+    Opt.none CookedPubKey
 
 func loadValid*(v: UncompressedPubKey | ValidatorPubKey): CookedPubKey {.noinit.} =
   ## Parse known-to-be-valid key - this is the case for any key that's passed
@@ -148,7 +146,7 @@ func loadValid*(v: UncompressedPubKey | ValidatorPubKey): CookedPubKey {.noinit.
 
   CookedPubKey(val)
 
-proc loadWithCache*(v: ValidatorPubKey): Option[CookedPubKey] =
+proc loadWithCache*(v: ValidatorPubKey): Opt[CookedPubKey] =
   ## Parse public key blob - this may fail - this function uses a cache to
   ## avoid the expensive deserialization - for now, external public keys only
   ## come from deposits in blocks - when more sources are added, the memory
@@ -158,7 +156,7 @@ proc loadWithCache*(v: ValidatorPubKey): Option[CookedPubKey] =
   # Try to get parse value from cache - if it's not in there, try to parse it -
   # if that's not possible, it's broken
   cache.withValue(v.blob, key) do:
-    return some key[]
+    return Opt.some key[]
   do:
     # Only valid keys are cached
     let cooked = v.load()
@@ -166,13 +164,13 @@ proc loadWithCache*(v: ValidatorPubKey): Option[CookedPubKey] =
       cache[v.blob] = cooked.get()
     return cooked
 
-func load*(v: ValidatorSig): Option[CookedSig] =
+func load*(v: ValidatorSig): Opt[CookedSig] =
   ## Parse signature blob - this may fail
   var parsed: blscurve.Signature
   if fromBytes(parsed, v.blob):
-    some(CookedSig(parsed))
+    Opt.some(CookedSig(parsed))
   else:
-    none(CookedSig)
+    Opt.none(CookedSig)
 
 func init*(agg: var AggregatePublicKey, pubkey: CookedPubKey) {.inline.}=
   ## Initializes an aggregate signature context

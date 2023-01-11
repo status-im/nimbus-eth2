@@ -216,10 +216,9 @@ proc verify_deposit_signature*(preset: RuntimeConfig,
   # Deposits come with compressed public keys; uncompressing them is expensive.
   # `blsVerify` fills an internal cache when using `ValidatorPubKey`.
   # To avoid filling this cache unnecessarily, uncompress explicitly here.
-  let pubkey = deposit.pubkey.load()  # Loading the pubkey is slow!
-  if pubkey.isNone:
+  let pubkey = deposit.pubkey.load().valueOr:  # Loading the pubkey is slow!
     return false
-  verify_deposit_signature(preset, deposit, pubkey.get)
+  verify_deposit_signature(preset, deposit, pubkey)
 
 func compute_voluntary_exit_signing_root*(
     fork: Fork, genesis_validators_root: Eth2Digest,
