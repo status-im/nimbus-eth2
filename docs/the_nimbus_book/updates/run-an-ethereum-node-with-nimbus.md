@@ -4,7 +4,7 @@ This guide assists you in setting up an Ethereum node and running a validator us
 
 ## Prerequisites
 
-Before you start, first learn the basics of [Ethereum :octicons-tab-external-16:](https://ethereum.org/en/developers/docs/intro-to-ethereum/){:target="_blank"} and how to command line. The guide assumes you run both clients on the same machine using Ubuntu Linix. Here are more detailed requirements for your system:
+Before you start, first learn the basics of [Ethereum :octicons-tab-external-16:](https://ethereum.org/en/developers/docs/intro-to-ethereum/){:target="_blank"} and how to use the command line. The guide assumes you run both clients on the same machine using Ubuntu Linux. Here are more detailed requirements for your system:
 
 | Item | Requirement| Note |
 |----|------| --- |
@@ -12,6 +12,8 @@ Before you start, first learn the basics of [Ethereum :octicons-tab-external-16:
 | Storage| 2 TB SSD| Here’s a list of [known good models :octicons-tab-external-16:](https://gist.github.com/yorickdowne/f3a3e79a573bf35767cd002cc977b038){:target="_blank"}. |
 | Network |Broadband without data cap| Data consumption at 2-4 TB/month based on the number of your validtors and other load on the network. |
 | Operating system | Linux 64-bit | - |
+
+The backslashes "\" in the example commands are line breaks. You must remove them and convert the commands into one line of text before executing.
 
 ## Synchronize system time
 
@@ -23,14 +25,14 @@ sudo apt-get install -y chrony
 
 ## Install Nimbus
 
-You need to download and install Nimbus to run a consensus client. Consensus clients allow the Ethereum network to reach agreement.
+You need to download and install Nimbus to run a consensus client. Consensus clients allow the Ethereum network to reach an agreement.
 
-1. Use the `mkdir` command to create a directory with the name `nimbus-eth2` to hold Nimbus data and applications.  
+1. Use the `mkdir` command to create a directory with the name `nimbus-eth2` to hold Nimbus applications.  
 ```sh
 mkdir -p nimbus-eth2
 ```
 
-1. Download the latest [Nimbus release :octicons-tab-external-16:](https://github.com/status-im/nimbus-eth2/releases){:target="_blank"} using the `wget` command. In the following command, replace `<version_number>` with the version number of the latest release, replace `<name_of_the_release_package>` with the name of the package to download. You need to download the `tar.gz` file with "Linix_arm64v8" in its name.
+1. Download the latest [Nimbus release :octicons-tab-external-16:](https://github.com/status-im/nimbus-eth2/releases){:target="_blank"} using the `wget` command. In the following command, replace `<version_number>` with the version number of the latest release, and replace `<name_of_the_release_package`>` with the name of the package to download. Choose the file that matches your Ubuntu architecture. 
 ```sh
 wget https://github.com/status-im/nimbus-eth2/releases/download/<version_number>/<name_of_the_release_package>
 ```
@@ -40,7 +42,7 @@ wget https://github.com/status-im/nimbus-eth2/releases/download/<version_number>
     wget https://github.com/status-im/nimbus-eth2/releases/download/v22.11.1/nimbus-eth2_Linux_arm64v8_22.11.1_e4b19337.tar.gz 
     ```
     
-1. Unpack the `tar.gz` file using the `tar xvf` command into the `nimbus-eth2` directory. In the following command, replace `<name_of_the_release_package>` with name of the package you downloaded.
+1. Unpack the `tar.gz` file using the `tar xvf` command into the `nimbus-eth2` directory. In the following command, replace `<name_of_the_release_package>` with the name of the package you downloaded.
 ```sh
 tar xvf <name_of_the_release_package> --strip-components 1 -C nimbus-eth2
 ```
@@ -49,6 +51,16 @@ tar xvf <name_of_the_release_package> --strip-components 1 -C nimbus-eth2
     ```sh
     tar xvf nimbus-eth2_Linux_arm64v8_22.11.1_e4b19337.tar.gz --strip-components 1 -C nimbus-eth2
     ```
+
+1. Create the `/var/lib/nimbus` folder using the `sudo mkdir` command as Nimbus data directory. 
+```sh
+sudo mkdir -p /var/lib/nimbus
+```
+
+1. Use `sudo chmod` to give the permissions to read and write data and execute files in the data directory.
+```dotnetcli
+sudo chmod 700 /var/lib/nimbus
+```
 
 ## Run the Nimbus consensus client
 
@@ -59,16 +71,32 @@ After installing Nimbus, you can run the consensus client on the Ethereum Mainne
 cd nimbus-eth2
 ```
 
-1. Start Nimbus with the following command.
-
+ 1. Run the following command to start Nimbus and prepare for connecting to an execution client. 
+ 
     === "Mainnet"
         ```sh
-        ./run-mainnet-beacon-node.sh
+        sudo ./run-mainnet-beacon-node.sh \
+            --web3-url=http://127.0.0.1:8551 \
+            --jwt-secret=/tmp/jwtsecret \
+            --data-dir=/var/lib/nimbus/shared_mainnet_0
+
         ```
+
     === "Goerli/Prater"
         ```sh
-        ./run-prater-beacon-node.sh
+        sudo ./run-prater-beacon-node.sh \
+            --web3-url=http://127.0.0.1:8551 \
+            --jwt-secret=/tmp/jwtsecret \
+            --data-dir=/var/lib/nimbus/shared_prater_0
         ```
+
+    Where:
+
+    | Flag | Description |
+    |------|-------------|
+    | `--web3-url` | It informs Nimbus of the URL for connection. Nimbus can be connected to an execution client using an HTTP endpoint (`http://`) or a WebSockets endpoint (`ws://`). The default URL is `http://127.0.0.1:8551`. |
+    | `--jwt-secret` | It informs Nimbus the path to the `jwtsecret` file, which is for communication with the execution client. You can learn more in the "Run an execution client" section. |
+    | `--data-dir` | It designates the directory for storing Nimbus data. |
 
     Next, you can see this message:
 
@@ -80,14 +108,7 @@ cd nimbus-eth2
 
     ```
     INF 2022-06-16 13:23:11.008+02:00 Slot start
-      topics="beacnde"
-      slot=4046214
-      epoch=126444
-      sync="00h37m (99.38%) 11.0476slots/s (DDQQDDDPDD:4021215)"
-      peers=55
-      head=5d59aba3:4021234
-      finalized=125661:82616f78
-      delay=8ms245us608ns
+      topics="beacnde" slot=4046214 epoch=126444 sync="00h37m (99.38%) 11.0476slots/s (DDQQDDDPDD:4021215)" peers=55 head=5d59aba3:4021234 finalized=125661:82616f78 delay=8ms245us608ns
     ```
     
     Where:
@@ -100,13 +121,13 @@ cd nimbus-eth2
     | `peers` | The number of peers Nimbus is currently connected to. |
     | `head` | The most recent block synced to so far. In this example, `5d59aba3` is the first part of the block hash, `4021234` is the slot number. |
     | `finalized` | The most recent finalized epoch synced to so far. In this example, `125661` is the epoch, `82616f78` is the checkpoint hash. |
-    | `delay` | WAITING FOR HELPDESK REPLY |
+    | `delay` | The time delayed before processing the slot because the client is occupied with other computational work. |
 
     In `sync`, the string of numbers (`4021215` in this example) represents the slot number of the block being synced. The string of letters is the `sync worker map` (in this example, represented by `DDQQDDDPDD`). Each letter represents the status of one of the peers Nimbus is syncing from, where:
     
     ```
-        s - sleeping (idle),
-        w - waiting for a peer from the peer pool,
+        s - sleeping (idle)
+        w - waiting for a peer from the peer pool
         R - requesting blocks from the peer
         D - downloading blocks from the peer
         Q - queued/waiting for ancestor blocks
@@ -118,26 +139,20 @@ cd nimbus-eth2
 
 ## Run an execution client
 
-Along with the consensus client, you need to set up an execution client. Execution clients are for processing and broadcasting transactions and managing Ethereum's state. We tested Nimbus with all [major execution clients :octicons-tab-external-16:](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients){:target="_blank"}, you can choose one that suits your needs.
+Along with the consensus client, you need to set up an execution client. Execution clients are for processing and broadcasting transactions and managing Ethereum's state. Nimbus is tested with all [major execution clients :octicons-tab-external-16:](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients){:target="_blank"}, you can choose one that suits your needs.
 
-In parallel to the [Nimbus consensus client :octicons-tab-external-16:](https://github.com/status-im/nimbus-eth2){:target="_blank"}, we are working hard on an execution client. While this project is still in development, we welcome you to experiment with it. To learn how the execution client works, check out its [GitHub repository :octicons-tab-external-16:](https://github.com/status-im/nimbus-eth1){:target="_blank"}.
+The content here is from execution clients' documentation. Refer to their respective documentation sites for more details.
 
 === "Besu"
 
-    The content here is selected from the [Besu documentation :octicons-tab-external-16:](https://besu.hyperledger.org/en/stable/){:target="_blank"}, you can check it out for more about using Besu.
+    1. Download and install Besu following the guide in the [Besu documentation :octicons-tab-external-16:](https://besu.hyperledger.org/en/stable/){:target="_blank"}
 
-    1. Download Java JDK (x64 compressed archive) and install it following the [JDK installation guide :octicons-tab-external-16:](https://docs.oracle.com/en/java/javase/19/install/installation-jdk-linux-platforms.html#GUID-ADC9C14A-5F51-4C32-802C-9639A947317F){:target="_blank"}.
-
-    1. Download the latest [Besu :octicons-tab-external-16:](https://github.com/hyperledger/besu/releases){:target="_blank"} `tar.gz` file.
-     
-    1. Unpack the `tar.gz` file by right-clicking on the file and selecting "Extract here" in the menu.
-
-    1. Use the `openssl rand` command to create a `jwtsecret` file, and store it in the `/tmp/jwtsecret` directory. This file is a JSON web token for the clients to authenticate each other.
+    1. Use the `openssl rand` command to create a `jwtsecret` file and store it in the `/tmp` directory. This file is a JSON web token for the clients to authenticate each other.
     ```bash
     openssl rand -hex 32 | tr -d "\n" > "/tmp/jwtsecret"
     ```
 
-    1. Allow Besu to connect to Nimbus. With the following command, you can start Besu, expose an RPC port (By default, Besu accepts requests from `localhost` and `127.0.0.1`) for Nimbus, pass the path to the `jwtsecret` file, and complete other relevant configuration. You can read more details from the [Besu documentation :octicons-tab-external-16:](https://besu.hyperledger.org/en/stable/public-networks/tutorials/besu-teku-mainnet/#3-start-besu){:target="_blank"}.
+    1. Connect Besu to Nimbus. With the following command, you can start Besu, expose an RPC port (By default, Besu accepts requests from `localhost` and `127.0.0.1`) for Nimbus, pass the path to the `jwtsecret` file, and complete other relevant configuration.
     
         === "Mainnet"
             ```sh
@@ -169,49 +184,18 @@ In parallel to the [Nimbus consensus client :octicons-tab-external-16:](https://
               --engine-jwt-secret=/tmp/jwtsecret
             ```
 
-    1. Connect Nimbus to Besu. Nimbus can be connected to Besu using an HTTP endpoint (`http://`) or a WebSockets endpoint (`ws://`). The default URL is `http://127.0.0.1:8551`. By running the below command, you can inform Nimbus of the URL for connection and the path to the `jwtsecret` file.
-    
-        === "Mainnet"
-            ```sh
-            ./run-mainnet-beacon-node.sh \
-              --web3-url=http://127.0.0.1:8551 \
-              --jwt-secret=/tmp/jwtsecret
-            ```
-
-        === "Goerli/Prater"
-            ```sh
-            ./run-prater-beacon-node.sh \
-              --web3-url=http://127.0.0.1:8551 \
-              --jwt-secret=/tmp/jwtsecret
-            ```
-
     1. Leave the clients running to synchronize data. Besu starts its synchronization after Nimbus is mostly synced. The synchronization process may take hours to days, depending on your hardware performance. 
 
 === "Erigon"
-
-    The content here is selected from the [Erigon README file :octicons-tab-external-16:](https://github.com/ledgerwatch/erigon#erigon){:target="_blank"}, you can check it out for more about using Erigon.
-
-    1. Download and install Go following [Go's guide :octicons-tab-external-16:](https://go.dev/doc/install){:target="_blank"}.
         
-    1. Clone the Erigon repository to your computer using `git clone`.
-    ```sh
-    git clone \
-        --branch stable \
-        --single-branch https://github.com/ledgerwatch/erigon.git
-    ```
+    1. Download and install Erigon following the guide in the [Erigon README file :octicons-tab-external-16:](https://github.com/ledgerwatch/erigon#erigon){:target="_blank"}.
     
-    1. Go to the Erigon directory using the `cd` command.
-    ```sh
-    cd erigon
+    1. Use the `openssl rand` command to create a `jwtsecret` file and store it in the `/tmp` directory. This file is a JSON web token for the clients to authenticate each other.
+    ```bash
+    openssl rand -hex 32 | tr -d "\n" > "/tmp/jwtsecret"
     ```
 
-    1. Build Erigon by running:
-    ```sh
-    make erigon
-    ./build/bin/erigon
-    ```
-
-    1. Allow Erigon to connect to Nimbus. With the following command, you can start Erigon, enables JSON RPC and specify the path to the `jwtsecret` file. Erigon accepts connections from the localhost interface `127.0.0.1`, with the default RPC port `8551`. Also, Erigon generates a JSON web token (the `jwtsecret` file) for the clients to authenticate each other. 
+    1. Connect Erigon to Nimbus. With the following command, you can start Erigon, enable JSON RPC and specify the path to the `jwtsecret` file. Erigon accepts connections from the localhost interface `127.0.0.1`, with the default RPC port `8551`. Also, Erigon generates a JSON web token (the `jwtsecret` file) for the clients to authenticate each other. 
     
         === "Mainnet"
             ```sh
@@ -229,39 +213,19 @@ In parallel to the [Nimbus consensus client :octicons-tab-external-16:](https://
               --http --http.api=engine,eth,web3,net \
               --authrpc.jwtsecret=/tmp/jwtsecret
             ```
-    
-    1. Connect Nimbus to Erigon. Nimbus can be connected to Erigon using an HTTP endpoint (`http://`) or a WebSockets endpoint (`ws://`). The default URL is `http://127.0.0.1:8551`. By running the below command, you can inform Nimbus of the URL for connection and the path to the `jwtsecret` file.
-
-        === "Mainnet"
-            ```sh
-            ./run-mainnet-beacon-node.sh \
-              --web3-url=http://127.0.0.1:8551 \
-              --jwt-secret=/tmp/jwtsecret
-            ```
-
-        === "Goerli/Prater"
-            ```sh
-            ./run-prater-beacon-node.sh \
-              --web3-url=http://127.0.0.1:8551 \
-              --jwt-secret=/tmp/jwtsecret
-            ```
 
     1. Leave the clients running to synchronize data. Nethermind starts its synchronization after Nimbus is mostly synced. The synchronization process may take hours to days, depending on your hardware performance.    
 
 === "Geth"
 
-    The content here is selected from the [Geth documentation :octicons-tab-external-16:](https://geth.ethereum.org/docs/){:target="_blank"}, you can check it out for more about using Geth.
-
-    1. Enable a launchpad PPA repository using the `add-apt-repository` command.
-    ```sh
-    sudo add-apt-repository -y ppa:ethereum/ethereum
+    1. Download and install Geth following the guide in the [Geth documentation :octicons-tab-external-16:](https://geth.ethereum.org/docs/){:target="_blank"}.
+    
+    1. Use the `openssl rand` command to create a `jwtsecret` file and store it in the `/tmp` directory. This file is a JSON web token for the clients to authenticate each other.
+    ```bash
+    openssl rand -hex 32 | tr -d "\n" > "/tmp/jwtsecret"
     ```
-    1. Install Geth with the `apt-get` command.
-    ```sh
-    sudo apt-get update
-    sudo apt-get install ethereum
-    ```
-    1. Allow Geth to connect to Nimbus. With the following command, you can start Geth, expose an RPC port for Nimbus and specify the path to the `jwtsecret` file. Geth accepts connections from the localhost interface `127.0.0.1`, with the default RPC port `8551`. Also, Geth generates a JSON web token (the `jwtsecret` file) for the clients to authenticate each other. If you're interested in this process, read details in the [Geth documentation :octicons-tab-external-16:](https://geth.ethereum.org/docs/interface/consensus-clients){:target="_blank"}.
+    
+    1. Connect Geth to Nimbus. With the following command, you can start Geth, expose an RPC port for Nimbus and pass the path to the `jwtsecret` file. Geth accepts connections from the localhost interface `127.0.0.1`, with the default RPC port `8551`.
         
         === "Mainnet"
             ```sh
@@ -283,35 +247,14 @@ In parallel to the [Nimbus consensus client :octicons-tab-external-16:](https://
               --authrpc.jwtsecret /tmp/jwtsecret
             ```
 
-    1. Connect Nimbus to Geth. Nimbus can be connected to Geth using an HTTP endpoint (`http://`) or a WebSockets endpoint (`ws://`). The default URL is `http://127.0.0.1:8551`. By running the below command, you can inform Nimbus of the URL for connection and the path to the `jwtsecret` file.
-
-        === "Mainnet"
-            ```sh
-            ./run-mainnet-beacon-node.sh \
-              --web3-url=http://127.0.0.1:8551 \
-              --jwt-secret=/tmp/jwtsecret
-            ```
-
-        === "Goerli/Prater"
-            ```sh
-            ./run-prater-beacon-node.sh \
-              --web3-url=http://127.0.0.1:8551 \
-              --jwt-secret=/tmp/jwtsecret
-            ```
     1. Leave the clients running to synchronize data. Geth starts its synchronization after Nimbus is mostly synced. The synchronization process may take hours to days, depending on your hardware performance.  
 
 === "Nethermind"
 
-    The content here is selected from the [Nethermind documentation :octicons-tab-external-16:](https://docs.nethermind.io/nethermind/){:target="_blank"}, you can check it out for more about using Nethermind.
+    1. Download and install Nethermind following the guide in the [Nethermind documentation :octicons-tab-external-16:](https://docs.nethermind.io/nethermind/){:target="_blank"}.
 
-    1. Install Nethermind with `add-apt-repository` and `apt install`.
-    ```sh
-    sudo add-apt-repository ppa:nethermindeth/nethermind
-    sudo apt install nethermind
-    ```
-
-    1. Use `openssl rand` to create a `jwtsecret` file, and store it in the `/tmp/jwtsecret` directory. The file is a JSON web token for the clients to authenticate each other.
-    ```sh
+    1. Use the `openssl rand` command to create a `jwtsecret` file and store it in the `/tmp` directory. This file is a JSON web token for the clients to authenticate each other.
+    ```bash
     openssl rand -hex 32 | tr -d "\n" > "/tmp/jwtsecret"
     ```
 
@@ -332,26 +275,6 @@ In parallel to the [Nimbus consensus client :octicons-tab-external-16:](https://
                 --JsonRpc.JwtSecretFile="/tmp/jwtsecret"
             ```
 
-    1. Connect Nimbus to Nethermind. Nimbus can be connected to Nethermind using an HTTP endpoint (`http://`) or a WebSockets endpoint (`ws://`). The default URL is `http://127.0.0.1:8551`. By running the below command, you can enable relevant servers and inform Nimbus of the URL for connection and the path to the `jwtsecret` file.
-    
-        === "Mainnet"
-            ```sh
-            nimbus-eth2/build/nimbus_beacon_node \
-              --network=mainnet \
-              --web3-url=http://127.0.0.1:8551 \
-              --rest \
-              --metrics \
-              --jwt-secret=/tmp/jwtsecret
-            ```
-        === "Goerli/Prater"
-            ```sh
-            nimbus-eth2/build/nimbus_beacon_node \
-              --network=goerli \
-              --web3-url=http://127.0.0.1:8551 \
-              --rest \
-              --metrics \
-              --jwt-secret=/tmp/jwtsecret
-            ```
     1. Leave the clients running to synchronize data. Nethermind starts its synchronization after Nimbus is mostly synced. The synchronization process may take hours to days, depending on your hardware performance.
 
 
@@ -364,7 +287,7 @@ If you want to stake on Ethereum or validate transactions for the Ethereum netwo
 cd nimbus-eth2
 ```
 
-1. Download the latest [Ethereum staking deposit CLI :octicons-tab-external-16:](https://github.com/ethereum/staking-deposit-cli/releases){:target="_blank"}  with `wget`. In the following command, replace `<version_number>` with the version number of the latest release, and replace `<name_of_the_release_package>` with the name of the package to download. You need to download the `tar.gz` file with "linix-arm64" in its name.
+1. Download the latest [Ethereum staking deposit CLI :octicons-tab-external-16:](https://github.com/ethereum/staking-deposit-cli/releases){:target="_blank"}  with `wget`. In the following command, replace `<version_number>` with the version number of the latest release, and replace `<name_of_the_release_package>` with the name of the package to download. Choose the file that matches your Ubuntu architecture.
 ```sh
 wget https://github.com/ethereum/staking-deposit-cli/releases/download/<version_number>/<name_of_the_release_package>
 ```
@@ -374,7 +297,7 @@ wget https://github.com/ethereum/staking-deposit-cli/releases/download/<version_
     wget https://github.com/ethereum/staking-deposit-cli/releases/download/v2.3.0/staking_deposit-cli-76ed782-linux-arm64.tar.gz 
     ```
 
-1. Unpack the `tar.gz` file with the `tar xvf` command. In the following command, replace `<name_of_the_release_package>` with name of the package you downloaded.
+1. Unpack the `tar.gz` file with the `tar xvf` command. In the following command, replace `<name_of_the_release_package>` with the name of the package you downloaded.
 ```sh
 tar xvf <name_of_the_release_package> --strip-components 2
 ```
@@ -384,9 +307,9 @@ tar xvf <name_of_the_release_package> --strip-components 2
     tar xvf staking_deposit-cli-9ab0b05-linux-amd64.tar.gz --strip-components 2
     ```
 
-1. Prepare a safe environment for running the deposit CLI. You are going to use the deposit CLI to generate validator keys, which are for allowing validator actions. You need a safe environment to avoid risks such as key leakage.
+1. Prepare a safe environment for running the deposit CLI. When you use the deposit CLI to generate validator keys that allow validator actions, you need a safe environment to avoid risks such as key leakage.
 
-    One option is to follow [Ubuntu's instructions :octicons-tab-external-16:](https://ubuntu.com/tutorials/try-ubuntu-before-you-install#1-getting-started){:target="_blank"} to set up a live Ubuntu from a USB stick. Another option is to copy the deposit CLI to a machine that has never been connected to the internet, and run it there.
+    One option is to follow [Ubuntu's instructions :octicons-tab-external-16:](https://ubuntu.com/tutorials/try-ubuntu-before-you-install#1-getting-started){:target="_blank"} to set up a live Ubuntu from a USB stick. Another option is to copy the deposit CLI to a machine that has never been connected to the internet and run it there.
 
 1. Copy the deposit CLI (the executable file with the name `deposit`) to the safe environment. For example, you can use a USB stick.
 
@@ -419,16 +342,16 @@ After your execution client and consensus client are fully synced, you can activ
 
 1. Move the `validator_keys` folder containing the validator keystore and the deposit data to the `nimbus-eth2` directory in the computer running the clients.
 
-1. Import validator keys into Nimbus data directory by running the following command.
+1. Import validator keys into Nimbus data directory by running the following command. Replace `<username>` with your Ubuntu username.
     
     === "Mainnet"
         ```sh
-        build/nimbus_beacon_node deposits import --data-dir=build/data/shared_mainnet_0
+        sudo /home/<username>/nimbus-eth2/build/nimbus_beacon_node deposits import --data-dir=/var/lib/nimbus/shared_mainnet_0 /home/<username>/nimbus-eth2/validator_keys
         ```
 
     === "Goerli/Prater"
         ```sh
-        build/nimbus_beacon_node deposits import --data-dir=build/data/shared_prater_0
+        sudo /home/<username>/nimbus-eth2/build/nimbus_beacon_node deposits import --data-dir=/var/lib/nimbus/shared_prater_0 /home/<username>/nimbus-eth2/validator_keys
         ```
 
     After importing the keys, you can see this message:
@@ -456,14 +379,14 @@ After your execution client and consensus client are fully synced, you can activ
     
     === "Mainnet"
         - Visit the [Mainnet lanuchpad page :octicons-tab-external-16:](https://launchpad.ethereum.org/en/){:target="_blank"} and follow the instructions.
-        - Double check the contract address you make deposit to. The correct deposit contract address is `0x00000000219ab540356cBB839Cbe05303d7705Fa`. View details of the deposit contract on [Etherscan :octicons-tab-external-16:](https://etherscan.io/address/0x00000000219ab540356cbb839cbe05303d7705fa){:target="_blank"}.
-        - Do not deposit directly to the deposit contract address, only use the launchpad page to deposit.
+        - Double-check the contract address you deposit into. The correct deposit contract address is `0x00000000219ab540356cBB839Cbe05303d7705Fa`. View details of the deposit contract on [Etherscan :octicons-tab-external-16:](https://etherscan.io/address/0x00000000219ab540356cbb839cbe05303d7705fa){:target="_blank"}.
+        - Do not deposit directly to the deposit contract address. Only use the launchpad page to deposit.
         - You can check the status of your validator by searching for your wallet address on [beaconcha.in :octicons-tab-external-16:](https://beaconcha.in/){:target="_blank"}.
         
     === "Goerli/Prater"
         - Visit the [testnet lanuchpad page :octicons-tab-external-16:](https://goerli.launchpad.ethstaker.cc/en/){:target="_blank"} and follow the instructions.
         - If you don't have Goerli testnet ETH, follow the instructions in the #cheap-goerli-validator channel of the [EthStaker Discord :octicons-tab-external-16:](https://discord.io/ethstaker){:target="_blank"}. You can have the access to this channel after 2-3 days joining the Discord server. 
-        - Do not deposit directly to the deposit contract address, only use the launchpad page to deposit.
+        - Do not deposit directly to the deposit contract address. Only use the launchpad page to deposit.
         - You can check the status of your validator by searching for your wallet address on [goerli.beaconcha.in :octicons-tab-external-16:](https://goerli.beaconcha.in/){:target="_blank"}.
 
     Once you send off the deposit transaction, your validator is put in an activation queue based on the deposit time. Getting through the queue may take a few hours or days, you can leave your clients and validator running. As soon as your validator becomes active, it begins validating automatically.
