@@ -14,7 +14,9 @@ import
   stew/assign2,
   chronicles,
   ../extras,
-  "."/[block_id, eth2_merkleization, eth2_ssz_serialization, presets],
+  "."/[
+    block_id, eth2_merkleization, eth2_ssz_serialization,
+    forks_light_client, presets],
   ./datatypes/[phase0, altair, bellatrix, capella, eip4844],
   ./mev/bellatrix_mev
 
@@ -22,7 +24,7 @@ import
 # it sequentially
 export
   extras, block_id, phase0, altair, bellatrix, eth2_merkleization,
-  eth2_ssz_serialization, presets, bellatrix_mev
+  eth2_ssz_serialization, forks_light_client, presets, bellatrix_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:

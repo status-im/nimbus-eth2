@@ -13,7 +13,6 @@ else:
 import
   stew/objects,
   chronos, metrics,
-  ../spec/datatypes/altair,
   ../spec/light_client_sync,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_clock, sszdump],
@@ -41,13 +40,13 @@ type
   ValueObserver[V] =
     proc(v: V) {.gcsafe, raises: [Defect].}
   BootstrapObserver* =
-    ValueObserver[altair.LightClientBootstrap]
+    ValueObserver[ForkedLightClientBootstrap]
   UpdateObserver* =
-    ValueObserver[altair.LightClientUpdate]
+    ValueObserver[ForkedLightClientUpdate]
   FinalityUpdateObserver* =
-    ValueObserver[altair.LightClientFinalityUpdate]
+    ValueObserver[ForkedLightClientFinalityUpdate]
   OptimisticUpdateObserver* =
-    ValueObserver[altair.LightClientOptimisticUpdate]
+    ValueObserver[ForkedLightClientOptimisticUpdate]
 
   LightClientFinalizationMode* {.pure.} = enum
     Strict
@@ -120,7 +119,7 @@ type
       lastDuplicateTick: BeaconTime # Moment when last duplicate update received
       numDuplicatesSinceProgress: int # Number of duplicates since last progress
 
-    latestFinalityUpdate: altair.LightClientOptimisticUpdate
+    latestFinalityUpdate: ForkedLightClientOptimisticUpdate
 
 const
   # These constants have been chosen empirically and are not backed by spec
@@ -173,13 +172,13 @@ proc new*(
 
 proc dumpInvalidObject(
     self: LightClientProcessor,
-    obj: SomeLightClientObject) =
+    obj: SomeForkyLightClientObject) =
   if self.dumpEnabled:
     dump(self.dumpDirInvalid, obj)
 
 proc dumpObject[T](
     self: LightClientProcessor,
-    obj: SomeLightClientObject,
+    obj: SomeForkyLightClientObject,
     res: Result[T, VerifierError]) =
   if self.dumpEnabled and res.isErr:
     case res.error
@@ -214,40 +213,47 @@ proc tryForceUpdate(
 
 proc processObject(
     self: var LightClientProcessor,
-    obj: SomeLightClientObject,
+    obj: SomeForkedLightClientObject,
     wallTime: BeaconTime): Result[void, VerifierError] =
   let
     wallSlot = wallTime.slotOrZero()
     store = self.store
-    res =
-      when obj is altair.LightClientBootstrap:
-        if store[].isSome:
-          err(VerifierError.Duplicate)
-        else:
-          let trustedBlockRoot = self.getTrustedBlockRoot()
-          if trustedBlockRoot.isNone:
+    res = withForkyObject(obj):
+      when lcDataFork >= LightClientDataFork.Altair:
+        when forkyObject is ForkyLightClientBootstrap:
+          if store[].isSome:
+            err(VerifierError.Duplicate)
+          else:
+            let trustedBlockRoot = self.getTrustedBlockRoot()
+            if trustedBlockRoot.isNone:
+              err(VerifierError.MissingParent)
+            else:
+              let initRes =
+                initialize_light_client_store(trustedBlockRoot.get, forkyObject)
+              if initRes.isErr:
+                err(initRes.error)
+              else:
+                store[] = some(initRes.get)
+                ok()
+        elif forkyObject is SomeForkyLightClientUpdate:
+          if store[].isNone:
             err(VerifierError.MissingParent)
           else:
-            let initRes =
-              initialize_light_client_store(trustedBlockRoot.get, obj)
-            if initRes.isErr:
-              err(initRes.error)
-            else:
-              store[] = some(initRes.get)
-              ok()
-      elif obj is SomeLightClientUpdate:
-        if store[].isNone:
-          err(VerifierError.MissingParent)
-        else:
-          store[].get.process_light_client_update(
-            obj, wallSlot, self.cfg, self.genesis_validators_root)
+            store[].get.process_light_client_update(
+              forkyObject, wallSlot, self.cfg, self.genesis_validators_root)
+      else:
+        err(VerifierError.Invalid)
 
-  self.dumpObject(obj, res)
+  withForkyObject(obj):
+    when lcDataFork >= LightClientDataFork.Altair:
+      self.dumpObject(forkyObject, res)
 
   if res.isErr:
-    when obj is altair.LightClientUpdate:
+    when obj is ForkedLightClientUpdate:
+      const storeDataFork = typeof(store[].get).kind
       if self.finalizationMode == LightClientFinalizationMode.Optimistic and
-          store[].isSome and store[].get.best_valid_update.isSome:
+          store[].isSome and store[].get.best_valid_update.isSome and
+          obj.kind > LightClientDataFork.None and obj.kind <= storeDataFork:
         # `best_valid_update` gets set when no supermajority / finality proof
         # is available. In that case, we will wait for a better update.
         # If none is made available within reasonable time, the light client
@@ -256,7 +262,9 @@ proc processObject(
         of VerifierError.Duplicate:
           if wallTime >= self.lastDuplicateTick + duplicateRateLimit:
             if self.numDuplicatesSinceProgress < minForceUpdateDuplicates:
-              if obj.matches(store[].get.best_valid_update.get):
+              let upgradedObj = obj.migratedToDataFork(storeDataFork)
+              if upgradedObj.forky(storeDataFork).matches(
+                  store[].get.best_valid_update.get):
                 self.lastDuplicateTick = wallTime
                 inc self.numDuplicatesSinceProgress
             if self.numDuplicatesSinceProgress >= minForceUpdateDuplicates and
@@ -269,7 +277,7 @@ proc processObject(
 
     return res
 
-  when obj is altair.LightClientBootstrap | altair.LightClientUpdate:
+  when obj is ForkedLightClientBootstrap | ForkedLightClientUpdate:
     if self.finalizationMode == LightClientFinalizationMode.Optimistic:
       self.lastProgressTick = wallTime
       self.lastDuplicateTick = wallTime + duplicateCountDelay
@@ -278,7 +286,7 @@ proc processObject(
   res
 
 template withReportedProgress(
-    obj: SomeLightClientObject | Nothing, body: untyped): bool =
+    obj: SomeForkedLightClientObject | Nothing, body: untyped): bool =
   block:
     let
       previousWasInitialized = store[].isSome
@@ -331,16 +339,16 @@ template withReportedProgress(
     if didProgress:
       when obj is Nothing:
         discard
-      elif obj is altair.LightClientBootstrap:
+      elif obj is ForkedLightClientBootstrap:
         if self.bootstrapObserver != nil:
           self.bootstrapObserver(obj)
-      elif obj is altair.LightClientUpdate:
+      elif obj is ForkedLightClientUpdate:
         if self.updateObserver != nil:
           self.updateObserver(obj)
-      elif obj is altair.LightClientFinalityUpdate:
+      elif obj is ForkedLightClientFinalityUpdate:
         if self.finalityUpdateObserver != nil:
           self.finalityUpdateObserver(obj)
-      elif obj is altair.LightClientOptimisticUpdate:
+      elif obj is ForkedLightClientOptimisticUpdate:
         if self.optimisticUpdateObserver != nil:
           self.optimisticUpdateObserver(obj)
       else: raiseAssert "Unreachable"
@@ -353,7 +361,7 @@ template withReportedProgress(body: untyped): bool =
 proc storeObject*(
     self: var LightClientProcessor,
     src: MsgSource, wallTime: BeaconTime,
-    obj: SomeLightClientObject): Result[bool, VerifierError] =
+    obj: SomeForkedLightClientObject): Result[bool, VerifierError] =
   ## storeObject is the main entry point for unvalidated light client objects -
   ## all untrusted objects pass through here. When storing an object, we will
   ## update the `LightClientStore` accordingly
@@ -372,13 +380,16 @@ proc storeObject*(
         light_client_store_object_duration_seconds.observe(
           storeObjectDur.toFloatSeconds())
 
-        let objSlot =
-          when obj is altair.LightClientBootstrap:
-            obj.header.slot
-          elif obj is SomeLightClientUpdateWithFinality:
-            obj.finalized_header.slot
+        let objSlot = withForkyObject(obj):
+          when lcDataFork >= LightClientDataFork.Altair:
+            when forkyObject is ForkyLightClientBootstrap:
+              forkyObject.header.slot
+            elif forkyObject is SomeForkyLightClientUpdateWithFinality:
+              forkyObject.finalized_header.slot
+            else:
+              forkyObject.attested_header.slot
           else:
-            obj.attested_header.slot
+            GENESIS_SLOT
         debug "LC object processed",
           finalizedSlot = store[].get.finalized_header.slot,
           optimisticSlot = store[].get.optimistic_header.slot,
@@ -409,7 +420,7 @@ proc resetToFinalizedHeader*(
 proc addObject*(
     self: var LightClientProcessor,
     src: MsgSource,
-    obj: SomeLightClientObject,
+    obj: SomeForkedLightClientObject,
     resfut: Future[Result[void, VerifierError]] = nil) =
   ## Enqueue a Gossip-validated light client object for verification
   # Backpressure:
@@ -448,12 +459,16 @@ func toValidationError(
     self: var LightClientProcessor,
     r: Result[bool, VerifierError],
     wallTime: BeaconTime,
-    obj: SomeLightClientObject): Result[void, ValidationError] =
+    obj: SomeForkedLightClientObject): Result[void, ValidationError] =
   if r.isOk:
     let didSignificantProgress = r.get
     if didSignificantProgress:
       let
-        signature_slot = obj.signature_slot
+        signature_slot = withForkyObject(obj):
+          when lcDataFork >= LightClientDataFork.Altair:
+            forkyObject.signature_slot
+          else:
+            GENESIS_SLOT
         currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
         forwardTime = signature_slot.light_client_finality_update_time
       if currentTime < forwardTime:
@@ -466,11 +481,11 @@ func toValidationError(
         return errIgnore(typeof(obj).name & ": received too early")
       ok()
     else:
-      when obj is altair.LightClientOptimisticUpdate:
+      when obj is ForkedLightClientOptimisticUpdate:
         # [IGNORE] The `optimistic_update` either matches corresponding fields
         # of the most recently forwarded `LightClientFinalityUpdate` (if any),
         # or it advances the `optimistic_header` of the local `LightClientStore`
-        if obj == self.latestFinalityUpdate:
+        if obj.matches(self.latestFinalityUpdate):
           return ok()
       # [IGNORE] The `finality_update` advances the `finalized_header` of the
       # local `LightClientStore`.
@@ -493,7 +508,7 @@ func toValidationError(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var LightClientProcessor, src: MsgSource,
-    finality_update: altair.LightClientFinalityUpdate
+    finality_update: ForkedLightClientFinalityUpdate
 ): Result[void, ValidationError] =
   let
     wallTime = self.getBeaconTime()
@@ -506,14 +521,24 @@ proc processLightClientFinalityUpdate*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientOptimisticUpdate*(
     self: var LightClientProcessor, src: MsgSource,
-    optimistic_update: altair.LightClientOptimisticUpdate
+    optimistic_update: ForkedLightClientOptimisticUpdate
 ): Result[void, ValidationError] =
   let
     wallTime = self.getBeaconTime()
     r = self.storeObject(src, wallTime, optimistic_update)
     v = self.toValidationError(r, wallTime, optimistic_update)
   if v.isOk:
-    let latestFinalitySlot = self.latestFinalityUpdate.attested_header.slot
-    if optimistic_update.attested_header.slot >= latestFinalitySlot:
+    let
+      latestFinalitySlot = withForkyOptimisticUpdate(self.latestFinalityUpdate):
+        when lcDataFork >= LightClientDataFork.Altair:
+          forkyOptimisticUpdate.attested_header.slot
+        else:
+          GENESIS_SLOT
+      attestedSlot = withForkyOptimisticUpdate(optimistic_update):
+        when lcDataFork >= LightClientDataFork.Altair:
+          forkyOptimisticUpdate.attested_header.slot
+        else:
+          GENESIS_SLOT
+    if attestedSlot >= latestFinalitySlot:
       self.latestFinalityUpdate.reset() # Only forward once
   v

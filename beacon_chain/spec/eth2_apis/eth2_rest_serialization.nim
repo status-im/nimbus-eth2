@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -137,6 +137,11 @@ type
     GetPhase0StateSszResponse |
     GetPhase0BlockSszResponse
 
+  RestVersioned*[T] = object
+    data*: T
+    jsonVersion*: BeaconStateFork
+    sszContext*: ForkDigest
+
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
@@ -153,6 +158,27 @@ proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
         writer.writeField("data", d)
         writer.endRecord()
         stream.getOutput(seq[byte])
+      except SerializationError:
+        default
+      except IOError:
+        default
+  res
+
+proc prepareJsonStringResponse*[T: SomeForkedLightClientObject](
+    t: typedesc[RestApiResponse], d: RestVersioned[T]): string =
+  let res =
+    block:
+      var default: string
+      try:
+        var stream = memoryOutput()
+        var writer = JsonWriter[RestJson].init(stream)
+        withForkyObject(d.data):
+          when lcDataFork >= LightClientDataFork.Altair:
+            writer.beginRecord()
+            writer.writeField("version", d.jsonVersion.toString())
+            writer.writeField("data", forkyObject)
+            writer.endRecord()
+        stream.getOutput(string)
       except SerializationError:
         default
       except IOError:
@@ -304,14 +330,9 @@ proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
           default
   RestApiResponse.response(res, Http200, "application/json", headers = headers)
 
-type RestVersioned*[T] = object
-  data*: T
-  jsonVersion*: BeaconStateFork
-  sszContext*: ForkDigest
-
-proc jsonResponseVersionedList*[T](t: typedesc[RestApiResponse],
-                                   entries: openArray[RestVersioned[T]]
-                                  ): RestApiResponse =
+proc jsonResponseVersioned*[T: SomeForkedLightClientObject](
+    t: typedesc[RestApiResponse],
+    entries: openArray[RestVersioned[T]]): RestApiResponse =
   let res =
     block:
       var default: seq[byte]
@@ -319,10 +340,12 @@ proc jsonResponseVersionedList*[T](t: typedesc[RestApiResponse],
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         for e in writer.stepwiseArrayCreation(entries):
-          writer.beginRecord()
-          writer.writeField("version", e.jsonVersion.toString())
-          writer.writeField("data", e.data)
-          writer.endRecord()
+          withForkyObject(e.data):
+            when lcDataFork >= LightClientDataFork.Altair:
+              writer.beginRecord()
+              writer.writeField("version", e.jsonVersion.toString())
+              writer.writeField("data", forkyObject)
+              writer.endRecord()
         stream.getOutput(seq[byte])
       except SerializationError:
         default
@@ -466,21 +489,23 @@ proc jsonErrorList*(t: typedesc[RestApiResponse],
         default
   RestApiResponse.error(status, data, "application/json")
 
-proc sszResponseVersionedList*[T](t: typedesc[RestApiResponse],
-                                  entries: openArray[RestVersioned[T]]
-                                 ): RestApiResponse =
+proc sszResponseVersioned*[T: SomeForkedLightClientObject](
+    t: typedesc[RestApiResponse],
+    entries: openArray[RestVersioned[T]]): RestApiResponse =
   let res =
     block:
       var default: seq[byte]
       try:
         var stream = memoryOutput()
         for e in entries:
-          var cursor = stream.delayFixedSizeWrite(sizeof(uint64))
-          let initPos = stream.pos
-          stream.write e.sszContext.data
-          var writer = SszWriter.init(stream)
-          writer.writeValue e.data
-          cursor.finalWrite (stream.pos - initPos).uint64.toBytesLE()
+          withForkyUpdate(e.data):
+            when lcDataFork >= LightClientDataFork.Altair:
+              var cursor = stream.delayFixedSizeWrite(sizeof(uint64))
+              let initPos = stream.pos
+              stream.write e.sszContext.data
+              var writer = SszWriter.init(stream)
+              writer.writeValue forkyUpdate
+              cursor.finalWrite (stream.pos - initPos).uint64.toBytesLE()
         stream.getOutput(seq[byte])
       except SerializationError:
         default
