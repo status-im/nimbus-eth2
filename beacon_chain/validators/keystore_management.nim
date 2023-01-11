@@ -149,12 +149,9 @@ func init*(T: type KeystoreData,
 
 func init*(T: type KeystoreData, keystore: RemoteKeystore,
            handle: FileLockHandle): Result[T, cstring] {.raises: [Defect].} =
-  let cookedKey =
-    block:
-      let res = keystore.pubkey.load()
-      if res.isNone():
+  let cookedKey = keystore.pubkey.load().valueOr:
         return err("Invalid validator's public key")
-      res.get()
+
   ok(KeystoreData(
     kind: KeystoreKind.Remote,
     handle: handle,
@@ -670,13 +667,12 @@ iterator listLoadableKeys*(validatorsDir, secretsDir: string,
           continue
         let publicKey = kres.get()
 
-        let cres = publicKey.load()
-        if cres.isNone():
+        let cres = publicKey.load().valueOr:
           # Skip folders which has invalid ValidatorPubKey
           # (point is not on curve).
           continue
 
-        yield cres.get()
+        yield cres
 
   except OSError as err:
     error "Validator keystores directory not accessible",
@@ -1208,14 +1204,10 @@ proc importKeystore*(pool: var ValidatorPool,
     keystoreFile = keystoreDir / RemoteKeystoreFileName
 
   # We check `publicKey`.
-  let cookedKey =
-    block:
-      let res = publicKey.load()
-      if res.isNone():
+  let cookedKey = publicKey.load().valueOr:
         return err(
           AddValidatorFailure.init(AddValidatorStatus.failed,
                                    "Invalid validator's public key"))
-      res.get()
 
   # We check `publicKey` in memory storage first.
   if publicKey in pool:

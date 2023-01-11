@@ -366,21 +366,20 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                                $res.error())
             res.get()
         let
-          proposer = node.dag.getProposer(qhead, qslot)
-        if proposer.isNone():
-          return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
+          proposer = node.dag.getProposer(qhead, qslot).valueOr:
+            return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
 
         if not node.verifyRandao(
-            qslot, proposer.get(), qrandao, qskip_randao_verification):
+            qslot, proposer, qrandao, qskip_randao_verification):
           return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
         let res =
           if qslot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
             await makeBeaconBlockForHeadAndSlot[capella.ExecutionPayload](
-              node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
+              node, qrandao, proposer, qgraffiti, qhead, qslot)
           else:
             await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
-              node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
+              node, qrandao, proposer, qgraffiti, qhead, qslot)
         if res.isErr():
           return RestApiResponse.jsonError(Http400, res.error())
         res.get()
@@ -456,12 +455,11 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                            $res.error())
         res.get()
-    let proposer = node.dag.getProposer(qhead, qslot)
-    if proposer.isNone():
+    let proposer = node.dag.getProposer(qhead, qslot).valueOr:
       return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
 
     if not node.verifyRandao(
-        qslot, proposer.get(), qrandao, qskip_randao_verification):
+        qslot, proposer, qrandao, qskip_randao_verification):
       return RestApiResponse.jsonError(Http400, InvalidRandaoRevealValue)
 
     template responsePlain(response: untyped): untyped =
@@ -474,7 +472,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
       let res = await makeBlindedBeaconBlockForHeadAndSlot(
-        node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
+        node, qrandao, proposer, qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
       return responsePlain(ForkedBlindedBeaconBlock(
@@ -483,7 +481,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     else:
       # Pre-Bellatrix, this endpoint will return a BeaconBlock
       let res = await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
-        node, qrandao, proposer.get(), qgraffiti, qhead, qslot)
+        node, qrandao, proposer, qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
       return responsePlain(res.get())

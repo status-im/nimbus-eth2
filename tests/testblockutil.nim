@@ -155,8 +155,8 @@ proc addTestBlockAux[EP: bellatrix.ExecutionPayload | capella.ExecutionPayload](
 
   let
     proposer_index = get_beacon_proposer_index(
-      state, cache, getStateField(state, slot))
-    privKey = MockPrivKeys[proposer_index.get]
+      state, cache, getStateField(state, slot)).expect("valid proposer index")
+    privKey = MockPrivKeys[proposer_index]
     randao_reveal =
       if skipBlsValidation notin flags:
         get_epoch_signature(
@@ -189,7 +189,7 @@ proc addTestBlockAux[EP: bellatrix.ExecutionPayload | capella.ExecutionPayload](
     message = makeBeaconBlock(
       cfg,
       state,
-      proposer_index.get(),
+      proposer_index,
       randao_reveal,
       # Keep deposit counts internally consistent.
       Eth1Data(

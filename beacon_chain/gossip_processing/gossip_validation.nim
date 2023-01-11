@@ -371,13 +371,12 @@ proc validateBeaconBlock*(
   # processing while proposers for the block's branch are calculated -- in such
   # a case do not REJECT, instead IGNORE this message.
   let
-    proposer = getProposer(dag, parent, signed_beacon_block.message.slot)
+    proposer = getProposer(
+        dag, parent, signed_beacon_block.message.slot).valueOr:
+      warn "cannot compute proposer for message"
+      return errIgnore("BeaconBlock: Cannot compute proposer") # internal issue
 
-  if proposer.isNone:
-    warn "cannot compute proposer for message"
-    return errIgnore("BeaconBlock: Cannot compute proposer") # internal issue
-
-  if uint64(proposer.get()) != signed_beacon_block.message.proposer_index:
+  if uint64(proposer) != signed_beacon_block.message.proposer_index:
     quarantine[].addUnviable(signed_beacon_block.root)
     return errReject("BeaconBlock: Unexpected proposer proposer")
 
@@ -388,7 +387,7 @@ proc validateBeaconBlock*(
       getStateField(dag.headState, genesis_validators_root),
       signed_beacon_block.message.slot,
       signed_beacon_block.root,
-      dag.validatorKey(proposer.get()).get(),
+      dag.validatorKey(proposer).get(),
       signed_beacon_block.signature):
     quarantine[].addUnviable(signed_beacon_block.root)
 
@@ -579,8 +578,7 @@ proc validateAttestation*(
         attestation.data.target.epoch:
     return errIgnore("Attestation: Validator has already voted in epoch")
 
-  let pubkey = pool.dag.validatorKey(validator_index)
-  if pubkey.isNone():
+  let pubkey = pool.dag.validatorKey(validator_index).valueOr:
     # can't happen, in theory, because we checked the aggregator index above
     return errIgnore("Attestation: cannot find validator pubkey")
 
@@ -592,7 +590,7 @@ proc validateAttestation*(
       let deferredCrypto = batchCrypto
                              .scheduleAttestationCheck(
                               fork, genesis_validators_root, attestation.data,
-                              pubkey.get(), attestation.signature)
+                              pubkey, attestation.signature)
       if deferredCrypto.isErr():
         return checkedReject(deferredCrypto.error)
 
@@ -608,10 +606,8 @@ proc validateAttestation*(
       of BatchResult.Valid:
         sig # keep going only in this case
     else:
-      let sig = attestation.signature.load()
-      if not sig.isSome():
+      attestation.signature.load().valueOr:
         return checkedReject("Attestation: unable to load signature")
-      sig.get()
 
   # Only valid attestations go in the list, which keeps validator_index
   # in range
@@ -803,10 +799,8 @@ proc validateAggregate*(
           discard
       sig
     else:
-      let sig = aggregate.signature.load()
-      if not sig.isSome():
+      aggregate.signature.load().valueOr:
         return checkedReject("Aggregate: unable to load signature")
-      sig.get()
 
   # The following rule follows implicitly from that we clear out any
   # unviable blocks from the chain dag:
@@ -949,10 +943,8 @@ proc validateSyncCommitteeMessage*(
     epoch = msg.slot.epoch
     fork = dag.forkAtEpoch(epoch)
     genesis_validators_root = dag.genesis_validators_root
-    senderPubKey = dag.validatorKey(msg.validator_index)
-
-  if senderPubKey.isNone():
-    return errReject("SyncCommitteeMessage: invalid validator index")
+    senderPubKey = dag.validatorKey(msg.validator_index).valueOr:
+      return errReject("SyncCommitteeMessage: invalid validator index")
 
   let sig =
     if checkSignature:
@@ -961,7 +953,7 @@ proc validateSyncCommitteeMessage*(
                             .scheduleSyncCommitteeMessageCheck(
                               fork, genesis_validators_root,
                               msg.slot, msg.beacon_block_root,
-                              senderPubKey.get(), msg.signature)
+                              senderPubKey, msg.signature)
       if deferredCrypto.isErr():
         return errReject(deferredCrypto.error)
 
@@ -979,10 +971,8 @@ proc validateSyncCommitteeMessage*(
       of BatchResult.Valid:
         sig # keep going only in this case
     else:
-      let sig = msg.signature.load()
-      if not sig.isSome():
+      msg.signature.load().valueOr:
         return errReject("SyncCommitteeMessage: unable to load signature")
-      sig.get()
 
   return ok((positionsInSubcommittee, sig))
 
@@ -1100,10 +1090,8 @@ proc validateContribution*(
         discard
     sig
   else:
-    let sig = msg.message.contribution.signature.load()
-    if not sig.isSome():
+    msg.message.contribution.signature.load().valueOr:
       return errReject("SyncCommitteeMessage: unable to load signature")
-    sig.get()
 
   return ok((sig, participants))
 

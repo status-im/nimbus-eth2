@@ -332,12 +332,12 @@ func compute_shuffled_index*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/beacon-chain.md#compute_proposer_index
 func compute_proposer_index(state: ForkyBeaconState,
-    indices: seq[ValidatorIndex], seed: Eth2Digest): Option[ValidatorIndex] =
+    indices: seq[ValidatorIndex], seed: Eth2Digest): Opt[ValidatorIndex] =
   ## Return from ``indices`` a random index sampled by effective balance.
   const MAX_RANDOM_BYTE = 255
 
   if len(indices) == 0:
-    return none(ValidatorIndex)
+    return Opt.none(ValidatorIndex)
 
   let seq_len = indices.lenu64
 
@@ -354,20 +354,20 @@ func compute_proposer_index(state: ForkyBeaconState,
       effective_balance = state.validators[candidate_index].effective_balance
     if effective_balance * MAX_RANDOM_BYTE >=
         MAX_EFFECTIVE_BALANCE * random_byte:
-      return some(candidate_index)
+      return Opt.some(candidate_index)
     i += 1
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(
     state: ForkyBeaconState, cache: var StateCache, slot: Slot):
-    Option[ValidatorIndex] =
+    Opt[ValidatorIndex] =
   let epoch = get_current_epoch(state)
 
   if slot.epoch() != epoch:
     # compute_proposer_index depends on `effective_balance`, therefore the
     # beacon proposer index can only be computed for the "current" epoch:
     # https://github.com/ethereum/consensus-specs/pull/772#issuecomment-475574357
-    return none(ValidatorIndex)
+    return Opt.none(ValidatorIndex)
 
   cache.beacon_proposer_indices.withValue(slot, proposer) do:
     return proposer[]
@@ -384,7 +384,7 @@ func get_beacon_proposer_index*(
       # quite a while
       indices = get_active_validator_indices(state, epoch)
 
-    var res: Option[ValidatorIndex]
+    var res: Opt[ValidatorIndex]
     for epoch_slot in epoch.slots():
       buffer[32..39] = uint_to_bytes(epoch_slot.asUInt64)
       let seed = eth2digest(buffer)
@@ -397,12 +397,12 @@ func get_beacon_proposer_index*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(state: ForkyBeaconState, cache: var StateCache):
-    Option[ValidatorIndex] =
+    Opt[ValidatorIndex] =
   get_beacon_proposer_index(state, cache, state.slot)
 
 func get_beacon_proposer_index*(state: ForkedHashedBeaconState,
                                 cache: var StateCache, slot: Slot):
-                                Option[ValidatorIndex] =
+                                Opt[ValidatorIndex] =
   withState(state):
     get_beacon_proposer_index(forkyState.data, cache, slot)
 
