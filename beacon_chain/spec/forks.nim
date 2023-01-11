@@ -181,6 +181,13 @@ type
     of BeaconBlockFork.Capella:   capellaData*:   capella.SignedBeaconBlock
     of BeaconBlockFork.EIP4844:   eip4844Data*:   eip4844.SignedBeaconBlock
 
+  ForkySignedBeaconBlockMaybeBlobs* =
+    phase0.SignedBeaconBlock |
+    altair.SignedBeaconBlock |
+    bellatrix.SignedBeaconBlock |
+    capella.SignedBeaconBlock |
+    eip4844.SignedBeaconBlockAndBlobsSidecar
+
   ForkySignedBlindedBeaconBlock* =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
@@ -254,6 +261,12 @@ type
     bellatrix*: ForkDigest
     capella*:   ForkDigest
     eip4844*:   ForkDigest
+
+template toSignedBeaconBlock*(b: ForkySignedBeaconBlockMaybeBlobs): ForkySignedBeaconBlock =
+  when b is eip4844.SignedBeaconBlockAndBlobsSidecar:
+    b.beacon_block
+  else:
+    b
 
 template toFork*[T: phase0.BeaconState | phase0.HashedBeaconState](
     t: type T): BeaconStateFork =
@@ -474,6 +487,7 @@ template toFork*[T:
     eip4844.ExecutionPayload |
     eip4844.BeaconBlock |
     eip4844.SignedBeaconBlock |
+    eip4844.SignedBeaconBlockAndBlobsSidecar |
     eip4844.TrustedBeaconBlock |
     eip4844.SigVerifiedSignedBeaconBlock |
     eip4844.MsgTrustedSignedBeaconBlock |

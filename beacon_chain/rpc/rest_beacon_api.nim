@@ -14,7 +14,7 @@ import
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
   ../spec/[deposit_snapshots, eth2_merkleization, forks, network, validator],
-  ../spec/datatypes/[phase0, altair],
+  ../spec/datatypes/[phase0, altair, eip4844],
   ../validators/message_router_mev
 
 export rest_utils
@@ -804,7 +804,17 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         withBlck(forked):
           blck.root = hash_tree_root(blck.message)
-          await node.router.routeSignedBeaconBlock(blck)
+          let signedBlockAndBlobs =
+            when blck is eip4844.SignedBeaconBlock:
+              # TODO: Fetch blobs from EE
+              eip4844.SignedBeaconBlockAndBlobsSidecar(
+                beacon_block: blck,
+                blobs_sidecar: eip4844.BlobsSidecar()
+              )
+            else:
+              blck
+
+          await node.router.routeSignedBeaconBlock(signedBlockAndBlobs)
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -877,7 +887,16 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       let res = withBlck(forked):
         blck.root = hash_tree_root(blck.message)
-        await node.router.routeSignedBeaconBlock(blck)
+        let signedBlockAndBlobs =
+          when blck is eip4844.SignedBeaconBlock:
+            eip4844.SignedBeaconBlockAndBlobsSidecar(
+              beacon_block: blck,
+              blobs_sidecar: eip4844.BlobsSidecar()
+            )
+          else:
+            blck
+
+        await node.router.routeSignedBeaconBlock(signedBlockAndBlobs)
 
       if res.isErr():
         return RestApiResponse.jsonError(

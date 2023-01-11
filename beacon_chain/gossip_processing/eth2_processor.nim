@@ -190,10 +190,11 @@ proc new*(T: type Eth2Processor,
 
 proc processSignedBeaconBlock*(
     self: var Eth2Processor, src: MsgSource,
-    signedBlock: ForkySignedBeaconBlock): ValidationRes =
+    signedBlockAndBlobs: ForkySignedBeaconBlockMaybeBlobs): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
+    signedBlock = toSignedBeaconBlock(signedBlockAndBlobs)
 
   logScope:
     blockRoot = shortLog(signedBlock.root)
@@ -213,7 +214,7 @@ proc processSignedBeaconBlock*(
   debug "Block received", delay
 
   let v =
-    self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {})
+    self.dag.validateBeaconBlock(self.quarantine, signedBlockAndBlobs, wallTime, {})
 
   if v.isOk():
     # Block passed validation - enqueue it for processing. The block processing
@@ -240,67 +241,6 @@ proc processSignedBeaconBlock*(
     beacon_blocks_dropped.inc(1, [$v.error[0]])
 
   v
-
-proc processSignedBeaconBlockAndBlobsSidecar*(
-  self: var Eth2Processor, src: MsgSource,
-  signedBlockAndBlobsSidecar: SignedBeaconBlockAndBlobsSidecar): ValidationRes =
-  let
-    wallTime = self.getCurrentBeaconTime()
-    (afterGenesis, wallSlot) = wallTime.toSlot()
-
-  template signedBlock: auto = signedBlockAndBlobsSidecar.beacon_block
-  template blobs: auto = signedBlockAndBlobsSidecar.blobs_sidecar
-
-  logScope:
-    blockRoot = shortLog(signedBlock.root)
-    blck = shortLog(signedBlock.message)
-    signature = shortLog(signedBlock.signature)
-    wallSlot
-
-  if not afterGenesis:
-    notice "Block before genesis"
-    return errIgnore("Block before genesis")
-
-  # Potential under/overflows are fine; would just create odd metrics and logs
-  let delay = wallTime - signedBlock.message.slot.start_beacon_time
-
-  # Start of block processing - in reality, we have already gone through SSZ
-  # decoding at this stage, which may be significant
-  debug "Block received", delay
-
-  let blockRes =
-    self.dag.validateBeaconBlock(self.quarantine, signedBlock, Opt.some(blobs),
-                                 wallTime, {})
-  if blockRes.isErr():
-    debug "Dropping block", error = blockRes.error()
-    self.blockProcessor[].dumpInvalidBlock(signedBlock)
-    beacon_blocks_dropped.inc(1, [$blockRes.error[0]])
-    return blockRes
-
-  let sidecarRes =  validateBeaconBlockAndBlobsSidecar(signedBlockAndBlobsSidecar)
-  if sidecarRes.isErr():
-    debug "Dropping block", error = sidecarRes.error()
-    self.blockProcessor[].dumpInvalidBlock(signedBlock)
-    beacon_blocks_dropped.inc(1, [$sidecarRes.error[0]])
-    return sidecarRes
-
-  # Block passed validation - enqueue it for processing. The block processing
-  # queue is effectively unbounded as we use a freestanding task to enqueue
-  # the block - this is done so that when blocks arrive concurrently with
-  # sync, we don't lose the gossip blocks, but also don't block the gossip
-  # propagation of seemingly good blocks
-  trace "Block validated"
-  self.blockProcessor[].addBlock(
-    src, ForkedSignedBeaconBlock.init(signedBlock),
-    Opt.some(blobs),
-    validationDur = nanoseconds(
-        (self.getCurrentBeaconTime() - wallTime).nanoseconds))
-
-  # Validator monitor registration for blocks is done by the processor
-  beacon_blocks_received.inc()
-  beacon_block_delay.observe(delay.toFloatSeconds())
-
-  sidecarRes
 
 proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # When another client's already running, this is very likely to detect

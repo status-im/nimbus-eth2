@@ -895,9 +895,13 @@ proc proposeBlock(node: BeaconNode,
         elif blck is capella.BeaconBlock:
           capella.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
+        # TODO: Fetch blobs from EE
+        # https://github.com/ethereum/consensus-specs/blob/dev/specs/eip4844/validator.md#blob-kzg-commitments
         elif blck is eip4844.BeaconBlock:
-          eip4844.SignedBeaconBlock(
-            message: blck, signature: signature, root: blockRoot)
+          eip4844.SignedBeaconBlockAndBlobsSidecar(
+            beacon_block:eip4844.SignedBeaconBlock(message: blck, signature: signature, root: blockRoot),
+            blobs_sidecar: eip4844.BlobsSidecar()
+          )
         else:
           static: doAssert "Unknown SignedBeaconBlock type"
       newBlockRef =
