@@ -137,11 +137,9 @@ proc getAttachedValidator(node: BeaconNode,
 proc getValidatorForDuties*(
     node: BeaconNode,
     idx: ValidatorIndex, slot: Slot): Opt[AttachedValidator] =
-  let key = node.dag.validatorKey(idx)
-  if key.isNone:
-    return Opt.none(AttachedValidator)
+  let key = ? node.dag.validatorKey(idx)
 
-  node.attachedValidators[].getValidatorForDuties(key.get().toPubKey(), slot)
+  node.attachedValidators[].getValidatorForDuties(key.toPubKey(), slot)
 
 proc isSynced*(node: BeaconNode, head: BlockRef): SyncStatus =
   ## TODO This function is here as a placeholder for some better heurestics to
@@ -1122,20 +1120,18 @@ proc handleProposal(node: BeaconNode, head: BlockRef, slot: Slot):
   ## that is supposed to do so, given the shuffling at that slot for the given
   ## head - to compute the proposer, we need to advance a state to the given
   ## slot
-  let proposer = node.dag.getProposer(head, slot)
-  if proposer.isNone():
-    return head
-
   let
-    proposerKey = node.dag.validatorKey(proposer.get()).get().toPubKey
-    validator = node.getValidatorForDuties(proposer.get(), slot).valueOr:
+    proposer = node.dag.getProposer(head, slot).valueOr:
+      return head
+    proposerKey = node.dag.validatorKey(proposer).get().toPubKey
+    validator = node.getValidatorForDuties(proposer, slot).valueOr:
       debug "Expecting block proposal", headRoot = shortLog(head.root),
                                         slot = shortLog(slot),
-                                        proposer_index = proposer.get(),
+                                        proposer_index = proposer,
                                         proposer = shortLog(proposerKey)
       return head
 
-  return await proposeBlock(node, validator, proposer.get(), head, slot)
+  return await proposeBlock(node, validator, proposer, head, slot)
 
 proc signAndSendAggregate(
     node: BeaconNode, validator: AttachedValidator, shufflingRef: ShufflingRef,

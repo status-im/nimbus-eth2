@@ -49,15 +49,6 @@ func `$`*(s: SignatureSet): string =
 #     there is no guarantee that pubkeys and signatures received are valid
 #     unlike when Nimbus did eager loading which ensured they were correct beforehand
 
-template loadOrExit(signature: ValidatorSig, error: cstring):
-    untyped =
-  ## Load a BLS signature from a raw signature
-  ## Exits the **caller** with false if the signature is invalid
-  let sig = signature.load()
-  if sig.isNone:
-    return err(error) # this exits the calling scope, as templates are inlined.
-  sig.unsafeGet()
-
 func init(T: type SignatureSet,
     pubkey: CookedPubKey, signing_root: Eth2Digest,
     signature: CookedSig): T =
@@ -81,19 +72,16 @@ proc aggregateAttesters(
     return err("aggregateAttesters: no attesting indices")
 
   let
-    firstKey = validatorKeys.load(validatorIndices[0])
-
-  if not firstKey.isSome():
-    return err("aggregateAttesters: invalid attesting index")
+    firstKey = validatorKeys.load(validatorIndices[0]).valueOr:
+      return err("aggregateAttesters: invalid attesting index")
 
   var attestersAgg{.noinit.}: AggregatePublicKey
 
-  attestersAgg.init(firstKey.get())
+  attestersAgg.init(firstKey)
   for i in 1 ..< validatorIndices.len:
-    let key = validatorKeys.load(validatorIndices[i])
-    if not key.isSome():
+    let key = validatorKeys.load(validatorIndices[i]).valueOr:
       return err("aggregateAttesters: invalid attesting index")
-    attestersAgg.aggregate(key.get())
+    attestersAgg.aggregate(key)
 
   ok(finish(attestersAgg))
 
@@ -114,13 +102,12 @@ proc aggregateAttesters(
   var inited = false
   for i in 0..<bits.len:
     if bits[i]:
-      let key = validatorKeys.load(validatorIndices[i])
-      if not key.isSome():
+      let key = validatorKeys.load(validatorIndices[i]).valueOr:
         return err("aggregateAttesters: invalid attesting index")
       if inited:
-        attestersAgg.aggregate(key.get())
+        attestersAgg.aggregate(key)
       else:
-        attestersAgg = AggregatePublicKey.init(key.get)
+        attestersAgg = AggregatePublicKey.init(key)
         inited = true
 
   if not inited:
@@ -249,26 +236,24 @@ proc collectSignatureSets*(
 
   let
     proposer_index = signed_block.message.proposer_index
-    proposer_key = validatorKeys.load(proposer_index)
-  if not proposer_key.isSome():
-    return err("collectSignatureSets: invalid proposer index")
-
-  let epoch = signed_block.message.slot.epoch()
+    proposer_key = validatorKeys.load(proposer_index).valueOr:
+      return err("collectSignatureSets: invalid proposer index")
+    epoch = signed_block.message.slot.epoch()
 
   # 1. Block proposer
   # ----------------------------------------------------
   sigs.add block_signature_set(
     fork, genesis_validators_root,
     signed_block.message.slot, signed_block.root,
-    proposer_key.get(), signed_block.signature.loadOrExit(
-      "collectSignatureSets: cannot load signature"))
+    proposer_key, signed_block.signature.load.valueOr do:
+      return err("collectSignatureSets: cannot load signature"))
 
   # 2. Randao Reveal
   # ----------------------------------------------------
   sigs.add epoch_signature_set(
-    fork, genesis_validators_root, epoch, proposer_key.get(),
-    signed_block.message.body.randao_reveal.loadOrExit(
-      "collectSignatureSets: cannot load randao"))
+    fork, genesis_validators_root, epoch, proposer_key,
+    signed_block.message.body.randao_reveal.load().valueOr do:
+      return err("collectSignatureSets: cannot load randao"))
 
   # 3. Proposer slashings
   # ----------------------------------------------------
@@ -288,27 +273,27 @@ proc collectSignatureSets*(
     block:
       let
         header = slashing.signed_header_1
-        key = validatorKeys.load(header.message.proposer_index)
-      if not key.isSome():
-        return err("collectSignatureSets: invalid slashing proposer index 1")
+        key = validatorKeys.load(header.message.proposer_index).valueOr:
+          return err("collectSignatureSets: invalid slashing proposer index 1")
 
       sigs.add block_signature_set(
         fork, genesis_validators_root, header.message.slot, header.message,
-        key.get(), header.signature.loadOrExit(
-          "collectSignatureSets: cannot load proposer slashing 1 signature"))
+        key, header.signature.load().valueOr do:
+          return err(
+            "collectSignatureSets: cannot load proposer slashing 1 signature"))
 
     # Conflicting block 2
     block:
       let
         header = slashing.signed_header_2
-        key = validatorKeys.load(header.message.proposer_index)
-      if not key.isSome():
-        return err("collectSignatureSets: invalid slashing proposer index 2")
+        key = validatorKeys.load(header.message.proposer_index).valueOr:
+          return err("collectSignatureSets: invalid slashing proposer index 2")
 
       sigs.add block_signature_set(
         fork, genesis_validators_root, header.message.slot, header.message,
-        key.get(), header.signature.loadOrExit(
-          "collectSignatureSets: cannot load proposer slashing 2 signature"))
+        key, header.signature.load().valueOr do:
+          return err(
+            "collectSignatureSets: cannot load proposer slashing 2 signature"))
 
   # 4. Attester slashings
   # ----------------------------------------------------
@@ -329,7 +314,8 @@ proc collectSignatureSets*(
       let
         key = ? aggregateAttesters(
           slashing.attestation_1.attesting_indices.asSeq(), validatorKeys)
-        sig = slashing.attestation_1.signature.loadOrExit("")
+        sig = slashing.attestation_1.signature.load().valueOr:
+          return err("Invalid attestation slashing signature 1")
       sigs.add attestation_signature_set(
         fork, genesis_validators_root, slashing.attestation_1.data, key, sig)
 
@@ -338,7 +324,8 @@ proc collectSignatureSets*(
       let
         key = ? aggregateAttesters(
           slashing.attestation_2.attesting_indices.asSeq(), validatorKeys)
-        sig = slashing.attestation_2.signature.loadOrExit("")
+        sig = slashing.attestation_2.signature.load().valueOr:
+          return err("Invalid attestation slashing signature 2")
       sigs.add attestation_signature_set(
         fork, genesis_validators_root, slashing.attestation_2.data, key, sig)
 
@@ -359,7 +346,8 @@ proc collectSignatureSets*(
         get_attesting_indices(
           state, attestation.data, attestation.aggregation_bits, cache),
         validatorKeys)
-      sig = attestation.signature.loadOrExit("")
+      sig = attestation.signature.load().valueOr:
+        return err("Invalid attestation signature")
 
     sigs.add attestation_signature_set(
       fork, genesis_validators_root, attestation.data, key, sig)
@@ -375,14 +363,14 @@ proc collectSignatureSets*(
     # due to https://github.com/nim-lang/Nim/issues/14421
     # fixed in 1.4.2
     template volex: untyped = signed_block.message.body.voluntary_exits[i]
-    let key = validatorKeys.load(volex.message.validator_index)
-    if not key.isSome():
+    let key = validatorKeys.load(volex.message.validator_index).valueOr:
       return err("collectSignatureSets: invalid voluntary exit")
 
     sigs.add voluntary_exit_signature_set(
-      fork, genesis_validators_root, volex.message, key.get(),
-      volex.signature.loadOrExit(
-        "collectSignatureSets: cannot load voluntary exit signature"))
+      fork, genesis_validators_root, volex.message, key,
+      volex.signature.load.valueOr do:
+        return err(
+          "collectSignatureSets: cannot load voluntary exit signature"))
 
   block:
     when signed_block is phase0.SignedBeaconBlock:
@@ -409,8 +397,8 @@ proc collectSignatureSets*(
             sigs.add sync_committee_message_signature_set(
               fork, genesis_validators_root, previous_slot, beacon_block_root,
               pubkey,
-              signed_block.message.body.sync_aggregate.sync_committee_signature.loadOrExit(
-                "collectSignatureSets: cannot load signature"))
+              signed_block.message.body.sync_aggregate.sync_committee_signature.load().valueOr do:
+                return err("collectSignatureSets: cannot load signature"))
 
   ok()
 

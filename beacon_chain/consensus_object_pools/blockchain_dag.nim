@@ -11,7 +11,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[algorithm, options, sequtils, tables, sets],
+  std/[algorithm, sequtils, tables, sets],
   stew/[assign2, byteutils, results],
   metrics, snappy, chronicles,
   ../spec/[beaconstate, eth2_merkleization, eth2_ssz_serialization, helpers,
@@ -135,7 +135,7 @@ proc updateFrontfillBlocks*(dag: ChainDAGRef) =
     reset(dag.frontfillBlocks)
 
 func validatorKey*(
-    dag: ChainDAGRef, index: ValidatorIndex or uint64): Option[CookedPubKey] =
+    dag: ChainDAGRef, index: ValidatorIndex or uint64): Opt[CookedPubKey] =
   ## Returns the validator pubkey for the index, assuming it's been observed
   ## at any point in time - this function may return pubkeys for indicies that
   ## are not (yet) part of the head state (if the key has been observed on a
@@ -2210,11 +2210,11 @@ proc preInit*(
         notice "Database initialized from checkpoint", blockRoot = $blockRoot
 
 proc getProposer*(
-    dag: ChainDAGRef, head: BlockRef, slot: Slot): Option[ValidatorIndex] =
+    dag: ChainDAGRef, head: BlockRef, slot: Slot): Opt[ValidatorIndex] =
   let
     epochRef = dag.getEpochRef(head.bid, slot.epoch(), false).valueOr:
       notice "Cannot load EpochRef for given head", head, slot, error
-      return none(ValidatorIndex)
+      return Opt.none(ValidatorIndex)
 
     slotInEpoch = slot.since_epoch_start()
 
@@ -2226,7 +2226,7 @@ proc getProposer*(
       # created validators in the state without updating the cache!
       warn "Proposer key not found",
         keys = dag.db.immutableValidators.lenu64(), proposer = proposer.get()
-      return none(ValidatorIndex)
+      return Opt.none(ValidatorIndex)
 
   proposer
 
@@ -2274,20 +2274,17 @@ proc aggregateAll*(
     return err("aggregate: no attesting keys")
 
   let
-    firstKey = dag.validatorKey(validator_indices[0])
-
-  if not firstKey.isSome():
-    return err("aggregate: invalid validator index")
+    firstKey = dag.validatorKey(validator_indices[0]).valueOr:
+      return err("aggregate: invalid validator index")
 
   var aggregateKey{.noinit.}: AggregatePublicKey
 
-  aggregateKey.init(firstKey.get())
+  aggregateKey.init(firstKey)
 
   for i in 1 ..< validator_indices.len:
-    let key = dag.validatorKey(validator_indices[i])
-    if not key.isSome():
+    let key = dag.validatorKey(validator_indices[i]).valueOr:
       return err("aggregate: invalid validator index")
-    aggregateKey.aggregate(key.get())
+    aggregateKey.aggregate(key)
 
   ok(finish(aggregateKey))
 
@@ -2304,14 +2301,13 @@ proc aggregateAll*(
 
   for i in 0..<bits.len():
     if bits[i]:
-      let key = dag.validatorKey(validator_indices[i])
-      if not key.isSome():
+      let key = dag.validatorKey(validator_indices[i]).valueOr:
         return err("aggregate: invalid validator index")
 
       if inited:
-        aggregateKey.aggregate(key.get)
+        aggregateKey.aggregate(key)
       else:
-        aggregateKey = AggregatePublicKey.init(key.get)
+        aggregateKey = AggregatePublicKey.init(key)
         inited = true
 
   if not inited:

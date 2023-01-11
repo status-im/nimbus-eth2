@@ -93,7 +93,7 @@ func process_attestation(
   # Collect information about the attestation
   var
     flags: set[RewardFlags]
-    is_previous_epoch_attester: Option[InclusionInfo]
+    is_previous_epoch_attester: Opt[InclusionInfo]
 
   if a.data.target.epoch == state.get_current_epoch():
     flags.incl RewardFlags.isCurrentEpochAttester
@@ -102,7 +102,7 @@ func process_attestation(
       flags.incl RewardFlags.isCurrentEpochTargetAttester
 
   elif a.data.target.epoch == state.get_previous_epoch():
-    is_previous_epoch_attester = some(InclusionInfo(
+    is_previous_epoch_attester = Opt.some(InclusionInfo(
       delay: a.inclusion_delay,
       proposer_index: a.proposer_index,
     ))
@@ -551,7 +551,7 @@ func get_head_delta*(validator: RewardStatus,
 
 func get_inclusion_delay_delta*(validator: RewardStatus,
                                 base_reward: uint64):
-                                  (RewardDelta, Option[(uint64, RewardDelta)]) =
+                                  (RewardDelta, Opt[(uint64, RewardDelta)]) =
   ## Return proposer and inclusion delay micro-rewards/penalties for each validator.
   if validator.is_previous_epoch_attester.isSome() and ((not validator.flags.contains(RewardFlags.isSlashed))):
     let
@@ -563,7 +563,7 @@ func get_inclusion_delay_delta*(validator: RewardStatus,
       max_attester_reward = base_reward - proposer_reward
       delta = RewardDelta(rewards: max_attester_reward div inclusion_info.delay)
       proposer_index = inclusion_info.proposer_index;
-    return (delta, some((proposer_index, proposer_delta)))
+    return (delta, Opt.some((proposer_index, proposer_delta)))
 
 func get_inactivity_penalty_delta*(validator: RewardStatus,
                                    base_reward: Gwei,

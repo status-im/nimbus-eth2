@@ -191,16 +191,16 @@ func getTargetGossipState*(
   doAssert len(targetForks) <= 2
   targetForks
 
-func nearSyncCommitteePeriod*(epoch: Epoch): Option[uint64] =
+func nearSyncCommitteePeriod*(epoch: Epoch): Opt[uint64] =
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/validator.md#sync-committee-subnet-stability
   if epoch.is_sync_committee_period():
-    return some 0'u64
+    return Opt.some 0'u64
   let epochsBefore =
     EPOCHS_PER_SYNC_COMMITTEE_PERIOD - epoch.since_sync_committee_period_start()
   if epoch.is_sync_committee_period() or epochsBefore <= SYNC_COMMITTEE_SUBNET_COUNT:
-    return some epochsBefore
+    return Opt.some epochsBefore
 
-  none(uint64)
+  Opt.none(uint64)
 
 func getSyncSubnets*(
     nodeHasPubkey: proc(pubkey: ValidatorPubKey):
