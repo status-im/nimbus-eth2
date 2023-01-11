@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -271,7 +271,7 @@ proc initLightClientUpdateForPeriod(
         numParticipants =
           withBlck(bdata):
             when stateFork >= BeaconStateFork.Altair:
-              countOnes(blck.message.body.sync_aggregate.sync_committee_bits)
+              blck.message.body.sync_aggregate.num_active_participants
             else: raiseAssert "Unreachable"
       if numParticipants >= maxParticipants:
         maxParticipants = numParticipants
@@ -501,8 +501,7 @@ proc createLightClientUpdates(
 
   # Verify sync committee has sufficient participants
   template sync_aggregate(): auto = blck.asSigned().message.body.sync_aggregate
-  template sync_committee_bits(): auto = sync_aggregate.sync_committee_bits
-  let num_active_participants = countOnes(sync_committee_bits).uint64
+  let num_active_participants = sync_aggregate.num_active_participants.uint64
   if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
     return
 
@@ -895,7 +894,7 @@ proc getLightClientUpdateForPeriod*(
     if dag.initLightClientUpdateForPeriod(period).isErr:
       return
   result = some(dag.lcDataStore.db.getBestUpdate(period))
-  let numParticipants = countOnes(result.get.sync_aggregate.sync_committee_bits)
+  let numParticipants = result.get.sync_aggregate.num_active_participants
   if numParticipants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
     result.reset()
 
@@ -905,7 +904,7 @@ proc getLightClientFinalityUpdate*(
     return
 
   result = some(dag.lcDataStore.cache.latest)
-  let numParticipants = countOnes(result.get.sync_aggregate.sync_committee_bits)
+  let numParticipants = result.get.sync_aggregate.num_active_participants
   if numParticipants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
     result.reset()
 
@@ -915,6 +914,6 @@ proc getLightClientOptimisticUpdate*(
     return
 
   result = some(dag.lcDataStore.cache.latest.toOptimistic)
-  let numParticipants = countOnes(result.get.sync_aggregate.sync_committee_bits)
+  let numParticipants = result.get.sync_aggregate.num_active_participants
   if numParticipants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
     result.reset()

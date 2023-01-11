@@ -14,7 +14,7 @@ else:
 
 import
   # Status libraries
-  stew/[bitops2, byteutils, endians2, objects, saturation_arith],
+  stew/[byteutils, endians2, objects, saturation_arith],
   chronicles,
   eth/eip1559, eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/[db, hexary],
@@ -259,7 +259,7 @@ func toMeta*(update: SomeLightClientUpdate): LightClientUpdateMetadata =
     else:
       false
   meta.num_active_participants =
-    countOnes(update.sync_aggregate.sync_committee_bits).uint64
+    update.sync_aggregate.num_active_participants.uint64
   meta
 
 func is_better_data*(new_meta, old_meta: LightClientUpdateMetadata): bool =
@@ -319,7 +319,7 @@ func contextEpoch*(bootstrap: altair.LightClientBootstrap): Epoch =
   bootstrap.header.slot.epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 func contextEpoch*(update: SomeLightClientUpdate): Epoch =
   update.attested_header.slot.epoch

@@ -30,7 +30,7 @@ type
   SignedBLSToExecutionChangeList* =
     List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/capella/beacon-chain.md#withdrawal
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#withdrawal
   Withdrawal* = object
     index*: WithdrawalIndex
     validator_index*: uint64
@@ -386,8 +386,7 @@ func shortLog*(v: SomeBeaconBlock): auto =
     attestations_len: v.body.attestations.len(),
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
-    sync_committee_participants:
-      countOnes(v.body.sync_aggregate.sync_committee_bits),
+    sync_committee_participants: v.body.sync_aggregate.num_active_participants,
     block_number: 0'u64, # Bellatrix compat
     fee_recipient: "",
   )
