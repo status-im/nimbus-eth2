@@ -408,7 +408,7 @@ type
   StateCache* = object
     total_active_balance*: Table[Epoch, Gwei]
     shuffled_active_validator_indices*: Table[Epoch, seq[ValidatorIndex]]
-    beacon_proposer_indices*: Table[Slot, Option[ValidatorIndex]]
+    beacon_proposer_indices*: Table[Slot, Opt[ValidatorIndex]]
     sync_committees*: Table[SyncCommitteePeriod, SyncCommitteeCache]
 
   # This matches the mutable state of the Solidity deposit contract
@@ -526,7 +526,7 @@ type
     current_epoch_effective_balance*: Gwei
 
     # True if the validator had an attestation included in the _previous_ epoch.
-    is_previous_epoch_attester*: Option[InclusionInfo]
+    is_previous_epoch_attester*: Opt[InclusionInfo]
 
     # Total rewards and penalties for this validator
     delta*: RewardDelta
@@ -893,11 +893,11 @@ proc readValue*(r: var JsonReader, T: type GraffitiBytes): T
 
 func load*(
     validators: openArray[ImmutableValidatorData2],
-    index: ValidatorIndex | uint64): Option[CookedPubKey] =
+    index: ValidatorIndex | uint64): Opt[CookedPubKey] =
   if validators.lenu64() <= index.uint64:
-    none(CookedPubKey)
+    Opt.none(CookedPubKey)
   else:
-    some(validators[index.int].pubkey)
+    Opt.some(validators[index.int].pubkey)
 
 template hash*(header: BeaconBlockHeader): Hash =
   hash(header.state_root)

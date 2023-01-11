@@ -236,7 +236,7 @@ type
       ## Sync committees corresponding to the finalized header
     next_sync_committee*: SyncCommittee
 
-    best_valid_update*: Option[LightClientUpdate]
+    best_valid_update*: Opt[LightClientUpdate]
       ## Best available header to switch finalized head to if we see nothing else
 
     optimistic_header*: BeaconBlockHeader

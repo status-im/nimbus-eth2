@@ -261,7 +261,8 @@ from ../spec/datatypes/capella import
 
 proc newExecutionPayload*(
     eth1Monitor: Eth1Monitor,
-    executionPayload: bellatrix.ExecutionPayload | capella.ExecutionPayload):
+    executionPayload: bellatrix.ExecutionPayload | capella.ExecutionPayload |
+    eip4844.ExecutionPayload):
     Future[Opt[PayloadExecutionStatus]] {.async.} =
   if eth1Monitor.isNil:
     return Opt.none PayloadExecutionStatus
@@ -318,15 +319,10 @@ proc newExecutionPayload*(
 # know about "eip4844"
 from ../spec/datatypes/eip4844 import SignedBeaconBlock, asTrusted, shortLog
 
-proc newExecutionPayload*(
-    eth1Monitor: Eth1Monitor,
-    executionPayload: eip4844.ExecutionPayload):
-    Future[Opt[PayloadExecutionStatus]] {.async.} =
-  debugRaiseAssert $eip4844ImplementationMissing & ": block_processor.nim:newExecutionPayload"
-
 proc getExecutionValidity(
     eth1Monitor: Eth1Monitor,
-    blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock):
+    blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
+    eip4844.SignedBeaconBlock):
     Future[NewPayloadStatus] {.async.} =
   # Eth1 syncing is asynchronous from this
   # TODO self.consensusManager.eth1Monitor.ttdReached
@@ -362,12 +358,6 @@ proc getExecutionValidity(
   except CatchableError as err:
     error "getExecutionValidity: newPayload failed", err = err.msg
     return NewPayloadStatus.noResponse
-
-proc getExecutionValidity(
-    eth1Monitor: Eth1Monitor,
-    blck: eip4844.SignedBeaconBlock):
-    Future[NewPayloadStatus] {.async.} =
-  debugRaiseAssert $eip4844ImplementationMissing & ": block_processor.nim:getExecutionValidity"
 
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,

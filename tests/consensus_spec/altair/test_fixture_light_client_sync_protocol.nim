@@ -143,7 +143,7 @@ func initialize_light_client_store(state: auto): LightClientStore =
     finalized_header: BeaconBlockHeader(),
     current_sync_committee: state.current_sync_committee,
     next_sync_committee: state.next_sync_committee,
-    best_valid_update: none(altair.LightClientUpdate),
+    best_valid_update: Opt.none(altair.LightClientUpdate),
     optimistic_header: BeaconBlockHeader(),
     previous_max_active_participants: 0,
     current_max_active_participants: 0,

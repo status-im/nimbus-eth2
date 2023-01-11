@@ -10,7 +10,7 @@
 import
   # Standard library
   os, strutils, streams, strformat,
-  macros, sets,
+  macros,
   # Third-party
   yaml,
   # Beacon chain internals

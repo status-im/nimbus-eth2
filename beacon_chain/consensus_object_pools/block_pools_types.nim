@@ -269,7 +269,7 @@ type
 
     checkpoints*: FinalityCheckpoints
 
-    beacon_proposers*: array[SLOTS_PER_EPOCH, Option[ValidatorIndex]]
+    beacon_proposers*: array[SLOTS_PER_EPOCH, Opt[ValidatorIndex]]
     proposer_dependent_root*: Eth2Digest
 
     shufflingRef*: ShufflingRef
