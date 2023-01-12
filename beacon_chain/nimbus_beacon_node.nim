@@ -809,7 +809,7 @@ proc updateBlocksGossipStatus*(
     newGossipForks = targetGossipState - currentGossipState
     oldGossipForks = currentGossipState - targetGossipState
 
-  discard $eip4844ImplementationMissing & ": for EIP4844, https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/p2p-interface.md#beacon_block notes use beacon_block_and_blobs_sidecar rather than beacon_block"
+  discard $eip4844ImplementationMissing & ": for EIP4844, https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#beacon_block notes use beacon_block_and_blobs_sidecar rather than beacon_block"
   for gossipFork in oldGossipForks:
     let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
     node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
