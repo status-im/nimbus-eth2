@@ -149,10 +149,29 @@ proc loadChainDag(
     shouldEnableTestFeatures: bool): ChainDAGRef =
   info "Loading block DAG from database", path = config.databaseDir
 
-  proc onLightClientFinalityUpdate(data: altair.LightClientFinalityUpdate) =
-    eventBus.finUpdateQueue.emit(data)
-  proc onLightClientOptimisticUpdate(data: altair.LightClientOptimisticUpdate) =
-    eventBus.optUpdateQueue.emit(data)
+  var dag: ChainDAGRef
+  proc onLightClientFinalityUpdate(data: ForkedLightClientFinalityUpdate) =
+    if dag == nil: return
+    withForkyFinalityUpdate(data):
+      when lcDataFork >= LightClientDataFork.Altair:
+        let contextFork =
+          dag.cfg.stateForkAtEpoch(forkyFinalityUpdate.contextEpoch)
+        eventBus.finUpdateQueue.emit(
+          RestVersioned[ForkedLightClientFinalityUpdate](
+            data: data,
+            jsonVersion: contextFork,
+            sszContext: dag.forkDigests[].atStateFork(contextFork)))
+  proc onLightClientOptimisticUpdate(data: ForkedLightClientOptimisticUpdate) =
+    if dag == nil: return
+    withForkyOptimisticUpdate(data):
+      when lcDataFork >= LightClientDataFork.Altair:
+        let contextFork =
+          dag.cfg.stateForkAtEpoch(forkyOptimisticUpdate.contextEpoch)
+        eventBus.optUpdateQueue.emit(
+          RestVersioned[ForkedLightClientOptimisticUpdate](
+            data: data,
+            jsonVersion: contextFork,
+            sszContext: dag.forkDigests[].atStateFork(contextFork)))
 
   let
     extraFlags =
@@ -167,19 +186,19 @@ proc loadChainDag(
     onLightClientOptimisticUpdateCb =
       if config.lightClientDataServe: onLightClientOptimisticUpdate
       else: nil
-    dag = ChainDAGRef.init(
-      cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
-      vanityLogs = getVanityLogs(detectTTY(config.logStdout)),
-      lcDataConfig = LightClientDataConfig(
-        serve: config.lightClientDataServe,
-        importMode: config.lightClientDataImportMode,
-        maxPeriods: config.lightClientDataMaxPeriods,
-        onLightClientFinalityUpdate: onLightClientFinalityUpdateCb,
-        onLightClientOptimisticUpdate: onLightClientOptimisticUpdateCb))
-    databaseGenesisValidatorsRoot =
-      getStateField(dag.headState, genesis_validators_root)
+  dag = ChainDAGRef.init(
+    cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
+    vanityLogs = getVanityLogs(detectTTY(config.logStdout)),
+    lcDataConfig = LightClientDataConfig(
+      serve: config.lightClientDataServe,
+      importMode: config.lightClientDataImportMode,
+      maxPeriods: config.lightClientDataMaxPeriods,
+      onLightClientFinalityUpdate: onLightClientFinalityUpdateCb,
+      onLightClientOptimisticUpdate: onLightClientOptimisticUpdateCb))
 
   if networkGenesisValidatorsRoot.isSome:
+    let databaseGenesisValidatorsRoot =
+      getStateField(dag.headState, genesis_validators_root)
     if networkGenesisValidatorsRoot.get != databaseGenesisValidatorsRoot:
       fatal "The specified --data-dir contains data for a different network",
             networkGenesisValidatorsRoot = networkGenesisValidatorsRoot.get,
@@ -418,8 +437,10 @@ proc init*(T: type BeaconNode,
       blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
-      finUpdateQueue: newAsyncEventQueue[altair.LightClientFinalityUpdate](),
-      optUpdateQueue: newAsyncEventQueue[altair.LightClientOptimisticUpdate](),
+      finUpdateQueue: newAsyncEventQueue[
+        RestVersioned[ForkedLightClientFinalityUpdate]](),
+      optUpdateQueue: newAsyncEventQueue[
+        RestVersioned[ForkedLightClientOptimisticUpdate]](),
       attestQueue: newAsyncEventQueue[Attestation](),
       contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),
@@ -809,7 +830,7 @@ proc updateBlocksGossipStatus*(
     newGossipForks = targetGossipState - currentGossipState
     oldGossipForks = currentGossipState - targetGossipState
 
-  discard $eip4844ImplementationMissing & ": for EIP4844, https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/p2p-interface.md#beacon_block notes use beacon_block_and_blobs_sidecar rather than beacon_block"
+  discard $eip4844ImplementationMissing & ": for EIP4844, https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#beacon_block notes use beacon_block_and_blobs_sidecar rather than beacon_block"
   for gossipFork in oldGossipForks:
     let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
     node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
@@ -1447,7 +1468,8 @@ proc installMessageValidators(node: BeaconNode) =
   installPhase0Validators(forkDigests.altair)
   installPhase0Validators(forkDigests.bellatrix)
   installPhase0Validators(forkDigests.capella)
-  installPhase0Validators(forkDigests.eip4844)
+  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:  
+    installPhase0Validators(forkDigests.eip4844)
 
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.altair),
@@ -1479,12 +1501,13 @@ proc installMessageValidators(node: BeaconNode) =
         toValidationResult(node.processor[].processSignedBeaconBlock(
           MsgSource.gossip, signedBlock)))
 
-  node.network.addValidator(
-    getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
-    proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
-      # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
-        toValidationResult(node.processor[].processSignedBeaconBlock(
-          MsgSource.gossip, signedBlock)))
+  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:  
+   node.network.addValidator(
+      getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
+      proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
+        # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
+          toValidationResult(node.processor[].processSignedBeaconBlock(
+            MsgSource.gossip, signedBlock)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:
@@ -1508,7 +1531,8 @@ proc installMessageValidators(node: BeaconNode) =
   installSyncCommitteeeValidators(forkDigests.altair)
   installSyncCommitteeeValidators(forkDigests.bellatrix)
   installSyncCommitteeeValidators(forkDigests.capella)
-  installSyncCommitteeeValidators(forkDigests.eip4844)
+  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    installSyncCommitteeeValidators(forkDigests.eip4844)
 
   node.installLightClientMessageValidators()
 

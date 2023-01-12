@@ -996,11 +996,9 @@ proc validateContribution*(
 
   # [REJECT] The subcommittee index is in the allowed range
   # i.e. contribution.subcommittee_index < SYNC_COMMITTEE_SUBNET_COUNT.
-  let subcommitteeIdx = block:
-    let v = SyncSubcommitteeIndex.init(msg.message.contribution.subcommittee_index)
-    if v.isErr():
-      return errReject("SignedContributionAndProof: subcommittee index too high")
-    v.get()
+  let subcommitteeIdx = SyncSubcommitteeIndex.init(
+      msg.message.contribution.subcommittee_index).valueOr:
+    return errReject("SignedContributionAndProof: subcommittee index too high")
 
   # [REJECT] contribution_and_proof.selection_proof selects the validator as an aggregator for the slot
   # i.e. is_sync_committee_aggregator(contribution_and_proof.selection_proof) returns True.
@@ -1029,19 +1027,17 @@ proc validateContribution*(
     # that is, any(contribution.aggregation_bits).
     return errReject("SignedContributionAndProof: aggregation bits empty")
 
+  # _[IGNORE]_ A valid sync committee contribution with equal `slot`, `beacon_block_root`
+  # and `subcommittee_index` whose `aggregation_bits` is non-strict superset has _not_
+  # already been seen.
+  if syncCommitteeMsgPool[].covers(msg.message.contribution):
+    return errIgnore("SignedContributionAndProof: duplicate contribution")
+
   # TODO we take a copy of the participants to avoid the data going stale
   #      between validation and use - nonetheless, a design that avoids it and
   #      stays safe would be nice
   let participants = dag.syncCommitteeParticipants(
     msg.message.contribution.slot, subcommitteeIdx)
-
-  # The following spec rule:
-  #
-  # _[IGNORE]_ A valid sync committee contribution with equal `slot`, `beacon_block_root`
-  # and `subcommittee_index` whose `aggregation_bits` is non-strict superset has _not_
-  # already been seen.
-  #
-  # is implemented in eth2_processor.nim
 
   let sig = if checkSignature:
     let deferredCrypto = batchCrypto.scheduleContributionChecks(
@@ -1096,16 +1092,24 @@ proc validateContribution*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 proc validateLightClientFinalityUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
-    finality_update: altair.LightClientFinalityUpdate,
+    finality_update: ForkedLightClientFinalityUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
-  let finalized_slot = finality_update.finalized_header.slot
+  let finalized_slot = withForkyFinalityUpdate(finality_update):
+    when lcDataFork >= LightClientDataFork.Altair:
+      forkyFinalityUpdate.finalized_header.slot
+    else:
+      GENESIS_SLOT
   if finalized_slot <= pool.latestForwardedFinalitySlot:
-    # [IGNORE] The `finalized_header.slot` is greater than that of all previously
-    # forwarded `finality_update`s
+    # [IGNORE] The `finalized_header.slot` is greater than that of all
+    # previously forwarded `finality_update`s
     return errIgnore("LightClientFinalityUpdate: slot already forwarded")
 
   let
-    signature_slot = finality_update.signature_slot
+    signature_slot = withForkyFinalityUpdate(finality_update):
+      when lcDataFork >= LightClientDataFork.Altair:
+        forkyFinalityUpdate.signature_slot
+      else:
+        GENESIS_SLOT
     currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
     forwardTime = signature_slot.light_client_finality_update_time
   if currentTime < forwardTime:
@@ -1113,7 +1117,7 @@ proc validateLightClientFinalityUpdate*(
     # `signature_slot` was given enough time to propagate through the network.
     return errIgnore("LightClientFinalityUpdate: received too early")
 
-  if finality_update != dag.lcDataStore.cache.latest:
+  if not finality_update.matches(dag.lcDataStore.cache.latest):
     # [IGNORE] The received `finality_update` matches the locally computed one
     # exactly.
     return errIgnore("LightClientFinalityUpdate: not matching local")
@@ -1124,16 +1128,24 @@ proc validateLightClientFinalityUpdate*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
 proc validateLightClientOptimisticUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
-    optimistic_update: altair.LightClientOptimisticUpdate,
+    optimistic_update: ForkedLightClientOptimisticUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
-  let attested_slot = optimistic_update.attested_header.slot
+  let attested_slot = withForkyOptimisticUpdate(optimistic_update):
+    when lcDataFork >= LightClientDataFork.Altair:
+      forkyOptimisticUpdate.attested_header.slot
+    else:
+      GENESIS_SLOT
   if attested_slot <= pool.latestForwardedOptimisticSlot:
-    # The `attested_header.slot` is greater than that of all previously
-    # forwarded `optimistic_update`s
+    # [IGNORE] The `attested_header.slot` is greater than that of all
+    # previously forwarded `optimistic_update`s
     return errIgnore("LightClientOptimisticUpdate: slot already forwarded")
 
   let
-    signature_slot = optimistic_update.signature_slot
+    signature_slot = withForkyOptimisticUpdate(optimistic_update):
+      when lcDataFork >= LightClientDataFork.Altair:
+        forkyOptimisticUpdate.signature_slot
+      else:
+        GENESIS_SLOT
     currentTime = wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY
     forwardTime = signature_slot.light_client_optimistic_update_time
   if currentTime < forwardTime:

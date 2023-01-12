@@ -180,45 +180,48 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
     debug "Waiting to send LC updates", slot, delay = shortLog(sendTime.offset)
     await sleepAsync(sendTime.offset)
 
-  template latest(): auto = node.dag.lcDataStore.cache.latest
-  let signature_slot = latest.signature_slot
-  if slot != signature_slot:
-    return
+  withForkyFinalityUpdate(node.dag.lcDataStore.cache.latest):
+    when lcDataFork >= LightClientDataFork.Altair:
+      let signature_slot = forkyFinalityUpdate.signature_slot
+      if slot != signature_slot:
+        return
 
-  let num_active_participants = latest.sync_aggregate.num_active_participants
-  if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
-    return
+      let num_active_participants =
+        forkyFinalityUpdate.sync_aggregate.num_active_participants
+      if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
+        return
 
-  let finalized_slot = latest.finalized_header.slot
-  if finalized_slot > node.lightClientPool[].latestForwardedFinalitySlot:
-    template msg(): auto = latest
-    let sendResult = await node.network.broadcastLightClientFinalityUpdate(msg)
+      let finalized_slot = forkyFinalityUpdate.finalized_header.slot
+      if finalized_slot > node.lightClientPool[].latestForwardedFinalitySlot:
+        template msg(): auto = forkyFinalityUpdate
+        let sendResult =
+          await node.network.broadcastLightClientFinalityUpdate(msg)
 
-    # Optimization for message with ephemeral validity, whether sent or not
-    node.lightClientPool[].latestForwardedFinalitySlot = finalized_slot
+        # Optimization for message with ephemeral validity, whether sent or not
+        node.lightClientPool[].latestForwardedFinalitySlot = finalized_slot
 
-    if sendResult.isOk:
-      beacon_light_client_finality_updates_sent.inc()
-      notice "LC finality update sent", message = shortLog(msg)
-    else:
-      warn "LC finality update failed to send",
-        error = sendResult.error()
+        if sendResult.isOk:
+          beacon_light_client_finality_updates_sent.inc()
+          notice "LC finality update sent", message = shortLog(msg)
+        else:
+          warn "LC finality update failed to send",
+            error = sendResult.error()
 
-  let attested_slot = latest.attested_header.slot
-  if attested_slot > node.lightClientPool[].latestForwardedOptimisticSlot:
-    let msg = latest.toOptimistic
-    let sendResult =
-      await node.network.broadcastLightClientOptimisticUpdate(msg)
+      let attested_slot = forkyFinalityUpdate.attested_header.slot
+      if attested_slot > node.lightClientPool[].latestForwardedOptimisticSlot:
+        let msg = forkyFinalityUpdate.toOptimistic
+        let sendResult =
+          await node.network.broadcastLightClientOptimisticUpdate(msg)
 
-    # Optimization for message with ephemeral validity, whether sent or not
-    node.lightClientPool[].latestForwardedOptimisticSlot = attested_slot
+        # Optimization for message with ephemeral validity, whether sent or not
+        node.lightClientPool[].latestForwardedOptimisticSlot = attested_slot
 
-    if sendResult.isOk:
-      beacon_light_client_optimistic_updates_sent.inc()
-      notice "LC optimistic update sent", message = shortLog(msg)
-    else:
-      warn "LC optimistic update failed to send",
-        error = sendResult.error()
+        if sendResult.isOk:
+          beacon_light_client_optimistic_updates_sent.inc()
+          notice "LC optimistic update sent", message = shortLog(msg)
+        else:
+          warn "LC optimistic update failed to send",
+            error = sendResult.error()
 
 proc createAndSendAttestation(node: BeaconNode,
                               fork: Fork,

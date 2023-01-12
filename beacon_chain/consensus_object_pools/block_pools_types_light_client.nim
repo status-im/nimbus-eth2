@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -29,9 +29,9 @@ type
       ## Like `full`, but import on demand instead of on start.
 
   OnLightClientFinalityUpdateCallback* =
-    proc(data: altair.LightClientFinalityUpdate) {.gcsafe, raises: [Defect].}
+    proc(data: ForkedLightClientFinalityUpdate) {.gcsafe, raises: [Defect].}
   OnLightClientOptimisticUpdateCallback* =
-    proc(data: altair.LightClientOptimisticUpdate) {.gcsafe, raises: [Defect].}
+    proc(data: ForkedLightClientOptimisticUpdate) {.gcsafe, raises: [Defect].}
 
   CachedLightClientData* = object
     ## Cached data from historical non-finalized states to improve speed when
@@ -49,12 +49,12 @@ type
       ## Data stored for the finalized head block and all non-finalized blocks.
 
     pendingBest*:
-      Table[(SyncCommitteePeriod, Eth2Digest), altair.LightClientUpdate]
+      Table[(SyncCommitteePeriod, Eth2Digest), ForkedLightClientUpdate]
       ## Same as `bestUpdates`, but for `SyncCommitteePeriod` with not yet
       ## finalized `next_sync_committee`. Key is `(attested_period,
       ## hash_tree_root(current_sync_committee | next_sync_committee)`.
 
-    latest*: altair.LightClientFinalityUpdate
+    latest*: ForkedLightClientFinalityUpdate
       ## Tracks light client data for the latest slot that was signed by
       ## at least `MIN_SYNC_COMMITTEE_PARTICIPANTS`. May be older than head.
 

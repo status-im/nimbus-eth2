@@ -571,7 +571,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/capella/beacon-chain.md#modified-process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#modified-process_execution_payload
 proc process_execution_payload*(
     state: var capella.BeaconState, payload: capella.ExecutionPayload,
     notify_new_payload: capella.ExecutePayload): Result[void, cstring] =
@@ -614,7 +614,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
     state: var eip4844.BeaconState, payload: eip4844.ExecutionPayload,
     notify_new_payload: eip4844.ExecutePayload): Result[void, cstring] =
@@ -700,7 +700,7 @@ func process_withdrawals*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#tx_peek_blob_versioned_hashes
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/beacon-chain.md#tx_peek_blob_versioned_hashes
 func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
     Result[seq[VersionedHash], cstring] =
   ## This function retrieves the hashes from the `SignedBlobTransaction` as
@@ -729,7 +729,7 @@ func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
     res.add versionedHash
   ok res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/beacon-chain.md#kzg_commitment_to_versioned_hash
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash(
     kzg_commitment: eip4844.KZGCommitment): VersionedHash =
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/beacon-chain.md#blob

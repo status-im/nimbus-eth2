@@ -27,14 +27,16 @@ import
 export json_serialization, base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/polynomial-commitments.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/polynomial-commitments.md#constants
   BYTES_PER_FIELD_ELEMENT = 32
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#blob
   BLOB_TX_TYPE* = 0x05'u8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/polynomial-commitments.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/polynomial-commitments.md#constants
   BLS_MODULUS* = "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#configuration
+  MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS* = 4096'u64
 
 type
   # this block belongs elsewhere - will figure out after implementing c-kzg bindings
@@ -60,7 +62,7 @@ type
     beacon_block*: SignedBeaconBlock
     blobs_sidecar*: BlobsSidecar
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
@@ -81,7 +83,7 @@ type
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -524,7 +524,8 @@ proc new*(T: type BeaconChainDB,
 
     lcData = db.initLightClientDataDB(LightClientDataDBNames(
       altairCurrentBranches: "lc_altair_current_branches",
-      altairBestUpdates: "lc_altair_best_updates",
+      legacyAltairBestUpdates: "lc_altair_best_updates",
+      bestUpdates: "lc_best_updates",
       sealedPeriods: "lc_sealed_periods")).expectDb()
 
   var blobs : KvStoreRef
@@ -1049,6 +1050,13 @@ proc getBlockSSZ*(
   of BeaconBlockFork.EIP4844:
     getBlockSSZ(db, key, data, eip4844.TrustedSignedBeaconBlock)
 
+
+proc getBlobsSidecarSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte]):
+    bool =
+  let dataPtr = addr data # Short-lived
+  func decode(data: openArray[byte]) =
+    assign(dataPtr[], data)
+  db.blobs.get(key.data, decode).expectDb()
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],

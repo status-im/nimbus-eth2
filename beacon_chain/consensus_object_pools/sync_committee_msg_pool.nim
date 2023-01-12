@@ -175,14 +175,8 @@ func produceContribution*(
   else:
     false
 
-type
-  AddContributionResult* = enum
-    newBest
-    notBestButNotSubsetOfBest
-    strictSubsetOfTheBest
-
 func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
-                     contribution: SyncCommitteeContribution): AddContributionResult =
+                     contribution: SyncCommitteeContribution) =
   let
     currentBestTotalParticipants =
       bestVotes.subnets[contribution.subcommittee_index].totalParticipants
@@ -194,12 +188,6 @@ func addAggregateAux(bestVotes: var BestSyncSubcommitteeContributions,
         totalParticipants: newBestTotalParticipants,
         participationBits: contribution.aggregation_bits,
         signature: contribution.signature.load.get)
-    newBest
-  elif contribution.aggregation_bits.isSubsetOf(
-         bestVotes.subnets[contribution.subcommittee_index].participationBits):
-    strictSubsetOfTheBest
-  else:
-    notBestButNotSubsetOfBest
 
 func isSeen*(
     pool: SyncCommitteeMsgPool,
@@ -210,10 +198,27 @@ func isSeen*(
     subcommitteeIdx: msg.contribution.subcommittee_index)
   seenKey in pool.seenContributionByAuthor
 
+func covers(
+    bestVotes: BestSyncSubcommitteeContributions,
+    contribution: SyncCommitteeContribution): bool =
+  contribution.aggregation_bits.isSubsetOf(
+          bestVotes.subnets[contribution.subcommittee_index].participationBits)
+
+func covers*(
+    pool: var SyncCommitteeMsgPool,
+    contribution: SyncCommitteeContribution): bool =
+  ## Return true iff the given contribution brings no new information compared
+  ## to the contributions already seen in the pool, ie if the contriubution is a
+  ## subset of the best contribution so far
+  pool.bestContributions.withValue(contribution.beacon_block_root, best):
+    return best[].covers(contribution)
+
+  return false
+
 proc addContribution(pool: var SyncCommitteeMsgPool,
                      aggregator_index: uint64,
                      contribution: SyncCommitteeContribution,
-                     signature: CookedSig): AddContributionResult =
+                     signature: CookedSig) =
   let seenKey = SyncCommitteeMsgKey(
     originator: aggregator_index,
     slot: contribution.slot,
@@ -234,7 +239,6 @@ proc addContribution(pool: var SyncCommitteeMsgPool,
         signature: signature)
 
     pool.bestContributions[blockRoot] = initialBestContributions
-    newBest
   else:
     try:
       addAggregateAux(pool.bestContributions[blockRoot], contribution)
@@ -243,8 +247,8 @@ proc addContribution(pool: var SyncCommitteeMsgPool,
 
 proc addContribution*(pool: var SyncCommitteeMsgPool,
                       scproof: SignedContributionAndProof,
-                      signature: CookedSig): AddContributionResult =
-  result = pool.addContribution(
+                      signature: CookedSig) =
+  pool.addContribution(
     scproof.message.aggregator_index, scproof.message.contribution, signature)
 
   if not(isNil(pool.onContributionReceived)):

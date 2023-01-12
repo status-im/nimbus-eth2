@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -539,7 +539,7 @@ proc processSignedContributionAndProof*(
 
   return if v.isOk():
     trace "Contribution validated"
-    let addStatus = self.syncCommitteeMsgPool[].addContribution(
+    self.syncCommitteeMsgPool[].addContribution(
       contributionAndProof, v.get()[0])
 
     self.validatorMonitor[].registerSyncContribution(
@@ -547,18 +547,7 @@ proc processSignedContributionAndProof*(
 
     beacon_sync_committee_contributions_received.inc()
 
-    case addStatus
-    of newBest, notBestButNotSubsetOfBest: ok()
-    of strictSubsetOfTheBest:
-      # This implements the spec directive:
-      #
-      # _[IGNORE]_ A valid sync committee contribution with equal `slot`, `beacon_block_root`
-      # and `subcommittee_index` whose `aggregation_bits` is non-strict superset has _not_
-      # already been seen.
-      #
-      # We are implementing this here, because this may be an unique contribution, so we would
-      # like for it to be counted and registered by the validator monitor above.
-      errIgnore("strict superset already seen")
+    ok()
   else:
     debug "Dropping contribution", error = v.error
     beacon_sync_committee_contributions_dropped.inc(1, [$v.error[0]])
@@ -568,7 +557,7 @@ proc processSignedContributionAndProof*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var Eth2Processor, src: MsgSource,
-    finality_update: altair.LightClientFinalityUpdate
+    finality_update: ForkedLightClientFinalityUpdate
 ): Result[void, ValidationError] =
   let
     wallTime = self.getCurrentBeaconTime()
@@ -579,7 +568,7 @@ proc processLightClientFinalityUpdate*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
 proc processLightClientOptimisticUpdate*(
     self: var Eth2Processor, src: MsgSource,
-    optimistic_update: altair.LightClientOptimisticUpdate
+    optimistic_update: ForkedLightClientOptimisticUpdate
 ): Result[void, ValidationError] =
   let
     wallTime = self.getCurrentBeaconTime()

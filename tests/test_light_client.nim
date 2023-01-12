@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -92,27 +92,42 @@ suite "Light client" & preset():
 
   test "Pre-Altair":
     # Genesis
-    check:
-      dag.headState.kind == BeaconStateFork.Phase0
-      dag.getLightClientUpdateForPeriod(0.SyncCommitteePeriod).isNone
-      dag.getLightClientFinalityUpdate.isNone
-      dag.getLightClientOptimisticUpdate.isNone
+    block:
+      let
+        update = dag.getLightClientUpdateForPeriod(0.SyncCommitteePeriod)
+        finalityUpdate = dag.getLightClientFinalityUpdate
+        optimisticUpdate = dag.getLightClientOptimisticUpdate
+      check:
+        dag.headState.kind == BeaconStateFork.Phase0
+        update.kind == LightClientDataFork.None
+        finalityUpdate.kind == LightClientDataFork.None
+        optimisticUpdate.kind == LightClientDataFork.None
 
     # Advance to last slot before Altair
     dag.advanceToSlot(altairStartSlot - 1, verifier, quarantine[])
-    check:
-      dag.headState.kind == BeaconStateFork.Phase0
-      dag.getLightClientUpdateForPeriod(0.SyncCommitteePeriod).isNone
-      dag.getLightClientFinalityUpdate.isNone
-      dag.getLightClientOptimisticUpdate.isNone
+    block:
+      let
+        update = dag.getLightClientUpdateForPeriod(0.SyncCommitteePeriod)
+        finalityUpdate = dag.getLightClientFinalityUpdate
+        optimisticUpdate = dag.getLightClientOptimisticUpdate
+      check:
+        dag.headState.kind == BeaconStateFork.Phase0
+        update.kind == LightClientDataFork.None
+        finalityUpdate.kind == LightClientDataFork.None
+        optimisticUpdate.kind == LightClientDataFork.None
 
     # Advance to Altair
     dag.advanceToSlot(altairStartSlot, verifier, quarantine[])
-    check:
-      dag.headState.kind == BeaconStateFork.Altair
-      dag.getLightClientUpdateForPeriod(0.SyncCommitteePeriod).isNone
-      dag.getLightClientFinalityUpdate.isNone
-      dag.getLightClientOptimisticUpdate.isNone
+    block:
+      let
+        update = dag.getLightClientUpdateForPeriod(0.SyncCommitteePeriod)
+        finalityUpdate = dag.getLightClientFinalityUpdate
+        optimisticUpdate = dag.getLightClientOptimisticUpdate
+      check:
+        dag.headState.kind == BeaconStateFork.Altair
+        update.kind == LightClientDataFork.None
+        finalityUpdate.kind == LightClientDataFork.None
+        optimisticUpdate.kind == LightClientDataFork.None
 
   test "Light client sync":
     # Advance to Altair
@@ -132,10 +147,12 @@ suite "Light client" & preset():
     let currentSlot = getStateField(dag.headState, slot)
 
     # Initialize light client store
+    const storeDataFork = LightClientStore.kind
     let bootstrap = dag.getLightClientBootstrap(trusted_block_root)
-    check bootstrap.isOk
+    check bootstrap.kind == storeDataFork
+    template forkyBootstrap: untyped = bootstrap.forky(storeDataFork)
     var storeRes = initialize_light_client_store(
-      trusted_block_root, bootstrap.get)
+      trusted_block_root, forkyBootstrap)
     check storeRes.isOk
     template store(): auto = storeRes.get
 
@@ -149,30 +166,31 @@ suite "Light client" & preset():
           else:
             store.finalized_header.slot.sync_committee_period
         update = dag.getLightClientUpdateForPeriod(period)
-        res = process_light_client_update(
-          store, update.get, currentSlot, cfg, genesis_validators_root)
+      check update.kind == storeDataFork
+      template forkyUpdate: untyped = update.forky(storeDataFork)
+      let res = process_light_client_update(
+          store, forkyUpdate, currentSlot, cfg, genesis_validators_root)
       check:
-        update.isSome
-        update.get.finalized_header.slot.sync_committee_period == period
+        forkyUpdate.finalized_header.slot.sync_committee_period == period
         res.isOk
-        if update.get.finalized_header.slot > bootstrap.get.header.slot:
-          store.finalized_header == update.get.finalized_header
+        if forkyUpdate.finalized_header.slot > forkyBootstrap.header.slot:
+          store.finalized_header == forkyUpdate.finalized_header
         else:
-          store.finalized_header == bootstrap.get.header
+          store.finalized_header == forkyBootstrap.header
       inc numIterations
       if numIterations > 20: doAssert false # Avoid endless loop on test failure
 
     # Sync to latest update
-    let
-      finalityUpdate = dag.getLightClientFinalityUpdate
-      res = process_light_client_update(
-        store, finalityUpdate.get, currentSlot, cfg, genesis_validators_root)
+    let finalityUpdate = dag.getLightClientFinalityUpdate
+    check finalityUpdate.kind == storeDataFork
+    template forkyFinalityUpdate: untyped = finalityUpdate.forky(storeDataFork)
+    let res = process_light_client_update(
+        store, forkyFinalityUpdate, currentSlot, cfg, genesis_validators_root)
     check:
-      finalityUpdate.isSome
-      finalityUpdate.get.attested_header.slot == dag.head.parent.slot
+      forkyFinalityUpdate.attested_header.slot == dag.head.parent.slot
       res.isOk
-      store.finalized_header == finalityUpdate.get.finalized_header
-      store.optimistic_header == finalityUpdate.get.attested_header
+      store.finalized_header == forkyFinalityUpdate.finalized_header
+      store.optimistic_header == forkyFinalityUpdate.attested_header
 
   test "Init from checkpoint":
     # Fetch genesis state
