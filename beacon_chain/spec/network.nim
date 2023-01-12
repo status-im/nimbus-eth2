@@ -19,7 +19,7 @@ export base
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz_snappy"
@@ -108,7 +108,7 @@ func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string 
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
   eth2Prefix(forkDigest) & "light_client_finality_update/ssz_snappy"
