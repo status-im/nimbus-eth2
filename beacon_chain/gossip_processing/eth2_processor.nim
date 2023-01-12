@@ -599,7 +599,7 @@ proc processSignedContributionAndProof*(
 
   return if v.isOk():
     trace "Contribution validated"
-    let addStatus = self.syncCommitteeMsgPool[].addContribution(
+    self.syncCommitteeMsgPool[].addContribution(
       contributionAndProof, v.get()[0])
 
     self.validatorMonitor[].registerSyncContribution(
@@ -607,18 +607,7 @@ proc processSignedContributionAndProof*(
 
     beacon_sync_committee_contributions_received.inc()
 
-    case addStatus
-    of newBest, notBestButNotSubsetOfBest: ok()
-    of strictSubsetOfTheBest:
-      # This implements the spec directive:
-      #
-      # _[IGNORE]_ A valid sync committee contribution with equal `slot`, `beacon_block_root`
-      # and `subcommittee_index` whose `aggregation_bits` is non-strict superset has _not_
-      # already been seen.
-      #
-      # We are implementing this here, because this may be an unique contribution, so we would
-      # like for it to be counted and registered by the validator monitor above.
-      errIgnore("strict superset already seen")
+    ok()
   else:
     debug "Dropping contribution", error = v.error
     beacon_sync_committee_contributions_dropped.inc(1, [$v.error[0]])
