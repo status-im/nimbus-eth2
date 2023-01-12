@@ -93,7 +93,9 @@ func lcDataForkAtEpoch*(
   else:
     LightClientDataFork.None
 
-template kind*(x: typedesc[altair.LightClientStore]): LightClientDataFork =
+template kind*(
+    x: typedesc[BeaconBlockHeader | altair.LightClientStore]
+): LightClientDataFork =
   LightClientDataFork.Altair
 
 template header*(kind: static LightClientDataFork): auto =
