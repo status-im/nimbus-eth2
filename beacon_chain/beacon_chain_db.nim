@@ -1050,6 +1050,13 @@ proc getBlockSSZ*(
     getBlockSSZ(db, key, data, eip4844.TrustedSignedBeaconBlock)
 
 
+proc getBlobsSidecarSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte]):
+    bool =
+  let dataPtr = addr data # Short-lived
+  func decode(data: openArray[byte]) =
+    assign(dataPtr[], data)
+  db.blobs.get(key.data, decode).expectDb()
+
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
     T: type phase0.TrustedSignedBeaconBlock): bool =

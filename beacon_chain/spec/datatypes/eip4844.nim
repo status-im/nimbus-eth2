@@ -35,6 +35,8 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/polynomial-commitments.md#constants
   BLS_MODULUS* = "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#configuration
+  MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS* = 4096'u64
 
 type
   # this block belongs elsewhere - will figure out after implementing c-kzg bindings
