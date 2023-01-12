@@ -26,7 +26,7 @@ logScope: topics = "lightcl"
 
 type
   LightClientHeaderCallback* =
-    proc(lightClient: LightClient, header: BeaconBlockHeader) {.
+    proc(lightClient: LightClient, header: altair.LightClientHeader) {.
       gcsafe, raises: [Defect].}
 
   LightClientValueObserver[V] =
@@ -56,13 +56,15 @@ type
     optimisticUpdateObserver*: LightClientOptimisticUpdateObserver
     trustedBlockRoot*: Option[Eth2Digest]
 
-func finalizedHeader*(lightClient: LightClient): Opt[BeaconBlockHeader] =
+func finalizedHeader*(
+    lightClient: LightClient): Opt[altair.LightClientHeader] =
   if lightClient.store[].isSome:
     ok lightClient.store[].get.finalized_header
   else:
     err()
 
-func optimisticHeader*(lightClient: LightClient): Opt[BeaconBlockHeader] =
+func optimisticHeader*(
+    lightClient: LightClient): Opt[altair.LightClientHeader] =
   if lightClient.store[].isSome:
     ok lightClient.store[].get.optimistic_header
   else:
@@ -157,13 +159,15 @@ proc createLightClient(
 
   func getFinalizedPeriod(): SyncCommitteePeriod =
     if lightClient.store[].isSome:
-      lightClient.store[].get.finalized_header.slot.sync_committee_period
+      lightClient.store[].get.finalized_header
+        .beacon.slot.sync_committee_period
     else:
       GENESIS_SLOT.sync_committee_period
 
   func getOptimisticPeriod(): SyncCommitteePeriod =
     if lightClient.store[].isSome:
-      lightClient.store[].get.optimistic_header.slot.sync_committee_period
+      lightClient.store[].get.optimistic_header
+        .beacon.slot.sync_committee_period
     else:
       GENESIS_SLOT.sync_committee_period
 
@@ -214,7 +218,7 @@ proc start*(lightClient: LightClient) =
 
 proc resetToFinalizedHeader*(
     lightClient: LightClient,
-    header: BeaconBlockHeader,
+    header: altair.LightClientHeader,
     current_sync_committee: SyncCommittee) =
   lightClient.processor[].resetToFinalizedHeader(header, current_sync_committee)
 

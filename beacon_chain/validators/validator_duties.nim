@@ -191,7 +191,7 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
       if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
         return
 
-      let finalized_slot = forkyFinalityUpdate.finalized_header.slot
+      let finalized_slot = forkyFinalityUpdate.finalized_header.beacon.slot
       if finalized_slot > node.lightClientPool[].latestForwardedFinalitySlot:
         template msg(): auto = forkyFinalityUpdate
         let sendResult =
@@ -207,7 +207,7 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
           warn "LC finality update failed to send",
             error = sendResult.error()
 
-      let attested_slot = forkyFinalityUpdate.attested_header.slot
+      let attested_slot = forkyFinalityUpdate.attested_header.beacon.slot
       if attested_slot > node.lightClientPool[].latestForwardedOptimisticSlot:
         let msg = forkyFinalityUpdate.toOptimistic
         let sendResult =

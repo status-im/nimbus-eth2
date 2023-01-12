@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -158,21 +158,21 @@ programMain:
   waitFor network.start()
 
   proc onFinalizedHeader(
-      lightClient: LightClient, finalizedHeader: BeaconBlockHeader) =
+      lightClient: LightClient, finalizedHeader: altair.LightClientHeader) =
     info "New LC finalized header",
       finalized_header = shortLog(finalizedHeader)
 
     let
-      period = finalizedHeader.slot.sync_committee_period
+      period = finalizedHeader.beacon.slot.sync_committee_period
       syncCommittee = lightClient.finalizedSyncCommittee.expect("Bootstrap OK")
     db.putSyncCommittee(period, syncCommittee)
     db.putLatestFinalizedHeader(finalizedHeader)
 
   proc onOptimisticHeader(
-      lightClient: LightClient, optimisticHeader: BeaconBlockHeader) =
+      lightClient: LightClient, optimisticHeader: altair.LightClientHeader) =
     info "New LC optimistic header",
       optimistic_header = shortLog(optimisticHeader)
-    optimisticProcessor.setOptimisticHeader(optimisticHeader)
+    optimisticProcessor.setOptimisticHeader(optimisticHeader.beacon)
 
   lightClient.onFinalizedHeader = onFinalizedHeader
   lightClient.onOptimisticHeader = onOptimisticHeader
@@ -181,7 +181,7 @@ programMain:
   let latestHeader = db.getLatestFinalizedHeader()
   if latestHeader.isOk:
     let
-      period = latestHeader.get.slot.sync_committee_period
+      period = latestHeader.get.beacon.slot.sync_committee_period
       syncCommittee = db.getSyncCommittee(period)
     if syncCommittee.isErr:
       error "LC store lacks sync committee", finalized_header = latestHeader.get
@@ -192,8 +192,8 @@ programMain:
   # - EL clients may not sync when only driven with `forkChoiceUpdated`,
   #   e.g., Geth: "Forkchoice requested unknown head"
   # - `newPayload` requires the full `ExecutionPayload` (most of block content)
-  # - `ExecutionPayload` block root is not available in `BeaconBlockHeader`,
-  #   so won't be exchanged via light client gossip
+  # - `ExecutionPayload` block root is not available in
+  #   `altair.LightClientHeader`, so won't be exchanged via light client gossip
   #
   # Future `ethereum/consensus-specs` versions may remove need for full blocks.
   # Therefore, this current mechanism is to be seen as temporary; it is not
@@ -206,7 +206,7 @@ programMain:
 
     # Check whether light client has synced sufficiently close to wall slot
     const maxAge = 2 * SLOTS_PER_EPOCH
-    if optimisticHeader.slot < max(wallSlot, maxAge.Slot) - maxAge:
+    if optimisticHeader.beacon.slot < max(wallSlot, maxAge.Slot) - maxAge:
       return false
 
     true
@@ -268,12 +268,12 @@ programMain:
 
       finalizedBid =
         if finalizedHeader.isSome:
-          finalizedHeader.get.toBlockId()
+          finalizedHeader.get.beacon.toBlockId()
         else:
           BlockId(root: genesisBlockRoot, slot: GENESIS_SLOT)
       optimisticBid =
         if optimisticHeader.isSome:
-          optimisticHeader.get.toBlockId()
+          optimisticHeader.get.beacon.toBlockId()
         else:
           BlockId(root: genesisBlockRoot, slot: GENESIS_SLOT)
 

@@ -11,7 +11,7 @@ else:
   {.push raises: [].}
 
 import
-  ./datatypes/[phase0, altair]
+  ./datatypes/[phase0, altair, bellatrix, capella, eip4844]
 
 type
   LightClientDataFork* {.pure.} = enum  # Append only, used in DB data!
@@ -19,7 +19,7 @@ type
     Altair = 1
 
   ForkyLightClientHeader* =
-    BeaconBlockHeader
+    altair.LightClientHeader
 
   ForkyLightClientBootstrap* =
     altair.LightClientBootstrap
@@ -98,7 +98,7 @@ template kind*(x: typedesc[altair.LightClientStore]): LightClientDataFork =
 
 template header*(kind: static LightClientDataFork): auto =
   when kind >= LightClientDataFork.Altair:
-    typedesc[BeaconBlockHeader]
+    typedesc[altair.LightClientHeader]
   else:
     static: raiseAssert "Unreachable"
 
@@ -307,3 +307,14 @@ func migratingToDataFork*[T: SomeForkedLightClientObject](
   var upgradedObject = x
   upgradedObject.migrateToDataFork(newKind)
   upgradedObject
+
+func toLightClientHeader*(
+    blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
+      phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
+      altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
+      bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
+      capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock |
+      eip4844.SignedBeaconBlock | eip4844.TrustedSignedBeaconBlock,
+    kind: static LightClientDataFork): auto =
+  when kind >= LightClientDataFork.Altair:
+    kind.header(beacon: blck.message.toBeaconBlockHeader())

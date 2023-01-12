@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -20,11 +20,11 @@ type
   LightClientPool* = object
     latestForwardedFinalitySlot*: Slot
       ## Latest finality update that was forwarded on libp2p gossip.
-      ## Tracks `finality_update.finalized_header.slot`.
+      ## Tracks `finality_update.finalized_header.beacon.slot`.
 
     latestForwardedOptimisticSlot*: Slot
       ## Latest optimistic update that was forwarded on libp2p gossip.
-      ## Tracks `optimistic_update.attested_header.slot`.
+      ## Tracks `optimistic_update.attested_header.beacon.slot`.
 
     latestBroadcastedSlot*: Slot
       ## Latest slot for which updates were broadcasted on libp2p gossip.

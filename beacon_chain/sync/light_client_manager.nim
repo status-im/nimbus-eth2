@@ -148,7 +148,8 @@ proc doRequest(
       withForkyUpdate(update):
         when lcDataFork >= LightClientDataFork.Altair:
           let
-            attPeriod = forkyUpdate.attested_header.slot.sync_committee_period
+            attPeriod =
+              forkyUpdate.attested_header.beacon.slot.sync_committee_period
             sigPeriod = forkyUpdate.signature_slot.sync_committee_period
           if attPeriod != sigPeriod:
             raise newException(

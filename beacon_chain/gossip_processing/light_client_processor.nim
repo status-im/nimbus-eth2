@@ -204,12 +204,12 @@ proc tryForceUpdate(
       discard
     of DidUpdateWithoutSupermajority:
       warn "Light client force-updated without supermajority",
-        finalizedSlot = store[].get.finalized_header.slot,
-        optimisticSlot = store[].get.optimistic_header.slot
+        finalizedSlot = store[].get.finalized_header.beacon.slot,
+        optimisticSlot = store[].get.optimistic_header.beacon.slot
     of DidUpdateWithoutFinality:
       warn "Light client force-updated without finality proof",
-        finalizedSlot = store[].get.finalized_header.slot,
-        optimisticSlot = store[].get.optimistic_header.slot
+        finalizedSlot = store[].get.finalized_header.beacon.slot,
+        optimisticSlot = store[].get.optimistic_header.beacon.slot
 
 proc processObject(
     self: var LightClientProcessor,
@@ -299,12 +299,12 @@ template withReportedProgress(
         if store[].isSome:
           store[].get.finalized_header
         else:
-          BeaconBlockHeader()
+          altair.LightClientHeader()
       previousOptimistic =
         if store[].isSome:
           store[].get.optimistic_header
         else:
-          BeaconBlockHeader()
+          altair.LightClientHeader()
 
     body
 
@@ -383,16 +383,16 @@ proc storeObject*(
         let objSlot = withForkyObject(obj):
           when lcDataFork >= LightClientDataFork.Altair:
             when forkyObject is ForkyLightClientBootstrap:
-              forkyObject.header.slot
+              forkyObject.header.beacon.slot
             elif forkyObject is SomeForkyLightClientUpdateWithFinality:
-              forkyObject.finalized_header.slot
+              forkyObject.finalized_header.beacon.slot
             else:
-              forkyObject.attested_header.slot
+              forkyObject.attested_header.beacon.slot
           else:
             GENESIS_SLOT
         debug "LC object processed",
-          finalizedSlot = store[].get.finalized_header.slot,
-          optimisticSlot = store[].get.optimistic_header.slot,
+          finalizedSlot = store[].get.finalized_header.beacon.slot,
+          optimisticSlot = store[].get.optimistic_header.beacon.slot,
           kind = typeof(obj).name,
           objectSlot = objSlot,
           storeObjectDur
@@ -400,7 +400,7 @@ proc storeObject*(
 
 proc resetToFinalizedHeader*(
     self: var LightClientProcessor,
-    header: BeaconBlockHeader,
+    header: altair.LightClientHeader,
     current_sync_committee: SyncCommittee) =
   let store = self.store
 
@@ -411,8 +411,8 @@ proc resetToFinalizedHeader*(
       optimistic_header: header)
 
     debug "LC reset to finalized header",
-      finalizedSlot = store[].get.finalized_header.slot,
-      optimisticSlot = store[].get.optimistic_header.slot
+      finalizedSlot = store[].get.finalized_header.beacon.slot,
+      optimisticSlot = store[].get.optimistic_header.beacon.slot
 
 # Enqueue
 # ------------------------------------------------------------------------------
@@ -499,9 +499,9 @@ func toValidationError(
     of VerifierError.MissingParent,
         VerifierError.UnviableFork,
         VerifierError.Duplicate:
-      # [IGNORE] The `finalized_header.slot` is greater than that of
+      # [IGNORE] The `finalized_header.beacon.slot` is greater than that of
       # all previously forwarded `finality_update`s
-      # [IGNORE] The `attested_header.slot` is greater than that of all
+      # [IGNORE] The `attested_header.beacon.slot` is greater than that of all
       # previously forwarded `optimistic_update`s
       errIgnore($r.error)
 
@@ -531,12 +531,12 @@ proc processLightClientOptimisticUpdate*(
     let
       latestFinalitySlot = withForkyOptimisticUpdate(self.latestFinalityUpdate):
         when lcDataFork >= LightClientDataFork.Altair:
-          forkyOptimisticUpdate.attested_header.slot
+          forkyOptimisticUpdate.attested_header.beacon.slot
         else:
           GENESIS_SLOT
       attestedSlot = withForkyOptimisticUpdate(optimistic_update):
         when lcDataFork >= LightClientDataFork.Altair:
-          forkyOptimisticUpdate.attested_header.slot
+          forkyOptimisticUpdate.attested_header.beacon.slot
         else:
           GENESIS_SLOT
     if attestedSlot >= latestFinalitySlot:

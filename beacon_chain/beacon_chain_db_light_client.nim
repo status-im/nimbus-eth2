@@ -34,8 +34,8 @@ logScope: topics = "lcdata"
 # libp2p request is handled. However, the space savings are quite small.
 # Furthermore, `LightClientUpdate` is consulted on each new block to attempt
 # improving it. Continuously decompressing and recompressing seems inefficient.
-# Finally, the libp2p context bytes depend on `attested_header.slot` to derive
-# the underlying fork digest; the `kind` column is not sufficient to derive
+# Finally, the libp2p context bytes depend on `attested_header.beacon.slot` for
+# deriving the fork digest; the `kind` column is not sufficient to derive
 # the fork digest, because the same storage format may be used across forks.
 # SSZ storage selected due to the small size and reduced logic complexity.
 #
