@@ -123,7 +123,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | $(TOOLS) libnfuzz.so libnfuzz.a gnosis-build
+all: | $(TOOLS) libnfuzz.so libnfuzz.a
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
