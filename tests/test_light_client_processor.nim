@@ -111,7 +111,7 @@ suite "Light client processor" & preset():
       check:
         bootstrap.kind > LightClientDataFork.None
         bootstrap.kind <= storeDataFork
-      let upgradedBootstrap = bootstrap.migratedToDataFork(storeDataFork)
+      let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
       template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
       setTimeToSlot(forkyBootstrap.header.slot)
       res = processor[].storeObject(
@@ -127,7 +127,7 @@ suite "Light client processor" & preset():
         check:
           update.kind > LightClientDataFork.None
           update.kind <= storeDataFork
-        let upgradedUpdate = update.migratedToDataFork(storeDataFork)
+        let upgradedUpdate = update.migratingToDataFork(storeDataFork)
         template forkyUpdate: untyped = upgradedUpdate.forky(storeDataFork)
         setTimeToSlot(forkyUpdate.signature_slot)
         res = processor[].storeObject(
@@ -150,7 +150,7 @@ suite "Light client processor" & preset():
         check:
           update.kind > LightClientDataFork.None
           update.kind <= storeDataFork
-        let upgradedUpdate = update.migratedToDataFork(storeDataFork)
+        let upgradedUpdate = update.migratingToDataFork(storeDataFork)
         template forkyUpdate: untyped = upgradedUpdate.forky(storeDataFork)
         setTimeToSlot(forkyUpdate.signature_slot)
 
@@ -247,7 +247,7 @@ suite "Light client processor" & preset():
         finalityUpdate.kind > LightClientDataFork.None
         finalityUpdate.kind <= storeDataFork
       let upgradedFinalityUpdate =
-        finalityUpdate.migratedToDataFork(storeDataFork)
+        finalityUpdate.migratingToDataFork(storeDataFork)
       template forkyFinalityUpdate: untyped =
         upgradedFinalityUpdate.forky(storeDataFork)
       setTimeToSlot(forkyFinalityUpdate.signature_slot)
@@ -275,7 +275,7 @@ suite "Light client processor" & preset():
       withForkyBootstrap(bootstrap):
         when lcDataFork >= LightClientDataFork.Altair:
           forkyBootstrap.header.slot.inc()
-      let upgradedBootstrap = bootstrap.migratedToDataFork(storeDataFork)
+      let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
       template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
       setTimeToSlot(forkyBootstrap.header.slot)
       res = processor[].storeObject(
@@ -290,7 +290,7 @@ suite "Light client processor" & preset():
       check:
         bootstrap.kind > LightClientDataFork.None
         bootstrap.kind <= storeDataFork
-      let upgradedBootstrap = bootstrap.migratedToDataFork(storeDataFork)
+      let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
       template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
       setTimeToSlot(forkyBootstrap.header.slot)
       res = processor[].storeObject(
@@ -310,7 +310,7 @@ suite "Light client processor" & preset():
       check:
         update.kind > LightClientDataFork.None
         update.kind <= storeDataFork
-      let upgradedUpdate = update.migratedToDataFork(storeDataFork)
+      let upgradedUpdate = update.migratingToDataFork(storeDataFork)
       template forkyUpdate: untyped = upgradedUpdate.forky(storeDataFork)
       setTimeToSlot(forkyUpdate.signature_slot)
       res = processor[].storeObject(
@@ -326,7 +326,7 @@ suite "Light client processor" & preset():
         finalityUpdate.kind > LightClientDataFork.None
         finalityUpdate.kind <= storeDataFork
       let upgradedFinalityUpdate =
-        finalityUpdate.migratedToDataFork(storeDataFork)
+        finalityUpdate.migratingToDataFork(storeDataFork)
       template forkyFinalityUpdate: untyped =
         upgradedFinalityUpdate.forky(storeDataFork)
       setTimeToSlot(forkyFinalityUpdate.signature_slot)
@@ -343,7 +343,7 @@ suite "Light client processor" & preset():
         optimisticUpdate.kind > LightClientDataFork.None
         optimisticUpdate.kind <= storeDataFork
       let upgradedOptimisticUpdate =
-        optimisticUpdate.migratedToDataFork(storeDataFork)
+        optimisticUpdate.migratingToDataFork(storeDataFork)
       template forkyOptimisticUpdate: untyped =
         upgradedOptimisticUpdate.forky(storeDataFork)
       setTimeToSlot(forkyOptimisticUpdate.signature_slot)

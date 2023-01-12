@@ -302,7 +302,7 @@ func migrateToDataFork*(
 
     doAssert x.kind == newKind
 
-func migratedToDataFork*[T: SomeForkedLightClientObject](
+func migratingToDataFork*[T: SomeForkedLightClientObject](
     x: T, newKind: static LightClientDataFork): T =
   var upgradedObject = x
   upgradedObject.migrateToDataFork(newKind)
