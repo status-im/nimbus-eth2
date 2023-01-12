@@ -121,7 +121,10 @@ jobs:
             ncpu=$(sysctl -n hw.ncpu)
             ;;
           'Windows')
-            ncpu=${NUMBER_OF_PROCESSORS}
+            # otherwise, intermittent CI build failures
+            # e.g., cc1.exe: out of memory allocating 215528 bytes
+            # underflow corrected later
+            ncpu=$((${NUMBER_OF_PROCESSORS} - 1))
             make_cmd="mingw32-make"
             ;;
           esac
