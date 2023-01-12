@@ -1468,7 +1468,8 @@ proc installMessageValidators(node: BeaconNode) =
   installPhase0Validators(forkDigests.altair)
   installPhase0Validators(forkDigests.bellatrix)
   installPhase0Validators(forkDigests.capella)
-  installPhase0Validators(forkDigests.eip4844)
+  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:  
+    installPhase0Validators(forkDigests.eip4844)
 
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.altair),
@@ -1500,12 +1501,13 @@ proc installMessageValidators(node: BeaconNode) =
         toValidationResult(node.processor[].processSignedBeaconBlock(
           MsgSource.gossip, signedBlock)))
 
-  node.network.addValidator(
-    getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
-    proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
-      # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
-        toValidationResult(node.processor[].processSignedBeaconBlockAndBlobsSidecar(
-          MsgSource.gossip, signedBlock)))
+  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:  
+    node.network.addValidator(
+      getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
+      proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
+        # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
+          toValidationResult(node.processor[].processSignedBeaconBlockAndBlobsSidecar(
+            MsgSource.gossip, signedBlock)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:
@@ -1529,7 +1531,8 @@ proc installMessageValidators(node: BeaconNode) =
   installSyncCommitteeeValidators(forkDigests.altair)
   installSyncCommitteeeValidators(forkDigests.bellatrix)
   installSyncCommitteeeValidators(forkDigests.capella)
-  installSyncCommitteeeValidators(forkDigests.eip4844)
+  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    installSyncCommitteeeValidators(forkDigests.eip4844)
 
   node.installLightClientMessageValidators()
 
