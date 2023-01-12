@@ -13,6 +13,7 @@ else:
 import
   stew/objects,
   chronos, metrics,
+  ../spec/datatypes/altair,
   ../spec/light_client_sync,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_clock, sszdump],
