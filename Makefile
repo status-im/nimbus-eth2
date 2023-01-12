@@ -601,7 +601,6 @@ gnosis-build gnosis-chain-build: | build deps
 			$(NIM_PARAMS) \
 			-d:gnosisChainBinary \
 			-d:const_preset=gnosis \
-			-d:has_genesis_detection \
 			&& \
 		echo -e $(BUILD_END_MSG) "build/nimbus_beacon_node_gnosis"
 
