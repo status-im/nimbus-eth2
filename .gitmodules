@@ -202,4 +202,5 @@
 	url = https://github.com/zah/gnosis-chain-configs.git
 [submodule "vendor/capella-testnets"]
 	path = vendor/capella-testnets
-	url = https://github.com/zah/withdrawals-testnet
+	url = https://github.com/ethpandaops/withdrawals-testnet.git
+	branch = master
