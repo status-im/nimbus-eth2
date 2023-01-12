@@ -12,6 +12,7 @@ else:
 
 import
   chronicles,
+  ./spec/datatypes/altair,
   ./beacon_node
 
 logScope: topics = "beacnde"
