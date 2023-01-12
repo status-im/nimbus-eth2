@@ -1867,14 +1867,16 @@ proc startListening*(node: Eth2Node) {.async.} =
   if node.discoveryEnabled:
     try:
        node.discovery.open()
-    except CatchableError:
-      fatal "Failed to start discovery service. UDP port may be already in use"
+    except CatchableError as err:
+      fatal "Failed to start discovery service. UDP port may be already in use",
+            err = err.msg
       quit 1
 
   try:
     await node.switch.start()
-  except CatchableError:
-    fatal "Failed to start LibP2P transport. TCP port may be already in use"
+  except CatchableError as err:
+    fatal "Failed to start LibP2P transport. TCP port may be already in use",
+          err = err.msg
     quit 1
 
 proc peerPingerHeartbeat(node: Eth2Node): Future[void] {.gcsafe.}
