@@ -149,10 +149,29 @@ proc loadChainDag(
     shouldEnableTestFeatures: bool): ChainDAGRef =
   info "Loading block DAG from database", path = config.databaseDir
 
-  proc onLightClientFinalityUpdate(data: altair.LightClientFinalityUpdate) =
-    eventBus.finUpdateQueue.emit(data)
-  proc onLightClientOptimisticUpdate(data: altair.LightClientOptimisticUpdate) =
-    eventBus.optUpdateQueue.emit(data)
+  var dag: ChainDAGRef
+  proc onLightClientFinalityUpdate(data: ForkedLightClientFinalityUpdate) =
+    if dag == nil: return
+    withForkyFinalityUpdate(data):
+      when lcDataFork >= LightClientDataFork.Altair:
+        let contextFork =
+          dag.cfg.stateForkAtEpoch(forkyFinalityUpdate.contextEpoch)
+        eventBus.finUpdateQueue.emit(
+          RestVersioned[ForkedLightClientFinalityUpdate](
+            data: data,
+            jsonVersion: contextFork,
+            sszContext: dag.forkDigests[].atStateFork(contextFork)))
+  proc onLightClientOptimisticUpdate(data: ForkedLightClientOptimisticUpdate) =
+    if dag == nil: return
+    withForkyOptimisticUpdate(data):
+      when lcDataFork >= LightClientDataFork.Altair:
+        let contextFork =
+          dag.cfg.stateForkAtEpoch(forkyOptimisticUpdate.contextEpoch)
+        eventBus.optUpdateQueue.emit(
+          RestVersioned[ForkedLightClientOptimisticUpdate](
+            data: data,
+            jsonVersion: contextFork,
+            sszContext: dag.forkDigests[].atStateFork(contextFork)))
 
   let
     extraFlags =
@@ -167,19 +186,19 @@ proc loadChainDag(
     onLightClientOptimisticUpdateCb =
       if config.lightClientDataServe: onLightClientOptimisticUpdate
       else: nil
-    dag = ChainDAGRef.init(
-      cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
-      vanityLogs = getVanityLogs(detectTTY(config.logStdout)),
-      lcDataConfig = LightClientDataConfig(
-        serve: config.lightClientDataServe,
-        importMode: config.lightClientDataImportMode,
-        maxPeriods: config.lightClientDataMaxPeriods,
-        onLightClientFinalityUpdate: onLightClientFinalityUpdateCb,
-        onLightClientOptimisticUpdate: onLightClientOptimisticUpdateCb))
-    databaseGenesisValidatorsRoot =
-      getStateField(dag.headState, genesis_validators_root)
+  dag = ChainDAGRef.init(
+    cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
+    vanityLogs = getVanityLogs(detectTTY(config.logStdout)),
+    lcDataConfig = LightClientDataConfig(
+      serve: config.lightClientDataServe,
+      importMode: config.lightClientDataImportMode,
+      maxPeriods: config.lightClientDataMaxPeriods,
+      onLightClientFinalityUpdate: onLightClientFinalityUpdateCb,
+      onLightClientOptimisticUpdate: onLightClientOptimisticUpdateCb))
 
   if networkGenesisValidatorsRoot.isSome:
+    let databaseGenesisValidatorsRoot =
+      getStateField(dag.headState, genesis_validators_root)
     if networkGenesisValidatorsRoot.get != databaseGenesisValidatorsRoot:
       fatal "The specified --data-dir contains data for a different network",
             networkGenesisValidatorsRoot = networkGenesisValidatorsRoot.get,
@@ -418,8 +437,10 @@ proc init*(T: type BeaconNode,
       blocksQueue: newAsyncEventQueue[EventBeaconBlockObject](),
       headQueue: newAsyncEventQueue[HeadChangeInfoObject](),
       reorgQueue: newAsyncEventQueue[ReorgInfoObject](),
-      finUpdateQueue: newAsyncEventQueue[altair.LightClientFinalityUpdate](),
-      optUpdateQueue: newAsyncEventQueue[altair.LightClientOptimisticUpdate](),
+      finUpdateQueue: newAsyncEventQueue[
+        RestVersioned[ForkedLightClientFinalityUpdate]](),
+      optUpdateQueue: newAsyncEventQueue[
+        RestVersioned[ForkedLightClientOptimisticUpdate]](),
       attestQueue: newAsyncEventQueue[Attestation](),
       contribQueue: newAsyncEventQueue[SignedContributionAndProof](),
       exitQueue: newAsyncEventQueue[SignedVoluntaryExit](),

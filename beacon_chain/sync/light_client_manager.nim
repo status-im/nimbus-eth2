@@ -13,7 +13,6 @@ else:
 import chronos, chronicles, stew/base10
 import
   eth/p2p/discoveryv5/random2,
-  ../spec/datatypes/[altair],
   ../networking/eth2_network,
   ../beacon_clock,
   "."/sync_protocol, "."/sync_manager
@@ -28,24 +27,24 @@ type
   Endpoint[K, V] =
     (K, V) # https://github.com/nim-lang/Nim/issues/19531
   Bootstrap =
-    Endpoint[Eth2Digest, altair.LightClientBootstrap]
+    Endpoint[Eth2Digest, ForkedLightClientBootstrap]
   UpdatesByRange =
-    Endpoint[Slice[SyncCommitteePeriod], altair.LightClientUpdate]
+    Endpoint[Slice[SyncCommitteePeriod], ForkedLightClientUpdate]
   FinalityUpdate =
-    Endpoint[Nothing, altair.LightClientFinalityUpdate]
+    Endpoint[Nothing, ForkedLightClientFinalityUpdate]
   OptimisticUpdate =
-    Endpoint[Nothing, altair.LightClientOptimisticUpdate]
+    Endpoint[Nothing, ForkedLightClientOptimisticUpdate]
 
   ValueVerifier[V] =
     proc(v: V): Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   BootstrapVerifier* =
-    ValueVerifier[altair.LightClientBootstrap]
+    ValueVerifier[ForkedLightClientBootstrap]
   UpdateVerifier* =
-    ValueVerifier[altair.LightClientUpdate]
+    ValueVerifier[ForkedLightClientUpdate]
   FinalityUpdateVerifier* =
-    ValueVerifier[altair.LightClientFinalityUpdate]
+    ValueVerifier[ForkedLightClientFinalityUpdate]
   OptimisticUpdateVerifier* =
-    ValueVerifier[altair.LightClientOptimisticUpdate]
+    ValueVerifier[ForkedLightClientOptimisticUpdate]
 
   GetTrustedBlockRootCallback* =
     proc(): Option[Eth2Digest] {.gcsafe, raises: [Defect].}
@@ -121,13 +120,13 @@ proc doRequest(
     e: typedesc[Bootstrap],
     peer: Peer,
     blockRoot: Eth2Digest
-): Future[NetRes[altair.LightClientBootstrap]] {.
+): Future[NetRes[ForkedLightClientBootstrap]] {.
     raises: [Defect, IOError].} =
   peer.lightClientBootstrap(blockRoot)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
 type LightClientUpdatesByRangeResponse =
-  NetRes[List[altair.LightClientUpdate, MAX_REQUEST_LIGHT_CLIENT_UPDATES]]
+  NetRes[List[ForkedLightClientUpdate, MAX_REQUEST_LIGHT_CLIENT_UPDATES]]
 proc doRequest(
     e: typedesc[UpdatesByRange],
     peer: Peer,
@@ -146,31 +145,38 @@ proc doRequest(
         " > " & Base10.toString(reqCount.uint) & ")")
     var expectedPeriod = startPeriod
     for update in response.get:
-      let
-        attestedPeriod = update.attested_header.slot.sync_committee_period
-        signaturePeriod = update.signature_slot.sync_committee_period
-      if attestedPeriod != update.signature_slot.sync_committee_period:
-        raise newException(ResponseError, "Conflicting sync committee periods" &
-          " (signature: " & Base10.toString(distinctBase(signaturePeriod)) &
-          " != " & Base10.toString(distinctBase(attestedPeriod)) & ")")
-      if attestedPeriod < expectedPeriod:
-        raise newException(ResponseError, "Unexpected sync committee period" &
-          " (" & Base10.toString(distinctBase(attestedPeriod)) &
-          " < " & Base10.toString(distinctBase(expectedPeriod)) & ")")
-      if attestedPeriod > expectedPeriod:
-        if attestedPeriod > lastPeriod:
-          raise newException(ResponseError, "Sync committee period too high" &
-            " (" & Base10.toString(distinctBase(attestedPeriod)) &
-            " > " & Base10.toString(distinctBase(lastPeriod)) & ")")
-        expectedPeriod = attestedPeriod
-      inc expectedPeriod
+      withForkyUpdate(update):
+        when lcDataFork >= LightClientDataFork.Altair:
+          let
+            attPeriod = forkyUpdate.attested_header.slot.sync_committee_period
+            sigPeriod = forkyUpdate.signature_slot.sync_committee_period
+          if attPeriod != sigPeriod:
+            raise newException(
+              ResponseError, "Conflicting sync committee periods" &
+              " (signature: " & Base10.toString(distinctBase(sigPeriod)) &
+              " != " & Base10.toString(distinctBase(attPeriod)) & ")")
+          if attPeriod < expectedPeriod:
+            raise newException(
+              ResponseError, "Unexpected sync committee period" &
+              " (" & Base10.toString(distinctBase(attPeriod)) &
+              " < " & Base10.toString(distinctBase(expectedPeriod)) & ")")
+          if attPeriod > expectedPeriod:
+            if attPeriod > lastPeriod:
+              raise newException(
+                ResponseError, "Sync committee period too high" &
+                " (" & Base10.toString(distinctBase(attPeriod)) &
+                " > " & Base10.toString(distinctBase(lastPeriod)) & ")")
+            expectedPeriod = attPeriod
+          inc expectedPeriod
+        else:
+          raise newException(ResponseError, "Invalid context bytes")
   return response
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
 proc doRequest(
     e: typedesc[FinalityUpdate],
     peer: Peer
-): Future[NetRes[altair.LightClientFinalityUpdate]] {.
+): Future[NetRes[ForkedLightClientFinalityUpdate]] {.
     raises: [Defect, IOError].} =
   peer.lightClientFinalityUpdate()
 
@@ -178,7 +184,7 @@ proc doRequest(
 proc doRequest(
     e: typedesc[OptimisticUpdate],
     peer: Peer
-): Future[NetRes[altair.LightClientOptimisticUpdate]] {.
+): Future[NetRes[ForkedLightClientOptimisticUpdate]] {.
     raises: [Defect, IOError].} =
   peer.lightClientOptimisticUpdate()
 
@@ -186,13 +192,13 @@ template valueVerifier[E](
     self: LightClientManager,
     e: typedesc[E]
 ): ValueVerifier[E.V] =
-  when E.V is altair.LightClientBootstrap:
+  when E.V is ForkedLightClientBootstrap:
     self.bootstrapVerifier
-  elif E.V is altair.LightClientUpdate:
+  elif E.V is ForkedLightClientUpdate:
     self.updateVerifier
-  elif E.V is altair.LightClientFinalityUpdate:
+  elif E.V is ForkedLightClientFinalityUpdate:
     self.finalityUpdateVerifier
-  elif E.V is altair.LightClientOptimisticUpdate:
+  elif E.V is ForkedLightClientOptimisticUpdate:
     self.optimisticUpdateVerifier
   else: static: doAssert false
 
@@ -231,20 +237,31 @@ proc workerTask[E](
             return didProgress
           of VerifierError.Duplicate:
             # Ignore, a concurrent request may have already fulfilled this
-            when E.V is altair.LightClientBootstrap:
+            when E.V is ForkedLightClientBootstrap:
               didProgress = true
             else:
               discard
           of VerifierError.UnviableFork:
             # Descore, peer is on an incompatible fork version
-            notice "Received value from an unviable fork", value = val.shortLog,
-              endpoint = E.name, peer, peer_score = peer.getScore()
+            withForkyObject(val):
+              when lcDataFork >= LightClientDataFork.Altair:
+                notice "Received value from an unviable fork",
+                  value = forkyObject,
+                  endpoint = E.name, peer, peer_score = peer.getScore()
+              else:
+                notice "Received value from an unviable fork",
+                  endpoint = E.name, peer, peer_score = peer.getScore()
             peer.updateScore(PeerScoreUnviableFork)
             return didProgress
           of VerifierError.Invalid:
             # Descore, received data is malformed
-            warn "Received invalid value", value = val.shortLog,
-              endpoint = E.name, peer, peer_score = peer.getScore()
+            withForkyObject(val):
+              when lcDataFork >= LightClientDataFork.Altair:
+                warn "Received invalid value", value = forkyObject.shortLog,
+                  endpoint = E.name, peer, peer_score = peer.getScore()
+              else:
+                warn "Received invalid value",
+                  endpoint = E.name, peer, peer_score = peer.getScore()
             peer.updateScore(PeerScoreBadValues)
             return didProgress
         else:

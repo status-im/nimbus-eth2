@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -32,13 +32,13 @@ type
   LightClientValueObserver[V] =
     proc(lightClient: LightClient, v: V) {.gcsafe, raises: [Defect].}
   LightClientBootstrapObserver* =
-    LightClientValueObserver[altair.LightClientBootstrap]
+    LightClientValueObserver[ForkedLightClientBootstrap]
   LightClientUpdateObserver* =
-    LightClientValueObserver[altair.LightClientUpdate]
+    LightClientValueObserver[ForkedLightClientUpdate]
   LightClientFinalityUpdateObserver* =
-    LightClientValueObserver[altair.LightClientFinalityUpdate]
+    LightClientValueObserver[ForkedLightClientFinalityUpdate]
   LightClientOptimisticUpdateObserver* =
-    LightClientValueObserver[altair.LightClientOptimisticUpdate]
+    LightClientValueObserver[ForkedLightClientOptimisticUpdate]
 
   LightClient* = ref object
     network: Eth2Node
@@ -109,19 +109,19 @@ proc createLightClient(
       lightClient.onOptimisticHeader(
         lightClient, lightClient.optimisticHeader.get)
 
-  proc bootstrapObserver(obj: altair.LightClientBootstrap) =
+  proc bootstrapObserver(obj: ForkedLightClientBootstrap) =
     if lightClient.bootstrapObserver != nil:
       lightClient.bootstrapObserver(lightClient, obj)
 
-  proc updateObserver(obj: altair.LightClientUpdate) =
+  proc updateObserver(obj: ForkedLightClientUpdate) =
     if lightClient.updateObserver != nil:
       lightClient.updateObserver(lightClient, obj)
 
-  proc finalityObserver(obj: altair.LightClientFinalityUpdate) =
+  proc finalityObserver(obj: ForkedLightClientFinalityUpdate) =
     if lightClient.finalityUpdateObserver != nil:
       lightClient.finalityUpdateObserver(lightClient, obj)
 
-  proc optimisticObserver(obj: altair.LightClientOptimisticUpdate) =
+  proc optimisticObserver(obj: ForkedLightClientOptimisticUpdate) =
     if lightClient.optimisticUpdateObserver != nil:
       lightClient.optimisticUpdateObserver(lightClient, obj)
 
@@ -132,18 +132,18 @@ proc createLightClient(
     onStoreInitialized, onFinalizedHeader, onOptimisticHeader,
     bootstrapObserver, updateObserver, finalityObserver, optimisticObserver)
 
-  proc lightClientVerifier(obj: SomeLightClientObject):
+  proc lightClientVerifier(obj: SomeForkedLightClientObject):
       Future[Result[void, VerifierError]] =
     let resfut = newFuture[Result[void, VerifierError]]("lightClientVerifier")
     lightClient.processor[].addObject(MsgSource.gossip, obj, resfut)
     resfut
-  proc bootstrapVerifier(obj: altair.LightClientBootstrap): auto =
+  proc bootstrapVerifier(obj: ForkedLightClientBootstrap): auto =
     lightClientVerifier(obj)
-  proc updateVerifier(obj: altair.LightClientUpdate): auto =
+  proc updateVerifier(obj: ForkedLightClientUpdate): auto =
     lightClientVerifier(obj)
-  proc finalityVerifier(obj: altair.LightClientFinalityUpdate): auto =
+  proc finalityVerifier(obj: ForkedLightClientFinalityUpdate): auto =
     lightClientVerifier(obj)
-  proc optimisticVerifier(obj: altair.LightClientOptimisticUpdate): auto =
+  proc optimisticVerifier(obj: ForkedLightClientOptimisticUpdate): auto =
     lightClientVerifier(obj)
 
   func isLightClientStoreInitialized(): bool =
@@ -235,31 +235,31 @@ declareCounter beacon_light_client_optimistic_updates_dropped,
   "Number of invalid LC optimistic updates dropped by this node", labels = ["reason"]
 
 template logReceived(
-    msg: altair.LightClientFinalityUpdate) =
+    msg: ForkyLightClientFinalityUpdate) =
   debug "LC finality update received", finality_update = msg
 
 template logValidated(
-    msg: altair.LightClientFinalityUpdate) =
+    msg: ForkyLightClientFinalityUpdate) =
   trace "LC finality update validated", finality_update = msg
   beacon_light_client_finality_updates_received.inc()
 
 proc logDropped(
-    msg: altair.LightClientFinalityUpdate, es: varargs[ValidationError]) =
+    msg: ForkyLightClientFinalityUpdate, es: varargs[ValidationError]) =
   for e in es:
     debug "Dropping LC finality update", finality_update = msg, error = e
   beacon_light_client_finality_updates_dropped.inc(1, [$es[0][0]])
 
 template logReceived(
-    msg: altair.LightClientOptimisticUpdate) =
+    msg: ForkyLightClientOptimisticUpdate) =
   debug "LC optimistic update received", optimistic_update = msg
 
 template logValidated(
-    msg: altair.LightClientOptimisticUpdate) =
+    msg: ForkyLightClientOptimisticUpdate) =
   trace "LC optimistic update validated", optimistic_update = msg
   beacon_light_client_optimistic_updates_received.inc()
 
 proc logDropped(
-    msg: altair.LightClientOptimisticUpdate, es: varargs[ValidationError]) =
+    msg: ForkyLightClientOptimisticUpdate, es: varargs[ValidationError]) =
   for e in es:
     debug "Dropping LC optimistic update", optimistic_update = msg, error = e
   beacon_light_client_optimistic_updates_dropped.inc(1, [$es[0][0]])
@@ -272,9 +272,27 @@ proc installMessageValidators*(
   template getLocalWallPeriod(): auto =
     lightClient.getBeaconTime().slotOrZero().sync_committee_period
 
-  template validate[T: SomeLightClientObject](
-      msg: T, validatorProcName: untyped): ValidationResult =
+  template validate[T: SomeForkyLightClientObject](
+      msg: T,
+      contextFork: BeaconStateFork,
+      validatorProcName: untyped): ValidationResult =
     msg.logReceived()
+
+    const invalidContextForkError =
+      (ValidationResult.Reject, cstring "Invalid context fork")
+    if contextFork != lightClient.cfg.stateForkAtEpoch(msg.contextEpoch):
+      msg.logDropped(invalidContextForkError)
+      return ValidationResult.Reject
+
+    var obj {.noinit.}: T.forked
+    if contextFork >= BeaconStateFork.Altair:
+      const lcDataFork = LightClientDataFork.Altair
+      obj = T.forked(kind: lcDataFork)
+      template forkyObj: untyped = obj.forky(lcDataFork)
+      forkyObj = msg
+    else:
+      msg.logDropped(invalidContextForkError)
+      return ValidationResult.Reject
 
     var
       ignoreErrors {.noinit.}: array[2, ValidationError]
@@ -283,7 +301,7 @@ proc installMessageValidators*(
     let res1 =
       if eth2Processor != nil:
         let
-          v = eth2Processor[].`validatorProcName`(MsgSource.gossip, msg)
+          v = eth2Processor[].`validatorProcName`(MsgSource.gossip, obj)
           res = v.toValidationResult()
         if res == ValidationResult.Reject:
           msg.logDropped(v.error)
@@ -298,7 +316,7 @@ proc installMessageValidators*(
     let res2 =
       if lightClient.manager.isGossipSupported(getLocalWallPeriod()):
         let
-          v = lightClient.processor[].`validatorProcName`(MsgSource.gossip, msg)
+          v = lightClient.processor[].`validatorProcName`(MsgSource.gossip, obj)
           res = v.toValidationResult()
         if res == ValidationResult.Reject:
           msg.logDropped(v.error)
@@ -323,16 +341,18 @@ proc installMessageValidators*(
     ValidationResult.Ignore
 
   let forkDigests = lightClient.forkDigests
-  for digest in [forkDigests.altair, forkDigests.bellatrix]:
+  for stateFork in BeaconStateFork.Altair .. BeaconStateFork.Bellatrix:
+    let digest = forkDigests[].atStateFork(stateFork)
+
     lightClient.network.addValidator(
       getLightClientFinalityUpdateTopic(digest),
       proc(msg: altair.LightClientFinalityUpdate): ValidationResult =
-        validate(msg, processLightClientFinalityUpdate))
+        validate(msg, stateFork, processLightClientFinalityUpdate))
 
     lightClient.network.addValidator(
       getLightClientOptimisticUpdateTopic(digest),
       proc(msg: altair.LightClientOptimisticUpdate): ValidationResult =
-        validate(msg, processLightClientOptimisticUpdate))
+        validate(msg, stateFork, processLightClientOptimisticUpdate))
 
 proc updateGossipStatus*(
     lightClient: LightClient, slot: Slot, dagIsBehind = default(Option[bool])) =

@@ -117,28 +117,33 @@ proc readChunkPayload*(
     return neterr InvalidContextBytes
 
 proc readChunkPayload*(
-    conn: Connection, peer: Peer, MsgType: type SomeLightClientObject):
+    conn: Connection, peer: Peer, MsgType: type SomeForkedLightClientObject):
     Future[NetRes[MsgType]] {.async.} =
   var contextBytes: ForkDigest
   try:
     await conn.readExactly(addr contextBytes, sizeof contextBytes)
   except CatchableError:
     return neterr UnexpectedEOF
-  let stateFork =
+  let contextFork =
     peer.network.forkDigests[].stateForkForDigest(contextBytes).valueOr:
       return neterr InvalidContextBytes
 
-  let res =
-    if stateFork >= BeaconStateFork.Altair:
-      await eth2_network.readChunkPayload(conn, peer, MsgType)
+  if contextFork >= BeaconStateFork.Altair:
+    const lcDataFork = LightClientDataFork.Altair
+    let res = await eth2_network.readChunkPayload(
+      conn, peer, MsgType.forky(lcDataFork))
+    if res.isOk:
+      if contextFork != peer.network.cfg.stateForkAtEpoch(res.get.contextEpoch):
+        return neterr InvalidContextBytes
+      var obj = ok MsgType(kind: lcDataFork)
+      template forkyObj: untyped = obj.get.forky(lcDataFork)
+      forkyObj = res.get
+      return obj
     else:
-      doAssert stateFork == BeaconStateFork.Phase0
-      return neterr InvalidContextBytes
-  if res.isErr:
-    return err(res.error)
-  if stateFork != peer.network.cfg.stateForkAtEpoch(res.get.contextEpoch):
+      return err(res.error)
+  else:
+    doAssert contextFork == BeaconStateFork.Phase0
     return neterr InvalidContextBytes
-  return ok res.get
 
 func shortLog*(s: StatusMsg): auto =
   (
@@ -476,7 +481,7 @@ p2pProtocol BeaconSync(version = 1,
   proc lightClientBootstrap(
       peer: Peer,
       blockRoot: Eth2Digest,
-      response: SingleChunkResponse[altair.LightClientBootstrap])
+      response: SingleChunkResponse[ForkedLightClientBootstrap])
       {.async, libp2pProtocol("light_client_bootstrap", 1,
                               isLightClientRequest = true).} =
     trace "Received LC bootstrap request", peer, blockRoot
@@ -484,17 +489,19 @@ p2pProtocol BeaconSync(version = 1,
     doAssert dag.lcDataStore.serve
 
     let bootstrap = dag.getLightClientBootstrap(blockRoot)
-    if bootstrap.isOk:
-      let
-        contextEpoch = bootstrap.get.contextEpoch
-        contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
+    withForkyBootstrap(bootstrap):
+      when lcDataFork >= LightClientDataFork.Altair:
+        let
+          contextEpoch = forkyBootstrap.contextEpoch
+          contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
 
-      # TODO extract from libp2pProtocol
-      peer.awaitQuota(
-        lightClientBootstrapResponseCost, "light_client_bootstrap/1")
-      await response.send(bootstrap.get, contextBytes)
-    else:
-      raise newException(ResourceUnavailableError, LCBootstrapUnavailable)
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(
+          lightClientBootstrapResponseCost,
+          "light_client_bootstrap/1")
+        await response.sendSSZ(forkyBootstrap, contextBytes)
+      else:
+        raise newException(ResourceUnavailableError, LCBootstrapUnavailable)
 
     debug "LC bootstrap request done", peer, blockRoot
 
@@ -504,7 +511,7 @@ p2pProtocol BeaconSync(version = 1,
       startPeriod: SyncCommitteePeriod,
       reqCount: uint64,
       response: MultipleChunksResponse[
-        altair.LightClientUpdate, MAX_REQUEST_LIGHT_CLIENT_UPDATES])
+        ForkedLightClientUpdate, MAX_REQUEST_LIGHT_CLIENT_UPDATES])
       {.async, libp2pProtocol("light_client_updates_by_range", 1,
                               isLightClientRequest = true).} =
     trace "Received LC updates by range request", peer, startPeriod, reqCount
@@ -525,23 +532,28 @@ p2pProtocol BeaconSync(version = 1,
     var found = 0
     for period in startPeriod..<onePastPeriod:
       let update = dag.getLightClientUpdateForPeriod(period)
-      if update.isSome:
-        let
-          contextEpoch = update.get.contextEpoch
-          contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
+      withForkyUpdate(update):
+        when lcDataFork >= LightClientDataFork.Altair:
+          let
+            contextEpoch = forkyUpdate.contextEpoch
+            contextBytes =
+              peer.networkState.forkDigestAtEpoch(contextEpoch).data
 
-        # TODO extract from libp2pProtocol
-        peer.awaitQuota(
-          lightClientUpdateResponseCost, "light_client_updates_by_range/1")
-        await response.write(update.get, contextBytes)
-        inc found
+          # TODO extract from libp2pProtocol
+          peer.awaitQuota(
+            lightClientUpdateResponseCost,
+            "light_client_updates_by_range/1")
+          await response.writeSSZ(forkyUpdate, contextBytes)
+          inc found
+        else:
+          discard
 
     debug "LC updates by range request done", peer, startPeriod, count, found
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
   proc lightClientFinalityUpdate(
       peer: Peer,
-      response: SingleChunkResponse[altair.LightClientFinalityUpdate])
+      response: SingleChunkResponse[ForkedLightClientFinalityUpdate])
       {.async, libp2pProtocol("light_client_finality_update", 1,
                               isLightClientRequest = true).} =
     trace "Received LC finality update request", peer
@@ -549,25 +561,26 @@ p2pProtocol BeaconSync(version = 1,
     doAssert dag.lcDataStore.serve
 
     let finality_update = dag.getLightClientFinalityUpdate()
-    if finality_update.isSome:
-      let
-        contextEpoch = finality_update.get.contextEpoch
-        contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
+    withForkyFinalityUpdate(finality_update):
+      when lcDataFork >= LightClientDataFork.Altair:
+        let
+          contextEpoch = forkyFinalityUpdate.contextEpoch
+          contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
 
-      # TODO extract from libp2pProtocol
-      peer.awaitQuota(
-        lightClientFinalityUpdateResponseCost, "light_client_finality_update/1")
-      await response.send(finality_update.get, contextBytes)
-    else:
-      raise newException(ResourceUnavailableError, LCFinUpdateUnavailable)
-
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(
+          lightClientFinalityUpdateResponseCost,
+          "light_client_finality_update/1")
+        await response.sendSSZ(forkyFinalityUpdate, contextBytes)
+      else:
+        raise newException(ResourceUnavailableError, LCFinUpdateUnavailable)
 
     debug "LC finality update request done", peer
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
   proc lightClientOptimisticUpdate(
       peer: Peer,
-      response: SingleChunkResponse[altair.LightClientOptimisticUpdate])
+      response: SingleChunkResponse[ForkedLightClientOptimisticUpdate])
       {.async, libp2pProtocol("light_client_optimistic_update", 1,
                               isLightClientRequest = true).} =
     trace "Received LC optimistic update request", peer
@@ -575,17 +588,19 @@ p2pProtocol BeaconSync(version = 1,
     doAssert dag.lcDataStore.serve
 
     let optimistic_update = dag.getLightClientOptimisticUpdate()
-    if optimistic_update.isSome:
-      let
-        contextEpoch = optimistic_update.get.contextEpoch
-        contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
+    withForkyOptimisticUpdate(optimistic_update):
+      when lcDataFork >= LightClientDataFork.Altair:
+        let
+          contextEpoch = forkyOptimisticUpdate.contextEpoch
+          contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
 
-      # TODO extract from libp2pProtocol
-      peer.awaitQuota(
-        lightClientOptimisticUpdateResponseCost, "light_client_optimistic_update/1")
-      await response.send(optimistic_update.get, contextBytes)
-    else:
-      raise newException(ResourceUnavailableError, LCOptUpdateUnavailable)
+        # TODO extract from libp2pProtocol
+        peer.awaitQuota(
+          lightClientOptimisticUpdateResponseCost,
+          "light_client_optimistic_update/1")
+        await response.sendSSZ(forkyOptimisticUpdate, contextBytes)
+      else:
+        raise newException(ResourceUnavailableError, LCOptUpdateUnavailable)
 
     debug "LC optimistic update request done", peer
 
