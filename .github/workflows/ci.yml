@@ -123,6 +123,8 @@ jobs:
           'Windows')
             ncpu=${NUMBER_OF_PROCESSORS}
             make_cmd="mingw32-make"
+            echo "Number of cores: ${NUMBER_OF_PROCESSORS}"
+            echo "Physical memory: $(wmic ComputerSystem get TotalPhysicalMemory)"
             ;;
           esac
           [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
