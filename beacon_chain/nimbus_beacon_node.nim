@@ -806,10 +806,11 @@ proc updateBlocksGossipStatus*(
     discard
 
   template blocksTopic(fork: BeaconStateFork , forkDigest: ForkDigest): auto =
-    if fork == BeaconStateFork.EIP4844:
-      getBeaconBlockAndBlobsSidecarTopic(forkDigest)
-    else:
+    case fork
+    of BeaconStateFork.Phase0 .. BeaconStateFork.Capella:
       getBeaconBlocksTopic(forkDigest)
+    of BeaconStateFork.EIP4844:
+      getBeaconBlockAndBlobsSidecarTopic(forkDigest)
 
   let
     newGossipForks = targetGossipState - currentGossipState
