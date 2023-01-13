@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -110,11 +110,14 @@ proc runTest(path: string) =
           store, step.update, step.current_slot,
           cfg, genesis_validators_root)
         check res.isOk
+      let
+        finalized_root = hash_tree_root(store.finalized_header.beacon)
+        optimistic_root = hash_tree_root(store.optimistic_header.beacon)
       check:
-        store.finalized_header.slot == step.checks.finalized_slot
-        hash_tree_root(store.finalized_header) == step.checks.finalized_root
-        store.optimistic_header.slot == step.checks.optimistic_slot
-        hash_tree_root(store.optimistic_header) == step.checks.optimistic_root
+        store.finalized_header.beacon.slot == step.checks.finalized_slot
+        finalized_root == step.checks.finalized_root
+        store.optimistic_header.beacon.slot == step.checks.optimistic_slot
+        optimistic_root == step.checks.optimistic_root
 
 suite "EF - Light client - Sync" & preset():
   const presetPath = SszTestsDir/const_preset

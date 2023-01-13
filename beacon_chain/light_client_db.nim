@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -44,7 +44,7 @@ type
       ## SQLite backend
 
     headers: LightClientHeadersStore
-      ## LightClientHeaderKind -> BeaconBlockHeader
+      ## LightClientHeaderKind -> altair.LightClientHeader
       ## Stores the latest light client headers.
 
     syncCommittees: SyncCommitteeStore
@@ -57,7 +57,7 @@ func initLightClientHeadersStore(
   ? backend.exec("""
     CREATE TABLE IF NOT EXISTS `""" & name & """` (
       `kind` INTEGER PRIMARY KEY,  -- `LightClientHeaderKind`
-      `header` BLOB                -- `BeaconBlockHeader` (SSZ)
+      `header` BLOB                -- `altair.LightClientHeader` (SSZ)
     );
   """)
 
@@ -81,26 +81,27 @@ func close(store: LightClientHeadersStore) =
   store.getStmt.dispose()
   store.putStmt.dispose()
 
-proc getLatestFinalizedHeader*(db: LightClientDB): Opt[BeaconBlockHeader] =
+proc getLatestFinalizedHeader*(
+    db: LightClientDB): Opt[altair.LightClientHeader] =
   var header: seq[byte]
   for res in db.headers.getStmt.exec(
       LightClientHeaderKind.Finalized.int64, header):
     res.expect("SQL query OK")
     try:
-      return ok SSZ.decode(header, BeaconBlockHeader)
+      return ok SSZ.decode(header, altair.LightClientHeader)
     except SszError as exc:
       error "LC store corrupted", store = "headers",
         kind = "Finalized", exc = exc.msg
       return err()
 
 func putLatestFinalizedHeader*(
-    db: LightClientDB, header: BeaconBlockHeader) =
+    db: LightClientDB, header: altair.LightClientHeader) =
   block:
     let res = db.headers.putStmt.exec(
       (LightClientHeaderKind.Finalized.int64, SSZ.encode(header)))
     res.expect("SQL query OK")
   block:
-    let period = header.slot.sync_committee_period
+    let period = header.beacon.slot.sync_committee_period
     doAssert period.isSupportedBySQLite
     let res = db.syncCommittees.keepFromStmt.exec(period.int64)
     res.expect("SQL query OK")

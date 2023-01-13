@@ -23,6 +23,8 @@ func initialize_light_client_store*(
     trusted_block_root: Eth2Digest,
     bootstrap: altair.LightClientBootstrap
 ): Result[LightClientStore, VerifierError] =
+  if not is_valid_light_client_header(bootstrap.header):
+    return err(VerifierError.Invalid)
   if hash_tree_root(bootstrap.header) != trusted_block_root:
     return err(VerifierError.Invalid)
 
@@ -31,7 +33,7 @@ func initialize_light_client_store*(
       bootstrap.current_sync_committee_branch,
       log2trunc(altair.CURRENT_SYNC_COMMITTEE_INDEX),
       get_subtree_index(altair.CURRENT_SYNC_COMMITTEE_INDEX),
-      bootstrap.header.state_root):
+      bootstrap.header.beacon.state_root):
     return err(VerifierError.Invalid)
 
   return ok(LightClientStore(
@@ -54,15 +56,17 @@ proc validate_light_client_update*(
     return err(VerifierError.Invalid)
 
   # Verify update does not skip a sync committee period
+  if not is_valid_light_client_header(update.attested_header):
+    return err(VerifierError.Invalid)
   when update is SomeLightClientUpdateWithFinality:
-    if update.attested_header.slot < update.finalized_header.slot:
+    if update.attested_header.beacon.slot < update.finalized_header.beacon.slot:
       return err(VerifierError.Invalid)
-  if update.signature_slot <= update.attested_header.slot:
+  if update.signature_slot <= update.attested_header.beacon.slot:
     return err(VerifierError.Invalid)
   if current_slot < update.signature_slot:
     return err(VerifierError.UnviableFork)
   let
-    store_period = store.finalized_header.slot.sync_committee_period
+    store_period = store.finalized_header.beacon.slot.sync_committee_period
     signature_period = update.signature_slot.sync_committee_period
     is_next_sync_committee_known = store.is_next_sync_committee_known
   if is_next_sync_committee_known:
@@ -73,10 +77,10 @@ proc validate_light_client_update*(
       return err(VerifierError.MissingParent)
 
   # Verify update is relevant
-  let attested_period = update.attested_header.slot.sync_committee_period
+  let attested_period = update.attested_header.beacon.slot.sync_committee_period
   when update is SomeLightClientUpdateWithSyncCommittee:
     let is_sync_committee_update = update.is_sync_committee_update
-  if update.attested_header.slot <= store.finalized_header.slot:
+  if update.attested_header.beacon.slot <= store.finalized_header.beacon.slot:
     when update is SomeLightClientUpdateWithSyncCommittee:
       if is_next_sync_committee_known:
         return err(VerifierError.Duplicate)
@@ -89,13 +93,15 @@ proc validate_light_client_update*(
   # finalized header saved in the state of the `attested_header`
   when update is SomeLightClientUpdateWithFinality:
     if not update.is_finality_update:
-      if not update.finalized_header.isZeroMemory:
+      if update.finalized_header != altair.LightClientHeader():
         return err(VerifierError.Invalid)
     else:
       var finalized_root {.noinit.}: Eth2Digest
-      if update.finalized_header.slot != GENESIS_SLOT:
-        finalized_root = hash_tree_root(update.finalized_header)
-      elif update.finalized_header.isZeroMemory:
+      if update.finalized_header.beacon.slot != GENESIS_SLOT:
+        if not is_valid_light_client_header(update.finalized_header):
+          return err(VerifierError.Invalid)
+        finalized_root = hash_tree_root(update.finalized_header.beacon)
+      elif update.finalized_header == altair.LightClientHeader():
         finalized_root.reset()
       else:
         return err(VerifierError.Invalid)
@@ -104,14 +110,14 @@ proc validate_light_client_update*(
           update.finality_branch,
           log2trunc(altair.FINALIZED_ROOT_INDEX),
           get_subtree_index(altair.FINALIZED_ROOT_INDEX),
-          update.attested_header.state_root):
+          update.attested_header.beacon.state_root):
         return err(VerifierError.Invalid)
 
   # Verify that the `next_sync_committee`, if present, actually is the
   # next sync committee saved in the state of the `attested_header`
   when update is SomeLightClientUpdateWithSyncCommittee:
     if not is_sync_committee_update:
-      if not update.next_sync_committee.isZeroMemory:
+      if update.next_sync_committee != altair.SyncCommittee():
         return err(VerifierError.Invalid)
     else:
       if attested_period == store_period and is_next_sync_committee_known:
@@ -122,7 +128,7 @@ proc validate_light_client_update*(
           update.next_sync_committee_branch,
           log2trunc(altair.NEXT_SYNC_COMMITTEE_INDEX),
           get_subtree_index(altair.NEXT_SYNC_COMMITTEE_INDEX),
-          update.attested_header.state_root):
+          update.attested_header.beacon.state_root):
         return err(VerifierError.Invalid)
 
   # Verify sync committee aggregate signature
@@ -140,7 +146,7 @@ proc validate_light_client_update*(
     fork_version = cfg.forkVersionAtEpoch(update.signature_slot.epoch)
     domain = compute_domain(
       DOMAIN_SYNC_COMMITTEE, fork_version, genesis_validators_root)
-    signing_root = compute_signing_root(update.attested_header, domain)
+    signing_root = compute_signing_root(update.attested_header.beacon, domain)
   if not blsFastAggregateVerify(
       participant_pubkeys, signing_root.data,
       sync_aggregate.sync_committee_signature):
@@ -154,8 +160,8 @@ func apply_light_client_update(
     update: SomeLightClientUpdate): bool =
   var didProgress = false
   let
-    store_period = store.finalized_header.slot.sync_committee_period
-    finalized_period = update.finalized_header.slot.sync_committee_period
+    store_period = store.finalized_header.beacon.slot.sync_committee_period
+    finalized_period = update.finalized_header.beacon.slot.sync_committee_period
   if not store.is_next_sync_committee_known:
     assert finalized_period == store_period
     when update is SomeLightClientUpdateWithSyncCommittee:
@@ -172,9 +178,9 @@ func apply_light_client_update(
       store.current_max_active_participants
     store.current_max_active_participants = 0
     didProgress = true
-  if update.finalized_header.slot > store.finalized_header.slot:
+  if update.finalized_header.beacon.slot > store.finalized_header.beacon.slot:
     store.finalized_header = update.finalized_header
-    if store.finalized_header.slot > store.optimistic_header.slot:
+    if store.finalized_header.beacon.slot > store.optimistic_header.beacon.slot:
       store.optimistic_header = store.finalized_header
     didProgress = true
   didProgress
@@ -191,10 +197,15 @@ func process_light_client_store_force_update*(
     current_slot: Slot): ForceUpdateResult {.discardable.} =
   var res = NoUpdate
   if store.best_valid_update.isSome and
-      current_slot > store.finalized_header.slot + UPDATE_TIMEOUT:
+      current_slot > store.finalized_header.beacon.slot + UPDATE_TIMEOUT:
     # Forced best update when the update timeout has elapsed
+    # Because the apply logic waits for `finalized_header.beacon.slot`
+    # to indicate sync committee finality, the `attested_header` may be
+    # treated as `finalized_header` in extended periods of non-finality
+    # to guarantee progression into later sync committee periods according
+    # to `is_better_update`.
     template best(): auto = store.best_valid_update.get
-    if best.finalized_header.slot <= store.finalized_header.slot:
+    if best.finalized_header.beacon.slot <= store.finalized_header.beacon.slot:
       best.finalized_header = best.attested_header
     if apply_light_client_update(store, best):
       template sync_aggregate(): auto = best.sync_aggregate
@@ -235,7 +246,7 @@ proc process_light_client_update*(
 
   # Update the optimistic header
   if num_active_participants > get_safety_threshold(store) and
-      update.attested_header.slot > store.optimistic_header.slot:
+      update.attested_header.beacon.slot > store.optimistic_header.beacon.slot:
     store.optimistic_header = update.attested_header
     didProgress = true
 
@@ -243,13 +254,13 @@ proc process_light_client_update*(
   when update is SomeLightClientUpdateWithFinality:
     if num_active_participants * 3 >= static(sync_committee_bits.len * 2):
       var improvesFinality =
-        update.finalized_header.slot > store.finalized_header.slot
+        update.finalized_header.beacon.slot > store.finalized_header.beacon.slot
       when update is SomeLightClientUpdateWithSyncCommittee:
         if not improvesFinality and not store.is_next_sync_committee_known:
           improvesFinality =
             update.is_sync_committee_update and update.is_finality_update and
-            update.finalized_header.slot.sync_committee_period ==
-            update.attested_header.slot.sync_committee_period
+            update.finalized_header.beacon.slot.sync_committee_period ==
+            update.attested_header.beacon.slot.sync_committee_period
       if improvesFinality:
         # Normal update through 2/3 threshold
         if apply_light_client_update(store, update):

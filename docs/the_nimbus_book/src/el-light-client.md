@@ -153,21 +153,21 @@ INF 2022-11-21 18:01:24.734+01:00 Exchanged engine configuration             top
 INF 2022-11-21 18:02:48.001+01:00 Slot start                                 slot=1109714 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=6 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms161us
 WRN 2022-11-21 18:02:53.603+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=1 new_peers=@[] current_peers=6 wanted_peers=160
 INF 2022-11-21 18:03:00.001+01:00 Slot start                                 slot=1109715 epoch=34678 sync=bootstrapping(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c) peers=5 head=fb9b64fe:0 finalized=fb9b64fe:0 delay=1ms154us
-INF 2022-11-21 18:03:09.989+01:00 New LC optimistic header                   optimistic_header="(slot: 1109216, proposer_index: 1813, parent_root: \"0871af30\", state_root: \"5c0afc98\")"
-INF 2022-11-21 18:03:09.989+01:00 New LC finalized header                    finalized_header="(slot: 1109216, proposer_index: 1813, parent_root: \"0871af30\", state_root: \"5c0afc98\")"
+INF 2022-11-21 18:03:09.989+01:00 New LC optimistic header                   optimistic_header="(beacon: (slot: 1109216, proposer_index: 1813, parent_root: \"0871af30\", state_root: \"5c0afc98\"))"
+INF 2022-11-21 18:03:09.989+01:00 New LC finalized header                    finalized_header="(beacon: (slot: 1109216, proposer_index: 1813, parent_root: \"0871af30\", state_root: \"5c0afc98\"))"
 INF 2022-11-21 18:03:12.001+01:00 Slot start                                 slot=1109716 epoch=34678 sync=syncing peers=6 head=c092a1d1:1109216 finalized=c092a1d1:1109216 delay=1ms159us
-INF 2022-11-21 18:03:16.047+01:00 New LC optimistic header                   optimistic_header="(slot: 1109715, proposer_index: 262, parent_root: \"676f4fe4\", state_root: \"2d13aa42\")"
+INF 2022-11-21 18:03:16.047+01:00 New LC optimistic header                   optimistic_header="(beacon: (slot: 1109715, proposer_index: 262, parent_root: \"676f4fe4\", state_root: \"2d13aa42\"))"
 INF 2022-11-21 18:03:24.001+01:00 Slot start                                 slot=1109717 epoch=34678 sync=synced peers=7 head=58cae92a:1109715 finalized=c092a1d1:1109216 delay=1ms120us
-INF 2022-11-21 18:03:27.984+01:00 New LC optimistic header                   optimistic_header="(slot: 1109716, proposer_index: 1281, parent_root: \"58cae92a\", state_root: \"de464f71\")"
+INF 2022-11-21 18:03:27.984+01:00 New LC optimistic header                   optimistic_header="(beacon: (slot: 1109716, proposer_index: 1281, parent_root: \"58cae92a\", state_root: \"de464f71\"))"
 WRN 2022-11-21 18:03:31.419+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
 INF 2022-11-21 18:03:36.001+01:00 Slot start                                 slot=1109718 epoch=34678 sync=synced peers=7 head=c5464508:1109716 finalized=c092a1d1:1109216 delay=1ms98us
-INF 2022-11-21 18:03:40.012+01:00 New LC optimistic header                   optimistic_header="(slot: 1109717, proposer_index: 835, parent_root: \"c5464508\", state_root: \"13f823f8\")"
+INF 2022-11-21 18:03:40.012+01:00 New LC optimistic header                   optimistic_header="(beacon: (slot: 1109717, proposer_index: 835, parent_root: \"c5464508\", state_root: \"13f823f8\"))"
 NOT 2022-11-21 18:03:40.012+01:00 New LC optimistic block                    opt=99ab28aa:1109717 wallSlot=1109718
 WRN 2022-11-21 18:03:40.422+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=1 new_peers=@[] current_peers=7 wanted_peers=160
 INF 2022-11-21 18:03:48.001+01:00 Slot start                                 slot=1109719 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms53us
 WRN 2022-11-21 18:03:50.205+01:00 Peer count low, no new peers discovered    topics="networking" discovered_nodes=0 new_peers=@[] current_peers=7 wanted_peers=160
 INF 2022-11-21 18:04:00.001+01:00 Slot start                                 slot=1109720 epoch=34678 sync=synced peers=7 head=99ab28aa:1109717 finalized=c092a1d1:1109216 delay=1ms145us
-INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   optimistic_header="(slot: 1109718, proposer_index: 1202, parent_root: \"99ab28aa\", state_root: \"7f7f88d2\")"
+INF 2022-11-21 18:04:03.982+01:00 New LC optimistic header                   optimistic_header="(beacon: (slot: 1109718, proposer_index: 1202, parent_root: \"99ab28aa\", state_root: \"7f7f88d2\"))"
 NOT 2022-11-21 18:04:03.982+01:00 New LC optimistic block                    opt=ab007266:1109718 wallSlot=1109720
 ```
 

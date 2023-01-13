@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -12,6 +12,7 @@ else:
 
 import
   chronicles,
+  ./spec/datatypes/altair,
   ./beacon_node
 
 logScope: topics = "beacnde"
@@ -23,7 +24,7 @@ func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
     return false
 
   shouldSyncOptimistically(
-    optimisticSlot = optimisticHeader.slot,
+    optimisticSlot = optimisticHeader.beacon.slot,
     dagSlot = getStateField(node.dag.headState, slot),
     wallSlot = wallSlot)
 
@@ -85,8 +86,9 @@ proc initLightClient*(
 
   if config.syncLightClient:
     proc onOptimisticHeader(
-        lightClient: LightClient, optimisticHeader: BeaconBlockHeader) =
-      optimisticProcessor.setOptimisticHeader(optimisticHeader)
+        lightClient: LightClient,
+        optimisticHeader: altair.LightClientHeader) =
+      optimisticProcessor.setOptimisticHeader(optimisticHeader.beacon)
 
     lightClient.onOptimisticHeader = onOptimisticHeader
     lightClient.trustedBlockRoot = config.trustedBlockRoot
@@ -145,13 +147,14 @@ proc updateLightClientFromDag*(node: BeaconNode) =
 
   let lcHeader = node.lightClient.finalizedHeader
   if lcHeader.isSome:
-    if dagPeriod <= lcHeader.get.slot.sync_committee_period:
+    if dagPeriod <= lcHeader.get.beacon.slot.sync_committee_period:
       return
 
   let
     bdata = node.dag.getForkedBlock(dagHead.blck.bid).valueOr:
       return
-    header = bdata.toBeaconBlockHeader
+    header = withBlck(bdata):
+      blck.toLightClientHeader(LightClientStore.kind)
     current_sync_committee = block:
       let tmpState = assignClone(node.dag.headState)
       node.dag.currentSyncCommitteeForPeriod(tmpState[], dagPeriod).valueOr:

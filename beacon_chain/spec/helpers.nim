@@ -240,10 +240,10 @@ type LightClientUpdateMetadata* = object
 func toMeta*(update: SomeLightClientUpdate): LightClientUpdateMetadata =
   var meta {.noinit.}: LightClientUpdateMetadata
   meta.attested_slot =
-    update.attested_header.slot
+    update.attested_header.beacon.slot
   meta.finalized_slot =
     when update is SomeLightClientUpdateWithFinality:
-      update.finalized_header.slot
+      update.finalized_header.beacon.slot
     else:
       GENESIS_SLOT
   meta.signature_slot =
@@ -324,13 +324,13 @@ template is_better_update*[
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
 func contextEpoch*(bootstrap: altair.LightClientBootstrap): Epoch =
-  bootstrap.header.slot.epoch
+  bootstrap.header.beacon.slot.epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 func contextEpoch*(update: SomeLightClientUpdate): Epoch =
-  update.attested_header.slot.epoch
+  update.attested_header.beacon.slot.epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(

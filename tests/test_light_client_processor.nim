@@ -113,7 +113,7 @@ suite "Light client processor" & preset():
         bootstrap.kind <= storeDataFork
       let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
       template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
-      setTimeToSlot(forkyBootstrap.header.slot)
+      setTimeToSlot(forkyBootstrap.header.beacon.slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), bootstrap)
       check:
@@ -135,7 +135,8 @@ suite "Light client processor" & preset():
         check:
           res.isOk
           store[].isSome
-          if forkyUpdate.finalized_header.slot > forkyBootstrap.header.slot:
+          if forkyUpdate.finalized_header.beacon.slot >
+              forkyBootstrap.header.beacon.slot:
             store[].get.finalized_header == forkyUpdate.finalized_header
           else:
             store[].get.finalized_header == forkyBootstrap.header
@@ -274,10 +275,10 @@ suite "Light client processor" & preset():
         bootstrap.kind <= storeDataFork
       withForkyBootstrap(bootstrap):
         when lcDataFork >= LightClientDataFork.Altair:
-          forkyBootstrap.header.slot.inc()
+          forkyBootstrap.header.beacon.slot.inc()
       let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
       template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
-      setTimeToSlot(forkyBootstrap.header.slot)
+      setTimeToSlot(forkyBootstrap.header.beacon.slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), bootstrap)
       check:
@@ -292,7 +293,7 @@ suite "Light client processor" & preset():
         bootstrap.kind <= storeDataFork
       let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
       template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
-      setTimeToSlot(forkyBootstrap.header.slot)
+      setTimeToSlot(forkyBootstrap.header.beacon.slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), bootstrap)
       check:

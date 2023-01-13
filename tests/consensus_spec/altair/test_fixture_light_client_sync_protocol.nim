@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -140,11 +140,11 @@ let full_sync_committee_bits = block:
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/tests/core/pyspec/eth2spec/test/helpers/light_client.py#L20-L29
 func initialize_light_client_store(state: auto): LightClientStore =
   LightClientStore(
-    finalized_header: BeaconBlockHeader(),
+    finalized_header: altair.LightClientHeader(),
     current_sync_committee: state.current_sync_committee,
     next_sync_committee: state.next_sync_committee,
     best_valid_update: Opt.none(altair.LightClientUpdate),
-    optimistic_header: BeaconBlockHeader(),
+    optimistic_header: altair.LightClientHeader(),
     previous_max_active_participants: 0,
     current_max_active_participants: 0,
   )
@@ -162,13 +162,14 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
     let forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
     var store = initialize_light_client_store(state)
+    const lcDataFork = typeof(store).kind
 
     # Block at slot 1 doesn't increase sync committee period,
     # so it won't update snapshot
     var cache: StateCache
     let
       attested_block = block_for_next_slot(cfg, forked[], cache).altairData
-      attested_header = attested_block.toBeaconBlockHeader
+      attested_header = attested_block.toLightClientHeader(lcDataFork)
 
     # Sync committee signing the attested_header
       (sync_aggregate, signature_slot) = get_sync_aggregate(cfg, forked[])
@@ -179,7 +180,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
     check state.finalized_checkpoint.epoch == 0
     # Finality is unchanged
     let
-      finality_header = BeaconBlockHeader()
+      finality_header = altair.LightClientHeader()
       finality_branch = default(altair.FinalityBranch)
 
       update = altair.LightClientUpdate(
@@ -208,6 +209,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
     var forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
     var store = initialize_light_client_store(state)
+    const lcDataFork = typeof(store).kind
 
     # Forward to slot before next sync committee period so that next block is
     # final one in period
@@ -218,13 +220,13 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
       cfg, forked[], Slot(UPDATE_TIMEOUT - 2), cache, info, flags = {}
     ).expect("no failure")
     let
-      store_period = sync_committee_period(store.optimistic_header.slot)
+      store_period = sync_committee_period(store.optimistic_header.beacon.slot)
       update_period = sync_committee_period(state.slot)
     check: store_period == update_period
 
     let
       attested_block = block_for_next_slot(cfg, forked[], cache).altairData
-      attested_header = attested_block.toBeaconBlockHeader
+      attested_header = attested_block.toLightClientHeader(lcDataFork)
 
     # Sync committee signing the attested_header
       (sync_aggregate, signature_slot) = get_sync_aggregate(cfg, forked[])
@@ -232,7 +234,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
       next_sync_committee_branch = default(altair.NextSyncCommitteeBranch)
 
     # Finality is unchanged
-      finality_header = BeaconBlockHeader()
+      finality_header = altair.LightClientHeader()
       finality_branch = default(altair.FinalityBranch)
 
       update = altair.LightClientUpdate(
@@ -261,6 +263,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
     let forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
     var store = initialize_light_client_store(state)
+    const lcDataFork = typeof(store).kind
 
     # Forward to next sync committee period
     var
@@ -270,13 +273,13 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
       cfg, forked[], Slot(UPDATE_TIMEOUT), cache, info, flags = {}
     ).expect("no failure")
     let
-      store_period = sync_committee_period(store.optimistic_header.slot)
+      store_period = sync_committee_period(store.optimistic_header.beacon.slot)
       update_period = sync_committee_period(state.slot)
     check: store_period + 1 == update_period
 
     let
       attested_block = block_for_next_slot(cfg, forked[], cache).altairData
-      attested_header = attested_block.toBeaconBlockHeader
+      attested_header = attested_block.toLightClientHeader(lcDataFork)
 
     # Sync committee signing the attested_header
       (sync_aggregate, signature_slot) = get_sync_aggregate(cfg, forked[])
@@ -288,7 +291,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
         state.build_proof(altair.NEXT_SYNC_COMMITTEE_INDEX).get
 
     # Finality is unchanged
-      finality_header = BeaconBlockHeader()
+      finality_header = altair.LightClientHeader()
       finality_branch = default(altair.FinalityBranch)
 
       update = altair.LightClientUpdate(
@@ -317,6 +320,7 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
     let forked = assignClone(genesisState[])
     template state(): auto = forked[].altairData.data
     var store = initialize_light_client_store(state)
+    const lcDataFork = typeof(store).kind
 
     # Change finality
     var
@@ -332,13 +336,13 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
     check: state.finalized_checkpoint.epoch == 3
     # Ensure that it's same period
     let
-      store_period = sync_committee_period(store.optimistic_header.slot)
+      store_period = sync_committee_period(store.optimistic_header.beacon.slot)
       update_period = sync_committee_period(state.slot)
     check: store_period == update_period
 
     let
       attested_block = blocks[^1].altairData
-      attested_header = attested_block.toBeaconBlockHeader
+      attested_header = attested_block.toLightClientHeader(lcDataFork)
 
     # Sync committee signing the attested_header
       (sync_aggregate, signature_slot) = get_sync_aggregate(cfg, forked[])
@@ -347,10 +351,12 @@ suite "EF - Altair - Unittests - Light client - Sync protocol" & preset():
       next_sync_committee = SyncCommittee()
       next_sync_committee_branch = default(altair.NextSyncCommitteeBranch)
       finalized_block = blocks[SLOTS_PER_EPOCH - 1].altairData
-      finalized_header = finalized_block.toBeaconBlockHeader
+      finalized_header = finalized_block.toLightClientHeader(lcDataFork)
     check:
-      finalized_header.slot == start_slot(state.finalized_checkpoint.epoch)
-      finalized_header.hash_tree_root() == state.finalized_checkpoint.root
+      finalized_header.beacon.slot ==
+        start_slot(state.finalized_checkpoint.epoch)
+      finalized_header.beacon.hash_tree_root() ==
+        state.finalized_checkpoint.root
     let
       finality_branch = state.build_proof(altair.FINALIZED_ROOT_INDEX).get
 

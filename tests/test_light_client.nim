@@ -158,22 +158,25 @@ suite "Light client" & preset():
 
     # Sync to latest sync committee period
     var numIterations = 0
-    while store.finalized_header.slot.sync_committee_period + 1 < headPeriod:
+    template storePeriod: SyncCommitteePeriod =
+      store.finalized_header.beacon.slot.sync_committee_period
+    while storePeriod + 1 < headPeriod:
       let
         period =
           if store.is_next_sync_committee_known:
-            store.finalized_header.slot.sync_committee_period + 1
+            storePeriod + 1
           else:
-            store.finalized_header.slot.sync_committee_period
+            storePeriod
         update = dag.getLightClientUpdateForPeriod(period)
       check update.kind == storeDataFork
       template forkyUpdate: untyped = update.forky(storeDataFork)
       let res = process_light_client_update(
           store, forkyUpdate, currentSlot, cfg, genesis_validators_root)
       check:
-        forkyUpdate.finalized_header.slot.sync_committee_period == period
+        forkyUpdate.finalized_header.beacon.slot.sync_committee_period == period
         res.isOk
-        if forkyUpdate.finalized_header.slot > forkyBootstrap.header.slot:
+        if forkyUpdate.finalized_header.beacon.slot >
+            forkyBootstrap.header.beacon.slot:
           store.finalized_header == forkyUpdate.finalized_header
         else:
           store.finalized_header == forkyBootstrap.header
@@ -187,7 +190,7 @@ suite "Light client" & preset():
     let res = process_light_client_update(
         store, forkyFinalityUpdate, currentSlot, cfg, genesis_validators_root)
     check:
-      forkyFinalityUpdate.attested_header.slot == dag.head.parent.slot
+      forkyFinalityUpdate.attested_header.beacon.slot == dag.head.parent.slot
       res.isOk
       store.finalized_header == forkyFinalityUpdate.finalized_header
       store.optimistic_header == forkyFinalityUpdate.attested_header
