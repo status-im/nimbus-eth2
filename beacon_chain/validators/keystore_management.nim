@@ -1272,7 +1272,8 @@ proc generateDistirbutedStore*(rng: var HmacDrbgContext,
                                shareValidatorDir: string,
                                remoteValidatorDir: string,
                                remoteSignersUrls: seq[string],
-                               threshold: uint32): Result[void, KeystoreGenerationError] =
+                               threshold: uint32,
+                               mode = KeystoreMode.Secure): Result[void, KeystoreGenerationError] =
   var signers: seq[RemoteSignerInfo]
   for idx, share in shares:
     var password = KeystorePass.init ncrutils.toHex(rng.generateBytes(32))
@@ -1284,7 +1285,7 @@ proc generateDistirbutedStore*(rng: var HmacDrbgContext,
                    share.key, share.key.toPubKey,
                    makeKeyPath(validatorIdx, signingKeyKind),
                    password.str,
-                   KeystoreMode.Secure)
+                   mode)
 
     signers.add RemoteSignerInfo(
       url: HttpHostUri(parseUri(remoteSignersUrls[idx])),
@@ -1409,7 +1410,8 @@ proc generateDeposits*(cfg: RuntimeConfig,
                                validatorsDir & "_shares",
                                validatorsDir,
                                remoteSignersUrls,
-                               threshold)
+                               threshold,
+                               mode)
 
     deposits.add prepareDeposit(
       cfg, withdrawalPubKey, derivedKey, signingPubKey)
