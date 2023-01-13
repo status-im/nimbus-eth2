@@ -262,6 +262,13 @@ func toMeta*(update: SomeLightClientUpdate): LightClientUpdateMetadata =
     update.sync_aggregate.num_active_participants.uint64
   meta
 
+template toMeta*(update: ForkedLightClientUpdate): LightClientUpdateMetadata =
+  withForkyUpdate(update):
+    when lcDataFork >= LightClientDataFork.Altair:
+      forkyUpdate.toMeta()
+    else:
+      default(LightClientUpdateMetadata)
+
 func is_better_data*(new_meta, old_meta: LightClientUpdateMetadata): bool =
   # Compare supermajority (> 2/3) sync committee participation
   const max_active_participants = SYNC_COMMITTEE_SIZE.uint64
@@ -310,7 +317,8 @@ func is_better_data*(new_meta, old_meta: LightClientUpdateMetadata): bool =
   # Tiebreaker 2: Prefer older data (fewer changes to best data)
   new_meta.attested_slot < old_meta.attested_slot
 
-template is_better_update*[A, B: SomeLightClientUpdate](
+template is_better_update*[
+    A, B: SomeLightClientUpdate | ForkedLightClientUpdate](
     new_update: A, old_update: B): bool =
   is_better_data(toMeta(new_update), toMeta(old_update))
 
@@ -323,8 +331,6 @@ func contextEpoch*(bootstrap: altair.LightClientBootstrap): Epoch =
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 func contextEpoch*(update: SomeLightClientUpdate): Epoch =
   update.attested_header.slot.epoch
-
-from ./datatypes/eip4844 import BeaconState
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(

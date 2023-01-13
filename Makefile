@@ -589,11 +589,7 @@ clean-sepolia:
 ### Gnosis chain binary
 ###
 
-# TODO The constants overrides below should not be necessary if we restore
-#      the support for compiling with custom const presets.
-#      See the prepared preset file in media/gnosis/preset.yaml
-#
-#      The `-d:gnosisChainBinary` override can be removed if the web3 library
+# TODO The `-d:gnosisChainBinary` override can be removed if the web3 library
 #      gains support for multiple "Chain Profiles" that consist of a set of
 #      consensus object (such as blocks and transactions) that are specific
 #      to the chain.
@@ -604,11 +600,7 @@ gnosis-build gnosis-chain-build: | build deps
 			beacon_chain/nimbus_beacon_node.nim \
 			$(NIM_PARAMS) \
 			-d:gnosisChainBinary \
-			-d:has_genesis_detection \
-			-d:SLOTS_PER_EPOCH=16 \
-			-d:SECONDS_PER_SLOT=5 \
-			-d:BASE_REWARD_FACTOR=25 \
-			-d:EPOCHS_PER_SYNC_COMMITTEE_PERIOD=512 \
+			-d:const_preset=gnosis \
 			&& \
 		echo -e $(BUILD_END_MSG) "build/nimbus_beacon_node_gnosis"
 

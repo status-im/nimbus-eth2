@@ -978,6 +978,12 @@ template write*[M; maxLen: static Limit](
   mixin sendResponseChunk
   sendResponseChunk(UntypedResponse(r), val, contextBytes)
 
+template writeSSZ*[M; maxLen: static Limit](
+    r: MultipleChunksResponse[M, maxLen], val: auto,
+    contextBytes: openArray[byte] = []): untyped =
+  mixin sendResponseChunk
+  sendResponseChunk(UntypedResponse(r), val, contextBytes)
+
 template writeBytesSZ*(
     r: MultipleChunksResponse, uncompressedLen: uint64,
     bytes: openArray[byte], contextBytes: openArray[byte]): untyped =
@@ -985,6 +991,13 @@ template writeBytesSZ*(
 
 template send*[M](
     r: SingleChunkResponse[M], val: M,
+    contextBytes: openArray[byte] = []): untyped =
+  mixin sendResponseChunk
+  doAssert UntypedResponse(r).writtenChunks == 0
+  sendResponseChunk(UntypedResponse(r), val, contextBytes)
+
+template sendSSZ*[M](
+    r: SingleChunkResponse[M], val: auto,
     contextBytes: openArray[byte] = []): untyped =
   mixin sendResponseChunk
   doAssert UntypedResponse(r).writtenChunks == 0
@@ -1854,14 +1867,16 @@ proc startListening*(node: Eth2Node) {.async.} =
   if node.discoveryEnabled:
     try:
        node.discovery.open()
-    except CatchableError:
-      fatal "Failed to start discovery service. UDP port may be already in use"
+    except CatchableError as err:
+      fatal "Failed to start discovery service. UDP port may be already in use",
+            err = err.msg
       quit 1
 
   try:
     await node.switch.start()
-  except CatchableError:
-    fatal "Failed to start LibP2P transport. TCP port may be already in use"
+  except CatchableError as err:
+    fatal "Failed to start LibP2P transport. TCP port may be already in use",
+          err = err.msg
     quit 1
 
 proc peerPingerHeartbeat(node: Eth2Node): Future[void] {.gcsafe.}
@@ -2665,15 +2680,15 @@ proc broadcastSignedContributionAndProof*(
   node.broadcast(topic, msg)
 
 proc broadcastLightClientFinalityUpdate*(
-    node: Eth2Node, msg: altair.LightClientFinalityUpdate):
+    node: Eth2Node, msg: ForkyLightClientFinalityUpdate):
     Future[SendResult] =
   let topic = getLightClientFinalityUpdateTopic(
-    node.forkDigestAtEpoch(msg.attested_header.slot.epoch))
+    node.forkDigestAtEpoch(msg.contextEpoch))
   node.broadcast(topic, msg)
 
 proc broadcastLightClientOptimisticUpdate*(
-    node: Eth2Node, msg: altair.LightClientOptimisticUpdate):
+    node: Eth2Node, msg: ForkyLightClientOptimisticUpdate):
     Future[SendResult] =
   let topic = getLightClientOptimisticUpdateTopic(
-    node.forkDigestAtEpoch(msg.attested_header.slot.epoch))
+    node.forkDigestAtEpoch(msg.contextEpoch))
   node.broadcast(topic, msg)

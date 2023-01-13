@@ -12,6 +12,7 @@ else:
 
 import
   # Status libraries
+  stew/base10,
   chronicles,
   eth/db/kvstore_sqlite3,
   # Beacon chain internals
@@ -21,25 +22,24 @@ import
 
 logScope: topics = "lcdata"
 
-# `altair_current_sync_committee_branches` holds merkle proofs needed to
-# construct `LightClientBootstrap` objects. The sync committee needs to
-# be computed from the main DAG on-demand (usually a fast state access).
+# `lc_altair_current_branches` holds merkle proofs needed to
+# construct `LightClientBootstrap` objects.
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
 #
-# `altair_best_updates` holds full `LightClientUpdate` objects in SSZ form.
-# These objects are frequently queried in bunk, but there is only one per
+# `lc_best_updates` holds full `LightClientUpdate` objects in SSZ form.
+# These objects are frequently queried in bulk, but there is only one per
 # sync committee period, so storing the full sync committee is acceptable.
 # This data could be stored as SZSSZ to avoid on-the-fly compression when a
 # libp2p request is handled. However, the space savings are quite small.
 # Furthermore, `LightClientUpdate` is consulted on each new block to attempt
 # improving it. Continuously decompressing and recompressing seems inefficient.
 # Finally, the libp2p context bytes depend on `attested_header.slot` to derive
-# the underlying fork digest. The table name is insufficient to determine this
-# unless one is made for each fork, even if there was no structural change.
+# the underlying fork digest; the `kind` column is not sufficient to derive
+# the fork digest, because the same storage format may be used across forks.
 # SSZ storage selected due to the small size and reduced logic complexity.
 #
-# `sealed_sync_committee_periods` contains the sync committee periods for which
+# `lc_sealed_periods` contains the sync committee periods for which
 # full light client data was imported. Data for these periods may no longer
 # improve regardless of further block processing. The listed periods are skipped
 # when restarting the program.
@@ -52,8 +52,8 @@ type
     keepFromStmt: SqliteStmt[int64, void]
 
   BestLightClientUpdateStore = object
-    getStmt: SqliteStmt[int64, seq[byte]]
-    putStmt: SqliteStmt[(int64, seq[byte]), void]
+    getStmt: SqliteStmt[int64, (int64, seq[byte])]
+    putStmt: SqliteStmt[(int64, int64, seq[byte]), void]
     delStmt: SqliteStmt[int64, void]
     delFromStmt: SqliteStmt[int64, void]
     keepFromStmt: SqliteStmt[int64, void]
@@ -75,7 +75,7 @@ type
       ## Data stored for all finalized epoch boundary blocks.
 
     bestUpdates: BestLightClientUpdateStore
-      ## SyncCommitteePeriod -> altair.LightClientUpdate
+      ## SyncCommitteePeriod -> (LightClientDataFork, LightClientUpdate)
       ## Stores the `LightClientUpdate` with the most `sync_committee_bits` per
       ## `SyncCommitteePeriod`. Sync committee finality gives precedence.
 
@@ -162,25 +162,43 @@ func putCurrentSyncCommitteeBranch*(
 
 proc initBestUpdatesStore(
     backend: SqStoreRef,
-    name: string): KvResult[BestLightClientUpdateStore] =
+    name, legacyAltairName: string,
+): KvResult[BestLightClientUpdateStore] =
   ? backend.exec("""
     CREATE TABLE IF NOT EXISTS `""" & name & """` (
       `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
-      `update` BLOB                  -- `altair.LightClientUpdate` (SSZ)
+      `kind` INTEGER,                -- `LightClientDataFork`
+      `update` BLOB                  -- `LightClientUpdate` (SSZ)
     );
   """)
+  if backend.hasTable(legacyAltairName).expect("SQL query OK"):
+    info "Importing Altair light client data"
+    # SyncCommitteePeriod -> altair.LightClientUpdate
+    const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
+    ? backend.exec("""
+      INSERT OR IGNORE INTO `""" & name & """` (
+        `period`, `kind`, `update`
+      )
+      SELECT `period`, """ & legacyKind & """ AS `kind`, `update`
+      FROM `""" & legacyAltairName & """`;
+    """)
+    ? backend.exec("""
+      DROP TABLE `""" & legacyAltairName & """`;
+    """)
 
   let
     getStmt = backend.prepareStmt("""
-      SELECT `update`
+      SELECT `kind`, `update`
       FROM `""" & name & """`
       WHERE `period` = ?;
-    """, int64, seq[byte], managed = false).expect("SQL query OK")
+    """, int64, (int64, seq[byte]), managed = false)
+      .expect("SQL query OK")
     putStmt = backend.prepareStmt("""
       REPLACE INTO `""" & name & """` (
-        `period`, `update`
-      ) VALUES (?, ?);
-    """, (int64, seq[byte]), void, managed = false).expect("SQL query OK")
+        `period`, `kind`, `update`
+      ) VALUES (?, ?, ?);
+    """, (int64, int64, seq[byte]), void, managed = false)
+      .expect("SQL query OK")
     delStmt = backend.prepareStmt("""
       DELETE FROM `""" & name & """`
       WHERE `period` = ?;
@@ -210,34 +228,47 @@ func close(store: BestLightClientUpdateStore) =
 
 proc getBestUpdate*(
     db: LightClientDataDB, period: SyncCommitteePeriod
-): altair.LightClientUpdate =
+): ForkedLightClientUpdate =
   doAssert period.isSupportedBySQLite
-  var update: seq[byte]
+  var update: (int64, seq[byte])
   for res in db.bestUpdates.getStmt.exec(period.int64, update):
     res.expect("SQL query OK")
     try:
-      return SSZ.decode(update, altair.LightClientUpdate)
+      case update[0]
+      of ord(LightClientDataFork.Altair).int64:
+        return ForkedLightClientUpdate(
+          kind: LightClientDataFork.Altair,
+          altairData: SSZ.decode(update[1], altair.LightClientUpdate))
+      else:
+        warn "Unsupported LC data store kind", store = "bestUpdates",
+          period, kind = update[0]
+        return default(ForkedLightClientUpdate)
     except SszError as exc:
       error "LC data store corrupted", store = "bestUpdates",
-        period, exc = exc.msg
-      return default(altair.LightClientUpdate)
+        period, kind = update[0], exc = exc.msg
+      return default(ForkedLightClientUpdate)
 
 func putBestUpdate*(
     db: LightClientDataDB, period: SyncCommitteePeriod,
-    update: altair.LightClientUpdate) =
+    update: ForkedLightClientUpdate) =
   doAssert period.isSupportedBySQLite
-  let numParticipants = update.sync_aggregate.num_active_participants
-  if numParticipants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
-    let res = db.bestUpdates.delStmt.exec(period.int64)
-    res.expect("SQL query OK")
-  else:
-    let res = db.bestUpdates.putStmt.exec(
-      (period.int64, SSZ.encode(update)))
-    res.expect("SQL query OK")
+  withForkyUpdate(update):
+    when lcDataFork >= LightClientDataFork.Altair:
+      let numParticipants = forkyUpdate.sync_aggregate.num_active_participants
+      if numParticipants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
+        let res = db.bestUpdates.delStmt.exec(period.int64)
+        res.expect("SQL query OK")
+      else:
+        let res = db.bestUpdates.putStmt.exec(
+          (period.int64, lcDataFork.int64, SSZ.encode(forkyUpdate)))
+        res.expect("SQL query OK")
+    else:
+      let res = db.bestUpdates.delStmt.exec(period.int64)
+      res.expect("SQL query OK")
 
 proc putUpdateIfBetter*(
     db: LightClientDataDB, period: SyncCommitteePeriod,
-    update: altair.LightClientUpdate) =
+    update: ForkedLightClientUpdate) =
   let existing = db.getBestUpdate(period)
   if is_better_update(update, existing):
     db.putBestUpdate(period, update)
@@ -299,13 +330,14 @@ func sealPeriod*(
   let res = db.sealedPeriods.putStmt.exec(period.int64)
   res.expect("SQL query OK")
 
-func delPeriodsFrom*(
+func delNonFinalizedPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
   doAssert minPeriod.isSupportedBySQLite
   let res1 = db.sealedPeriods.delFromStmt.exec(minPeriod.int64)
   res1.expect("SQL query OK")
   let res2 = db.bestUpdates.delFromStmt.exec(minPeriod.int64)
   res2.expect("SQL query OK")
+  # `currentBranches` only has finalized data
 
 func keepPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
@@ -321,7 +353,8 @@ func keepPeriodsFrom*(
 
 type LightClientDataDBNames* = object
   altairCurrentBranches*: string
-  altairBestUpdates*: string
+  legacyAltairBestUpdates*: string
+  bestUpdates*: string
   sealedPeriods*: string
 
 proc initLightClientDataDB*(
@@ -331,7 +364,8 @@ proc initLightClientDataDB*(
     currentBranches =
       ? backend.initCurrentBranchesStore(names.altairCurrentBranches)
     bestUpdates =
-      ? backend.initBestUpdatesStore(names.altairBestUpdates)
+      ? backend.initBestUpdatesStore(
+        names.bestUpdates, names.legacyAltairBestUpdates)
     sealedPeriods =
       ? backend.initSealedPeriodsStore(names.sealedPeriods)
 

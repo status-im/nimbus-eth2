@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -37,20 +37,21 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block_root.get()
 
     let bootstrap = node.dag.getLightClientBootstrap(vroot)
-    if bootstrap.isNone:
-      return RestApiResponse.jsonError(Http404, LCBootstrapUnavailable)
-
-    let
-      contextEpoch = bootstrap.get.contextEpoch
-      contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
-    return
-      if contentType == sszMediaType:
-        let headers = [("eth-consensus-version", contextFork.toString())]
-        RestApiResponse.sszResponse(bootstrap.get, headers)
-      elif contentType == jsonMediaType:
-        RestApiResponse.jsonResponseWVersion(bootstrap.get, contextFork)
+    withForkyBootstrap(bootstrap):
+      when lcDataFork >= LightClientDataFork.Altair:
+        let
+          contextEpoch = forkyBootstrap.contextEpoch
+          contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
+        return
+          if contentType == sszMediaType:
+            let headers = [("eth-consensus-version", contextFork.toString())]
+            RestApiResponse.sszResponse(forkyBootstrap, headers)
+          elif contentType == jsonMediaType:
+            RestApiResponse.jsonResponseWVersion(forkyBootstrap, contextFork)
+          else:
+            RestApiResponse.jsonError(Http500, InvalidAcceptError)
       else:
-        RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        return RestApiResponse.jsonError(Http404, LCBootstrapUnavailable)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientUpdatesByRange
   router.api(MethodGet,
@@ -93,23 +94,27 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       numPeriods = min(vcount, maxSupportedCount)
       onePastPeriod = vstart + numPeriods
 
-    var updates = newSeqOfCap[RestVersioned[LightClientUpdate]](numPeriods)
+    var updates =
+      newSeqOfCap[RestVersioned[ForkedLightClientUpdate]](numPeriods)
     for period in vstart..<onePastPeriod:
-      let update = node.dag.getLightClientUpdateForPeriod(period)
-      if update.isSome:
-        let
-          contextEpoch = update.get.contextEpoch
-          contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
-        updates.add RestVersioned[LightClientUpdate](
-          data: update.get,
-          jsonVersion: contextFork,
-          sszContext: node.dag.forkDigests[].atStateFork(contextFork))
+      let
+        update = node.dag.getLightClientUpdateForPeriod(period)
+        contextEpoch = withForkyUpdate(update):
+          when lcDataFork >= LightClientDataFork.Altair:
+            forkyUpdate.contextEpoch
+          else:
+            continue
+        contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
+      updates.add RestVersioned[ForkedLightClientUpdate](
+        data: update,
+        jsonVersion: contextFork,
+        sszContext: node.dag.forkDigests[].atStateFork(contextFork))
 
     return
       if contentType == sszMediaType:
-        RestApiResponse.sszResponseVersionedList(updates)
+        RestApiResponse.sszResponseVersioned(updates)
       elif contentType == jsonMediaType:
-        RestApiResponse.jsonResponseVersionedList(updates)
+        RestApiResponse.jsonResponseVersioned(updates)
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
@@ -127,20 +132,22 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
 
     let finality_update = node.dag.getLightClientFinalityUpdate()
-    if finality_update.isNone:
-      return RestApiResponse.jsonError(Http404, LCFinUpdateUnavailable)
-
-    let
-      contextEpoch = finality_update.get.contextEpoch
-      contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
-    return
-      if contentType == sszMediaType:
-        let headers = [("eth-consensus-version", contextFork.toString())]
-        RestApiResponse.sszResponse(finality_update.get, headers)
-      elif contentType == jsonMediaType:
-        RestApiResponse.jsonResponseWVersion(finality_update.get, contextFork)
+    withForkyFinalityUpdate(finality_update):
+      when lcDataFork >= LightClientDataFork.Altair:
+        let
+          contextEpoch = forkyFinalityUpdate.contextEpoch
+          contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
+        return
+          if contentType == sszMediaType:
+            let headers = [("eth-consensus-version", contextFork.toString())]
+            RestApiResponse.sszResponse(forkyFinalityUpdate, headers)
+          elif contentType == jsonMediaType:
+            RestApiResponse.jsonResponseWVersion(
+              forkyFinalityUpdate, contextFork)
+          else:
+            RestApiResponse.jsonError(Http500, InvalidAcceptError)
       else:
-        RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        return RestApiResponse.jsonError(Http404, LCFinUpdateUnavailable)
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getLightClientOptimisticUpdate
   router.api(MethodGet,
@@ -156,17 +163,19 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res.get()
 
     let optimistic_update = node.dag.getLightClientOptimisticUpdate()
-    if optimistic_update.isNone:
-      return RestApiResponse.jsonError(Http404, LCOptUpdateUnavailable)
-
-    let
-      contextEpoch = optimistic_update.get.contextEpoch
-      contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
-    return
-      if contentType == sszMediaType:
-        let headers = [("eth-consensus-version", contextFork.toString())]
-        RestApiResponse.sszResponse(optimistic_update.get, headers)
-      elif contentType == jsonMediaType:
-        RestApiResponse.jsonResponseWVersion(optimistic_update.get, contextFork)
+    withForkyOptimisticUpdate(optimistic_update):
+      when lcDataFork >= LightClientDataFork.Altair:
+        let
+          contextEpoch = forkyOptimisticUpdate.contextEpoch
+          contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
+        return
+          if contentType == sszMediaType:
+            let headers = [("eth-consensus-version", contextFork.toString())]
+            RestApiResponse.sszResponse(forkyOptimisticUpdate, headers)
+          elif contentType == jsonMediaType:
+            RestApiResponse.jsonResponseWVersion(
+              forkyOptimisticUpdate, contextFork)
+          else:
+            RestApiResponse.jsonError(Http500, InvalidAcceptError)
       else:
-        RestApiResponse.jsonError(Http500, InvalidAcceptError)
+        return RestApiResponse.jsonError(Http404, LCOptUpdateUnavailable)

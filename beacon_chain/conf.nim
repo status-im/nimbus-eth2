@@ -1265,7 +1265,7 @@ proc loadEth2Network*(
     eth2Network: Option[string]
 ): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
   const defaultName =
-    when defined(gnosisChainBinary) and const_preset == "mainnet":
+    when const_preset == "gnosis":
       "gnosis"
     elif const_preset == "mainnet":
       "mainnet"
@@ -1276,7 +1276,7 @@ proc loadEth2Network*(
   if eth2Network.isSome:
     getMetadataForNetwork(eth2Network.get)
   else:
-    when defined(gnosisChainBinary) and const_preset == "mainnet":
+    when const_preset == "gnosis":
       gnosisMetadata
     elif const_preset == "mainnet":
       mainnetMetadata

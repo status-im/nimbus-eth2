@@ -213,16 +213,15 @@ template mergeTestnet(path: string, eth1Network: Eth1Network): Eth2NetworkMetada
   loadCompileTimeNetworkMetadata(mergeTestnetsDir & "/" & path,
                                  some eth1Network)
 
-when defined(gnosisChainBinary) and const_preset == "mainnet":
+when const_preset == "gnosis":
   const
     gnosisMetadata* = loadCompileTimeNetworkMetadata(
       currentSourcePath.parentDir.replace('\\', '/') &
-      "/../../media/gnosis")
+      "/../../vendor/gnosis-chain-configs/mainnet")
   static:
-    for network in [gnosisMetadata]:
-      checkForkConsistency(network.cfg)
-    doAssert network.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
-    doAssert network.cfg.EIP4844_FORK_EPOCH == FAR_FUTURE_EPOCH
+    checkForkConsistency(gnosisMetadata.cfg)
+    doAssert gnosisMetadata.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
+    doAssert gnosisMetadata.cfg.EIP4844_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 elif const_preset == "mainnet":
   const
@@ -253,7 +252,7 @@ proc getMetadataForNetwork*(
     warn "Ropsten is unsupported; https://blog.ethereum.org/2022/11/30/ropsten-shutdown-announcement suggests migrating to Goerli or Sepolia"
 
   let metadata =
-    when defined(gnosisChainBinary) and const_preset == "mainnet":
+    when const_preset == "gnosis":
       case toLowerAscii(networkName)
       of "gnosis":
         gnosisMetadata
@@ -299,10 +298,9 @@ proc getRuntimeConfig*(
     return getMetadataForNetwork(eth2Network.get).cfg
 
   when const_preset == "mainnet":
-    when defined(gnosisChainBinary):
-      gnosisMetadata.cfg
-    else:
-      mainnetMetadata.cfg
+    mainnetMetadata.cfg
+  elif const_preset == "gnosis":
+    gnosisMetadata.cfg
   else:
     # This is a non-standard build (i.e. minimal), and the function was most
     # likely executed in a test. The best we can do is return a fully default

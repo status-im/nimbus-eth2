@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -617,7 +617,7 @@ proc processSignedContributionAndProof*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var Eth2Processor, src: MsgSource,
-    finality_update: altair.LightClientFinalityUpdate
+    finality_update: ForkedLightClientFinalityUpdate
 ): Result[void, ValidationError] =
   let
     wallTime = self.getCurrentBeaconTime()
@@ -628,7 +628,7 @@ proc processLightClientFinalityUpdate*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
 proc processLightClientOptimisticUpdate*(
     self: var Eth2Processor, src: MsgSource,
-    optimistic_update: altair.LightClientOptimisticUpdate
+    optimistic_update: ForkedLightClientOptimisticUpdate
 ): Result[void, ValidationError] =
   let
     wallTime = self.getCurrentBeaconTime()
