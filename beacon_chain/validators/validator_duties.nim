@@ -181,7 +181,7 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
     await sleepAsync(sendTime.offset)
 
   withForkyFinalityUpdate(node.dag.lcDataStore.cache.latest):
-    when lcDataFork >= LightClientDataFork.Altair:
+    when lcDataFork > LightClientDataFork.None:
       let signature_slot = forkyFinalityUpdate.signature_slot
       if slot != signature_slot:
         return

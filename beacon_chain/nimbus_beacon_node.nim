@@ -153,7 +153,7 @@ proc loadChainDag(
   proc onLightClientFinalityUpdate(data: ForkedLightClientFinalityUpdate) =
     if dag == nil: return
     withForkyFinalityUpdate(data):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let contextFork =
           dag.cfg.stateForkAtEpoch(forkyFinalityUpdate.contextEpoch)
         eventBus.finUpdateQueue.emit(
@@ -164,7 +164,7 @@ proc loadChainDag(
   proc onLightClientOptimisticUpdate(data: ForkedLightClientOptimisticUpdate) =
     if dag == nil: return
     withForkyOptimisticUpdate(data):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let contextFork =
           dag.cfg.stateForkAtEpoch(forkyOptimisticUpdate.contextEpoch)
         eventBus.optUpdateQueue.emit(

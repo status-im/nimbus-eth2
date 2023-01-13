@@ -20,11 +20,10 @@ import
   ./datatypes/[phase0, altair, bellatrix, capella, eip4844],
   ./mev/bellatrix_mev
 
-# TODO re-export capella, but for now it could cause knock-on effects, so stage
-# it sequentially
 export
-  extras, block_id, phase0, altair, bellatrix, eth2_merkleization,
-  eth2_ssz_serialization, forks_light_client, presets, bellatrix_mev
+  extras, block_id, phase0, altair, bellatrix, capella, eip4844,
+  eth2_merkleization, eth2_ssz_serialization, forks_light_client,
+  presets, bellatrix_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -859,6 +858,13 @@ func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   of BeaconStateFork.Bellatrix: cfg.CAPELLA_FORK_EPOCH
   of BeaconStateFork.Altair:    cfg.BELLATRIX_FORK_EPOCH
   of BeaconStateFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
+
+func lcDataForkAtStateFork*(stateFork: BeaconStateFork): LightClientDataFork =
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
+  if stateFork >= BeaconStateFork.Altair:
+    LightClientDataFork.Altair
+  else:
+    LightClientDataFork.None
 
 func getForkSchedule*(cfg: RuntimeConfig): array[5, Fork] =
   ## This procedure returns list of known and/or scheduled forks.

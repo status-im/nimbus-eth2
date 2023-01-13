@@ -99,7 +99,7 @@ proc runTest(path: string) =
     doAssert unknowns.len == 0, "Unknown config constants: " & $unknowns
 
     var store =
-      initialize_light_client_store(trusted_block_root, bootstrap).get
+      initialize_light_client_store(trusted_block_root, bootstrap, cfg).get
     for step in steps:
       case step.kind
       of TestStepKind.ForceUpdate:

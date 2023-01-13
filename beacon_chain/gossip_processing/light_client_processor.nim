@@ -13,7 +13,6 @@ else:
 import
   stew/objects,
   chronos, metrics,
-  ../spec/datatypes/altair,
   ../spec/light_client_sync,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_clock, sszdump],
@@ -29,6 +28,8 @@ logScope: topics = "gossip_lc"
 
 declareHistogram light_client_store_object_duration_seconds,
   "storeObject() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
+
+template storeDataFork: LightClientDataFork = LightClientDataFork.high
 
 type
   Nothing = object
@@ -100,7 +101,7 @@ type
 
     # Consumer
     # ----------------------------------------------------------------
-    store: ref Option[LightClientStore]
+    store: ref Option[storeDataFork.LightClientStore]
     getBeaconTime: GetBeaconTimeFn
     getTrustedBlockRoot: GetTrustedBlockRootCallback
     onStoreInitialized, onFinalizedHeader, onOptimisticHeader: VoidCallback
@@ -129,6 +130,9 @@ const
   minForceUpdateDelay = chronos.minutes(30) # Minimum delay until forced-update
   minForceUpdateDuplicates = 100 # Minimum duplicates until forced-update
 
+func storeDataFork*(x: typedesc[LightClientProcessor]): LightClientDataFork =
+  storeDataFork
+
 # Initialization
 # ------------------------------------------------------------------------------
 
@@ -139,7 +143,7 @@ proc new*(
     cfg: RuntimeConfig,
     genesis_validators_root: Eth2Digest,
     finalizationMode: LightClientFinalizationMode,
-    store: ref Option[LightClientStore],
+    store: ref Option[storeDataFork.LightClientStore],
     getBeaconTime: GetBeaconTimeFn,
     getTrustedBlockRoot: GetTrustedBlockRootCallback,
     onStoreInitialized: VoidCallback = nil,
@@ -219,39 +223,45 @@ proc processObject(
   let
     wallSlot = wallTime.slotOrZero()
     store = self.store
-    res = withForkyObject(obj):
-      when lcDataFork >= LightClientDataFork.Altair:
-        when forkyObject is ForkyLightClientBootstrap:
-          if store[].isSome:
-            err(VerifierError.Duplicate)
-          else:
-            let trustedBlockRoot = self.getTrustedBlockRoot()
-            if trustedBlockRoot.isNone:
-              err(VerifierError.MissingParent)
-            else:
-              let initRes =
-                initialize_light_client_store(trustedBlockRoot.get, forkyObject)
-              if initRes.isErr:
-                err(initRes.error)
+    res =
+      if obj.kind > storeDataFork:
+        err(VerifierError.MissingParent)
+      elif obj.kind > LightClientDataFork.None:
+        let upgradedObj = obj.migratingToDataFork(storeDataFork)
+        withForkyObject(upgradedObj):
+          when lcDataFork == storeDataFork:
+            when forkyObject is ForkyLightClientBootstrap:
+              if store[].isSome:
+                err(VerifierError.Duplicate)
               else:
-                store[] = some(initRes.get)
-                ok()
-        elif forkyObject is SomeForkyLightClientUpdate:
-          if store[].isNone:
-            err(VerifierError.MissingParent)
-          else:
-            store[].get.process_light_client_update(
-              forkyObject, wallSlot, self.cfg, self.genesis_validators_root)
+                let trustedBlockRoot = self.getTrustedBlockRoot()
+                if trustedBlockRoot.isNone:
+                  err(VerifierError.MissingParent)
+                else:
+                  let initRes = initialize_light_client_store(
+                    trustedBlockRoot.get, forkyObject, self.cfg)
+                  if initRes.isErr:
+                    err(initRes.error)
+                  else:
+                    store[] = some(initRes.get)
+                    ok()
+            elif forkyObject is SomeForkyLightClientUpdate:
+              if store[].isNone:
+                err(VerifierError.MissingParent)
+              else:
+                store[].get.process_light_client_update(
+                  forkyObject, wallSlot,
+                  self.cfg, self.genesis_validators_root)
+          else: raiseAssert "Unreachable"
       else:
         err(VerifierError.Invalid)
 
   withForkyObject(obj):
-    when lcDataFork >= LightClientDataFork.Altair:
+    when lcDataFork > LightClientDataFork.None:
       self.dumpObject(forkyObject, res)
 
   if res.isErr:
     when obj is ForkedLightClientUpdate:
-      const storeDataFork = typeof(store[].get).kind
       if self.finalizationMode == LightClientFinalizationMode.Optimistic and
           store[].isSome and store[].get.best_valid_update.isSome and
           obj.kind > LightClientDataFork.None and obj.kind <= storeDataFork:
@@ -300,12 +310,12 @@ template withReportedProgress(
         if store[].isSome:
           store[].get.finalized_header
         else:
-          altair.LightClientHeader()
+          default(typeof(store[].get.finalized_header))
       previousOptimistic =
         if store[].isSome:
           store[].get.optimistic_header
         else:
-          altair.LightClientHeader()
+          default(typeof(store[].get.optimistic_header))
 
     body
 
@@ -323,7 +333,7 @@ template withReportedProgress(
     if store[].isSome:
       if store[].get.optimistic_header != previousOptimistic:
         didProgress = true
-        when obj isnot SomeLightClientUpdateWithFinality:
+        when obj isnot SomeForkedLightClientUpdateWithFinality:
           didSignificantProgress = true
         if self.onOptimisticHeader != nil:
           self.onOptimisticHeader()
@@ -382,7 +392,7 @@ proc storeObject*(
           storeObjectDur.toFloatSeconds())
 
         let objSlot = withForkyObject(obj):
-          when lcDataFork >= LightClientDataFork.Altair:
+          when lcDataFork > LightClientDataFork.None:
             when forkyObject is ForkyLightClientBootstrap:
               forkyObject.header.beacon.slot
             elif forkyObject is SomeForkyLightClientUpdateWithFinality:
@@ -401,12 +411,12 @@ proc storeObject*(
 
 proc resetToFinalizedHeader*(
     self: var LightClientProcessor,
-    header: altair.LightClientHeader,
+    header: storeDataFork.LightClientHeader,
     current_sync_committee: SyncCommittee) =
   let store = self.store
 
   discard withReportedProgress:
-    store[] = some LightClientStore(
+    store[] = some storeDataFork.LightClientStore(
       finalized_header: header,
       current_sync_committee: current_sync_committee,
       optimistic_header: header)
@@ -466,7 +476,7 @@ func toValidationError(
     if didSignificantProgress:
       let
         signature_slot = withForkyObject(obj):
-          when lcDataFork >= LightClientDataFork.Altair:
+          when lcDataFork > LightClientDataFork.None:
             forkyObject.signature_slot
           else:
             GENESIS_SLOT
@@ -531,12 +541,12 @@ proc processLightClientOptimisticUpdate*(
   if v.isOk:
     let
       latestFinalitySlot = withForkyOptimisticUpdate(self.latestFinalityUpdate):
-        when lcDataFork >= LightClientDataFork.Altair:
+        when lcDataFork > LightClientDataFork.None:
           forkyOptimisticUpdate.attested_header.beacon.slot
         else:
           GENESIS_SLOT
       attestedSlot = withForkyOptimisticUpdate(optimistic_update):
-        when lcDataFork >= LightClientDataFork.Altair:
+        when lcDataFork > LightClientDataFork.None:
           forkyOptimisticUpdate.attested_header.beacon.slot
         else:
           GENESIS_SLOT

@@ -19,6 +19,7 @@ else:
   {.push raises: [].}
 
 import
+  stew/byteutils,
   json_serialization,
   ssz_serialization/types as sszTypes,
   ../digest,
@@ -387,8 +388,9 @@ func shortLog*(v: SomeBeaconBlock): auto =
     deposits_len: v.body.deposits.len(),
     voluntary_exits_len: v.body.voluntary_exits.len(),
     sync_committee_participants: v.body.sync_aggregate.num_active_participants,
-    block_number: 0'u64, # Bellatrix compat
-    fee_recipient: "",
+    block_number: v.body.execution_payload.block_number,
+    # TODO checksum hex? shortlog?
+    fee_recipient: to0xHex(v.body.execution_payload.fee_recipient.data),
   )
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =

@@ -832,7 +832,7 @@ template gossipMaxSize(T: untyped): uint32 =
     # having max sizes significantly smaller than GOSSIP_MAX_SIZE.
     elif T is Attestation or T is AttesterSlashing or
          T is SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
-         T is altair.SignedBeaconBlock:
+         T is altair.SignedBeaconBlock or T is SomeForkyLightClientObject:
       GOSSIP_MAX_SIZE
     else:
       {.fatal: "unknown type " & name(T).}

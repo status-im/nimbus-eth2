@@ -12,10 +12,11 @@ else:
 
 import
   chronicles,
-  ./spec/datatypes/altair,
   ./beacon_node
 
 logScope: topics = "beacnde"
+
+const storeDataFork = LightClient.storeDataFork
 
 func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
   if node.eth1Monitor == nil:
@@ -87,7 +88,7 @@ proc initLightClient*(
   if config.syncLightClient:
     proc onOptimisticHeader(
         lightClient: LightClient,
-        optimisticHeader: altair.LightClientHeader) =
+        optimisticHeader: storeDataFork.LightClientHeader) =
       optimisticProcessor.setOptimisticHeader(optimisticHeader.beacon)
 
     lightClient.onOptimisticHeader = onOptimisticHeader
@@ -154,7 +155,7 @@ proc updateLightClientFromDag*(node: BeaconNode) =
     bdata = node.dag.getForkedBlock(dagHead.blck.bid).valueOr:
       return
     header = withBlck(bdata):
-      blck.toLightClientHeader(LightClientStore.kind)
+      blck.toLightClientHeader(storeDataFork)
     current_sync_committee = block:
       let tmpState = assignClone(node.dag.headState)
       node.dag.currentSyncCommitteeForPeriod(tmpState[], dagPeriod).valueOr:
