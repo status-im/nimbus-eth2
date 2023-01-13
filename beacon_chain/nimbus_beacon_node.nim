@@ -1460,7 +1460,7 @@ proc installMessageValidators(node: BeaconNode) =
           MsgSource.gossip, signedBlock)))
 
   if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:  
-   node.network.addValidator(
+    node.network.addValidator(
       getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
       proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
         # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
