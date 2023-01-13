@@ -102,6 +102,14 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	local-testnet-minimal \
 	local-testnet-mainnet
 
+# TODO: Add the installer packages here
+PLATFORM_SPECIFIC_TARGETS :=
+
+# TODO Fix the gnosis build on Windows
+ifneq ($(OS), Windows_NT)
+PLATFORM_SPECIFIC_TARGETS += gnosis-build
+endif
+
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
 #
@@ -123,7 +131,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | $(TOOLS) libnfuzz.so libnfuzz.a
+all: | $(TOOLS) libnfuzz.so libnfuzz.a $(PLATFORM_SPECIFIC_TARGETS)
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
@@ -584,6 +592,14 @@ sepolia-dev-deposit: | sepolia-build deposit_contract
 
 clean-sepolia:
 	$(call CLEAN_NETWORK,sepolia)
+
+### Capella devnets
+
+capella-devnet-2:
+	tmuxinator start -p scripts/tmuxinator-el-cl-pair-in-devnet.yml network="vendor/capella-testnets/withdrawal-devnet-2/custom_config_data"
+
+clean-capella-devnet-2:
+	scripts/clean-devnet-dir.sh vendor/capella-testnets/withdrawal-devnet-2/custom_config_data
 
 ###
 ### Gnosis chain binary
