@@ -1370,13 +1370,13 @@ proc findTerminalBlock(provider: Web3DataProviderRef,
     return value
 
   # Block A follows, B leads.
-  var
-    a = awaitWithRetries(
-      provider.web3.provider.eth_getBlockByNumber("latest", false))
-    b = await next(a)
+  var a = awaitWithRetries(
+    provider.web3.provider.eth_getBlockByNumber("latest", false))
 
   if a.number.uint64 == 0 and a.totalDifficulty >= ttd:
     return a
+
+  var b = await next(a)
 
   while true:
     let one = a.totalDifficulty >= ttd

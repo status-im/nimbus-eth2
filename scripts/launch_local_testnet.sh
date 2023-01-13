@@ -478,6 +478,7 @@ download_geth() {
 
   if [[ ! -e "build/${GETH_BINARY}" ]]; then
     log "Downloading Geth binary"
+    mkdir -p "build"
     pushd "build" >/dev/null
     "${CURL_BINARY}" -sSLO "${GETH_URL}/${GETH_TARBALL}"
     local tmp_extract_dir
