@@ -27,17 +27,23 @@ logScope: topics = "lcdata"
 # Caching is necessary to support longer retention for LC data than state data.
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
+# Mainnet data size (all columns):
+# - Altair: ~38 KB per `SyncCommitteePeriod` (~1.0 MB per month)
 #
 # `lc_altair_current_branches` holds merkle proofs needed to
 # construct `LightClientBootstrap` objects.
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
+# Mainnet data size (all columns):
+# - Altair: ~42 KB per `SyncCommitteePeriod` (~1.1 MB per month)
 #
 # `lc_altair_sync_committees` contains a copy of finalized sync committees.
 # They are initially populated from the main DAG (usually a fast state access).
 # Caching is necessary to support longer retention for LC data than state data.
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
+# Mainnet data size (all columns):
+# - Altair: ~32 KB per `SyncCommitteePeriod` (~0.9 MB per month)
 #
 # `lc_best_updates` holds full `LightClientUpdate` objects in SSZ form.
 # These objects are frequently queried in bulk, but there is only one per
@@ -50,11 +56,15 @@ logScope: topics = "lcdata"
 # the underlying fork digest; the `kind` column is not sufficient to derive
 # the fork digest, because the same storage format may be used across forks.
 # SSZ storage selected due to the small size and reduced logic complexity.
+# Mainnet data size (all columns):
+# - Altair: ~33 KB per `SyncCommitteePeriod` (~0.9 MB per month)
 #
 # `lc_sealed_periods` contains the sync committee periods for which
 # full light client data was imported. Data for these periods may no longer
 # improve regardless of further block processing. The listed periods are skipped
 # when restarting the program.
+# Mainnet data size (all columns):
+# - All forks: 8 bytes per `SyncCommitteePeriod` (~0.0 MB per month)
 
 type
   LightClientHeaderStore = object
