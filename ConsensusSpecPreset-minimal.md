@@ -1276,18 +1276,26 @@ OK: 150/150 Fail: 0/150 Skip: 0/150
 ```diff
 + [Invalid] EF - Capella - Operations - BLS to execution change - invalid_already_0x01       OK
 + [Invalid] EF - Capella - Operations - BLS to execution change - invalid_bad_signature      OK
++ [Invalid] EF - Capella - Operations - BLS to execution change - invalid_current_fork_versi OK
++ [Invalid] EF - Capella - Operations - BLS to execution change - invalid_genesis_validators OK
 + [Invalid] EF - Capella - Operations - BLS to execution change - invalid_incorrect_from_bls OK
++ [Invalid] EF - Capella - Operations - BLS to execution change - invalid_previous_fork_vers OK
 + [Invalid] EF - Capella - Operations - BLS to execution change - invalid_val_index_out_of_r OK
 + [Invalid] EF - EIP4844 - Operations - BLS to execution change - invalid_already_0x01       OK
 + [Invalid] EF - EIP4844 - Operations - BLS to execution change - invalid_bad_signature      OK
++ [Invalid] EF - EIP4844 - Operations - BLS to execution change - invalid_current_fork_versi OK
++ [Invalid] EF - EIP4844 - Operations - BLS to execution change - invalid_genesis_validators OK
 + [Invalid] EF - EIP4844 - Operations - BLS to execution change - invalid_incorrect_from_bls OK
++ [Invalid] EF - EIP4844 - Operations - BLS to execution change - invalid_previous_fork_vers OK
 + [Invalid] EF - EIP4844 - Operations - BLS to execution change - invalid_val_index_out_of_r OK
++ [Valid]   EF - Capella - Operations - BLS to execution change - genesis_fork_version       OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success                    OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_exited             OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_in_activation_queu OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_in_exit_queue      OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_not_activated      OK
 + [Valid]   EF - Capella - Operations - BLS to execution change - success_withdrawable       OK
++ [Valid]   EF - EIP4844 - Operations - BLS to execution change - genesis_fork_version       OK
 + [Valid]   EF - EIP4844 - Operations - BLS to execution change - success                    OK
 + [Valid]   EF - EIP4844 - Operations - BLS to execution change - success_exited             OK
 + [Valid]   EF - EIP4844 - Operations - BLS to execution change - success_in_activation_queu OK
@@ -1295,7 +1303,7 @@ OK: 150/150 Fail: 0/150 Skip: 0/150
 + [Valid]   EF - EIP4844 - Operations - BLS to execution change - success_not_activated      OK
 + [Valid]   EF - EIP4844 - Operations - BLS to execution change - success_withdrawable       OK
 ```
-OK: 20/20 Fail: 0/20 Skip: 0/20
+OK: 28/28 Fail: 0/28 Skip: 0/28
 ## Block Header
 ```diff
 + [Invalid] EF - Altair - Operations - Block Header - invalid_multiple_blocks_single_slot    OK
@@ -1590,6 +1598,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
 +   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    PendingAttestation                                                            OK
@@ -1608,7 +1617,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 38/38 Fail: 0/38 Skip: 0/38
+OK: 39/39 Fail: 0/39 Skip: 0/39
 ## EF - Altair - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -1777,6 +1786,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
 +   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    PendingAttestation                                                            OK
@@ -1796,7 +1806,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    Validator                                                                     OK
 +   Testing    VoluntaryExit                                                                 OK
 ```
-OK: 41/41 Fail: 0/41 Skip: 0/41
+OK: 42/42 Fail: 0/42 Skip: 0/42
 ## EF - Capella - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -1959,6 +1969,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
 +   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    PendingAttestation                                                            OK
@@ -1980,7 +1991,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 ```
-OK: 45/45 Fail: 0/45 Skip: 0/45
+OK: 46/46 Fail: 0/46 Skip: 0/46
 ## EF - EIP4844 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -2144,6 +2155,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    IndexedAttestation                                                            OK
 +   Testing    LightClientBootstrap                                                          OK
 +   Testing    LightClientFinalityUpdate                                                     OK
++   Testing    LightClientHeader                                                             OK
 +   Testing    LightClientOptimisticUpdate                                                   OK
 +   Testing    LightClientUpdate                                                             OK
 +   Testing    PendingAttestation                                                            OK
@@ -2166,7 +2178,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 ```
-OK: 47/47 Fail: 0/47 Skip: 0/47
+OK: 48/48 Fail: 0/48 Skip: 0/48
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -2735,4 +2747,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 102/102 Fail: 0/102 Skip: 0/102
 
 ---TOTAL---
-OK: 2424/2433 Fail: 0/2433 Skip: 9/2433
+OK: 2436/2445 Fail: 0/2445 Skip: 9/2445
