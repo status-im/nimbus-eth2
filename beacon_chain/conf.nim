@@ -64,7 +64,6 @@ else:
 type
   BNStartUpCmd* {.pure.} = enum
     noCommand
-    createTestnet
     deposits
     wallets
     record
@@ -227,12 +226,6 @@ type
       desc: "The slashing DB flavour to use"
       name: "slashing-db-kind" .}: SlashingDbKind
 
-    mergeAtEpoch* {.
-      hidden
-      desc: "Debugging argument not for external use; may be removed at any time"
-      defaultValue: FAR_FUTURE_EPOCH
-      name: "merge-at-epoch-debug-internal" .}: uint64
-
     numThreads* {.
       defaultValue: 0,
       desc: "Number of worker threads (\"0\" = use as many threads as there are CPU cores available)"
@@ -323,6 +316,10 @@ type
       finalizedCheckpointState* {.
         desc: "SSZ file specifying a recent finalized state"
         name: "finalized-checkpoint-state" .}: Option[InputFile]
+
+      finalizedDepositTreeSnapshot* {.
+        desc: "SSZ file specifying a recent finalized EIP-4881 deposit tree snapshot"
+        name: "finalized-deposit-tree-snapshot" .}: Option[InputFile]
 
       finalizedCheckpointBlock* {.
         hidden
@@ -606,40 +603,6 @@ type
         desc: "Retention strategy for historical data (archive/prune)"
         defaultValue: HistoryMode.Archive
         name: "history".}: HistoryMode
-
-    of BNStartUpCmd.createTestnet:
-      testnetDepositsFile* {.
-        desc: "A LaunchPad deposits file for the genesis state validators"
-        name: "deposits-file" .}: InputFile
-
-      totalValidators* {.
-        desc: "The number of validator deposits in the newly created chain"
-        name: "total-validators" .}: uint64
-
-      bootstrapAddress* {.
-        desc: "The public IP address that will be advertised as a bootstrap node for the testnet"
-        defaultValue: init(ValidIpAddress, defaultAdminListenAddress)
-        defaultValueDesc: $defaultAdminListenAddressDesc
-        name: "bootstrap-address" .}: ValidIpAddress
-
-      bootstrapPort* {.
-        desc: "The TCP/UDP port that will be used by the bootstrap node"
-        defaultValue: defaultEth2TcpPort
-        defaultValueDesc: $defaultEth2TcpPortDesc
-        name: "bootstrap-port" .}: Port
-
-      genesisOffset* {.
-        desc: "Seconds from now to add to genesis time"
-        defaultValue: 5
-        name: "genesis-offset" .}: int
-
-      outputGenesis* {.
-        desc: "Output file where to write the initial state snapshot"
-        name: "output-genesis" .}: OutFile
-
-      outputBootstrapFile* {.
-        desc: "Output file with list of bootstrap nodes for the network"
-        name: "output-bootstrap-file" .}: OutFile
 
     of BNStartUpCmd.wallets:
       case walletsCmd* {.command.}: WalletsCmd
@@ -1134,6 +1097,13 @@ func parseCmdArg*(T: type Checkpoint, input: string): T
   T(root: root, epoch: parseBiggestUInt(input[sepIdx + 1 .. ^1]).Epoch)
 
 func completeCmdArg*(T: type Checkpoint, input: string): seq[string] =
+  return @[]
+
+func parseCmdArg*(T: type Epoch, input: string): T
+                 {.raises: [ValueError, Defect].} =
+  Epoch parseBiggestUInt(input)
+
+func completeCmdArg*(T: type Epoch, input: string): seq[string] =
   return @[]
 
 func isPrintable(rune: Rune): bool =

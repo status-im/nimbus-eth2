@@ -67,7 +67,8 @@ TOOLS_CORE := \
 	nimbus_light_client \
 	nimbus_validator_client \
 	nimbus_signing_node \
-	validator_db_aggregator
+	validator_db_aggregator \
+	local_testnet_simulation
 
 # This TOOLS/TOOLS_CORE decomposition is a workaroud so nimbus_beacon_node can
 # build on its own, and if/when that becomes a non-issue, it can be recombined
@@ -184,11 +185,12 @@ libbacktrace:
 # - --base-metrics-port + [0, --nodes)
 # - --base-vc-keymanager-port + [0, --nodes)
 # - --base-vc-metrics-port + [0, --nodes]
-# - --base-remote-signer-port + [0, --remote-signers)
+# - --base-remote-signer-port + [0, --nimbus-signer-nodes | --web3signer-nodes)
+# - --base-remote-signer-metrics-port + [0, --nimbus-signer-node | --web3signer-nodes)
 #
 # Local testnets with --run-geth or --run-nimbus (only these ports):
 # - --base-el-net-port + --el-port-offset * [0, --nodes + --light-clients)
-# - --base-el-http-port + --el-port-offset * [0, --nodes + --light-clients)
+# - --base-el-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-ws-port + --el-port-offset * [0, --nodes + --light-clients)
 # - --base-el-auth-rpc-port + --el-port-offset * [0, --nodes + --light-clients)
 UNIT_TEST_BASE_PORT := 9950
@@ -202,19 +204,19 @@ restapi-test:
 		--resttest-delay 30 \
 		--kill-old-processes
 
-ifneq ($(shell uname -p), arm)
-TESTNET_EXTRA_FLAGS := --run-geth --dl-geth
-else
-TESTNET_EXTRA_FLAGS :=
-endif
-
 local-testnet-minimal:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--preset minimal \
-		--nodes 4 \
+		--nodes 2 \
+		--capella-fork-epoch 3 \
+		--deneb-fork-epoch 20 \
 		--stop-at-epoch 6 \
 		--disable-htop \
+		--remote-validators-count 512 \
+		--enable-payload-builder \
+		--nimbus-signer-nodes 1 \
+		--threshold 1 \
 		--enable-logtrace \
 		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 6031 + EXECUTOR_NUMBER * 500 )) \
@@ -222,14 +224,15 @@ local-testnet-minimal:
 		--base-vc-keymanager-port $$(( 6131 + EXECUTOR_NUMBER * 500 )) \
 		--base-vc-metrics-port $$(( 6161 + EXECUTOR_NUMBER * 500 )) \
 		--base-remote-signer-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-metrics-port $$(( 6251 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-net-port $$(( 6301 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-http-port $$(( 6302 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-rpc-port $$(( 6302 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-ws-port $$(( 6303 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-auth-rpc-port $$(( 6304 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
 		--timeout 648 \
 		--kill-old-processes \
-		$(TESTNET_EXTRA_FLAGS) \
+		--run-geth --dl-geth \
 		-- \
 		--verify-finalization \
 		--discv5:no
@@ -237,24 +240,28 @@ local-testnet-minimal:
 local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
-		--nodes 4 \
+		--nodes 2 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
+		--nimbus-signer-nodes 3 \
+		--threshold 2 \
+		--remote-validators-count 512 \
 		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 7031 + EXECUTOR_NUMBER * 500 )) \
 		--base-metrics-port $$(( 7061 + EXECUTOR_NUMBER * 500 )) \
 		--base-vc-keymanager-port $$(( 7131 + EXECUTOR_NUMBER * 500 )) \
 		--base-vc-metrics-port $$(( 7161 + EXECUTOR_NUMBER * 500 )) \
 		--base-remote-signer-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
+		--base-remote-signer-metrics-port $$(( 7251 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-net-port $$(( 7301 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-http-port $$(( 7302 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-rpc-port $$(( 7302 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-ws-port $$(( 7303 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-auth-rpc-port $$(( 7304 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
 		--timeout 2784 \
 		--kill-old-processes \
-		$(TESTNET_EXTRA_FLAGS) \
+		--run-geth --dl-geth \
 		-- \
 		--verify-finalization \
 		--discv5:no

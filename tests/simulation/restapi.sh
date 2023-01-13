@@ -101,11 +101,13 @@ LOG_TEST_FILE="${TEST_DIR}/client_log.txt"
 VALIDATORS_DIR="${TEST_DIR}/validators"
 SECRETS_DIR="${TEST_DIR}/secrets"
 SNAPSHOT_FILE="${TEST_DIR}/genesis.ssz"
+DEPOSIT_TREE_SNAPSHOT_FILE="${TEST_DIR}/deposit_tree_snapshot.ssz"
 NETWORK_BOOTSTRAP_FILE="${TEST_DIR}/bootstrap_nodes.txt"
 RESTTEST_RULES="${GIT_ROOT}/ncli/resttest-rules.json"
 DEPOSIT_CONTRACT_BIN="${GIT_ROOT}/build/deposit_contract"
 RESTTEST_BIN="${GIT_ROOT}/build/resttest"
 NIMBUS_BEACON_NODE_BIN="${GIT_ROOT}/build/nimbus_beacon_node"
+LOCAL_TESTNET_SIMULATION_BIN="${GIT_ROOT}/build/local_testnet_simulation"
 BOOTSTRAP_ENR_FILE="${TEST_DIR}/beacon_node.enr"
 RUNTIME_CONFIG_FILE="${TEST_DIR}/config.yaml"
 DEPOSITS_FILE="${TEST_DIR}/deposits.json"
@@ -175,6 +177,7 @@ if [[ ${EXISTING_VALIDATORS} -ne ${NUM_VALIDATORS} ]]; then
 fi
 
 build_if_missing nimbus_beacon_node
+build_if_missing local_testnet_simulation
 build_if_missing resttest
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
@@ -190,17 +193,17 @@ cleanup() {
 trap 'cleanup' SIGINT SIGTERM EXIT
 
 echo "Creating testnet genesis..."
-${NIMBUS_BEACON_NODE_BIN} \
-  --data-dir="${TEST_DIR}" \
+${LOCAL_TESTNET_SIMULATION_BIN} \
   createTestnet \
+  --data-dir="${TEST_DIR}" \
   --deposits-file="${DEPOSITS_FILE}" \
   --total-validators="${NUM_VALIDATORS}" \
   --output-genesis="${SNAPSHOT_FILE}" \
+  --output-deposit-tree-snapshot="${DEPOSIT_TREE_SNAPSHOT_FILE}" \
   --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
   --netkey-file=network_key.json \
   --insecure-netkey-password=true \
   --genesis-offset=-12 # Chain that has already started allows testing empty slots
-
 # Make sure we use the newly generated genesis
 echo "Removing existing database..."
 rm -rf "${TEST_DIR}/db"
@@ -218,6 +221,8 @@ GENESIS_DELAY: 10
 GENESIS_FORK_VERSION: 0x00000000
 DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
+ALTAIR_FORK_EPOCH: 0
+BELLATRIX_FORK_EPOCH: 0
 EOF
 
 ${NIMBUS_BEACON_NODE_BIN} \

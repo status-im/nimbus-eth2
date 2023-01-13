@@ -255,7 +255,7 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+    inactivity_scores*: InactivityScores
 
     # Light client sync committees
     current_sync_committee*: SyncCommittee
@@ -279,6 +279,7 @@ type
   BeaconStateRef* = ref BeaconState not nil
   NilableBeaconStateRef* = ref BeaconState
 
+  # TODO: There should be only a single generic HashedBeaconState definition
   HashedBeaconState* = object
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
@@ -487,6 +488,10 @@ type
     voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
     bls_to_execution_changes*:
       List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
+
+# TODO: There should be only a single generic HashedBeaconState definition
+func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
+  HashedBeaconState(data: s)
 
 func shortLog*(v: SomeBeaconBlock): auto =
   (

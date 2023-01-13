@@ -2883,7 +2883,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"head_slot": "", "sync_distance": "", "is_syncing": false}}]
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"head_slot": "", "sync_distance": "", "is_syncing": false, "is_optimistic": false}}]
     }
   },
   {
@@ -2903,7 +2903,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "value": {"dependent_root": "", "data": [{"pubkey": "", "validator_index": "", "slot": ""}]}}]
+      "body": [{"operator": "jstructcmps", "value": {"dependent_root": "", "execution_optimistic": false, "data": [{"pubkey": "", "validator_index": "", "slot": ""}]}}]
     }
   },
   {
@@ -3146,7 +3146,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "value": {"dependent_root": "", "data":[{"pubkey": "", "validator_index": "", "committee_index": "", "committee_length": "", "committees_at_slot": "", "validator_committee_index": "", "slot": ""}]}}]
+      "body": [{"operator": "jstructcmps", "value": {"dependent_root": "", "execution_optimistic": false, "data":[{"pubkey": "", "validator_index": "", "committee_index": "", "committee_length": "", "committees_at_slot": "", "validator_committee_index": "", "slot": ""}]}}]
     }
   },
   {
@@ -3252,7 +3252,7 @@
     "response": {
       "status": {"operator": "equals", "value": "200"},
       "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
-      "body": [{"operator": "jstructcmps", "value": {"dependent_root": "", "data":[{"pubkey": "", "validator_index": "", "committee_index": "", "committee_length": "", "committees_at_slot": "", "validator_committee_index": "", "slot": ""}]}}]
+      "body": [{"operator": "jstructcmps", "value": {"dependent_root": "", "execution_optimistic": false, "data":[{"pubkey": "", "validator_index": "", "committee_index": "", "committee_length": "", "committees_at_slot": "", "validator_committee_index": "", "slot": ""}]}}]
     }
   },
   {

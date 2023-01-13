@@ -16,12 +16,11 @@ import
   "."/[eth2_merkleization, forks, signatures, validator]
 
 from std/algorithm import fill
-from std/math import `^`
 from std/sequtils import anyIt, mapIt
 
 from ./datatypes/capella import BeaconState, ExecutionPayloadHeader, Withdrawal
 
-export extras, forks, validator
+export extras, forks, validator, chronicles
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#increase_balance
 func increase_balance*(balance: var Gwei, delta: Gwei) =
@@ -222,108 +221,6 @@ proc slash_validator*(
 
 func genesis_time_from_eth1_timestamp*(cfg: RuntimeConfig, eth1_timestamp: uint64): uint64 =
   eth1_timestamp + cfg.GENESIS_DELAY
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#genesis
-proc initialize_beacon_state_from_eth1*(
-    cfg: RuntimeConfig,
-    eth1_block_hash: Eth2Digest,
-    eth1_timestamp: uint64,
-    deposits: openArray[DepositData],
-    flags: UpdateFlags = {}): phase0.BeaconState =
-  ## Get the genesis ``BeaconState``.
-  ##
-  ## Before the beacon chain starts, validators will register in the Eth1 chain
-  ## and deposit ETH. When enough many validators have registered, a
-  ## `ChainStart` log will be emitted and the beacon chain can start beaconing.
-  ##
-  ## Because the state root hash is part of the genesis block, the beacon state
-  ## must be calculated before creating the genesis block.
-
-  # Induct validators
-  # Not in spec: the system doesn't work unless there are at least SLOTS_PER_EPOCH
-  # validators - there needs to be at least one member in each committee -
-  # good to know for testing, though arguably the system is not that useful at
-  # at that point :)
-  doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
-
-  # TODO https://github.com/nim-lang/Nim/issues/19094
-  template state(): untyped = result
-  state = phase0.BeaconState(
-    fork: genesisFork(cfg),
-    genesis_time: genesis_time_from_eth1_timestamp(cfg, eth1_timestamp),
-    eth1_data:
-      Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
-    latest_block_header:
-      BeaconBlockHeader(
-        body_root: hash_tree_root(default(phase0.BeaconBlockBody))))
-
-  # Seed RANDAO with Eth1 entropy
-  state.randao_mixes.fill(eth1_block_hash)
-
-  var merkleizer = createMerkleizer(2'i64^DEPOSIT_CONTRACT_TREE_DEPTH)
-  for i, deposit in deposits:
-    let htr = hash_tree_root(deposit)
-    merkleizer.addChunk(htr.data)
-
-  # This is already known in the Eth1 monitor, but it would be too
-  # much work to refactor all the existing call sites in the test suite
-  state.eth1_data.deposit_root = mixInLength(merkleizer.getFinalHash(),
-                                             deposits.len)
-  state.eth1_deposit_index = deposits.lenu64
-
-  var pubkeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
-  for idx, deposit in deposits:
-    let
-      pubkey = deposit.pubkey
-      amount = deposit.amount
-
-    pubkeyToIndex.withValue(pubkey, foundIdx) do:
-      # Increase balance by deposit amount
-      increase_balance(state, foundIdx[], amount)
-    do:
-      if skipBlsValidation in flags or
-         verify_deposit_signature(cfg, deposit):
-        pubkeyToIndex[pubkey] = ValidatorIndex(state.validators.len)
-        if not state.validators.add(get_validator_from_deposit(deposit)):
-          raiseAssert "too many validators"
-        if not state.balances.add(amount):
-          raiseAssert "same as validators"
-
-      else:
-        # Invalid deposits are perfectly possible
-        trace "Skipping deposit with invalid signature",
-          deposit = shortLog(deposit)
-
-  # Process activations
-  for vidx in state.validators.vindices:
-    let
-      balance = state.balances.item(vidx)
-      validator = addr state.validators.mitem(vidx)
-
-    validator.effective_balance = min(
-      balance - balance mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
-
-    if validator.effective_balance == MAX_EFFECTIVE_BALANCE:
-      validator.activation_eligibility_epoch = GENESIS_EPOCH
-      validator.activation_epoch = GENESIS_EPOCH
-
-  # Set genesis validators root for domain separation and chain versioning
-  state.genesis_validators_root = hash_tree_root(state.validators)
-
-  # TODO https://github.com/nim-lang/Nim/issues/19094
-  # state
-
-proc initialize_hashed_beacon_state_from_eth1*(
-    cfg: RuntimeConfig,
-    eth1_block_hash: Eth2Digest,
-    eth1_timestamp: uint64,
-    deposits: openArray[DepositData],
-    flags: UpdateFlags = {}): phase0.HashedBeaconState =
-  # TODO https://github.com/nim-lang/Nim/issues/19094
-  result = phase0.HashedBeaconState(
-    data: initialize_beacon_state_from_eth1(
-      cfg, eth1_block_hash, eth1_timestamp, deposits, flags))
-  result.root = hash_tree_root(result.data)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#genesis-block
 func get_initial_beacon_block*(state: phase0.HashedBeaconState):
@@ -920,7 +817,250 @@ func get_next_sync_committee*(
   res.aggregate_pubkey = finish(attestersAgg).toPubKey()
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/fork.md#upgrading-the-state
+# Phase0 genesis is used only in tests nowadays
+when defined(withPhase0Genesis):
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#genesis
+  proc initialize_beacon_state_from_eth1*(
+      cfg: RuntimeConfig,
+      eth1_block_hash: Eth2Digest,
+      eth1_timestamp: uint64,
+      deposits: openArray[DepositData],
+      flags: UpdateFlags = {}): phase0.BeaconState =
+    ## Get the genesis ``BeaconState``.
+    ##
+    ## Before the beacon chain starts, validators will register in the Eth1 chain
+    ## and deposit ETH. When enough many validators have registered, a
+    ## `ChainStart` log will be emitted and the beacon chain can start beaconing.
+    ##
+    ## Because the state root hash is part of the genesis block, the beacon state
+    ## must be calculated before creating the genesis block.
+
+    # Induct validators
+    # Not in spec: the system doesn't work unless there are at least SLOTS_PER_EPOCH
+    # validators - there needs to be at least one member in each committee -
+    # good to know for testing, though arguably the system is not that useful at
+    # at that point :)
+    doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
+
+    # TODO https://github.com/nim-lang/Nim/issues/19094
+    template state(): untyped = result
+    state = phase0.BeaconState(
+      fork: genesisFork(cfg),
+      genesis_time: genesis_time_from_eth1_timestamp(cfg, eth1_timestamp),
+      eth1_data:
+        Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
+      latest_block_header:
+        BeaconBlockHeader(
+          body_root: hash_tree_root(default(phase0.BeaconBlockBody))))
+
+    # Seed RANDAO with Eth1 entropy
+    state.randao_mixes.fill(eth1_block_hash)
+
+    var merkleizer = createMerkleizer(DEPOSIT_CONTRACT_LIMIT)
+    for i, deposit in deposits:
+      let htr = hash_tree_root(deposit)
+      merkleizer.addChunk(htr.data)
+
+    # This is already known in the Eth1 monitor, but it would be too
+    # much work to refactor all the existing call sites in the test suite
+    state.eth1_data.deposit_root = mixInLength(merkleizer.getFinalHash(),
+                                               deposits.len)
+    state.eth1_deposit_index = deposits.lenu64
+
+    var pubkeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
+    for idx, deposit in deposits:
+      let
+        pubkey = deposit.pubkey
+        amount = deposit.amount
+
+      pubkeyToIndex.withValue(pubkey, foundIdx) do:
+        # Increase balance by deposit amount
+        increase_balance(state, foundIdx[], amount)
+      do:
+        if skipBlsValidation in flags or
+           verify_deposit_signature(cfg, deposit):
+          pubkeyToIndex[pubkey] = ValidatorIndex(state.validators.len)
+          if not state.validators.add(get_validator_from_deposit(deposit)):
+            raiseAssert "too many validators"
+          if not state.balances.add(amount):
+            raiseAssert "same as validators"
+
+        else:
+          # Invalid deposits are perfectly possible
+          trace "Skipping deposit with invalid signature",
+            deposit = shortLog(deposit)
+
+    # Process activations
+    for vidx in state.validators.vindices:
+      let
+        balance = state.balances.item(vidx)
+        validator = addr state.validators.mitem(vidx)
+
+      validator.effective_balance = min(
+        balance - balance mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
+
+      if validator.effective_balance == MAX_EFFECTIVE_BALANCE:
+        validator.activation_eligibility_epoch = GENESIS_EPOCH
+        validator.activation_epoch = GENESIS_EPOCH
+
+    # Set genesis validators root for domain separation and chain versioning
+    state.genesis_validators_root = hash_tree_root(state.validators)
+
+    # TODO https://github.com/nim-lang/Nim/issues/19094
+    # state
+
+  proc initialize_hashed_beacon_state_from_eth1*(
+      cfg: RuntimeConfig,
+      eth1_block_hash: Eth2Digest,
+      eth1_timestamp: uint64,
+      deposits: openArray[DepositData],
+      flags: UpdateFlags = {}): phase0.HashedBeaconState =
+    # TODO https://github.com/nim-lang/Nim/issues/19094
+    result = phase0.HashedBeaconState(
+      data: initialize_beacon_state_from_eth1(
+        cfg, eth1_block_hash, eth1_timestamp, deposits, flags))
+    result.root = hash_tree_root(result.data)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/bellatrix/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/eip4844/beacon-chain.md#testing
+proc initialize_beacon_state_from_eth1*(
+    cfg: RuntimeConfig,
+    eth1_block_hash: Eth2Digest,
+    eth1_timestamp: uint64,
+    deposits: openArray[DepositData],
+    execution_payload_header: ForkyExecutionPayloadHeader,
+    flags: UpdateFlags = {}): auto =
+  ## Get the genesis ``BeaconState``.
+  ##
+  ## Before the beacon chain starts, validators will register in the Eth1 chain
+  ## and deposit ETH. When enough many validators have registered, a
+  ## `ChainStart` log will be emitted and the beacon chain can start beaconing.
+  ##
+  ## Because the state root hash is part of the genesis block, the beacon state
+  ## must be calculated before creating the genesis block.
+
+  # Induct validators
+  # Not in spec: the system doesn't work unless there are at least SLOTS_PER_EPOCH
+  # validators - there needs to be at least one member in each committee -
+  # good to know for testing, though arguably the system is not that useful at
+  # at that point :)
+  doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
+
+  const consensusFork = typeof(execution_payload_header).toFork
+  let
+    forkVersion = cfg.forkVersion(consensusFork)
+    fork = Fork(
+      previous_version: forkVersion,
+      current_version: forkVersion,
+      epoch: GENESIS_EPOCH)
+
+  type BeaconState = BeaconStateType(consensusFork)
+
+  # TODO https://github.com/nim-lang/Nim/issues/19094
+  template state(): untyped = result
+  result = BeaconState(
+    fork: fork,
+    genesis_time: genesis_time_from_eth1_timestamp(cfg, eth1_timestamp),
+    eth1_data:
+      Eth1Data(block_hash: eth1_block_hash, deposit_count: uint64(len(deposits))),
+    latest_block_header:
+      BeaconBlockHeader(
+        body_root: hash_tree_root(default BeaconBlockBodyType(consensusFork))))
+
+  # Seed RANDAO with Eth1 entropy
+  state.randao_mixes.data.fill(eth1_block_hash)
+
+  var merkleizer = createMerkleizer(DEPOSIT_CONTRACT_LIMIT)
+  for i, deposit in deposits:
+    let htr = hash_tree_root(deposit)
+    merkleizer.addChunk(htr.data)
+
+  # This is already known in the Eth1 monitor, but it would be too
+  # much work to refactor all the existing call sites in the test suite
+  state.eth1_data.deposit_root = mixInLength(merkleizer.getFinalHash(),
+                                             deposits.len)
+  state.eth1_deposit_index = deposits.lenu64
+
+  var pubkeyToIndex = initTable[ValidatorPubKey, ValidatorIndex]()
+  for idx, deposit in deposits:
+    let
+      pubkey = deposit.pubkey
+      amount = deposit.amount
+
+    pubkeyToIndex.withValue(pubkey, foundIdx) do:
+      # Increase balance by deposit amount
+      increase_balance(state, foundIdx[], amount)
+    do:
+      if skipBlsValidation in flags or
+         verify_deposit_signature(cfg, deposit):
+        pubkeyToIndex[pubkey] = ValidatorIndex(state.validators.len)
+        if not state.validators.add(get_validator_from_deposit(deposit)):
+          raiseAssert "too many validators"
+        if not state.balances.add(amount):
+          raiseAssert "same as validators"
+
+      else:
+        # Invalid deposits are perfectly possible
+        trace "Skipping deposit with invalid signature",
+          deposit = shortLog(deposit)
+
+  # Initialize epoch participations - TODO (This must be added to the spec)
+  var
+    empty_participation: EpochParticipationFlags
+    inactivity_scores = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]()
+
+  doAssert empty_participation.asList.setLen(state.validators.len)
+  doAssert inactivity_scores.data.setLen(state.validators.len)
+  inactivity_scores.resetCache()
+
+  state.previous_epoch_participation = empty_participation
+  state.current_epoch_participation = empty_participation
+  state.inactivity_scores = inactivity_scores
+
+  # Process activations
+  for vidx in state.validators.vindices:
+    let
+      balance = state.balances.item(vidx)
+      validator = addr state.validators.mitem(vidx)
+
+    validator.effective_balance = min(
+      balance - balance mod EFFECTIVE_BALANCE_INCREMENT, MAX_EFFECTIVE_BALANCE)
+
+    if validator.effective_balance == MAX_EFFECTIVE_BALANCE:
+      validator.activation_eligibility_epoch = GENESIS_EPOCH
+      validator.activation_epoch = GENESIS_EPOCH
+
+  # Set genesis validators root for domain separation and chain versioning
+  state.genesis_validators_root = hash_tree_root(state.validators)
+
+  # Fill in sync committees
+  # Note: A duplicate committee is assigned for the current and next committee at genesis
+  state.current_sync_committee = get_next_sync_committee(state)
+  state.next_sync_committee = get_next_sync_committee(state)
+
+  # [New in Bellatrix] Initialize the execution payload header
+  # If empty, will initialize a chain that has not yet gone through the Merge transition
+  state.latest_execution_payload_header = execution_payload_header
+
+  # TODO https://github.com/nim-lang/Nim/issues/19094
+  # state
+
+proc initialize_hashed_beacon_state_from_eth1*(
+    cfg: RuntimeConfig,
+    eth1_block_hash: Eth2Digest,
+    eth1_timestamp: uint64,
+    deposits: openArray[DepositData],
+    execution_payload_header: ForkyExecutionPayloadHeader,
+    flags: UpdateFlags = {}): auto =
+  # TODO https://github.com/nim-lang/Nim/issues/19094
+  result = initHashedBeaconState(
+    initialize_beacon_state_from_eth1(
+      cfg, eth1_block_hash, eth1_timestamp, deposits,
+      execution_payload_header, flags))
+  result.root = hash_tree_root(result.data)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/fork.md#upgrading-the-state
 func translate_participation(
     state: var altair.BeaconState,
     pending_attestations: openArray[phase0.PendingAttestation]) =

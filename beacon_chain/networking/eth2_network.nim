@@ -2151,7 +2151,7 @@ proc getRandomNetKeys*(rng: var HmacDrbgContext): NetKeyPair =
     quit QuitFailure
   initNetKeys(privKey)
 
-proc getPersistentNetKeys(
+proc getPersistentNetKeys*(
     rng: var HmacDrbgContext,
     dataDir, netKeyFile: string,
     netKeyInsecurePassword: bool,
@@ -2214,15 +2214,6 @@ proc getPersistentNetKeys*(
     rng.getPersistentNetKeys(
       string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
       allowLoadExisting = true)
-
-  of BNStartUpCmd.createTestnet:
-    if config.netKeyFile == "random":
-      fatal "Could not create testnet using `random` network key"
-      quit QuitFailure
-
-    rng.getPersistentNetKeys(
-      string(config.dataDir), config.netKeyFile, config.netKeyInsecurePassword,
-      allowLoadExisting = false)
   else:
     rng.getRandomNetKeys()
 

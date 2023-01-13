@@ -441,7 +441,6 @@ template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: capella.MsgTrust
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: deneb.MsgTrustedSignedBeaconBlock): T =
   T(kind: ConsensusFork.EIP4844,   eip4844Data: blck)
 
-
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: phase0.TrustedSignedBeaconBlock): T =
   T(kind: ConsensusFork.Phase0, phase0Data: blck)
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: altair.TrustedSignedBeaconBlock): T =

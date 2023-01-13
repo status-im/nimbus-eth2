@@ -23,7 +23,7 @@ import
                    nimbus_beacon_node, beacon_node_status,
                    nimbus_validator_client],
   ../beacon_chain/validator_client/common,
-
+  ../ncli/local_testnet_simulation,
   ./testutil
 
 type
@@ -46,7 +46,9 @@ const
   validatorsDir = dataDir / "validators"
   secretsDir = dataDir / "secrets"
   depositsFile = dataDir / "deposits.json"
+  runtimeConfigFile = dataDir / "config.yaml"
   genesisFile = dataDir / "genesis.ssz"
+  depositTreeSnapshotFile = dataDir / "deposit_tree_snapshot.ssz"
   bootstrapEnrFile = dataDir / "bootstrap_node.enr"
   tokenFilePath = dataDir / "keymanager-token.txt"
   defaultBasePort = 49000
@@ -156,12 +158,24 @@ proc prepareNetwork =
   Json.saveFile(depositsFile, launchPadDeposits)
   notice "Deposit data written", filename = depositsFile
 
-  let createTestnetConf = try: BeaconNodeConf.load(cmdLine = mapIt([
-    "--data-dir=" & dataDir,
+  let runtimeConfigWritten = secureWriteFile(runtimeConfigFile, """
+ALTAIR_FORK_EPOCH: 0
+BELLATRIX_FORK_EPOCH: 0
+""")
+
+  if runtimeConfigWritten.isOk:
+    notice "Run-time config written", filename = runtimeConfigFile
+  else:
+    fatal "Failed to write run-time config", filename = runtimeConfigFile
+    quit 1
+
+  let createTestnetConf = try: local_testnet_simulation.CliConfig.load(cmdLine = mapIt([
     "createTestnet",
+    "--data-dir=" & dataDir,
     "--total-validators=" & $simulationDepositsCount,
     "--deposits-file=" & depositsFile,
     "--output-genesis=" & genesisFile,
+    "--output-deposit-tree-snapshot=" & depositTreeSnapshotFile,
     "--output-bootstrap-file=" & bootstrapEnrFile,
     "--netkey-file=network_key.json",
     "--insecure-netkey-password=true",

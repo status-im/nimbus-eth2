@@ -137,7 +137,7 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]  # [New in Altair]
+    inactivity_scores*: InactivityScores # [New in Altair]
 
     # Light client sync committees
     current_sync_committee*: SyncCommittee     # [New in Altair]
@@ -152,6 +152,7 @@ type
   BeaconStateRef* = ref BeaconState not nil
   NilableBeaconStateRef* = ref BeaconState
 
+  # TODO: There should be only a single generic HashedBeaconState definition
   HashedBeaconState* = object
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
@@ -346,6 +347,10 @@ type
   BlockParams = object
     parentHash*: string
     timestamp*: string
+
+# TODO: There should be only a single generic HashedBeaconState definition
+func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
+  HashedBeaconState(data: s)
 
 func fromHex*(T: typedesc[BloomLogs], s: string): T {.
      raises: [Defect, ValueError].} =

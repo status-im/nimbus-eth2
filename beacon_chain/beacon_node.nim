@@ -95,7 +95,6 @@ type
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     externalBuilderRegistrations*:
       Table[ValidatorPubKey, SignedValidatorRegistrationV1]
-    mergeAtEpoch*: Epoch
     dutyValidatorCount*: int
       ## Number of validators that we've checked for activation
 
