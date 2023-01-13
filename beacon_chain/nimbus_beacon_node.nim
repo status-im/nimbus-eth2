@@ -784,7 +784,7 @@ proc updateBlocksGossipStatus*(
     # Individual forks added / removed
     discard
 
-  template blocksTopic(fork: BeaconStateFork , forkDigest: ForkDigest): auto =
+  template blocksTopic(fork: BeaconStateFork, forkDigest: ForkDigest): auto =
     case fork
     of BeaconStateFork.Phase0 .. BeaconStateFork.Capella:
       getBeaconBlocksTopic(forkDigest)
