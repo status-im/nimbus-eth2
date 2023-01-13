@@ -479,7 +479,7 @@ proc init*(T: type BeaconNode,
 
   var eth1Monitor: Eth1Monitor
 
-  let genesisState =
+  var genesisState =
     if metadata.genesisData.len > 0:
       try:
         newClone readSszForkedHashedBeaconState(
@@ -492,51 +492,9 @@ proc init*(T: type BeaconNode,
 
   if not ChainDAGRef.isInitialized(db).isOk():
     if genesisState == nil and checkpointState == nil:
-      when hasGenesisDetection:
-        # This is a fresh start without a known genesis state
-        # (most likely, it hasn't arrived yet). We'll try to
-        # obtain a genesis through the Eth1 deposits monitor:
-        if config.web3Urls.len == 0:
-          fatal "Web3 URL not specified"
-          quit 1
-
-        # TODO Could move this to a separate "GenesisMonitor" process or task
-        #      that would do only this - see Paul's proposal for this.
-        let eth1Monitor = Eth1Monitor.init(
-          cfg,
-          metadata.depositContractBlock,
-          metadata.depositContractBlockHash,
-          db,
-          nil,
-          config.web3Urls,
-          eth1Network,
-          config.web3ForcePolling,
-          optJwtSecret,
-          ttdReached = false)
-
-        eth1Monitor.loadPersistedDeposits()
-
-        let phase0Genesis = waitFor eth1Monitor.waitGenesis()
-        genesisState = (ref ForkedHashedBeaconState)(
-          kind: BeaconStateFork.Phase0,
-          phase0Data:
-            (ref phase0.HashedBeaconState)(
-              data: phase0Genesis[],
-              root: hash_tree_root(phase0Genesis[]))[])
-
-        if bnStatus == BeaconNodeStatus.Stopping:
-          return nil
-
-        notice "Eth2 genesis state detected",
-          genesisTime = phase0Genesis.genesisTime,
-          eth1Block = phase0Genesis.eth1_data.block_hash,
-          totalDeposits = phase0Genesis.eth1_data.deposit_count
-      else:
-        fatal "No database and no genesis snapshot found: supply a genesis.ssz " &
-              "with the network configuration, or compile the beacon node with " &
-              "the -d:has_genesis_detection option " &
-              "in order to support monitoring for genesis events"
-        quit 1
+      fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
+            "with the network configuration"
+      quit 1
 
     if not genesisState.isNil and not checkpointState.isNil:
       if getStateField(genesisState[], genesis_validators_root) !=
