@@ -784,19 +784,27 @@ proc updateBlocksGossipStatus*(
     # Individual forks added / removed
     discard
 
+  template blocksTopic(fork: BeaconStateFork, forkDigest: ForkDigest): auto =
+    case fork
+    of BeaconStateFork.Phase0 .. BeaconStateFork.Capella:
+      getBeaconBlocksTopic(forkDigest)
+    of BeaconStateFork.EIP4844:
+      getBeaconBlockAndBlobsSidecarTopic(forkDigest)
+
   let
     newGossipForks = targetGossipState - currentGossipState
     oldGossipForks = currentGossipState - targetGossipState
 
-  discard $eip4844ImplementationMissing & ": for EIP4844, https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#beacon_block notes use beacon_block_and_blobs_sidecar rather than beacon_block"
   for gossipFork in oldGossipForks:
     let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
-    node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
+    let topic = blocksTopic(gossipFork, forkDigest)
+    node.network.unsubscribe(topic)
 
   for gossipFork in newGossipForks:
     let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
+    let topic = blocksTopic(gossipFork, forkDigest)
     node.network.subscribe(
-      getBeaconBlocksTopic(forkDigest), blocksTopicParams,
+      topic, blocksTopicParams,
       enableTopicMetrics = true)
 
   node.blocksGossipState = targetGossipState
@@ -890,11 +898,6 @@ proc addCapellaMessageHandlers(
   node.addAltairMessageHandlers(forkDigest, slot)
   node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
 
-proc addEIP4844MessageHandlers(
-    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addCapellaMessageHandlers(forkDigest, slot)
-  node.network.subscribe(getBeaconBlockAndBlobsSidecarTopic(forkDigest), basicParams)
-
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -909,10 +912,6 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeAltairMessageHandlers(forkDigest)
   node.network.unsubscribe(getBlsToExecutionChangeTopic(forkDigest))
-
-proc removeEIP4844MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.removeCapellaMessageHandlers(forkDigest)
-  node.network.unsubscribe(getBeaconBlockAndBlobsSidecarTopic(forkDigest))
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1066,7 +1065,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeEIP4844MessageHandlers
+    removeCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
   ]
 
   for gossipFork in oldGossipForks:
@@ -1077,7 +1076,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
-    addEIP4844MessageHandlers
+    addCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
   ]
 
   for gossipFork in newGossipForks:
