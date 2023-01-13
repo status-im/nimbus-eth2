@@ -163,7 +163,7 @@ proc getHeader*[T: ForkyLightClientHeader](
     except SszError as exc:
       error "LC data store corrupted", store = "headers", kind = T.kind,
         blockRoot, exc = exc.msg
-      return err()
+      return Opt.none(T)
 
 func putHeader[T: ForkyLightClientHeader](
     db: LightClientDataDB, blockRoot: Eth2Digest, slot: Slot, header: T) =
@@ -234,7 +234,7 @@ func hasCurrentSyncCommitteeBranch*(
 proc getCurrentSyncCommitteeBranch*(
     db: LightClientDataDB, slot: Slot): Opt[altair.CurrentSyncCommitteeBranch] =
   if not slot.isSupportedBySQLite:
-    return err()
+    return Opt.none(altair.CurrentSyncCommitteeBranch)
   var branch: seq[byte]
   for res in db.currentBranches.getStmt.exec(slot.int64, branch):
     res.expect("SQL query OK")
@@ -243,7 +243,7 @@ proc getCurrentSyncCommitteeBranch*(
     except SszError as exc:
       error "LC data store corrupted", store = "currentBranches",
         slot, exc = exc.msg
-      return err()
+      return Opt.none(altair.CurrentSyncCommitteeBranch)
 
 func putCurrentSyncCommitteeBranch*(
     db: LightClientDataDB, slot: Slot,
@@ -318,7 +318,7 @@ proc getSyncCommittee*(
     except SszError as exc:
       error "LC data store corrupted", store = "syncCommittees",
         period, exc = exc.msg
-      return err()
+      return Opt.none(altair.SyncCommittee)
 
 func putSyncCommittee*(
     db: LightClientDataDB, period: SyncCommitteePeriod,
