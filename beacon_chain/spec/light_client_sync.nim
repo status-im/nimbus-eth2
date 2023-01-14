@@ -29,7 +29,7 @@ func initialize_light_client_store*(
 
   if not is_valid_light_client_header(bootstrap.header, cfg):
     return ResultType.err(VerifierError.Invalid)
-  if hash_tree_root(bootstrap.header) != trusted_block_root:
+  if hash_tree_root(bootstrap.header.beacon) != trusted_block_root:
     return ResultType.err(VerifierError.Invalid)
 
   if not is_valid_merkle_branch(
