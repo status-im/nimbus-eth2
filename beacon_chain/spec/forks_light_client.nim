@@ -96,6 +96,13 @@ type
     ForkedLightClientBootstrap |
     SomeForkedLightClientUpdate
 
+  ForkedLightClientStore* = object
+    case kind*: LightClientDataFork
+    of LightClientDataFork.None:
+      discard
+    of LightClientDataFork.Altair:
+      altairData*: altair.LightClientStore
+
 func lcDataForkAtEpoch*(
     cfg: RuntimeConfig, epoch: Epoch): LightClientDataFork =
   static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
@@ -170,6 +177,11 @@ template Forky*(
     kind: static LightClientDataFork): auto =
   kind.LightClientOptimisticUpdate
 
+template Forky*(
+    x: typedesc[ForkedLightClientStore],
+    kind: static LightClientDataFork): auto =
+  kind.LightClientStore
+
 template Forked*(x: typedesc[ForkyLightClientBootstrap]): auto =
   typedesc[ForkedLightClientBootstrap]
 
@@ -181,6 +193,9 @@ template Forked*(x: typedesc[ForkyLightClientFinalityUpdate]): auto =
 
 template Forked*(x: typedesc[ForkyLightClientOptimisticUpdate]): auto =
   typedesc[ForkedLightClientOptimisticUpdate]
+
+template Forked*(x: typedesc[ForkyLightClientStore]): auto =
+  typedesc[ForkedLightClientStore]
 
 template withAll*(
     x: typedesc[LightClientDataFork], body: untyped): untyped =
@@ -252,6 +267,17 @@ template withForkyObject*(
   of LightClientDataFork.Altair:
     const lcDataFork {.inject, used.} = LightClientDataFork.Altair
     template forkyObject: untyped {.inject, used.} = x.altairData
+    body
+  of LightClientDataFork.None:
+    const lcDataFork {.inject, used.} = LightClientDataFork.None
+    body
+
+template withForkyStore*(
+    x: ForkedLightClientStore, body: untyped): untyped =
+  case x.kind
+  of LightClientDataFork.Altair:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Altair
+    template forkyStore: untyped {.inject, used.} = x.altairData
     body
   of LightClientDataFork.None:
     const lcDataFork {.inject, used.} = LightClientDataFork.None
@@ -391,7 +417,27 @@ func migrateToDataFork*(
     static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
     doAssert x.kind == newKind
 
-func migratingToDataFork*[T: SomeForkedLightClientObject](
+func migrateToDataFork*(
+    x: var ForkedLightClientStore,
+    newKind: static LightClientDataFork) =
+  if newKind == x.kind:
+    # Already at correct kind
+    discard
+  elif newKind < x.kind:
+    # Downgrade not supported, re-initialize
+    x = ForkedLightClientStore(kind: newKind)
+  else:
+    # Upgrade to Altair
+    when newKind >= LightClientDataFork.Altair:
+      if x.kind == LightClientDataFork.None:
+        x = ForkedLightClientStore(
+          kind: LightClientDataFork.Altair)
+
+    static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
+    doAssert x.kind == newKind
+
+func migratingToDataFork*[
+    T: SomeForkedLightClientObject | ForkedLightClientStore](
     x: T, newKind: static LightClientDataFork): T =
   var upgradedObject = x
   upgradedObject.migrateToDataFork(newKind)
