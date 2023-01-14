@@ -123,6 +123,8 @@ suite "EF - Capella - SSZ consensus objects " & preset():
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
           of "LightClientBootstrap":
             checkSSZ(altair.LightClientBootstrap, path, hash)
+          of "LightClientHeader":
+            checkSSZ(altair.LightClientHeader, path, hash)
           of "LightClientUpdate":
             checkSSZ(altair.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
