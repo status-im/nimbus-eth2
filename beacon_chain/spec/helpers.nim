@@ -391,16 +391,13 @@ proc computeTransactionsTrieRoot*(
       doAssert false, "HexaryTrie.put failed: " & $exc.msg
   tr.rootHash()
 
-func gweiToWei*(gwei: Gwei): UInt256 =
-  gwei.u256 * 1_000_000_000.u256
-
 func toExecutionWithdrawal*(
     withdrawal: capella.Withdrawal): ExecutionWithdrawal =
   ExecutionWithdrawal(
     index: withdrawal.index,
     validatorIndex: withdrawal.validator_index,
     address: EthAddress withdrawal.address.data,
-    amount: gweiToWei withdrawal.amount)
+    amount: withdrawal.amount)
 
 # https://eips.ethereum.org/EIPS/eip-4895
 proc computeWithdrawalsTrieRoot*(
