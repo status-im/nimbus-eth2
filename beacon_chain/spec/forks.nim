@@ -273,18 +273,18 @@ template toFork*[T: eip4844.BeaconState | eip4844.HashedBeaconState](
   BeaconStateFork.EIP4844
 
 template BeaconState*(kind: static BeaconStateFork): auto =
-  static:
-    case kind
-    of BeaconStateFork.EIP4844:
-      typedesc[eip4844.BeaconState]
-    of BeaconStateFork.Capella:
-      typedesc[capella.BeaconState]
-    of BeaconStateFork.Bellatrix:
-      typedesc[bellatrix.BeaconState]
-    of BeaconStateFork.Altair:
-      typedesc[altair.BeaconState]
-    of BeaconStateFork.Phase0:
-      typedesc[phase0.BeaconState]
+  when kind == BeaconStateFork.EIP4844:
+    typedesc[eip4844.BeaconState]
+  elif kind == BeaconStateFork.Capella:
+    typedesc[capella.BeaconState]
+  elif kind == BeaconStateFork.Bellatrix:
+    typedesc[bellatrix.BeaconState]
+  elif kind == BeaconStateFork.Altair:
+    typedesc[altair.BeaconState]
+  elif kind == BeaconStateFork.Phase0:
+    typedesc[phase0.BeaconState]
+  else:
+    static: raiseAssert "Unreachable"
 
 template withStateFork*(
     x: BeaconStateFork, body: untyped): untyped =
