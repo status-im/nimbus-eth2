@@ -26,7 +26,7 @@ logScope: topics = "lcdb"
 # `altair_sync_committees` holds finalized `SyncCommittee` by period, needed to
 # continue an interrupted sync process without having to obtain bootstrap info.
 
-const dbDataFork = LightClientDataFork.Altair
+template dbDataFork: LightClientDataFork = LightClientDataFork.Altair
 
 type
   LightClientHeaderKind {.pure.} = enum  # Append only, used in DB data!

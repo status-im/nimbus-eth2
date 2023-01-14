@@ -272,6 +272,39 @@ template toFork*[T: eip4844.BeaconState | eip4844.HashedBeaconState](
     t: type T): BeaconStateFork =
   BeaconStateFork.EIP4844
 
+template BeaconState*(kind: static BeaconStateFork): auto =
+  static:
+    case kind
+    of BeaconStateFork.EIP4844:
+      typedesc[eip4844.BeaconState]
+    of BeaconStateFork.Capella:
+      typedesc[capella.BeaconState]
+    of BeaconStateFork.Bellatrix:
+      typedesc[bellatrix.BeaconState]
+    of BeaconStateFork.Altair:
+      typedesc[altair.BeaconState]
+    of BeaconStateFork.Phase0:
+      typedesc[phase0.BeaconState]
+
+template withStateFork*(
+    x: BeaconStateFork, body: untyped): untyped =
+  case x
+  of BeaconStateFork.EIP4844:
+    const stateFork {.inject, used.} = BeaconStateFork.Eip4844
+    body
+  of BeaconStateFork.Capella:
+    const stateFork {.inject, used.} = BeaconStateFork.Capella
+    body
+  of BeaconStateFork.Bellatrix:
+    const stateFork {.inject, used.} = BeaconStateFork.Bellatrix
+    body
+  of BeaconStateFork.Altair:
+    const stateFork {.inject, used.} = BeaconStateFork.Altair
+    body
+  of BeaconStateFork.Phase0:
+    const stateFork {.inject, used.} = BeaconStateFork.Phase0
+    body
+
 # TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
 # `ref T`
 func new*(T: type ForkedHashedBeaconState, data: phase0.BeaconState):

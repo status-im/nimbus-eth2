@@ -15,13 +15,12 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../../beacon_chain/spec/datatypes/altair,
   ../../../beacon_chain/spec/helpers,
   # Test utilities
   ../testutil,
   ./fixtures_utils
 
-proc runTest(path: string, fork: BeaconStateFork) =
+proc runTest[T](path: string, objType: typedesc[T]) =
   test "Light client - Single merkle proof - " & path.relativePath(SszTestsDir):
     type
       TestProof = object
@@ -37,20 +36,19 @@ proc runTest(path: string, fork: BeaconStateFork) =
         yaml.load(s, res)
         res
 
-      state = loadForkedState(path/"object.ssz_snappy", fork)
+      obj = newClone(parseTest(path/"object.ssz_snappy", SSZ, T))
 
-    withState(state[]):
-      var computedProof = newSeq[Eth2Digest](log2trunc(proof.leaf_index))
-      build_proof(forkyState.data, proof.leaf_index, computedProof).get
+    var computedProof = newSeq[Eth2Digest](log2trunc(proof.leaf_index))
+    build_proof(obj[], proof.leaf_index, computedProof).get
 
-      check:
-        computedProof == proof.branch.mapIt(Eth2Digest.fromHex(it))
-        is_valid_merkle_branch(
-          Eth2Digest.fromHex(proof.leaf),
-          computedProof,
-          log2trunc(proof.leaf_index),
-          get_subtree_index(proof.leaf_index),
-          forkyState.root)
+    check:
+      computedProof == proof.branch.mapIt(Eth2Digest.fromHex(it))
+      is_valid_merkle_branch(
+        Eth2Digest.fromHex(proof.leaf),
+        computedProof,
+        log2trunc(proof.leaf_index),
+        get_subtree_index(proof.leaf_index),
+        hash_tree_root(obj[]))
 
 suite "EF - Light client - Single merkle proof" & preset():
   const presetPath = SszTestsDir/const_preset
@@ -58,9 +56,18 @@ suite "EF - Light client - Single merkle proof" & preset():
     let testsPath = presetPath/path/"light_client"/"single_merkle_proof"
     if kind != pcDir or not dirExists(testsPath):
       continue
-    let
-      fork = forkForPathComponent(path).valueOr:
-        raiseAssert "Unknown test fork: " & testsPath
-      basePath = testsPath/"BeaconState"
-    for kind, path in walkDir(basePath, relative = true, checkDir = true):
-      runTest(basePath/path, fork)
+    let fork = forkForPathComponent(path).valueOr:
+      raiseAssert "Unknown test fork: " & testsPath
+    for kind, path in walkDir(testsPath, relative = true, checkDir = true):
+      let suitePath = testsPath/path
+      if kind != pcDir or not dirExists(suitePath):
+        continue
+      let objName = path
+      withStateFork(fork):
+        const blockFork = stateFork.toBeaconBlockFork()
+        for kind, path in walkDir(suitePath, relative = true, checkDir = true):
+          case objName
+          of "BeaconState":
+            runTest(suitePath/path, stateFork.BeaconState)
+          else:
+            raiseAssert "Unknown test object: " & suitePath/path

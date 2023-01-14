@@ -115,43 +115,37 @@ template kind*(
   LightClientDataFork.Altair
 
 template LightClientHeader*(kind: static LightClientDataFork): auto =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
-  when kind >= LightClientDataFork.Altair:
+  when kind == LightClientDataFork.Altair:
     typedesc[altair.LightClientHeader]
   else:
     static: raiseAssert "Unreachable"
 
 template LightClientBootstrap*(kind: static LightClientDataFork): auto =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
-  when kind >= LightClientDataFork.Altair:
+  when kind == LightClientDataFork.Altair:
     typedesc[altair.LightClientBootstrap]
   else:
     static: raiseAssert "Unreachable"
 
 template LightClientUpdate*(kind: static LightClientDataFork): auto =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
-  when kind >= LightClientDataFork.Altair:
+  when kind == LightClientDataFork.Altair:
     typedesc[altair.LightClientUpdate]
   else:
     static: raiseAssert "Unreachable"
 
 template LightClientFinalityUpdate*(kind: static LightClientDataFork): auto =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
-  when kind >= LightClientDataFork.Altair:
+  when kind == LightClientDataFork.Altair:
     typedesc[altair.LightClientFinalityUpdate]
   else:
     static: raiseAssert "Unreachable"
 
 template LightClientOptimisticUpdate*(kind: static LightClientDataFork): auto =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
-  when kind >= LightClientDataFork.Altair:
+  when kind == LightClientDataFork.Altair:
     typedesc[altair.LightClientOptimisticUpdate]
   else:
     static: raiseAssert "Unreachable"
 
 template LightClientStore*(kind: static LightClientDataFork): auto =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
-  when kind >= LightClientDataFork.Altair:
+  when kind == LightClientDataFork.Altair:
     typedesc[altair.LightClientStore]
   else:
     static: raiseAssert "Unreachable"
@@ -159,38 +153,22 @@ template LightClientStore*(kind: static LightClientDataFork): auto =
 template Forky*(
     x: typedesc[ForkedLightClientBootstrap],
     kind: static LightClientDataFork): auto =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
-  when kind >= LightClientDataFork.Altair:
-    typedesc[altair.LightClientBootstrap]
-  else:
-    static: raiseAssert "Unreachable"
+  kind.LightClientBootstrap
 
 template Forky*(
     x: typedesc[ForkedLightClientUpdate],
     kind: static LightClientDataFork): auto =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
-  when kind >= LightClientDataFork.Altair:
-    typedesc[altair.LightClientUpdate]
-  else:
-    static: raiseAssert "Unreachable"
+  kind.LightClientUpdate
 
 template Forky*(
     x: typedesc[ForkedLightClientFinalityUpdate],
     kind: static LightClientDataFork): auto =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
-  when kind >= LightClientDataFork.Altair:
-    typedesc[altair.LightClientFinalityUpdate]
-  else:
-    static: raiseAssert "Unreachable"
+  kind.LightClientFinalityUpdate
 
 template Forky*(
     x: typedesc[ForkedLightClientOptimisticUpdate],
     kind: static LightClientDataFork): auto =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
-  when kind >= LightClientDataFork.Altair:
-    typedesc[altair.LightClientOptimisticUpdate]
-  else:
-    static: raiseAssert "Unreachable"
+  kind.LightClientOptimisticUpdate
 
 template Forked*(x: typedesc[ForkyLightClientBootstrap]): auto =
   typedesc[ForkedLightClientBootstrap]
@@ -439,8 +417,7 @@ func toLightClientHeader*(
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock |
       eip4844.SignedBeaconBlock | eip4844.TrustedSignedBeaconBlock,
     kind: static LightClientDataFork): auto =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
-  when kind >= LightClientDataFork.Altair:
+  when kind == LightClientDataFork.Altair:
     blck.toAltairLightClientHeader()
   else:
     static: raiseAssert "Unreachable"
