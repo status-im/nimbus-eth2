@@ -138,7 +138,7 @@ proc runTest(path: string) =
         check bootstrap.kind <= lcDataFork
         let upgradedBootstrap = bootstrap.migratingToDataFork(lcDataFork)
         store.forky(lcDataFork) = initialize_light_client_store(
-          trusted_block_root, bootstrap.forky(lcDataFork), cfg).get
+          trusted_block_root, upgradedBootstrap.forky(lcDataFork), cfg).get
       else: raiseAssert "Unreachable store fork " & $store_fork_digest
 
     for step in steps:
