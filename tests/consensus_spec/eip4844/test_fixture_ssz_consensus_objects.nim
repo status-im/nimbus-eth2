@@ -125,10 +125,9 @@ suite "EF - EIP4844 - SSZ consensus objects " & preset():
           of "HistoricalBatch": checkSSZ(HistoricalBatch, path, hash)
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
-          of "LightClientBootstrap":
-            checkSSZ(LightClientBootstrap, path, hash)
-          of "LightClientUpdate":
-            checkSSZ(LightClientUpdate, path, hash)
+          of "LightClientBootstrap": checkSSZ(LightClientBootstrap, path, hash)
+          of "LightClientHeader": checkSSZ(LightClientHeader, path, hash)
+          of "LightClientUpdate": checkSSZ(LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
             checkSSZ(LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
