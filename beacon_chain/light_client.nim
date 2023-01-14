@@ -24,11 +24,9 @@ export LightClientFinalizationMode, eth2_network, conf_light_client
 
 logScope: topics = "lightcl"
 
-template storeDataFork: LightClientDataFork = LightClientProcessor.storeDataFork
-
 type
   LightClientHeaderCallback* =
-    proc(lightClient: LightClient, header: storeDataFork.LightClientHeader) {.
+    proc(lightClient: LightClient, header: ForkedLightClientHeader) {.
       gcsafe, raises: [Defect].}
 
   LightClientValueObserver[V] =
@@ -47,7 +45,7 @@ type
     cfg: RuntimeConfig
     forkDigests: ref ForkDigests
     getBeaconTime: GetBeaconTimeFn
-    store: ref Option[storeDataFork.LightClientStore]
+    store: ref ForkedLightClientStore
     processor: ref LightClientProcessor
     manager: LightClientManager
     gossipState: GossipState
@@ -58,29 +56,33 @@ type
     optimisticUpdateObserver*: LightClientOptimisticUpdateObserver
     trustedBlockRoot*: Option[Eth2Digest]
 
-func storeDataFork*(x: typedesc[LightClient]): LightClientDataFork =
-  storeDataFork
-
 func finalizedHeader*(
-    lightClient: LightClient): Opt[storeDataFork.LightClientHeader] =
-  if lightClient.store[].isSome:
-    ok lightClient.store[].get.finalized_header
-  else:
-    err()
+    lightClient: LightClient): ForkedLightClientHeader =
+  withForkyStore(lightClient.store[]):
+    when lcDataFork > LightClientDataFork.None:
+      var header = ForkedLightClientHeader(kind: lcDataFork)
+      header.forky(lcDataFork) = forkyStore.finalized_header
+      header
+    else:
+      default(ForkedLightClientHeader)
 
 func optimisticHeader*(
-    lightClient: LightClient): Opt[storeDataFork.LightClientHeader] =
-  if lightClient.store[].isSome:
-    ok lightClient.store[].get.optimistic_header
-  else:
-    err()
+    lightClient: LightClient): ForkedLightClientHeader =
+  withForkyStore(lightClient.store[]):
+    when lcDataFork > LightClientDataFork.None:
+      var header = ForkedLightClientHeader(kind: lcDataFork)
+      header.forky(lcDataFork) = forkyStore.optimistic_header
+      header
+    else:
+      default(ForkedLightClientHeader)
 
 func finalizedSyncCommittee*(
     lightClient: LightClient): Opt[altair.SyncCommittee] =
-  if lightClient.store[].isSome:
-    ok lightClient.store[].get.current_sync_committee
-  else:
-    err()
+  withForkyStore(lightClient.store[]):
+    when lcDataFork > LightClientDataFork.None:
+      ok forkyStore.current_sync_committee
+    else:
+      Opt.none(altair.SyncCommittee)
 
 proc createLightClient(
     network: Eth2Node,
@@ -98,7 +100,7 @@ proc createLightClient(
     cfg: cfg,
     forkDigests: forkDigests,
     getBeaconTime: getBeaconTime,
-    store: (ref Option[storeDataFork.LightClientStore])())
+    store: (ref ForkedLightClientStore)())
 
   func getTrustedBlockRoot(): Option[Eth2Digest] =
     lightClient.trustedBlockRoot
@@ -109,12 +111,12 @@ proc createLightClient(
   proc onFinalizedHeader() =
     if lightClient.onFinalizedHeader != nil:
       lightClient.onFinalizedHeader(
-        lightClient, lightClient.finalizedHeader.get)
+        lightClient, lightClient.finalizedHeader)
 
   proc onOptimisticHeader() =
     if lightClient.onOptimisticHeader != nil:
       lightClient.onOptimisticHeader(
-        lightClient, lightClient.optimisticHeader.get)
+        lightClient, lightClient.optimisticHeader)
 
   proc bootstrapObserver(obj: ForkedLightClientBootstrap) =
     if lightClient.bootstrapObserver != nil:
@@ -154,27 +156,28 @@ proc createLightClient(
     lightClientVerifier(obj)
 
   func isLightClientStoreInitialized(): bool =
-    lightClient.store[].isSome
+    lightClient.store[].kind > LightClientDataFork.None
 
   func isNextSyncCommitteeKnown(): bool =
-    if lightClient.store[].isSome:
-      lightClient.store[].get.is_next_sync_committee_known
-    else:
-      false
+    withForkyStore(lightClient.store[]):
+      when lcDataFork > LightClientDataFork.None:
+        forkyStore.is_next_sync_committee_known
+      else:
+        false
 
   func getFinalizedPeriod(): SyncCommitteePeriod =
-    if lightClient.store[].isSome:
-      lightClient.store[].get.finalized_header
-        .beacon.slot.sync_committee_period
-    else:
-      GENESIS_SLOT.sync_committee_period
+    withForkyStore(lightClient.store[]):
+      when lcDataFork > LightClientDataFork.None:
+        forkyStore.finalized_header.beacon.slot.sync_committee_period
+      else:
+        GENESIS_SLOT.sync_committee_period
 
   func getOptimisticPeriod(): SyncCommitteePeriod =
-    if lightClient.store[].isSome:
-      lightClient.store[].get.optimistic_header
-        .beacon.slot.sync_committee_period
-    else:
-      GENESIS_SLOT.sync_committee_period
+    withForkyStore(lightClient.store[]):
+      when lcDataFork > LightClientDataFork.None:
+        forkyStore.optimistic_header.beacon.slot.sync_committee_period
+      else:
+        GENESIS_SLOT.sync_committee_period
 
   lightClient.manager = LightClientManager.init(
     lightClient.network, rng, getTrustedBlockRoot,
@@ -223,8 +226,8 @@ proc start*(lightClient: LightClient) =
 
 proc resetToFinalizedHeader*(
     lightClient: LightClient,
-    header: storeDataFork.LightClientHeader,
-    current_sync_committee: SyncCommittee) =
+    header: ForkedLightClientHeader,
+    current_sync_committee: altair.SyncCommittee) =
   lightClient.processor[].resetToFinalizedHeader(header, current_sync_committee)
 
 import metrics
@@ -288,6 +291,9 @@ proc installMessageValidators*(
     msg.logReceived()
 
     if contextFork != lightClient.cfg.stateForkAtEpoch(msg.contextEpoch):
+      info "Received obj on wrong fork",
+        contextFork, expectedFork = lightClient.cfg.stateForkAtEpoch(msg.contextEpoch),
+        msg
       msg.logDropped(
         (ValidationResult.Reject, cstring "Invalid context fork"))
       return ValidationResult.Reject
@@ -350,17 +356,19 @@ proc installMessageValidators*(
 
     withLcDataFork(lcDataForkAtStateFork(stateFork)):
       when lcDataFork > LightClientDataFork.None:
-        let digest = forkDigests[].atStateFork(stateFork)
+        let
+          contextFork = stateFork  # Copy to avoid capturing `EIP4844` (Nim 1.6)
+          digest = forkDigests[].atStateFork(contextFork)
 
         lightClient.network.addValidator(
           getLightClientFinalityUpdateTopic(digest),
           proc(msg: lcDataFork.LightClientFinalityUpdate): ValidationResult =
-            validate(msg, stateFork, processLightClientFinalityUpdate))
+            validate(msg, contextFork, processLightClientFinalityUpdate))
 
         lightClient.network.addValidator(
           getLightClientOptimisticUpdateTopic(digest),
           proc(msg: lcDataFork.LightClientOptimisticUpdate): ValidationResult =
-            validate(msg, stateFork, processLightClientOptimisticUpdate))
+            validate(msg, contextFork, processLightClientOptimisticUpdate))
 
 proc updateGossipStatus*(
     lightClient: LightClient, slot: Slot, dagIsBehind = default(Option[bool])) =

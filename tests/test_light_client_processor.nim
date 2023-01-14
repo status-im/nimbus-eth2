@@ -19,10 +19,18 @@ import
   ./testutil, ./testdbutil
 
 suite "Light client processor" & preset():
+  const  # Test config, should be long enough to cover interesting transitions
+    lowPeriod = 0.SyncCommitteePeriod
+    lastPeriodWithSupermajority = 3.SyncCommitteePeriod
+    highPeriod = 5.SyncCommitteePeriod
   let
-    cfg = block:
+    cfg = block:  # Fork schedule so that each `LightClientDataFork` is covered
+      static: doAssert BeaconStateFork.high == BeaconStateFork.EIP4844
       var res = defaultRuntimeConfig
-      res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH + 1
+      res.ALTAIR_FORK_EPOCH = 1.Epoch
+      res.BELLATRIX_FORK_EPOCH = 2.Epoch
+      # $capellaImplementationMissing res.CAPELLA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 1).Epoch
+      # $eip4844ImplementationMissing res.EIP4844_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 2).Epoch
       res
 
   const numValidators = SLOTS_PER_EPOCH
@@ -68,10 +76,6 @@ suite "Light client processor" & preset():
   proc getTrustedBlockRoot(): Option[Eth2Digest] =
     some trustedBlockRoot
 
-  const
-    lowPeriod = 0.SyncCommitteePeriod
-    lastPeriodWithSupermajority = 3.SyncCommitteePeriod
-    highPeriod = 5.SyncCommitteePeriod
   for period in lowPeriod .. highPeriod:
     const numFilledEpochsPerPeriod = 3
     let slot = ((period + 1).start_epoch - numFilledEpochsPerPeriod).start_slot
@@ -98,8 +102,7 @@ suite "Light client processor" & preset():
       var numOnStoreInitializedCalls = 0
       func onStoreInitialized() = inc numOnStoreInitializedCalls
 
-      const storeDataFork = LightClientProcessor.storeDataFork
-      let store = (ref Option[storeDataFork.LightClientStore])()
+      let store = (ref ForkedLightClientStore)()
       var
         processor = LightClientProcessor.new(
           false, "", "", cfg, genesis_validators_root, finalizationMode,
@@ -107,40 +110,42 @@ suite "Light client processor" & preset():
         res: Result[bool, VerifierError]
 
     test "Sync" & testNameSuffix:
-      let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
-      check:
-        bootstrap.kind > LightClientDataFork.None
-        bootstrap.kind <= storeDataFork
-      let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
-      template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
-      setTimeToSlot(forkyBootstrap.header.beacon.slot)
+      var bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
+      check bootstrap.kind > LightClientDataFork.None
+      withForkyBootstrap(bootstrap):
+        when lcDataFork > LightClientDataFork.None:
+          setTimeToSlot(forkyBootstrap.header.beacon.slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), bootstrap)
       check:
         res.isOk
         numOnStoreInitializedCalls == 1
-        store[].isSome
+        store[].kind > LightClientDataFork.None
 
       # Reduce stack size by making this a `proc`
       proc applyPeriodWithSupermajority(period: SyncCommitteePeriod) =
         let update = dag.getLightClientUpdateForPeriod(period)
-        check:
-          update.kind > LightClientDataFork.None
-          update.kind <= storeDataFork
-        let upgradedUpdate = update.migratingToDataFork(storeDataFork)
-        template forkyUpdate: untyped = upgradedUpdate.forky(storeDataFork)
-        setTimeToSlot(forkyUpdate.signature_slot)
+        check update.kind > LightClientDataFork.None
+        withForkyUpdate(update):
+          when lcDataFork > LightClientDataFork.None:
+            setTimeToSlot(forkyUpdate.signature_slot)
         res = processor[].storeObject(
           MsgSource.gossip, getBeaconTime(), update)
-        check:
-          res.isOk
-          store[].isSome
-          if forkyUpdate.finalized_header.beacon.slot >
-              forkyBootstrap.header.beacon.slot:
-            store[].get.finalized_header == forkyUpdate.finalized_header
-          else:
-            store[].get.finalized_header == forkyBootstrap.header
-          store[].get.optimistic_header == forkyUpdate.attested_header
+        check update.kind <= store[].kind
+        withForkyStore(store[]):
+          when lcDataFork > LightClientDataFork.None:
+            bootstrap.migrateToDataFork(lcDataFork)
+            template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
+            let upgraded = update.migratingToDataFork(lcDataFork)
+            template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+            check:
+              res.isOk
+              if forkyUpdate.finalized_header.beacon.slot >
+                  forkyBootstrap.header.beacon.slot:
+                forkyStore.finalized_header == forkyUpdate.finalized_header
+              else:
+                forkyStore.finalized_header == forkyBootstrap.header
+              forkyStore.optimistic_header == forkyUpdate.attested_header
 
       for period in lowPeriod .. lastPeriodWithSupermajority:
         applyPeriodWithSupermajority(period)
@@ -148,58 +153,73 @@ suite "Light client processor" & preset():
       # Reduce stack size by making this a `proc`
       proc applyPeriodWithoutSupermajority(period: SyncCommitteePeriod) =
         let update = dag.getLightClientUpdateForPeriod(period)
-        check:
-          update.kind > LightClientDataFork.None
-          update.kind <= storeDataFork
-        let upgradedUpdate = update.migratingToDataFork(storeDataFork)
-        template forkyUpdate: untyped = upgradedUpdate.forky(storeDataFork)
-        setTimeToSlot(forkyUpdate.signature_slot)
+        check update.kind > LightClientDataFork.None
+        withForkyUpdate(update):
+          when lcDataFork > LightClientDataFork.None:
+            setTimeToSlot(forkyUpdate.signature_slot)
 
         for i in 0 ..< 2:
           res = processor[].storeObject(
             MsgSource.gossip, getBeaconTime(), update)
+          check update.kind <= store[].kind
           if finalizationMode == LightClientFinalizationMode.Optimistic or
               period == lastPeriodWithSupermajority + 1:
             if finalizationMode == LightClientFinalizationMode.Optimistic or
                 i == 0:
-              check:
-                res.isOk
-                store[].isSome
-                store[].get.best_valid_update.isSome
-                store[].get.best_valid_update.get.matches(forkyUpdate)
+              withForkyStore(store[]):
+                when lcDataFork > LightClientDataFork.None:
+                  let upgraded = update.migratingToDataFork(lcDataFork)
+                  template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                  check:
+                    res.isOk
+                    forkyStore.best_valid_update.isSome
+                    forkyStore.best_valid_update.get.matches(forkyUpdate)
             else:
-              check:
-                res.isErr
-                res.error == VerifierError.Duplicate
-                store[].isSome
-                store[].get.best_valid_update.isSome
-                store[].get.best_valid_update.get.matches(forkyUpdate)
+              withForkyStore(store[]):
+                when lcDataFork > LightClientDataFork.None:
+                  let upgraded = update.migratingToDataFork(lcDataFork)
+                  template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                  check:
+                    res.isErr
+                    res.error == VerifierError.Duplicate
+                    forkyStore.best_valid_update.isSome
+                    forkyStore.best_valid_update.get.matches(forkyUpdate)
           else:
-            check:
-              res.isErr
-              res.error == VerifierError.MissingParent
-              store[].isSome
-              store[].get.best_valid_update.isSome
-              not store[].get.best_valid_update.get.matches(forkyUpdate)
+            withForkyStore(store[]):
+              when lcDataFork > LightClientDataFork.None:
+                let upgraded = update.migratingToDataFork(lcDataFork)
+                template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                check:
+                  res.isErr
+                  res.error == VerifierError.MissingParent
+                  forkyStore.best_valid_update.isSome
+                  not forkyStore.best_valid_update.get.matches(forkyUpdate)
 
           proc applyDuplicate() = # Reduce stack size by making this a `proc`
             res = processor[].storeObject(
               MsgSource.gossip, getBeaconTime(), update)
+            check update.kind <= store[].kind
             if finalizationMode == LightClientFinalizationMode.Optimistic or
                 period == lastPeriodWithSupermajority + 1:
-              check:
-                res.isErr
-                res.error == VerifierError.Duplicate
-                store[].isSome
-                store[].get.best_valid_update.isSome
-                store[].get.best_valid_update.get.matches(forkyUpdate)
+              withForkyStore(store[]):
+                when lcDataFork > LightClientDataFork.None:
+                  let upgraded = update.migratingToDataFork(lcDataFork)
+                  template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                  check:
+                    res.isErr
+                    res.error == VerifierError.Duplicate
+                    forkyStore.best_valid_update.isSome
+                    forkyStore.best_valid_update.get.matches(forkyUpdate)
             else:
-              check:
-                res.isErr
-                res.error == VerifierError.MissingParent
-                store[].isSome
-                store[].get.best_valid_update.isSome
-                not store[].get.best_valid_update.get.matches(forkyUpdate)
+              withForkyStore(store[]):
+                when lcDataFork > LightClientDataFork.None:
+                  let upgraded = update.migratingToDataFork(lcDataFork)
+                  template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                  check:
+                    res.isErr
+                    res.error == VerifierError.MissingParent
+                    forkyStore.best_valid_update.isSome
+                    not forkyStore.best_valid_update.get.matches(forkyUpdate)
 
           applyDuplicate()
           time += chronos.minutes(15)
@@ -210,58 +230,83 @@ suite "Light client processor" & preset():
 
           res = processor[].storeObject(
             MsgSource.gossip, getBeaconTime(), update)
+          check update.kind <= store[].kind
           if finalizationMode == LightClientFinalizationMode.Optimistic:
-            check:
-              res.isErr
-              res.error == VerifierError.Duplicate
-              store[].isSome
-              store[].get.best_valid_update.isNone
-            if store[].get.finalized_header == forkyUpdate.attested_header:
-              break
-            check store[].get.finalized_header == forkyUpdate.finalized_header
+            withForkyStore(store[]):
+              when lcDataFork > LightClientDataFork.None:
+                let upgraded = update.migratingToDataFork(lcDataFork)
+                template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                check:
+                  res.isErr
+                  res.error == VerifierError.Duplicate
+                  forkyStore.best_valid_update.isNone
+                if forkyStore.finalized_header == forkyUpdate.attested_header:
+                  break
+                check forkyStore.finalized_header ==
+                  forkyUpdate.finalized_header
           elif period == lastPeriodWithSupermajority + 1:
-            check:
-              res.isErr
-              res.error == VerifierError.Duplicate
-              store[].isSome
-              store[].get.best_valid_update.isSome
-              store[].get.best_valid_update.get.matches(forkyUpdate)
+            withForkyStore(store[]):
+              when lcDataFork > LightClientDataFork.None:
+                let upgraded = update.migratingToDataFork(lcDataFork)
+                template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                check:
+                  res.isErr
+                  res.error == VerifierError.Duplicate
+                  forkyStore.best_valid_update.isSome
+                  forkyStore.best_valid_update.get.matches(forkyUpdate)
           else:
-            check:
-              res.isErr
-              res.error == VerifierError.MissingParent
-              store[].isSome
-              store[].get.best_valid_update.isSome
-              not store[].get.best_valid_update.get.matches(forkyUpdate)
+            withForkyStore(store[]):
+              when lcDataFork > LightClientDataFork.None:
+                let upgraded = update.migratingToDataFork(lcDataFork)
+                template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                check:
+                  res.isErr
+                  res.error == VerifierError.MissingParent
+                  forkyStore.best_valid_update.isSome
+                  not forkyStore.best_valid_update.get.matches(forkyUpdate)
         if finalizationMode == LightClientFinalizationMode.Optimistic:
-          check store[].get.finalized_header == forkyUpdate.attested_header
+          withForkyStore(store[]):
+            when lcDataFork > LightClientDataFork.None:
+              let upgraded = update.migratingToDataFork(lcDataFork)
+              template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+              check forkyStore.finalized_header == forkyUpdate.attested_header
         else:
-          check store[].get.finalized_header != forkyUpdate.attested_header
+          withForkyStore(store[]):
+            when lcDataFork > LightClientDataFork.None:
+              let upgraded = update.migratingToDataFork(lcDataFork)
+              template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+              check forkyStore.finalized_header != forkyUpdate.attested_header
 
       for period in lastPeriodWithSupermajority + 1 .. highPeriod:
         applyPeriodWithoutSupermajority(period)
 
-      let
-        previousFinalized = store[].get.finalized_header
-        finalityUpdate = dag.getLightClientFinalityUpdate()
-      check:
-        finalityUpdate.kind > LightClientDataFork.None
-        finalityUpdate.kind <= storeDataFork
-      let upgradedFinalityUpdate =
-        finalityUpdate.migratingToDataFork(storeDataFork)
-      template forkyFinalityUpdate: untyped =
-        upgradedFinalityUpdate.forky(storeDataFork)
-      setTimeToSlot(forkyFinalityUpdate.signature_slot)
+      var oldFinalized {.noinit.}: ForkedLightClientHeader
+      withForkyStore(store[]):
+        when lcDataFork > LightClientDataFork.None:
+          oldFinalized = ForkedLightClientHeader(kind: lcDataFork)
+          oldFinalized.forky(lcDataFork) = forkyStore.finalized_header
+        else: raiseAssert "Unreachable"
+      let finalityUpdate = dag.getLightClientFinalityUpdate()
+      check finalityUpdate.kind > LightClientDataFork.None
+      withForkyFinalityUpdate(finalityUpdate):
+        when lcDataFork > LightClientDataFork.None:
+          setTimeToSlot(forkyFinalityUpdate.signature_slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), finalityUpdate)
+      check finalityUpdate.kind <= store[].kind
       if res.isOk:
-        check:
-          finalizationMode == LightClientFinalizationMode.Optimistic
-          store[].isSome
-          store[].get.finalized_header == previousFinalized
-          store[].get.best_valid_update.isSome
-          store[].get.best_valid_update.get.matches(forkyFinalityUpdate)
-          store[].get.optimistic_header == forkyFinalityUpdate.attested_header
+        withForkyStore(store[]):
+          when lcDataFork > LightClientDataFork.None:
+            oldFinalized.migrateToDataFork(lcDataFork)
+            template forkyOldFinalized: untyped = oldFinalized.forky(lcDataFork)
+            let upgraded = finalityUpdate.migratingToDataFork(lcDataFork)
+            template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+            check:
+              finalizationMode == LightClientFinalizationMode.Optimistic
+              forkyStore.finalized_header == forkyOldFinalized
+              forkyStore.best_valid_update.isSome
+              forkyStore.best_valid_update.get.matches(forkyUpdate)
+              forkyStore.optimistic_header == forkyUpdate.attested_header
       elif finalizationMode == LightClientFinalizationMode.Optimistic:
         check res.error == VerifierError.Duplicate
       else:
@@ -270,15 +315,11 @@ suite "Light client processor" & preset():
 
     test "Invalid bootstrap" & testNameSuffix:
       var bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
-      check:
-        bootstrap.kind > LightClientDataFork.None
-        bootstrap.kind <= storeDataFork
+      check bootstrap.kind > LightClientDataFork.None
       withForkyBootstrap(bootstrap):
         when lcDataFork > LightClientDataFork.None:
           forkyBootstrap.header.beacon.slot.inc()
-      let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
-      template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
-      setTimeToSlot(forkyBootstrap.header.beacon.slot)
+          setTimeToSlot(forkyBootstrap.header.beacon.slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), bootstrap)
       check:
@@ -288,12 +329,10 @@ suite "Light client processor" & preset():
 
     test "Duplicate bootstrap" & testNameSuffix:
       let bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
-      check:
-        bootstrap.kind > LightClientDataFork.None
-        bootstrap.kind <= storeDataFork
-      let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
-      template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
-      setTimeToSlot(forkyBootstrap.header.beacon.slot)
+      check bootstrap.kind > LightClientDataFork.None
+      withForkyBootstrap(bootstrap):
+        when lcDataFork > LightClientDataFork.None:
+          setTimeToSlot(forkyBootstrap.header.beacon.slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), bootstrap)
       check:
@@ -308,12 +347,10 @@ suite "Light client processor" & preset():
 
     test "Missing bootstrap (update)" & testNameSuffix:
       let update = dag.getLightClientUpdateForPeriod(lowPeriod)
-      check:
-        update.kind > LightClientDataFork.None
-        update.kind <= storeDataFork
-      let upgradedUpdate = update.migratingToDataFork(storeDataFork)
-      template forkyUpdate: untyped = upgradedUpdate.forky(storeDataFork)
-      setTimeToSlot(forkyUpdate.signature_slot)
+      check update.kind > LightClientDataFork.None
+      withForkyUpdate(update):
+        when lcDataFork > LightClientDataFork.None:
+          setTimeToSlot(forkyUpdate.signature_slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), update)
       check:
@@ -323,14 +360,10 @@ suite "Light client processor" & preset():
 
     test "Missing bootstrap (finality update)" & testNameSuffix:
       let finalityUpdate = dag.getLightClientFinalityUpdate()
-      check:
-        finalityUpdate.kind > LightClientDataFork.None
-        finalityUpdate.kind <= storeDataFork
-      let upgradedFinalityUpdate =
-        finalityUpdate.migratingToDataFork(storeDataFork)
-      template forkyFinalityUpdate: untyped =
-        upgradedFinalityUpdate.forky(storeDataFork)
-      setTimeToSlot(forkyFinalityUpdate.signature_slot)
+      check finalityUpdate.kind > LightClientDataFork.None
+      withForkyFinalityUpdate(finalityUpdate):
+        when lcDataFork > LightClientDataFork.None:
+          setTimeToSlot(forkyFinalityUpdate.signature_slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), finalityUpdate)
       check:
@@ -340,14 +373,10 @@ suite "Light client processor" & preset():
 
     test "Missing bootstrap (optimistic update)" & testNameSuffix:
       let optimisticUpdate = dag.getLightClientOptimisticUpdate()
-      check:
-        optimisticUpdate.kind > LightClientDataFork.None
-        optimisticUpdate.kind <= storeDataFork
-      let upgradedOptimisticUpdate =
-        optimisticUpdate.migratingToDataFork(storeDataFork)
-      template forkyOptimisticUpdate: untyped =
-        upgradedOptimisticUpdate.forky(storeDataFork)
-      setTimeToSlot(forkyOptimisticUpdate.signature_slot)
+      check optimisticUpdate.kind > LightClientDataFork.None
+      withForkyOptimisticUpdate(optimisticUpdate):
+        when lcDataFork > LightClientDataFork.None:
+          setTimeToSlot(forkyOptimisticUpdate.signature_slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), optimisticUpdate)
       check:

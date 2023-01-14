@@ -16,18 +16,18 @@ import
 
 logScope: topics = "beacnde"
 
-const storeDataFork = LightClient.storeDataFork
-
 func shouldSyncOptimistically*(node: BeaconNode, wallSlot: Slot): bool =
   if node.eth1Monitor == nil:
     return false
-  let optimisticHeader = node.lightClient.optimisticHeader.valueOr:
-    return false
-
-  shouldSyncOptimistically(
-    optimisticSlot = optimisticHeader.beacon.slot,
-    dagSlot = getStateField(node.dag.headState, slot),
-    wallSlot = wallSlot)
+  let optimisticHeader = node.lightClient.optimisticHeader
+  withForkyHeader(optimisticHeader):
+    when lcDataFork > LightClientDataFork.None:
+      shouldSyncOptimistically(
+        optimisticSlot = forkyHeader.beacon.slot,
+        dagSlot = getStateField(node.dag.headState, slot),
+        wallSlot = wallSlot)
+    else:
+      false
 
 proc initLightClient*(
     node: BeaconNode,
@@ -88,8 +88,10 @@ proc initLightClient*(
   if config.syncLightClient:
     proc onOptimisticHeader(
         lightClient: LightClient,
-        optimisticHeader: storeDataFork.LightClientHeader) =
-      optimisticProcessor.setOptimisticHeader(optimisticHeader.beacon)
+        optimisticHeader: ForkedLightClientHeader) =
+      withForkyHeader(optimisticHeader):
+        when lcDataFork > LightClientDataFork.None:
+          optimisticProcessor.setOptimisticHeader(forkyHeader.beacon)
 
     lightClient.onOptimisticHeader = onOptimisticHeader
     lightClient.trustedBlockRoot = config.trustedBlockRoot
@@ -147,17 +149,22 @@ proc updateLightClientFromDag*(node: BeaconNode) =
     return
 
   let lcHeader = node.lightClient.finalizedHeader
-  if lcHeader.isSome:
-    if dagPeriod <= lcHeader.get.beacon.slot.sync_committee_period:
-      return
-
-  let
-    bdata = node.dag.getForkedBlock(dagHead.blck.bid).valueOr:
-      return
-    header = withBlck(bdata):
-      blck.toLightClientHeader(storeDataFork)
-    current_sync_committee = block:
-      let tmpState = assignClone(node.dag.headState)
-      node.dag.currentSyncCommitteeForPeriod(tmpState[], dagPeriod).valueOr:
+  withForkyHeader(lcHeader):
+    when lcDataFork > LightClientDataFork.None:
+      if dagPeriod <= forkyHeader.beacon.slot.sync_committee_period:
         return
+
+  let bdata = node.dag.getForkedBlock(dagHead.blck.bid).valueOr:
+    return
+  var header {.noinit.}: ForkedLightClientHeader
+  withBlck(bdata):
+    const lcDataFork = lcDataForkAtStateFork(stateFork)
+    when lcDataFork > LightClientDataFork.None:
+      header = ForkedLightClientHeader(kind: lcDataFork)
+      header.forky(lcDataFork) = blck.toLightClientHeader(lcDataFork)
+    else: raiseAssert "Unreachable"
+  let current_sync_committee = block:
+    let tmpState = assignClone(node.dag.headState)
+    node.dag.currentSyncCommitteeForPeriod(tmpState[], dagPeriod).valueOr:
+      return
   node.lightClient.resetToFinalizedHeader(header, current_sync_committee)
