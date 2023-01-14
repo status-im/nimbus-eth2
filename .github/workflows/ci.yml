@@ -125,6 +125,7 @@ jobs:
             make_cmd="mingw32-make"
             echo "Number of cores: ${NUMBER_OF_PROCESSORS}"
             echo "Physical memory: $(wmic ComputerSystem get TotalPhysicalMemory)"
+            echo "Partition sizes: $(wmic partition get name,size,type)"
             ;;
           esac
           [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
