@@ -52,6 +52,7 @@ programMain:
     quit 1
   let backend = SqStoreRef.init(dbDir, "nlc").expect("Database OK")
   defer: backend.close()
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
   let db = backend.initLightClientDB(LightClientDBNames(
     altairHeaders: "altair_lc_headers",
     altairSyncCommittees: "altair_sync_committees")).expect("Database OK")
@@ -246,10 +247,16 @@ programMain:
       oldGossipForks = currentGossipState - targetGossipState
 
     for gossipFork in oldGossipForks:
+      if gossipFork >= BeaconStateFork.Capella:
+        # Format is still in development, do not use Gossip at this time.
+        continue
       let forkDigest = forkDigests[].atStateFork(gossipFork)
       network.unsubscribe(getBeaconBlocksTopic(forkDigest))
 
     for gossipFork in newGossipForks:
+      if gossipFork >= BeaconStateFork.Capella:
+        # Format is still in development, do not use Gossip at this time.
+        continue
       let forkDigest = forkDigests[].atStateFork(gossipFork)
       network.subscribe(
         getBeaconBlocksTopic(forkDigest), blocksTopicParams,

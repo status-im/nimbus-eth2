@@ -26,8 +26,10 @@ logScope: topics = "lcdb"
 # `altair_sync_committees` holds finalized `SyncCommittee` by period, needed to
 # continue an interrupted sync process without having to obtain bootstrap info.
 
+template dbDataFork: LightClientDataFork = LightClientDataFork.Altair
+
 type
-  LightClientHeaderKind {.pure.} = enum
+  LightClientHeaderKind {.pure.} = enum  # Append only, used in DB data!
     Finalized = 1
 
   LightClientHeadersStore = object
@@ -54,6 +56,7 @@ type
 func initLightClientHeadersStore(
     backend: SqStoreRef,
     name: string): KvResult[LightClientHeadersStore] =
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
   ? backend.exec("""
     CREATE TABLE IF NOT EXISTS `""" & name & """` (
       `kind` INTEGER PRIMARY KEY,  -- `LightClientHeaderKind`
@@ -82,20 +85,20 @@ func close(store: LightClientHeadersStore) =
   store.putStmt.dispose()
 
 proc getLatestFinalizedHeader*(
-    db: LightClientDB): Opt[altair.LightClientHeader] =
+    db: LightClientDB): Opt[dbDataFork.LightClientHeader] =
   var header: seq[byte]
   for res in db.headers.getStmt.exec(
       LightClientHeaderKind.Finalized.int64, header):
     res.expect("SQL query OK")
     try:
-      return ok SSZ.decode(header, altair.LightClientHeader)
+      return ok SSZ.decode(header, dbDataFork.LightClientHeader)
     except SszError as exc:
       error "LC store corrupted", store = "headers",
         kind = "Finalized", exc = exc.msg
       return err()
 
 func putLatestFinalizedHeader*(
-    db: LightClientDB, header: altair.LightClientHeader) =
+    db: LightClientDB, header: dbDataFork.LightClientHeader) =
   block:
     let res = db.headers.putStmt.exec(
       (LightClientHeaderKind.Finalized.int64, SSZ.encode(header)))

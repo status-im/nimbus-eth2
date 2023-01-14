@@ -21,12 +21,16 @@ export block_pools_types.VerifierError
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#initialize_light_client_store
 func initialize_light_client_store*(
     trusted_block_root: Eth2Digest,
-    bootstrap: altair.LightClientBootstrap
-): Result[LightClientStore, VerifierError] =
-  if not is_valid_light_client_header(bootstrap.header):
-    return err(VerifierError.Invalid)
-  if hash_tree_root(bootstrap.header) != trusted_block_root:
-    return err(VerifierError.Invalid)
+    bootstrap: ForkyLightClientBootstrap,
+    cfg: RuntimeConfig
+): auto =
+  type ResultType =
+    Result[typeof(bootstrap).kind.LightClientStore, VerifierError]
+
+  if not is_valid_light_client_header(bootstrap.header, cfg):
+    return ResultType.err(VerifierError.Invalid)
+  if hash_tree_root(bootstrap.header.beacon) != trusted_block_root:
+    return ResultType.err(VerifierError.Invalid)
 
   if not is_valid_merkle_branch(
       hash_tree_root(bootstrap.current_sync_committee),
@@ -34,17 +38,17 @@ func initialize_light_client_store*(
       log2trunc(altair.CURRENT_SYNC_COMMITTEE_INDEX),
       get_subtree_index(altair.CURRENT_SYNC_COMMITTEE_INDEX),
       bootstrap.header.beacon.state_root):
-    return err(VerifierError.Invalid)
+    return ResultType.err(VerifierError.Invalid)
 
-  return ok(LightClientStore(
+  return ResultType.ok(typeof(bootstrap).kind.LightClientStore(
     finalized_header: bootstrap.header,
     current_sync_committee: bootstrap.current_sync_committee,
     optimistic_header: bootstrap.header))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#validate_light_client_update
 proc validate_light_client_update*(
-    store: LightClientStore,
-    update: SomeLightClientUpdate,
+    store: ForkyLightClientStore,
+    update: SomeForkyLightClientUpdate,
     current_slot: Slot,
     cfg: RuntimeConfig,
     genesis_validators_root: Eth2Digest): Result[void, VerifierError] =
@@ -56,9 +60,9 @@ proc validate_light_client_update*(
     return err(VerifierError.Invalid)
 
   # Verify update does not skip a sync committee period
-  if not is_valid_light_client_header(update.attested_header):
+  if not is_valid_light_client_header(update.attested_header, cfg):
     return err(VerifierError.Invalid)
-  when update is SomeLightClientUpdateWithFinality:
+  when update is SomeForkyLightClientUpdateWithFinality:
     if update.attested_header.beacon.slot < update.finalized_header.beacon.slot:
       return err(VerifierError.Invalid)
   if update.signature_slot <= update.attested_header.beacon.slot:
@@ -78,10 +82,10 @@ proc validate_light_client_update*(
 
   # Verify update is relevant
   let attested_period = update.attested_header.beacon.slot.sync_committee_period
-  when update is SomeLightClientUpdateWithSyncCommittee:
+  when update is SomeForkyLightClientUpdateWithSyncCommittee:
     let is_sync_committee_update = update.is_sync_committee_update
   if update.attested_header.beacon.slot <= store.finalized_header.beacon.slot:
-    when update is SomeLightClientUpdateWithSyncCommittee:
+    when update is SomeForkyLightClientUpdateWithSyncCommittee:
       if is_next_sync_committee_known:
         return err(VerifierError.Duplicate)
       if attested_period != store_period or not is_sync_committee_update:
@@ -91,17 +95,17 @@ proc validate_light_client_update*(
 
   # Verify that the `finalized_header`, if present, actually is the
   # finalized header saved in the state of the `attested_header`
-  when update is SomeLightClientUpdateWithFinality:
+  when update is SomeForkyLightClientUpdateWithFinality:
     if not update.is_finality_update:
-      if update.finalized_header != altair.LightClientHeader():
+      if update.finalized_header != default(typeof(update.finalized_header)):
         return err(VerifierError.Invalid)
     else:
       var finalized_root {.noinit.}: Eth2Digest
       if update.finalized_header.beacon.slot != GENESIS_SLOT:
-        if not is_valid_light_client_header(update.finalized_header):
+        if not is_valid_light_client_header(update.finalized_header, cfg):
           return err(VerifierError.Invalid)
         finalized_root = hash_tree_root(update.finalized_header.beacon)
-      elif update.finalized_header == altair.LightClientHeader():
+      elif update.finalized_header == default(typeof(update.finalized_header)):
         finalized_root.reset()
       else:
         return err(VerifierError.Invalid)
@@ -115,9 +119,10 @@ proc validate_light_client_update*(
 
   # Verify that the `next_sync_committee`, if present, actually is the
   # next sync committee saved in the state of the `attested_header`
-  when update is SomeLightClientUpdateWithSyncCommittee:
+  when update is SomeForkyLightClientUpdateWithSyncCommittee:
     if not is_sync_committee_update:
-      if update.next_sync_committee != altair.SyncCommittee():
+      if update.next_sync_committee !=
+          default(typeof(update.next_sync_committee)):
         return err(VerifierError.Invalid)
     else:
       if attested_period == store_period and is_next_sync_committee_known:
@@ -156,21 +161,21 @@ proc validate_light_client_update*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#apply_light_client_update
 func apply_light_client_update(
-    store: var LightClientStore,
-    update: SomeLightClientUpdate): bool =
+    store: var ForkyLightClientStore,
+    update: SomeForkyLightClientUpdate): bool =
   var didProgress = false
   let
     store_period = store.finalized_header.beacon.slot.sync_committee_period
     finalized_period = update.finalized_header.beacon.slot.sync_committee_period
   if not store.is_next_sync_committee_known:
     assert finalized_period == store_period
-    when update is SomeLightClientUpdateWithSyncCommittee:
+    when update is SomeForkyLightClientUpdateWithSyncCommittee:
       store.next_sync_committee = update.next_sync_committee
       if store.is_next_sync_committee_known:
         didProgress = true
   elif finalized_period == store_period + 1:
     store.current_sync_committee = store.next_sync_committee
-    when update is SomeLightClientUpdateWithSyncCommittee:
+    when update is SomeForkyLightClientUpdateWithSyncCommittee:
       store.next_sync_committee = update.next_sync_committee
     else:
       store.next_sync_committee.reset()
@@ -193,7 +198,7 @@ type
     DidUpdateWithoutFinality
 
 func process_light_client_store_force_update*(
-    store: var LightClientStore,
+    store: var ForkyLightClientStore,
     current_slot: Slot): ForceUpdateResult {.discardable.} =
   var res = NoUpdate
   if store.best_valid_update.isSome and
@@ -220,8 +225,8 @@ func process_light_client_store_force_update*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.3/specs/altair/light-client/sync-protocol.md#process_light_client_update
 proc process_light_client_update*(
-    store: var LightClientStore,
-    update: SomeLightClientUpdate,
+    store: var ForkyLightClientStore,
+    update: SomeForkyLightClientUpdate,
     current_slot: Slot,
     cfg: RuntimeConfig,
     genesis_validators_root: Eth2Digest): Result[void, VerifierError] =
@@ -251,11 +256,11 @@ proc process_light_client_update*(
     didProgress = true
 
   # Update finalized header
-  when update is SomeLightClientUpdateWithFinality:
+  when update is SomeForkyLightClientUpdateWithFinality:
     if num_active_participants * 3 >= static(sync_committee_bits.len * 2):
       var improvesFinality =
         update.finalized_header.beacon.slot > store.finalized_header.beacon.slot
-      when update is SomeLightClientUpdateWithSyncCommittee:
+      when update is SomeForkyLightClientUpdateWithSyncCommittee:
         if not improvesFinality and not store.is_next_sync_committee_known:
           improvesFinality =
             update.is_sync_committee_update and update.is_finality_update and

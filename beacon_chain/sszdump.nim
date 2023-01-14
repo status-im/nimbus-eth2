@@ -60,7 +60,7 @@ proc dump*(dir: string, v: ForkyLightClientBootstrap) =
     SSZ.saveFile(
       dir / &"{prefix}-{slot}-{blck}-{root}.ssz", v)
 
-proc dump*(dir: string, v: SomeLightClientUpdate) =
+proc dump*(dir: string, v: SomeForkyLightClientUpdate) =
   logErrors:
     let
       prefix =

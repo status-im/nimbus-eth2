@@ -234,15 +234,16 @@ proc getBestUpdate*(
   for res in db.bestUpdates.getStmt.exec(period.int64, update):
     res.expect("SQL query OK")
     try:
-      case update[0]
-      of ord(LightClientDataFork.Altair).int64:
-        return ForkedLightClientUpdate(
-          kind: LightClientDataFork.Altair,
-          altairData: SSZ.decode(update[1], altair.LightClientUpdate))
-      else:
-        warn "Unsupported LC data store kind", store = "bestUpdates",
-          period, kind = update[0]
-        return default(ForkedLightClientUpdate)
+      withAll(LightClientDataFork):
+        when lcDataFork > LightClientDataFork.None:
+          if update[0] == ord(lcDataFork).int64:
+            var obj = ForkedLightClientUpdate(kind: lcDataFork)
+            obj.forky(lcDataFork) = SSZ.decode(
+              update[1], lcDataFork.LightClientUpdate)
+            return obj
+      warn "Unsupported LC data store kind", store = "bestUpdates",
+        period, kind = update[0]
+      return default(ForkedLightClientUpdate)
     except SszError as exc:
       error "LC data store corrupted", store = "bestUpdates",
         period, kind = update[0], exc = exc.msg
@@ -253,7 +254,7 @@ func putBestUpdate*(
     update: ForkedLightClientUpdate) =
   doAssert period.isSupportedBySQLite
   withForkyUpdate(update):
-    when lcDataFork >= LightClientDataFork.Altair:
+    when lcDataFork > LightClientDataFork.None:
       let numParticipants = forkyUpdate.sync_aggregate.num_active_participants
       if numParticipants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
         let res = db.bestUpdates.delStmt.exec(period.int64)

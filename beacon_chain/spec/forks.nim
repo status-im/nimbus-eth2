@@ -20,11 +20,10 @@ import
   ./datatypes/[phase0, altair, bellatrix, capella, eip4844],
   ./mev/bellatrix_mev
 
-# TODO re-export capella, but for now it could cause knock-on effects, so stage
-# it sequentially
 export
-  extras, block_id, phase0, altair, bellatrix, eth2_merkleization,
-  eth2_ssz_serialization, forks_light_client, presets, bellatrix_mev
+  extras, block_id, phase0, altair, bellatrix, capella, eip4844,
+  eth2_merkleization, eth2_ssz_serialization, forks_light_client,
+  presets, bellatrix_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -272,6 +271,39 @@ template toFork*[T: capella.BeaconState | capella.HashedBeaconState](
 template toFork*[T: eip4844.BeaconState | eip4844.HashedBeaconState](
     t: type T): BeaconStateFork =
   BeaconStateFork.EIP4844
+
+template BeaconState*(kind: static BeaconStateFork): auto =
+  when kind == BeaconStateFork.EIP4844:
+    typedesc[eip4844.BeaconState]
+  elif kind == BeaconStateFork.Capella:
+    typedesc[capella.BeaconState]
+  elif kind == BeaconStateFork.Bellatrix:
+    typedesc[bellatrix.BeaconState]
+  elif kind == BeaconStateFork.Altair:
+    typedesc[altair.BeaconState]
+  elif kind == BeaconStateFork.Phase0:
+    typedesc[phase0.BeaconState]
+  else:
+    static: raiseAssert "Unreachable"
+
+template withStateFork*(
+    x: BeaconStateFork, body: untyped): untyped =
+  case x
+  of BeaconStateFork.EIP4844:
+    const stateFork {.inject, used.} = BeaconStateFork.Eip4844
+    body
+  of BeaconStateFork.Capella:
+    const stateFork {.inject, used.} = BeaconStateFork.Capella
+    body
+  of BeaconStateFork.Bellatrix:
+    const stateFork {.inject, used.} = BeaconStateFork.Bellatrix
+    body
+  of BeaconStateFork.Altair:
+    const stateFork {.inject, used.} = BeaconStateFork.Altair
+    body
+  of BeaconStateFork.Phase0:
+    const stateFork {.inject, used.} = BeaconStateFork.Phase0
+    body
 
 # TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
 # `ref T`
@@ -859,6 +891,13 @@ func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   of BeaconStateFork.Bellatrix: cfg.CAPELLA_FORK_EPOCH
   of BeaconStateFork.Altair:    cfg.BELLATRIX_FORK_EPOCH
   of BeaconStateFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
+
+func lcDataForkAtStateFork*(stateFork: BeaconStateFork): LightClientDataFork =
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
+  if stateFork >= BeaconStateFork.Altair:
+    LightClientDataFork.Altair
+  else:
+    LightClientDataFork.None
 
 func getForkSchedule*(cfg: RuntimeConfig): array[5, Fork] =
   ## This procedure returns list of known and/or scheduled forks.

@@ -128,22 +128,21 @@ proc readChunkPayload*(
     peer.network.forkDigests[].stateForkForDigest(contextBytes).valueOr:
       return neterr InvalidContextBytes
 
-  if contextFork >= BeaconStateFork.Altair:
-    const lcDataFork = LightClientDataFork.Altair
-    let res = await eth2_network.readChunkPayload(
-      conn, peer, MsgType.forky(lcDataFork))
-    if res.isOk:
-      if contextFork != peer.network.cfg.stateForkAtEpoch(res.get.contextEpoch):
-        return neterr InvalidContextBytes
-      var obj = ok MsgType(kind: lcDataFork)
-      template forkyObj: untyped = obj.get.forky(lcDataFork)
-      forkyObj = res.get
-      return obj
+  withLcDataFork(lcDataForkAtStateFork(contextFork)):
+    when lcDataFork > LightClientDataFork.None:
+      let res = await eth2_network.readChunkPayload(
+        conn, peer, MsgType.Forky(lcDataFork))
+      if res.isOk:
+        if contextFork !=
+            peer.network.cfg.stateForkAtEpoch(res.get.contextEpoch):
+          return neterr InvalidContextBytes
+        var obj = ok MsgType(kind: lcDataFork)
+        obj.get.forky(lcDataFork) = res.get
+        return obj
+      else:
+        return err(res.error)
     else:
-      return err(res.error)
-  else:
-    doAssert contextFork == BeaconStateFork.Phase0
-    return neterr InvalidContextBytes
+      return neterr InvalidContextBytes
 
 func shortLog*(s: StatusMsg): auto =
   (
@@ -490,7 +489,7 @@ p2pProtocol BeaconSync(version = 1,
 
     let bootstrap = dag.getLightClientBootstrap(blockRoot)
     withForkyBootstrap(bootstrap):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyBootstrap.contextEpoch
           contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
@@ -533,7 +532,7 @@ p2pProtocol BeaconSync(version = 1,
     for period in startPeriod..<onePastPeriod:
       let update = dag.getLightClientUpdateForPeriod(period)
       withForkyUpdate(update):
-        when lcDataFork >= LightClientDataFork.Altair:
+        when lcDataFork > LightClientDataFork.None:
           let
             contextEpoch = forkyUpdate.contextEpoch
             contextBytes =
@@ -562,7 +561,7 @@ p2pProtocol BeaconSync(version = 1,
 
     let finality_update = dag.getLightClientFinalityUpdate()
     withForkyFinalityUpdate(finality_update):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyFinalityUpdate.contextEpoch
           contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
@@ -589,7 +588,7 @@ p2pProtocol BeaconSync(version = 1,
 
     let optimistic_update = dag.getLightClientOptimisticUpdate()
     withForkyOptimisticUpdate(optimistic_update):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyOptimisticUpdate.contextEpoch
           contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data

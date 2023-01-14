@@ -1097,7 +1097,7 @@ proc validateLightClientFinalityUpdate*(
     finality_update: ForkedLightClientFinalityUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let finalized_slot = withForkyFinalityUpdate(finality_update):
-    when lcDataFork >= LightClientDataFork.Altair:
+    when lcDataFork > LightClientDataFork.None:
       forkyFinalityUpdate.finalized_header.beacon.slot
     else:
       GENESIS_SLOT
@@ -1108,7 +1108,7 @@ proc validateLightClientFinalityUpdate*(
 
   let
     signature_slot = withForkyFinalityUpdate(finality_update):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         forkyFinalityUpdate.signature_slot
       else:
         GENESIS_SLOT
@@ -1133,7 +1133,7 @@ proc validateLightClientOptimisticUpdate*(
     optimistic_update: ForkedLightClientOptimisticUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let attested_slot = withForkyOptimisticUpdate(optimistic_update):
-    when lcDataFork >= LightClientDataFork.Altair:
+    when lcDataFork > LightClientDataFork.None:
       forkyOptimisticUpdate.attested_header.beacon.slot
     else:
       GENESIS_SLOT
@@ -1144,7 +1144,7 @@ proc validateLightClientOptimisticUpdate*(
 
   let
     signature_slot = withForkyOptimisticUpdate(optimistic_update):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         forkyOptimisticUpdate.signature_slot
       else:
         GENESIS_SLOT

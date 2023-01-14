@@ -173,7 +173,7 @@ proc prepareJsonStringResponse*[T: SomeForkedLightClientObject](
         var stream = memoryOutput()
         var writer = JsonWriter[RestJson].init(stream)
         withForkyObject(d.data):
-          when lcDataFork >= LightClientDataFork.Altair:
+          when lcDataFork > LightClientDataFork.None:
             writer.beginRecord()
             writer.writeField("version", d.jsonVersion.toString())
             writer.writeField("data", forkyObject)
@@ -341,7 +341,7 @@ proc jsonResponseVersioned*[T: SomeForkedLightClientObject](
         var writer = JsonWriter[RestJson].init(stream)
         for e in writer.stepwiseArrayCreation(entries):
           withForkyObject(e.data):
-            when lcDataFork >= LightClientDataFork.Altair:
+            when lcDataFork > LightClientDataFork.None:
               writer.beginRecord()
               writer.writeField("version", e.jsonVersion.toString())
               writer.writeField("data", forkyObject)
@@ -499,7 +499,7 @@ proc sszResponseVersioned*[T: SomeForkedLightClientObject](
         var stream = memoryOutput()
         for e in entries:
           withForkyUpdate(e.data):
-            when lcDataFork >= LightClientDataFork.Altair:
+            when lcDataFork > LightClientDataFork.None:
               var cursor = stream.delayFixedSizeWrite(sizeof(uint64))
               let initPos = stream.pos
               stream.write e.sszContext.data

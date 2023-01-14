@@ -863,7 +863,7 @@ proc process_block*(
   if is_execution_enabled(state, blck.body):
     ? process_execution_payload(
         state, blck.body.execution_payload,
-        func(_: ExecutionPayload): bool = true)
+        func(_: bellatrix.ExecutionPayload): bool = true)
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
 

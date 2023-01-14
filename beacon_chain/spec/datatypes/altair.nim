@@ -701,7 +701,9 @@ chronicles.formatIt SyncCommitteeContribution: shortLog(it)
 chronicles.formatIt ContributionAndProof: shortLog(it)
 chronicles.formatIt SignedContributionAndProof: shortLog(it)
 
-func is_valid_light_client_header*(v: LightClientHeader): bool =
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/sync-protocol.md#is_valid_light_client_header
+func is_valid_light_client_header*(
+    header: LightClientHeader, cfg: RuntimeConfig): bool =
   true
 
 func shortLog*(v: LightClientHeader): auto =
@@ -717,7 +719,8 @@ func shortLog*(v: LightClientBootstrap): auto =
 func shortLog*(v: LightClientUpdate): auto =
   (
     attested: shortLog(v.attested_header),
-    has_next_sync_committee: not v.next_sync_committee.isZeroMemory,
+    has_next_sync_committee:
+      v.next_sync_committee != default(typeof(v.next_sync_committee)),
     finalized: shortLog(v.finalized_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot

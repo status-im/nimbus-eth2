@@ -98,8 +98,8 @@ suite "Light client processor" & preset():
       var numOnStoreInitializedCalls = 0
       func onStoreInitialized() = inc numOnStoreInitializedCalls
 
-      let store = (ref Option[LightClientStore])()
-      const storeDataFork = typeof(store[].get).kind
+      const storeDataFork = LightClientProcessor.storeDataFork
+      let store = (ref Option[storeDataFork.LightClientStore])()
       var
         processor = LightClientProcessor.new(
           false, "", "", cfg, genesis_validators_root, finalizationMode,
@@ -274,7 +274,7 @@ suite "Light client processor" & preset():
         bootstrap.kind > LightClientDataFork.None
         bootstrap.kind <= storeDataFork
       withForkyBootstrap(bootstrap):
-        when lcDataFork >= LightClientDataFork.Altair:
+        when lcDataFork > LightClientDataFork.None:
           forkyBootstrap.header.beacon.slot.inc()
       let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
       template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
