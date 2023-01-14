@@ -335,7 +335,8 @@ func matches*[A, B: SomeForkedLightClientUpdate](a: A, b: B): bool =
       true
 
 template forky*(
-    x: SomeForkedLightClientObject, kind: static LightClientDataFork): untyped =
+    x: SomeForkedLightClientObject | ForkedLightClientStore,
+    kind: static LightClientDataFork): untyped =
   when kind == LightClientDataFork.Altair:
     x.altairData
   else:
