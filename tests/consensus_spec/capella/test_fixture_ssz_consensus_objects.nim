@@ -14,7 +14,7 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../beacon_chain/spec/datatypes/capella,
+  ../../beacon_chain/spec/datatypes/[altair, capella],
   # Status libraries
   snappy,
   # Test utilities
