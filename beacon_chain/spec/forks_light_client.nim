@@ -313,7 +313,7 @@ template forky*(
   when kind == LightClientDataFork.Altair:
     x.altairData
   else:
-    static: doAssert kind == LightClientDataFork.None
+    static: raiseAssert "Unreachable"
 
 func migrateToDataFork*(
     x: var ForkedLightClientBootstrap,
