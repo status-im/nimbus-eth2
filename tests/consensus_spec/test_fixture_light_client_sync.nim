@@ -10,6 +10,8 @@
 import
   # Standard library
   std/[json, os, streams],
+  # Status libraries
+  stew/byteutils,
   # Third-party
   yaml,
   # Beacon chain internals
@@ -19,19 +21,24 @@ import
   ./fixtures_utils
 
 type
-  TestMeta = object
+  TestMeta {.sparse.} = object
     genesis_validators_root: string
     trusted_block_root: string
+    bootstrap_fork_digest: Option[string]
+    store_fork_digest: Option[string]
 
   TestChecks = object
     finalized_slot: Slot
     finalized_beacon_root: Eth2Digest
+    finalized_execution_root: Eth2Digest
     optimistic_slot: Slot
     optimistic_beacon_root: Eth2Digest
+    optimistic_execution_root: Eth2Digest
 
   TestStepKind {.pure.} = enum
     ForceUpdate
     ProcessUpdate
+    UpgradeStore
 
   TestStep = object
     case kind: TestStepKind
@@ -39,6 +46,8 @@ type
       discard
     of TestStepKind.ProcessUpdate:
       update: ForkedLightClientUpdate
+    of TestStepKind.UpgradeStore:
+      store_data_fork: LightClientDataFork
     current_slot: Slot
     checks: TestChecks
 
@@ -54,10 +63,14 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
           c["finalized_header"]["slot"].getInt().Slot,
         finalized_beacon_root:
           Eth2Digest.fromHex(c["finalized_header"]["beacon_root"].getStr()),
+        finalized_execution_root:
+          Eth2Digest.fromHex(c["finalized_header"]{"execution_root"}.getStr()),
         optimistic_slot:
           c["optimistic_header"]["slot"].getInt().Slot,
         optimistic_beacon_root:
-          Eth2Digest.fromHex(c["optimistic_header"]["beacon_root"].getStr()))
+          Eth2Digest.fromHex(c["optimistic_header"]["beacon_root"].getStr()),
+        optimistic_execution_root:
+          Eth2Digest.fromHex(c["optimistic_header"]{"execution_root"}.getStr()))
 
     if step.hasKey"force_update":
       let s = step["force_update"]
@@ -69,7 +82,9 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
     elif step.hasKey"process_update":
       let
         s = step["process_update"]
-        update_fork_digest = fork_digests.altair
+        update_fork_digest =
+          distinctBase(ForkDigest).fromHex(s{"update_fork_digest"}.getStr(
+            distinctBase(fork_digests.altair).toHex())).ForkDigest
         update_state_fork =
           fork_digests.stateForkForDigest(update_fork_digest)
             .expect("Unknown update fork " & $update_fork_digest)
@@ -88,6 +103,20 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
         kind: TestStepKind.ProcessUpdate,
         update: update,
         current_slot: s["current_slot"].getInt().Slot,
+        checks: s["checks"].getChecks())
+    elif step.hasKey"upgrade_store":
+      let
+        s = step["upgrade_store"]
+        store_fork_digest =
+          distinctBase(ForkDigest).fromHex(
+            s["store_fork_digest"].getStr()).ForkDigest
+        store_state_fork =
+          fork_digests.stateForkForDigest(store_fork_digest)
+            .expect("Unknown store fork " & $store_fork_digest)
+
+      result.add TestStep(
+        kind: TestStepKind.UpgradeStore,
+        store_data_fork: lcDataForkAtStateFork(store_state_fork),
         checks: s["checks"].getChecks())
     else:
       doAssert false, "Unknown test step: " & $step
@@ -108,8 +137,12 @@ proc runTest(path: string) =
         Eth2Digest.fromHex(meta.trusted_block_root)
       fork_digests =
         ForkDigests.init(cfg, genesis_validators_root)
-      bootstrap_fork_digest = fork_digests.altair
-      store_fork_digest = fork_digests.altair
+      bootstrap_fork_digest =
+        distinctBase(ForkDigest).fromHex(meta.bootstrap_fork_digest.get(
+          distinctBase(fork_digests.altair).toHex())).ForkDigest
+      store_fork_digest =
+        distinctBase(ForkDigest).fromHex(meta.store_fork_digest.get(
+          distinctBase(fork_digests.altair).toHex())).ForkDigest
       bootstrap_state_fork =
         fork_digests.stateForkForDigest(bootstrap_fork_digest)
           .expect("Unknown bootstrap fork " & $bootstrap_fork_digest)
@@ -154,6 +187,11 @@ proc runTest(path: string) =
                 forkyStore, upgradedUpdate.forky(lcDataFork), step.current_slot,
                 cfg, genesis_validators_root)
             check res.isOk
+          of TestStepKind.UpgradeStore:
+            check step.store_data_fork >= lcDataFork
+            withLcDataFork(step.store_data_fork):
+              when lcDataFork > LightClientDataFork.None:
+                store.migrateToDataFork(lcDataFork)
         else: raiseAssert "Unreachable"
 
       withForkyStore(store):
@@ -163,15 +201,27 @@ proc runTest(path: string) =
               forkyStore.finalized_header.beacon.slot
             finalized_beacon_root =
               hash_tree_root(forkyStore.finalized_header.beacon)
+            finalized_execution_root =
+              when lcDataFork >= LightClientDataFork.Capella:
+                get_lc_execution_root(forkyStore.finalized_header, cfg)
+              else:
+                ZERO_HASH
             optimistic_slot =
               forkyStore.optimistic_header.beacon.slot
             optimistic_beacon_root =
               hash_tree_root(forkyStore.optimistic_header.beacon)
+            optimistic_execution_root =
+              when lcDataFork >= LightClientDataFork.Capella:
+                get_lc_execution_root(forkyStore.optimistic_header, cfg)
+              else:
+                ZERO_HASH
           check:
             finalized_slot == step.checks.finalized_slot
             finalized_beacon_root == step.checks.finalized_beacon_root
+            finalized_execution_root == step.checks.finalized_execution_root
             optimistic_slot == step.checks.optimistic_slot
             optimistic_beacon_root == step.checks.optimistic_beacon_root
+            optimistic_execution_root == step.checks.optimistic_execution_root
         else: raiseAssert "Unreachable"
 
 suite "EF - Light client - Sync" & preset():

@@ -515,6 +515,20 @@ template toFork*[T:
     t: type T): BeaconBlockFork =
   BeaconBlockFork.EIP4844
 
+template BeaconBlockBody*(kind: static BeaconBlockFork): auto =
+  when kind == BeaconBlockFork.EIP4844:
+    typedesc[eip4844.BeaconBlockBody]
+  elif kind == BeaconBlockFork.Capella:
+    typedesc[capella.BeaconBlockBody]
+  elif kind == BeaconBlockFork.Bellatrix:
+    typedesc[bellatrix.BeaconBlockBody]
+  elif kind == BeaconBlockFork.Altair:
+    typedesc[altair.BeaconBlockBody]
+  elif kind == BeaconBlockFork.Phase0:
+    typedesc[phase0.BeaconBlockBody]
+  else:
+    static: raiseAssert "Unreachable"
+
 template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
   T(kind: EpochInfoFork.Phase0, phase0Data: info)
 template init*(T: type ForkedEpochInfo, info: altair.EpochInfo): T =
@@ -893,8 +907,10 @@ func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   of BeaconStateFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
 
 func lcDataForkAtStateFork*(stateFork: BeaconStateFork): LightClientDataFork =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
-  if stateFork >= BeaconStateFork.Altair:
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Capella
+  if stateFork >= BeaconStateFork.Capella:
+    LightClientDataFork.Capella
+  elif stateFork >= BeaconStateFork.Altair:
     LightClientDataFork.Altair
   else:
     LightClientDataFork.None

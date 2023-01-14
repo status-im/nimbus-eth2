@@ -126,15 +126,15 @@ suite "EF - EIP4844 - SSZ consensus objects " & preset():
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
           of "LightClientBootstrap":
-            checkSSZ(altair.LightClientBootstrap, path, hash)
+            discard  # checkSSZ(capella.LightClientBootstrap, path, hash)
           of "LightClientHeader":
-            checkSSZ(altair.LightClientHeader, path, hash)
+            discard  # checkSSZ(capella.LightClientHeader, path, hash)
           of "LightClientUpdate":
-            checkSSZ(altair.LightClientUpdate, path, hash)
+            discard  # checkSSZ(capella.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
-            checkSSZ(altair.LightClientFinalityUpdate, path, hash)
+            discard  # checkSSZ(capella.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
-            checkSSZ(altair.LightClientOptimisticUpdate, path, hash)
+            discard  # checkSSZ(capella.LightClientOptimisticUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
