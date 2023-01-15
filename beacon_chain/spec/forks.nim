@@ -927,8 +927,10 @@ func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   of BeaconStateFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
 
 func lcDataForkAtStateFork*(stateFork: BeaconStateFork): LightClientDataFork =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Capella
-  if stateFork >= BeaconStateFork.Capella:
+  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+  if stateFork >= BeaconStateFork.EIP4844:
+    LightClientDataFork.EIP4844
+  elif stateFork >= BeaconStateFork.Capella:
     LightClientDataFork.Capella
   elif stateFork >= BeaconStateFork.Altair:
     LightClientDataFork.Altair

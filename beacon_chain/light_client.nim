@@ -347,10 +347,6 @@ proc installMessageValidators*(
 
   let forkDigests = lightClient.forkDigests
   for stateFork in BeaconStateFork:
-    if stateFork >= BeaconStateFork.EIP4844:
-      # Format is still in development, do not use Gossip at this time.
-      continue
-
     withLcDataFork(lcDataForkAtStateFork(stateFork)):
       when lcDataFork > LightClientDataFork.None:
         let
@@ -420,9 +416,6 @@ proc updateGossipStatus*(
 
   for gossipFork in oldGossipForks:
     if gossipFork >= BeaconStateFork.Altair:
-      if gossipFork >= BeaconStateFork.EIP4844:
-        # Format is still in development, do not use Gossip at this time.
-        continue
       let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
       lightClient.network.unsubscribe(
         getLightClientFinalityUpdateTopic(forkDigest))
@@ -431,9 +424,6 @@ proc updateGossipStatus*(
 
   for gossipFork in newGossipForks:
     if gossipFork >= BeaconStateFork.Altair:
-      if gossipFork >= BeaconStateFork.EIP4844:
-        # Format is still in development, do not use Gossip at this time.
-        continue
       let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
       lightClient.network.subscribe(
         getLightClientFinalityUpdateTopic(forkDigest),
