@@ -183,13 +183,6 @@ type
     of BeaconBlockFork.Capella:   capellaData*:   capella.SignedBeaconBlock
     of BeaconBlockFork.EIP4844:   eip4844Data*:   eip4844.SignedBeaconBlock
 
-  ForkySignedBeaconBlockMaybeBlobs* =
-    phase0.SignedBeaconBlock |
-    altair.SignedBeaconBlock |
-    bellatrix.SignedBeaconBlock |
-    capella.SignedBeaconBlock |
-    eip4844.SignedBeaconBlockAndBlobsSidecar
-
   ForkySignedBlindedBeaconBlock* =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
@@ -263,6 +256,19 @@ type
     bellatrix*: ForkDigest
     capella*:   ForkDigest
     eip4844*:   ForkDigest
+
+# The purpose of this type is to unify the pre- and post-EIP4844
+# block gossip structures. It is for used only for
+# gossip-originating blocks, which are eventually separated into the
+# constituent parts before passing along into core functions.
+type  ForkySignedBeaconBlockMaybeBlobs* =
+  phase0.SignedBeaconBlock |
+  altair.SignedBeaconBlock |
+  bellatrix.SignedBeaconBlock |
+  capella.SignedBeaconBlock |
+  eip4844.SignedBeaconBlockAndBlobsSidecar
+# ForkySignedBeaconBlockMaybeBlobs should only contain types that are gossiped.
+static: doAssert not (default(eip4844.SignedBeaconBlock) is ForkySignedBeaconBlockMaybeBlobs)
 
 template toSignedBeaconBlock*(b: ForkySignedBeaconBlockMaybeBlobs): ForkySignedBeaconBlock =
   when b is eip4844.SignedBeaconBlockAndBlobsSidecar:
