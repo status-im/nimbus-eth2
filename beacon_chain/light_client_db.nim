@@ -57,7 +57,6 @@ type
 proc initLightClientHeadersStore(
     backend: SqStoreRef,
     name, legacyAltairName: string): KvResult[LightClientHeadersStore] =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
   ? backend.exec("""
     CREATE TABLE IF NOT EXISTS `""" & name & """` (
       `key` INTEGER PRIMARY KEY,   -- `LightClientHeaderKey`
