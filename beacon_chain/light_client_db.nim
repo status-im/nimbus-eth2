@@ -137,6 +137,7 @@ func putLatestFinalizedHeader*(
         doAssert period.isSupportedBySQLite
         let res = db.syncCommittees.keepFromStmt.exec(period.int64)
         res.expect("SQL query OK")
+    else: raiseAssert "Cannot store empty `LightClientHeader`"
 
 func initSyncCommitteesStore(
     backend: SqStoreRef,
