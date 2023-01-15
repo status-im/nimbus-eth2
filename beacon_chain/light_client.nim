@@ -291,9 +291,6 @@ proc installMessageValidators*(
     msg.logReceived()
 
     if contextFork != lightClient.cfg.stateForkAtEpoch(msg.contextEpoch):
-      info "Received obj on wrong fork",
-        contextFork, expectedFork = lightClient.cfg.stateForkAtEpoch(msg.contextEpoch),
-        msg
       msg.logDropped(
         (ValidationResult.Reject, cstring "Invalid context fork"))
       return ValidationResult.Reject
