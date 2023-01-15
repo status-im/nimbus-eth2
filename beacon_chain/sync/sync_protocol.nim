@@ -424,7 +424,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
   proc beaconBlockAndBlobsSidecarByRoot_v2(
       peer: Peer,
       # Please note that the SSZ list here ensures that the
@@ -432,7 +432,7 @@ p2pProtocol BeaconSync(version = 1,
       blockRoots: BlockRootsList,
       response: MultipleChunksResponse[
         ref SignedBeaconBlockAndBlobsSidecar, MAX_REQUEST_BLOCKS])
-      {.async, libp2pProtocol("beacon_block_and_blobs_sidecar_by_root", 2).} =
+      {.async, libp2pProtocol("beacon_block_and_blobs_sidecar_by_root", 1).} =
         # unlike for beaconBlocksByRoot_v2, we don't need to
         # dynamically decode the correct fork here. so returning a ref
         # is solely for performance sake
