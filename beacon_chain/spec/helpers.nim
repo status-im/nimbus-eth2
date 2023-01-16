@@ -207,25 +207,26 @@ func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
   (flags and flag) == flag
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#is_sync_committee_update
-template is_sync_committee_update*(update: SomeLightClientUpdate): bool =
-  when update is SomeLightClientUpdateWithSyncCommittee:
-    not isZeroMemory(update.next_sync_committee_branch)
+template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
+  when update is SomeForkyLightClientUpdateWithSyncCommittee:
+    update.next_sync_committee_branch !=
+      default(typeof(update.next_sync_committee_branch))
   else:
     false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#is_finality_update
-template is_finality_update*(update: SomeLightClientUpdate): bool =
-  when update is SomeLightClientUpdateWithFinality:
-    not isZeroMemory(update.finality_branch)
+template is_finality_update*(update: SomeForkyLightClientUpdate): bool =
+  when update is SomeForkyLightClientUpdateWithFinality:
+    update.finality_branch != default(typeof(update.finality_branch))
   else:
     false
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
-template is_next_sync_committee_known*(store: LightClientStore): bool =
-  not isZeroMemory(store.next_sync_committee)
+template is_next_sync_committee_known*(store: ForkyLightClientStore): bool =
+  store.next_sync_committee != default(typeof(store.next_sync_committee))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#get_safety_threshold
-func get_safety_threshold*(store: LightClientStore): uint64 =
+func get_safety_threshold*(store: ForkyLightClientStore): uint64 =
   max(
     store.previous_max_active_participants,
     store.current_max_active_participants
@@ -237,25 +238,25 @@ type LightClientUpdateMetadata* = object
   has_sync_committee*, has_finality*: bool
   num_active_participants*: uint64
 
-func toMeta*(update: SomeLightClientUpdate): LightClientUpdateMetadata =
+func toMeta*(update: SomeForkyLightClientUpdate): LightClientUpdateMetadata =
   var meta {.noinit.}: LightClientUpdateMetadata
   meta.attested_slot =
-    update.attested_header.slot
+    update.attested_header.beacon.slot
   meta.finalized_slot =
-    when update is SomeLightClientUpdateWithFinality:
-      update.finalized_header.slot
+    when update is SomeForkyLightClientUpdateWithFinality:
+      update.finalized_header.beacon.slot
     else:
       GENESIS_SLOT
   meta.signature_slot =
     update.signature_slot
   meta.has_sync_committee =
-    when update is SomeLightClientUpdateWithSyncCommittee:
-      not update.next_sync_committee_branch.isZeroMemory
+    when update is SomeForkyLightClientUpdateWithSyncCommittee:
+      update.is_sync_committee_update
     else:
       false
   meta.has_finality =
-    when update is SomeLightClientUpdateWithFinality:
-      not update.finality_branch.isZeroMemory
+    when update is SomeForkyLightClientUpdateWithFinality:
+      update.is_finality_update
     else:
       false
   meta.num_active_participants =
@@ -264,7 +265,7 @@ func toMeta*(update: SomeLightClientUpdate): LightClientUpdateMetadata =
 
 template toMeta*(update: ForkedLightClientUpdate): LightClientUpdateMetadata =
   withForkyUpdate(update):
-    when lcDataFork >= LightClientDataFork.Altair:
+    when lcDataFork > LightClientDataFork.None:
       forkyUpdate.toMeta()
     else:
       default(LightClientUpdateMetadata)
@@ -318,19 +319,19 @@ func is_better_data*(new_meta, old_meta: LightClientUpdateMetadata): bool =
   new_meta.attested_slot < old_meta.attested_slot
 
 template is_better_update*[
-    A, B: SomeLightClientUpdate | ForkedLightClientUpdate](
+    A, B: SomeForkyLightClientUpdate | ForkedLightClientUpdate](
     new_update: A, old_update: B): bool =
   is_better_data(toMeta(new_update), toMeta(old_update))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
-func contextEpoch*(bootstrap: altair.LightClientBootstrap): Epoch =
-  bootstrap.header.slot.epoch
+func contextEpoch*(bootstrap: ForkyLightClientBootstrap): Epoch =
+  bootstrap.header.beacon.slot.epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
-func contextEpoch*(update: SomeLightClientUpdate): Epoch =
-  update.attested_header.slot.epoch
+func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
+  update.attested_header.beacon.slot.epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
@@ -391,16 +392,13 @@ proc computeTransactionsTrieRoot*(
       doAssert false, "HexaryTrie.put failed: " & $exc.msg
   tr.rootHash()
 
-func gweiToWei*(gwei: Gwei): UInt256 =
-  gwei.u256 * 1_000_000_000.u256
-
 func toExecutionWithdrawal*(
     withdrawal: capella.Withdrawal): ExecutionWithdrawal =
   ExecutionWithdrawal(
     index: withdrawal.index,
     validatorIndex: withdrawal.validator_index,
     address: EthAddress withdrawal.address.data,
-    amount: gweiToWei withdrawal.amount)
+    amount: withdrawal.amount)
 
 # https://eips.ethereum.org/EIPS/eip-4895
 proc computeWithdrawalsTrieRoot*(

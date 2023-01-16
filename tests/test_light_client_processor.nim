@@ -98,8 +98,8 @@ suite "Light client processor" & preset():
       var numOnStoreInitializedCalls = 0
       func onStoreInitialized() = inc numOnStoreInitializedCalls
 
-      let store = (ref Option[LightClientStore])()
-      const storeDataFork = typeof(store[].get).kind
+      const storeDataFork = LightClientProcessor.storeDataFork
+      let store = (ref Option[storeDataFork.LightClientStore])()
       var
         processor = LightClientProcessor.new(
           false, "", "", cfg, genesis_validators_root, finalizationMode,
@@ -113,7 +113,7 @@ suite "Light client processor" & preset():
         bootstrap.kind <= storeDataFork
       let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
       template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
-      setTimeToSlot(forkyBootstrap.header.slot)
+      setTimeToSlot(forkyBootstrap.header.beacon.slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), bootstrap)
       check:
@@ -135,7 +135,8 @@ suite "Light client processor" & preset():
         check:
           res.isOk
           store[].isSome
-          if forkyUpdate.finalized_header.slot > forkyBootstrap.header.slot:
+          if forkyUpdate.finalized_header.beacon.slot >
+              forkyBootstrap.header.beacon.slot:
             store[].get.finalized_header == forkyUpdate.finalized_header
           else:
             store[].get.finalized_header == forkyBootstrap.header
@@ -273,11 +274,11 @@ suite "Light client processor" & preset():
         bootstrap.kind > LightClientDataFork.None
         bootstrap.kind <= storeDataFork
       withForkyBootstrap(bootstrap):
-        when lcDataFork >= LightClientDataFork.Altair:
-          forkyBootstrap.header.slot.inc()
+        when lcDataFork > LightClientDataFork.None:
+          forkyBootstrap.header.beacon.slot.inc()
       let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
       template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
-      setTimeToSlot(forkyBootstrap.header.slot)
+      setTimeToSlot(forkyBootstrap.header.beacon.slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), bootstrap)
       check:
@@ -292,7 +293,7 @@ suite "Light client processor" & preset():
         bootstrap.kind <= storeDataFork
       let upgradedBootstrap = bootstrap.migratingToDataFork(storeDataFork)
       template forkyBootstrap: untyped = upgradedBootstrap.forky(storeDataFork)
-      setTimeToSlot(forkyBootstrap.header.slot)
+      setTimeToSlot(forkyBootstrap.header.beacon.slot)
       res = processor[].storeObject(
         MsgSource.gossip, getBeaconTime(), bootstrap)
       check:

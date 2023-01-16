@@ -54,13 +54,13 @@ proc dump*(dir: string, v: ForkyLightClientBootstrap) =
   logErrors:
     let
       prefix = "bootstrap"
-      slot = v.header.slot
-      blck = shortLog(v.header.hash_tree_root())
+      slot = v.header.beacon.slot
+      blck = shortLog(v.header.beacon.hash_tree_root())
       root = shortLog(v.hash_tree_root())
     SSZ.saveFile(
       dir / &"{prefix}-{slot}-{blck}-{root}.ssz", v)
 
-proc dump*(dir: string, v: SomeLightClientUpdate) =
+proc dump*(dir: string, v: SomeForkyLightClientUpdate) =
   logErrors:
     let
       prefix =
@@ -70,8 +70,8 @@ proc dump*(dir: string, v: SomeLightClientUpdate) =
           "finality-update"
         elif v is ForkyLightClientOptimisticUpdate:
           "optimistic-update"
-      attestedSlot = v.attested_header.slot
-      attestedBlck = shortLog(v.attested_header.hash_tree_root())
+      attestedSlot = v.attested_header.beacon.slot
+      attestedBlck = shortLog(v.attested_header.beacon.hash_tree_root())
       syncCommitteeSuffix =
         when v is SomeForkyLightClientUpdateWithSyncCommittee:
           if v.is_sync_committee_update:

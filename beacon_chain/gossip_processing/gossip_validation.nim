@@ -1095,18 +1095,18 @@ proc validateLightClientFinalityUpdate*(
     finality_update: ForkedLightClientFinalityUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let finalized_slot = withForkyFinalityUpdate(finality_update):
-    when lcDataFork >= LightClientDataFork.Altair:
-      forkyFinalityUpdate.finalized_header.slot
+    when lcDataFork > LightClientDataFork.None:
+      forkyFinalityUpdate.finalized_header.beacon.slot
     else:
       GENESIS_SLOT
   if finalized_slot <= pool.latestForwardedFinalitySlot:
-    # [IGNORE] The `finalized_header.slot` is greater than that of all
+    # [IGNORE] The `finalized_header.beacon.slot` is greater than that of all
     # previously forwarded `finality_update`s
     return errIgnore("LightClientFinalityUpdate: slot already forwarded")
 
   let
     signature_slot = withForkyFinalityUpdate(finality_update):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         forkyFinalityUpdate.signature_slot
       else:
         GENESIS_SLOT
@@ -1131,18 +1131,18 @@ proc validateLightClientOptimisticUpdate*(
     optimistic_update: ForkedLightClientOptimisticUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let attested_slot = withForkyOptimisticUpdate(optimistic_update):
-    when lcDataFork >= LightClientDataFork.Altair:
-      forkyOptimisticUpdate.attested_header.slot
+    when lcDataFork > LightClientDataFork.None:
+      forkyOptimisticUpdate.attested_header.beacon.slot
     else:
       GENESIS_SLOT
   if attested_slot <= pool.latestForwardedOptimisticSlot:
-    # [IGNORE] The `attested_header.slot` is greater than that of all
+    # [IGNORE] The `attested_header.beacon.slot` is greater than that of all
     # previously forwarded `optimistic_update`s
     return errIgnore("LightClientOptimisticUpdate: slot already forwarded")
 
   let
     signature_slot = withForkyOptimisticUpdate(optimistic_update):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         forkyOptimisticUpdate.signature_slot
       else:
         GENESIS_SLOT

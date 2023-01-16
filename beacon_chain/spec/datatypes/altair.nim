@@ -160,26 +160,31 @@ type
   NextSyncCommitteeBranch* =
     array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#lightclientheader
+  LightClientHeader* = object
+    beacon*: BeaconBlockHeader
+      ## Beacon block header
+
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
-    header*: BeaconBlockHeader
+    header*: LightClientHeader
       ## Header matching the requested beacon block root
 
     current_sync_committee*: SyncCommittee
-      ## Current sync committee corresponding to `header.state_root`
+      ## Current sync committee corresponding to `header.beacon.state_root`
     current_sync_committee_branch*: CurrentSyncCommitteeBranch
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
-    attested_header*: BeaconBlockHeader
+    attested_header*: LightClientHeader
       ## Header attested to by the sync committee
 
     next_sync_committee*: SyncCommittee
-      ## Next sync committee corresponding to `attested_header.state_root`
+      ## Next sync committee corresponding to `attested_header.beacon.state_root`
     next_sync_committee_branch*: NextSyncCommitteeBranch
 
-    # Finalized header corresponding to `attested_header.state_root`
-    finalized_header*: BeaconBlockHeader
+    # Finalized header corresponding to `attested_header.beacon.state_root`
+    finalized_header*: LightClientHeader
     finality_branch*: FinalityBranch
 
     sync_aggregate*: SyncAggregate
@@ -190,10 +195,10 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
   LightClientFinalityUpdate* = object
     # Header attested to by the sync committee
-    attested_header*: BeaconBlockHeader
+    attested_header*: LightClientHeader
 
-    # Finalized header corresponding to `attested_header.state_root`
-    finalized_header*: BeaconBlockHeader
+    # Finalized header corresponding to `attested_header.beacon.state_root`
+    finalized_header*: LightClientHeader
     finality_branch*: FinalityBranch
 
     # Sync committee aggregate signature
@@ -204,7 +209,7 @@ type
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
   LightClientOptimisticUpdate* = object
     # Header attested to by the sync committee
-    attested_header*: BeaconBlockHeader
+    attested_header*: LightClientHeader
 
     # Sync committee aggregate signature
     sync_aggregate*: SyncAggregate
@@ -229,7 +234,7 @@ type
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#lightclientstore
   LightClientStore* = object
-    finalized_header*: BeaconBlockHeader
+    finalized_header*: LightClientHeader
       ## Header that is finalized
 
     current_sync_committee*: SyncCommittee
@@ -239,7 +244,7 @@ type
     best_valid_update*: Opt[LightClientUpdate]
       ## Best available header to switch finalized head to if we see nothing else
 
-    optimistic_header*: BeaconBlockHeader
+    optimistic_header*: LightClientHeader
       ## Most recent available reasonably-safe header
 
     previous_max_active_participants*: uint64
@@ -696,6 +701,16 @@ chronicles.formatIt SyncCommitteeContribution: shortLog(it)
 chronicles.formatIt ContributionAndProof: shortLog(it)
 chronicles.formatIt SignedContributionAndProof: shortLog(it)
 
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/sync-protocol.md#is_valid_light_client_header
+func is_valid_light_client_header*(
+    header: LightClientHeader, cfg: RuntimeConfig): bool =
+  true
+
+func shortLog*(v: LightClientHeader): auto =
+  (
+    beacon: shortLog(v.beacon)
+  )
+
 func shortLog*(v: LightClientBootstrap): auto =
   (
     header: shortLog(v.header)
@@ -704,7 +719,8 @@ func shortLog*(v: LightClientBootstrap): auto =
 func shortLog*(v: LightClientUpdate): auto =
   (
     attested: shortLog(v.attested_header),
-    has_next_sync_committee: not v.next_sync_committee.isZeroMemory,
+    has_next_sync_committee:
+      v.next_sync_committee != default(typeof(v.next_sync_committee)),
     finalized: shortLog(v.finalized_header),
     num_active_participants: v.sync_aggregate.num_active_participants,
     signature_slot: v.signature_slot

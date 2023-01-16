@@ -161,7 +161,7 @@ proc routeAttestation*(
     beacon_attestations_sent.inc()
     beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
 
-    notice "Attestation sent",
+    info "Attestation sent",
       attestation = shortLog(attestation), delay, subnet_id
   else: # "no broadcast" is not a fatal error
     notice "Attestation not sent",
@@ -225,7 +225,7 @@ proc routeSignedAggregateAndProof*(
   if res.isOk():
     beacon_aggregates_sent.inc()
 
-    notice "Aggregated attestation sent",
+    info "Aggregated attestation sent",
       attestation = shortLog(proof.message.aggregate),
       aggregator_index = proof.message.aggregator_index,
       selection_proof = shortLog(proof.message.selection_proof),
@@ -262,7 +262,7 @@ proc routeSyncCommitteeMessage*(
     beacon_sync_committee_messages_sent.inc()
     beacon_sync_committee_message_sent_delay.observe(delay.toFloatSeconds())
 
-    notice "Sync committee message sent", message = shortLog(msg), delay
+    info "Sync committee message sent", message = shortLog(msg), delay
   else: # "no broadcast" is not a fatal error
     notice "Sync committee message not sent",
       message = shortLog(msg), error = res.error()
@@ -377,7 +377,7 @@ proc routeSignedContributionAndProof*(
   let res = await router[].network.broadcastSignedContributionAndProof(msg)
   if res.isOk():
     beacon_sync_committee_contributions_sent.inc()
-    notice "Contribution sent",
+    info "Contribution sent",
       contribution = shortLog(msg.message.contribution),
       aggregator_index = msg.message.aggregator_index,
       selection_proof = shortLog(msg.message.selection_proof),

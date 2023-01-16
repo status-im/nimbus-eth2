@@ -245,8 +245,6 @@ func asEth2Digest*(x: BlockHash): Eth2Digest =
 template asBlockHash*(x: Eth2Digest): BlockHash =
   BlockHash(x.data)
 
-const weiInGwei = 1_000_000_000.u256
-
 from ../spec/datatypes/capella import ExecutionPayload, Withdrawal
 
 func asConsensusWithdrawal(w: WithdrawalV1): capella.Withdrawal =
@@ -254,16 +252,14 @@ func asConsensusWithdrawal(w: WithdrawalV1): capella.Withdrawal =
     index: w.index.uint64,
     validator_index: w.validatorIndex.uint64,
     address: ExecutionAddress(data: w.address.distinctBase),
-
-    # TODO spec doesn't mention non-even-multiples, also overflow
-    amount: (w.amount.u256 div weiInGwei).truncate(uint64))
+    amount: w.amount.uint64)
 
 func asEngineWithdrawal(w: capella.Withdrawal): WithdrawalV1 =
   WithdrawalV1(
     index: Quantity(w.index),
     validatorIndex: Quantity(w.validator_index),
     address: Address(w.address.data),
-    amount: w.amount.u256 * weiInGwei)
+    amount: Quantity(w.amount))
 
 func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     bellatrix.ExecutionPayload =

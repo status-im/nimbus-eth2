@@ -121,11 +121,11 @@ jobs:
             ncpu=$(sysctl -n hw.ncpu)
             ;;
           'Windows')
-            # otherwise, intermittent CI build failures
-            # e.g., cc1.exe: out of memory allocating 215528 bytes
-            # underflow corrected later
-            ncpu=$((${NUMBER_OF_PROCESSORS} - 1))
+            ncpu=${NUMBER_OF_PROCESSORS}
             make_cmd="mingw32-make"
+            echo "Number of cores: ${NUMBER_OF_PROCESSORS}"
+            echo "Physical memory: $(wmic ComputerSystem get TotalPhysicalMemory)"
+            echo "Partition sizes: $(wmic partition get name,size,type)"
             ;;
           esac
           [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
@@ -146,6 +146,17 @@ jobs:
           fixturesHash=$(getHash status-im/nim-eth2-scenarios)
           echo "::set-output name=fixtures::${fixturesHash}"
 
+      - name: Build binaries (with trace logging enabled)
+        run: |
+          if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
+            # change to "|| true" to hide the CI failures in GitHub's UI (escape hatch if a blocker is detected in 1.6)
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE || false
+          else
+            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE
+          fi
+          # The Windows image runs out of disk space, so make some room
+          rm -rf build nimcache
+
       - name: Restore Ethereum Foundation fixtures from cache
         id: fixtures-cache
         uses: actions/cache@v2
@@ -158,17 +169,6 @@ jobs:
       - name: Get the Ethereum Foundation fixtures
         run: |
           scripts/setup_scenarios.sh fixturesCache
-
-      - name: Build binaries (with trace logging enabled)
-        run: |
-          if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
-            # change to "|| true" to hide the CI failures in GitHub's UI (escape hatch if a blocker is detected in 1.6)
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE || false
-          else
-            ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE
-          fi
-          # The Windows image runs out of disk space, so make some room
-          rm -rf nimcache
 
       - name: Run tests
         run: |

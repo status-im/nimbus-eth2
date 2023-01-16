@@ -303,7 +303,7 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 + LVH searching                                                                              OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Light client [Preset: mainnet]
+## Light client - Altair [Preset: mainnet]
 ```diff
 + Init from checkpoint                                                                       OK
 + Light client sync                                                                          OK

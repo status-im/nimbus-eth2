@@ -370,18 +370,19 @@ proc verify_builder_signature*(
   let signing_root = compute_builder_signing_root(fork, msg)
   blsVerify(pubkey, signing_root.data, signature)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 func compute_bls_to_execution_change_signing_root(
-    fork: Fork, genesis_validators_root: Eth2Digest,
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
     epoch: Epoch, msg: BLSToExecutionChange): Eth2Digest =
   let domain = get_domain(
-    fork, DOMAIN_BLS_TO_EXECUTION_CHANGE, epoch, genesis_validators_root)
+    genesisFork, DOMAIN_BLS_TO_EXECUTION_CHANGE, epoch,
+    genesis_validators_root)
   compute_signing_root(msg, domain)
 
 proc verify_bls_to_execution_change_signature*(
-    fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
+    genesisFork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
     msg: SignedBLSToExecutionChange,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_bls_to_execution_change_signing_root(
-    fork, genesis_validators_root, epoch, msg.message)
+    genesisFork, genesis_validators_root, epoch, msg.message)
   blsVerify(pubkey, signing_root.data, signature)

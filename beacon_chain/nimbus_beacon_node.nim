@@ -153,7 +153,7 @@ proc loadChainDag(
   proc onLightClientFinalityUpdate(data: ForkedLightClientFinalityUpdate) =
     if dag == nil: return
     withForkyFinalityUpdate(data):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let contextFork =
           dag.cfg.stateForkAtEpoch(forkyFinalityUpdate.contextEpoch)
         eventBus.finUpdateQueue.emit(
@@ -164,7 +164,7 @@ proc loadChainDag(
   proc onLightClientOptimisticUpdate(data: ForkedLightClientOptimisticUpdate) =
     if dag == nil: return
     withForkyOptimisticUpdate(data):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let contextFork =
           dag.cfg.stateForkAtEpoch(forkyOptimisticUpdate.contextEpoch)
         eventBus.optUpdateQueue.emit(
@@ -530,9 +530,14 @@ proc init*(T: type BeaconNode,
   # Doesn't use std/random directly, but dependencies might
   randomize(rng[].rand(high(int)))
 
+  # The validatorMonitorTotals flag has been deprecated and should eventually be
+  # removed - until then, it's given priority if set so as not to needlessly
+  # break existing setups
   let
     validatorMonitor = newClone(ValidatorMonitor.init(
-      config.validatorMonitorAuto, config.validatorMonitorTotals))
+      config.validatorMonitorAuto,
+      config.validatorMonitorTotals.get(
+        not config.validatorMonitorDetails)))
 
   for key in config.validatorMonitorPubkeys:
     validatorMonitor[].addMonitor(key, Opt.none(ValidatorIndex))
@@ -784,19 +789,27 @@ proc updateBlocksGossipStatus*(
     # Individual forks added / removed
     discard
 
+  template blocksTopic(fork: BeaconStateFork, forkDigest: ForkDigest): auto =
+    case fork
+    of BeaconStateFork.Phase0 .. BeaconStateFork.Capella:
+      getBeaconBlocksTopic(forkDigest)
+    of BeaconStateFork.EIP4844:
+      getBeaconBlockAndBlobsSidecarTopic(forkDigest)
+
   let
     newGossipForks = targetGossipState - currentGossipState
     oldGossipForks = currentGossipState - targetGossipState
 
-  discard $eip4844ImplementationMissing & ": for EIP4844, https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#beacon_block notes use beacon_block_and_blobs_sidecar rather than beacon_block"
   for gossipFork in oldGossipForks:
     let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
-    node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
+    let topic = blocksTopic(gossipFork, forkDigest)
+    node.network.unsubscribe(topic)
 
   for gossipFork in newGossipForks:
     let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
+    let topic = blocksTopic(gossipFork, forkDigest)
     node.network.subscribe(
-      getBeaconBlocksTopic(forkDigest), blocksTopicParams,
+      topic, blocksTopicParams,
       enableTopicMetrics = true)
 
   node.blocksGossipState = targetGossipState
@@ -890,11 +903,6 @@ proc addCapellaMessageHandlers(
   node.addAltairMessageHandlers(forkDigest, slot)
   node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
 
-proc addEIP4844MessageHandlers(
-    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addCapellaMessageHandlers(forkDigest, slot)
-  node.network.subscribe(getBeaconBlockAndBlobsSidecarTopic(forkDigest), basicParams)
-
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -909,10 +917,6 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeAltairMessageHandlers(forkDigest)
   node.network.unsubscribe(getBlsToExecutionChangeTopic(forkDigest))
-
-proc removeEIP4844MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.removeCapellaMessageHandlers(forkDigest)
-  node.network.unsubscribe(getBeaconBlockAndBlobsSidecarTopic(forkDigest))
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1066,7 +1070,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeEIP4844MessageHandlers
+    removeCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
   ]
 
   for gossipFork in oldGossipForks:
@@ -1077,7 +1081,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
-    addEIP4844MessageHandlers
+    addCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
   ]
 
   for gossipFork in newGossipForks:
@@ -1783,6 +1787,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   ignoreDeprecatedOption safeSlotsToImportOptimistically
   ignoreDeprecatedOption terminalTotalDifficultyOverride
   ignoreDeprecatedOption optimistic
+  ignoreDeprecatedOption validatorMonitorTotals
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 
