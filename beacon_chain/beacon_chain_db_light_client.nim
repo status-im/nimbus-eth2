@@ -51,6 +51,12 @@ type
     putStmt: SqliteStmt[(int64, seq[byte]), void]
     keepFromStmt: SqliteStmt[int64, void]
 
+  LegacyBestLightClientUpdateStore = object
+    putStmt: SqliteStmt[(int64, seq[byte]), void]
+    delStmt: SqliteStmt[int64, void]
+    delFromStmt: SqliteStmt[int64, void]
+    keepFromStmt: SqliteStmt[int64, void]
+
   BestLightClientUpdateStore = object
     getStmt: SqliteStmt[int64, (int64, seq[byte])]
     putStmt: SqliteStmt[(int64, int64, seq[byte]), void]
@@ -73,6 +79,10 @@ type
       ## Cached data for creating future `LightClientBootstrap` instances.
       ## Key is the block slot of which the post state was used to get the data.
       ## Data stored for all finalized epoch boundary blocks.
+
+    legacyBestUpdates: LegacyBestLightClientUpdateStore
+      ## SyncCommitteePeriod -> altair.LightClientUpdate
+      ## Used through Bellatrix.
 
     bestUpdates: BestLightClientUpdateStore
       ## SyncCommitteePeriod -> (LightClientDataFork, LightClientUpdate)
@@ -160,6 +170,48 @@ func putCurrentSyncCommitteeBranch*(
   let res = db.currentBranches.putStmt.exec((slot.int64, SSZ.encode(branch)))
   res.expect("SQL query OK")
 
+proc initLegacyBestUpdatesStore(
+    backend: SqStoreRef,
+    name: string,
+): KvResult[LegacyBestLightClientUpdateStore] =
+  ? backend.exec("""
+    CREATE TABLE IF NOT EXISTS `""" & name & """` (
+      `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
+      `update` BLOB                  -- `altair.LightClientUpdate` (SSZ)
+    );
+  """)
+
+  let
+    putStmt = backend.prepareStmt("""
+      REPLACE INTO `""" & name & """` (
+        `period`, `update`
+      ) VALUES (?, ?);
+    """, (int64, seq[byte]), void, managed = false).expect("SQL query OK")
+    delStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
+      WHERE `period` = ?;
+    """, int64, void, managed = false).expect("SQL query OK")
+    delFromStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
+      WHERE `period` >= ?;
+    """, int64, void, managed = false).expect("SQL query OK")
+    keepFromStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
+      WHERE `period` < ?;
+    """, int64, void, managed = false).expect("SQL query OK")
+
+  ok LegacyBestLightClientUpdateStore(
+    putStmt: putStmt,
+    delStmt: delStmt,
+    delFromStmt: delFromStmt,
+    keepFromStmt: keepFromStmt)
+
+func close(store: LegacyBestLightClientUpdateStore) =
+  store.putStmt.dispose()
+  store.delStmt.dispose()
+  store.delFromStmt.dispose()
+  store.keepFromStmt.dispose()
+
 proc initBestUpdatesStore(
     backend: SqStoreRef,
     name, legacyAltairName: string,
@@ -171,8 +223,7 @@ proc initBestUpdatesStore(
       `update` BLOB                  -- `LightClientUpdate` (SSZ)
     );
   """)
-  if backend.hasTable(legacyAltairName).expect("SQL query OK"):
-    info "Importing Altair light client data"
+  block:
     # SyncCommitteePeriod -> altair.LightClientUpdate
     const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
     ? backend.exec("""
@@ -181,9 +232,6 @@ proc initBestUpdatesStore(
       )
       SELECT `period`, """ & legacyKind & """ AS `kind`, `update`
       FROM `""" & legacyAltairName & """`;
-    """)
-    ? backend.exec("""
-      DROP TABLE `""" & legacyAltairName & """`;
     """)
 
   let
@@ -257,15 +305,31 @@ func putBestUpdate*(
     when lcDataFork > LightClientDataFork.None:
       let numParticipants = forkyUpdate.sync_aggregate.num_active_participants
       if numParticipants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
+        block:
+          let res = db.bestUpdates.delStmt.exec(period.int64)
+          res.expect("SQL query OK")
+        block:
+          let res = db.legacyBestUpdates.delStmt.exec(period.int64)
+          res.expect("SQL query OK")
+      else:
+        block:
+          let res = db.bestUpdates.putStmt.exec(
+            (period.int64, lcDataFork.int64, SSZ.encode(forkyUpdate)))
+          res.expect("SQL query OK")
+        if update.kind == LightClientDataFork.Altair:
+          let res = db.legacyBestUpdates.putStmt.exec(
+            (period.int64, SSZ.encode(forkyUpdate)))
+          res.expect("SQL query OK")
+        else:
+          # Keep legacy table at best Altair update.
+          discard
+    else:
+      block:
         let res = db.bestUpdates.delStmt.exec(period.int64)
         res.expect("SQL query OK")
-      else:
-        let res = db.bestUpdates.putStmt.exec(
-          (period.int64, lcDataFork.int64, SSZ.encode(forkyUpdate)))
+      block:
+        let res = db.legacyBestUpdates.delStmt.exec(period.int64)
         res.expect("SQL query OK")
-    else:
-      let res = db.bestUpdates.delStmt.exec(period.int64)
-      res.expect("SQL query OK")
 
 proc putUpdateIfBetter*(
     db: LightClientDataDB, period: SyncCommitteePeriod,
@@ -334,23 +398,33 @@ func sealPeriod*(
 func delNonFinalizedPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
   doAssert minPeriod.isSupportedBySQLite
-  let res1 = db.sealedPeriods.delFromStmt.exec(minPeriod.int64)
-  res1.expect("SQL query OK")
-  let res2 = db.bestUpdates.delFromStmt.exec(minPeriod.int64)
-  res2.expect("SQL query OK")
+  block:
+    let res = db.sealedPeriods.delFromStmt.exec(minPeriod.int64)
+    res.expect("SQL query OK")
+  block:
+    let res = db.bestUpdates.delFromStmt.exec(minPeriod.int64)
+    res.expect("SQL query OK")
+  block:
+    let res = db.legacyBestUpdates.delFromStmt.exec(minPeriod.int64)
+    res.expect("SQL query OK")
   # `currentBranches` only has finalized data
 
 func keepPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
   doAssert minPeriod.isSupportedBySQLite
-  let res1 = db.sealedPeriods.keepFromStmt.exec(minPeriod.int64)
-  res1.expect("SQL query OK")
-  let res2 = db.bestUpdates.keepFromStmt.exec(minPeriod.int64)
-  res2.expect("SQL query OK")
-  let
-    minSlot = min(minPeriod.start_slot, int64.high.Slot)
-    res3 = db.currentBranches.keepFromStmt.exec(minSlot.int64)
-  res3.expect("SQL query OK")
+  block:
+    let res = db.sealedPeriods.keepFromStmt.exec(minPeriod.int64)
+    res.expect("SQL query OK")
+  block:
+    let res = db.bestUpdates.keepFromStmt.exec(minPeriod.int64)
+    res.expect("SQL query OK")
+  block:
+    let res = db.legacyBestUpdates.keepFromStmt.exec(minPeriod.int64)
+    res.expect("SQL query OK")
+  let minSlot = min(minPeriod.start_slot, int64.high.Slot)
+  block:
+    let res = db.currentBranches.keepFromStmt.exec(minSlot.int64)
+    res.expect("SQL query OK")
 
 type LightClientDataDBNames* = object
   altairCurrentBranches*: string
@@ -364,6 +438,8 @@ proc initLightClientDataDB*(
   let
     currentBranches =
       ? backend.initCurrentBranchesStore(names.altairCurrentBranches)
+    legacyBestUpdates =
+      ? backend.initLegacyBestUpdatesStore(names.legacyAltairBestUpdates)
     bestUpdates =
       ? backend.initBestUpdatesStore(
         names.bestUpdates, names.legacyAltairBestUpdates)
@@ -373,12 +449,14 @@ proc initLightClientDataDB*(
   ok LightClientDataDB(
     backend: backend,
     currentBranches: currentBranches,
+    legacyBestUpdates: legacyBestUpdates,
     bestUpdates: bestUpdates,
     sealedPeriods: sealedPeriods)
 
 proc close*(db: LightClientDataDB) =
   if db.backend != nil:
     db.currentBranches.close()
+    db.legacyBestUpdates.close()
     db.bestUpdates.close()
     db.sealedPeriods.close()
     db[].reset()
