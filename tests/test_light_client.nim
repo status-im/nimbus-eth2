@@ -17,7 +17,7 @@ import
   # Test utilities
   ./testutil, ./testdbutil
 
-suite "Light client " & preset():
+suite "Light client" & preset():
   const  # Test config, should be long enough to cover interesting transitions
     headPeriod = 3.SyncCommitteePeriod
   let
