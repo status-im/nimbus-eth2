@@ -160,6 +160,7 @@ proc runTest(path: string) =
             path/"bootstrap.ssz_snappy", SSZ,
             lcDataFork.LightClientBootstrap)
         else: raiseAssert "Unsupported bootstrap fork " & $bootstrap_fork_digest
+      bootstrap
 
     # Reduce stack size by making this a `proc`
     proc initializeStore(
