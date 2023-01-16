@@ -544,18 +544,23 @@ type
         name: "terminal-total-difficulty-override" .}: Option[string]
 
       validatorMonitorAuto* {.
-        desc: "Automatically monitor locally active validators (BETA)"
-        defaultValue: false
+        desc: "Monitor validator activity automatically for validators active on this beacon node"
+        defaultValue: true
         name: "validator-monitor-auto" .}: bool
 
       validatorMonitorPubkeys* {.
-        desc: "One or more validators to monitor - works best when --subscribe-all-subnets is enabled (BETA)"
+        desc: "One or more validators to monitor - works best when --subscribe-all-subnets is enabled"
         name: "validator-monitor-pubkey" .}: seq[ValidatorPubKey]
 
+      validatorMonitorDetails* {.
+        desc: "Publish detailed metrics for each validator individually - may incur significant overhead with large numbers of validators"
+        defaultValue: true
+        name: "validator-monitor-details" .}: bool
+
       validatorMonitorTotals* {.
-        desc: "Publish metrics to single 'totals' label for better collection performance when monitoring many validators (BETA)"
-        defaultValue: false
-        name: "validator-monitor-totals" .}: bool
+        hidden
+        desc: "Deprecated in favour of --validator-monitor-details"
+        name: "validator-monitor-totals" .}: Option[bool]
 
       safeSlotsToImportOptimistically* {.
         # Never unhidden or documented, and deprecated > 22.9.1
