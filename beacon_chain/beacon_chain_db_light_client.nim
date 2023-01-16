@@ -316,7 +316,7 @@ func putBestUpdate*(
           let res = db.bestUpdates.putStmt.exec(
             (period.int64, lcDataFork.int64, SSZ.encode(forkyUpdate)))
           res.expect("SQL query OK")
-        if update.kind == LightClientDataFork.Altair:
+        when lcDataFork == LightClientDataFork.Altair:
           let res = db.legacyBestUpdates.putStmt.exec(
             (period.int64, SSZ.encode(forkyUpdate)))
           res.expect("SQL query OK")

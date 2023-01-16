@@ -157,7 +157,7 @@ func putLatestFinalizedHeader*(
           let res = db.headers.putStmt.exec(
             (key.int64, lcDataFork.int64, SSZ.encode(forkyHeader)))
           res.expect("SQL query OK")
-        if header.kind == LightClientDataFork.Altair:
+        when lcDataFork == LightClientDataFork.Altair:
           let res = db.legacyHeaders.putStmt.exec(
             (key.int64, SSZ.encode(forkyHeader)))
           res.expect("SQL query OK")
