@@ -1468,7 +1468,7 @@ proc installMessageValidators(node: BeaconNode) =
       getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
       proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
         # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
-          toValidationResult(node.processor[].processSignedBeaconBlockAndBlobsSidecar(
+          toValidationResult(node.processor[].processSignedBeaconBlock(
             MsgSource.gossip, signedBlock)))
 
   template installSyncCommitteeeValidators(digest: auto) =
