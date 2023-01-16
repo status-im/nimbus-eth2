@@ -52,6 +52,13 @@ type
   ForkyLightClientStore* =
     altair.LightClientStore
 
+  ForkedLightClientHeader* = object
+    case kind*: LightClientDataFork
+    of LightClientDataFork.None:
+      discard
+    of LightClientDataFork.Altair:
+      altairData*: altair.LightClientHeader
+
   ForkedLightClientBootstrap* = object
     case kind*: LightClientDataFork
     of LightClientDataFork.None:
@@ -158,6 +165,11 @@ template LightClientStore*(kind: static LightClientDataFork): auto =
     static: raiseAssert "Unreachable"
 
 template Forky*(
+    x: typedesc[ForkedLightClientHeader],
+    kind: static LightClientDataFork): auto =
+  kind.LightClientHeader
+
+template Forky*(
     x: typedesc[ForkedLightClientBootstrap],
     kind: static LightClientDataFork): auto =
   kind.LightClientBootstrap
@@ -181,6 +193,9 @@ template Forky*(
     x: typedesc[ForkedLightClientStore],
     kind: static LightClientDataFork): auto =
   kind.LightClientStore
+
+template Forked*(x: typedesc[ForkyLightClientHeader]): auto =
+  typedesc[ForkedLightClientHeader]
 
 template Forked*(x: typedesc[ForkyLightClientBootstrap]): auto =
   typedesc[ForkedLightClientBootstrap]
@@ -212,6 +227,17 @@ template withLcDataFork*(
   case x
   of LightClientDataFork.Altair:
     const lcDataFork {.inject, used.} = LightClientDataFork.Altair
+    body
+  of LightClientDataFork.None:
+    const lcDataFork {.inject, used.} = LightClientDataFork.None
+    body
+
+template withForkyHeader*(
+    x: ForkedLightClientHeader, body: untyped): untyped =
+  case x.kind
+  of LightClientDataFork.Altair:
+    const lcDataFork {.inject, used.} = LightClientDataFork.Altair
+    template forkyHeader: untyped {.inject, used.} = x.altairData
     body
   of LightClientDataFork.None:
     const lcDataFork {.inject, used.} = LightClientDataFork.None
@@ -335,12 +361,34 @@ func matches*[A, B: SomeForkedLightClientUpdate](a: A, b: B): bool =
       true
 
 template forky*(
-    x: SomeForkedLightClientObject | ForkedLightClientStore,
+    x:
+      ForkedLightClientHeader |
+      SomeForkedLightClientObject |
+      ForkedLightClientStore,
     kind: static LightClientDataFork): untyped =
   when kind == LightClientDataFork.Altair:
     x.altairData
   else:
     static: raiseAssert "Unreachable"
+
+func migrateToDataFork*(
+    x: var ForkedLightClientHeader,
+    newKind: static LightClientDataFork) =
+  if newKind == x.kind:
+    # Already at correct kind
+    discard
+  elif newKind < x.kind:
+    # Downgrade not supported, re-initialize
+    x = ForkedLightClientHeader(kind: newKind)
+  else:
+    # Upgrade to Altair
+    when newKind >= LightClientDataFork.Altair:
+      if x.kind == LightClientDataFork.None:
+        x = ForkedLightClientHeader(
+          kind: LightClientDataFork.Altair)
+
+    static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
+    doAssert x.kind == newKind
 
 func migrateToDataFork*(
     x: var ForkedLightClientBootstrap,
@@ -438,7 +486,10 @@ func migrateToDataFork*(
     doAssert x.kind == newKind
 
 func migratingToDataFork*[
-    T: SomeForkedLightClientObject | ForkedLightClientStore](
+    T:
+      ForkedLightClientHeader |
+      SomeForkedLightClientObject |
+      ForkedLightClientStore](
     x: T, newKind: static LightClientDataFork): T =
   var upgradedObject = x
   upgradedObject.migrateToDataFork(newKind)

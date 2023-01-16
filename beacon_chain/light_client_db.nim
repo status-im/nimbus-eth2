@@ -12,6 +12,7 @@ else:
 
 import
   # Status libraries
+  stew/base10,
   chronicles,
   eth/db/kvstore_sqlite3,
   # Beacon chain internals
@@ -21,20 +22,21 @@ import
 
 logScope: topics = "lcdb"
 
-# `altair_lc_headers` holds the latest `LightClientStore.finalized_header`.
+# `lc_headers` holds the latest `LightClientStore.finalized_header`.
 #
 # `altair_sync_committees` holds finalized `SyncCommittee` by period, needed to
 # continue an interrupted sync process without having to obtain bootstrap info.
 
-template dbDataFork: LightClientDataFork = LightClientDataFork.Altair
-
 type
-  LightClientHeaderKind {.pure.} = enum  # Append only, used in DB data!
-    Finalized = 1
+  LightClientHeaderKey {.pure.} = enum  # Append only, used in DB data!
+    Finalized = 1  # Latest finalized header
+
+  LegacyLightClientHeadersStore = object
+    putStmt: SqliteStmt[(int64, seq[byte]), void]
 
   LightClientHeadersStore = object
-    getStmt: SqliteStmt[int64, seq[byte]]
-    putStmt: SqliteStmt[(int64, seq[byte]), void]
+    getStmt: SqliteStmt[int64, (int64, seq[byte])]
+    putStmt: SqliteStmt[(int64, int64, seq[byte]), void]
 
   SyncCommitteeStore = object
     getStmt: SqliteStmt[int64, seq[byte]]
@@ -45,36 +47,75 @@ type
     backend: SqStoreRef
       ## SQLite backend
 
+    legacyHeaders: LegacyLightClientHeadersStore
+      ## LightClientHeaderKey -> altair.LightClientHeader
+      ## Used through Bellatrix.
+
     headers: LightClientHeadersStore
-      ## LightClientHeaderKind -> altair.LightClientHeader
+      ## LightClientHeaderKey -> (LightClientDataFork, LightClientHeader)
       ## Stores the latest light client headers.
 
     syncCommittees: SyncCommitteeStore
       ## SyncCommitteePeriod -> altair.SyncCommittee
       ## Stores finalized `SyncCommittee` by sync committee period.
 
-func initLightClientHeadersStore(
+proc initLegacyLightClientHeadersStore(
     backend: SqStoreRef,
-    name: string): KvResult[LightClientHeadersStore] =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
+    name: string): KvResult[LegacyLightClientHeadersStore] =
   ? backend.exec("""
     CREATE TABLE IF NOT EXISTS `""" & name & """` (
-      `kind` INTEGER PRIMARY KEY,  -- `LightClientHeaderKind`
+      `kind` INTEGER PRIMARY KEY,  -- `LightClientHeaderKey`
       `header` BLOB                -- `altair.LightClientHeader` (SSZ)
     );
   """)
 
   let
-    getStmt = backend.prepareStmt("""
-      SELECT `header`
-      FROM `""" & name & """`
-      WHERE `kind` = ?;
-    """, int64, seq[byte], managed = false).expect("SQL query OK")
     putStmt = backend.prepareStmt("""
       REPLACE INTO `""" & name & """` (
         `kind`, `header`
       ) VALUES (?, ?);
-    """, (int64, seq[byte]), void, managed = false).expect("SQL query OK")
+    """, (int64, seq[byte]), void, managed = false)
+      .expect("SQL query OK")
+
+  ok LegacyLightClientHeadersStore(
+    putStmt: putStmt)
+
+func close(store: LegacyLightClientHeadersStore) =
+  store.putStmt.dispose()
+
+proc initLightClientHeadersStore(
+    backend: SqStoreRef,
+    name, legacyAltairName: string): KvResult[LightClientHeadersStore] =
+  ? backend.exec("""
+    CREATE TABLE IF NOT EXISTS `""" & name & """` (
+      `key` INTEGER PRIMARY KEY,   -- `LightClientHeaderKey`
+      `kind` INTEGER,              -- `LightClientDataFork`
+      `header` BLOB                -- `LightClientHeader` (SSZ)
+    );
+  """)
+  block:
+    # LightClientHeaderKey -> altair.LightClientHeader
+    const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
+    ? backend.exec("""
+      INSERT OR IGNORE INTO `""" & name & """` (
+        `key`, `kind`, `header`
+      )
+      SELECT `kind` AS `key`, """ & legacyKind & """ AS `kind`, `header`
+      FROM `""" & legacyAltairName & """`;
+    """)
+
+  let
+    getStmt = backend.prepareStmt("""
+      SELECT `kind`, `header`
+      FROM `""" & name & """`
+      WHERE `key` = ?;
+    """, int64, (int64, seq[byte]), managed = false).expect("SQL query OK")
+    putStmt = backend.prepareStmt("""
+      REPLACE INTO `""" & name & """` (
+        `key`, `kind`, `header`
+      ) VALUES (?, ?, ?);
+    """, (int64, int64, seq[byte]), void, managed = false)
+      .expect("SQL query OK")
 
   ok LightClientHeadersStore(
     getStmt: getStmt,
@@ -85,29 +126,47 @@ func close(store: LightClientHeadersStore) =
   store.putStmt.dispose()
 
 proc getLatestFinalizedHeader*(
-    db: LightClientDB): Opt[dbDataFork.LightClientHeader] =
-  var header: seq[byte]
-  for res in db.headers.getStmt.exec(
-      LightClientHeaderKind.Finalized.int64, header):
+    db: LightClientDB): ForkedLightClientHeader =
+  const key = LightClientHeaderKey.Finalized
+  var header: (int64, seq[byte])
+  for res in db.headers.getStmt.exec(key.int64, header):
     res.expect("SQL query OK")
     try:
-      return ok SSZ.decode(header, dbDataFork.LightClientHeader)
+      withAll(LightClientDataFork):
+        when lcDataFork > LightClientDataFork.None:
+          if header[0] == ord(lcDataFork).int64:
+            var obj = ForkedLightClientHeader(kind: lcDataFork)
+            obj.forky(lcDataFork) = SSZ.decode(
+              header[1], lcDataFork.LightClientHeader)
+            return obj
+      warn "Unsupported LC store kind", store = "headers",
+        key, kind = header[0]
+      return default(ForkedLightClientHeader)
     except SszError as exc:
       error "LC store corrupted", store = "headers",
-        kind = "Finalized", exc = exc.msg
-      return err()
+        key, kind = header[0], exc = exc.msg
+      return default(ForkedLightClientHeader)
 
 func putLatestFinalizedHeader*(
-    db: LightClientDB, header: dbDataFork.LightClientHeader) =
-  block:
-    let res = db.headers.putStmt.exec(
-      (LightClientHeaderKind.Finalized.int64, SSZ.encode(header)))
-    res.expect("SQL query OK")
-  block:
-    let period = header.beacon.slot.sync_committee_period
-    doAssert period.isSupportedBySQLite
-    let res = db.syncCommittees.keepFromStmt.exec(period.int64)
-    res.expect("SQL query OK")
+    db: LightClientDB, header: ForkedLightClientHeader) =
+  withForkyHeader(header):
+    when lcDataFork > LightClientDataFork.None:
+      block:
+        const key = LightClientHeaderKey.Finalized
+        block:
+          let res = db.headers.putStmt.exec(
+            (key.int64, lcDataFork.int64, SSZ.encode(forkyHeader)))
+          res.expect("SQL query OK")
+        when lcDataFork == LightClientDataFork.Altair:
+          let res = db.legacyHeaders.putStmt.exec(
+            (key.int64, SSZ.encode(forkyHeader)))
+          res.expect("SQL query OK")
+      block:
+        let period = forkyHeader.beacon.slot.sync_committee_period
+        doAssert period.isSupportedBySQLite
+        let res = db.syncCommittees.keepFromStmt.exec(period.int64)
+        res.expect("SQL query OK")
+    else: raiseAssert "Cannot store empty `LightClientHeader`"
 
 func initSyncCommitteesStore(
     backend: SqStoreRef,
@@ -156,7 +215,7 @@ proc getSyncCommittee*(
     except SszError as exc:
       error "LC store corrupted", store = "syncCommittees",
         period, exc = exc.msg
-      return err()
+      return Opt.none(altair.SyncCommittee)
 
 func putSyncCommittee*(
     db: LightClientDB, period: SyncCommitteePeriod,
@@ -167,25 +226,31 @@ func putSyncCommittee*(
   res.expect("SQL query OK")
 
 type LightClientDBNames* = object
-  altairHeaders*: string
+  legacyAltairHeaders*: string
+  headers*: string
   altairSyncCommittees*: string
 
-func initLightClientDB*(
+proc initLightClientDB*(
     backend: SqStoreRef,
     names: LightClientDBNames): KvResult[LightClientDB] =
   let
+    legacyHeaders =
+      ? backend.initLegacyLightClientHeadersStore(names.legacyAltairHeaders)
     headers =
-      ? backend.initLightClientHeadersStore(names.altairHeaders)
+      ? backend.initLightClientHeadersStore(
+        names.headers, names.legacyAltairHeaders)
     syncCommittees =
       ? backend.initSyncCommitteesStore(names.altairSyncCommittees)
 
   ok LightClientDB(
     backend: backend,
+    legacyHeaders: legacyHeaders,
     headers: headers,
     syncCommittees: syncCommittees)
 
 func close*(db: LightClientDB) =
   if db.backend != nil:
+    db.legacyHeaders.close()
     db.headers.close()
     db.syncCommittees.close()
     db[].reset()

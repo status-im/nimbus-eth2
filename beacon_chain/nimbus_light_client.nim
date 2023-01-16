@@ -52,9 +52,9 @@ programMain:
     quit 1
   let backend = SqStoreRef.init(dbDir, "nlc").expect("Database OK")
   defer: backend.close()
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Altair
   let db = backend.initLightClientDB(LightClientDBNames(
-    altairHeaders: "altair_lc_headers",
+    legacyAltairHeaders: "altair_lc_headers",
+    headers: "lc_headers",
     altairSyncCommittees: "altair_sync_committees")).expect("Database OK")
   defer: db.close()
 
@@ -159,41 +159,46 @@ programMain:
   waitFor network.start()
 
   proc onFinalizedHeader(
-      lightClient: LightClient, finalizedHeader: altair.LightClientHeader) =
-    info "New LC finalized header",
-      finalized_header = shortLog(finalizedHeader)
+      lightClient: LightClient, finalizedHeader: ForkedLightClientHeader) =
+    withForkyHeader(finalizedHeader):
+      when lcDataFork > LightClientDataFork.None:
+        info "New LC finalized header",
+          finalized_header = shortLog(forkyHeader)
 
-    let
-      period = finalizedHeader.beacon.slot.sync_committee_period
-      syncCommittee = lightClient.finalizedSyncCommittee.expect("Bootstrap OK")
-    db.putSyncCommittee(period, syncCommittee)
-    db.putLatestFinalizedHeader(finalizedHeader)
+        let
+          period = forkyHeader.beacon.slot.sync_committee_period
+          syncCommittee = lightClient.finalizedSyncCommittee.expect("Init OK")
+        db.putSyncCommittee(period, syncCommittee)
+        db.putLatestFinalizedHeader(finalizedHeader)
 
   proc onOptimisticHeader(
-      lightClient: LightClient, optimisticHeader: altair.LightClientHeader) =
-    info "New LC optimistic header",
-      optimistic_header = shortLog(optimisticHeader)
-    optimisticProcessor.setOptimisticHeader(optimisticHeader.beacon)
+      lightClient: LightClient, optimisticHeader: ForkedLightClientHeader) =
+    withForkyHeader(optimisticHeader):
+      when lcDataFork > LightClientDataFork.None:
+        info "New LC optimistic header",
+          optimistic_header = shortLog(forkyHeader)
+        optimisticProcessor.setOptimisticHeader(forkyHeader.beacon)
 
   lightClient.onFinalizedHeader = onFinalizedHeader
   lightClient.onOptimisticHeader = onOptimisticHeader
   lightClient.trustedBlockRoot = some config.trustedBlockRoot
 
   let latestHeader = db.getLatestFinalizedHeader()
-  if latestHeader.isOk:
-    let
-      period = latestHeader.get.beacon.slot.sync_committee_period
-      syncCommittee = db.getSyncCommittee(period)
-    if syncCommittee.isErr:
-      error "LC store lacks sync committee", finalized_header = latestHeader.get
-    else:
-      lightClient.resetToFinalizedHeader(latestHeader.get, syncCommittee.get)
+  withForkyHeader(latestHeader):
+    when lcDataFork > LightClientDataFork.None:
+      let
+        period = forkyHeader.beacon.slot.sync_committee_period
+        syncCommittee = db.getSyncCommittee(period)
+      if syncCommittee.isErr:
+        error "LC store lacks sync committee", finalized_header = forkyHeader
+      else:
+        lightClient.resetToFinalizedHeader(latestHeader, syncCommittee.get)
 
   # Full blocks gossip is required to portably drive an EL client:
   # - EL clients may not sync when only driven with `forkChoiceUpdated`,
   #   e.g., Geth: "Forkchoice requested unknown head"
   # - `newPayload` requires the full `ExecutionPayload` (most of block content)
-  # - `ExecutionPayload` block root is not available in
+  # - `ExecutionPayload` block hash is not available in
   #   `altair.LightClientHeader`, so won't be exchanged via light client gossip
   #
   # Future `ethereum/consensus-specs` versions may remove need for full blocks.
@@ -201,16 +206,14 @@ programMain:
   # optimized for reducing code duplication, e.g., with `nimbus_beacon_node`.
 
   func isSynced(wallSlot: Slot): bool =
-    # Check whether light client is used
-    let optimisticHeader = lightClient.optimisticHeader.valueOr:
-      return false
-
-    # Check whether light client has synced sufficiently close to wall slot
-    const maxAge = 2 * SLOTS_PER_EPOCH
-    if optimisticHeader.beacon.slot < max(wallSlot, maxAge.Slot) - maxAge:
-      return false
-
-    true
+    let optimisticHeader = lightClient.optimisticHeader
+    withForkyHeader(optimisticHeader):
+      when lcDataFork > LightClientDataFork.None:
+        # Check whether light client has synced sufficiently close to wall slot
+        const maxAge = 2 * SLOTS_PER_EPOCH
+        forkyHeader.beacon.slot >= max(wallSlot, maxAge.Slot) - maxAge
+      else:
+        false
 
   func shouldSyncOptimistically(wallSlot: Slot): bool =
     # Check whether an EL is connected
@@ -273,19 +276,19 @@ programMain:
       finalizedHeader = lightClient.finalizedHeader
       optimisticHeader = lightClient.optimisticHeader
 
-      finalizedBid =
-        if finalizedHeader.isSome:
-          finalizedHeader.get.beacon.toBlockId()
+      finalizedBid = withForkyHeader(finalizedHeader):
+        when lcDataFork > LightClientDataFork.None:
+          forkyHeader.beacon.toBlockId()
         else:
           BlockId(root: genesisBlockRoot, slot: GENESIS_SLOT)
-      optimisticBid =
-        if optimisticHeader.isSome:
-          optimisticHeader.get.beacon.toBlockId()
+      optimisticBid = withForkyHeader(optimisticHeader):
+        when lcDataFork > LightClientDataFork.None:
+          forkyHeader.beacon.toBlockId()
         else:
           BlockId(root: genesisBlockRoot, slot: GENESIS_SLOT)
 
       syncStatus =
-        if optimisticHeader.isNone:
+        if optimisticHeader.kind == LightClientDataFork.None:
           "bootstrapping(" & $config.trustedBlockRoot & ")"
         elif not isSynced(wallSlot):
           "syncing"

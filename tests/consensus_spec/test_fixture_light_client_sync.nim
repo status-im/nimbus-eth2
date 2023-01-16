@@ -10,8 +10,6 @@
 import
   # Standard library
   std/[json, os, streams],
-  # Status libraries
-  stew/byteutils,
   # Third-party
   yaml,
   # Beacon chain internals
