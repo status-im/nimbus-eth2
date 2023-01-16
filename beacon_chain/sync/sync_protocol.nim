@@ -425,7 +425,7 @@ p2pProtocol BeaconSync(version = 1,
       peer, roots = blockRoots.len, count, found
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
-  proc beaconBlockAndBlobsSidecarByRoot_v2(
+  proc beaconBlockAndBlobsSidecarByRoot_v1(
       peer: Peer,
       # Please note that the SSZ list here ensures that the
       # spec constant MAX_REQUEST_BLOCKS is enforced:
