@@ -148,7 +148,7 @@ proc runTest(path: string) =
     doAssert unknowns.len == 0, "Unknown config constants: " & $unknowns
 
     # Reduce stack size by making this a `proc`
-    proc initializeStore(): ForkedLightClientStore =
+    proc loadBootstrap(): ForkedLightClientBootstrap =
       let bootstrap_state_fork =
         fork_digests.stateForkForDigest(bootstrap_fork_digest)
           .expect("Unknown bootstrap fork " & $bootstrap_fork_digest)
@@ -161,6 +161,9 @@ proc runTest(path: string) =
             lcDataFork.LightClientBootstrap)
         else: raiseAssert "Unsupported bootstrap fork " & $bootstrap_fork_digest
 
+    # Reduce stack size by making this a `proc`
+    proc initializeStore(
+        bootstrap: ForkedLightClientBootstrap): ForkedLightClientStore =
       let store_state_fork =
         fork_digests.stateForkForDigest(store_fork_digest)
           .expect("Unknown store fork " & $store_fork_digest)
@@ -175,7 +178,7 @@ proc runTest(path: string) =
         else: raiseAssert "Unreachable store fork " & $store_fork_digest
       store
 
-    var store = initializeStore()
+    var store = initializeStore(loadBootstrap())
 
     # Reduce stack size by making this a `proc`
     proc processStep(step: TestStep) =
