@@ -21,11 +21,12 @@ import
   ./fixtures_utils
 
 type
-  TestMeta {.sparse.} = object
-    genesis_validators_root: string
-    trusted_block_root: string
-    bootstrap_fork_digest: Option[string]
-    store_fork_digest: Option[string]
+  TestMeta = object
+    genesis_validators_root: Eth2Digest
+    trusted_block_root: Eth2Digest
+    fork_digests: ForkDigests
+    bootstrap_fork_digest: ForkDigest
+    store_fork_digest: ForkDigest
 
   TestChecks = object
     finalized_slot: Slot
@@ -123,29 +124,38 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
 
 proc runTest(path: string) =
   test "Light client - Sync - " & path.relativePath(SszTestsDir):
-    let
-      (cfg, unknowns) = readRuntimeConfig(path/"config.yaml")
-      meta = block:
+    # Reduce stack size by making this a `proc`
+    proc loadTestMeta(): (RuntimeConfig, TestMeta) =
+      let (cfg, unknowns) = readRuntimeConfig(path/"config.yaml")
+      doAssert unknowns.len == 0, "Unknown config constants: " & $unknowns
+
+      type TestMetaYaml {.sparse.} = object
+        genesis_validators_root: string
+        trusted_block_root: string
+        bootstrap_fork_digest: Option[string]
+        store_fork_digest: Option[string]
+      let meta = block:
         var s = openFileStream(path/"meta.yaml")
         defer: close(s)
-        var res: TestMeta
+        var res: TestMetaYaml
         yaml.load(s, res)
         res
-      genesis_validators_root =
-        Eth2Digest.fromHex(meta.genesis_validators_root)
-      trusted_block_root =
-        Eth2Digest.fromHex(meta.trusted_block_root)
-      fork_digests =
-        ForkDigests.init(cfg, genesis_validators_root)
-      bootstrap_fork_digest =
-        distinctBase(ForkDigest).fromHex(meta.bootstrap_fork_digest.get(
-          distinctBase(fork_digests.altair).toHex())).ForkDigest
-      store_fork_digest =
-        distinctBase(ForkDigest).fromHex(meta.store_fork_digest.get(
-          distinctBase(fork_digests.altair).toHex())).ForkDigest
-      steps = loadSteps(path, fork_digests)
 
-    doAssert unknowns.len == 0, "Unknown config constants: " & $unknowns
+      (cfg, TestMeta(
+        genesis_validators_root:
+          Eth2Digest.fromHex(meta.genesis_validators_root),
+        trusted_block_root:
+          Eth2Digest.fromHex(meta.trusted_block_root),
+        fork_digests:
+          ForkDigests.init(cfg, genesis_validators_root),
+        bootstrap_fork_digest:
+          distinctBase(ForkDigest).fromHex(meta.bootstrap_fork_digest.get(
+            distinctBase(fork_digests.altair).toHex())).ForkDigest,
+        store_fork_digest:
+          distinctBase(ForkDigest).fromHex(meta.store_fork_digest.get(
+            distinctBase(fork_digests.altair).toHex())).ForkDigest))
+
+    let (cfg, meta) = loadTestMeta()
 
     # Reduce stack size by making this a `proc`
     proc loadBootstrap(): ForkedLightClientBootstrap =
