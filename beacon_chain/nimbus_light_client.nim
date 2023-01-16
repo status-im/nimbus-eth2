@@ -54,7 +54,7 @@ programMain:
   defer: backend.close()
   let db = backend.initLightClientDB(LightClientDBNames(
     legacyAltairHeaders: "altair_lc_headers",
-    headers: "headers",
+    headers: "lc_headers",
     altairSyncCommittees: "altair_sync_committees")).expect("Database OK")
   defer: db.close()
 
