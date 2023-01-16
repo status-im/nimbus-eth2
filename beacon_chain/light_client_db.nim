@@ -64,7 +64,7 @@ proc initLegacyLightClientHeadersStore(
     name: string): KvResult[LegacyLightClientHeadersStore] =
   ? backend.exec("""
     CREATE TABLE IF NOT EXISTS `""" & name & """` (
-      `key` INTEGER PRIMARY KEY,   -- `LightClientHeaderKey`
+      `kind` INTEGER PRIMARY KEY,  -- `LightClientHeaderKey`
       `header` BLOB                -- `altair.LightClientHeader` (SSZ)
     );
   """)
