@@ -143,34 +143,39 @@ proc runTest(path: string) =
       store_fork_digest =
         distinctBase(ForkDigest).fromHex(meta.store_fork_digest.get(
           distinctBase(fork_digests.altair).toHex())).ForkDigest
-      bootstrap_state_fork =
-        fork_digests.stateForkForDigest(bootstrap_fork_digest)
-          .expect("Unknown bootstrap fork " & $bootstrap_fork_digest)
-      store_state_fork =
-        fork_digests.stateForkForDigest(store_fork_digest)
-          .expect("Unknown store fork " & $store_fork_digest)
       steps = loadSteps(path, fork_digests)
 
     doAssert unknowns.len == 0, "Unknown config constants: " & $unknowns
 
-    var bootstrap {.noinit.}: ForkedLightClientBootstrap
-    withLcDataFork(lcDataForkAtStateFork(bootstrap_state_fork)):
-      when lcDataFork > LightClientDataFork.None:
-        bootstrap = ForkedLightClientBootstrap(kind: lcDataFork)
-        bootstrap.forky(lcDataFork) = parseTest(
-          path/"bootstrap.ssz_snappy", SSZ,
-          lcDataFork.LightClientBootstrap)
-      else: raiseAssert "Unsupported bootstrap fork " & $bootstrap_fork_digest
+    # Reduce stack size by making this a `proc`
+    proc initializeStore(): ForkedLightClientStore =
+      let bootstrap_state_fork =
+        fork_digests.stateForkForDigest(bootstrap_fork_digest)
+          .expect("Unknown bootstrap fork " & $bootstrap_fork_digest)
+      var bootstrap {.noinit.}: ForkedLightClientBootstrap
+      withLcDataFork(lcDataForkAtStateFork(bootstrap_state_fork)):
+        when lcDataFork > LightClientDataFork.None:
+          bootstrap = ForkedLightClientBootstrap(kind: lcDataFork)
+          bootstrap.forky(lcDataFork) = parseTest(
+            path/"bootstrap.ssz_snappy", SSZ,
+            lcDataFork.LightClientBootstrap)
+        else: raiseAssert "Unsupported bootstrap fork " & $bootstrap_fork_digest
 
-    var store {.noinit.}: ForkedLightClientStore
-    withLcDataFork(lcDataForkAtStateFork(store_state_fork)):
-      when lcDataFork > LightClientDataFork.None:
-        store = ForkedLightClientStore(kind: lcDataFork)
-        check bootstrap.kind <= lcDataFork
-        let upgradedBootstrap = bootstrap.migratingToDataFork(lcDataFork)
-        store.forky(lcDataFork) = initialize_light_client_store(
-          trusted_block_root, upgradedBootstrap.forky(lcDataFork), cfg).get
-      else: raiseAssert "Unreachable store fork " & $store_fork_digest
+      let store_state_fork =
+        fork_digests.stateForkForDigest(store_fork_digest)
+          .expect("Unknown store fork " & $store_fork_digest)
+      var store {.noinit.}: ForkedLightClientStore
+      withLcDataFork(lcDataForkAtStateFork(store_state_fork)):
+        when lcDataFork > LightClientDataFork.None:
+          store = ForkedLightClientStore(kind: lcDataFork)
+          check bootstrap.kind <= lcDataFork
+          let upgradedBootstrap = bootstrap.migratingToDataFork(lcDataFork)
+          store.forky(lcDataFork) = initialize_light_client_store(
+            trusted_block_root, upgradedBootstrap.forky(lcDataFork), cfg).get
+        else: raiseAssert "Unreachable store fork " & $store_fork_digest
+      store
+
+    var store = initializeStore()
 
     # Reduce stack size by making this a `proc`
     proc processStep(step: TestStep) =
