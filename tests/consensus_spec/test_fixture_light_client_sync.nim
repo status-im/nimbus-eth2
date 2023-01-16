@@ -172,7 +172,8 @@ proc runTest(path: string) =
           trusted_block_root, upgradedBootstrap.forky(lcDataFork), cfg).get
       else: raiseAssert "Unreachable store fork " & $store_fork_digest
 
-    for step in steps:
+    # Reduce stack size by making this a `proc`
+    proc processStep(step: TestStep) =
       withForkyStore(store):
         when lcDataFork > LightClientDataFork.None:
           case step.kind
@@ -223,6 +224,9 @@ proc runTest(path: string) =
             optimistic_beacon_root == step.checks.optimistic_beacon_root
             optimistic_execution_root == step.checks.optimistic_execution_root
         else: raiseAssert "Unreachable"
+
+    for step in steps:
+      processStep(step)
 
 suite "EF - Light client - Sync" & preset():
   const presetPath = SszTestsDir/const_preset
