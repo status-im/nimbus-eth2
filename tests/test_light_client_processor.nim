@@ -124,32 +124,28 @@ suite "Light client processor" & preset():
 
       # Reduce stack size by making this a `proc`
       proc applyPeriodWithSupermajority(period: SyncCommitteePeriod) =
-        let update = dag.getLightClientUpdateForPeriod(period)
+        let update = newClone(dag.getLightClientUpdateForPeriod(period))
         check update.kind > LightClientDataFork.None
-        withForkyUpdate(update):
+        withForkyUpdate(update[]):
           when lcDataFork > LightClientDataFork.None:
             setTimeToSlot(forkyUpdate.signature_slot)
         res = processor[].storeObject(
-          MsgSource.gossip, getBeaconTime(), update)
-        check update.kind <= store[].kind
+          MsgSource.gossip, getBeaconTime(), update[])
+        check update[].kind <= store[].kind
         withForkyStore(store[]):
           when lcDataFork > LightClientDataFork.None:
             bootstrap.migrateToDataFork(lcDataFork)
             template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
-            let upgraded = update.migratingToDataFork(lcDataFork)
-            template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+            let upgraded = newClone(update[].migratingToDataFork(lcDataFork))
+            template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
 
-            # Reduce stack size by making this a `proc`
-            proc checks() =
-              check:
-                res.isOk
-                if forkyUpdate.finalized_header.beacon.slot >
-                    forkyBootstrap.header.beacon.slot:
-                  forkyStore.finalized_header == forkyUpdate.finalized_header
-                else:
-                  forkyStore.finalized_header == forkyBootstrap.header
-                forkyStore.optimistic_header == forkyUpdate.attested_header
-            checks()
+            check res.isOk
+            if forkyUpdate.finalized_header.beacon.slot >
+                forkyBootstrap.header.beacon.slot:
+              check forkyStore.finalized_header == forkyUpdate.finalized_header
+            else:
+              check forkyStore.finalized_header == forkyBootstrap.header
+            check forkyStore.optimistic_header == forkyUpdate.attested_header
 
       for period in lowPeriod .. lastPeriodWithSupermajority:
         applyPeriodWithSupermajority(period)
