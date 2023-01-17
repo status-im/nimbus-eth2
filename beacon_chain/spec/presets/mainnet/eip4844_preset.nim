@@ -1,5 +1,5 @@
 # Mainnet preset - EIP-4844
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/presets/mainnet/eip4844.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/presets/mainnet/eip4844.yaml
 const
   # `uint64(4096)`
   FIELD_ELEMENTS_PER_BLOB*: uint64 = 4096
