@@ -134,34 +134,42 @@ proc runTest(path: string) =
         trusted_block_root: string
         bootstrap_fork_digest: Option[string]
         store_fork_digest: Option[string]
-      let meta = block:
-        var s = openFileStream(path/"meta.yaml")
-        defer: close(s)
-        var res: TestMetaYaml
-        yaml.load(s, res)
-        res
+      let
+        meta = block:
+          var s = openFileStream(path/"meta.yaml")
+          defer: close(s)
+          var res: TestMetaYaml
+          yaml.load(s, res)
+          res
+        genesis_validators_root =
+          Eth2Digest.fromHex(meta.genesis_validators_root)
+        trusted_block_root =
+          Eth2Digest.fromHex(meta.trusted_block_root)
+        fork_digests =
+          ForkDigests.init(cfg, genesis_validators_root)
+        bootstrap_fork_digest =
+          distinctBase(ForkDigest).fromHex(meta.bootstrap_fork_digest.get(
+            distinctBase(fork_digests.altair).toHex())).ForkDigest
+        store_fork_digest =
+          distinctBase(ForkDigest).fromHex(meta.store_fork_digest.get(
+            distinctBase(fork_digests.altair).toHex())).ForkDigest
 
       (cfg, TestMeta(
-        genesis_validators_root:
-          Eth2Digest.fromHex(meta.genesis_validators_root),
-        trusted_block_root:
-          Eth2Digest.fromHex(meta.trusted_block_root),
-        fork_digests:
-          ForkDigests.init(cfg, genesis_validators_root),
-        bootstrap_fork_digest:
-          distinctBase(ForkDigest).fromHex(meta.bootstrap_fork_digest.get(
-            distinctBase(fork_digests.altair).toHex())).ForkDigest,
-        store_fork_digest:
-          distinctBase(ForkDigest).fromHex(meta.store_fork_digest.get(
-            distinctBase(fork_digests.altair).toHex())).ForkDigest))
+        genesis_validators_root: genesis_validators_root,
+        trusted_block_root: trusted_block_root,
+        fork_digests: fork_digests,
+        bootstrap_fork_digest: bootstrap_fork_digest,
+        store_fork_digest: store_fork_digest))
 
-    let (cfg, meta) = loadTestMeta()
+    let
+      (cfg, meta) = loadTestMeta()
+      steps = loadSteps(path, meta.fork_digests)
 
     # Reduce stack size by making this a `proc`
     proc loadBootstrap(): ForkedLightClientBootstrap =
       let bootstrap_state_fork =
-        fork_digests.stateForkForDigest(bootstrap_fork_digest)
-          .expect("Unknown bootstrap fork " & $bootstrap_fork_digest)
+        meta.fork_digests.stateForkForDigest(meta.bootstrap_fork_digest)
+          .expect("Unknown bootstrap fork " & $meta.bootstrap_fork_digest)
       var bootstrap {.noinit.}: ForkedLightClientBootstrap
       withLcDataFork(lcDataForkAtStateFork(bootstrap_state_fork)):
         when lcDataFork > LightClientDataFork.None:
@@ -169,27 +177,32 @@ proc runTest(path: string) =
           bootstrap.forky(lcDataFork) = parseTest(
             path/"bootstrap.ssz_snappy", SSZ,
             lcDataFork.LightClientBootstrap)
-        else: raiseAssert "Unsupported bootstrap fork " & $bootstrap_fork_digest
+        else:
+          raiseAssert "Unknown bootstrap fork " & $meta.bootstrap_fork_digest
       bootstrap
 
     # Reduce stack size by making this a `proc`
     proc initializeStore(
         bootstrap: ForkedLightClientBootstrap): ForkedLightClientStore =
       let store_state_fork =
-        fork_digests.stateForkForDigest(store_fork_digest)
-          .expect("Unknown store fork " & $store_fork_digest)
+        meta.fork_digests.stateForkForDigest(meta.store_fork_digest)
+          .expect("Unknown store fork " & $meta.store_fork_digest)
       var store {.noinit.}: ForkedLightClientStore
       withLcDataFork(lcDataForkAtStateFork(store_state_fork)):
         when lcDataFork > LightClientDataFork.None:
           store = ForkedLightClientStore(kind: lcDataFork)
           check bootstrap.kind <= lcDataFork
           let upgradedBootstrap = bootstrap.migratingToDataFork(lcDataFork)
-          store.forky(lcDataFork) = initialize_light_client_store(
-            trusted_block_root, upgradedBootstrap.forky(lcDataFork), cfg).get
-        else: raiseAssert "Unreachable store fork " & $store_fork_digest
+          store.forky(lcDataFork) =
+            initialize_light_client_store(
+              meta.trusted_block_root,
+              upgradedBootstrap.forky(lcDataFork),
+              cfg).get
+        else: raiseAssert "Unreachable store fork " & $meta.store_fork_digest
       store
 
-    var store = initializeStore(loadBootstrap())
+    let bootstrap = loadBootstrap()
+    var store = initializeStore(bootstrap)
 
     # Reduce stack size by making this a `proc`
     proc processStep(step: TestStep) =
@@ -205,7 +218,7 @@ proc runTest(path: string) =
               upgradedUpdate = step.update.migratingToDataFork(lcDataFork)
               res = process_light_client_update(
                 forkyStore, upgradedUpdate.forky(lcDataFork), step.current_slot,
-                cfg, genesis_validators_root)
+                cfg, meta.genesis_validators_root)
             check res.isOk
           of TestStepKind.UpgradeStore:
             check step.store_data_fork >= lcDataFork
