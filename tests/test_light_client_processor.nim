@@ -89,7 +89,8 @@ suite "Light client processor" & preset():
         0.82
     addBlocks(numFilledEpochsPerPeriod * SLOTS_PER_EPOCH, syncCommitteeRatio)
 
-  for finalizationMode in LightClientFinalizationMode:
+  # Reduce stack size by making this a `proc`
+  proc runTests(finalizationMode: LightClientFinalizationMode) =
     let testNameSuffix = " (" & $finalizationMode & ")" & preset()
 
     setup:
@@ -110,13 +111,13 @@ suite "Light client processor" & preset():
         res: Result[bool, VerifierError]
 
     test "Sync" & testNameSuffix:
-      let bootstrap = newClone(dag.getLightClientBootstrap(trustedBlockRoot))
-      check bootstrap[].kind > LightClientDataFork.None
-      withForkyBootstrap(bootstrap[]):
+      var bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
+      check bootstrap.kind > LightClientDataFork.None
+      withForkyBootstrap(bootstrap):
         when lcDataFork > LightClientDataFork.None:
           setTimeToSlot(forkyBootstrap.header.beacon.slot)
       res = processor[].storeObject(
-        MsgSource.gossip, getBeaconTime(), bootstrap[])
+        MsgSource.gossip, getBeaconTime(), bootstrap)
       check:
         res.isOk
         numOnStoreInitializedCalls == 1
@@ -124,28 +125,28 @@ suite "Light client processor" & preset():
 
       # Reduce stack size by making this a `proc`
       proc applyPeriodWithSupermajority(period: SyncCommitteePeriod) =
-        let update = newClone(dag.getLightClientUpdateForPeriod(period))
+        let update = dag.getLightClientUpdateForPeriod(period)
         check update.kind > LightClientDataFork.None
-        withForkyUpdate(update[]):
+        withForkyUpdate(update):
           when lcDataFork > LightClientDataFork.None:
             setTimeToSlot(forkyUpdate.signature_slot)
         res = processor[].storeObject(
-          MsgSource.gossip, getBeaconTime(), update[])
-        check update[].kind <= store[].kind
+          MsgSource.gossip, getBeaconTime(), update)
+        check update.kind <= store[].kind
         withForkyStore(store[]):
           when lcDataFork > LightClientDataFork.None:
-            bootstrap[].migrateToDataFork(lcDataFork)
-            template forkyBootstrap: untyped = bootstrap[].forky(lcDataFork)
-            let upgraded = newClone(update[].migratingToDataFork(lcDataFork))
-            template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
-
-            check res.isOk
-            if forkyUpdate.finalized_header.beacon.slot >
-                forkyBootstrap.header.beacon.slot:
-              check forkyStore.finalized_header == forkyUpdate.finalized_header
-            else:
-              check forkyStore.finalized_header == forkyBootstrap.header
-            check forkyStore.optimistic_header == forkyUpdate.attested_header
+            bootstrap.migrateToDataFork(lcDataFork)
+            template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
+            let upgraded = update.migratingToDataFork(lcDataFork)
+            template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+            check:
+              res.isOk
+              if forkyUpdate.finalized_header.beacon.slot >
+                  forkyBootstrap.header.beacon.slot:
+                forkyStore.finalized_header == forkyUpdate.finalized_header
+              else:
+                forkyStore.finalized_header == forkyBootstrap.header
+              forkyStore.optimistic_header == forkyUpdate.attested_header
 
       for period in lowPeriod .. lastPeriodWithSupermajority:
         applyPeriodWithSupermajority(period)
@@ -195,8 +196,7 @@ suite "Light client processor" & preset():
                   forkyStore.best_valid_update.isSome
                   not forkyStore.best_valid_update.get.matches(forkyUpdate)
 
-          # Reduce stack size by making this a `proc`
-          proc applyDuplicate() =
+          proc applyDuplicate() = # Reduce stack size by making this a `proc`
             res = processor[].storeObject(
               MsgSource.gossip, getBeaconTime(), update)
             check update.kind <= store[].kind
@@ -384,3 +384,6 @@ suite "Light client processor" & preset():
         res.isErr
         res.error == VerifierError.MissingParent
         numOnStoreInitializedCalls == 0
+
+  for finalizationMode in LightClientFinalizationMode:
+    runTests(finalizationMode)
