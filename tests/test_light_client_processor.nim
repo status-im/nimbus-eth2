@@ -138,14 +138,18 @@ suite "Light client processor" & preset():
             template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
             let upgraded = update.migratingToDataFork(lcDataFork)
             template forkyUpdate: untyped = upgraded.forky(lcDataFork)
-            check:
-              res.isOk
-              if forkyUpdate.finalized_header.beacon.slot >
-                  forkyBootstrap.header.beacon.slot:
-                forkyStore.finalized_header == forkyUpdate.finalized_header
-              else:
-                forkyStore.finalized_header == forkyBootstrap.header
-              forkyStore.optimistic_header == forkyUpdate.attested_header
+
+            # Reduce stack size by making this a `proc`
+            proc checks() =
+              check:
+                res.isOk
+                if forkyUpdate.finalized_header.beacon.slot >
+                    forkyBootstrap.header.beacon.slot:
+                  forkyStore.finalized_header == forkyUpdate.finalized_header
+                else:
+                  forkyStore.finalized_header == forkyBootstrap.header
+                forkyStore.optimistic_header == forkyUpdate.attested_header
+            checks()
 
       for period in lowPeriod .. lastPeriodWithSupermajority:
         applyPeriodWithSupermajority(period)
@@ -195,7 +199,8 @@ suite "Light client processor" & preset():
                   forkyStore.best_valid_update.isSome
                   not forkyStore.best_valid_update.get.matches(forkyUpdate)
 
-          proc applyDuplicate() = # Reduce stack size by making this a `proc`
+          # Reduce stack size by making this a `proc`
+          proc applyDuplicate() =
             res = processor[].storeObject(
               MsgSource.gossip, getBeaconTime(), update)
             check update.kind <= store[].kind
