@@ -179,28 +179,27 @@ proc getLatestFinalizedHeader*(
 
 func putLatestFinalizedHeader*(
     db: LightClientDB, header: ForkedLightClientHeader) =
+  doAssert not db.backend.readOnly  # All `stmt` are non-nil
   withForkyHeader(header):
     when lcDataFork > LightClientDataFork.None:
       block:
         const key = LightClientHeaderKey.Finalized
-        if distinctBase(db.headers.putStmt) != nil:
+        block:
           let res = db.headers.putStmt.exec(
             (key.int64, lcDataFork.int64, SSZ.encode(forkyHeader)))
           res.expect("SQL query OK")
         when lcDataFork == LightClientDataFork.Altair:
-          if distinctBase(db.legacyHeaders.putStmt) != nil:
-            let res = db.legacyHeaders.putStmt.exec(
-              (key.int64, SSZ.encode(forkyHeader)))
-            res.expect("SQL query OK")
+          let res = db.legacyHeaders.putStmt.exec(
+            (key.int64, SSZ.encode(forkyHeader)))
+          res.expect("SQL query OK")
         else:
           # Keep legacy table at best Altair header.
           discard
       block:
         let period = forkyHeader.beacon.slot.sync_committee_period
         doAssert period.isSupportedBySQLite
-        if distinctBase(db.syncCommittees.keepFromStmt) != nil:
-          let res = db.syncCommittees.keepFromStmt.exec(period.int64)
-          res.expect("SQL query OK")
+        let res = db.syncCommittees.keepFromStmt.exec(period.int64)
+        res.expect("SQL query OK")
     else: raiseAssert "Cannot store empty `LightClientHeader`"
 
 func initSyncCommitteesStore(
@@ -260,9 +259,8 @@ proc getSyncCommittee*(
 func putSyncCommittee*(
     db: LightClientDB, period: SyncCommitteePeriod,
     syncCommittee: altair.SyncCommittee) =
+  doAssert not db.backend.readOnly  # All `stmt` are non-nil
   doAssert period.isSupportedBySQLite
-  if distinctBase(db.syncCommittees.putStmt) == nil:
-    return
   let res = db.syncCommittees.putStmt.exec(
     (period.int64, SSZ.encode(syncCommittee)))
   res.expect("SQL query OK")

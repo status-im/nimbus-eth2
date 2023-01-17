@@ -176,8 +176,8 @@ proc getCurrentSyncCommitteeBranch*(
 func putCurrentSyncCommitteeBranch*(
     db: LightClientDataDB, slot: Slot,
     branch: altair.CurrentSyncCommitteeBranch) =
-  if not slot.isSupportedBySQLite or
-      distinctBase(db.currentBranches.putStmt) == nil:
+  doAssert not db.backend.readOnly  # All `stmt` are non-nil
+  if not slot.isSupportedBySQLite:
     return
   let res = db.currentBranches.putStmt.exec((slot.int64, SSZ.encode(branch)))
   res.expect("SQL query OK")
@@ -336,35 +336,35 @@ proc getBestUpdate*(
 func putBestUpdate*(
     db: LightClientDataDB, period: SyncCommitteePeriod,
     update: ForkedLightClientUpdate) =
+  doAssert not db.backend.readOnly  # All `stmt` are non-nil
   doAssert period.isSupportedBySQLite
   withForkyUpdate(update):
     when lcDataFork > LightClientDataFork.None:
       let numParticipants = forkyUpdate.sync_aggregate.num_active_participants
       if numParticipants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
-        if distinctBase(db.bestUpdates.delStmt) != nil:
+        block:
           let res = db.bestUpdates.delStmt.exec(period.int64)
           res.expect("SQL query OK")
-        if distinctBase(db.legacyBestUpdates.delStmt) != nil:
+        block:
           let res = db.legacyBestUpdates.delStmt.exec(period.int64)
           res.expect("SQL query OK")
       else:
-        if distinctBase(db.bestUpdates.putStmt) != nil:
+        block:
           let res = db.bestUpdates.putStmt.exec(
             (period.int64, lcDataFork.int64, SSZ.encode(forkyUpdate)))
           res.expect("SQL query OK")
         when lcDataFork == LightClientDataFork.Altair:
-          if distinctBase(db.legacyBestUpdates.putStmt) != nil:
-            let res = db.legacyBestUpdates.putStmt.exec(
-              (period.int64, SSZ.encode(forkyUpdate)))
-            res.expect("SQL query OK")
+          let res = db.legacyBestUpdates.putStmt.exec(
+            (period.int64, SSZ.encode(forkyUpdate)))
+          res.expect("SQL query OK")
         else:
           # Keep legacy table at best Altair update.
           discard
     else:
-      if distinctBase(db.bestUpdates.delStmt) != nil:
+      block:
         let res = db.bestUpdates.delStmt.exec(period.int64)
         res.expect("SQL query OK")
-      if distinctBase(db.legacyBestUpdates.delStmt) != nil:
+      block:
         let res = db.legacyBestUpdates.delStmt.exec(period.int64)
         res.expect("SQL query OK")
 
@@ -433,39 +433,41 @@ func isPeriodSealed*(
 
 func sealPeriod*(
     db: LightClientDataDB, period: SyncCommitteePeriod) =
+  doAssert not db.backend.readOnly  # All `stmt` are non-nil
   doAssert period.isSupportedBySQLite
-  if distinctBase(db.sealedPeriods.putStmt) == nil:
-    let res = db.sealedPeriods.putStmt.exec(period.int64)
-    res.expect("SQL query OK")
+  let res = db.sealedPeriods.putStmt.exec(period.int64)
+  res.expect("SQL query OK")
 
 func delNonFinalizedPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
+  doAssert not db.backend.readOnly  # All `stmt` are non-nil
   doAssert minPeriod.isSupportedBySQLite
-  if distinctBase(db.sealedPeriods.delFromStmt) != nil:
+  block:
     let res = db.sealedPeriods.delFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
-  if distinctBase(db.bestUpdates.delFromStmt) != nil:
+  block:
     let res = db.bestUpdates.delFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
-  if distinctBase(db.legacyBestUpdates.delFromStmt) != nil:
+  block:
     let res = db.legacyBestUpdates.delFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
   # `currentBranches` only has finalized data
 
 func keepPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
+  doAssert not db.backend.readOnly  # All `stmt` are non-nil
   doAssert minPeriod.isSupportedBySQLite
-  if distinctBase(db.sealedPeriods.keepFromStmt) != nil:
+  block:
     let res = db.sealedPeriods.keepFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
-  if distinctBase(db.bestUpdates.keepFromStmt) != nil:
+  block:
     let res = db.bestUpdates.keepFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
-  if distinctBase(db.legacyBestUpdates.keepFromStmt) != nil:
+  block:
     let res = db.legacyBestUpdates.keepFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
   let minSlot = min(minPeriod.start_slot, int64.high.Slot)
-  if distinctBase(db.currentBranches.keepFromStmt) != nil:
+  block:
     let res = db.currentBranches.keepFromStmt.exec(minSlot.int64)
     res.expect("SQL query OK")
 
