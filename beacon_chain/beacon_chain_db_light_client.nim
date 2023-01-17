@@ -52,6 +52,7 @@ type
     keepFromStmt: SqliteStmt[int64, void]
 
   LegacyBestLightClientUpdateStore = object
+    getStmt: SqliteStmt[int64, (int64, seq[byte])]
     putStmt: SqliteStmt[(int64, seq[byte]), void]
     delStmt: SqliteStmt[int64, void]
     delFromStmt: SqliteStmt[int64, void]
@@ -94,9 +95,17 @@ type
       ## Tracks the finalized sync committee periods for which complete data
       ## has been imported (from `dag.tail.slot`).
 
+template disposeSafe(s: untyped): untyped =
+  if distinctBase(s) != nil:
+    s.dispose()
+    s = nil
+
 proc initCurrentBranchesStore(
     backend: SqStoreRef,
     name: string): KvResult[CurrentSyncCommitteeBranchStore] =
+  if backend.readOnly and not ? backend.hasTable(name):
+    return ok CurrentSyncCommitteeBranchStore()
+
   ? backend.exec("""
     CREATE TABLE IF NOT EXISTS `""" & name & """` (
       `slot` INTEGER PRIMARY KEY,  -- `Slot` (up through 2^63-1)
@@ -131,15 +140,16 @@ proc initCurrentBranchesStore(
     putStmt: putStmt,
     keepFromStmt: keepFromStmt)
 
-func close(store: CurrentSyncCommitteeBranchStore) =
-  store.containsStmt.dispose()
-  store.getStmt.dispose()
-  store.putStmt.dispose()
-  store.keepFromStmt.dispose()
+func close(store: var CurrentSyncCommitteeBranchStore) =
+  store.containsStmt.disposeSafe()
+  store.getStmt.disposeSafe()
+  store.putStmt.disposeSafe()
+  store.keepFromStmt.disposeSafe()
 
 func hasCurrentSyncCommitteeBranch*(
     db: LightClientDataDB, slot: Slot): bool =
-  if not slot.isSupportedBySQLite:
+  if not slot.isSupportedBySQLite or
+      distinctBase(db.currentBranches.containsStmt) == nil:
     return false
   var exists: int64
   for res in db.currentBranches.containsStmt.exec(slot.int64, exists):
@@ -150,7 +160,8 @@ func hasCurrentSyncCommitteeBranch*(
 
 proc getCurrentSyncCommitteeBranch*(
     db: LightClientDataDB, slot: Slot): altair.CurrentSyncCommitteeBranch =
-  if not slot.isSupportedBySQLite:
+  if not slot.isSupportedBySQLite or
+      distinctBase(db.currentBranches.getStmt) == nil:
     return default(altair.CurrentSyncCommitteeBranch)
   var branch: seq[byte]
   for res in db.currentBranches.getStmt.exec(slot.int64, branch):
@@ -165,7 +176,8 @@ proc getCurrentSyncCommitteeBranch*(
 func putCurrentSyncCommitteeBranch*(
     db: LightClientDataDB, slot: Slot,
     branch: altair.CurrentSyncCommitteeBranch) =
-  if not slot.isSupportedBySQLite:
+  if not slot.isSupportedBySQLite or
+      distinctBase(db.currentBranches.putStmt) == nil:
     return
   let res = db.currentBranches.putStmt.exec((slot.int64, SSZ.encode(branch)))
   res.expect("SQL query OK")
@@ -174,6 +186,9 @@ proc initLegacyBestUpdatesStore(
     backend: SqStoreRef,
     name: string,
 ): KvResult[LegacyBestLightClientUpdateStore] =
+  if backend.readOnly and not ? backend.hasTable(name):
+    return ok LegacyBestLightClientUpdateStore()
+
   ? backend.exec("""
     CREATE TABLE IF NOT EXISTS `""" & name & """` (
       `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
@@ -181,7 +196,13 @@ proc initLegacyBestUpdatesStore(
     );
   """)
 
+  const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
   let
+    getStmt = backend.prepareStmt("""
+      SELECT """ & legacyKind & """ AS `kind`, `update`
+      FROM `""" & name & """`
+      WHERE `period` = ?;
+    """, int64, (int64, seq[byte]), managed = false).expect("SQL query OK")
     putStmt = backend.prepareStmt("""
       REPLACE INTO `""" & name & """` (
         `period`, `update`
@@ -201,21 +222,26 @@ proc initLegacyBestUpdatesStore(
     """, int64, void, managed = false).expect("SQL query OK")
 
   ok LegacyBestLightClientUpdateStore(
+    getStmt: getStmt,
     putStmt: putStmt,
     delStmt: delStmt,
     delFromStmt: delFromStmt,
     keepFromStmt: keepFromStmt)
 
-func close(store: LegacyBestLightClientUpdateStore) =
-  store.putStmt.dispose()
-  store.delStmt.dispose()
-  store.delFromStmt.dispose()
-  store.keepFromStmt.dispose()
+func close(store: var LegacyBestLightClientUpdateStore) =
+  store.getStmt.disposeSafe()
+  store.putStmt.disposeSafe()
+  store.delStmt.disposeSafe()
+  store.delFromStmt.disposeSafe()
+  store.keepFromStmt.disposeSafe()
 
 proc initBestUpdatesStore(
     backend: SqStoreRef,
     name, legacyAltairName: string,
 ): KvResult[BestLightClientUpdateStore] =
+  if backend.readOnly and not ? backend.hasTable(name):
+    return ok BestLightClientUpdateStore()
+
   ? backend.exec("""
     CREATE TABLE IF NOT EXISTS `""" & name & """` (
       `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
@@ -223,7 +249,7 @@ proc initBestUpdatesStore(
       `update` BLOB                  -- `LightClientUpdate` (SSZ)
     );
   """)
-  block:
+  if ? backend.hasTable(legacyAltairName):
     # SyncCommitteePeriod -> altair.LightClientUpdate
     const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
     ? backend.exec("""
@@ -267,19 +293,20 @@ proc initBestUpdatesStore(
     delFromStmt: delFromStmt,
     keepFromStmt: keepFromStmt)
 
-func close(store: BestLightClientUpdateStore) =
-  store.getStmt.dispose()
-  store.putStmt.dispose()
-  store.delStmt.dispose()
-  store.delFromStmt.dispose()
-  store.keepFromStmt.dispose()
+func close(store: var BestLightClientUpdateStore) =
+  store.getStmt.disposeSafe()
+  store.putStmt.disposeSafe()
+  store.delStmt.disposeSafe()
+  store.delFromStmt.disposeSafe()
+  store.keepFromStmt.disposeSafe()
 
 proc getBestUpdate*(
     db: LightClientDataDB, period: SyncCommitteePeriod
 ): ForkedLightClientUpdate =
   doAssert period.isSupportedBySQLite
+
   var update: (int64, seq[byte])
-  for res in db.bestUpdates.getStmt.exec(period.int64, update):
+  template body: untyped =
     res.expect("SQL query OK")
     try:
       withAll(LightClientDataFork):
@@ -297,6 +324,15 @@ proc getBestUpdate*(
         period, kind = update[0], exc = exc.msg
       return default(ForkedLightClientUpdate)
 
+  if distinctBase(db.bestUpdates.getStmt) != nil:
+    for res in db.bestUpdates.getStmt.exec(period.int64, update):
+      body
+  elif distinctBase(db.legacyBestUpdates.getStmt) != nil:
+    for res in db.legacyBestUpdates.getStmt.exec(period.int64, update):
+      body
+  else:
+    return default(ForkedLightClientUpdate)
+
 func putBestUpdate*(
     db: LightClientDataDB, period: SyncCommitteePeriod,
     update: ForkedLightClientUpdate) =
@@ -305,29 +341,30 @@ func putBestUpdate*(
     when lcDataFork > LightClientDataFork.None:
       let numParticipants = forkyUpdate.sync_aggregate.num_active_participants
       if numParticipants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
-        block:
+        if distinctBase(db.bestUpdates.delStmt) != nil:
           let res = db.bestUpdates.delStmt.exec(period.int64)
           res.expect("SQL query OK")
-        block:
+        if distinctBase(db.legacyBestUpdates.delStmt) != nil:
           let res = db.legacyBestUpdates.delStmt.exec(period.int64)
           res.expect("SQL query OK")
       else:
-        block:
+        if distinctBase(db.bestUpdates.putStmt) != nil:
           let res = db.bestUpdates.putStmt.exec(
             (period.int64, lcDataFork.int64, SSZ.encode(forkyUpdate)))
           res.expect("SQL query OK")
         when lcDataFork == LightClientDataFork.Altair:
-          let res = db.legacyBestUpdates.putStmt.exec(
-            (period.int64, SSZ.encode(forkyUpdate)))
-          res.expect("SQL query OK")
+          if distinctBase(db.legacyBestUpdates.putStmt) != nil:
+            let res = db.legacyBestUpdates.putStmt.exec(
+              (period.int64, SSZ.encode(forkyUpdate)))
+            res.expect("SQL query OK")
         else:
           # Keep legacy table at best Altair update.
           discard
     else:
-      block:
+      if distinctBase(db.bestUpdates.delStmt) != nil:
         let res = db.bestUpdates.delStmt.exec(period.int64)
         res.expect("SQL query OK")
-      block:
+      if distinctBase(db.legacyBestUpdates.delStmt) != nil:
         let res = db.legacyBestUpdates.delStmt.exec(period.int64)
         res.expect("SQL query OK")
 
@@ -341,6 +378,9 @@ proc putUpdateIfBetter*(
 proc initSealedPeriodsStore(
     backend: SqStoreRef,
     name: string): KvResult[SealedSyncCommitteePeriodStore] =
+  if backend.readOnly and not ? backend.hasTable(name):
+    return ok SealedSyncCommitteePeriodStore()
+
   ? backend.exec("""
     CREATE TABLE IF NOT EXISTS `""" & name & """` (
       `period` INTEGER PRIMARY KEY  -- `SyncCommitteePeriod`
@@ -373,15 +413,17 @@ proc initSealedPeriodsStore(
     delFromStmt: delFromStmt,
     keepFromStmt: keepFromStmt)
 
-func close(store: SealedSyncCommitteePeriodStore) =
-  store.containsStmt.dispose()
-  store.putStmt.dispose()
-  store.delFromStmt.dispose()
-  store.keepFromStmt.dispose()
+func close(store: var SealedSyncCommitteePeriodStore) =
+  store.containsStmt.disposeSafe()
+  store.putStmt.disposeSafe()
+  store.delFromStmt.disposeSafe()
+  store.keepFromStmt.disposeSafe()
 
 func isPeriodSealed*(
     db: LightClientDataDB, period: SyncCommitteePeriod): bool =
   doAssert period.isSupportedBySQLite
+  if distinctBase(db.sealedPeriods.containsStmt) == nil:
+    return false
   var exists: int64
   for res in db.sealedPeriods.containsStmt.exec(period.int64, exists):
     res.expect("SQL query OK")
@@ -392,19 +434,20 @@ func isPeriodSealed*(
 func sealPeriod*(
     db: LightClientDataDB, period: SyncCommitteePeriod) =
   doAssert period.isSupportedBySQLite
-  let res = db.sealedPeriods.putStmt.exec(period.int64)
-  res.expect("SQL query OK")
+  if distinctBase(db.sealedPeriods.putStmt) == nil:
+    let res = db.sealedPeriods.putStmt.exec(period.int64)
+    res.expect("SQL query OK")
 
 func delNonFinalizedPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
   doAssert minPeriod.isSupportedBySQLite
-  block:
+  if distinctBase(db.sealedPeriods.delFromStmt) != nil:
     let res = db.sealedPeriods.delFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
-  block:
+  if distinctBase(db.bestUpdates.delFromStmt) != nil:
     let res = db.bestUpdates.delFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
-  block:
+  if distinctBase(db.legacyBestUpdates.delFromStmt) != nil:
     let res = db.legacyBestUpdates.delFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
   # `currentBranches` only has finalized data
@@ -412,17 +455,17 @@ func delNonFinalizedPeriodsFrom*(
 func keepPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
   doAssert minPeriod.isSupportedBySQLite
-  block:
+  if distinctBase(db.sealedPeriods.keepFromStmt) != nil:
     let res = db.sealedPeriods.keepFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
-  block:
+  if distinctBase(db.bestUpdates.keepFromStmt) != nil:
     let res = db.bestUpdates.keepFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
-  block:
+  if distinctBase(db.legacyBestUpdates.keepFromStmt) != nil:
     let res = db.legacyBestUpdates.keepFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
   let minSlot = min(minPeriod.start_slot, int64.high.Slot)
-  block:
+  if distinctBase(db.currentBranches.keepFromStmt) != nil:
     let res = db.currentBranches.keepFromStmt.exec(minSlot.int64)
     res.expect("SQL query OK")
 
