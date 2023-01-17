@@ -110,13 +110,13 @@ suite "Light client processor" & preset():
         res: Result[bool, VerifierError]
 
     test "Sync" & testNameSuffix:
-      var bootstrap = dag.getLightClientBootstrap(trustedBlockRoot)
-      check bootstrap.kind > LightClientDataFork.None
-      withForkyBootstrap(bootstrap):
+      let bootstrap = newClone(dag.getLightClientBootstrap(trustedBlockRoot))
+      check bootstrap[].kind > LightClientDataFork.None
+      withForkyBootstrap(bootstrap[]):
         when lcDataFork > LightClientDataFork.None:
           setTimeToSlot(forkyBootstrap.header.beacon.slot)
       res = processor[].storeObject(
-        MsgSource.gossip, getBeaconTime(), bootstrap)
+        MsgSource.gossip, getBeaconTime(), bootstrap[])
       check:
         res.isOk
         numOnStoreInitializedCalls == 1
@@ -134,8 +134,8 @@ suite "Light client processor" & preset():
         check update[].kind <= store[].kind
         withForkyStore(store[]):
           when lcDataFork > LightClientDataFork.None:
-            bootstrap.migrateToDataFork(lcDataFork)
-            template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
+            bootstrap[].migrateToDataFork(lcDataFork)
+            template forkyBootstrap: untyped = bootstrap[].forky(lcDataFork)
             let upgraded = newClone(update[].migratingToDataFork(lcDataFork))
             template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
 
