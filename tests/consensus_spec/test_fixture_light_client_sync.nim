@@ -183,7 +183,7 @@ proc runTest(path: string) =
 
     # Reduce stack size by making this a `proc`
     proc initializeStore(
-        bootstrap: ForkedLightClientBootstrap): ForkedLightClientStore =
+        bootstrap: ref ForkedLightClientBootstrap): ForkedLightClientStore =
       let store_state_fork =
         meta.fork_digests.stateForkForDigest(meta.store_fork_digest)
           .expect("Unknown store fork " & $meta.store_fork_digest)
@@ -191,17 +191,13 @@ proc runTest(path: string) =
       withLcDataFork(lcDataForkAtStateFork(store_state_fork)):
         when lcDataFork > LightClientDataFork.None:
           store = ForkedLightClientStore(kind: lcDataFork)
-          check bootstrap.kind <= lcDataFork
-          let upgradedBootstrap = bootstrap.migratingToDataFork(lcDataFork)
-          store.forky(lcDataFork) =
-            initialize_light_client_store(
-              meta.trusted_block_root,
-              upgradedBootstrap.forky(lcDataFork),
-              cfg).get
+          bootstrap[].migrateToDataFork(lcDataFork)
+          store.forky(lcDataFork) = initialize_light_client_store(
+            meta.trusted_block_root, bootstrap[].forky(lcDataFork), cfg).get
         else: raiseAssert "Unreachable store fork " & $meta.store_fork_digest
       store
 
-    let bootstrap = loadBootstrap()
+    let bootstrap = newClone(loadBootstrap())
     var store = initializeStore(bootstrap)
 
     # Reduce stack size by making this a `proc`
