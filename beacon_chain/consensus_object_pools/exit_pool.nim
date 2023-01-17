@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Copyright (c) 2020-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -25,12 +25,12 @@ export base, deques, sets, blockchain_dag
 logScope: topics = "exitpool"
 
 const
-  ATTESTER_SLASHINGS_BOUND* = MAX_ATTESTER_SLASHINGS * 4
-  PROPOSER_SLASHINGS_BOUND* = MAX_PROPOSER_SLASHINGS * 4
-  VOLUNTARY_EXITS_BOUND* = MAX_VOLUNTARY_EXITS * 4
+  ATTESTER_SLASHINGS_BOUND = MAX_ATTESTER_SLASHINGS * 4
+  PROPOSER_SLASHINGS_BOUND = MAX_PROPOSER_SLASHINGS * 4
+  VOLUNTARY_EXITS_BOUND = MAX_VOLUNTARY_EXITS * 4
 
 type
-  OnVoluntaryExitCallback* =
+  OnVoluntaryExitCallback =
     proc(data: SignedVoluntaryExit) {.gcsafe, raises: [Defect].}
 
   ExitPool* = object
