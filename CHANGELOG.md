@@ -1,3 +1,58 @@
+2023-01-18 v23.1.0
+==================
+
+Nimbus `v23.1.0` is a `low-urgency` upgrade, introducing support for on-the-fly database pruning making the storage requirements of Nimbus much more predictable on long-term time scales. When pruning is enabled, a typical beacon node expected to consume around 60 to 70 GB of storage. To take advantage of the new functionality without facing any downtime, users are advised to sync a fresh node through trusted node sync which now features a quicker history backfilling implementation.
+
+### Improvements
+
+* After a trusted node sync, Nimbus requires less time to complete the block
+  backfilling process by downloading the minimum number of historical blocks
+  mandated by the spec:
+
+  https://github.com/status-im/nimbus-eth2/pull/4421
+
+* Nimbus is able to sync in optimistic mode with the network even when not
+  paired with an execution layer client. Please note that this mode is not
+  suitable for validating:
+
+  https://github.com/status-im/nimbus-eth2/pull/4458
+
+* A new `--history=<archive|prune>` configuration parameter controls the
+  retention of old historic blocks in the database of the client. Enabling
+  pruning on an existing installation will introduce a significant delay
+  on the first run, while history pruning is taking place, so we recommend
+  starting with a fresh database by executing a trusted node sync:
+
+  https://nimbus.guide/history.html
+  https://github.com/status-im/nimbus-eth2/pull/4445
+
+* The validator monitor is now considered out of BETA and enabled by default.
+  To keep the number of created metrics to a reasonable level on installations
+  with large number of validators, the default implies the previous behavior
+  of the `validator-monitor-totals` flag:
+
+  https://github.com/status-im/nimbus-eth2/pull/4468
+
+* Full support for the latest Capella/Shanghai devnets:
+
+  https://notes.ethereum.org/@bbusa/Zhejiang#Nimbus
+
+### Fixes
+
+* Out of date metadata for the Gnosis network bootstrap nodes:
+
+  https://github.com/status-im/nimbus-eth2/pull/4460
+
+* Potential hanging of the client caused by inappropriate activation
+  of the TTD block detection on beacon nodes created after the merge:
+
+  https://github.com/status-im/nimbus-eth2/pull/4486
+
+* Inappropriate case-sensitivity in the `--log-level` parameter, accidentally introduced in the 22.12.0 release.
+
+  https://github.com/status-im/nimbus-eth2/pull/4523
+
+
 2022-12-21 v22.12.0
 ===================
 
@@ -10,13 +65,13 @@ Nimbus `v22.12.0` is a `medium-urgency` release which improves the doppelganger 
   non-finalization:
 
   https://github.com/status-im/nimbus-eth2/pull/4435
-  
+
 * Support for obtaining a deposit snapshot during trusted node sync from
   servers supporting the standardized `/eth/v1/beacon/deposit_snapshot`
   REST endpoint:
 
   https://github.com/status-im/nimbus-eth2/pull/4303
-  
+
 * Official docker images for the Nimbus validator client are now available:
 
   https://hub.docker.com/r/statusim/nimbus-validator-client
@@ -34,25 +89,25 @@ Nimbus `v22.12.0` is a `medium-urgency` release which improves the doppelganger 
 
 * The validator client will now use with the standard exit code `129` in
   case of detected doppelganger on the network:
-  
+
   https://github.com/status-im/nimbus-eth2/pull/4398
- 
+
 ### Fixes
 
 * A potential false-positive in the doppelganger detection logic:
-  
+
   https://github.com/status-im/nimbus-eth2/pull/4398
-  
+
 * A potential hang in trusted node sync:
 
   https://github.com/status-im/nimbus-eth2/pull/4303
-  
+
 ### Breaking changes:
 
 * The built-in support for the Ropsten testnet has been removed:
 
   https://github.com/status-im/nimbus-eth2/pull/4280
-  
+
   You can still connect to the Ropsten network by specifying its
   metadata directory on the command line through the `--network`
   parameter.
