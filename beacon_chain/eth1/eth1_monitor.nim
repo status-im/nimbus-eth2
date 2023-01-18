@@ -131,13 +131,10 @@ type
     eth1Progress: AsyncEvent
 
     exchangedConfiguration*: bool
-    terminalBlockHash*: Option[BlockHash]
 
     runFut: Future[void]
     stopFut: Future[void]
     getBeaconTime: GetBeaconTimeFn
-
-    ttdReachedField: bool
 
   Web3DataProvider* = object
     url: string
@@ -187,9 +184,6 @@ declareGauge eth1_finalized_deposits,
 
 declareGauge eth1_chain_len,
   "The length of the in-memory chain of Eth1 blocks"
-
-func ttdReached*(m: Eth1Monitor): bool =
-  m.ttdReachedField
 
 template cfg(m: Eth1Monitor): auto =
   m.depositsChain.cfg
@@ -1125,8 +1119,7 @@ proc init*(T: type Eth1Monitor,
            web3Urls: seq[string],
            eth1Network: Option[Eth1Network],
            forcePolling: bool,
-           jwtSecret: Option[seq[byte]],
-           ttdReached: bool): T =
+           jwtSecret: Option[seq[byte]]): T =
   doAssert web3Urls.len > 0
   var web3Urls = web3Urls
   for url in mitems(web3Urls):
@@ -1147,8 +1140,7 @@ proc init*(T: type Eth1Monitor,
     eth1Progress: newAsyncEvent(),
     forcePolling: forcePolling,
     jwtSecret: jwtSecret,
-    blocksPerLogsRequest: targetBlocksPerLogsRequest,
-    ttdReachedField: ttdReached)
+    blocksPerLogsRequest: targetBlocksPerLogsRequest)
 
 proc safeCancel(fut: var Future[void]) =
   if not fut.isNil and not fut.finished:
@@ -1346,51 +1338,6 @@ func init(T: type FullBlockId, blk: Eth1BlockHeader|BlockObject): T =
 func isNewLastBlock(m: Eth1Monitor, blk: Eth1BlockHeader|BlockObject): bool =
   m.latestEth1Block.isNone or blk.number.uint64 > m.latestEth1BlockNumber
 
-proc findTerminalBlock(provider: Web3DataProviderRef,
-                       ttd: Uint256): Future[BlockObject] {.async.} =
-  ## Find the first execution block with a difficulty higher than the
-  ## specified `ttd`.
-  var
-    cache = initTable[uint64, BlockObject]()
-    step = -0x4000'i64
-
-  proc next(x: BlockObject): Future[BlockObject] {.async.} =
-    ## Returns the next block that's `step` steps away.
-    let key = uint64(max(int64(x.number) + step, 1))
-    # Check if present in cache.
-    if key in cache:
-      return cache[key]
-    # Not cached, fetch.
-    let value = awaitWithRetries provider.getBlockByNumber(key)
-    cache[key] = value
-    return value
-
-  # Block A follows, B leads.
-  var a = awaitWithRetries(
-    provider.web3.provider.eth_getBlockByNumber("latest", false))
-
-  if a.number.uint64 == 0 and a.totalDifficulty >= ttd:
-    return a
-
-  var b = await next(a)
-
-  while true:
-    let one = a.totalDifficulty >= ttd
-    let two = b.totalDifficulty >= ttd
-    if one != two:
-      step = step div -2i64
-      if step == 0:
-        # Since we can't know in advance from which side the block is
-        # approached, one last check is needed to determine the proper
-        # terminal block.
-        if one: return a
-        else  : return b
-    a = b
-    b = await next(b)
-
-  # This is unreachable.
-  doAssert(false)
-
 proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
   if m.state == Started:
     return
@@ -1521,12 +1468,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
     debug "Starting Eth1 syncing", `from` = shortLog(m.depositsChain.blocks[^1])
 
-  let shouldCheckForMergeTransition = block:
-    const FAR_FUTURE_TOTAL_DIFFICULTY =
-      u256"115792089237316195423570985008687907853269984665640564039457584007913129638912"
-    (not m.ttdReachedField) and
-    (m.cfg.TERMINAL_TOTAL_DIFFICULTY != FAR_FUTURE_TOTAL_DIFFICULTY)
-
   var didPollOnce = false
   while true:
     if bnStatus == BeaconNodeStatus.Stopping:
@@ -1565,23 +1506,6 @@ proc startEth1Syncing(m: Eth1Monitor, delayBeforeStart: Duration) {.async.} =
 
       doAssert m.latestEth1Block.isSome
       awaitWithRetries m.dataProvider.getBlockByHash(m.latestEth1Block.get.hash)
-
-    # TODO when a terminal block hash is configured in cfg.TERMINAL_BLOCK_HASH,
-    #      we should try to fetch that block from the EL - this facility is not
-    #      in use on any current network, but should be implemented for full
-    #      compliance
-    if m.terminalBlockHash.isNone and shouldCheckForMergeTransition:
-      let terminalBlock = await findTerminalBlock(m.dataProvider, m.cfg.TERMINAL_TOTAL_DIFFICULTY)
-      m.terminalBlockHash = some(terminalBlock.hash)
-      m.ttdReachedField = true
-
-      debug "startEth1Syncing: found merge terminal block",
-        currentEpoch = m.currentEpoch,
-        BELLATRIX_FORK_EPOCH = m.cfg.BELLATRIX_FORK_EPOCH,
-        totalDifficulty = $nextBlock.totalDifficulty,
-        ttd = $m.cfg.TERMINAL_TOTAL_DIFFICULTY,
-        terminalBlockHash = m.terminalBlockHash,
-        candidateBlockNumber = distinctBase(terminalBlock.number)
 
     if shouldProcessDeposits:
       if m.latestEth1BlockNumber <= m.cfg.ETH1_FOLLOW_DISTANCE:

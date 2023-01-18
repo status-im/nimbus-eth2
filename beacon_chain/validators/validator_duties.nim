@@ -387,10 +387,8 @@ proc getExecutionPayload[T](
       latestHead =
         if not executionBlockRoot.isZero:
           executionBlockRoot
-        elif node.eth1Monitor.terminalBlockHash.isSome:
-          node.eth1Monitor.terminalBlockHash.get.asEth2Digest
         else:
-          default(Eth2Digest)
+          (static(default(Eth2Digest)))
       latestSafe = beaconHead.safeExecutionPayloadHash
       latestFinalized = beaconHead.finalizedExecutionPayloadHash
       lastFcU = node.consensusManager.forkchoiceUpdatedInfo
@@ -472,10 +470,9 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
         let fut = newFuture[Opt[EP]]("given-payload")
         fut.complete(execution_payload)
         fut
-      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
-            not (
-              is_merge_transition_complete(state[]) or
-              ((not node.eth1Monitor.isNil) and node.eth1Monitor.ttdReached)):
+      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or not (
+          state[].is_merge_transition_complete or
+          slot.epoch >= node.mergeAtEpoch):
         let fut = newFuture[Opt[EP]]("empty-payload")
         # https://github.com/nim-lang/Nim/issues/19802
         fut.complete(Opt.some(default(EP)))

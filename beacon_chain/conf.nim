@@ -224,6 +224,12 @@ type
       desc: "The slashing DB flavour to use"
       name: "slashing-db-kind" .}: SlashingDbKind
 
+    mergeAtEpoch* {.
+      hidden
+      desc: "Debugging argument not for external use; may be removed at any time"
+      defaultValue: FAR_FUTURE_EPOCH
+      name: "merge-at-epoch-debug-internal" .}: uint64
+
     numThreads* {.
       defaultValue: 0,
       desc: "Number of worker threads (\"0\" = use as many threads as there are CPU cores available)"
