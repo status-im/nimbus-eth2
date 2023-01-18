@@ -330,6 +330,16 @@ proc initFullNode(
       blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
                                 Opt.none(eip4844.BlobsSidecar), resfut)
       resfut
+    blockBlobsVerifier = proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar):
+        Future[Result[void, VerifierError]] =
+      # The design with a callback for block verification is unusual compared
+      # to the rest of the application, but fits with the general approach
+      # taken in the sync/request managers - this is an architectural compromise
+      # that should probably be reimagined more holistically in the future.
+      let resfut = newFuture[Result[void, VerifierError]]("blockVerifier")
+      blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
+                                Opt.some(blobs), resfut)
+      resfut
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
@@ -376,7 +386,9 @@ proc initFullNode(
   node.processor = processor
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
-  node.requestManager = RequestManager.init(node.network, blockVerifier)
+  node.requestManager = RequestManager.init(node.network, dag,
+                                            blockVerifier, blockBlobsVerifier,
+                                            dag.cfg.EIP4844_FORK_EPOCH)
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.router = router

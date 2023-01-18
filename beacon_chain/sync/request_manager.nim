@@ -31,11 +31,17 @@ type
   BlockVerifier* =
     proc(signedBlock: ForkedSignedBeaconBlock):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
+  BlockBlobsVerifier* =
+    proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar):
+      Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 
   RequestManager* = object
     network*: Eth2Node
     inpQueue*: AsyncQueue[FetchRecord]
+    dag: ChainDAGRef
     blockVerifier: BlockVerifier
+    blockBlobsVerifier: BlockBlobsVerifier
+    blobsStartEpoch: Epoch
     loopFuture: Future[void]
 
 func shortLog*(x: seq[Eth2Digest]): string =
@@ -45,12 +51,32 @@ func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
 proc init*(T: type RequestManager, network: Eth2Node,
-           blockVerifier: BlockVerifier): RequestManager =
+              dag: ChainDAGRef,
+              blockVerifier: BlockVerifier,
+              blockBlobsVerifier: BlockBlobsVerifier,
+              blobsStartEpoch: Epoch): RequestManager =
   RequestManager(
     network: network,
     inpQueue: newAsyncQueue[FetchRecord](),
-    blockVerifier: blockVerifier
+    dag: dag,
+    blockVerifier: blockVerifier,
+    blockBlobsVerifier: blockBlobsVerifier,
+    blobsStartEpoch: blobsStartEpoch
   )
+
+proc checkResponse(roots: openArray[Eth2Digest],
+                   blocks: openArray[ref SignedBeaconBlockAndBlobsSidecar]): bool =
+  ## This procedure checks peer's response.
+  var checks = @roots
+  if len(blocks) > len(roots):
+    return false
+  for item in blocks:
+    let res = checks.find(item[].beacon_block.root)
+    if res == -1:
+      return false
+    else:
+      checks.del(res)
+  return true
 
 proc checkResponse(roots: openArray[Eth2Digest],
                    blocks: openArray[ref ForkedSignedBeaconBlock]): bool =
@@ -138,6 +164,82 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
 
+proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
+                                            items: seq[Eth2Digest]) {.async.} =
+  var peer: Peer
+  try:
+    peer = await rman.network.peerPool.acquire()
+    debug "Requesting blocks by root", peer = peer, blocks = shortLog(items),
+                                       peer_score = peer.getScore()
+
+    let blocks = (await beaconBlockAndBlobsSidecarByRoot_v1(peer, BlockRootsList items))
+
+    if blocks.isOk:
+      let ublocks = blocks.get()
+      if checkResponse(items, ublocks.asSeq()):
+        var
+          gotGoodBlock = false
+          gotUnviableBlock = false
+
+        for b in ublocks:
+          let ver = await rman.blockBlobsVerifier(ForkedSignedBeaconBlock.init(b[].beacon_block), b[].blobs_sidecar)
+          if ver.isErr():
+            case ver.error()
+            of VerifierError.MissingParent:
+              # Ignoring because the order of the blocks that
+              # we requested may be different from the order in which we need
+              # these blocks to apply.
+              discard
+            of VerifierError.Duplicate:
+              # Ignoring because these errors could occur due to the
+              # concurrent/parallel requests we made.
+              discard
+            of VerifierError.UnviableFork:
+              # If they're working a different fork, we'll want to descore them
+              # but also process the other blocks (in case we can register the
+              # other blocks as unviable)
+              gotUnviableBlock = true
+            of VerifierError.Invalid:
+              # We stop processing blocks because peer is either sending us
+              # junk or working a different fork
+              notice "Received invalid block",
+                peer = peer, blocks = shortLog(items),
+                peer_score = peer.getScore()
+              peer.updateScore(PeerScoreBadValues)
+
+              return # Stop processing this junk...
+          else:
+            gotGoodBlock = true
+
+        if gotUnviableBlock:
+          notice "Received blocks from an unviable fork",
+            peer = peer, blocks = shortLog(items),
+            peer_score = peer.getScore()
+          peer.updateScore(PeerScoreUnviableFork)
+        elif gotGoodBlock:
+          # We reward peer only if it returns something.
+          peer.updateScore(PeerScoreGoodValues)
+
+      else:
+        peer.updateScore(PeerScoreBadResponse)
+    else:
+      peer.updateScore(PeerScoreNoValues)
+
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    peer.updateScore(PeerScoreNoValues)
+    debug "Error while fetching ancestor blocks", exc = exc.msg,
+          items = shortLog(items), peer = peer, peer_score = peer.getScore()
+    raise exc
+  finally:
+    if not(isNil(peer)):
+      rman.network.peerPool.release(peer)
+
+
+proc isSlotWithBlobs(rman: RequestManager, s: Slot): bool =
+  return s.epoch >= rman.blobsStartEpoch
+
 proc requestManagerLoop(rman: RequestManager) {.async.} =
   var rootList = newSeq[Eth2Digest]()
   var workers = newSeq[Future[void]](PARALLEL_REQUESTS)
@@ -154,8 +256,13 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
 
       let start = SyncMoment.now(0)
 
+      let getBlobs = rman.isSlotWithBlobs(rman.dag.head.slot)
       for i in 0 ..< PARALLEL_REQUESTS:
-        workers[i] = rman.fetchAncestorBlocksFromNetwork(rootList)
+        if getBlobs:
+          workers[i] = rman.fetchAncestorBlocksAndBlobsFromNetwork(rootList)
+        else:
+          workers[i] = rman.fetchAncestorBlocksFromNetwork(rootList)
+
 
       # We do not care about
       await allFutures(workers)
