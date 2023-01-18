@@ -1139,6 +1139,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       bls_to_execution_changes, node.router.routeBlsToExecutionChange(it)))
     for individual_res in res:
       doAssert individual_res.finished()
+      if individual_res.failed():
+        return RestApiResponse.jsonError(Http400,
+                                         BlsToExecutionChangeValidationError,
+                                         $individual_res.error[].msg)
       let fut_result = individual_res.read()
       if fut_result.isErr():
         return RestApiResponse.jsonError(Http400,
