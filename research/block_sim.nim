@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2022 Status Research & Development GmbH
+# Copyright (c) 2019-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -84,7 +84,7 @@ proc makeBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: bellatrix.ExecutionPayload,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
@@ -128,7 +128,7 @@ proc makeBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: bellatrix.ExecutionPayload,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
@@ -173,7 +173,7 @@ proc makeBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: bellatrix.ExecutionPayload,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
@@ -217,7 +217,7 @@ proc makeBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: capella.ExecutionPayload,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
@@ -261,7 +261,7 @@ proc makeBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: eip4844.ExecutionPayload,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
@@ -520,7 +520,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         default(GraffitiBytes),
         attPool.getAttestationsForBlock(state, cache),
         eth1ProposalData.deposits,
-        BeaconBlockExits(),
+        BeaconBlockValidatorChanges(),
         sync_aggregate,
         when T is eip4844.SignedBeaconBlock:
           default(eip4844.ExecutionPayload)

@@ -391,8 +391,8 @@ proc process_voluntary_exit*(
   ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
-proc process_bls_to_execution_change*(
-    cfg: RuntimeConfig, state: var (capella.BeaconState | eip4844.BeaconState),
+proc check_bls_to_execution_change*(
+    cfg: RuntimeConfig, state: capella.BeaconState | eip4844.BeaconState,
     signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
   let address_change = signed_address_change.message
 
@@ -414,6 +414,16 @@ proc process_bls_to_execution_change*(
       signed_address_change, address_change.from_bls_pubkey,
       signed_address_change.signature):
     return err("process_bls_to_execution_change: invalid signature")
+
+  ok()
+
+proc process_bls_to_execution_change*(
+    cfg: RuntimeConfig, state: var (capella.BeaconState | eip4844.BeaconState),
+    signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
+  ? check_bls_to_execution_change(cfg, state, signed_address_change)
+  let address_change = signed_address_change.message
+  var withdrawal_credentials =
+    state.validators.item(address_change.validator_index).withdrawal_credentials
 
   withdrawal_credentials.data[0] = ETH1_ADDRESS_WITHDRAWAL_PREFIX
   withdrawal_credentials.data.fill(1, 11, 0)

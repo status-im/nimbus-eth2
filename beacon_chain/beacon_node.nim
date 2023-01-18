@@ -67,7 +67,7 @@ type
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
-    exitPool*: ref ExitPool
+    validatorChangePool*: ref ValidatorChangePool
     eth1Monitor*: Eth1Monitor
     payloadBuilderRestClient*: RestClientRef
     restServer*: RestServerRef

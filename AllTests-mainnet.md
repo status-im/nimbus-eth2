@@ -177,14 +177,6 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 + Subnet query after ENR update                                                              OK
 ```
 OK: 3/3 Fail: 0/3 Skip: 0/3
-## Exit pool testing suite
-```diff
-+ addExitMessage/getAttesterSlashingMessage                                                  OK
-+ addExitMessage/getProposerSlashingMessage                                                  OK
-+ addExitMessage/getVoluntaryExitMessage                                                     OK
-+ pre-pre-fork voluntary exit                                                                OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Fee recipient management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the fee recpient [Beacon Node] [Preset: mainnet]                               OK
@@ -516,6 +508,16 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
 OK: 23/23 Fail: 0/23 Skip: 0/23
+## Validator change pool testing suite
+```diff
++ addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
++ addValidatorChangeMessage/getBlsToExecutionChange (post-capella)                           OK
++ addValidatorChangeMessage/getBlsToExecutionChange (pre-capella)                            OK
++ addValidatorChangeMessage/getProposerSlashingMessage                                       OK
++ addValidatorChangeMessage/getVoluntaryExitMessage                                          OK
++ pre-pre-fork voluntary exit                                                                OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Validator pool
 ```diff
 + Activation after check                                                                     OK
@@ -621,4 +623,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 346/351 Fail: 0/351 Skip: 5/351
+OK: 348/353 Fail: 0/353 Skip: 5/353

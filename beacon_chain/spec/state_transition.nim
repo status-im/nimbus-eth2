@@ -344,7 +344,7 @@ template partialBeaconBlock*(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: bellatrix.ExecutionPayload,
     bls_to_execution_changes: SignedBLSToExecutionChangeList):
@@ -357,11 +357,11 @@ template partialBeaconBlock*(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
-      proposer_slashings: exits.proposer_slashings,
-      attester_slashings: exits.attester_slashings,
+      proposer_slashings: validator_changes.proposer_slashings,
+      attester_slashings: validator_changes.attester_slashings,
       attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: exits.voluntary_exits))
+      voluntary_exits: validator_changes.voluntary_exits))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/validator.md#preparing-a-beaconblock
 template partialBeaconBlock*(
@@ -373,10 +373,10 @@ template partialBeaconBlock*(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: bellatrix.ExecutionPayload,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList):
+    bls_to_execution_changes: SignedBLSToExecutionChangeList):  # TODO remove
     altair.BeaconBlock =
   altair.BeaconBlock(
     slot: state.data.slot,
@@ -386,11 +386,11 @@ template partialBeaconBlock*(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
-      proposer_slashings: exits.proposer_slashings,
-      attester_slashings: exits.attester_slashings,
+      proposer_slashings: validator_changes.proposer_slashings,
+      attester_slashings: validator_changes.attester_slashings,
       attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: exits.voluntary_exits,
+      voluntary_exits: validator_changes.voluntary_exits,
       sync_aggregate: sync_aggregate))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/validator.md#block-proposal
@@ -403,10 +403,10 @@ template partialBeaconBlock*(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: bellatrix.ExecutionPayload,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList):
+    bls_to_execution_changes: SignedBLSToExecutionChangeList):  # TODO remove
     bellatrix.BeaconBlock =
   bellatrix.BeaconBlock(
     slot: state.data.slot,
@@ -416,11 +416,11 @@ template partialBeaconBlock*(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
-      proposer_slashings: exits.proposer_slashings,
-      attester_slashings: exits.attester_slashings,
+      proposer_slashings: validator_changes.proposer_slashings,
+      attester_slashings: validator_changes.attester_slashings,
       attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: exits.voluntary_exits,
+      voluntary_exits: validator_changes.voluntary_exits,
       sync_aggregate: sync_aggregate,
       execution_payload: execution_payload))
 
@@ -434,10 +434,10 @@ template partialBeaconBlock*(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: capella.ExecutionPayload,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList
+    bls_to_execution_changes: SignedBLSToExecutionChangeList   # TODO remove
     ):
     capella.BeaconBlock =
   capella.BeaconBlock(
@@ -448,14 +448,14 @@ template partialBeaconBlock*(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
-      proposer_slashings: exits.proposer_slashings,
-      attester_slashings: exits.attester_slashings,
+      proposer_slashings: validator_changes.proposer_slashings,
+      attester_slashings: validator_changes.attester_slashings,
       attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: exits.voluntary_exits,
+      voluntary_exits: validator_changes.voluntary_exits,
       sync_aggregate: sync_aggregate,
       execution_payload: execution_payload,
-      bls_to_execution_changes: bls_to_execution_changes
+      bls_to_execution_changes: validator_changes.bls_to_execution_changes
       ))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/validator.md#block-proposal
@@ -468,10 +468,10 @@ template partialBeaconBlock*(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: eip4844.ExecutionPayload,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList
+    bls_to_execution_changes: SignedBLSToExecutionChangeList   # TODO remove
     ):
     eip4844.BeaconBlock =
   discard $eip4844ImplementationMissing & ": state_transition.nim: partialBeaconBlock, leaves additional fields default, okay for block_sim"
@@ -483,14 +483,14 @@ template partialBeaconBlock*(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
-      proposer_slashings: exits.proposer_slashings,
-      attester_slashings: exits.attester_slashings,
+      proposer_slashings: validator_changes.proposer_slashings,
+      attester_slashings: validator_changes.attester_slashings,
       attestations: List[Attestation, Limit MAX_ATTESTATIONS](attestations),
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
-      voluntary_exits: exits.voluntary_exits,
+      voluntary_exits: validator_changes.voluntary_exits,
       sync_aggregate: sync_aggregate,
       execution_payload: execution_payload,
-      bls_to_execution_changes: bls_to_execution_changes
+      bls_to_execution_changes: validator_changes.bls_to_execution_changes
       ))
 
 proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
@@ -502,7 +502,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     executionPayload: T,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
@@ -528,7 +528,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
       ForkedBeaconBlock.init(
         partialBeaconBlock(
           cfg, state.`kind Data`, proposer_index, randao_reveal, eth1_data,
-          graffiti, attestations, deposits, exits, sync_aggregate,
+          graffiti, attestations, deposits, validator_changes, sync_aggregate,
           executionPayload, bls_to_execution_changes))
 
     let res = process_block(
@@ -549,15 +549,16 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
           # Effectively hash_tree_root(ExecutionPayload) with the beacon block
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.
+          discard $capellaImplementationMissing # need different htr to match capella changes
           forkyState.data.latest_block_header.body_root = hash_tree_root(
             [hash_tree_root(randao_reveal),
              hash_tree_root(eth1_data),
              hash_tree_root(graffiti),
-             hash_tree_root(exits.proposer_slashings),
-             hash_tree_root(exits.attester_slashings),
+             hash_tree_root(validator_changes.proposer_slashings),
+             hash_tree_root(validator_changes.attester_slashings),
              hash_tree_root(List[Attestation, Limit MAX_ATTESTATIONS](attestations)),
              hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
-             hash_tree_root(exits.voluntary_exits),
+             hash_tree_root(validator_changes.voluntary_exits),
              hash_tree_root(sync_aggregate),
              execution_payload_root.get])
 
@@ -594,7 +595,7 @@ proc makeBeaconBlock*[T](
     proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
     eth1_data: Eth1Data, graffiti: GraffitiBytes,
     attestations: seq[Attestation], deposits: seq[Deposit],
-    exits: BeaconBlockExits, sync_aggregate: SyncAggregate,
+    exits: BeaconBlockValidatorChanges, sync_aggregate: SyncAggregate,
     executionPayload: T,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
     rollback: RollbackForkedHashedProc, cache: var StateCache):
@@ -612,7 +613,7 @@ proc makeBeaconBlock*[T](
     proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
     eth1_data: Eth1Data, graffiti: GraffitiBytes,
     attestations: seq[Attestation], deposits: seq[Deposit],
-    exits: BeaconBlockExits, sync_aggregate: SyncAggregate,
+    exits: BeaconBlockValidatorChanges, sync_aggregate: SyncAggregate,
     executionPayload: T,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
     rollback: RollbackForkedHashedProc,

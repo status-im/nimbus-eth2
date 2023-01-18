@@ -199,7 +199,7 @@ proc addTestBlockAux[EP: bellatrix.ExecutionPayload | capella.ExecutionPayload](
       graffiti,
       attestations,
       deposits,
-      BeaconBlockExits(),
+      BeaconBlockValidatorChanges(),
       sync_aggregate,
       execution_payload,
       default(SignedBLSToExecutionChangeList),

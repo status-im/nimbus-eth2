@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -450,5 +450,35 @@ proc routeProposerSlashing*(
   else: # "no broadcast" is not a fatal error
     notice "Proposer slashing not sent",
       slashing = shortLog(slashing), error = res.error()
+
+  return ok()
+
+proc routeBlsToExecutionChange*(
+    router: ref MessageRouter,
+    bls_to_execution_change: SignedBLSToExecutionChange):
+    Future[SendResult] {.async.} =
+  block:
+    let res = router[].processor[].processBlsToExecutionChange(
+      MsgSource.api, bls_to_execution_change)
+    if not res.isGoodForSending:
+      warn "BLS to execution change request failed validation",
+        slashing = shortLog(bls_to_execution_change), error = res.error()
+      return err(res.error()[1])
+
+  if  router[].getCurrentBeaconTime().slotOrZero.epoch <
+      router[].processor[].dag.cfg.CAPELLA_FORK_EPOCH:
+    # Broadcast hasn't failed, it just hasn't happened; desire seems to be to
+    # allow queuing up BLS to execution changes.
+    return ok()
+
+  let res = await router[].network.broadcastBlsToExecutionChange(
+    bls_to_execution_change)
+  if res.isOk():
+    notice "BLS to execution change sent",
+      bls_to_execution_change = shortLog(bls_to_execution_change)
+  else: # "no broadcast" is not a fatal error
+    notice "BLS to execution change not sent",
+      bls_to_execution_change = shortLog(bls_to_execution_change),
+      error = res.error()
 
   return ok()
