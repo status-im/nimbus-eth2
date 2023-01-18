@@ -13,7 +13,7 @@ import
   ./gossip_processing/optimistic_processor,
   ./networking/topic_params,
   ./spec/beaconstate,
-  ./spec/datatypes/[phase0, altair, bellatrix],
+  ./spec/datatypes/[phase0, altair, bellatrix, capella],
   "."/[filepath, light_client, light_client_db, nimbus_binary_common, version]
 
 from ./consensus_object_pools/consensus_manager import runForkchoiceUpdated
@@ -151,6 +151,11 @@ programMain:
     proc (signedBlock: bellatrix.SignedBeaconBlock): ValidationResult =
       toValidationResult(
         optimisticProcessor.processSignedBeaconBlock(signedBlock)))
+  network.addValidator(
+    getBeaconBlocksTopic(forkDigests.capella),
+    proc (signedBlock: capella.SignedBeaconBlock): ValidationResult =
+      toValidationResult(
+        optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   lightClient.installMessageValidators()
   waitFor network.startListening()
   waitFor network.start()
@@ -247,14 +252,14 @@ programMain:
       oldGossipForks = currentGossipState - targetGossipState
 
     for gossipFork in oldGossipForks:
-      if gossipFork >= BeaconStateFork.Capella:
+      if gossipFork >= BeaconStateFork.EIP4844:
         # Format is still in development, do not use Gossip at this time.
         continue
       let forkDigest = forkDigests[].atStateFork(gossipFork)
       network.unsubscribe(getBeaconBlocksTopic(forkDigest))
 
     for gossipFork in newGossipForks:
-      if gossipFork >= BeaconStateFork.Capella:
+      if gossipFork >= BeaconStateFork.EIP4844:
         # Format is still in development, do not use Gossip at this time.
         continue
       let forkDigest = forkDigests[].atStateFork(gossipFork)

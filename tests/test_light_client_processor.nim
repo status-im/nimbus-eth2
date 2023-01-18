@@ -152,24 +152,25 @@ suite "Light client processor" & preset():
 
       # Reduce stack size by making this a `proc`
       proc applyPeriodWithoutSupermajority(period: SyncCommitteePeriod) =
-        let update = dag.getLightClientUpdateForPeriod(period)
-        check update.kind > LightClientDataFork.None
-        withForkyUpdate(update):
+        let update = newClone(dag.getLightClientUpdateForPeriod(period))
+        check update[].kind > LightClientDataFork.None
+        withForkyUpdate(update[]):
           when lcDataFork > LightClientDataFork.None:
             setTimeToSlot(forkyUpdate.signature_slot)
 
         for i in 0 ..< 2:
           res = processor[].storeObject(
-            MsgSource.gossip, getBeaconTime(), update)
-          check update.kind <= store[].kind
+            MsgSource.gossip, getBeaconTime(), update[])
+          check update[].kind <= store[].kind
           if finalizationMode == LightClientFinalizationMode.Optimistic or
               period == lastPeriodWithSupermajority + 1:
             if finalizationMode == LightClientFinalizationMode.Optimistic or
                 i == 0:
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
-                  let upgraded = update.migratingToDataFork(lcDataFork)
-                  template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                  let upgraded = newClone(
+                    update[].migratingToDataFork(lcDataFork))
+                  template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isOk
                     forkyStore.best_valid_update.isSome
@@ -177,8 +178,9 @@ suite "Light client processor" & preset():
             else:
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
-                  let upgraded = update.migratingToDataFork(lcDataFork)
-                  template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                  let upgraded = newClone(
+                    update[].migratingToDataFork(lcDataFork))
+                  template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
                     res.error == VerifierError.Duplicate
@@ -187,8 +189,9 @@ suite "Light client processor" & preset():
           else:
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
-                let upgraded = update.migratingToDataFork(lcDataFork)
-                template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                let upgraded = newClone(
+                  update[].migratingToDataFork(lcDataFork))
+                template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
                   res.error == VerifierError.MissingParent
@@ -197,14 +200,15 @@ suite "Light client processor" & preset():
 
           proc applyDuplicate() = # Reduce stack size by making this a `proc`
             res = processor[].storeObject(
-              MsgSource.gossip, getBeaconTime(), update)
-            check update.kind <= store[].kind
+              MsgSource.gossip, getBeaconTime(), update[])
+            check update[].kind <= store[].kind
             if finalizationMode == LightClientFinalizationMode.Optimistic or
                 period == lastPeriodWithSupermajority + 1:
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
-                  let upgraded = update.migratingToDataFork(lcDataFork)
-                  template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                  let upgraded = newClone(
+                    update[].migratingToDataFork(lcDataFork))
+                  template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
                     res.error == VerifierError.Duplicate
@@ -213,8 +217,9 @@ suite "Light client processor" & preset():
             else:
               withForkyStore(store[]):
                 when lcDataFork > LightClientDataFork.None:
-                  let upgraded = update.migratingToDataFork(lcDataFork)
-                  template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                  let upgraded = newClone(
+                    update[].migratingToDataFork(lcDataFork))
+                  template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                   check:
                     res.isErr
                     res.error == VerifierError.MissingParent
@@ -229,13 +234,14 @@ suite "Light client processor" & preset():
           time += chronos.minutes(15)
 
           res = processor[].storeObject(
-            MsgSource.gossip, getBeaconTime(), update)
-          check update.kind <= store[].kind
+            MsgSource.gossip, getBeaconTime(), update[])
+          check update[].kind <= store[].kind
           if finalizationMode == LightClientFinalizationMode.Optimistic:
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
-                let upgraded = update.migratingToDataFork(lcDataFork)
-                template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                let upgraded = newClone(
+                  update[].migratingToDataFork(lcDataFork))
+                template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
                   res.error == VerifierError.Duplicate
@@ -247,8 +253,9 @@ suite "Light client processor" & preset():
           elif period == lastPeriodWithSupermajority + 1:
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
-                let upgraded = update.migratingToDataFork(lcDataFork)
-                template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                let upgraded = newClone(
+                  update[].migratingToDataFork(lcDataFork))
+                template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
                   res.error == VerifierError.Duplicate
@@ -257,8 +264,9 @@ suite "Light client processor" & preset():
           else:
             withForkyStore(store[]):
               when lcDataFork > LightClientDataFork.None:
-                let upgraded = update.migratingToDataFork(lcDataFork)
-                template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+                let upgraded = newClone(
+                  update[].migratingToDataFork(lcDataFork))
+                template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
                 check:
                   res.isErr
                   res.error == VerifierError.MissingParent
@@ -267,14 +275,16 @@ suite "Light client processor" & preset():
         if finalizationMode == LightClientFinalizationMode.Optimistic:
           withForkyStore(store[]):
             when lcDataFork > LightClientDataFork.None:
-              let upgraded = update.migratingToDataFork(lcDataFork)
-              template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+              let upgraded = newClone(
+                update[].migratingToDataFork(lcDataFork))
+              template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
               check forkyStore.finalized_header == forkyUpdate.attested_header
         else:
           withForkyStore(store[]):
             when lcDataFork > LightClientDataFork.None:
-              let upgraded = update.migratingToDataFork(lcDataFork)
-              template forkyUpdate: untyped = upgraded.forky(lcDataFork)
+              let upgraded = newClone(
+                update[].migratingToDataFork(lcDataFork))
+              template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
               check forkyStore.finalized_header != forkyUpdate.attested_header
 
       for period in lastPeriodWithSupermajority + 1 .. highPeriod:

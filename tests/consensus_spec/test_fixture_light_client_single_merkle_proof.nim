@@ -67,6 +67,8 @@ suite "EF - Light client - Single merkle proof" & preset():
         const blockFork = stateFork.toBeaconBlockFork()
         for kind, path in walkDir(suitePath, relative = true, checkDir = true):
           case objName
+          of "BeaconBlockBody":
+            runTest(suitePath/path, blockFork.BeaconBlockBody)
           of "BeaconState":
             runTest(suitePath/path, stateFork.BeaconState)
           else:
