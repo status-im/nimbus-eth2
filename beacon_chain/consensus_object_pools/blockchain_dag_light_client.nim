@@ -989,7 +989,8 @@ proc getLightClientBootstrap*(
         dag.lcDataStore.db, blockRoot)
       if header.isOk:
         return dag.getLightClientBootstrap(header.get)
-  static: doAssert LightClientDataFork.high == LightClientDataFork.Capella
+  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+  tryFromCache(LightClientDataFork.EIP4844)
   tryFromCache(LightClientDataFork.Capella)
   tryFromCache(LightClientDataFork.Altair)
 
