@@ -111,7 +111,7 @@ type
       ## SQLite backend
 
     headers: array[LightClientDataFork, LightClientHeaderStore]
-      ## Eth2Digest -> (Slot, LightClientHeader)
+      ## (Slot || Eth2Digest) -> LightClientHeader
       ## Cached block headers to support longer retention than block storage.
 
     currentBranches: CurrentSyncCommitteeBranchStore
