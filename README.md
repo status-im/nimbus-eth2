@@ -134,7 +134,7 @@ simulation with `WAIT_GENESIS=yes`
 make eth2_network_simulation WAIT_GENESIS=yes
 ```
 
-You can also separate the output from each beacon node in its own panel, using [multitail](http://www.vanheusden.com/multitail/):
+You can also separate the output from each beacon node in its own panel, using [multitail](https://www.vanheusden.com/multitail/):
 
 ```bash
 make eth2_network_simulation USE_MULTITAIL="yes"
@@ -174,10 +174,10 @@ Local testnets run for 4 epochs each, to test finalization. That happens only on
 
 Licensed and distributed under either of
 
-* MIT license: [LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT
+* MIT license: [LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT
 
 or
 
-* Apache License, Version 2.0, ([LICENSE-APACHEv2](LICENSE-APACHEv2) or http://www.apache.org/licenses/LICENSE-2.0)
+* Apache License, Version 2.0: [LICENSE-APACHEv2](LICENSE-APACHEv2) or https://www.apache.org/licenses/LICENSE-2.0
 
 at your option. These files may not be copied, modified, or distributed except according to those terms.
