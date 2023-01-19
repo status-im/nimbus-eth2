@@ -30,7 +30,7 @@ const
   VOLUNTARY_EXITS_BOUND = MAX_VOLUNTARY_EXITS * 4
 
   # For Capella launch; scale back later
-  BLS_TO_EXECUTION_CHANGES_BOUND = 20000'u64
+  BLS_TO_EXECUTION_CHANGES_BOUND = 32768'u64
 
 type
   OnVoluntaryExitCallback =
@@ -85,7 +85,7 @@ func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
       # TODO scale-back to BLS_TO_EXECUTION_CHANGES_BOUND post-capella, but
       # given large bound, allow to grow dynamically rather than statically
       # allocate all at once
-      initDeque[SignedBLSToExecutionChange](initialSize = 1000),
+      initDeque[SignedBLSToExecutionChange](initialSize = 1024),
     dag: dag,
     attestationPool: attestationPool,
     onVoluntaryExitReceived: onVoluntaryExit
