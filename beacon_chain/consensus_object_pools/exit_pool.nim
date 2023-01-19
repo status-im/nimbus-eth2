@@ -29,8 +29,8 @@ const
   PROPOSER_SLASHINGS_BOUND = MAX_PROPOSER_SLASHINGS * 4
   VOLUNTARY_EXITS_BOUND = MAX_VOLUNTARY_EXITS * 4
 
-  # For Capella launch; can scale back later
-  BLS_TO_EXECUTION_CHANGES_BOUND = MAX_BLS_TO_EXECUTION_CHANGES * 8'u64
+  # For Capella launch; scale back later
+  BLS_TO_EXECUTION_CHANGES_BOUND = 20000'u64
 
 type
   OnVoluntaryExitCallback =
@@ -82,17 +82,25 @@ func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
     voluntary_exits:
       initDeque[SignedVoluntaryExit](initialSize = VOLUNTARY_EXITS_BOUND.int),
     bls_to_execution_changes:
-      initDeque[SignedBLSToExecutionChange](initialSize =
-        BLS_TO_EXECUTION_CHANGES_BOUND.int),
+      # TODO scale-back to BLS_TO_EXECUTION_CHANGES_BOUND post-capella, but
+      # given large bound, allow to grow dynamically rather than statically
+      # allocate all at once
+      initDeque[SignedBLSToExecutionChange](initialSize = 1000),
     dag: dag,
     attestationPool: attestationPool,
     onVoluntaryExitReceived: onVoluntaryExit
    )
 
-func addValidatorChangeMessage(subpool: var auto, validatorChangeMessage, bound: auto) =
+func addValidatorChangeMessage(
+    subpool: var auto, seenpool: var auto, validatorChangeMessage: auto,
+    bound: static[uint64]) =
   # Prefer newer to older validator change messages
   while subpool.lenu64 >= bound:
-    discard subpool.popFirst()
+    # TODO remove temporary workaround once capella happens
+    when bound == BLS_TO_EXECUTION_CHANGES_BOUND:
+      seenpool.excl subpool.popFirst().message.validator_index
+    else:
+      discard subpool.popFirst()
 
   subpool.addLast(validatorChangeMessage)
   doAssert subpool.lenu64 <= bound
@@ -133,23 +141,27 @@ func addMessage*(pool: var ValidatorChangePool, msg: AttesterSlashing) =
         continue
       pool.attestationPool.forkChoice.process_equivocation(i)
 
-  pool.attester_slashings.addValidatorChangeMessage(msg, ATTESTER_SLASHINGS_BOUND)
+  pool.attester_slashings.addValidatorChangeMessage(
+    pool.prior_seen_attester_slashed_indices, msg, ATTESTER_SLASHINGS_BOUND)
 
 func addMessage*(pool: var ValidatorChangePool, msg: ProposerSlashing) =
   pool.prior_seen_proposer_slashed_indices.incl(
     msg.signed_header_1.message.proposer_index)
-  pool.proposer_slashings.addValidatorChangeMessage(msg, PROPOSER_SLASHINGS_BOUND)
+  pool.proposer_slashings.addValidatorChangeMessage(
+    pool.prior_seen_proposer_slashed_indices, msg, PROPOSER_SLASHINGS_BOUND)
 
 func addMessage*(pool: var ValidatorChangePool, msg: SignedVoluntaryExit) =
   pool.prior_seen_voluntary_exit_indices.incl(
     msg.message.validator_index)
-  pool.voluntary_exits.addValidatorChangeMessage(msg, VOLUNTARY_EXITS_BOUND)
+  pool.voluntary_exits.addValidatorChangeMessage(
+    pool.prior_seen_voluntary_exit_indices, msg, VOLUNTARY_EXITS_BOUND)
 
 func addMessage*(pool: var ValidatorChangePool, msg: SignedBLSToExecutionChange) =
   pool.prior_seen_bls_to_execution_change_indices.incl(
     msg.message.validator_index)
   pool.bls_to_execution_changes.addValidatorChangeMessage(
-    msg, BLS_TO_EXECUTION_CHANGES_BOUND)
+    pool.prior_seen_bls_to_execution_change_indices, msg,
+    BLS_TO_EXECUTION_CHANGES_BOUND)
 
 proc validateExitMessage(
     cfg: RuntimeConfig, state: ForkyBeaconState, msg: ProposerSlashing): bool =
