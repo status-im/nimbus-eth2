@@ -1517,7 +1517,7 @@ proc installMessageValidators(node: BeaconNode) =
           # blocks gossip subscription (and without passing the blob for sure).
           #
           # Until then, keep this workaround present (and if `newPayload` turns
-          # out to now work properly without the blob, revisit this section to
+          # out to not work properly without the blob, revisit this section to
           # also cache the blob in memory until sync aggregate is available).
           toValidationResult(
             node.optimisticProcessor.processSignedBeaconBlock(
