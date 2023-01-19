@@ -1458,6 +1458,20 @@
 
             
           
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="history.html" class="md-nav__link">
+        Historical data
+      </a>
+    </li>
+  
+
+            
+          
         </ul>
       </nav>
     </li>
@@ -1724,11 +1738,11 @@
 
 
 <h1 id="run-an-execution-client">Run an execution client</h1>
-<p>In order to run a beacon node, you need to also be running an execution client - at least one for each beacon node.</p>
+<p>In order to perform validation duties, you need to also be running an execution client - at least one for each beacon node.</p>
 <p>Nimbus has been tested all major execution clients - see the <a href="https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients">execution client comparison</a> for more information.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>You need to run your own execution client - relying on third-party services such as Infura, Alchemy and Pocket is no longer possible.</p>
+<p>You need to run your own execution client - relying on third-party services such as Infura, Alchemy and Pocket is no longer possible. Sharing the same execution client between multiple beacon nodes is not supported.</p>
 </div>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
@@ -1736,7 +1750,7 @@
 </div>
 <h2 id="steps">Steps</h2>
 <h3 id="1-install-execution-client">1. Install execution client</h3>
-<p>Select an execution client and install it, configuring it such that that WebSockets are enabled and a JWT secret file is created.</p>
+<p>Select an execution client and install it, configuring it such that that the authenticated JSON-RPC interface is enabled and a JWT secret file is created.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:5"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Nimbus</label><label for="__tabbed_1_2">Geth</label><label for="__tabbed_1_3">Nethermind</label><label for="__tabbed_1_4">Besu</label><label for="__tabbed_1_5">Erigon</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -1784,7 +1798,7 @@
 </div>
 </div>
 <h3 id="2-leave-the-execution-client-running">2. Leave the execution client running</h3>
-<p>The execution client will be syncing the chain through the merge transition block. Once it reaches this point, it will wait for the beacon node to provide further sync instructions.</p>
+<p>The execution client needs to be running at all times in order for the beacon node to be able to support validators. It will start its syncing process as soon as the beacon node connects to it - once both are synced, they will continue to work in tandem to validate the latest Ethereum state.</p>
 <p>It is safe to start the beacon node even if the execution client is not yet fully synced and vice versa.</p>
 <h3 id="3-pass-the-url-and-jwt-secret-to-nimbus">3. Pass the URL and JWT secret to Nimbus</h3>
 <p>The <code>--web3-url</code> option informs the beacon node how to connect to the execution client - both <code>http://</code> and <code>ws://</code> URLs are supported.</p>
