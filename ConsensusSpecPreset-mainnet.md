@@ -2023,6 +2023,14 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    Withdrawal                                                                    OK
 ```
 OK: 48/48 Fail: 0/48 Skip: 0/48
+## EF - EIP4844 - Unittests - Light client - Sync protocol [Preset: mainnet]
+```diff
++ process_light_client_update_finality_updated                                               OK
++ process_light_client_update_timeout                                                        OK
++ test_process_light_client_update_at_period_boundary                                        OK
++ test_process_light_client_update_not_timeout                                               OK
+```
+OK: 4/4 Fail: 0/4 Skip: 0/4
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: mainnet]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: mainnet]                 OK
@@ -2588,4 +2596,4 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 OK: 100/100 Fail: 0/100 Skip: 0/100
 
 ---TOTAL---
-OK: 2289/2298 Fail: 0/2298 Skip: 9/2298
+OK: 2293/2302 Fail: 0/2302 Skip: 9/2302

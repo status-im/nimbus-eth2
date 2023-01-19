@@ -151,13 +151,8 @@ suite "Light client processor" & preset():
         applyPeriodWithSupermajority(period)
 
       # Reduce stack size by making this a `proc`
-      proc applyPeriodWithoutSupermajority(period: SyncCommitteePeriod) =
-        let update = newClone(dag.getLightClientUpdateForPeriod(period))
-        check update[].kind > LightClientDataFork.None
-        withForkyUpdate(update[]):
-          when lcDataFork > LightClientDataFork.None:
-            setTimeToSlot(forkyUpdate.signature_slot)
-
+      proc applyPeriodWithoutSupermajority(
+          period: SyncCommitteePeriod, update: ref ForkedLightClientUpdate) =
         for i in 0 ..< 2:
           res = processor[].storeObject(
             MsgSource.gossip, getBeaconTime(), update[])
@@ -198,7 +193,8 @@ suite "Light client processor" & preset():
                   forkyStore.best_valid_update.isSome
                   not forkyStore.best_valid_update.get.matches(forkyUpdate)
 
-          proc applyDuplicate() = # Reduce stack size by making this a `proc`
+          # Reduce stack size by making this a `proc`
+          proc applyDuplicate(update: ref ForkedLightClientUpdate) =
             res = processor[].storeObject(
               MsgSource.gossip, getBeaconTime(), update[])
             check update[].kind <= store[].kind
@@ -226,10 +222,10 @@ suite "Light client processor" & preset():
                     forkyStore.best_valid_update.isSome
                     not forkyStore.best_valid_update.get.matches(forkyUpdate)
 
-          applyDuplicate()
+          applyDuplicate(update)
           time += chronos.minutes(15)
           for _ in 0 ..< 150:
-            applyDuplicate()
+            applyDuplicate(update)
             time += chronos.seconds(5)
           time += chronos.minutes(15)
 
@@ -272,6 +268,16 @@ suite "Light client processor" & preset():
                   res.error == VerifierError.MissingParent
                   forkyStore.best_valid_update.isSome
                   not forkyStore.best_valid_update.get.matches(forkyUpdate)
+
+      for period in lastPeriodWithSupermajority + 1 .. highPeriod:
+        let update = newClone(dag.getLightClientUpdateForPeriod(period))
+        check update[].kind > LightClientDataFork.None
+        withForkyUpdate(update[]):
+          when lcDataFork > LightClientDataFork.None:
+            setTimeToSlot(forkyUpdate.signature_slot)
+
+        applyPeriodWithoutSupermajority(period, update)
+
         if finalizationMode == LightClientFinalizationMode.Optimistic:
           withForkyStore(store[]):
             when lcDataFork > LightClientDataFork.None:
@@ -286,9 +292,6 @@ suite "Light client processor" & preset():
                 update[].migratingToDataFork(lcDataFork))
               template forkyUpdate: untyped = upgraded[].forky(lcDataFork)
               check forkyStore.finalized_header != forkyUpdate.attested_header
-
-      for period in lastPeriodWithSupermajority + 1 .. highPeriod:
-        applyPeriodWithoutSupermajority(period)
 
       var oldFinalized {.noinit.}: ForkedLightClientHeader
       withForkyStore(store[]):

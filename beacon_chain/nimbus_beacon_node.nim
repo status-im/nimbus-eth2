@@ -1430,7 +1430,7 @@ proc installMessageValidators(node: BeaconNode) =
   installPhase0Validators(forkDigests.altair)
   installPhase0Validators(forkDigests.bellatrix)
   installPhase0Validators(forkDigests.capella)
-  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:  
+  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
     installPhase0Validators(forkDigests.eip4844)
 
   node.network.addValidator(
@@ -1466,8 +1466,14 @@ proc installMessageValidators(node: BeaconNode) =
   if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
     node.network.addValidator(
       getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
-      proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
-        # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
+      proc (
+          signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar
+      ): ValidationResult =
+        if node.shouldSyncOptimistically(node.currentSlot):
+          toValidationResult(
+            node.optimisticProcessor.processSignedBeaconBlock(
+              signedBlock.beacon_block))
+        else:
           toValidationResult(node.processor[].processSignedBeaconBlock(
             MsgSource.gossip, signedBlock)))
 
