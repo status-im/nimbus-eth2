@@ -23,7 +23,7 @@ logScope:
 
 const
   MAX_REQUEST_BLOCKS* = 1024
-  MAX_REQUEST_BLOBS_SIDECARS = 128
+  MAX_REQUEST_BLOBS_SIDECARS* = 128
 
   blockResponseCost = allowedOpsPerSecondCost(64) # Allow syncing ~64 blocks/sec (minus request costs)
 
@@ -106,6 +106,12 @@ proc readChunkPayload*(
       return err(res.error)
   elif contextBytes == peer.network.forkDigests.capella:
     let res = await readChunkPayload(conn, peer, capella.SignedBeaconBlock)
+    if res.isOk:
+      return ok newClone(ForkedSignedBeaconBlock.init(res.get))
+    else:
+      return err(res.error)
+  elif contextBytes == peer.network.forkDigests.eip4844:
+    let res = await readChunkPayload(conn, peer, eip4844.SignedBeaconBlock)
     if res.isOk:
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:

@@ -349,13 +349,14 @@ proc initFullNode(
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, rng, getBeaconTime, taskpool)
     syncManager = newSyncManager[Peer, PeerId](
-      node.network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot,
+      node.network.peerPool, dag.cfg, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, dag.tail.slot, blockVerifier)
+      getFrontfillSlot, dag.tail.slot, blockVerifier, blockBlobsVerifier)
     backfiller = newSyncManager[Peer, PeerId](
-      node.network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot,
+      node.network.peerPool, dag.cfg, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, dag.backfill.slot, blockVerifier, maxHeadAge = 0)
+      getFrontfillSlot, dag.backfill.slot, blockVerifier, blockBlobsVerifier,
+      maxHeadAge = 0)
     router = (ref MessageRouter)(
       processor: processor,
       network: node.network)

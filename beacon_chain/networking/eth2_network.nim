@@ -800,7 +800,8 @@ func chunkMaxSize[T](): uint32 =
   # compiler error on (T: type) syntax...
   when T is ForkySignedBeaconBlock:
     when T is phase0.SignedBeaconBlock or T is altair.SignedBeaconBlock or
-         T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock:
+         T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
+         T is eip4844.SignedBeaconBlock:
       MAX_CHUNK_SIZE_BELLATRIX
     else:
       {.fatal: "what's the chunk size here?".}
