@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -36,19 +36,19 @@ const
   AttestationValidationError* =
     "Some errors happened while validating attestation(s)"
   AttestationValidationSuccess* =
-    "Attestation object(s) was broadcasted"
+    "Attestation object(s) was broadcast"
   InvalidAttesterSlashingObjectError* =
     "Unable to decode attester slashing object(s)"
   AttesterSlashingValidationError* =
     "Invalid attester slashing, it will never pass validation so it's rejected"
   AttesterSlashingValidationSuccess* =
-    "Attester slashing object was broadcasted"
+    "Attester slashing object was broadcast"
   InvalidProposerSlashingObjectError* =
     "Unable to decode proposer slashing object(s)"
   ProposerSlashingValidationError* =
     "Invalid proposer slashing, it will never pass validation so it's rejected"
   ProposerSlashingValidationSuccess* =
-    "Proposer slashing object was broadcasted"
+    "Proposer slashing object was broadcast"
   InvalidVoluntaryExitObjectError* =
     "Unable to decode voluntary exit object(s)"
   InvalidFeeRecipientRequestError* =
@@ -56,14 +56,14 @@ const
   VoluntaryExitValidationError* =
     "Invalid voluntary exit, it will never pass validation so it's rejected"
   VoluntaryExitValidationSuccess* =
-    "Voluntary exit object(s) was broadcasted"
+    "Voluntary exit object(s) was broadcast"
   InvalidAggregateAndProofObjectError* =
     "Unable to decode aggregate and proof object(s)"
   AggregateAndProofValidationError* =
     "Invalid aggregate and proof, it will never pass validation so it's " &
     "rejected"
   AggregateAndProofValidationSuccess* =
-    "Aggregate and proof object(s) was broadcasted"
+    "Aggregate and proof object(s) was broadcast"
   BeaconCommitteeSubscriptionSuccess* =
     "Beacon node processed committee subscription request(s)"
   SyncCommitteeSubscriptionSuccess* =
@@ -169,11 +169,11 @@ const
   SyncCommitteeMessageValidationError* =
     "Some errors happened while validating sync committee message(s)"
   SyncCommitteeMessageValidationSuccess* =
-    "Sync committee message(s) was broadcasted"
+    "Sync committee message(s) was broadcast"
   ContributionAndProofValidationError* =
     "Some errors happened while validating contribution and proof(s)"
   ContributionAndProofValidationSuccess* =
-    "Contribution and proof(s) was broadcasted"
+    "Contribution and proof(s) was broadcast"
   ProduceContributionError* =
     "Unable to produce contribution using the passed parameters"
   InternalServerError* =
@@ -221,3 +221,9 @@ const
     "Validator inactive"
   BlobsOutOfRange* =
     "Requested slot is outside of blobs window"
+  InvalidBlsToExecutionChangeObjectError* =
+    "Unable to decode BLS to execution change object(s)"
+  BlsToExecutionChangeValidationError* =
+    "Invalid BLS to execution change; it won't validate, so it's rejected"
+  BlsToExecutionChangeValidationSuccess* =
+    "BLS to execution change was broadcast"

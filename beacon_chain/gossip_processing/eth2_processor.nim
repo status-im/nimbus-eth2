@@ -124,7 +124,7 @@ type
 
     # Validated with no further verification required
     # ----------------------------------------------------------------
-    exitPool: ref ExitPool
+    validatorChangePool: ref ValidatorChangePool
 
     # Almost validated, pending cryptographic signature check
     # ----------------------------------------------------------------
@@ -151,7 +151,7 @@ proc new*(T: type Eth2Processor,
           validatorMonitor: ref ValidatorMonitor,
           dag: ChainDAGRef,
           attestationPool: ref AttestationPool,
-          exitPool: ref ExitPool,
+          validatorChangePool: ref ValidatorChangePool,
           validatorPool: ref ValidatorPool,
           syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
           lightClientPool: ref LightClientPool,
@@ -169,7 +169,7 @@ proc new*(T: type Eth2Processor,
     validatorMonitor: validatorMonitor,
     dag: dag,
     attestationPool: attestationPool,
-    exitPool: exitPool,
+    validatorChangePool: validatorChangePool,
     validatorPool: validatorPool,
     syncCommitteeMsgPool: syncCommitteeMsgPool,
     lightClientPool: lightClientPool,
@@ -397,6 +397,23 @@ proc processSignedAggregateAndProof*(
 
     err(v.error())
 
+proc processBlsToExecutionChange*(
+    self: var Eth2Processor, src: MsgSource,
+    blsToExecutionChange: SignedBLSToExecutionChange): ValidationRes =
+  logScope:
+    blsToExecutionChange = shortLog(blsToExecutionChange)
+
+  debug "BLS to execution change received"
+
+  let v = self.validatorChangePool[].validateBlsToExecutionChange(
+    blsToExecutionChange, self.getCurrentBeaconTime().slotOrZero.epoch)
+
+  if v.isOk():
+    trace "BLS to execution change validated"
+    self.validatorChangePool[].addMessage(blsToExecutionChange)
+
+  v
+
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,
     attesterSlashing: AttesterSlashing): ValidationRes =
@@ -405,12 +422,12 @@ proc processAttesterSlashing*(
 
   debug "Attester slashing received"
 
-  let v = self.exitPool[].validateAttesterSlashing(attesterSlashing)
+  let v = self.validatorChangePool[].validateAttesterSlashing(attesterSlashing)
 
   if v.isOk():
     trace "Attester slashing validated"
 
-    self.exitPool[].addMessage(attesterSlashing)
+    self.validatorChangePool[].addMessage(attesterSlashing)
 
     self.validatorMonitor[].registerAttesterSlashing(src, attesterSlashing)
 
@@ -429,11 +446,11 @@ proc processProposerSlashing*(
 
   debug "Proposer slashing received"
 
-  let v = self.exitPool[].validateProposerSlashing(proposerSlashing)
+  let v = self.validatorChangePool[].validateProposerSlashing(proposerSlashing)
   if v.isOk():
     trace "Proposer slashing validated"
 
-    self.exitPool[].addMessage(proposerSlashing)
+    self.validatorChangePool[].addMessage(proposerSlashing)
 
     self.validatorMonitor[].registerProposerSlashing(src, proposerSlashing)
 
@@ -452,11 +469,11 @@ proc processSignedVoluntaryExit*(
 
   debug "Voluntary exit received"
 
-  let v = self.exitPool[].validateVoluntaryExit(signedVoluntaryExit)
+  let v = self.validatorChangePool[].validateVoluntaryExit(signedVoluntaryExit)
   if v.isOk():
     trace "Voluntary exit validated"
 
-    self.exitPool[].addMessage(signedVoluntaryExit)
+    self.validatorChangePool[].addMessage(signedVoluntaryExit)
 
     self.validatorMonitor[].registerVoluntaryExit(
       src, signedVoluntaryExit.message)

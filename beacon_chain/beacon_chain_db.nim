@@ -529,11 +529,17 @@ proc new*(T: type BeaconChainDB,
           "lc_capella_headers"
         else:
           "",
+      eip4844Headers:
+        if cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
+          "lc_eip4844_headers"
+        else:
+          "",
       altairCurrentBranches: "lc_altair_current_branches",
       altairSyncCommittees: "lc_altair_sync_committees",
       legacyAltairBestUpdates: "lc_altair_best_updates",
       bestUpdates: "lc_best_updates",
       sealedPeriods: "lc_sealed_periods")).expectDb()
+  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
 
   var blobs : KvStoreRef
   if cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:

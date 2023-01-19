@@ -30,13 +30,14 @@ logScope: topics = "lcdata"
 # Mainnet data size (all columns):
 # - Altair: ~38 KB per `SyncCommitteePeriod` (~1.0 MB per month)
 # - Capella: ~222 KB per `SyncCommitteePeriod` (~6.1 MB per month)
+# - EIP4844: ~230 KB per `SyncCommitteePeriod` (~6.3 MB per month)
 #
 # `lc_altair_current_branches` holds merkle proofs needed to
 # construct `LightClientBootstrap` objects.
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
 # Mainnet data size (all columns):
-# - Altair ... Capella: ~42 KB per `SyncCommitteePeriod` (~1.1 MB per month)
+# - Altair ... EIP4844: ~42 KB per `SyncCommitteePeriod` (~1.1 MB per month)
 #
 # `lc_altair_sync_committees` contains a copy of finalized sync committees.
 # They are initially populated from the main DAG (usually a fast state access).
@@ -44,7 +45,7 @@ logScope: topics = "lcdata"
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
 # Mainnet data size (all columns):
-# - Altair ... Capella: ~32 KB per `SyncCommitteePeriod` (~0.9 MB per month)
+# - Altair ... EIP4844: ~32 KB per `SyncCommitteePeriod` (~0.9 MB per month)
 #
 # `lc_best_updates` holds full `LightClientUpdate` objects in SSZ form.
 # These objects are frequently queried in bulk, but there is only one per
@@ -60,6 +61,7 @@ logScope: topics = "lcdata"
 # Mainnet data size (all columns):
 # - Altair: ~33 KB per `SyncCommitteePeriod` (~0.9 MB per month)
 # - Capella: ~34 KB per `SyncCommitteePeriod` (~0.9 MB per month)
+# - EIP4844: ~34 KB per `SyncCommitteePeriod` (~0.9 MB per month)
 #
 # `lc_sealed_periods` contains the sync committee periods for which
 # full light client data was imported. Data for these periods may no longer
@@ -681,6 +683,7 @@ func keepPeriodsFrom*(
 type LightClientDataDBNames* = object
   altairHeaders*: string
   capellaHeaders*: string
+  eip4844Headers*: string
   altairCurrentBranches*: string
   altairSyncCommittees*: string
   legacyAltairBestUpdates*: string
@@ -690,6 +693,7 @@ type LightClientDataDBNames* = object
 proc initLightClientDataDB*(
     backend: SqStoreRef,
     names: LightClientDataDBNames): KvResult[LightClientDataDB] =
+  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
   let
     headers = [
       # LightClientDataFork.None
@@ -699,7 +703,10 @@ proc initLightClientDataDB*(
         names.altairHeaders, "altair.LightClientHeader"),
       # LightClientDataFork.Capella
       ? backend.initHeadersStore(
-        names.capellaHeaders, "capella.LightClientHeader")
+        names.capellaHeaders, "capella.LightClientHeader"),
+      # LightClientDataFork.EIP4844
+      ? backend.initHeadersStore(
+        names.eip4844Headers, "eip4844.LightClientHeader")
     ]
     currentBranches =
       ? backend.initCurrentBranchesStore(names.altairCurrentBranches)

@@ -19,8 +19,10 @@ else:
   {.push raises: [].}
 
 import
-  stew/byteutils,
+  chronicles,
+  stew/[bitops2, byteutils],
   json_serialization,
+  ssz_serialization/[merkleization, proofs],
   ssz_serialization/types as sszTypes,
   ../digest,
   "."/[base, phase0, altair, bellatrix, capella]
@@ -107,6 +109,102 @@ type
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/sync-protocol.md#lightclientheader
+  LightClientHeader* = object
+    beacon*: BeaconBlockHeader
+      ## Beacon block header
+
+    execution*: ExecutionPayloadHeader
+      ## Execution payload header corresponding to `beacon.body_root` (from Capella onward)
+    execution_branch*: capella.ExecutionBranch
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
+  LightClientBootstrap* = object
+    header*: LightClientHeader
+      ## Header matching the requested beacon block root
+
+    current_sync_committee*: SyncCommittee
+      ## Current sync committee corresponding to `header.beacon.state_root`
+    current_sync_committee_branch*: altair.CurrentSyncCommitteeBranch
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/sync-protocol.md#lightclientupdate
+  LightClientUpdate* = object
+    attested_header*: LightClientHeader
+      ## Header attested to by the sync committee
+
+    next_sync_committee*: SyncCommittee
+      ## Next sync committee corresponding to `attested_header.beacon.state_root`
+    next_sync_committee_branch*: altair.NextSyncCommitteeBranch
+
+    # Finalized header corresponding to `attested_header.beacon.state_root`
+    finalized_header*: LightClientHeader
+    finality_branch*: altair.FinalityBranch
+
+    sync_aggregate*: SyncAggregate
+      ## Sync committee aggregate signature
+    signature_slot*: Slot
+      ## Slot at which the aggregate signature was created (untrusted)
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
+  LightClientFinalityUpdate* = object
+    # Header attested to by the sync committee
+    attested_header*: LightClientHeader
+
+    # Finalized header corresponding to `attested_header.beacon.state_root`
+    finalized_header*: LightClientHeader
+    finality_branch*: altair.FinalityBranch
+
+    # Sync committee aggregate signature
+    sync_aggregate*: SyncAggregate
+    # Slot at which the aggregate signature was created (untrusted)
+    signature_slot*: Slot
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
+  LightClientOptimisticUpdate* = object
+    # Header attested to by the sync committee
+    attested_header*: LightClientHeader
+
+    # Sync committee aggregate signature
+    sync_aggregate*: SyncAggregate
+    # Slot at which the aggregate signature was created (untrusted)
+    signature_slot*: Slot
+
+  SomeLightClientUpdateWithSyncCommittee* =
+    LightClientUpdate
+
+  SomeLightClientUpdateWithFinality* =
+    LightClientUpdate |
+    LightClientFinalityUpdate
+
+  SomeLightClientUpdate* =
+    LightClientUpdate |
+    LightClientFinalityUpdate |
+    LightClientOptimisticUpdate
+
+  SomeLightClientObject* =
+    LightClientBootstrap |
+    SomeLightClientUpdate
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/sync-protocol.md#lightclientstore
+  LightClientStore* = object
+    finalized_header*: LightClientHeader
+      ## Header that is finalized
+
+    current_sync_committee*: SyncCommittee
+      ## Sync committees corresponding to the finalized header
+    next_sync_committee*: SyncCommittee
+
+    best_valid_update*: Opt[LightClientUpdate]
+      ## Best available header to switch finalized head to if we see nothing else
+
+    optimistic_header*: LightClientHeader
+      ## Most recent available reasonably-safe header
+
+    previous_max_active_participants*: uint64
+      ## Max number of active participants in a sync committee (used to compute
+      ## safety threshold)
+    current_max_active_participants*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#beaconstate
   # changes indirectly via ExecutionPayloadHeader
@@ -403,6 +501,243 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     blck: shortLog(v.message),
     signature: shortLog(v.signature)
   )
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/sync-protocol.md#get_lc_execution_root
+func get_lc_execution_root*(
+    header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
+  let epoch = header.beacon.slot.epoch
+
+  if epoch >= cfg.EIP4844_FORK_EPOCH:
+    return hash_tree_root(header.execution)
+
+  if epoch >= cfg.CAPELLA_FORK_EPOCH:
+    let execution_header = capella.ExecutionPayloadHeader(
+      parent_hash: header.execution.parent_hash,
+      fee_recipient: header.execution.fee_recipient,
+      state_root: header.execution.state_root,
+      receipts_root: header.execution.receipts_root,
+      logs_bloom: header.execution.logs_bloom,
+      prev_randao: header.execution.prev_randao,
+      block_number: header.execution.block_number,
+      gas_limit: header.execution.gas_limit,
+      gas_used: header.execution.gas_used,
+      timestamp: header.execution.timestamp,
+      extra_data: header.execution.extra_data,
+      base_fee_per_gas: header.execution.base_fee_per_gas,
+      block_hash: header.execution.block_hash,
+      transactions_root: header.execution.transactions_root,
+      withdrawals_root: header.execution.withdrawals_root)
+    return hash_tree_root(execution_header)
+
+  ZERO_HASH
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/sync-protocol.md#is_valid_light_client_header
+func is_valid_light_client_header*(
+    header: LightClientHeader, cfg: RuntimeConfig): bool =
+  let epoch = header.beacon.slot.epoch
+
+  if epoch < cfg.EIP4844_FORK_EPOCH:
+    if header.execution.excess_data_gas != 0.u256:
+      return false
+
+  if epoch < cfg.CAPELLA_FORK_EPOCH:
+    return
+      header.execution == default(ExecutionPayloadHeader) and
+      header.execution_branch == default(ExecutionBranch)
+
+  is_valid_merkle_branch(
+    get_lc_execution_root(header, cfg),
+    header.execution_branch,
+    log2trunc(EXECUTION_PAYLOAD_INDEX),
+    get_subtree_index(EXECUTION_PAYLOAD_INDEX),
+    header.beacon.body_root)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/fork.md#upgrade_lc_header_to_eip4844
+func upgrade_lc_header_to_eip4844*(
+    pre: capella.LightClientHeader): LightClientHeader =
+  LightClientHeader(
+    beacon: pre.beacon,
+    execution: ExecutionPayloadHeader(
+        parent_hash: pre.execution.parent_hash,
+        fee_recipient: pre.execution.fee_recipient,
+        state_root: pre.execution.state_root,
+        receipts_root: pre.execution.receipts_root,
+        logs_bloom: pre.execution.logs_bloom,
+        prev_randao: pre.execution.prev_randao,
+        block_number: pre.execution.block_number,
+        gas_limit: pre.execution.gas_limit,
+        gas_used: pre.execution.gas_used,
+        timestamp: pre.execution.timestamp,
+        extra_data: pre.execution.extra_data,
+        base_fee_per_gas: pre.execution.base_fee_per_gas,
+        block_hash: pre.execution.block_hash,
+        transactions_root: pre.execution.transactions_root,
+        withdrawals_root: pre.execution.withdrawals_root),
+    execution_branch: pre.execution_branch)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/fork.md#upgrade_lc_bootstrap_to_eip4844
+func upgrade_lc_bootstrap_to_eip4844*(
+    pre: capella.LightClientBootstrap): LightClientBootstrap =
+  LightClientBootstrap(
+    header: upgrade_lc_header_to_eip4844(pre.header),
+    current_sync_committee: pre.current_sync_committee,
+    current_sync_committee_branch: pre.current_sync_committee_branch)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/fork.md#upgrade_lc_update_to_eip4844
+func upgrade_lc_update_to_eip4844*(
+    pre: capella.LightClientUpdate): LightClientUpdate =
+  LightClientUpdate(
+    attested_header: upgrade_lc_header_to_eip4844(pre.attested_header),
+    next_sync_committee: pre.next_sync_committee,
+    next_sync_committee_branch: pre.next_sync_committee_branch,
+    finalized_header: upgrade_lc_header_to_eip4844(pre.finalized_header),
+    finality_branch: pre.finality_branch,
+    sync_aggregate: pre.sync_aggregate,
+    signature_slot: pre.signature_slot)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/fork.md#upgrade_lc_finality_update_to_eip4844
+func upgrade_lc_finality_update_to_eip4844*(
+    pre: capella.LightClientFinalityUpdate): LightClientFinalityUpdate =
+  LightClientFinalityUpdate(
+    attested_header: upgrade_lc_header_to_eip4844(pre.attested_header),
+    finalized_header: upgrade_lc_header_to_eip4844(pre.finalized_header),
+    finality_branch: pre.finality_branch,
+    sync_aggregate: pre.sync_aggregate,
+    signature_slot: pre.signature_slot)
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/fork.md#upgrade_lc_optimistic_update_to_eip4844
+func upgrade_lc_optimistic_update_to_eip4844*(
+    pre: capella.LightClientOptimisticUpdate): LightClientOptimisticUpdate =
+  LightClientOptimisticUpdate(
+    attested_header: upgrade_lc_header_to_eip4844(pre.attested_header),
+    sync_aggregate: pre.sync_aggregate,
+    signature_slot: pre.signature_slot)
+
+func shortLog*(v: LightClientHeader): auto =
+  (
+    beacon: shortLog(v.beacon),
+    execution: (
+      block_hash: v.execution.block_hash,
+      block_number: v.execution.block_number)
+  )
+
+func shortLog*(v: LightClientBootstrap): auto =
+  (
+    header: shortLog(v.header)
+  )
+
+func shortLog*(v: LightClientUpdate): auto =
+  (
+    attested: shortLog(v.attested_header),
+    has_next_sync_committee:
+      v.next_sync_committee != default(typeof(v.next_sync_committee)),
+    finalized: shortLog(v.finalized_header),
+    num_active_participants: v.sync_aggregate.num_active_participants,
+    signature_slot: v.signature_slot
+  )
+
+func shortLog*(v: LightClientFinalityUpdate): auto =
+  (
+    attested: shortLog(v.attested_header),
+    finalized: shortLog(v.finalized_header),
+    num_active_participants: v.sync_aggregate.num_active_participants,
+    signature_slot: v.signature_slot
+  )
+
+func shortLog*(v: LightClientOptimisticUpdate): auto =
+  (
+    attested: shortLog(v.attested_header),
+    num_active_participants: v.sync_aggregate.num_active_participants,
+    signature_slot: v.signature_slot,
+  )
+
+chronicles.formatIt LightClientBootstrap: shortLog(it)
+chronicles.formatIt LightClientUpdate: shortLog(it)
+chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
+chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
+
+template toFull*(
+    update: SomeLightClientUpdate): LightClientUpdate =
+  when update is LightClientUpdate:
+    update
+  elif update is SomeLightClientUpdateWithFinality:
+    LightClientUpdate(
+      attested_header: update.attested_header,
+      finalized_header: update.finalized_header,
+      finality_branch: update.finality_branch,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+  else:
+    LightClientUpdate(
+      attested_header: update.attested_header,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+
+template toFinality*(
+    update: SomeLightClientUpdate): LightClientFinalityUpdate =
+  when update is LightClientFinalityUpdate:
+    update
+  elif update is SomeLightClientUpdateWithFinality:
+    LightClientFinalityUpdate(
+      attested_header: update.attested_header,
+      finalized_header: update.finalized_header,
+      finality_branch: update.finality_branch,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+  else:
+    LightClientFinalityUpdate(
+      attested_header: update.attested_header,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+
+template toOptimistic*(
+    update: SomeLightClientUpdate): LightClientOptimisticUpdate =
+  when update is LightClientOptimisticUpdate:
+    update
+  else:
+    LightClientOptimisticUpdate(
+      attested_header: update.attested_header,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+
+func matches*[A, B: SomeLightClientUpdate](a: A, b: B): bool =
+  if a.attested_header != b.attested_header:
+    return false
+  when a is SomeLightClientUpdateWithSyncCommittee and
+      b is SomeLightClientUpdateWithSyncCommittee:
+    if a.next_sync_committee != b.next_sync_committee:
+      return false
+    if a.next_sync_committee_branch != b.next_sync_committee_branch:
+      return false
+  when a is SomeLightClientUpdateWithFinality and
+      b is SomeLightClientUpdateWithFinality:
+    if a.finalized_header != b.finalized_header:
+      return false
+    if a.finality_branch != b.finality_branch:
+      return false
+  if a.sync_aggregate != b.sync_aggregate:
+    return false
+  if a.signature_slot != b.signature_slot:
+    return false
+  true
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/fork.md#upgrade_lc_store_to_eip4844
+func upgrade_lc_store_to_eip4844*(
+    pre: capella.LightClientStore): LightClientStore =
+  let best_valid_update =
+    if pre.best_valid_update.isNone:
+      Opt.none(LightClientUpdate)
+    else:
+      Opt.some upgrade_lc_update_to_eip4844(pre.best_valid_update.get)
+  LightClientStore(
+    finalized_header: upgrade_lc_header_to_eip4844(pre.finalized_header),
+    current_sync_committee: pre.current_sync_committee,
+    next_sync_committee: pre.next_sync_committee,
+    best_valid_update: best_valid_update,
+    optimistic_header: upgrade_lc_header_to_eip4844(pre.optimistic_header),
+    previous_max_active_participants: pre.previous_max_active_participants,
+    current_max_active_participants: pre.current_max_active_participants)
+
 template asSigned*(
     x: SigVerifiedSignedBeaconBlock |
        MsgTrustedSignedBeaconBlock |

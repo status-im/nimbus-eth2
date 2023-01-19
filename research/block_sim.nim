@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2019-2022 Status Research & Development GmbH
+# Copyright (c) 2019-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -72,9 +72,6 @@ from ../beacon_chain/spec/state_transition_block import process_block
 # when possible, to also use the forked version. It'll be worth keeping some
 # example of the non-forked version because it enables fork bootstrapping.
 
-const defaultSignedBLSToExecutionChangeList =
-  default(SignedBLSToExecutionChangeList)
-
 proc makeBeaconBlock(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
@@ -84,7 +81,7 @@ proc makeBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: bellatrix.ExecutionPayload,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
@@ -104,8 +101,7 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload,
-    defaultSignedBLSToExecutionChangeList)
+    attestations, deposits, exits, sync_aggregate, execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -128,7 +124,7 @@ proc makeBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: bellatrix.ExecutionPayload,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
@@ -148,8 +144,7 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload,
-    defaultSignedBLSToExecutionChangeList)
+    attestations, deposits, exits, sync_aggregate, execution_payload)
 
   # Signatures are verified elsewhere, so don't duplicate inefficiently here
   let res = process_block(
@@ -173,7 +168,7 @@ proc makeBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: bellatrix.ExecutionPayload,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
@@ -193,8 +188,7 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload,
-    defaultSignedBLSToExecutionChangeList)
+    attestations, deposits, exits, sync_aggregate, execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -217,7 +211,7 @@ proc makeBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: capella.ExecutionPayload,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
@@ -237,8 +231,7 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload,
-    bls_to_execution_changes)
+    attestations, deposits, exits, sync_aggregate, execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -261,7 +254,7 @@ proc makeBeaconBlock(
     graffiti: GraffitiBytes,
     attestations: seq[Attestation],
     deposits: seq[Deposit],
-    exits: BeaconBlockExits,
+    exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     execution_payload: eip4844.ExecutionPayload,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
@@ -281,8 +274,7 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload,
-    bls_to_execution_changes)
+    attestations, deposits, exits, sync_aggregate, execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -520,7 +512,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         default(GraffitiBytes),
         attPool.getAttestationsForBlock(state, cache),
         eth1ProposalData.deposits,
-        BeaconBlockExits(),
+        BeaconBlockValidatorChanges(),
         sync_aggregate,
         when T is eip4844.SignedBeaconBlock:
           default(eip4844.ExecutionPayload)
@@ -528,7 +520,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           default(capella.ExecutionPayload)
         else:
           default(bellatrix.ExecutionPayload),
-        defaultSignedBLSToExecutionChangeList,
+        static(default(SignedBLSToExecutionChangeList)),
         noRollback,
         cache)
 
