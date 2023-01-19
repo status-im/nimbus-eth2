@@ -76,7 +76,7 @@ proc checkResponse(roots: openArray[Eth2Digest],
       return false
     else:
       checks.del(res)
-  return true
+  true
 
 proc checkResponse(roots: openArray[Eth2Digest],
                    blocks: openArray[ref ForkedSignedBeaconBlock]): bool =
