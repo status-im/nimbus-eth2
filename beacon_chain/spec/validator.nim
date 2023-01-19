@@ -6,10 +6,7 @@
 
 # Helpers and functions pertaining to managing the validator set
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   ./datatypes/[phase0, altair, bellatrix],

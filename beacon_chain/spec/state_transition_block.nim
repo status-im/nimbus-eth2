@@ -17,10 +17,7 @@
 #   improvements to be made - other than that, keep things similar to spec unless
 #   motivated by security or performance considerations
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   chronicles, metrics,

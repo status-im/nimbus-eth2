@@ -21,10 +21,7 @@
 # A, B and C, and another with B, C and D, we cannot practically combine them
 # even if in theory it is possible to allow this in BLS.
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   # Status

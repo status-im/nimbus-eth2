@@ -15,10 +15,7 @@ import
 # TODO when forks re-exports capella, drop this
 from ../spec/datatypes/capella import shortLog
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 logScope: topics = "val_mon"
 
