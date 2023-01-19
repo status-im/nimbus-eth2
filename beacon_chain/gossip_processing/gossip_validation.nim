@@ -818,9 +818,37 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/p2p-interface.md#bls_to_execution_change
+proc validateBlsToExecutionChange*(
+    pool: ValidatorChangePool, signed_address_change: SignedBLSToExecutionChange,
+    wallEpoch: Epoch): Result[void, ValidationError] =
+  # [IGNORE] `current_epoch >= CAPELLA_FORK_EPOCH`, where `current_epoch` is
+  # defined by the current wall-clock time.
+  if not (wallEpoch >= pool.dag.cfg.CAPELLA_FORK_EPOCH):
+    return errIgnore("validateBlsToExecutionChange: not accepting gossip until Capella")
+
+  # [IGNORE] The `signed_bls_to_execution_change` is the first valid signed bls
+  # to execution change received for the validator with index
+  # `signed_bls_to_execution_change.message.validator_index`.
+  if pool.isSeen(signed_address_change):
+    return errIgnore("validateBlsToExecutionChange: not first signed BLS to execution change received for validator index")
+
+  # [REJECT] All of the conditions within `process_bls_to_execution_change`
+  # pass validation.
+  withState(pool.dag.headState):
+    when stateFork < BeaconStateFork.Capella:
+      return errIgnore("validateBlsToExecutionChange: can't validate against pre-Capella state")
+    else:
+      let res = check_bls_to_execution_change(
+        pool.dag.cfg, forkyState.data, signed_address_change)
+      if res.isErr:
+        return errReject(res.error)
+
+  ok()
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
-    pool: ExitPool, attester_slashing: AttesterSlashing):
+    pool: ValidatorChangePool, attester_slashing: AttesterSlashing):
     Result[void, ValidationError] =
   # [IGNORE] At least one index in the intersection of the attesting indices of
   # each attestation has not yet been seen in any prior attester_slashing (i.e.
@@ -843,7 +871,7 @@ proc validateAttesterSlashing*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
-    pool: ExitPool, proposer_slashing: ProposerSlashing):
+    pool: ValidatorChangePool, proposer_slashing: ProposerSlashing):
     Result[void, ValidationError] =
   # Not from spec; the rest of NBC wouldn't have correctly processed it either.
   if proposer_slashing.signed_header_1.message.proposer_index > high(int).uint64:
@@ -866,7 +894,7 @@ proc validateProposerSlashing*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
-    pool: ExitPool, signed_voluntary_exit: SignedVoluntaryExit):
+    pool: ValidatorChangePool, signed_voluntary_exit: SignedVoluntaryExit):
     Result[void, ValidationError] =
   # [IGNORE] The voluntary exit is the first valid voluntary exit received for
   # the validator with index signed_voluntary_exit.message.validator_index.

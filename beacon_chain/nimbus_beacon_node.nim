@@ -313,8 +313,8 @@ proc initFullNode(
       SyncCommitteeMsgPool.init(rng, onSyncContribution))
     lightClientPool = newClone(
       LightClientPool())
-    exitPool = newClone(
-      ExitPool.init(dag, attestationPool, onVoluntaryExitAdded))
+    validatorChangePool = newClone(
+      ValidatorChangePool.init(dag, attestationPool, onVoluntaryExitAdded))
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.eth1Monitor,
       ActionTracker.init(rng, config.subscribeAllSubnets),
@@ -335,9 +335,9 @@ proc initFullNode(
       resfut
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
-      blockProcessor, node.validatorMonitor, dag, attestationPool, exitPool,
-      node.attachedValidators, syncCommitteeMsgPool, lightClientPool,
-      quarantine, rng, getBeaconTime, taskpool)
+      blockProcessor, node.validatorMonitor, dag, attestationPool,
+      validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
+      lightClientPool, quarantine, rng, getBeaconTime, taskpool)
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
@@ -375,7 +375,7 @@ proc initFullNode(
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
   node.lightClientPool = lightClientPool
-  node.exitPool = exitPool
+  node.validatorChangePool = validatorChangePool
   node.processor = processor
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
@@ -1463,7 +1463,7 @@ proc installMessageValidators(node: BeaconNode) =
         toValidationResult(node.processor[].processSignedBeaconBlock(
           MsgSource.gossip, signedBlock)))
 
-  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:  
+  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
     node.network.addValidator(
       getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
       proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
@@ -1495,6 +1495,17 @@ proc installMessageValidators(node: BeaconNode) =
   installSyncCommitteeeValidators(forkDigests.capella)
   if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
     installSyncCommitteeeValidators(forkDigests.eip4844)
+
+  template installBlsToExecutionChangeValidators(digest: auto) =
+    node.network.addValidator(
+      getBlsToExecutionChangeTopic(digest),
+      proc(msg: SignedBLSToExecutionChange): ValidationResult =
+        return toValidationResult(
+          node.processor[].processBlsToExecutionChange(MsgSource.gossip, msg)))
+
+  installBlsToExecutionChangeValidators(forkDigests.capella)
+  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    installBlsToExecutionChangeValidators(forkDigests.eip4844)
 
   node.installLightClientMessageValidators()
 

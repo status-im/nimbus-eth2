@@ -493,7 +493,8 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
     attestations =
       node.attestationPool[].getAttestationsForBlock(state[], cache)
     exits = withState(state[]):
-      node.exitPool[].getBeaconBlockExits(node.dag.cfg, forkyState.data)
+      node.validatorChangePool[].getBeaconBlockValidatorChanges(
+        node.dag.cfg, forkyState.data)
     syncAggregate =
       if slot.epoch < node.dag.cfg.ALTAIR_FORK_EPOCH:
         SyncAggregate.init()
@@ -517,7 +518,7 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
       exits,
       syncAggregate,
       payload,
-      (static(default(SignedBLSToExecutionChangeList))),
+      (static(default(SignedBLSToExecutionChangeList))),   # TODO remove
       noRollback, # Temporary state - no need for rollback
       cache,
       verificationFlags = {},

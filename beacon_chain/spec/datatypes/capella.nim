@@ -39,7 +39,7 @@ const
 
 type
   SignedBLSToExecutionChangeList* =
-    List[SignedBLSToExecutionChange, MAX_BLS_TO_EXECUTION_CHANGES]
+    List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#withdrawal
   Withdrawal* = object
@@ -483,6 +483,14 @@ type
     parentHash*: string
     timestamp*: string
 
+  BeaconBlockValidatorChanges* = object
+    # Collection of exits that are suitable for block production
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    bls_to_execution_changes*:
+      List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
+
 func shortLog*(v: SomeBeaconBlock): auto =
   (
     slot: shortLog(v.slot),
@@ -505,6 +513,19 @@ func shortLog*(v: SomeBeaconBlock): auto =
 func shortLog*(v: SomeSignedBeaconBlock): auto =
   (
     blck: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
+
+func shortLog*(v: BLSToExecutionChange): auto =
+  (
+    validator_index: v.validator_index,
+    from_bls_pubkey: shortLog(v.from_bls_pubkey),
+    to_execution_address: v.to_execution_address
+  )
+
+func shortLog*(v: SignedBLSToExecutionChange): auto =
+  (
+    bls_to_execution_change: shortLog(v.message),
     signature: shortLog(v.signature)
   )
 

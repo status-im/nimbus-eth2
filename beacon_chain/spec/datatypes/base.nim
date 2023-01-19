@@ -475,12 +475,6 @@ type
     next_fork_version*: Version
     next_fork_epoch*: Epoch
 
-  BeaconBlockExits* = object
-    # Collection of exits that are suitable for block production
-    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
-    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
-    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
-
   AttnetBits* = BitArray[int ATTESTATION_SUBNET_COUNT]
 
 type

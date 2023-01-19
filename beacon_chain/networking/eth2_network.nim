@@ -2623,6 +2623,13 @@ proc broadcastProposerSlashing*(
     node.forkDigestAtEpoch(node.getWallEpoch))
   node.broadcast(topic, slashing)
 
+proc broadcastBlsToExecutionChange*(
+    node: Eth2Node, bls_to_execution_change: SignedBLSToExecutionChange):
+    Future[SendResult] =
+  let topic = getBlsToExecutionChangeTopic(
+    node.forkDigestAtEpoch(node.getWallEpoch))
+  node.broadcast(topic, bls_to_execution_change)
+
 proc broadcastAggregateAndProof*(
     node: Eth2Node, proof: SignedAggregateAndProof): Future[SendResult] =
   let topic = getAggregateAndProofsTopic(
