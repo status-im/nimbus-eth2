@@ -20,11 +20,10 @@ import
   ./datatypes/[phase0, altair, bellatrix, capella, eip4844],
   ./mev/bellatrix_mev
 
-# TODO re-export capella, but for now it could cause knock-on effects, so stage
-# it sequentially
 export
-  extras, block_id, phase0, altair, bellatrix, eth2_merkleization,
-  eth2_ssz_serialization, forks_light_client, presets, bellatrix_mev
+  extras, block_id, phase0, altair, bellatrix, capella, eip4844,
+  eth2_merkleization, eth2_ssz_serialization, forks_light_client,
+  presets, bellatrix_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -257,6 +256,25 @@ type
     capella*:   ForkDigest
     eip4844*:   ForkDigest
 
+# The purpose of this type is to unify the pre- and post-EIP4844
+# block gossip structures. It is for used only for
+# gossip-originating blocks, which are eventually separated into the
+# constituent parts before passing along into core functions.
+type  ForkySignedBeaconBlockMaybeBlobs* =
+  phase0.SignedBeaconBlock |
+  altair.SignedBeaconBlock |
+  bellatrix.SignedBeaconBlock |
+  capella.SignedBeaconBlock |
+  eip4844.SignedBeaconBlockAndBlobsSidecar
+# ForkySignedBeaconBlockMaybeBlobs should only contain types that are gossiped.
+static: doAssert not (default(eip4844.SignedBeaconBlock) is ForkySignedBeaconBlockMaybeBlobs)
+
+template toSignedBeaconBlock*(b: ForkySignedBeaconBlockMaybeBlobs): ForkySignedBeaconBlock =
+  when b is eip4844.SignedBeaconBlockAndBlobsSidecar:
+    b.beacon_block
+  else:
+    b
+
 template toFork*[T: phase0.BeaconState | phase0.HashedBeaconState](
     t: type T): BeaconStateFork =
   BeaconStateFork.Phase0
@@ -272,6 +290,39 @@ template toFork*[T: capella.BeaconState | capella.HashedBeaconState](
 template toFork*[T: eip4844.BeaconState | eip4844.HashedBeaconState](
     t: type T): BeaconStateFork =
   BeaconStateFork.EIP4844
+
+template BeaconState*(kind: static BeaconStateFork): auto =
+  when kind == BeaconStateFork.EIP4844:
+    typedesc[eip4844.BeaconState]
+  elif kind == BeaconStateFork.Capella:
+    typedesc[capella.BeaconState]
+  elif kind == BeaconStateFork.Bellatrix:
+    typedesc[bellatrix.BeaconState]
+  elif kind == BeaconStateFork.Altair:
+    typedesc[altair.BeaconState]
+  elif kind == BeaconStateFork.Phase0:
+    typedesc[phase0.BeaconState]
+  else:
+    static: raiseAssert "Unreachable"
+
+template withStateFork*(
+    x: BeaconStateFork, body: untyped): untyped =
+  case x
+  of BeaconStateFork.EIP4844:
+    const stateFork {.inject, used.} = BeaconStateFork.Eip4844
+    body
+  of BeaconStateFork.Capella:
+    const stateFork {.inject, used.} = BeaconStateFork.Capella
+    body
+  of BeaconStateFork.Bellatrix:
+    const stateFork {.inject, used.} = BeaconStateFork.Bellatrix
+    body
+  of BeaconStateFork.Altair:
+    const stateFork {.inject, used.} = BeaconStateFork.Altair
+    body
+  of BeaconStateFork.Phase0:
+    const stateFork {.inject, used.} = BeaconStateFork.Phase0
+    body
 
 # TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
 # `ref T`
@@ -476,12 +527,27 @@ template toFork*[T:
     eip4844.ExecutionPayload |
     eip4844.BeaconBlock |
     eip4844.SignedBeaconBlock |
+    eip4844.SignedBeaconBlockAndBlobsSidecar |
     eip4844.TrustedBeaconBlock |
     eip4844.SigVerifiedSignedBeaconBlock |
     eip4844.MsgTrustedSignedBeaconBlock |
     eip4844.TrustedSignedBeaconBlock](
     t: type T): BeaconBlockFork =
   BeaconBlockFork.EIP4844
+
+template BeaconBlockBody*(kind: static BeaconBlockFork): auto =
+  when kind == BeaconBlockFork.EIP4844:
+    typedesc[eip4844.BeaconBlockBody]
+  elif kind == BeaconBlockFork.Capella:
+    typedesc[capella.BeaconBlockBody]
+  elif kind == BeaconBlockFork.Bellatrix:
+    typedesc[bellatrix.BeaconBlockBody]
+  elif kind == BeaconBlockFork.Altair:
+    typedesc[altair.BeaconBlockBody]
+  elif kind == BeaconBlockFork.Phase0:
+    typedesc[phase0.BeaconBlockBody]
+  else:
+    static: raiseAssert "Unreachable"
 
 template init*(T: type ForkedEpochInfo, info: phase0.EpochInfo): T =
   T(kind: EpochInfoFork.Phase0, phase0Data: info)
@@ -859,6 +925,15 @@ func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   of BeaconStateFork.Bellatrix: cfg.CAPELLA_FORK_EPOCH
   of BeaconStateFork.Altair:    cfg.BELLATRIX_FORK_EPOCH
   of BeaconStateFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
+
+func lcDataForkAtStateFork*(stateFork: BeaconStateFork): LightClientDataFork =
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Capella
+  if stateFork >= BeaconStateFork.Capella:
+    LightClientDataFork.Capella
+  elif stateFork >= BeaconStateFork.Altair:
+    LightClientDataFork.Altair
+  else:
+    LightClientDataFork.None
 
 func getForkSchedule*(cfg: RuntimeConfig): array[5, Fork] =
   ## This procedure returns list of known and/or scheduled forks.

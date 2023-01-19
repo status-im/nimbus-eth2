@@ -96,7 +96,7 @@ func check_propagation_slot_range(
   let
     pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#configuration
   # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
   # retransmit attestations on the cusp of being out of spec, and which by
   # the time they reach their destination might be out of spec.
@@ -182,7 +182,7 @@ template validateBeaconBlockBellatrix(
     parent: BlockRef): untyped =
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/bellatrix/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/bellatrix/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
        signed_beacon_block: bellatrix.SignedBeaconBlock |
        capella.SignedBeaconBlock | eip4844.SignedBeaconBlock,
@@ -223,22 +223,72 @@ template validateBeaconBlockBellatrix(
   # cannot occur here, because Nimbus's optimistic sync waits for either
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
+template validateBlobsSidecar(
+    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
+    bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock): untyped =
+  discard
+
+template validateBlobsSidecar(
+    signed_beacon_block: eip4844.SignedBeaconBlockAndBlobsSidecar):
+    untyped =
+  # TODO
+  # [REJECT] The KZG commitments of the blobs are all correctly encoded
+  # compressed BLS G1 points -- i.e. all(bls.KeyValidate(commitment) for
+  # commitment in block.body.blob_kzg_commitments)
+
+  # [REJECT] The KZG commitments correspond to the versioned hashes in
+  # the transactions list --
+  # i.e. verify_kzg_commitments_against_transactions(block.body.execution_payload.transactions,
+  # block.body.blob_kzg_commitments)
+  if not verify_kzg_commitments_against_transactions(
+    signed_beacon_block.beacon_block.message.body.execution_payload.transactions.asSeq,
+    signed_beacon_block.beacon_block.message.body.blob_kzg_commitments.asSeq):
+    return errReject("KZG blob commitments not correctly encoded")
+
+  let sidecar = signed_beacon_block.blobs_sidecar
+
+  # [IGNORE] the sidecar.beacon_block_slot is for the current slot
+  # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
+  # sidecar.beacon_block_slot == block.slot.
+  if not (sidecar.beacon_block_slot == signed_beacon_block.beacon_block.message.slot):
+     return errIgnore("sidecar and block slots not equal")
+
+  # [REJECT] the sidecar.blobs are all well formatted, i.e. the
+  # BLSFieldElement in valid range (x < BLS_MODULUS).
+  for blob in sidecar.blobs:
+    for i in 0..<blob.len div 8:
+      let fe = UInt256.fromBytesBE(blob[i*8..(i+1)*8])
+      if fe >= BLS_MODULUS:
+        return errIgnore("BLSFieldElement outside of valid range")
+
+  # TODO
+  # [REJECT] The KZG proof is a correctly encoded compressed BLS G1
+  # point -- i.e. bls.KeyValidate(blobs_sidecar.kzg_aggregated_proof)
+
+  # [REJECT] The KZG commitments in the block are valid against the
+  # provided blobs sidecar -- i.e. validate_blobs_sidecar(block.slot,
+  # hash_tree_root(block), block.body.blob_kzg_commitments, sidecar)
+
+  let res = validate_blobs_sidecar(signed_beacon_block.beacon_block.message.slot,
+                                   hash_tree_root(signed_beacon_block.beacon_block),
+                                   signed_beacon_block.beacon_block.message
+                                   .body.blob_kzg_commitments.asSeq,
+                                   sidecar)
+  if res.isErr():
+    return errIgnore(res.error())
+
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/bellatrix/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                         bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-                         eip4844.SignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar],
+    signed_beacon_block_and_blobs: ForkySignedBeaconBlockMaybeBlobs,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
   # externally easy-to-invoke function by tossing network packets at the node.
 
-  # We should enforce this statically via the type system... but for now, assert.
-  when typeof(signed_beacon_block).toFork() < BeaconBlockFork.EIP4844:
-    doAssert blobs.isNone(), "Blobs with pre-EIP4844 block"
+  let signed_beacon_block = toSignedBeaconBlock(signed_beacon_block_and_blobs)
 
   # [IGNORE] The block is not from a future slot (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
@@ -258,7 +308,7 @@ proc validateBeaconBlock*(
   # proposer for the slot, signed_beacon_block.message.slot.
   #
   # While this condition is similar to the proposer slashing condition at
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/validator.md#proposer-slashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/validator.md#proposer-slashing
   # it's not identical, and this check does not address slashing:
   #
   # (1) The beacon blocks must be conflicting, i.e. different, for the same
@@ -327,6 +377,11 @@ proc validateBeaconBlock*(
         # validation.
         return errReject("BeaconBlock: rejected, parent from unviable fork")
 
+    let blobs =
+      when signed_beacon_block is eip4844.SignedBeaconBlockAndBlobsSidecar:
+        Opt.some(signed_beacon_block.blobs_sidecar)
+      else:
+        Opt.none(eip4844.BlobsSidecar)
     # When the parent is missing, we can't validate the block - we'll queue it
     # in the quarantine for later processing
     if not quarantine[].addOrphan(
@@ -393,66 +448,9 @@ proc validateBeaconBlock*(
 
     return errReject("BeaconBlock: Invalid proposer signature")
 
+  validateBlobsSidecar(signed_beacon_block_and_blobs)
+
   ok()
-
-proc validateBeaconBlock*(
-    dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-                         bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-                         eip4844.SignedBeaconBlock,
-    wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
-    dag.validateBeaconBlock(quarantine, signed_beacon_block,
-                            Opt.none(eip4844.BlobsSidecar), wallTime, flags)
-
-proc validateBeaconBlockAndBlobsSidecar*(signedBlock: SignedBeaconBlockAndBlobsSidecar):
-                         Result[void, ValidationError] =
-  # TODO
-  # [REJECT] The KZG commitments of the blobs are all correctly encoded
-  # compressed BLS G1 points -- i.e. all(bls.KeyValidate(commitment) for
-  # commitment in block.body.blob_kzg_commitments)
-
-  # [REJECT] The KZG commitments correspond to the versioned hashes in
-  # the transactions list --
-  # i.e. verify_kzg_commitments_against_transactions(block.body.execution_payload.transactions,
-  # block.body.blob_kzg_commitments)
-  if not verify_kzg_commitments_against_transactions(
-    signedBlock.beacon_block.message.body.execution_payload.transactions.asSeq,
-    signedBlock.beacon_block.message.body.blob_kzg_commitments.asSeq):
-    return errReject("KZG blob commitments not correctly encoded")
-
-  let sidecar = signedBlock.blobs_sidecar
-
-  # [IGNORE] the sidecar.beacon_block_slot is for the current slot
-  # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
-  # sidecar.beacon_block_slot == block.slot.
-  if not (sidecar.beacon_block_slot == signedBlock.beacon_block.message.slot):
-     return errIgnore("sidecar and block slots not equal")
-
-  # [REJECT] the sidecar.blobs are all well formatted, i.e. the
-  # BLSFieldElement in valid range (x < BLS_MODULUS).
-  for blob in sidecar.blobs:
-    for i in 0..<blob.len div 8:
-      let fe = UInt256.fromBytesBE(blob[i*8..(i+1)*8])
-      if fe >= BLS_MODULUS:
-        return errIgnore("BLSFieldElement outside of valid range")
-
-  # TODO
-  # [REJECT] The KZG proof is a correctly encoded compressed BLS G1
-  # point -- i.e. bls.KeyValidate(blobs_sidecar.kzg_aggregated_proof)
-
-  # [REJECT] The KZG commitments in the block are valid against the
-  # provided blobs sidecar -- i.e. validate_blobs_sidecar(block.slot,
-  # hash_tree_root(block), block.body.blob_kzg_commitments, sidecar)
-  let res = validate_blobs_sidecar(signedBlock.beacon_block.message.slot,
-                                   hash_tree_root(signedBlock.beacon_block),
-                                   signedBlock.beacon_block.message
-                                   .body.blob_kzg_commitments.asSeq,
-                                   sidecar)
-  if res.isOk():
-    ok()
-  else:
-    errIgnore(res.error())
-
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
@@ -820,7 +818,7 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/p2p-interface.md#attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
     pool: ExitPool, attester_slashing: AttesterSlashing):
     Result[void, ValidationError] =
@@ -843,7 +841,7 @@ proc validateAttesterSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/p2p-interface.md#proposer_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
     pool: ExitPool, proposer_slashing: ProposerSlashing):
     Result[void, ValidationError] =
@@ -866,7 +864,7 @@ proc validateProposerSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
     pool: ExitPool, signed_voluntary_exit: SignedVoluntaryExit):
     Result[void, ValidationError] =
@@ -896,7 +894,7 @@ proc validateVoluntaryExit*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/p2p-interface.md#sync_committee_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,
@@ -1097,18 +1095,18 @@ proc validateLightClientFinalityUpdate*(
     finality_update: ForkedLightClientFinalityUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let finalized_slot = withForkyFinalityUpdate(finality_update):
-    when lcDataFork >= LightClientDataFork.Altair:
-      forkyFinalityUpdate.finalized_header.slot
+    when lcDataFork > LightClientDataFork.None:
+      forkyFinalityUpdate.finalized_header.beacon.slot
     else:
       GENESIS_SLOT
   if finalized_slot <= pool.latestForwardedFinalitySlot:
-    # [IGNORE] The `finalized_header.slot` is greater than that of all
+    # [IGNORE] The `finalized_header.beacon.slot` is greater than that of all
     # previously forwarded `finality_update`s
     return errIgnore("LightClientFinalityUpdate: slot already forwarded")
 
   let
     signature_slot = withForkyFinalityUpdate(finality_update):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         forkyFinalityUpdate.signature_slot
       else:
         GENESIS_SLOT
@@ -1133,18 +1131,18 @@ proc validateLightClientOptimisticUpdate*(
     optimistic_update: ForkedLightClientOptimisticUpdate,
     wallTime: BeaconTime): Result[void, ValidationError] =
   let attested_slot = withForkyOptimisticUpdate(optimistic_update):
-    when lcDataFork >= LightClientDataFork.Altair:
-      forkyOptimisticUpdate.attested_header.slot
+    when lcDataFork > LightClientDataFork.None:
+      forkyOptimisticUpdate.attested_header.beacon.slot
     else:
       GENESIS_SLOT
   if attested_slot <= pool.latestForwardedOptimisticSlot:
-    # [IGNORE] The `attested_header.slot` is greater than that of all
+    # [IGNORE] The `attested_header.beacon.slot` is greater than that of all
     # previously forwarded `optimistic_update`s
     return errIgnore("LightClientOptimisticUpdate: slot already forwarded")
 
   let
     signature_slot = withForkyOptimisticUpdate(optimistic_update):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         forkyOptimisticUpdate.signature_slot
       else:
         GENESIS_SLOT

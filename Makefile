@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022 Status Research & Development GmbH. Licensed under
+# Copyright (c) 2019-2023 Status Research & Development GmbH. Licensed under
 # either of:
 # - Apache License, version 2.0
 # - MIT license
@@ -54,8 +54,7 @@ endif
 
 # unconditionally built by the default Make target
 # TODO re-enable ncli_query if/when it works again
-TOOLS := \
-	nimbus_beacon_node \
+TOOLS_CORE := \
 	deposit_contract \
 	resttest \
 	logtrace \
@@ -69,9 +68,12 @@ TOOLS := \
 	nimbus_validator_client \
 	nimbus_signing_node \
 	validator_db_aggregator
-.PHONY: $(TOOLS)
 
-# bench_bls_sig_agggregation TODO reenable after bls v0.10.1 changes
+# This TOOLS/TOOLS_CORE decomposition is a workaroud so nimbus_beacon_node can
+# build on its own, and if/when that becomes a non-issue, it can be recombined
+# to a single TOOLS list.
+TOOLS := $(TOOLS_CORE) nimbus_beacon_node
+.PHONY: $(TOOLS)
 
 TOOLS_DIRS := \
 	beacon_chain \
@@ -102,6 +104,14 @@ TOOLS_CSV := $(subst $(SPACE),$(COMMA),$(TOOLS))
 	local-testnet-minimal \
 	local-testnet-mainnet
 
+# TODO: Add the installer packages here
+PLATFORM_SPECIFIC_TARGETS :=
+
+# TODO Fix the gnosis build on Windows
+ifneq ($(OS), Windows_NT)
+PLATFORM_SPECIFIC_TARGETS += gnosis-build
+endif
+
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
 #
@@ -123,7 +133,7 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 else # "variables.mk" was included. Business as usual until the end of this file.
 
 # default target, because it's the first one that doesn't start with '.'
-all: | $(TOOLS) libnfuzz.so libnfuzz.a
+all: | $(TOOLS) libnfuzz.so libnfuzz.a $(PLATFORM_SPECIFIC_TARGETS)
 
 # must be included after the default target
 -include $(BUILD_SYSTEM_DIR)/makefiles/targets.mk
@@ -250,16 +260,19 @@ local-testnet-mainnet:
 		--discv5:no
 
 # test binaries that can output an XML report
-XML_TEST_BINARIES := \
+XML_TEST_BINARIES_CORE := \
 	consensus_spec_tests_mainnet \
-	consensus_spec_tests_minimal \
+	consensus_spec_tests_minimal
+
+XML_TEST_BINARIES := \
+	$(XML_TEST_BINARIES_CORE) \
 	all_tests
 
 # test suite
 TEST_BINARIES := \
 	state_sim \
 	block_sim
-.PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES)
+.PHONY: $(TEST_BINARIES) $(XML_TEST_BINARIES) force_build_alone_all_tests
 
 # Preset-dependent tests
 consensus_spec_tests_mainnet: | build deps
@@ -295,7 +308,38 @@ fork_choice: | build deps
 			$(NIM_PARAMS) $(TEST_MODULES_FLAGS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
 
-all_tests: | build deps
+
+# Windows GitHub Actions CI runners, as of this writing, have around 8GB of RAM
+# and compiling all_tests requires around 5.5GB of that. It often fails via OOM
+# on the two cores available. Usefully, the part of the process requiring those
+# gigabytes of RAM is `nim c --compileOnly`, which intrinsically serializes. As
+# a result, only slightly increase build times by using fake dependencies, when
+# running `make test`, to ensure the `all_tests` target builds alone when being
+# built as part of `test`, while not also spuriously otherwise depending on the
+# not-actually-related Makefile goals.
+#
+# This works because `nim c --compileOnly` is fast but RAM-heavy, while the
+# rest of the build process, such as LTO, requires less RAM but is slow and
+# still is parallelized.
+#
+# On net, this saves CI and human time, because it reduces the likelihood of
+# CI false negatives in a process lasting hours and requiring a restart, and
+# therefore even more wasted time, when it does.
+#
+# If one asks for, e.g., `make all_tests state_sim`, it intentionally allows
+# those in paralle, because the CI system does do that.
+#
+# https://www.gnu.org/software/make/manual/html_node/Parallel-Disable.html
+# describes a special target .WAIT which would enable this more easily but
+# remains unusable for this Makefile due to requiring GNU Make 4.4.
+ifneq (,$(filter test,$(MAKECMDGOALS)))
+FORCE_BUILD_ALONE_ALL_TESTS_DEPS := $(XML_TEST_BINARIES_CORE) $(TEST_BINARIES)
+else
+FORCE_BUILD_ALONE_ALL_TESTS_DEPS :=
+endif
+force_build_alone_all_tests: | $(FORCE_BUILD_ALONE_ALL_TESTS_DEPS)
+
+all_tests: | build deps force_build_alone_all_tests
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \
@@ -370,6 +414,49 @@ $(TOOLS): | build deps
 		echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh $@ "$${TOOL_DIR}/$@.nim" $(NIM_PARAMS) && \
 		echo -e $(BUILD_END_MSG) "build/$@"
+
+# Windows GitHub Actions CI runners, as of this writing, have around 8GB of RAM
+# and compiling nimbus_beacon_node requires more than 5GB. It can fail with OOM
+# on the two cores available. Usefully, the part of the process requiring those
+# gigabytes of RAM is `nim c --compileOnly`, which intrinsically serializes. As
+# a result, only slightly increase build times by using fake dependencies, when
+# running `make`, to ensure `nimbus_beacon_node` builds alone, when being built
+# as part of `all`, while allowing one to also build `nimbus_beacon_node` alone
+# without pulling in the rest of `$(TOOLS)`.
+#
+# This works because `nim c --compileOnly` is fast but RAM-heavy, while the
+# rest of the build process, such as LTO, requires less RAM but is slow and
+# still is parallelized.
+#
+# On net, this saves CI and human time, because it reduces the likelihood of
+# CI false negatives in a process lasting hours and requiring a restart, and
+# therefore even more wasted time, when it does.
+#
+# If one asks for, e.g., `make nimbus_beacon_node nimbus_validator_client`, it
+# intentionally allows those in parallel, because the CI system does do that.
+#
+# Also, it's not 100% correct in some sense, because it excludes the libnfuzz
+# and Gnosis targets, but that's fine for the use case: a two-core CI machine
+# where by the time either comes up, that crucial high-RAM period should have
+# passed already for `nimbus_beacon_node`, and which only builds Gnosis using
+# non-Windows platforms by default.
+#
+# https://www.gnu.org/software/make/manual/html_node/Parallel-Disable.html
+# describes a special target .WAIT which would enable this more easily but
+# remains unusable for this Makefile due to requiring GNU Make 4.4.
+ifneq (,$(filter all,$(MAKECMDGOALS)))
+FORCE_BUILD_ALONE_TOOLS_DEPS := $(TOOLS_CORE)
+else ifeq (,$(MAKECMDGOALS))
+FORCE_BUILD_ALONE_TOOLS_DEPS := $(TOOLS_CORE)
+else
+FORCE_BUILD_ALONE_TOOLS_DEPS :=
+endif
+.PHONY: force_build_alone_tools
+force_build_alone_tools: | $(FORCE_BUILD_ALONE_TOOLS_DEPS)
+
+# https://www.gnu.org/software/make/manual/html_node/Multiple-Rules.html#Multiple-Rules
+# Already defined as a reult
+nimbus_beacon_node: force_build_alone_tools
 
 clean_eth2_network_simulation_data:
 	rm -rf tests/simulation/data
@@ -585,15 +672,19 @@ sepolia-dev-deposit: | sepolia-build deposit_contract
 clean-sepolia:
 	$(call CLEAN_NETWORK,sepolia)
 
+### Capella devnets
+
+capella-devnet-3:
+	tmuxinator start -p scripts/tmuxinator-el-cl-pair-in-devnet.yml network="vendor/capella-testnets/withdrawal-devnet-3/custom_config_data"
+
+clean-capella-devnet-3:
+	scripts/clean-devnet-dir.sh vendor/capella-testnets/withdrawal-devnet-3/custom_config_data
+
 ###
 ### Gnosis chain binary
 ###
 
-# TODO The constants overrides below should not be necessary if we restore
-#      the support for compiling with custom const presets.
-#      See the prepared preset file in media/gnosis/preset.yaml
-#
-#      The `-d:gnosisChainBinary` override can be removed if the web3 library
+# TODO The `-d:gnosisChainBinary` override can be removed if the web3 library
 #      gains support for multiple "Chain Profiles" that consist of a set of
 #      consensus object (such as blocks and transactions) that are specific
 #      to the chain.
@@ -604,11 +695,7 @@ gnosis-build gnosis-chain-build: | build deps
 			beacon_chain/nimbus_beacon_node.nim \
 			$(NIM_PARAMS) \
 			-d:gnosisChainBinary \
-			-d:has_genesis_detection \
-			-d:SLOTS_PER_EPOCH=16 \
-			-d:SECONDS_PER_SLOT=5 \
-			-d:BASE_REWARD_FACTOR=25 \
-			-d:EPOCHS_PER_SYNC_COMMITTEE_PERIOD=512 \
+			-d:const_preset=gnosis \
 			&& \
 		echo -e $(BUILD_END_MSG) "build/nimbus_beacon_node_gnosis"
 

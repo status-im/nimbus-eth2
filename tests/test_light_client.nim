@@ -9,7 +9,7 @@
 
 import
   # Status libraries
-  eth/keys, stew/objects, taskpools,
+  eth/keys, taskpools,
   # Beacon chain internals
   ../beacon_chain/consensus_object_pools/
     [block_clearance, block_quarantine, blockchain_dag],
@@ -18,10 +18,16 @@ import
   ./testutil, ./testdbutil
 
 suite "Light client" & preset():
+  const  # Test config, should be long enough to cover interesting transitions
+    headPeriod = 3.SyncCommitteePeriod
   let
-    cfg = block:
+    cfg = block:  # Fork schedule so that each `LightClientDataFork` is covered
+      static: doAssert BeaconStateFork.high == BeaconStateFork.EIP4844
       var res = defaultRuntimeConfig
-      res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH + 1
+      res.ALTAIR_FORK_EPOCH = 1.Epoch
+      res.BELLATRIX_FORK_EPOCH = 2.Epoch
+      # $capellaImplementationMissing res.CAPELLA_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 1).Epoch
+      # $eip4844ImplementationMissing res.EIP4844_FORK_EPOCH = (EPOCHS_PER_SYNC_COMMITTEE_PERIOD * 2).Epoch
       res
     altairStartSlot = cfg.ALTAIR_FORK_EPOCH.start_slot
 
@@ -49,13 +55,13 @@ suite "Light client" & preset():
       if targetSlot > checkpointSlot and checkpointSlot > dag.head.slot:
         var info: ForkedEpochInfo
         doAssert process_slots(cfg, dag.headState, checkpointSlot,
-                               cache, info, flags = {}).isOk()
+                              cache, info, flags = {}).isOk()
         slot = checkpointSlot
 
       # Create blocks for final few epochs
       let blocks = min(targetSlot - slot, maxAttestedSlotsPerPeriod)
       for blck in makeTestBlocks(dag.headState, cache, blocks.int,
-                                 attested, syncCommitteeRatio, cfg):
+                                attested, syncCommitteeRatio, cfg):
         let added =
           case blck.kind
           of BeaconBlockFork.Phase0:
@@ -140,57 +146,86 @@ suite "Light client" & preset():
 
     # Advance to target slot
     const
-      headPeriod = 2.SyncCommitteePeriod
       periodEpoch = headPeriod.start_epoch
       headSlot = (periodEpoch + 2).start_slot + 5
     dag.advanceToSlot(headSlot, verifier, quarantine[])
     let currentSlot = getStateField(dag.headState, slot)
 
     # Initialize light client store
-    const storeDataFork = LightClientStore.kind
-    let bootstrap = dag.getLightClientBootstrap(trusted_block_root)
-    check bootstrap.kind == storeDataFork
-    template forkyBootstrap: untyped = bootstrap.forky(storeDataFork)
-    var storeRes = initialize_light_client_store(
-      trusted_block_root, forkyBootstrap)
-    check storeRes.isOk
-    template store(): auto = storeRes.get
+    var bootstrap = dag.getLightClientBootstrap(trusted_block_root)
+    check bootstrap.kind > LightClientDataFork.None
+    var store {.noinit.}: ForkedLightClientStore
+    withForkyBootstrap(bootstrap):
+      when lcDataFork > LightClientDataFork.None:
+        var storeRes = initialize_light_client_store(
+          trusted_block_root, forkyBootstrap, cfg)
+        check storeRes.isOk
+        store = ForkedLightClientStore(kind: lcDataFork)
+        store.forky(lcDataFork) = storeRes.get
 
     # Sync to latest sync committee period
     var numIterations = 0
-    while store.finalized_header.slot.sync_committee_period + 1 < headPeriod:
-      let
-        period =
-          if store.is_next_sync_committee_known:
-            store.finalized_header.slot.sync_committee_period + 1
-          else:
-            store.finalized_header.slot.sync_committee_period
-        update = dag.getLightClientUpdateForPeriod(period)
-      check update.kind == storeDataFork
-      template forkyUpdate: untyped = update.forky(storeDataFork)
-      let res = process_light_client_update(
-          store, forkyUpdate, currentSlot, cfg, genesis_validators_root)
-      check:
-        forkyUpdate.finalized_header.slot.sync_committee_period == period
-        res.isOk
-        if forkyUpdate.finalized_header.slot > forkyBootstrap.header.slot:
-          store.finalized_header == forkyUpdate.finalized_header
+    while true:
+      let storePeriod = withForkyStore(store):
+        when lcDataFork > LightClientDataFork.None:
+          forkyStore.finalized_header.beacon.slot.sync_committee_period
         else:
-          store.finalized_header == forkyBootstrap.header
+          GENESIS_SLOT.SyncCommitteePeriod
+      if storePeriod + 1 >= headPeriod:
+        break
+      let
+        period = withForkyStore(store):
+          when lcDataFork > LightClientDataFork.None:
+            if forkyStore.is_next_sync_committee_known:
+              storePeriod + 1
+            else:
+              storePeriod
+          else:
+            storePeriod
+        update = dag.getLightClientUpdateForPeriod(period)
+      check update.kind > LightClientDataFork.None
+      if update.kind > store.kind:
+        withForkyUpdate(update):
+          when lcDataFork > LightClientDataFork.None:
+            store.migrateToDataFork(lcDataFork)
+      withForkyStore(store):
+        when lcDataFork > LightClientDataFork.None:
+          bootstrap.migrateToDataFork(lcDataFork)
+          template forkyBootstrap: untyped = bootstrap.forky(lcDataFork)
+          let upgradedUpdate = update.migratingToDataFork(lcDataFork)
+          template forkyUpdate: untyped = upgradedUpdate.forky(lcDataFork)
+          let res = process_light_client_update(
+            forkyStore, forkyUpdate, currentSlot, cfg, genesis_validators_root)
+          check:
+            forkyUpdate.finalized_header.beacon.slot.sync_committee_period ==
+              period
+            res.isOk
+            if forkyUpdate.finalized_header.beacon.slot >
+                forkyBootstrap.header.beacon.slot:
+              forkyStore.finalized_header == forkyUpdate.finalized_header
+            else:
+              forkyStore.finalized_header == forkyBootstrap.header
       inc numIterations
       if numIterations > 20: doAssert false # Avoid endless loop on test failure
 
     # Sync to latest update
     let finalityUpdate = dag.getLightClientFinalityUpdate
-    check finalityUpdate.kind == storeDataFork
-    template forkyFinalityUpdate: untyped = finalityUpdate.forky(storeDataFork)
-    let res = process_light_client_update(
-        store, forkyFinalityUpdate, currentSlot, cfg, genesis_validators_root)
-    check:
-      forkyFinalityUpdate.attested_header.slot == dag.head.parent.slot
-      res.isOk
-      store.finalized_header == forkyFinalityUpdate.finalized_header
-      store.optimistic_header == forkyFinalityUpdate.attested_header
+    check finalityUpdate.kind > LightClientDataFork.None
+    if finalityUpdate.kind > store.kind:
+      withForkyFinalityUpdate(finalityUpdate):
+        when lcDataFork > LightClientDataFork.None:
+          store.migrateToDataFork(lcDataFork)
+    withForkyStore(store):
+      when lcDataFork > LightClientDataFork.None:
+        let upgradedUpdate = finalityUpdate.migratingToDataFork(lcDataFork)
+        template forkyUpdate: untyped = upgradedUpdate.forky(lcDataFork)
+        let res = process_light_client_update(
+          forkyStore, forkyUpdate, currentSlot, cfg, genesis_validators_root)
+        check:
+          forkyUpdate.attested_header.beacon.slot == dag.head.parent.slot
+          res.isOk
+          forkyStore.finalized_header == forkyUpdate.finalized_header
+          forkyStore.optimistic_header == forkyUpdate.attested_header
 
   test "Init from checkpoint":
     # Fetch genesis state

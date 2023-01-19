@@ -99,7 +99,7 @@ type
 
     # Consumer
     # ----------------------------------------------------------------
-    store: ref Option[LightClientStore]
+    store: ref ForkedLightClientStore
     getBeaconTime: GetBeaconTimeFn
     getTrustedBlockRoot: GetTrustedBlockRootCallback
     onStoreInitialized, onFinalizedHeader, onOptimisticHeader: VoidCallback
@@ -117,7 +117,7 @@ type
     of LightClientFinalizationMode.Optimistic:
       lastProgressTick: BeaconTime # Moment when last update made progress
       lastDuplicateTick: BeaconTime # Moment when last duplicate update received
-      numDuplicatesSinceProgress: int # Number of duplicates since last progress
+      numDupsSinceProgress: int # Number of duplicates since last progress
 
     latestFinalityUpdate: ForkedLightClientOptimisticUpdate
 
@@ -138,7 +138,7 @@ proc new*(
     cfg: RuntimeConfig,
     genesis_validators_root: Eth2Digest,
     finalizationMode: LightClientFinalizationMode,
-    store: ref Option[LightClientStore],
+    store: ref ForkedLightClientStore,
     getBeaconTime: GetBeaconTimeFn,
     getTrustedBlockRoot: GetTrustedBlockRootCallback,
     onStoreInitialized: VoidCallback = nil,
@@ -193,23 +193,22 @@ proc tryForceUpdate(
     self: var LightClientProcessor,
     wallTime: BeaconTime) =
   ## Try to force-update to the next sync committee period.
-  let
-    wallSlot = wallTime.slotOrZero()
-    store = self.store
+  let wallSlot = wallTime.slotOrZero()
+  doAssert self.finalizationMode == LightClientFinalizationMode.Optimistic
 
-  if store[].isSome:
-    doAssert self.finalizationMode == LightClientFinalizationMode.Optimistic
-    case store[].get.process_light_client_store_force_update(wallSlot)
-    of NoUpdate:
-      discard
-    of DidUpdateWithoutSupermajority:
-      warn "Light client force-updated without supermajority",
-        finalizedSlot = store[].get.finalized_header.slot,
-        optimisticSlot = store[].get.optimistic_header.slot
-    of DidUpdateWithoutFinality:
-      warn "Light client force-updated without finality proof",
-        finalizedSlot = store[].get.finalized_header.slot,
-        optimisticSlot = store[].get.optimistic_header.slot
+  withForkyStore(self.store[]):
+    when lcDataFork > LightClientDataFork.None:
+      case forkyStore.process_light_client_store_force_update(wallSlot)
+      of NoUpdate:
+        discard
+      of DidUpdateWithoutSupermajority:
+        warn "Light client force-updated without supermajority",
+          finalizedSlot = forkyStore.finalized_header.beacon.slot,
+          optimisticSlot = forkyStore.optimistic_header.beacon.slot
+      of DidUpdateWithoutFinality:
+        warn "Light client force-updated without finality proof",
+          finalizedSlot = forkyStore.finalized_header.beacon.slot,
+          optimisticSlot = forkyStore.optimistic_header.beacon.slot
 
 proc processObject(
     self: var LightClientProcessor,
@@ -217,63 +216,73 @@ proc processObject(
     wallTime: BeaconTime): Result[void, VerifierError] =
   let
     wallSlot = wallTime.slotOrZero()
-    store = self.store
     res = withForkyObject(obj):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         when forkyObject is ForkyLightClientBootstrap:
-          if store[].isSome:
+          if self.store[].kind > LightClientDataFork.None:
             err(VerifierError.Duplicate)
           else:
             let trustedBlockRoot = self.getTrustedBlockRoot()
             if trustedBlockRoot.isNone:
               err(VerifierError.MissingParent)
             else:
-              let initRes =
-                initialize_light_client_store(trustedBlockRoot.get, forkyObject)
+              let initRes = initialize_light_client_store(
+                trustedBlockRoot.get, forkyObject, self.cfg)
               if initRes.isErr:
                 err(initRes.error)
               else:
-                store[] = some(initRes.get)
+                self.store[] = ForkedLightClientStore(kind: lcDataFork)
+                self.store[].forky(lcDataFork) = initRes.get
                 ok()
         elif forkyObject is SomeForkyLightClientUpdate:
-          if store[].isNone:
+          if self.store[].kind == LightClientDataFork.None:
             err(VerifierError.MissingParent)
           else:
-            store[].get.process_light_client_update(
-              forkyObject, wallSlot, self.cfg, self.genesis_validators_root)
+            if lcDataFork > self.store[].kind:
+              info "Upgrading light client",
+                oldFork = self.store[].kind, newFork = lcDataFork
+              self.store[].migrateToDataFork(lcDataFork)
+            withForkyStore(self.store[]):
+              when lcDataFork > LightClientDataFork.None:
+                let upgradedObject = obj.migratingToDataFork(lcDataFork)
+                process_light_client_update(
+                  forkyStore, upgradedObject.forky(lcDataFork), wallSlot,
+                  self.cfg, self.genesis_validators_root)
+              else: raiseAssert "Unreachable"
       else:
         err(VerifierError.Invalid)
 
   withForkyObject(obj):
-    when lcDataFork >= LightClientDataFork.Altair:
+    when lcDataFork > LightClientDataFork.None:
       self.dumpObject(forkyObject, res)
 
   if res.isErr:
     when obj is ForkedLightClientUpdate:
-      const storeDataFork = typeof(store[].get).kind
       if self.finalizationMode == LightClientFinalizationMode.Optimistic and
-          store[].isSome and store[].get.best_valid_update.isSome and
-          obj.kind > LightClientDataFork.None and obj.kind <= storeDataFork:
-        # `best_valid_update` gets set when no supermajority / finality proof
-        # is available. In that case, we will wait for a better update.
-        # If none is made available within reasonable time, the light client
-        # is force-updated using the best known data to ensure sync progress.
-        case res.error
-        of VerifierError.Duplicate:
-          if wallTime >= self.lastDuplicateTick + duplicateRateLimit:
-            if self.numDuplicatesSinceProgress < minForceUpdateDuplicates:
-              let upgradedObj = obj.migratingToDataFork(storeDataFork)
-              if upgradedObj.forky(storeDataFork).matches(
-                  store[].get.best_valid_update.get):
-                self.lastDuplicateTick = wallTime
-                inc self.numDuplicatesSinceProgress
-            if self.numDuplicatesSinceProgress >= minForceUpdateDuplicates and
-                wallTime >= self.lastProgressTick + minForceUpdateDelay:
-              self.tryForceUpdate(wallTime)
-              self.lastProgressTick = wallTime
-              self.lastDuplicateTick = wallTime + duplicateCountDelay
-              self.numDuplicatesSinceProgress = 0
-        else: discard
+          obj.kind <= self.store[].kind:
+        withForkyStore(self.store[]):
+          when lcDataFork > LightClientDataFork.None:
+            if forkyStore.best_valid_update.isSome:
+              # `best_valid_update` is set when supermajority / finality proof
+              # is unavailable. In that case, we will wait for a better update.
+              # If none is made available within reasonable time, light client
+              # is force-updated with best known data to ensure sync progress.
+              case res.error
+              of VerifierError.Duplicate:
+                if wallTime >= self.lastDuplicateTick + duplicateRateLimit:
+                  if self.numDupsSinceProgress < minForceUpdateDuplicates:
+                    let upgradedObj = obj.migratingToDataFork(lcDataFork)
+                    if upgradedObj.forky(lcDataFork).matches(
+                        forkyStore.best_valid_update.get):
+                      self.lastDuplicateTick = wallTime
+                      inc self.numDupsSinceProgress
+                  if self.numDupsSinceProgress >= minForceUpdateDuplicates and
+                      wallTime >= self.lastProgressTick + minForceUpdateDelay:
+                    self.tryForceUpdate(wallTime)
+                    self.lastProgressTick = wallTime
+                    self.lastDuplicateTick = wallTime + duplicateCountDelay
+                    self.numDupsSinceProgress = 0
+              else: discard
 
     return res
 
@@ -281,7 +290,7 @@ proc processObject(
     if self.finalizationMode == LightClientFinalizationMode.Optimistic:
       self.lastProgressTick = wallTime
       self.lastDuplicateTick = wallTime + duplicateCountDelay
-      self.numDuplicatesSinceProgress = 0
+      self.numDupsSinceProgress = 0
 
   res
 
@@ -289,22 +298,28 @@ template withReportedProgress(
     obj: SomeForkedLightClientObject | Nothing, body: untyped): bool =
   block:
     let
-      previousWasInitialized = store[].isSome
-      previousNextCommitteeKnown =
-        if store[].isSome:
-          store[].get.is_next_sync_committee_known
+      oldIsInitialized =
+        self.store[].kind != LightClientDataFork.None
+      oldNextCommitteeKnown = withForkyStore(self.store[]):
+        when lcDataFork > LightClientDataFork.None:
+          forkyStore.is_next_sync_committee_known
         else:
           false
-      previousFinalized =
-        if store[].isSome:
-          store[].get.finalized_header
+    var
+      oldFinalized = withForkyStore(self.store[]):
+        when lcDataFork > LightClientDataFork.None:
+          var header = ForkedLightClientHeader(kind: lcDataFork)
+          header.forky(lcDataFork) = forkyStore.finalized_header
+          header
         else:
-          BeaconBlockHeader()
-      previousOptimistic =
-        if store[].isSome:
-          store[].get.optimistic_header
+          default(ForkedLightClientHeader)
+      oldOptimistic = withForkyStore(self.store[]):
+        when lcDataFork > LightClientDataFork.None:
+          var header = ForkedLightClientHeader(kind: lcDataFork)
+          header.forky(lcDataFork) = forkyStore.optimistic_header
+          header
         else:
-          BeaconBlockHeader()
+          default(ForkedLightClientHeader)
 
     body
 
@@ -312,29 +327,35 @@ template withReportedProgress(
       didProgress = false
       didSignificantProgress = false
 
-    if store[].isSome != previousWasInitialized:
+    let newIsInitialized = self.store[].kind != LightClientDataFork.None
+    if newIsInitialized > oldIsInitialized:
       didProgress = true
       didSignificantProgress = true
       if self.onStoreInitialized != nil:
         self.onStoreInitialized()
         self.onStoreInitialized = nil
 
-    if store[].isSome:
-      if store[].get.optimistic_header != previousOptimistic:
-        didProgress = true
-        when obj isnot SomeLightClientUpdateWithFinality:
-          didSignificantProgress = true
-        if self.onOptimisticHeader != nil:
-          self.onOptimisticHeader()
+    withForkyStore(self.store[]):
+      when lcDataFork > LightClientDataFork.None:
+        if oldOptimistic.kind <= lcDataFork:
+          oldOptimistic.migrateToDataFork(lcDataFork)
+          if forkyStore.optimistic_header != oldOptimistic.forky(lcDataFork):
+            didProgress = true
+            when obj isnot SomeForkedLightClientUpdateWithFinality:
+              didSignificantProgress = true
+            if self.onOptimisticHeader != nil:
+              self.onOptimisticHeader()
 
-      if store[].get.finalized_header != previousFinalized:
-        didProgress = true
-        didSignificantProgress = true
-        if self.onFinalizedHeader != nil:
-          self.onFinalizedHeader()
+        if oldFinalized.kind <= lcDataFork:
+          oldFinalized.migrateToDataFork(lcDataFork)
+          if forkyStore.finalized_header != oldFinalized.forky(lcDataFork):
+            didProgress = true
+            didSignificantProgress = true
+            if self.onFinalizedHeader != nil:
+              self.onFinalizedHeader()
 
-      if store[].get.is_next_sync_committee_known != previousNextCommitteeKnown:
-        didProgress = true
+        if forkyStore.is_next_sync_committee_known != oldNextCommitteeKnown:
+          didProgress = true
 
     if didProgress:
       when obj is Nothing:
@@ -367,8 +388,6 @@ proc storeObject*(
   ## update the `LightClientStore` accordingly
   let
     startTick = Moment.now()
-    store = self.store
-
     didSignificantProgress =
       withReportedProgress(obj):
         ? self.processObject(obj, wallTime)
@@ -381,38 +400,44 @@ proc storeObject*(
           storeObjectDur.toFloatSeconds())
 
         let objSlot = withForkyObject(obj):
-          when lcDataFork >= LightClientDataFork.Altair:
+          when lcDataFork > LightClientDataFork.None:
             when forkyObject is ForkyLightClientBootstrap:
-              forkyObject.header.slot
+              forkyObject.header.beacon.slot
             elif forkyObject is SomeForkyLightClientUpdateWithFinality:
-              forkyObject.finalized_header.slot
+              forkyObject.finalized_header.beacon.slot
             else:
-              forkyObject.attested_header.slot
+              forkyObject.attested_header.beacon.slot
           else:
             GENESIS_SLOT
-        debug "LC object processed",
-          finalizedSlot = store[].get.finalized_header.slot,
-          optimisticSlot = store[].get.optimistic_header.slot,
-          kind = typeof(obj).name,
-          objectSlot = objSlot,
-          storeObjectDur
+        withForkyStore(self.store[]):
+          when lcDataFork > LightClientDataFork.None:
+            debug "LC object processed",
+              finalizedSlot = forkyStore.finalized_header.beacon.slot,
+              optimisticSlot = forkyStore.optimistic_header.beacon.slot,
+              kind = typeof(obj).name,
+              objectSlot = objSlot,
+              storeObjectDur
   ok didSignificantProgress
 
 proc resetToFinalizedHeader*(
     self: var LightClientProcessor,
-    header: BeaconBlockHeader,
+    header: ForkedLightClientHeader,
     current_sync_committee: SyncCommittee) =
-  let store = self.store
-
   discard withReportedProgress:
-    store[] = some LightClientStore(
-      finalized_header: header,
-      current_sync_committee: current_sync_committee,
-      optimistic_header: header)
-
-    debug "LC reset to finalized header",
-      finalizedSlot = store[].get.finalized_header.slot,
-      optimisticSlot = store[].get.optimistic_header.slot
+    withForkyHeader(header):
+      when lcDataFork > LightClientDataFork.None:
+        self.store[] = ForkedLightClientStore(kind: lcDataFork)
+        template forkyStore: untyped = self.store[].forky(lcDataFork)
+        forkyStore = lcDataFork.LightClientStore(
+          finalized_header: forkyHeader,
+          current_sync_committee: current_sync_committee,
+          optimistic_header: forkyHeader)
+        debug "LC reset to finalized header",
+          finalizedSlot = forkyStore.finalized_header.beacon.slot,
+          optimisticSlot = forkyStore.optimistic_header.beacon.slot
+      else:
+        self.store[].reset()
+        debug "LC reset"
 
 # Enqueue
 # ------------------------------------------------------------------------------
@@ -465,7 +490,7 @@ func toValidationError(
     if didSignificantProgress:
       let
         signature_slot = withForkyObject(obj):
-          when lcDataFork >= LightClientDataFork.Altair:
+          when lcDataFork > LightClientDataFork.None:
             forkyObject.signature_slot
           else:
             GENESIS_SLOT
@@ -499,9 +524,9 @@ func toValidationError(
     of VerifierError.MissingParent,
         VerifierError.UnviableFork,
         VerifierError.Duplicate:
-      # [IGNORE] The `finalized_header.slot` is greater than that of
+      # [IGNORE] The `finalized_header.beacon.slot` is greater than that of
       # all previously forwarded `finality_update`s
-      # [IGNORE] The `attested_header.slot` is greater than that of all
+      # [IGNORE] The `attested_header.beacon.slot` is greater than that of all
       # previously forwarded `optimistic_update`s
       errIgnore($r.error)
 
@@ -530,13 +555,13 @@ proc processLightClientOptimisticUpdate*(
   if v.isOk:
     let
       latestFinalitySlot = withForkyOptimisticUpdate(self.latestFinalityUpdate):
-        when lcDataFork >= LightClientDataFork.Altair:
-          forkyOptimisticUpdate.attested_header.slot
+        when lcDataFork > LightClientDataFork.None:
+          forkyOptimisticUpdate.attested_header.beacon.slot
         else:
           GENESIS_SLOT
       attestedSlot = withForkyOptimisticUpdate(optimistic_update):
-        when lcDataFork >= LightClientDataFork.Altair:
-          forkyOptimisticUpdate.attested_header.slot
+        when lcDataFork > LightClientDataFork.None:
+          forkyOptimisticUpdate.attested_header.beacon.slot
         else:
           GENESIS_SLOT
     if attestedSlot >= latestFinalitySlot:

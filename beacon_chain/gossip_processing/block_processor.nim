@@ -324,12 +324,6 @@ proc getExecutionValidity(
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
     eip4844.SignedBeaconBlock):
     Future[NewPayloadStatus] {.async.} =
-  # Eth1 syncing is asynchronous from this
-  # TODO self.consensusManager.eth1Monitor.ttdReached
-  # should gate this when it works more reliably
-  # TODO detect have-TTD-but-not-is_execution_block case, and where
-  # execution payload was non-zero when TTD detection more reliable
-
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously
 
@@ -639,7 +633,7 @@ proc processBlock(
     # - MUST NOT optimistically import the block.
     # - MUST NOT apply the block to the fork choice store.
     # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/sync/optimistic.md#execution-engine-errors
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].addBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.validationDur)

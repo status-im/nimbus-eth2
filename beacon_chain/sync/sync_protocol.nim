@@ -117,6 +117,24 @@ proc readChunkPayload*(
     return neterr InvalidContextBytes
 
 proc readChunkPayload*(
+    conn: Connection, peer: Peer, MsgType: type (ref SignedBeaconBlockAndBlobsSidecar)):
+    Future[NetRes[MsgType]] {.async.} =
+  var contextBytes: ForkDigest
+  try:
+    await conn.readExactly(addr contextBytes, sizeof contextBytes)
+  except CatchableError:
+    return neterr UnexpectedEOF
+
+  if contextBytes == peer.network.forkDigests.eip4844:
+    let res = await readChunkPayload(conn, peer, SignedBeaconBlockAndBlobsSidecar)
+    if res.isOk:
+      return ok newClone(res.get)
+    else:
+      return err(res.error)
+  else:
+    return neterr InvalidContextBytes
+
+proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type SomeForkedLightClientObject):
     Future[NetRes[MsgType]] {.async.} =
   var contextBytes: ForkDigest
@@ -128,22 +146,21 @@ proc readChunkPayload*(
     peer.network.forkDigests[].stateForkForDigest(contextBytes).valueOr:
       return neterr InvalidContextBytes
 
-  if contextFork >= BeaconStateFork.Altair:
-    const lcDataFork = LightClientDataFork.Altair
-    let res = await eth2_network.readChunkPayload(
-      conn, peer, MsgType.forky(lcDataFork))
-    if res.isOk:
-      if contextFork != peer.network.cfg.stateForkAtEpoch(res.get.contextEpoch):
-        return neterr InvalidContextBytes
-      var obj = ok MsgType(kind: lcDataFork)
-      template forkyObj: untyped = obj.get.forky(lcDataFork)
-      forkyObj = res.get
-      return obj
+  withLcDataFork(lcDataForkAtStateFork(contextFork)):
+    when lcDataFork > LightClientDataFork.None:
+      let res = await eth2_network.readChunkPayload(
+        conn, peer, MsgType.Forky(lcDataFork))
+      if res.isOk:
+        if contextFork !=
+            peer.network.cfg.stateForkAtEpoch(res.get.contextEpoch):
+          return neterr InvalidContextBytes
+        var obj = ok MsgType(kind: lcDataFork)
+        obj.get.forky(lcDataFork) = res.get
+        return obj
+      else:
+        return err(res.error)
     else:
-      return err(res.error)
-  else:
-    doAssert contextFork == BeaconStateFork.Phase0
-    return neterr InvalidContextBytes
+      return neterr InvalidContextBytes
 
 func shortLog*(s: StatusMsg): auto =
   (
@@ -406,6 +423,76 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
+  proc beaconBlockAndBlobsSidecarByRoot_v1(
+      peer: Peer,
+      # Please note that the SSZ list here ensures that the
+      # spec constant MAX_REQUEST_BLOCKS is enforced:
+      blockRoots: BlockRootsList,
+      response: MultipleChunksResponse[
+        ref SignedBeaconBlockAndBlobsSidecar, MAX_REQUEST_BLOCKS])
+      {.async, libp2pProtocol("beacon_block_and_blobs_sidecar_by_root", 1).} =
+        # unlike for beaconBlocksByRoot_v2, we don't need to
+        # dynamically decode the correct fork here. so returning a ref
+        # is solely for performance sake
+
+    if blockRoots.len == 0:
+      raise newException(InvalidInputsError, "No blocks requested")
+
+    let
+      dag = peer.networkState.dag
+      count = blockRoots.len
+      epochBoundary =
+        if MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS >= dag.head.slot.epoch:
+          GENESIS_EPOCH
+        else:
+          dag.head.slot.epoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS
+    var
+      found = 0
+      bytes: seq[byte]
+      blck: Opt[eip4844.TrustedSignedBeaconBlock]
+      blobsSidecar: Opt[BlobsSidecar]
+
+    for i in 0..<count:
+      let
+        blockRef = dag.getBlockRef(blockRoots[i]).valueOr:
+          continue
+
+      blck = dag.getBlock(blockRef.bid, eip4844.TrustedSignedBeaconBlock)
+      if blck.isNone():
+        continue
+
+      if blockRef.bid.slot.epoch < epochBoundary:
+        raise newException(ResourceUnavailableError, BlobsOutOfRange)
+
+      # In general, there is not much intermediate time between post-merge
+      # blocks all being optimistic and none of them being optimistic. The
+      # EL catches up, tells the CL the head is verified, and that's it.
+      if blockRef.slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
+          dag.is_optimistic(dag.head.root):
+        continue
+
+      blobsSidecar = dag.db.getBlobsSidecar(blockRef.bid.root)
+      if blobsSidecar.isNone():
+        continue
+
+      peer.awaitQuota(blockResponseCost, "beacon_block_and_blobs_sidecar_by_root/1")
+      peer.network.awaitQuota(blockResponseCost, "beacon_block_and_blobs_sidecar_by_root/1")
+
+      let sbbabs = SignedBeaconBlockAndBlobsSidecar(
+        beacon_block: asSigned(blck.get()),
+        blobs_sidecar: blobsSidecar.get())
+      let uncompressedLen = sszSize(sbbabs).uint64
+
+      await response.writeBytesSZ(
+        uncompressedLen, SSZ.encode(sbbabs),
+        peer.networkState.forkDigestAtEpoch(blockRef.slot.epoch).data)
+
+      inc found
+
+    debug "Block and blobs sidecar root request done",
+      peer, roots = blockRoots.len, count, found
+
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#blobssidecarsbyrange-v1
   proc blobsSidecarsByRange(
       peer: Peer,
@@ -490,7 +577,7 @@ p2pProtocol BeaconSync(version = 1,
 
     let bootstrap = dag.getLightClientBootstrap(blockRoot)
     withForkyBootstrap(bootstrap):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyBootstrap.contextEpoch
           contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
@@ -533,7 +620,7 @@ p2pProtocol BeaconSync(version = 1,
     for period in startPeriod..<onePastPeriod:
       let update = dag.getLightClientUpdateForPeriod(period)
       withForkyUpdate(update):
-        when lcDataFork >= LightClientDataFork.Altair:
+        when lcDataFork > LightClientDataFork.None:
           let
             contextEpoch = forkyUpdate.contextEpoch
             contextBytes =
@@ -562,7 +649,7 @@ p2pProtocol BeaconSync(version = 1,
 
     let finality_update = dag.getLightClientFinalityUpdate()
     withForkyFinalityUpdate(finality_update):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyFinalityUpdate.contextEpoch
           contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data
@@ -589,7 +676,7 @@ p2pProtocol BeaconSync(version = 1,
 
     let optimistic_update = dag.getLightClientOptimisticUpdate()
     withForkyOptimisticUpdate(optimistic_update):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyOptimisticUpdate.contextEpoch
           contextBytes = peer.networkState.forkDigestAtEpoch(contextEpoch).data

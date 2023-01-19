@@ -153,7 +153,7 @@ proc loadChainDag(
   proc onLightClientFinalityUpdate(data: ForkedLightClientFinalityUpdate) =
     if dag == nil: return
     withForkyFinalityUpdate(data):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let contextFork =
           dag.cfg.stateForkAtEpoch(forkyFinalityUpdate.contextEpoch)
         eventBus.finUpdateQueue.emit(
@@ -164,7 +164,7 @@ proc loadChainDag(
   proc onLightClientOptimisticUpdate(data: ForkedLightClientOptimisticUpdate) =
     if dag == nil: return
     withForkyOptimisticUpdate(data):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let contextFork =
           dag.cfg.stateForkAtEpoch(forkyOptimisticUpdate.contextEpoch)
         eventBus.optUpdateQueue.emit(
@@ -479,7 +479,7 @@ proc init*(T: type BeaconNode,
 
   var eth1Monitor: Eth1Monitor
 
-  let genesisState =
+  var genesisState =
     if metadata.genesisData.len > 0:
       try:
         newClone readSszForkedHashedBeaconState(
@@ -492,51 +492,9 @@ proc init*(T: type BeaconNode,
 
   if not ChainDAGRef.isInitialized(db).isOk():
     if genesisState == nil and checkpointState == nil:
-      when hasGenesisDetection:
-        # This is a fresh start without a known genesis state
-        # (most likely, it hasn't arrived yet). We'll try to
-        # obtain a genesis through the Eth1 deposits monitor:
-        if config.web3Urls.len == 0:
-          fatal "Web3 URL not specified"
-          quit 1
-
-        # TODO Could move this to a separate "GenesisMonitor" process or task
-        #      that would do only this - see Paul's proposal for this.
-        let eth1Monitor = Eth1Monitor.init(
-          cfg,
-          metadata.depositContractBlock,
-          metadata.depositContractBlockHash,
-          db,
-          nil,
-          config.web3Urls,
-          eth1Network,
-          config.web3ForcePolling,
-          optJwtSecret,
-          ttdReached = false)
-
-        eth1Monitor.loadPersistedDeposits()
-
-        let phase0Genesis = waitFor eth1Monitor.waitGenesis()
-        genesisState = (ref ForkedHashedBeaconState)(
-          kind: BeaconStateFork.Phase0,
-          phase0Data:
-            (ref phase0.HashedBeaconState)(
-              data: phase0Genesis[],
-              root: hash_tree_root(phase0Genesis[]))[])
-
-        if bnStatus == BeaconNodeStatus.Stopping:
-          return nil
-
-        notice "Eth2 genesis state detected",
-          genesisTime = phase0Genesis.genesisTime,
-          eth1Block = phase0Genesis.eth1_data.block_hash,
-          totalDeposits = phase0Genesis.eth1_data.deposit_count
-      else:
-        fatal "No database and no genesis snapshot found: supply a genesis.ssz " &
-              "with the network configuration, or compile the beacon node with " &
-              "the -d:has_genesis_detection option " &
-              "in order to support monitoring for genesis events"
-        quit 1
+      fatal "No database and no genesis snapshot found. Please supply a genesis.ssz " &
+            "with the network configuration"
+      quit 1
 
     if not genesisState.isNil and not checkpointState.isNil:
       if getStateField(genesisState[], genesis_validators_root) !=
@@ -572,9 +530,14 @@ proc init*(T: type BeaconNode,
   # Doesn't use std/random directly, but dependencies might
   randomize(rng[].rand(high(int)))
 
+  # The validatorMonitorTotals flag has been deprecated and should eventually be
+  # removed - until then, it's given priority if set so as not to needlessly
+  # break existing setups
   let
     validatorMonitor = newClone(ValidatorMonitor.init(
-      config.validatorMonitorAuto, config.validatorMonitorTotals))
+      config.validatorMonitorAuto,
+      config.validatorMonitorTotals.get(
+        not config.validatorMonitorDetails)))
 
   for key in config.validatorMonitorPubkeys:
     validatorMonitor[].addMonitor(key, Opt.none(ValidatorIndex))
@@ -608,8 +571,7 @@ proc init*(T: type BeaconNode,
       config.web3Urls,
       eth1Network,
       config.web3ForcePolling,
-      optJwtSecret,
-      ttdReached = not dag.loadExecutionBlockRoot(dag.finalizedHead.blck).isZero)
+      optJwtSecret)
 
   if config.rpcEnabled.isSome:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
@@ -711,7 +673,8 @@ proc init*(T: type BeaconNode,
       # Delay first call by that time to allow for EL syncing to begin; it can
       # otherwise generate an EL warning by claiming a zero merge block.
       Moment.now + chronos.seconds(60),
-    dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()))
+    dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
+    mergeAtEpoch: config.mergeAtEpoch.Epoch)
 
   node.initLightClient(
     rng, cfg, dag.forkDigests, getBeaconTime, dag.genesis_validators_root)
@@ -753,7 +716,7 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.eip4844]
   forkDigestsArray
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState.card == 0:
     # When disconnected, updateGossipState is responsible for all things
@@ -826,19 +789,27 @@ proc updateBlocksGossipStatus*(
     # Individual forks added / removed
     discard
 
+  template blocksTopic(fork: BeaconStateFork, forkDigest: ForkDigest): auto =
+    case fork
+    of BeaconStateFork.Phase0 .. BeaconStateFork.Capella:
+      getBeaconBlocksTopic(forkDigest)
+    of BeaconStateFork.EIP4844:
+      getBeaconBlockAndBlobsSidecarTopic(forkDigest)
+
   let
     newGossipForks = targetGossipState - currentGossipState
     oldGossipForks = currentGossipState - targetGossipState
 
-  discard $eip4844ImplementationMissing & ": for EIP4844, https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#beacon_block notes use beacon_block_and_blobs_sidecar rather than beacon_block"
   for gossipFork in oldGossipForks:
     let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
-    node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
+    let topic = blocksTopic(gossipFork, forkDigest)
+    node.network.unsubscribe(topic)
 
   for gossipFork in newGossipForks:
     let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
+    let topic = blocksTopic(gossipFork, forkDigest)
     node.network.subscribe(
-      getBeaconBlocksTopic(forkDigest), blocksTopicParams,
+      topic, blocksTopicParams,
       enableTopicMetrics = true)
 
   node.blocksGossipState = targetGossipState
@@ -932,11 +903,6 @@ proc addCapellaMessageHandlers(
   node.addAltairMessageHandlers(forkDigest, slot)
   node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
 
-proc addEIP4844MessageHandlers(
-    node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
-  node.addCapellaMessageHandlers(forkDigest, slot)
-  node.network.subscribe(getBeaconBlockAndBlobsSidecarTopic(forkDigest), basicParams)
-
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
 
@@ -951,10 +917,6 @@ proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
 proc removeCapellaMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removeAltairMessageHandlers(forkDigest)
   node.network.unsubscribe(getBlsToExecutionChangeTopic(forkDigest))
-
-proc removeEIP4844MessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
-  node.removeCapellaMessageHandlers(forkDigest)
-  node.network.unsubscribe(getBeaconBlockAndBlobsSidecarTopic(forkDigest))
 
 proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
   template lastSyncUpdate: untyped =
@@ -1108,7 +1070,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeEIP4844MessageHandlers
+    removeCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
   ]
 
   for gossipFork in oldGossipForks:
@@ -1119,7 +1081,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
-    addEIP4844MessageHandlers
+    addCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
   ]
 
   for gossipFork in newGossipForks:
@@ -1405,7 +1367,7 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
 from ./spec/datatypes/capella import SignedBeaconBlock
 
 proc installMessageValidators(node: BeaconNode) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#attestations-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
   let forkDigests = node.dag.forkDigests
@@ -1468,7 +1430,8 @@ proc installMessageValidators(node: BeaconNode) =
   installPhase0Validators(forkDigests.altair)
   installPhase0Validators(forkDigests.bellatrix)
   installPhase0Validators(forkDigests.capella)
-  installPhase0Validators(forkDigests.eip4844)
+  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:  
+    installPhase0Validators(forkDigests.eip4844)
 
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.altair),
@@ -1500,12 +1463,13 @@ proc installMessageValidators(node: BeaconNode) =
         toValidationResult(node.processor[].processSignedBeaconBlock(
           MsgSource.gossip, signedBlock)))
 
-  node.network.addValidator(
-    getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
-    proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
-      # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
-        toValidationResult(node.processor[].processSignedBeaconBlockAndBlobsSidecar(
-          MsgSource.gossip, signedBlock)))
+  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:  
+    node.network.addValidator(
+      getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
+      proc (signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar): ValidationResult =
+        # TODO: take into account node.shouldSyncOptimistically(node.currentSlot)
+          toValidationResult(node.processor[].processSignedBeaconBlock(
+            MsgSource.gossip, signedBlock)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:
@@ -1529,7 +1493,8 @@ proc installMessageValidators(node: BeaconNode) =
   installSyncCommitteeeValidators(forkDigests.altair)
   installSyncCommitteeeValidators(forkDigests.bellatrix)
   installSyncCommitteeeValidators(forkDigests.capella)
-  installSyncCommitteeeValidators(forkDigests.eip4844)
+  if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    installSyncCommitteeeValidators(forkDigests.eip4844)
 
   node.installLightClientMessageValidators()
 
@@ -1822,6 +1787,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   ignoreDeprecatedOption safeSlotsToImportOptimistically
   ignoreDeprecatedOption terminalTotalDifficultyOverride
   ignoreDeprecatedOption optimistic
+  ignoreDeprecatedOption validatorMonitorTotals
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 

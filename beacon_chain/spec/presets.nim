@@ -20,7 +20,7 @@ export constants
 export stint, ethtypes.toHex, ethtypes.`==`
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/beacon-chain.md#withdrawal-prefixes
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/beacon-chain.md#withdrawal-prefixes
   BLS_WITHDRAWAL_PREFIX*: byte = 0
   ETH1_ADDRESS_WITHDRAWAL_PREFIX*: byte = 1
 
@@ -202,6 +202,113 @@ when const_preset == "mainnet":
     # Ethereum PoW Mainnet
     DEPOSIT_CHAIN_ID: 1,
     DEPOSIT_NETWORK_ID: 1,
+    DEPOSIT_CONTRACT_ADDRESS: default(Eth1Address)
+  )
+
+elif const_preset == "gnosis":
+  import ./presets/gnosis
+  export gnosis
+
+  # TODO Move this to RuntimeConfig
+  const SECONDS_PER_SLOT* {.intdefine.}: uint64 = 5
+
+  # The default run-time config specifies the default configuration values
+  # that will be used if a particular run-time config is missing specific
+  # confugration values (which will be then taken from this config object).
+  # It mostly matches the gnosis config with the exception of few properties
+  # such as `CONFIG_NAME`, `TERMINAL_TOTAL_DIFFICULTY`, `*_FORK_EPOCH`, etc
+  # which must be effectively overriden in all network (including mainnet).
+  const defaultRuntimeConfig* = RuntimeConfig(
+    # Mainnet config
+
+    # Extends the mainnet preset
+    PRESET_BASE: "gnosis",
+
+    # Free-form short name of the network that this configuration applies to - known
+    # canonical network names include:
+    # * 'mainnet' - there can be only one
+    # * 'prater' - testnet
+    # * 'ropsten' - testnet
+    # * 'sepolia' - testnet
+    # Must match the regex: [a-z0-9\-]
+    CONFIG_NAME: "",
+
+    # Transition
+    # ---------------------------------------------------------------
+    # TBD, 2**256-2**10 is a placeholder
+    TERMINAL_TOTAL_DIFFICULTY:
+      u256"115792089237316195423570985008687907853269984665640564039457584007913129638912",
+    # By default, don't use these params
+    TERMINAL_BLOCK_HASH: BlockHash.fromHex(
+      "0x0000000000000000000000000000000000000000000000000000000000000000"),
+    # TODO TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH: Epoch(uint64.high),
+
+    # Genesis
+    # ---------------------------------------------------------------
+    # `2**14` (= 16,384)
+    MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: 4096,
+    # Dec 1, 2020, 12pm UTC
+    MIN_GENESIS_TIME: 1638968400,
+    # Mainnet initial fork version, recommend altering for testnets
+    GENESIS_FORK_VERSION: Version [byte 0x00, 0x00, 0x00, 0x64],
+    # 604800 seconds (7 days)
+    GENESIS_DELAY: 604800,
+
+    # Forking
+    # ---------------------------------------------------------------
+    # Some forks are disabled for now:
+    #  - These may be re-assigned to another fork-version later
+    #  - Temporarily set to max uint64 value: 2**64 - 1
+
+    # Altair
+    ALTAIR_FORK_VERSION: Version [byte 0x01, 0x00, 0x00, 0x64],
+    ALTAIR_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Bellatrix
+    BELLATRIX_FORK_VERSION: Version [byte 0x02, 0x00, 0x00, 0x64],
+    BELLATRIX_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Capella
+    CAPELLA_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x64],
+    CAPELLA_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # eip4844
+    EIP4844_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x64],
+    EIP4844_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Sharding
+    SHARDING_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x64],
+    SHARDING_FORK_EPOCH: FAR_FUTURE_EPOCH,
+
+    # Time parameters
+    # ---------------------------------------------------------------
+    # 12 seconds
+    # TODO SECONDS_PER_SLOT: 12,
+    # 14 (estimate from Eth1 mainnet)
+    SECONDS_PER_ETH1_BLOCK: 5,
+    # 2**8 (= 256) epochs ~27 hours
+    MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256,
+    # 2**8 (= 256) epochs ~27 hours
+    SHARD_COMMITTEE_PERIOD: 256,
+    # 2**11 (= 2,048) Eth1 blocks ~8 hours
+    ETH1_FOLLOW_DISTANCE: 2048,
+
+
+    # Validator cycle
+    # ---------------------------------------------------------------
+    # 2**2 (= 4)
+    INACTIVITY_SCORE_BIAS: 4,
+    # 2**4 (= 16)
+    INACTIVITY_SCORE_RECOVERY_RATE: 16,
+    # 2**4 * 10**9 (= 16,000,000,000) Gwei
+    EJECTION_BALANCE: 16000000000'u64,
+    # 2**2 (= 4)
+    MIN_PER_EPOCH_CHURN_LIMIT: 4,
+    # 2**16 (= 65,536)
+    CHURN_LIMIT_QUOTIENT: 4096,
+
+
+    # Deposit contract
+    # ---------------------------------------------------------------
+    # Gnosis PoW Mainnet
+    DEPOSIT_CHAIN_ID: 100,
+    DEPOSIT_NETWORK_ID: 100,
     DEPOSIT_CONTRACT_ADDRESS: default(Eth1Address)
   )
 
@@ -518,7 +625,7 @@ template name*(cfg: RuntimeConfig): string =
   else:
     const_preset
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/p2p-interface.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#configuration
 func MIN_EPOCHS_FOR_BLOCK_REQUESTS*(cfg: RuntimeConfig): uint64 =
   cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
 

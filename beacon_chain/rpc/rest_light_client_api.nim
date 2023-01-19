@@ -38,7 +38,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let bootstrap = node.dag.getLightClientBootstrap(vroot)
     withForkyBootstrap(bootstrap):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyBootstrap.contextEpoch
           contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
@@ -100,7 +100,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let
         update = node.dag.getLightClientUpdateForPeriod(period)
         contextEpoch = withForkyUpdate(update):
-          when lcDataFork >= LightClientDataFork.Altair:
+          when lcDataFork > LightClientDataFork.None:
             forkyUpdate.contextEpoch
           else:
             continue
@@ -133,7 +133,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let finality_update = node.dag.getLightClientFinalityUpdate()
     withForkyFinalityUpdate(finality_update):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyFinalityUpdate.contextEpoch
           contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
@@ -164,7 +164,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let optimistic_update = node.dag.getLightClientOptimisticUpdate()
     withForkyOptimisticUpdate(optimistic_update):
-      when lcDataFork >= LightClientDataFork.Altair:
+      when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyOptimisticUpdate.contextEpoch
           contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)

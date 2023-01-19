@@ -68,7 +68,7 @@ jobs:
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: external/dlls-${{ matrix.target.cpu }}
           key: 'dlls-${{ matrix.target.cpu }}'
@@ -121,11 +121,11 @@ jobs:
             ncpu=$(sysctl -n hw.ncpu)
             ;;
           'Windows')
-            # otherwise, intermittent CI build failures
-            # e.g., cc1.exe: out of memory allocating 215528 bytes
-            # underflow corrected later
-            ncpu=$((${NUMBER_OF_PROCESSORS} - 1))
+            ncpu=${NUMBER_OF_PROCESSORS}
             make_cmd="mingw32-make"
+            echo "Number of cores: ${NUMBER_OF_PROCESSORS}"
+            echo "Physical memory: $(wmic ComputerSystem get TotalPhysicalMemory)"
+            echo "Partition sizes: $(wmic partition get name,size,type)"
             ;;
           esac
           [[ -z "$ncpu" || $ncpu -le 0 ]] && ncpu=1
@@ -146,19 +146,6 @@ jobs:
           fixturesHash=$(getHash status-im/nim-eth2-scenarios)
           echo "::set-output name=fixtures::${fixturesHash}"
 
-      - name: Restore Ethereum Foundation fixtures from cache
-        id: fixtures-cache
-        uses: actions/cache@v2
-        with:
-          path: fixturesCache
-          key: 'eth2-scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
-
-      # Important: even with a cache hit, this should be run
-      # as it symlinks the cached items in their proper place
-      - name: Get the Ethereum Foundation fixtures
-        run: |
-          scripts/setup_scenarios.sh fixturesCache
-
       - name: Build binaries (with trace logging enabled)
         run: |
           if [[ "${{ matrix.branch }}" == "version-1-6" ]]; then
@@ -168,7 +155,20 @@ jobs:
             ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} LOG_LEVEL=TRACE
           fi
           # The Windows image runs out of disk space, so make some room
-          rm -rf nimcache
+          rm -rf build nimcache
+
+      - name: Restore Ethereum Foundation fixtures from cache
+        id: fixtures-cache
+        uses: actions/cache@v3
+        with:
+          path: fixturesCache
+          key: 'eth2-scenarios-${{ steps.fixtures_version.outputs.fixtures }}'
+
+      # Important: even with a cache hit, this should be run
+      # as it symlinks the cached items in their proper place
+      - name: Get the Ethereum Foundation fixtures
+        run: |
+          scripts/setup_scenarios.sh fixturesCache
 
       - name: Run tests
         run: |
@@ -182,7 +182,7 @@ jobs:
       # The upload creates a combined report that gets posted as a comment on the PR
       # https://github.com/EnricoMi/publish-unit-test-result-action
       - name: Upload combined results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Unit Test Results ${{ matrix.target.os }}-${{ matrix.target.cpu }}
           path: build/*.xml
@@ -193,7 +193,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Upload
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: Event File
         path: ${{ github.event_path }}

@@ -181,7 +181,7 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
     await sleepAsync(sendTime.offset)
 
   withForkyFinalityUpdate(node.dag.lcDataStore.cache.latest):
-    when lcDataFork >= LightClientDataFork.Altair:
+    when lcDataFork > LightClientDataFork.None:
       let signature_slot = forkyFinalityUpdate.signature_slot
       if slot != signature_slot:
         return
@@ -191,7 +191,7 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
       if num_active_participants < MIN_SYNC_COMMITTEE_PARTICIPANTS:
         return
 
-      let finalized_slot = forkyFinalityUpdate.finalized_header.slot
+      let finalized_slot = forkyFinalityUpdate.finalized_header.beacon.slot
       if finalized_slot > node.lightClientPool[].latestForwardedFinalitySlot:
         template msg(): auto = forkyFinalityUpdate
         let sendResult =
@@ -207,7 +207,7 @@ proc handleLightClientUpdates*(node: BeaconNode, slot: Slot) {.async.} =
           warn "LC finality update failed to send",
             error = sendResult.error()
 
-      let attested_slot = forkyFinalityUpdate.attested_header.slot
+      let attested_slot = forkyFinalityUpdate.attested_header.beacon.slot
       if attested_slot > node.lightClientPool[].latestForwardedOptimisticSlot:
         let msg = forkyFinalityUpdate.toOptimistic
         let sendResult =
@@ -387,10 +387,8 @@ proc getExecutionPayload[T](
       latestHead =
         if not executionBlockRoot.isZero:
           executionBlockRoot
-        elif node.eth1Monitor.terminalBlockHash.isSome:
-          node.eth1Monitor.terminalBlockHash.get.asEth2Digest
         else:
-          default(Eth2Digest)
+          (static(default(Eth2Digest)))
       latestSafe = beaconHead.safeExecutionPayloadHash
       latestFinalized = beaconHead.finalizedExecutionPayloadHash
       lastFcU = node.consensusManager.forkchoiceUpdatedInfo
@@ -472,10 +470,9 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
         let fut = newFuture[Opt[EP]]("given-payload")
         fut.complete(execution_payload)
         fut
-      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
-            not (
-              is_merge_transition_complete(state[]) or
-              ((not node.eth1Monitor.isNil) and node.eth1Monitor.ttdReached)):
+      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or not (
+          state[].is_merge_transition_complete or
+          slot.epoch >= node.mergeAtEpoch):
         let fut = newFuture[Opt[EP]]("empty-payload")
         # https://github.com/nim-lang/Nim/issues/19802
         fut.complete(Opt.some(default(EP)))
@@ -896,9 +893,13 @@ proc proposeBlock(node: BeaconNode,
         elif blck is capella.BeaconBlock:
           capella.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
+        # TODO: Fetch blobs from EE
+        # https://github.com/ethereum/consensus-specs/blob/dev/specs/eip4844/validator.md#blob-kzg-commitments
         elif blck is eip4844.BeaconBlock:
-          eip4844.SignedBeaconBlock(
-            message: blck, signature: signature, root: blockRoot)
+          eip4844.SignedBeaconBlockAndBlobsSidecar(
+            beacon_block:eip4844.SignedBeaconBlock(message: blck, signature: signature, root: blockRoot),
+            blobs_sidecar: eip4844.BlobsSidecar()
+          )
         else:
           static: doAssert "Unknown SignedBeaconBlock type"
       newBlockRef =
@@ -957,7 +958,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
   # We need to run attestations exactly for the slot that we're attesting to.
   # In case blocks went missing, this means advancing past the latest block
   # using empty slots as fillers.
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/validator.md#validator-assignments
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/validator.md#validator-assignments
   let
     epochRef = node.dag.getEpochRef(
       attestationHead.blck, slot.epoch, false).valueOr:
@@ -1154,13 +1155,13 @@ proc signAndSendAggregate(
           return
         res.get()
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/validator.md#aggregation-selection
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/validator.md#aggregation-selection
     if not is_aggregator(
         shufflingRef, slot, committee_index, selectionProof):
       return
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/validator.md#construct-aggregate
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/validator.md#aggregateandproof
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/validator.md#construct-aggregate
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/validator.md#aggregateandproof
     var
       msg = SignedAggregateAndProof(
         message: AggregateAndProof(
@@ -1532,8 +1533,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
 
   updateValidatorMetrics(node) # the important stuff is done, update the vanity numbers
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/validator.md#broadcast-aggregate
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/validator.md#broadcast-sync-committee-contribution
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/validator.md#broadcast-aggregate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/validator.md#broadcast-sync-committee-contribution
   # Wait 2 / 3 of the slot time to allow messages to propagate, then collect
   # the result in aggregates
   static:

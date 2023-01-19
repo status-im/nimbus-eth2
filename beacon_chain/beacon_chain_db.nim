@@ -524,6 +524,11 @@ proc new*(T: type BeaconChainDB,
 
     lcData = db.initLightClientDataDB(LightClientDataDBNames(
       altairHeaders: "lc_altair_headers",
+      capellaHeaders:
+        if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
+          "lc_capella_headers"
+        else:
+          "",
       altairCurrentBranches: "lc_altair_current_branches",
       altairSyncCommittees: "lc_altair_sync_committees",
       legacyAltairBestUpdates: "lc_altair_best_updates",

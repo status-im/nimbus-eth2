@@ -83,19 +83,21 @@ template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
 
 type RouteBlockResult* = Result[Opt[BlockRef], cstring]
 proc routeSignedBeaconBlock*(
-    router: ref MessageRouter, blck: ForkySignedBeaconBlock):
+    router: ref MessageRouter, blckAndBlobs: ForkySignedBeaconBlockMaybeBlobs):
     Future[RouteBlockResult] {.async.} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
   ## block passes validation but is not added, and error otherwise
   let
     wallTime = router[].getCurrentBeaconTime()
+    blck = toSignedBeaconBlock(blckAndBlobs)
 
   # Start with a quick gossip validation check such that broadcasting the
   # block doesn't get the node into trouble
   block:
     let res = validateBeaconBlock(
-      router[].dag, router[].quarantine, blck, wallTime, {})
+      router[].dag, router[].quarantine, blckAndBlobs, wallTime, {})
+
     if not res.isGoodForSending():
       warn "Block failed validation",
         blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
@@ -159,7 +161,7 @@ proc routeAttestation*(
     beacon_attestations_sent.inc()
     beacon_attestation_sent_delay.observe(delay.toFloatSeconds())
 
-    notice "Attestation sent",
+    info "Attestation sent",
       attestation = shortLog(attestation), delay, subnet_id
   else: # "no broadcast" is not a fatal error
     notice "Attestation not sent",
@@ -223,7 +225,7 @@ proc routeSignedAggregateAndProof*(
   if res.isOk():
     beacon_aggregates_sent.inc()
 
-    notice "Aggregated attestation sent",
+    info "Aggregated attestation sent",
       attestation = shortLog(proof.message.aggregate),
       aggregator_index = proof.message.aggregator_index,
       selection_proof = shortLog(proof.message.selection_proof),
@@ -260,7 +262,7 @@ proc routeSyncCommitteeMessage*(
     beacon_sync_committee_messages_sent.inc()
     beacon_sync_committee_message_sent_delay.observe(delay.toFloatSeconds())
 
-    notice "Sync committee message sent", message = shortLog(msg), delay
+    info "Sync committee message sent", message = shortLog(msg), delay
   else: # "no broadcast" is not a fatal error
     notice "Sync committee message not sent",
       message = shortLog(msg), error = res.error()
@@ -375,7 +377,7 @@ proc routeSignedContributionAndProof*(
   let res = await router[].network.broadcastSignedContributionAndProof(msg)
   if res.isOk():
     beacon_sync_committee_contributions_sent.inc()
-    notice "Contribution sent",
+    info "Contribution sent",
       contribution = shortLog(msg.message.contribution),
       aggregator_index = msg.message.aggregator_index,
       selection_proof = shortLog(msg.message.selection_proof),

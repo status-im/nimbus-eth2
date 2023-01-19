@@ -146,9 +146,10 @@ proc doRequest(
     var expectedPeriod = startPeriod
     for update in response.get:
       withForkyUpdate(update):
-        when lcDataFork >= LightClientDataFork.Altair:
+        when lcDataFork > LightClientDataFork.None:
           let
-            attPeriod = forkyUpdate.attested_header.slot.sync_committee_period
+            attPeriod =
+              forkyUpdate.attested_header.beacon.slot.sync_committee_period
             sigPeriod = forkyUpdate.signature_slot.sync_committee_period
           if attPeriod != sigPeriod:
             raise newException(
@@ -244,7 +245,7 @@ proc workerTask[E](
           of VerifierError.UnviableFork:
             # Descore, peer is on an incompatible fork version
             withForkyObject(val):
-              when lcDataFork >= LightClientDataFork.Altair:
+              when lcDataFork > LightClientDataFork.None:
                 notice "Received value from an unviable fork",
                   value = forkyObject,
                   endpoint = E.name, peer, peer_score = peer.getScore()
@@ -256,7 +257,7 @@ proc workerTask[E](
           of VerifierError.Invalid:
             # Descore, received data is malformed
             withForkyObject(val):
-              when lcDataFork >= LightClientDataFork.Altair:
+              when lcDataFork > LightClientDataFork.None:
                 warn "Received invalid value", value = forkyObject.shortLog,
                   endpoint = E.name, peer, peer_score = peer.getScore()
               else:

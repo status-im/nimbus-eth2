@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2022 Status Research & Development GmbH
+# Copyright (c) 2022-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -13,7 +13,7 @@ import
   ./gossip_processing/optimistic_processor,
   ./networking/topic_params,
   ./spec/beaconstate,
-  ./spec/datatypes/[phase0, altair, bellatrix],
+  ./spec/datatypes/[phase0, altair, bellatrix, capella],
   "."/[filepath, light_client, light_client_db, nimbus_binary_common, version]
 
 from ./consensus_object_pools/consensus_manager import runForkchoiceUpdated
@@ -53,7 +53,8 @@ programMain:
   let backend = SqStoreRef.init(dbDir, "nlc").expect("Database OK")
   defer: backend.close()
   let db = backend.initLightClientDB(LightClientDBNames(
-    altairHeaders: "altair_lc_headers",
+    legacyAltairHeaders: "altair_lc_headers",
+    headers: "lc_headers",
     altairSyncCommittees: "altair_sync_committees")).expect("Database OK")
   defer: db.close()
 
@@ -98,10 +99,7 @@ programMain:
           config.web3Urls,
           metadata.eth1Network,
           forcePolling = false,
-          rng[].loadJwtSecret(config, allowCreate = false),
-          # TTD is not relevant for the light client, so it's safe
-          # to assume that the TTD has been reached.
-          ttdReached = true)
+          rng[].loadJwtSecret(config, allowCreate = false))
         waitFor res.ensureDataProvider()
         res
       else:
@@ -153,63 +151,71 @@ programMain:
     proc (signedBlock: bellatrix.SignedBeaconBlock): ValidationResult =
       toValidationResult(
         optimisticProcessor.processSignedBeaconBlock(signedBlock)))
+  network.addValidator(
+    getBeaconBlocksTopic(forkDigests.capella),
+    proc (signedBlock: capella.SignedBeaconBlock): ValidationResult =
+      toValidationResult(
+        optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   lightClient.installMessageValidators()
   waitFor network.startListening()
   waitFor network.start()
 
   proc onFinalizedHeader(
-      lightClient: LightClient, finalizedHeader: BeaconBlockHeader) =
-    info "New LC finalized header",
-      finalized_header = shortLog(finalizedHeader)
+      lightClient: LightClient, finalizedHeader: ForkedLightClientHeader) =
+    withForkyHeader(finalizedHeader):
+      when lcDataFork > LightClientDataFork.None:
+        info "New LC finalized header",
+          finalized_header = shortLog(forkyHeader)
 
-    let
-      period = finalizedHeader.slot.sync_committee_period
-      syncCommittee = lightClient.finalizedSyncCommittee.expect("Bootstrap OK")
-    db.putSyncCommittee(period, syncCommittee)
-    db.putLatestFinalizedHeader(finalizedHeader)
+        let
+          period = forkyHeader.beacon.slot.sync_committee_period
+          syncCommittee = lightClient.finalizedSyncCommittee.expect("Init OK")
+        db.putSyncCommittee(period, syncCommittee)
+        db.putLatestFinalizedHeader(finalizedHeader)
 
   proc onOptimisticHeader(
-      lightClient: LightClient, optimisticHeader: BeaconBlockHeader) =
-    info "New LC optimistic header",
-      optimistic_header = shortLog(optimisticHeader)
-    optimisticProcessor.setOptimisticHeader(optimisticHeader)
+      lightClient: LightClient, optimisticHeader: ForkedLightClientHeader) =
+    withForkyHeader(optimisticHeader):
+      when lcDataFork > LightClientDataFork.None:
+        info "New LC optimistic header",
+          optimistic_header = shortLog(forkyHeader)
+        optimisticProcessor.setOptimisticHeader(forkyHeader.beacon)
 
   lightClient.onFinalizedHeader = onFinalizedHeader
   lightClient.onOptimisticHeader = onOptimisticHeader
   lightClient.trustedBlockRoot = some config.trustedBlockRoot
 
   let latestHeader = db.getLatestFinalizedHeader()
-  if latestHeader.isOk:
-    let
-      period = latestHeader.get.slot.sync_committee_period
-      syncCommittee = db.getSyncCommittee(period)
-    if syncCommittee.isErr:
-      error "LC store lacks sync committee", finalized_header = latestHeader.get
-    else:
-      lightClient.resetToFinalizedHeader(latestHeader.get, syncCommittee.get)
+  withForkyHeader(latestHeader):
+    when lcDataFork > LightClientDataFork.None:
+      let
+        period = forkyHeader.beacon.slot.sync_committee_period
+        syncCommittee = db.getSyncCommittee(period)
+      if syncCommittee.isErr:
+        error "LC store lacks sync committee", finalized_header = forkyHeader
+      else:
+        lightClient.resetToFinalizedHeader(latestHeader, syncCommittee.get)
 
   # Full blocks gossip is required to portably drive an EL client:
   # - EL clients may not sync when only driven with `forkChoiceUpdated`,
   #   e.g., Geth: "Forkchoice requested unknown head"
   # - `newPayload` requires the full `ExecutionPayload` (most of block content)
-  # - `ExecutionPayload` block root is not available in `BeaconBlockHeader`,
-  #   so won't be exchanged via light client gossip
+  # - `ExecutionPayload` block hash is not available in
+  #   `altair.LightClientHeader`, so won't be exchanged via light client gossip
   #
   # Future `ethereum/consensus-specs` versions may remove need for full blocks.
   # Therefore, this current mechanism is to be seen as temporary; it is not
   # optimized for reducing code duplication, e.g., with `nimbus_beacon_node`.
 
   func isSynced(wallSlot: Slot): bool =
-    # Check whether light client is used
-    let optimisticHeader = lightClient.optimisticHeader.valueOr:
-      return false
-
-    # Check whether light client has synced sufficiently close to wall slot
-    const maxAge = 2 * SLOTS_PER_EPOCH
-    if optimisticHeader.slot < max(wallSlot, maxAge.Slot) - maxAge:
-      return false
-
-    true
+    let optimisticHeader = lightClient.optimisticHeader
+    withForkyHeader(optimisticHeader):
+      when lcDataFork > LightClientDataFork.None:
+        # Check whether light client has synced sufficiently close to wall slot
+        const maxAge = 2 * SLOTS_PER_EPOCH
+        forkyHeader.beacon.slot >= max(wallSlot, maxAge.Slot) - maxAge
+      else:
+        false
 
   func shouldSyncOptimistically(wallSlot: Slot): bool =
     # Check whether an EL is connected
@@ -246,10 +252,16 @@ programMain:
       oldGossipForks = currentGossipState - targetGossipState
 
     for gossipFork in oldGossipForks:
+      if gossipFork >= BeaconStateFork.EIP4844:
+        # Format is still in development, do not use Gossip at this time.
+        continue
       let forkDigest = forkDigests[].atStateFork(gossipFork)
       network.unsubscribe(getBeaconBlocksTopic(forkDigest))
 
     for gossipFork in newGossipForks:
+      if gossipFork >= BeaconStateFork.EIP4844:
+        # Format is still in development, do not use Gossip at this time.
+        continue
       let forkDigest = forkDigests[].atStateFork(gossipFork)
       network.subscribe(
         getBeaconBlocksTopic(forkDigest), blocksTopicParams,
@@ -266,19 +278,19 @@ programMain:
       finalizedHeader = lightClient.finalizedHeader
       optimisticHeader = lightClient.optimisticHeader
 
-      finalizedBid =
-        if finalizedHeader.isSome:
-          finalizedHeader.get.toBlockId()
+      finalizedBid = withForkyHeader(finalizedHeader):
+        when lcDataFork > LightClientDataFork.None:
+          forkyHeader.beacon.toBlockId()
         else:
           BlockId(root: genesisBlockRoot, slot: GENESIS_SLOT)
-      optimisticBid =
-        if optimisticHeader.isSome:
-          optimisticHeader.get.toBlockId()
+      optimisticBid = withForkyHeader(optimisticHeader):
+        when lcDataFork > LightClientDataFork.None:
+          forkyHeader.beacon.toBlockId()
         else:
           BlockId(root: genesisBlockRoot, slot: GENESIS_SLOT)
 
       syncStatus =
-        if optimisticHeader.isNone:
+        if optimisticHeader.kind == LightClientDataFork.None:
           "bootstrapping(" & $config.trustedBlockRoot & ")"
         elif not isSynced(wallSlot):
           "syncing"

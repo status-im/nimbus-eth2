@@ -30,7 +30,7 @@ create_jwt_token "$JWT_TOKEN"
   --network="$NETWORK" \
   --log-level=DEBUG \
   --data-dir="$DATA_DIR/nimbus_bn" \
-  --el=http://localhost:18550/ \
+  --web3-url=http://localhost:18550/ \
   --rest:on \
   --rest-port=15052 \
   --metrics=on \

@@ -14,7 +14,7 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../beacon_chain/spec/datatypes/eip4844,
+  ../../beacon_chain/spec/datatypes/[altair, eip4844],
   # Status libraries
   snappy,
   # Test utilities
@@ -126,13 +126,15 @@ suite "EF - EIP4844 - SSZ consensus objects " & preset():
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
           of "LightClientBootstrap":
-            checkSSZ(LightClientBootstrap, path, hash)
+            discard  # checkSSZ(capella.LightClientBootstrap, path, hash)
+          of "LightClientHeader":
+            discard  # checkSSZ(capella.LightClientHeader, path, hash)
           of "LightClientUpdate":
-            checkSSZ(LightClientUpdate, path, hash)
+            discard  # checkSSZ(capella.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
-            checkSSZ(LightClientFinalityUpdate, path, hash)
+            discard  # checkSSZ(capella.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
-            checkSSZ(LightClientOptimisticUpdate, path, hash)
+            discard  # checkSSZ(capella.LightClientOptimisticUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)

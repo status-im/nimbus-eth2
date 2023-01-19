@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -8,6 +8,7 @@
 import
   std/tables,
   metrics, chronicles,
+  ../spec/datatypes/phase0,
   ../spec/[beaconstate, forks, helpers],
   ../beacon_clock
 
@@ -472,24 +473,27 @@ proc registerEpochInfo*(
           epoch = prev_epoch,
           validator = id
 
-      # Indicates if any on-chain attestation hit the head.
-      if previous_epoch_matched_head:
-        validator_monitor_prev_epoch_on_chain_head_attester_hit.inc(1, [metricId])
-      else:
-        validator_monitor_prev_epoch_on_chain_head_attester_miss.inc(1, [metricId])
-        notice "Attestation failed to match head",
-          epoch = prev_epoch,
-          validator = id
-
       # Indicates if any on-chain attestation hit the target.
       if previous_epoch_matched_target:
         validator_monitor_prev_epoch_on_chain_target_attester_hit.inc(1, [metricId])
       else:
         validator_monitor_prev_epoch_on_chain_target_attester_miss.inc(1, [metricId])
 
-        notice "Attestation failed to match target",
-          epoch = prev_epoch,
-          validator = id
+        if previous_epoch_matched_source:
+          notice "Attestation failed to match target and head",
+            epoch = prev_epoch,
+            validator = id
+
+      # Indicates if any on-chain attestation hit the head.
+      if previous_epoch_matched_head:
+        validator_monitor_prev_epoch_on_chain_head_attester_hit.inc(1, [metricId])
+      else:
+        validator_monitor_prev_epoch_on_chain_head_attester_miss.inc(1, [metricId])
+        if previous_epoch_matched_target:
+          notice "Attestation failed to match head",
+            epoch = prev_epoch,
+            validator = id
+
 
       when state isnot phase0.BeaconState: # altair+
         # Indicates the number of sync committee signatures that made it into
