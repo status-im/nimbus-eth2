@@ -9,6 +9,7 @@
 
 import
   stew/assign2,
+  stew/results,
   chronicles,
   ../extras,
   "."/[
@@ -257,7 +258,7 @@ type
 # block gossip structures. It is for used only for
 # gossip-originating blocks, which are eventually separated into the
 # constituent parts before passing along into core functions.
-type  ForkySignedBeaconBlockMaybeBlobs* =
+type ForkySignedBeaconBlockMaybeBlobs* =
   phase0.SignedBeaconBlock |
   altair.SignedBeaconBlock |
   bellatrix.SignedBeaconBlock |
@@ -271,6 +272,15 @@ template toSignedBeaconBlock*(b: ForkySignedBeaconBlockMaybeBlobs): ForkySignedB
     b.beacon_block
   else:
     b
+
+func optBlobs*(b: ForkySignedBeaconBlockMaybeBlobs):
+         Opt[eip4844.BlobsSidecar] =
+  when b is phase0.SignedBeaconBlock or b is altair.SignedBeaconBlock or
+     b is bellatrix.SignedBeaconBlock or b is capella.SignedBeaconBlock:
+    Opt.none(eip4844.BlobsSidecar)
+  elif b is eip4844.SignedBeaconBlockAndBlobsSidecar:
+    Opt.some(b.blobs_sidecar)
+
 
 template toFork*[T: phase0.BeaconState | phase0.HashedBeaconState](
     t: type T): BeaconStateFork =

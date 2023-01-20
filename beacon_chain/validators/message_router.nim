@@ -107,7 +107,12 @@ proc routeSignedBeaconBlock*(
     # The block passed basic gossip validation - we can "safely" broadcast it
     # now. In fact, per the spec, we should broadcast it even if it later fails
     # to apply to our state.
-    res = await router[].network.broadcastBeaconBlock(blck)
+
+  let res =
+    when blckAndBlobs is eip4844.SignedBeaconBlockAndBlobsSidecar:
+      await router[].network.broadcastBeaconBlockAndBlobsSidecar(blckAndBlobs)
+    else:
+      await router[].network.broadcastBeaconBlock(blck)
 
   if res.isOk():
     beacon_blocks_sent.inc()
@@ -121,9 +126,8 @@ proc routeSignedBeaconBlock*(
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
       signature = shortLog(blck.signature), error = res.error()
 
-  let
-    newBlockRef = await router[].blockProcessor.storeBlock(
-      MsgSource.api, sendTime, blck, Opt.none(eip4844.BlobsSidecar))
+  let newBlockRef = await router[].blockProcessor.storeBlock(
+    MsgSource.api, sendTime, blck, optBlobs(blckAndBlobs))
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
