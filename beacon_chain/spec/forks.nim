@@ -280,6 +280,7 @@ func optBlobs*(b: ForkySignedBeaconBlockMaybeBlobs):
     Opt.none(eip4844.BlobsSidecar)
   elif b is eip4844.SignedBeaconBlockAndBlobsSidecar:
     Opt.some(b.blobs_sidecar)
+    
 template toFork*[T: phase0.BeaconState | phase0.HashedBeaconState](
     t: type T): BeaconStateFork =
   BeaconStateFork.Phase0
