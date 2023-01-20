@@ -1495,7 +1495,7 @@ proc installMessageValidators(node: BeaconNode) =
           # As soon as we find a matching `sync_aggregate` with sync committee
           # signatures, that block is then passed to the EL as sync target
           # via `engine_newPayload` and `engine_forkchoiceUpdate`.
-          # Note that only new head is provided, finality is always from DAG.
+          # Note that only new heads are provided; finality is always from DAG.
           # The sync aggregate can be understood as a delegated consensus
           # verification by the sync committee based on honest majority.
           #
