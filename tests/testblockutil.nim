@@ -202,7 +202,6 @@ proc addTestBlockAux[EP: bellatrix.ExecutionPayload | capella.ExecutionPayload](
       BeaconBlockValidatorChanges(),
       sync_aggregate,
       execution_payload,
-      default(SignedBLSToExecutionChangeList),
       noRollback,
       cache,
       verificationFlags = {skipBlsValidation})

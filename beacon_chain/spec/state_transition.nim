@@ -497,7 +497,6 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     executionPayload: T,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,
     rollback: RollbackForkedHashedProc,
     cache: var StateCache,
     # TODO:
@@ -587,16 +586,14 @@ proc makeBeaconBlock*[T](
     proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
     eth1_data: Eth1Data, graffiti: GraffitiBytes,
     attestations: seq[Attestation], deposits: seq[Deposit],
-    exits: BeaconBlockValidatorChanges, sync_aggregate: SyncAggregate,
-    executionPayload: T,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,  # TODO remove
+    validator_changes: BeaconBlockValidatorChanges,
+    sync_aggregate: SyncAggregate, executionPayload: T,
     rollback: RollbackForkedHashedProc, cache: var StateCache):
     Result[ForkedBeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, executionPayload,
-    bls_to_execution_changes, rollback, cache,
-    verificationFlags = {},
+    attestations, deposits, validator_changes, sync_aggregate,
+    executionPayload, rollback, cache, verificationFlags = {},
     transactions_root = Opt.none Eth2Digest,
     execution_payload_root = Opt.none Eth2Digest)
 
@@ -605,16 +602,14 @@ proc makeBeaconBlock*[T](
     proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
     eth1_data: Eth1Data, graffiti: GraffitiBytes,
     attestations: seq[Attestation], deposits: seq[Deposit],
-    exits: BeaconBlockValidatorChanges, sync_aggregate: SyncAggregate,
-    executionPayload: T,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,  # TODO remove
+    validator_changes: BeaconBlockValidatorChanges,
+    sync_aggregate: SyncAggregate, executionPayload: T,
     rollback: RollbackForkedHashedProc,
     cache: var StateCache, verificationFlags: UpdateFlags):
     Result[ForkedBeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, executionPayload,
-    bls_to_execution_changes, rollback, cache,
-    verificationFlags = verificationFlags,
+    attestations, deposits, validator_changes, sync_aggregate,
+    executionPayload, rollback, cache, verificationFlags = verificationFlags,
     transactions_root = Opt.none Eth2Digest,
     execution_payload_root = Opt.none Eth2Digest)
