@@ -1479,43 +1479,18 @@ proc installMessageValidators(node: BeaconNode) =
           # is not sufficient for that (as of Capella); it is also required to
           # provide the full `ExecutionPayload` via `engine_newPayload`.
           #
-          # Therefore, blocks gossip is followed even while DAG is out of sync,
-          # but it is not routed to `node.processor[]` in that situation
-          # to avoid filling up the quarantine with a ton of missing block
-          # requests (the entire diff between LC head and DAG head). The routing
-          # is controlled by having `shouldSyncOptimistically` return true.
-          #
-          # Because sync committees sign the parent beacon block root,
-          # and we cannot meaningfully validate blocks due to lack of
-          # `BeaconState` and validator public keys, we pass them into
-          # `node.optimisticProcessor` where they are cached in RAM.
-          # As soon as we find a matching `sync_aggregate` with sync committee
-          # signatures, that block is then passed to the EL as sync target
-          # via `engine_newPayload` and `engine_forkchoiceUpdate`.
-          # Note that only new heads are provided; finality is always from DAG.
-          # The sync aggregate can be understood as a delegated consensus
-          # verification by the sync committee based on honest majority.
+          # Because sync committees sign the parent beacon block, observed
+          # blocks need to be cached in `node.optimisticProcessor` until a
+          # matching `sync_aggregate` is obtained from a followup block.
+          # A valid `sync_aggregate` is considered good enough to optimistically
+          # trigger EL sync. Note that only new heads are provided to the EL
+          # optimistically; finality is always sourced from the DAG.
           #
           # With EIP4844, blobs are paired with beacon blocks.
-          # The assumption is that it is alright to simply discard the blob and
-          # trigger a sync via `engine_newPayload` / `engine_forkchoiceUpdated`
-          # without providing a blob in `engine_newPayload`. The blob would
-          # later be provided through another `engine_newPayload`, when the
-          # main beacon node sync catches up to wall clock. The sync committee
-          # only signs the beacon block root, not the blob.
-          #
-          # Ideally, we do not even want to subscribe to blocks gossip to
-          # trigger an EL sync. This can be revisited once the EL block header
-          # accumulators (`txs_root`, `withdrawals_root`, maybe `receipts_root`)
-          # have been adjusted to be derivable from `ExecutionPayloadHeader`
-          # which we receive via light client protocol (from Capella onward).
-          # With those fields derivable, a new `engine_newPayloadHeader` API
-          # could be introduced to support syncing to new target block without
-          # blocks gossip subscription (and without passing the blob for sure).
-          #
-          # Until then, keep this workaround present (and if `newPayload` turns
-          # out to not work properly without the blob, revisit this section to
-          # also cache the blob in memory until sync aggregate is available).
+          # The blob is not relevant for triggering sync on the EL; therefore,
+          # it is discarded here. The blob is re-obtained once the main DAG
+          # sufficiently catches up, and then passed into `node.processor[]`
+          # when `shouldSyncOptimistically` flips to `false`.
           toValidationResult(
             node.optimisticProcessor.processSignedBeaconBlock(
               signedBlock.beacon_block))
