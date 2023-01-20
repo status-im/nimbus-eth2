@@ -433,21 +433,21 @@ $(TOOLS): | build deps
 # therefore even more wasted time, when it does.
 #
 # If one asks for, e.g., `make nimbus_beacon_node nimbus_validator_client`, it
-# intentionally allows those in parallel, because the CI system does do that.
-#
-# Also, it's not 100% correct in some sense, because it excludes the libnfuzz
-# and Gnosis targets, but that's fine for the use case: a two-core CI machine
-# where by the time either comes up, that crucial high-RAM period should have
-# passed already for `nimbus_beacon_node`, and which only builds Gnosis using
-# non-Windows platforms by default.
+# intentionally allows those in parallel, as the CI systems don't do that.
 #
 # https://www.gnu.org/software/make/manual/html_node/Parallel-Disable.html
 # describes a special target .WAIT which would enable this more easily but
 # remains unusable for this Makefile due to requiring GNU Make 4.4.
 ifneq (,$(filter all,$(MAKECMDGOALS)))
 FORCE_BUILD_ALONE_TOOLS_DEPS := $(TOOLS_CORE)
+
+# If this isn't an included target (such as Windows), this is a no-op)
+gnosis-build: | nimbus_beacon_node
 else ifeq (,$(MAKECMDGOALS))
 FORCE_BUILD_ALONE_TOOLS_DEPS := $(TOOLS_CORE)
+
+# If this isn't an included target (such as Windows), this is a no-op)
+gnosis-build: | nimbus_beacon_node
 else
 FORCE_BUILD_ALONE_TOOLS_DEPS :=
 endif
