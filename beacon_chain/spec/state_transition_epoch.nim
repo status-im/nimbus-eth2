@@ -1055,7 +1055,7 @@ func process_inactivity_updates*(
     if pre_inactivity_score != inactivity_score:
       state.inactivity_scores[index] = inactivity_score
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#historical-summaries-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/beacon-chain.md#historical-summaries-updates
 func process_historical_summaries_update*(
     state: var (capella.BeaconState | eip4844.BeaconState)):
     Result[void, cstring] =
