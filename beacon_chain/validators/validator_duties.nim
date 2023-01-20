@@ -515,7 +515,6 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
       exits,
       syncAggregate,
       payload,
-      (static(default(SignedBLSToExecutionChangeList))),   # TODO remove
       noRollback, # Temporary state - no need for rollback
       cache,
       verificationFlags = {},
