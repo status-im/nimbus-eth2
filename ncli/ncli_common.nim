@@ -69,10 +69,7 @@ func matchFilenameUnaggregatedFiles(filename: string): bool =
   # epochNumberRegexStr & epochFileNameExtension
   filename.len == epochInfoFileNameDigitsCount + epochFileNameExtension.len and
     filename.endsWith(epochFileNameExtension) and
-    # TODO should use toOpenArray, but
-    # https://github.com/nim-lang/Nim/issues/15952
-    # https://github.com/nim-lang/Nim/issues/19969
-    allIt(filename[0 ..< epochInfoFileNameDigitsCount], it.isDigit)
+    allIt(filename.toOpenArray(0, epochInfoFileNameDigitsCount - 1), it.isDigit)
 
 static:
   for filename in [
@@ -96,10 +93,7 @@ func matchFilenameAggregatedFiles(filename: string): bool =
   # epochNumberRegexStr & "_" & epochNumberRegexStr & epochFileNameExtension
   filename.len == epochInfoFileNameDigitsCount * 2 + "_".len + epochFileNameExtension.len and
     filename.endsWith(epochFileNameExtension) and
-    # TODO should use toOpenArray, but
-    # https://github.com/nim-lang/Nim/issues/15952
-    # https://github.com/nim-lang/Nim/issues/19969
-    allIt(filename[0 ..< epochInfoFileNameDigitsCount], it.isDigit) and
+    allIt(filename.toOpenArray(0, epochInfoFileNameDigitsCount - 1), it.isDigit) and
     filename[epochInfoFileNameDigitsCount] == '_' and
     allIt(
       filename[epochInfoFileNameDigitsCount + 1 ..< 2 * epochInfoFileNameDigitsCount + 1],

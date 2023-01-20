@@ -1115,8 +1115,6 @@ proc getStateOnlyMutableValidators(
   ## not found at all, rollback will not be called
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
-  # TODO RVO is inefficient for large objects:
-  #      https://github.com/nim-lang/Nim/issues/13879
 
   case store.getSnappySSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
@@ -1156,8 +1154,6 @@ proc getStateOnlyMutableValidators(
   ## not found at all, rollback will not be called
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
-  # TODO RVO is inefficient for large objects:
-  #      https://github.com/nim-lang/Nim/issues/13879
 
   case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
@@ -1195,8 +1191,6 @@ proc getStateOnlyMutableValidators(
   ## not found at all, rollback will not be called
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
-  # TODO RVO is inefficient for large objects:
-  #      https://github.com/nim-lang/Nim/issues/13879
 
   case store.getSZSSZ(key, toBeaconStateNoImmutableValidators(output))
   of GetResult.found:
@@ -1257,8 +1251,6 @@ proc getState*(
   ## not found at all, rollback will not be called
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
-  # TODO RVO is inefficient for large objects:
-  #      https://github.com/nim-lang/Nim/issues/13879
   type T = type(output)
 
   if not getStateOnlyMutableValidators(
@@ -1280,8 +1272,6 @@ proc getState*(
   ## not found at all, rollback will not be called
   # TODO rollback is needed to deal with bug - use `noRollback` to ignore:
   #      https://github.com/nim-lang/Nim/issues/14126
-  # TODO RVO is inefficient for large objects:
-  #      https://github.com/nim-lang/Nim/issues/13879
   type T = type(output)
   getStateOnlyMutableValidators(
     db.immutableValidators, db.statesNoVal[T.toFork], key.data, output,
