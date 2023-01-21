@@ -882,7 +882,7 @@ proc proposeBlock(node: BeaconNode,
   var blobs_sidecar = eip4844.BlobsSidecar()
 
   withBlck(forkedBlck):
-    when blck is eip4844.BeaconBlock:
+    when blck is eip4844.BeaconBlock and const_preset != "minimal":
       let
         lastFcU = node.consensusManager.forkchoiceUpdatedInfo
         payload_id = bellatrix.PayloadID(lastFcU.get.payloadId)
