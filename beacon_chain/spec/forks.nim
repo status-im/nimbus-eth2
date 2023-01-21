@@ -361,6 +361,8 @@ template init*(T: type ForkedBeaconBlock, blck: bellatrix.BeaconBlock): T =
   T(kind: BeaconBlockFork.Bellatrix, bellatrixData: blck)
 template init*(T: type ForkedBeaconBlock, blck: capella.BeaconBlock): T =
   T(kind: BeaconBlockFork.Capella, capellaData: blck)
+template init*(T: type ForkedBeaconBlock, blck: eip4844.BeaconBlock): T =
+  T(kind: BeaconBlockFork.EIP4844, eip4844Data: blck)
 
 template init*(T: type ForkedTrustedBeaconBlock, blck: phase0.TrustedBeaconBlock): T =
   T(kind: BeaconBlockFork.Phase0, phase0Data: blck)
