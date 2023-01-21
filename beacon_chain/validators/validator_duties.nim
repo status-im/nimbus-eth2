@@ -285,7 +285,6 @@ proc forkchoice_updated(
     head_block_hash
     finalized_block_hash
 
-  discard $capellaImplementationMissing & ": ensure fcU usage updated for capella"
   let
     forkchoiceResponse =
       try:
