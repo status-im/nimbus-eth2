@@ -52,8 +52,7 @@ func shortLog*(x: seq[FetchRecord]): string =
 proc init*(T: type RequestManager, network: Eth2Node,
               dag: ChainDAGRef,
               blockVerifier: BlockVerifier,
-              blockBlobsVerifier: BlockBlobsVerifier)
-              : RequestManager =
+              blockBlobsVerifier: BlockBlobsVerifier): RequestManager =
   RequestManager(
     network: network,
     inpQueue: newAsyncQueue[FetchRecord](),
