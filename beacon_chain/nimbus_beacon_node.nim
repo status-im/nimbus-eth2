@@ -387,8 +387,7 @@ proc initFullNode(
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
   node.requestManager = RequestManager.init(node.network, dag,
-                                            blockVerifier, blockBlobsVerifier,
-                                            dag.cfg.EIP4844_FORK_EPOCH)
+                                            blockVerifier, blockBlobsVerifier)
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.router = router

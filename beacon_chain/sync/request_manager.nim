@@ -41,7 +41,6 @@ type
     dag: ChainDAGRef
     blockVerifier: BlockVerifier
     blockBlobsVerifier: BlockBlobsVerifier
-    blobsStartEpoch: Epoch
     loopFuture: Future[void]
 
 func shortLog*(x: seq[Eth2Digest]): string =
@@ -53,15 +52,14 @@ func shortLog*(x: seq[FetchRecord]): string =
 proc init*(T: type RequestManager, network: Eth2Node,
               dag: ChainDAGRef,
               blockVerifier: BlockVerifier,
-              blockBlobsVerifier: BlockBlobsVerifier,
-              blobsStartEpoch: Epoch): RequestManager =
+              blockBlobsVerifier: BlockBlobsVerifier)
+              : RequestManager =
   RequestManager(
     network: network,
     inpQueue: newAsyncQueue[FetchRecord](),
     dag: dag,
     blockVerifier: blockVerifier,
     blockBlobsVerifier: blockBlobsVerifier,
-    blobsStartEpoch: blobsStartEpoch
   )
 
 proc checkResponse(roots: openArray[Eth2Digest],
@@ -238,7 +236,7 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
 
 
 proc isSlotWithBlobs(rman: RequestManager, s: Slot): bool =
-  return s.epoch >= rman.blobsStartEpoch
+  return s.epoch >= rman.dag.cfg.EIP4844_FORK_EPOCH
 
 proc requestManagerLoop(rman: RequestManager) {.async.} =
   var rootList = newSeq[Eth2Digest]()
