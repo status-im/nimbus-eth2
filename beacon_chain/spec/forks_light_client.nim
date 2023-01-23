@@ -498,7 +498,7 @@ func toFinality*(
   type ResultType = typeof(update).kind.LightClientFinalityUpdate
   when update is ForkyLightClientFinalityUpdate:
     update
-  elif update is SomeLightClientUpdateWithFinality:
+  elif update is SomeForkyLightClientUpdateWithFinality:
     ResultType(
       attested_header: update.attested_header,
       finalized_header: update.finalized_header,
