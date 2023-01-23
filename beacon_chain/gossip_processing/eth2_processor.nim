@@ -45,6 +45,10 @@ declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
   "Number of invalid attester slashings dropped by this node", labels = ["reason"]
+declareCounter bls_to_execution_change_received,
+  "Number of valid BLS to execution changes processed by this node"
+declareCounter bls_to_execution_change_dropped,
+  "Number of invalid BLS to execution changes dropped by this node", labels = ["reason"]
 declareCounter beacon_proposer_slashings_received,
   "Number of valid proposer slashings processed by this node"
 declareCounter beacon_proposer_slashings_dropped,
@@ -408,6 +412,9 @@ proc processBlsToExecutionChange*(
   if v.isOk():
     trace "BLS to execution change validated"
     self.validatorChangePool[].addMessage(blsToExecutionChange)
+  else:
+    debug "Dropping BLS to execution change", validationError = v.error
+    beacon_attester_slashings_dropped.inc(1, [$v.error[0]])
 
   v
 

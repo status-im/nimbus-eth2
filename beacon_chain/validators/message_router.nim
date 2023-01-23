@@ -463,7 +463,8 @@ proc routeBlsToExecutionChange*(
       MsgSource.api, bls_to_execution_change)
     if not res.isGoodForSending:
       warn "BLS to execution change request failed validation",
-        slashing = shortLog(bls_to_execution_change), error = res.error()
+            change = shortLog(bls_to_execution_change),
+            error = res.error()
       return err(res.error()[1])
 
   if  router[].getCurrentBeaconTime().slotOrZero.epoch <
