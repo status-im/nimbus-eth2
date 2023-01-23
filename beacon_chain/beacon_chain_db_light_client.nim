@@ -145,17 +145,17 @@ template disposeSafe(s: untyped): untyped =
 proc initHeadersStore(
     backend: SqStoreRef,
     name, typeName: string): KvResult[LightClientHeaderStore] =
-  if backend.readOnly and not ? backend.hasTable(name):
-    return ok LightClientHeaderStore()
   if name == "":
     return ok LightClientHeaderStore()
-
-  ? backend.exec("""
-    CREATE TABLE IF NOT EXISTS `""" & name & """` (
-      `slot_and_block_root` BLOB PRIMARY KEY,  -- `Slot || Eth2Digest`
-      `header` BLOB                            -- `""" & typeName & """` (SSZ)
-    );
-  """)
+  if not backend.readOnly:
+    ? backend.exec("""
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `slot_and_block_root` BLOB PRIMARY KEY,  -- `Slot || Eth2Digest`
+        `header` BLOB                            -- `""" & typeName & """` (SSZ)
+      );
+    """)
+  if not ? backend.hasTable(name):
+    return ok LightClientHeaderStore()
 
   let
     getStmt = backend.prepareStmt("""
@@ -299,15 +299,15 @@ func putCurrentSyncCommitteeBranch*(
 proc initSyncCommitteesStore(
     backend: SqStoreRef,
     name: string): KvResult[SyncCommitteeStore] =
-  if backend.readOnly and not ? backend.hasTable(name):
+  if not backend.readOnly:
+    ? backend.exec("""
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
+        `sync_committee` BLOB          -- `altair.SyncCommittee` (SSZ)
+      );
+    """)
+  if not ? backend.hasTable(name):
     return ok SyncCommitteeStore()
-
-  ? backend.exec("""
-    CREATE TABLE IF NOT EXISTS `""" & name & """` (
-      `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
-      `sync_committee` BLOB          -- `altair.SyncCommittee` (SSZ)
-    );
-  """)
 
   let
     containsStmt = backend.prepareStmt("""
