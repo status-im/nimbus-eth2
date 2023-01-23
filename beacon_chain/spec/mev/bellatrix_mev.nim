@@ -8,10 +8,7 @@
 import ".."/datatypes/[altair, bellatrix]
 from stew/byteutils import to0xHex
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 type
   # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#validatorregistrationv1

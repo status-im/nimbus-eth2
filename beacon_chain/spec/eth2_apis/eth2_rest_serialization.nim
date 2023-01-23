@@ -142,10 +142,7 @@ type
     jsonVersion*: BeaconStateFork
     sszContext*: ForkDigest
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 proc prepareJsonResponse*(t: typedesc[RestApiResponse], d: auto): seq[byte] =
   let res =

@@ -5,10 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/[hashes, typetraits],
@@ -151,10 +148,10 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/validator.md#broadcast-sync-committee-contribution
   syncContributionSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64  * 2 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#sync-committee
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientFinalityUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#sync-committee
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/p2p-interface.md#sync-committee
   lightClientOptimisticUpdateSlotOffset* = TimeDiff(nanoseconds:
     NANOSECONDS_PER_SLOT.int64 div INTERVALS_PER_SLOT)
 

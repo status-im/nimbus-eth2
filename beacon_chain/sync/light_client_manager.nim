@@ -5,10 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import chronos, chronicles, stew/base10
 import
@@ -115,7 +112,7 @@ proc isGossipSupported*(
   else:
     period <= finalizedPeriod
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
 proc doRequest(
     e: typedesc[Bootstrap],
     peer: Peer,
@@ -181,7 +178,7 @@ proc doRequest(
     raises: [Defect, IOError].} =
   peer.lightClientFinalityUpdate()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 proc doRequest(
     e: typedesc[OptimisticUpdate],
     peer: Peer

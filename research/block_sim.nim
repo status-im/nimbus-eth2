@@ -19,7 +19,7 @@ import
   chronos/timer, eth/keys, taskpools,
   ../tests/testblockutil,
   ../beacon_chain/spec/[forks, state_transition],
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, eip4844],
   ../beacon_chain/[beacon_chain_db, beacon_clock],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
@@ -101,7 +101,8 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate,
+    static(default(eip4844.KZGCommitmentList)), execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -144,7 +145,8 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate,
+    static(default(eip4844.KZGCommitmentList)), execution_payload)
 
   # Signatures are verified elsewhere, so don't duplicate inefficiently here
   let res = process_block(
@@ -188,7 +190,8 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate,
+    static(default(eip4844.KZGCommitmentList)), execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -231,7 +234,8 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate,
+    static(default(eip4844.KZGCommitmentList)), execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -274,7 +278,8 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, execution_payload)
+    attestations, deposits, exits, sync_aggregate,
+    default(eip4844.KZGCommitmentList), execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)

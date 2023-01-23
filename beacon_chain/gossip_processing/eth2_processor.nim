@@ -5,10 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/tables,
@@ -48,6 +45,10 @@ declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
   "Number of invalid attester slashings dropped by this node", labels = ["reason"]
+declareCounter bls_to_execution_change_received,
+  "Number of valid BLS to execution changes processed by this node"
+declareCounter bls_to_execution_change_dropped,
+  "Number of invalid BLS to execution changes dropped by this node", labels = ["reason"]
 declareCounter beacon_proposer_slashings_received,
   "Number of valid proposer slashings processed by this node"
 declareCounter beacon_proposer_slashings_dropped,
@@ -411,6 +412,9 @@ proc processBlsToExecutionChange*(
   if v.isOk():
     trace "BLS to execution change validated"
     self.validatorChangePool[].addMessage(blsToExecutionChange)
+  else:
+    debug "Dropping BLS to execution change", validationError = v.error
+    beacon_attester_slashings_dropped.inc(1, [$v.error[0]])
 
   v
 

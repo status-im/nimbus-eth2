@@ -17,10 +17,7 @@
 #   improvements to be made - other than that, keep things similar to spec unless
 #   motivated by security or performance considerations
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   chronicles, metrics,
@@ -767,7 +764,7 @@ func verify_kzg_commitments_against_transactions*(
 
   all_versioned_hashes == mapIt(kzg_commitments, it.kzg_commitment_to_versioned_hash)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#blob-kzg-commitments
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/beacon-chain.md#blob-kzg-commitments
 func process_blob_kzg_commitments(
     state: var eip4844.BeaconState,
     body: eip4844.BeaconBlockBody | eip4844.TrustedBeaconBlockBody |

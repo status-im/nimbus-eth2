@@ -7,10 +7,7 @@
 
 # Uncategorized helper functions from the spec
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   # Status libraries
@@ -214,7 +211,7 @@ template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#is_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/sync-protocol.md#is_finality_update
 template is_finality_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithFinality:
     update.finality_branch != default(typeof(update.finality_branch))
@@ -328,7 +325,7 @@ func contextEpoch*(bootstrap: ForkyLightClientBootstrap): Epoch =
   bootstrap.header.beacon.slot.epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
   update.attested_header.beacon.slot.epoch

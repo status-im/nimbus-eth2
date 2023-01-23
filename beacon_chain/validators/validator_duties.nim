@@ -5,10 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 # This module is responsible for handling beacon node validators, ie those that
 # that are running directly in the beacon node and not in a separate validator
@@ -67,6 +64,9 @@ declareCounter beacon_block_production_errors,
 
 declareCounter beacon_block_payload_errors,
   "Number of times execution client failed to produce block payload"
+
+declareCounter beacon_blobs_sidecar_payload_errors,
+  "Number of times execution client failed to produce blobs sidecar"
 
 # Metrics for tracking external block builder usage
 declareCounter beacon_block_builder_missed_with_fallback,
@@ -288,7 +288,6 @@ proc forkchoice_updated(
     head_block_hash
     finalized_block_hash
 
-  discard $capellaImplementationMissing & ": ensure fcU usage updated for capella"
   let
     forkchoiceResponse =
       try:
@@ -324,8 +323,8 @@ proc get_execution_payload[EP](
       asConsensusExecutionPayload(
         await execution_engine.getPayloadV2(payload_id.get))
     elif EP is eip4844.ExecutionPayload:
-      debugRaiseAssert $eip4844ImplementationMissing & ": get_execution_payload"
-      default(EP)
+      asConsensusExecutionPayload(
+        await execution_engine.getPayloadV3(payload_id.get))
     else:
       static: doAssert "unknown execution payload type"
 
@@ -440,6 +439,32 @@ proc getExecutionPayload[T](
       msg = err.msg
     return Opt.some empty_execution_payload
 
+proc getBlobsBundle(
+    node: BeaconNode, epoch: Epoch, validator_index: ValidatorIndex,
+    payload_id: PayloadID): Future[BlobsBundleV1] {.async.} =
+    # https://github.com/ethereum/consensus-specs/blob/dev/specs/eip4844/validator.md#get_blobs_and_kzg_commitments
+
+  # Minimize window for Eth1 monitor to shut down connection
+  await node.consensusManager.eth1Monitor.ensureDataProvider()
+
+  # https://github.com/ethereum/execution-apis/blob/8058687053598e8fa3cc25a4ca4965fb96cf1e65/src/engine/experimental/blob-extension.md#engine_getblobsbundlev1
+  const GETBLOBS_TIMEOUT = 1.seconds
+
+  let payload = try:
+    awaitWithTimeout(
+      node.consensusManager.eth1Monitor.getBlobsBundleV1(payload_id),
+      GETBLOBS_TIMEOUT):
+        beacon_block_payload_errors.inc()
+        warn "Getting blobs sidecar from Engine API timed out", payload_id
+        default(BlobsBundleV1)
+  except CatchableError as err:
+    beacon_block_payload_errors.inc()
+    warn "Getting blobs sidecar from Engine API failed",
+          payload_id, err = err.msg
+    default(BlobsBundleV1)
+
+  return payload
+
 proc makeBeaconBlockForHeadAndSlot*[EP](
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
@@ -518,7 +543,7 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
       exits,
       syncAggregate,
       payload,
-      (static(default(SignedBLSToExecutionChangeList))),   # TODO remove
+      (static(default(KZGCommitmentList))),
       noRollback, # Temporary state - no need for rollback
       cache,
       verificationFlags = {},
@@ -840,7 +865,10 @@ proc proposeBlock(node: BeaconNode,
       return newBlockMEV.get
 
   let newBlock =
-    if slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
+    if slot.epoch >= node.dag.cfg.EIP4844_FORK_EPOCH:
+      await makeBeaconBlockForHeadAndSlot[eip4844.ExecutionPayload](
+        node, randao, validator_index, node.graffitiBytes, head, slot)
+    elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
       await makeBeaconBlockForHeadAndSlot[capella.ExecutionPayload](
         node, randao, validator_index, node.graffitiBytes, head, slot)
     else:
@@ -850,9 +878,31 @@ proc proposeBlock(node: BeaconNode,
   if newBlock.isErr():
     return head # already logged elsewhere!
 
-  let forkedBlck = newBlock.get()
+  var forkedBlck = newBlock.get()
+  var blobs_sidecar = eip4844.BlobsSidecar()
 
   withBlck(forkedBlck):
+    when blck is eip4844.BeaconBlock and const_preset != "minimal":
+      let
+        lastFcU = node.consensusManager.forkchoiceUpdatedInfo
+        payload_id = bellatrix.PayloadID(lastFcU.get.payloadId)
+        bundle = await getBlobsBundle(node, slot.epoch, validator_index, default(PayloadID))
+
+        # todo: actually compute proof over blobs using nim-kzg-4844
+        kzg_aggregated_proof = default(KZGProof)
+
+      blck.body.blob_kzg_commitments =
+          List[eip4844.KZGCommitment, Limit MAX_BLOBS_PER_BLOCK].init(
+            mapIt(bundle.kzgs, eip4844.KzgCommitment(it)))
+
+      blobs_sidecar = BlobsSidecar(
+        beacon_block_root: hash_tree_root(blck),
+        beacon_block_slot: slot,
+        blobs: List[eip4844.Blob, Limit MAX_BLOBS_PER_BLOCK].init(
+          mapIt(bundle.blobs, eip4844.Blob(it))),
+        kzg_aggregated_proof: kzg_aggregated_proof
+      )
+
     let
       blockRoot = hash_tree_root(blck)
       signingRoot = compute_block_signing_root(
@@ -894,12 +944,10 @@ proc proposeBlock(node: BeaconNode,
         elif blck is capella.BeaconBlock:
           capella.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
-        # TODO: Fetch blobs from EE
-        # https://github.com/ethereum/consensus-specs/blob/dev/specs/eip4844/validator.md#blob-kzg-commitments
         elif blck is eip4844.BeaconBlock:
           eip4844.SignedBeaconBlockAndBlobsSidecar(
             beacon_block:eip4844.SignedBeaconBlock(message: blck, signature: signature, root: blockRoot),
-            blobs_sidecar: eip4844.BlobsSidecar()
+            blobs_sidecar: blobs_sidecar
           )
         else:
           static: doAssert "Unknown SignedBeaconBlock type"

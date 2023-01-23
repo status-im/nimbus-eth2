@@ -5,10 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   stew/results,
@@ -110,7 +107,12 @@ proc routeSignedBeaconBlock*(
     # The block passed basic gossip validation - we can "safely" broadcast it
     # now. In fact, per the spec, we should broadcast it even if it later fails
     # to apply to our state.
-    res = await router[].network.broadcastBeaconBlock(blck)
+
+  let res =
+    when blckAndBlobs is eip4844.SignedBeaconBlockAndBlobsSidecar:
+      await router[].network.broadcastBeaconBlockAndBlobsSidecar(blckAndBlobs)
+    else:
+      await router[].network.broadcastBeaconBlock(blck)
 
   if res.isOk():
     beacon_blocks_sent.inc()
@@ -124,9 +126,8 @@ proc routeSignedBeaconBlock*(
       blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
       signature = shortLog(blck.signature), error = res.error()
 
-  let
-    newBlockRef = await router[].blockProcessor.storeBlock(
-      MsgSource.api, sendTime, blck, Opt.none(eip4844.BlobsSidecar))
+  let newBlockRef = await router[].blockProcessor.storeBlock(
+    MsgSource.api, sendTime, blck, optBlobs(blckAndBlobs))
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
@@ -462,7 +463,8 @@ proc routeBlsToExecutionChange*(
       MsgSource.api, bls_to_execution_change)
     if not res.isGoodForSending:
       warn "BLS to execution change request failed validation",
-        slashing = shortLog(bls_to_execution_change), error = res.error()
+            change = shortLog(bls_to_execution_change),
+            error = res.error()
       return err(res.error()[1])
 
   if  router[].getCurrentBeaconTime().slotOrZero.epoch <

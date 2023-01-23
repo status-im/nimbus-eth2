@@ -13,10 +13,7 @@
 #      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/[typetraits, sets, hashes],
@@ -165,7 +162,7 @@ type
     beacon*: BeaconBlockHeader
       ## Beacon block header
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/sync-protocol.md#lightclientbootstrap
   LightClientBootstrap* = object
     header*: LightClientHeader
       ## Header matching the requested beacon block root
@@ -192,7 +189,7 @@ type
     signature_slot*: Slot
       ## Slot at which the aggregate signature was created (untrusted)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/sync-protocol.md#lightclientfinalityupdate
   LightClientFinalityUpdate* = object
     # Header attested to by the sync committee
     attested_header*: LightClientHeader
@@ -206,7 +203,7 @@ type
     # Slot at which the aggregate signature was created (untrusted)
     signature_slot*: Slot
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/light-client/sync-protocol.md#lightclientoptimisticupdate
   LightClientOptimisticUpdate* = object
     # Header attested to by the sync committee
     attested_header*: LightClientHeader
@@ -745,71 +742,6 @@ chronicles.formatIt LightClientBootstrap: shortLog(it)
 chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
-
-template toFull*(
-    update: SomeLightClientUpdate): LightClientUpdate =
-  when update is LightClientUpdate:
-    update
-  elif update is SomeLightClientUpdateWithFinality:
-    LightClientUpdate(
-      attested_header: update.attested_header,
-      finalized_header: update.finalized_header,
-      finality_branch: update.finality_branch,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-  else:
-    LightClientUpdate(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-template toFinality*(
-    update: SomeLightClientUpdate): LightClientFinalityUpdate =
-  when update is LightClientFinalityUpdate:
-    update
-  elif update is SomeLightClientUpdateWithFinality:
-    LightClientFinalityUpdate(
-      attested_header: update.attested_header,
-      finalized_header: update.finalized_header,
-      finality_branch: update.finality_branch,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-  else:
-    LightClientFinalityUpdate(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-template toOptimistic*(
-    update: SomeLightClientUpdate): LightClientOptimisticUpdate =
-  when update is LightClientOptimisticUpdate:
-    update
-  else:
-    LightClientOptimisticUpdate(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-func matches*[A, B: SomeLightClientUpdate](a: A, b: B): bool =
-  if a.attested_header != b.attested_header:
-    return false
-  when a is SomeLightClientUpdateWithSyncCommittee and
-      b is SomeLightClientUpdateWithSyncCommittee:
-    if a.next_sync_committee != b.next_sync_committee:
-      return false
-    if a.next_sync_committee_branch != b.next_sync_committee_branch:
-      return false
-  when a is SomeLightClientUpdateWithFinality and
-      b is SomeLightClientUpdateWithFinality:
-    if a.finalized_header != b.finalized_header:
-      return false
-    if a.finality_branch != b.finality_branch:
-      return false
-  if a.sync_aggregate != b.sync_aggregate:
-    return false
-  if a.signature_slot != b.signature_slot:
-    return false
-  true
 
 func clear*(info: var EpochInfo) =
   info.validators.setLen(0)

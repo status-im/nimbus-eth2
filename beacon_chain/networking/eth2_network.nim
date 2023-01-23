@@ -5,10 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   # Std lib
@@ -2656,22 +2653,12 @@ proc broadcastBeaconBlock*(
   let topic = getBeaconBlocksTopic(node.forkDigests.capella)
   node.broadcast(topic, blck)
 
+proc broadcastBeaconBlockAndBlobsSidecar*(
+    node: Eth2Node, blck: eip4844.SignedBeaconBlockAndBlobsSidecar): Future[SendResult] =
+  let topic = getBeaconBlockAndBlobsSidecarTopic(node.forkDigests.eip4844)
+  node.broadcast(topic, blck)
+
 from ../spec/datatypes/eip4844 import SignedBeaconBlock
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: eip4844.SignedBeaconBlock): Future[SendResult] =
-  debugRaiseAssert $eip4844ImplementationMissing & ": eth2_network.nim:broadcastBeaconBlock EIP4844 uses different approach (1)"
-
-proc broadcastBeaconBlock*(
-    node: Eth2Node, forked: ForkedSignedBeaconBlock): Future[SendResult] =
-  withBlck(forked):
-    when stateFork == BeaconStateFork.EIP4844:
-      debugRaiseAssert $eip4844ImplementationMissing & ": eth2_network.nim:broadcastBeaconBlock EIP4844 uses different approach (2)"
-      let f = newFuture[SendResult]()
-      f.fail(new CatchableError)
-      f
-    else:
-      node.broadcastBeaconBlock(blck)
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,

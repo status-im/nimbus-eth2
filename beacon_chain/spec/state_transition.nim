@@ -38,10 +38,7 @@
 #   overload is used, the hash tree cache is cleared, which, aside from being
 #   slow itself, causes additional processing to recalculate the merkle tree.
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   chronicles,
@@ -346,6 +343,7 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
+    blob_kzg_commitments: KZGCommitmentList,
     execution_payload: bellatrix.ExecutionPayload):
     phase0.BeaconBlock =
   phase0.BeaconBlock(
@@ -374,6 +372,7 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
+    blob_kzg_commitments: KZGCommitmentList,
     execution_payload: bellatrix.ExecutionPayload):
     altair.BeaconBlock =
   altair.BeaconBlock(
@@ -403,6 +402,7 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
+    blob_kzg_commitments: KZGCommitmentList,
     execution_payload: bellatrix.ExecutionPayload):
     bellatrix.BeaconBlock =
   bellatrix.BeaconBlock(
@@ -433,6 +433,7 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
+    blob_kzg_commitments: KZGCommitmentList,
     execution_payload: capella.ExecutionPayload,
     ):
     capella.BeaconBlock =
@@ -466,10 +467,10 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
+    kzg_commitments: eip4844.KZGCommitmentList,
     execution_payload: eip4844.ExecutionPayload,
     ):
     eip4844.BeaconBlock =
-  discard $eip4844ImplementationMissing & ": state_transition.nim: partialBeaconBlock, leaves additional fields default, okay for block_sim"
   eip4844.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
@@ -485,10 +486,12 @@ template partialBeaconBlock*(
       voluntary_exits: validator_changes.voluntary_exits,
       sync_aggregate: sync_aggregate,
       execution_payload: execution_payload,
-      bls_to_execution_changes: validator_changes.bls_to_execution_changes
+      bls_to_execution_changes: validator_changes.bls_to_execution_changes,
+      blob_kzg_commitments: kzg_commitments
       ))
 
-proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
+proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
+                      eip4844.ExecutionPayload](
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -500,7 +503,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
     executionPayload: T,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,
+    blob_kzg_commitments: KZGCommitmentList,
     rollback: RollbackForkedHashedProc,
     cache: var StateCache,
     # TODO:
@@ -524,7 +527,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
         partialBeaconBlock(
           cfg, state.`kind Data`, proposer_index, randao_reveal, eth1_data,
           graffiti, attestations, deposits, validator_changes, sync_aggregate,
-          executionPayload))
+          blob_kzg_commitments, executionPayload))
 
     let res = process_block(
       cfg, state.`kind Data`.data, blck.`kind Data`.asSigVerified(),
@@ -580,8 +583,8 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload](
     of  BeaconStateFork.Phase0, BeaconStateFork.Altair,
         BeaconStateFork.Bellatrix, BeaconStateFork.Capella:
       raiseAssert "Attempt to use EIP4844 payload with non-EIP4844 state"
-    of BeaconStateFork.EIP4844:
-      debugRaiseAssert $eip4844ImplementationMissing & ": state_transition"
+    of BeaconStateFork.EIP4844: makeBeaconBlock(eip4844)
+
 
 # workaround for https://github.com/nim-lang/Nim/issues/20900 rather than have
 # these be default arguments
@@ -590,17 +593,16 @@ proc makeBeaconBlock*[T](
     proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
     eth1_data: Eth1Data, graffiti: GraffitiBytes,
     attestations: seq[Attestation], deposits: seq[Deposit],
-    exits: BeaconBlockValidatorChanges, sync_aggregate: SyncAggregate,
-    executionPayload: T,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,  # TODO remove
+    validator_changes: BeaconBlockValidatorChanges,
+    sync_aggregate: SyncAggregate, executionPayload: T,
+    blob_kzg_commitments: KZGCommitmentList,
     rollback: RollbackForkedHashedProc, cache: var StateCache):
     Result[ForkedBeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, executionPayload,
-    bls_to_execution_changes, rollback, cache,
-    verificationFlags = {},
-    transactions_root = Opt.none Eth2Digest,
+    attestations, deposits, validator_changes, sync_aggregate,
+    executionPayload, blob_kzg_commitments, rollback, cache,
+    verificationFlags = {}, transactions_root = Opt.none Eth2Digest,
     execution_payload_root = Opt.none Eth2Digest)
 
 proc makeBeaconBlock*[T](
@@ -608,16 +610,16 @@ proc makeBeaconBlock*[T](
     proposer_index: ValidatorIndex, randao_reveal: ValidatorSig,
     eth1_data: Eth1Data, graffiti: GraffitiBytes,
     attestations: seq[Attestation], deposits: seq[Deposit],
-    exits: BeaconBlockValidatorChanges, sync_aggregate: SyncAggregate,
-    executionPayload: T,
-    bls_to_execution_changes: SignedBLSToExecutionChangeList,  # TODO remove
+    validator_changes: BeaconBlockValidatorChanges,
+    sync_aggregate: SyncAggregate, executionPayload: T,
+    blob_kzg_commitments: KZGCommitmentList,
     rollback: RollbackForkedHashedProc,
     cache: var StateCache, verificationFlags: UpdateFlags):
     Result[ForkedBeaconBlock, cstring] =
   makeBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate, executionPayload,
-    bls_to_execution_changes, rollback, cache,
+    attestations, deposits, validator_changes, sync_aggregate,
+    executionPayload, blob_kzg_commitments, rollback, cache,
     verificationFlags = verificationFlags,
     transactions_root = Opt.none Eth2Digest,
     execution_payload_root = Opt.none Eth2Digest)

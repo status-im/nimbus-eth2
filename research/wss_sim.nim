@@ -163,7 +163,7 @@ cli do(validatorsDir: string, secretsDir: string,
           BeaconBlockValidatorChanges(),
           syncAggregate,
           default(bellatrix.ExecutionPayload),
-          (static(default(SignedBLSToExecutionChangeList))),
+          default(eip4844.KZGCommitmentList),
           noRollback,
           cache).get()
 

@@ -13,10 +13,7 @@
 #      https://github.com/nim-lang/RFCs/issues/250
 {.experimental: "notnil".}
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   chronicles,
@@ -41,7 +38,7 @@ type
   SignedBLSToExecutionChangeList* =
     List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#withdrawal
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/beacon-chain.md#withdrawal
   Withdrawal* = object
     index*: WithdrawalIndex
     validator_index*: uint64
@@ -54,7 +51,7 @@ type
     from_bls_pubkey*: ValidatorPubKey
     to_execution_address*: ExecutionAddress
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#signedblstoexecutionchange
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/beacon-chain.md#signedblstoexecutionchange
   SignedBLSToExecutionChange* = object
     message*: BLSToExecutionChange
     signature*: ValidatorSig
@@ -66,7 +63,7 @@ type
     block_summary_root*: Eth2Digest
     state_summary_root*: Eth2Digest
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
@@ -286,7 +283,7 @@ type
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -343,7 +340,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -427,7 +424,7 @@ type
     # Capella operations
     bls_to_execution_changes*: SignedBLSToExecutionChangeList  # [New in Capella]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
@@ -642,71 +639,6 @@ chronicles.formatIt LightClientBootstrap: shortLog(it)
 chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
-
-template toFull*(
-    update: SomeLightClientUpdate): LightClientUpdate =
-  when update is LightClientUpdate:
-    update
-  elif update is SomeLightClientUpdateWithFinality:
-    LightClientUpdate(
-      attested_header: update.attested_header,
-      finalized_header: update.finalized_header,
-      finality_branch: update.finality_branch,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-  else:
-    LightClientUpdate(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-template toFinality*(
-    update: SomeLightClientUpdate): LightClientFinalityUpdate =
-  when update is LightClientFinalityUpdate:
-    update
-  elif update is SomeLightClientUpdateWithFinality:
-    LightClientFinalityUpdate(
-      attested_header: update.attested_header,
-      finalized_header: update.finalized_header,
-      finality_branch: update.finality_branch,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-  else:
-    LightClientFinalityUpdate(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-template toOptimistic*(
-    update: SomeLightClientUpdate): LightClientOptimisticUpdate =
-  when update is LightClientOptimisticUpdate:
-    update
-  else:
-    LightClientOptimisticUpdate(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-func matches*[A, B: SomeLightClientUpdate](a: A, b: B): bool =
-  if a.attested_header != b.attested_header:
-    return false
-  when a is SomeLightClientUpdateWithSyncCommittee and
-      b is SomeLightClientUpdateWithSyncCommittee:
-    if a.next_sync_committee != b.next_sync_committee:
-      return false
-    if a.next_sync_committee_branch != b.next_sync_committee_branch:
-      return false
-  when a is SomeLightClientUpdateWithFinality and
-      b is SomeLightClientUpdateWithFinality:
-    if a.finalized_header != b.finalized_header:
-      return false
-    if a.finality_branch != b.finality_branch:
-      return false
-  if a.sync_aggregate != b.sync_aggregate:
-    return false
-  if a.signature_slot != b.signature_slot:
-    return false
-  true
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_store_to_capella
 func upgrade_lc_store_to_capella*(

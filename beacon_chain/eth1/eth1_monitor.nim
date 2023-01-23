@@ -5,10 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/[deques, options, strformat, strutils, sequtils, tables,
@@ -533,6 +530,28 @@ proc getPayloadV2*(
 
   return (await p.dataProvider.web3.provider.engine_getPayloadV2(
     FixedBytes[8] payloadId)).executionPayload
+
+proc getPayloadV3*(
+    p: Eth1Monitor, payloadId: bellatrix.PayloadID):
+    Future[engine_api.ExecutionPayloadV3] {.async.} =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil or p.dataProvider.isNil:
+    return default(engine_api.ExecutionPayloadV3)
+
+  return (await p.dataProvider.web3.provider.engine_getPayloadV3(
+    FixedBytes[8] payloadId)).executionPayload
+
+proc getBlobsBundleV1*(
+    p: Eth1Monitor, payloadId: bellatrix.PayloadID):
+    Future[engine_api.BlobsBundleV1] {.async.} =
+  # Eth1 monitor can recycle connections without (external) warning; at least,
+  # don't crash.
+  if p.isNil or p.dataProvider.isNil:
+    return default(engine_api.BlobsBundleV1)
+
+  return (await p.dataProvider.web3.provider.engine_getBlobsBundleV1(
+    FixedBytes[8] payloadId))
 
 proc newPayload*(p: Eth1Monitor, payload: engine_api.ExecutionPayloadV1):
     Future[PayloadStatusV1] =
