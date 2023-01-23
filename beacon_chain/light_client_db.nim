@@ -68,12 +68,13 @@ proc initLegacyLightClientHeadersStore(
   if backend.readOnly and not ? backend.hasTable(name):
     return ok LegacyLightClientHeadersStore()
 
-  ? backend.exec("""
-    CREATE TABLE IF NOT EXISTS `""" & name & """` (
-      `kind` INTEGER PRIMARY KEY,  -- `LightClientHeaderKey`
-      `header` BLOB                -- `altair.LightClientHeader` (SSZ)
-    );
-  """)
+  if not backend.readOnly:
+    ? backend.exec("""
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `kind` INTEGER PRIMARY KEY,  -- `LightClientHeaderKey`
+        `header` BLOB                -- `altair.LightClientHeader` (SSZ)
+      );
+    """)
 
   const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
   let
@@ -103,23 +104,24 @@ proc initLightClientHeadersStore(
   if backend.readOnly and not ? backend.hasTable(name):
     return ok LightClientHeadersStore()
 
-  ? backend.exec("""
-    CREATE TABLE IF NOT EXISTS `""" & name & """` (
-      `key` INTEGER PRIMARY KEY,   -- `LightClientHeaderKey`
-      `kind` INTEGER,              -- `LightClientDataFork`
-      `header` BLOB                -- `LightClientHeader` (SSZ)
-    );
-  """)
-  if ? backend.hasTable(legacyAltairName):
-    # LightClientHeaderKey -> altair.LightClientHeader
-    const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
+  if not backend.readOnly:
     ? backend.exec("""
-      INSERT OR IGNORE INTO `""" & name & """` (
-        `key`, `kind`, `header`
-      )
-      SELECT `kind` AS `key`, """ & legacyKind & """ AS `kind`, `header`
-      FROM `""" & legacyAltairName & """`;
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `key` INTEGER PRIMARY KEY,   -- `LightClientHeaderKey`
+        `kind` INTEGER,              -- `LightClientDataFork`
+        `header` BLOB                -- `LightClientHeader` (SSZ)
+      );
     """)
+    if ? backend.hasTable(legacyAltairName):
+      # LightClientHeaderKey -> altair.LightClientHeader
+      const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
+      ? backend.exec("""
+        INSERT OR IGNORE INTO `""" & name & """` (
+          `key`, `kind`, `header`
+        )
+        SELECT `kind` AS `key`, """ & legacyKind & """ AS `kind`, `header`
+        FROM `""" & legacyAltairName & """`;
+      """)
 
   let
     getStmt = backend.prepareStmt("""
