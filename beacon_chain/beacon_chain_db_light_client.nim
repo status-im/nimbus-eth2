@@ -103,12 +103,13 @@ proc initCurrentBranchesStore(
   if backend.readOnly and not ? backend.hasTable(name):
     return ok CurrentSyncCommitteeBranchStore()
 
-  ? backend.exec("""
-    CREATE TABLE IF NOT EXISTS `""" & name & """` (
-      `slot` INTEGER PRIMARY KEY,  -- `Slot` (up through 2^63-1)
-      `branch` BLOB                -- `altair.CurrentSyncCommitteeBranch` (SSZ)
-    );
-  """)
+  if not backend.readOnly:
+    ? backend.exec("""
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `slot` INTEGER PRIMARY KEY,  -- `Slot` (up through 2^63-1)
+        `branch` BLOB                -- `altair.CurrentSyncCommitteeBranch` (SSZ)
+      );
+    """)
 
   let
     containsStmt = backend.prepareStmt("""
@@ -186,12 +187,13 @@ proc initLegacyBestUpdatesStore(
   if backend.readOnly and not ? backend.hasTable(name):
     return ok LegacyBestLightClientUpdateStore()
 
-  ? backend.exec("""
-    CREATE TABLE IF NOT EXISTS `""" & name & """` (
-      `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
-      `update` BLOB                  -- `altair.LightClientUpdate` (SSZ)
-    );
-  """)
+  if not backend.readOnly:
+    ? backend.exec("""
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
+        `update` BLOB                  -- `altair.LightClientUpdate` (SSZ)
+      );
+    """)
 
   const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
   let
@@ -239,23 +241,24 @@ proc initBestUpdatesStore(
   if backend.readOnly and not ? backend.hasTable(name):
     return ok BestLightClientUpdateStore()
 
-  ? backend.exec("""
-    CREATE TABLE IF NOT EXISTS `""" & name & """` (
-      `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
-      `kind` INTEGER,                -- `LightClientDataFork`
-      `update` BLOB                  -- `LightClientUpdate` (SSZ)
-    );
-  """)
-  if ? backend.hasTable(legacyAltairName):
-    # SyncCommitteePeriod -> altair.LightClientUpdate
-    const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
+  if not backend.readOnly:
     ? backend.exec("""
-      INSERT OR IGNORE INTO `""" & name & """` (
-        `period`, `kind`, `update`
-      )
-      SELECT `period`, """ & legacyKind & """ AS `kind`, `update`
-      FROM `""" & legacyAltairName & """`;
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
+        `kind` INTEGER,                -- `LightClientDataFork`
+        `update` BLOB                  -- `LightClientUpdate` (SSZ)
+      );
     """)
+    if ? backend.hasTable(legacyAltairName):
+      # SyncCommitteePeriod -> altair.LightClientUpdate
+      const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
+      ? backend.exec("""
+        INSERT OR IGNORE INTO `""" & name & """` (
+          `period`, `kind`, `update`
+        )
+        SELECT `period`, """ & legacyKind & """ AS `kind`, `update`
+        FROM `""" & legacyAltairName & """`;
+      """)
 
   let
     getStmt = backend.prepareStmt("""
@@ -378,11 +381,12 @@ proc initSealedPeriodsStore(
   if backend.readOnly and not ? backend.hasTable(name):
     return ok SealedSyncCommitteePeriodStore()
 
-  ? backend.exec("""
-    CREATE TABLE IF NOT EXISTS `""" & name & """` (
-      `period` INTEGER PRIMARY KEY  -- `SyncCommitteePeriod`
-    );
-  """)
+  if not backend.readOnly:
+    ? backend.exec("""
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `period` INTEGER PRIMARY KEY  -- `SyncCommitteePeriod`
+      );
+    """)
 
   let
     containsStmt = backend.prepareStmt("""
