@@ -207,12 +207,13 @@ func initSyncCommitteesStore(
   if backend.readOnly and not ? backend.hasTable(name):
     return ok SyncCommitteeStore()
 
-  ? backend.exec("""
-    CREATE TABLE IF NOT EXISTS `""" & name & """` (
-      `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
-      `sync_committee` BLOB          -- `altair.SyncCommittee` (SSZ)
-    );
-  """)
+  if not backend.readOnly:
+    ? backend.exec("""
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
+        `sync_committee` BLOB          -- `altair.SyncCommittee` (SSZ)
+      );
+    """)
 
   let
     getStmt = backend.prepareStmt("""
