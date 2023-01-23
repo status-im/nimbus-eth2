@@ -65,9 +65,6 @@ template disposeSafe(s: untyped): untyped =
 proc initLegacyLightClientHeadersStore(
     backend: SqStoreRef,
     name: string): KvResult[LegacyLightClientHeadersStore] =
-  if backend.readOnly and not ? backend.hasTable(name):
-    return ok LegacyLightClientHeadersStore()
-
   if not backend.readOnly:
     ? backend.exec("""
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
@@ -75,6 +72,8 @@ proc initLegacyLightClientHeadersStore(
         `header` BLOB                -- `altair.LightClientHeader` (SSZ)
       );
     """)
+  if not ? backend.hasTable(name):
+    return ok LegacyLightClientHeadersStore()
 
   const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
   let
@@ -101,9 +100,6 @@ func close(store: var LegacyLightClientHeadersStore) =
 proc initLightClientHeadersStore(
     backend: SqStoreRef,
     name, legacyAltairName: string): KvResult[LightClientHeadersStore] =
-  if backend.readOnly and not ? backend.hasTable(name):
-    return ok LightClientHeadersStore()
-
   if not backend.readOnly:
     ? backend.exec("""
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
@@ -122,6 +118,8 @@ proc initLightClientHeadersStore(
         SELECT `kind` AS `key`, """ & legacyKind & """ AS `kind`, `header`
         FROM `""" & legacyAltairName & """`;
       """)
+  if not ? backend.hasTable(name):
+    return ok LightClientHeadersStore()
 
   let
     getStmt = backend.prepareStmt("""
@@ -204,9 +202,6 @@ func putLatestFinalizedHeader*(
 func initSyncCommitteesStore(
     backend: SqStoreRef,
     name: string): KvResult[SyncCommitteeStore] =
-  if backend.readOnly and not ? backend.hasTable(name):
-    return ok SyncCommitteeStore()
-
   if not backend.readOnly:
     ? backend.exec("""
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
@@ -214,6 +209,8 @@ func initSyncCommitteesStore(
         `sync_committee` BLOB          -- `altair.SyncCommittee` (SSZ)
       );
     """)
+  if not ? backend.hasTable(name):
+    return ok SyncCommitteeStore()
 
   let
     getStmt = backend.prepareStmt("""

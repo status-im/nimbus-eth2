@@ -100,9 +100,6 @@ template disposeSafe(s: untyped): untyped =
 proc initCurrentBranchesStore(
     backend: SqStoreRef,
     name: string): KvResult[CurrentSyncCommitteeBranchStore] =
-  if backend.readOnly and not ? backend.hasTable(name):
-    return ok CurrentSyncCommitteeBranchStore()
-
   if not backend.readOnly:
     ? backend.exec("""
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
@@ -110,6 +107,8 @@ proc initCurrentBranchesStore(
         `branch` BLOB                -- `altair.CurrentSyncCommitteeBranch` (SSZ)
       );
     """)
+  if not ? backend.hasTable(name):
+    return ok CurrentSyncCommitteeBranchStore()
 
   let
     containsStmt = backend.prepareStmt("""
@@ -184,9 +183,6 @@ proc initLegacyBestUpdatesStore(
     backend: SqStoreRef,
     name: string,
 ): KvResult[LegacyBestLightClientUpdateStore] =
-  if backend.readOnly and not ? backend.hasTable(name):
-    return ok LegacyBestLightClientUpdateStore()
-
   if not backend.readOnly:
     ? backend.exec("""
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
@@ -194,6 +190,8 @@ proc initLegacyBestUpdatesStore(
         `update` BLOB                  -- `altair.LightClientUpdate` (SSZ)
       );
     """)
+  if not ? backend.hasTable(name):
+    return ok LegacyBestLightClientUpdateStore()
 
   const legacyKind = Base10.toString(ord(LightClientDataFork.Altair).uint)
   let
@@ -238,9 +236,6 @@ proc initBestUpdatesStore(
     backend: SqStoreRef,
     name, legacyAltairName: string,
 ): KvResult[BestLightClientUpdateStore] =
-  if backend.readOnly and not ? backend.hasTable(name):
-    return ok BestLightClientUpdateStore()
-
   if not backend.readOnly:
     ? backend.exec("""
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
@@ -259,6 +254,8 @@ proc initBestUpdatesStore(
         SELECT `period`, """ & legacyKind & """ AS `kind`, `update`
         FROM `""" & legacyAltairName & """`;
       """)
+  if not ? backend.hasTable(name):
+    return ok BestLightClientUpdateStore()
 
   let
     getStmt = backend.prepareStmt("""
@@ -378,15 +375,14 @@ proc putUpdateIfBetter*(
 proc initSealedPeriodsStore(
     backend: SqStoreRef,
     name: string): KvResult[SealedSyncCommitteePeriodStore] =
-  if backend.readOnly and not ? backend.hasTable(name):
-    return ok SealedSyncCommitteePeriodStore()
-
   if not backend.readOnly:
     ? backend.exec("""
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
         `period` INTEGER PRIMARY KEY  -- `SyncCommitteePeriod`
       );
     """)
+  if not ? backend.hasTable(name):
+    return ok SealedSyncCommitteePeriodStore()
 
   let
     containsStmt = backend.prepareStmt("""
