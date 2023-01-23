@@ -461,7 +461,25 @@ template withForkyStore*(
     const lcDataFork {.inject, used.} = LightClientDataFork.None
     body
 
-template toFull*(
+func toFull*(
+    update: SomeForkyLightClientUpdate): auto =
+  type ResultType = typeof(update).kind.LightClientUpdate
+  when update is ForkyLightClientUpdate:
+    update
+  elif update is SomeForkyLightClientUpdateWithFinality:
+    ResultType(
+      attested_header: update.attested_header,
+      finalized_header: update.finalized_header,
+      finality_branch: update.finality_branch,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+  else:
+    ResultType(
+      attested_header: update.attested_header,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+
+func toFull*(
     update: SomeForkedLightClientUpdate): ForkedLightClientUpdate =
   when update is ForkyLightClientUpdate:
     update
@@ -475,7 +493,25 @@ template toFull*(
       else:
         default(ForkedLightClientUpdate)
 
-template toFinality*(
+func toFinality*(
+    update: SomeForkyLightClientUpdate): auto =
+  type ResultType = typeof(update).kind.LightClientFinalityUpdate
+  when update is ForkyLightClientFinalityUpdate:
+    update
+  elif update is SomeLightClientUpdateWithFinality:
+    ResultType(
+      attested_header: update.attested_header,
+      finalized_header: update.finalized_header,
+      finality_branch: update.finality_branch,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+  else:
+    ResultType(
+      attested_header: update.attested_header,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+
+func toFinality*(
     update: SomeForkedLightClientUpdate): ForkedLightClientFinalityUpdate =
   when update is ForkyLightClientFinalityUpdate:
     update
@@ -489,7 +525,18 @@ template toFinality*(
       else:
         default(ForkedLightClientFinalityUpdate)
 
-template toOptimistic*(
+func toOptimistic*(
+    update: SomeForkyLightClientUpdate): auto =
+  type ResultType = typeof(update).kind.LightClientOptimisticUpdate
+  when update is ForkyLightClientOptimisticUpdate:
+    update
+  else:
+    ResultType(
+      attested_header: update.attested_header,
+      sync_aggregate: update.sync_aggregate,
+      signature_slot: update.signature_slot)
+
+func toOptimistic*(
     update: SomeForkedLightClientUpdate): ForkedLightClientOptimisticUpdate =
   when update is ForkyLightClientOptimisticUpdate:
     update
@@ -502,6 +549,28 @@ template toOptimistic*(
         res
       else:
         default(ForkedLightClientOptimisticUpdate)
+
+func matches*[A, B: SomeForkyLightClientUpdate](a: A, b: B): bool =
+  static: doAssert typeof(A).kind == typeof(B).kind
+  if a.attested_header != b.attested_header:
+    return false
+  when a is SomeForkyLightClientUpdateWithSyncCommittee and
+      b is SomeForkyLightClientUpdateWithSyncCommittee:
+    if a.next_sync_committee != b.next_sync_committee:
+      return false
+    if a.next_sync_committee_branch != b.next_sync_committee_branch:
+      return false
+  when a is SomeForkyLightClientUpdateWithFinality and
+      b is SomeForkyLightClientUpdateWithFinality:
+    if a.finalized_header != b.finalized_header:
+      return false
+    if a.finality_branch != b.finality_branch:
+      return false
+  if a.sync_aggregate != b.sync_aggregate:
+    return false
+  if a.signature_slot != b.signature_slot:
+    return false
+  true
 
 func matches*[A, B: SomeForkedLightClientUpdate](a: A, b: B): bool =
   if a.kind != b.kind:
