@@ -895,17 +895,20 @@ proc addAltairMessageHandlers(
 
   node.network.updateSyncnetsMetadata(syncnets)
 
+# TODO remove this first release after Capella forks
 proc delayStartBlsToExecution(node: BeaconNode, forkDigest: ForkDigest) {.async.} =
   try:
-    await sleepAsync(chronos.minutes(1))
-    node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
+    await sleepAsync(chronos.minutes(10))
+    if BeaconStateFork.Capella in node.gossipState:
+      node.network.subscribe(
+        getBlsToExecutionChangeTopic(forkDigest), basicParams)
   except CatchableError as exc:
     warn "delayStartBlsToExecution: exception", err = exc.msg
 
 proc addCapellaMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addAltairMessageHandlers(forkDigest, slot)
-  const CAPELLA_SLOT_START_TOLERANCE = 50
+  const CAPELLA_SLOT_START_TOLERANCE = 3
   if  forkDigest == node.dag.forkDigests.capella and
       node.currentSlot() <=
         node.dag.cfg.CAPELLA_FORK_EPOCH.start_slot + CAPELLA_SLOT_START_TOLERANCE:
