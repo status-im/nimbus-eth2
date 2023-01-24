@@ -895,10 +895,20 @@ proc addAltairMessageHandlers(
 
   node.network.updateSyncnetsMetadata(syncnets)
 
+proc delayStartBlsToExecution(node: BeaconNode, forkDigest: ForkDigest) {.async.} =
+  try:
+    await sleepAsync(chronos.minutes(1))
+    node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
+  except CatchableError as exc:
+    warn "delayStartBlsToExecution: exception", err = exc.msg
+
 proc addCapellaMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addAltairMessageHandlers(forkDigest, slot)
-  node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
+  if forkDigest == node.dag.forkDigests.capella:
+    asyncSpawn node.delayStartBlsToExecution(forkDigest)
+  else:
+    node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
 
 proc removeAltairMessageHandlers(node: BeaconNode, forkDigest: ForkDigest) =
   node.removePhase0MessageHandlers(forkDigest)
