@@ -879,9 +879,12 @@ proc proposeBlock(node: BeaconNode,
     return head # already logged elsewhere!
 
   var forkedBlck = newBlock.get()
-  var blobs_sidecar = eip4844.BlobsSidecar()
 
   withBlck(forkedBlck):
+    var blobs_sidecar = eip4844.BlobsSidecar(
+      beacon_block_root: hash_tree_root(blck),
+      beacon_block_slot: slot,
+    )
     when blck is eip4844.BeaconBlock and const_preset != "minimal":
       let
         lastFcU = node.consensusManager.forkchoiceUpdatedInfo
@@ -902,6 +905,9 @@ proc proposeBlock(node: BeaconNode,
           mapIt(bundle.blobs, eip4844.Blob(it))),
         kzg_aggregated_proof: kzg_aggregated_proof
       )
+        blobs_sidecar.blobs = List[eip4844.Blob, Limit MAX_BLOBS_PER_BLOCK].init(
+          mapIt(bundle.blobs, eip4844.Blob(it)))
+        blobs_sidecar.kzg_aggregated_proof = kzg_aggregated_proof
 
     let
       blockRoot = hash_tree_root(blck)
