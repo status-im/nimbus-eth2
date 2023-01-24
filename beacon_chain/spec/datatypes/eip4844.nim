@@ -499,6 +499,25 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
+func shortLog*(v: ExecutionPayload): auto =
+  (
+    parent_hash: shortLog(v.parent_hash),
+    fee_recipient: $v.fee_recipient,
+    state_root: shortLog(v.state_root),
+    receipts_root: shortLog(v.receipts_root),
+    prev_randao: shortLog(v.prev_randao),
+    block_number: v.block_number,
+    gas_limit: v.gas_limit,
+    gas_used: v.gas_used,
+    timestamp: v.timestamp,
+    extra_data_len: len(v.extra_data),
+    base_fee_per_gas: $(v.base_fee_per_gas),
+    excess_data_gas: $(v.excess_data_gas),
+    block_hash: shortLog(v.block_hash),
+    num_transactions: len(v.transactions),
+    num_withdrawals: len(v.withdrawals)
+  )
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/sync-protocol.md#get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =

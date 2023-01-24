@@ -387,7 +387,8 @@ proc storeBlock*(
     when typeof(signedBlock).toFork() >= BeaconBlockFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if payload.block_hash != payload.compute_execution_block_hash():
-        debug "Execution block hash validation failed", execution_payload = payload
+        debug "Execution block hash validation failed",
+          execution_payload = shortLog(payload)
         doAssert strictVerification notin dag.updateFlags
         self.consensusManager.quarantine[].addUnviable(signedBlock.root)
         return err((VerifierError.Invalid, ProcessingStatus.completed))
