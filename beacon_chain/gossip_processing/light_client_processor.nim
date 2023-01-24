@@ -295,8 +295,7 @@ template withReportedProgress(
     obj: SomeForkedLightClientObject | Nothing, body: untyped): bool =
   block:
     let
-      oldIsInitialized =
-        self.store[].kind != LightClientDataFork.None
+      oldIsInitialized = self.store[].kind > LightClientDataFork.None
       oldNextCommitteeKnown = withForkyStore(self.store[]):
         when lcDataFork > LightClientDataFork.None:
           forkyStore.is_next_sync_committee_known
@@ -324,7 +323,7 @@ template withReportedProgress(
       didProgress = false
       didSignificantProgress = false
 
-    let newIsInitialized = self.store[].kind != LightClientDataFork.None
+    let newIsInitialized = self.store[].kind > LightClientDataFork.None
     if newIsInitialized > oldIsInitialized:
       didProgress = true
       didSignificantProgress = true
