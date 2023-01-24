@@ -1286,7 +1286,7 @@ proc loadEth2Network*(
   else:
     when const_preset == "gnosis":
       gnosisMetadata
-    elif const_preset == "mainnet":
+    elif const_preset == "mainnet" and isMainnetCompatible():
       mainnetMetadata
     else:
       # Presumably other configurations can have other defaults, but for now

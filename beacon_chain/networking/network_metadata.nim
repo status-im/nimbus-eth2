@@ -209,6 +209,9 @@ template mergeTestnet(path: string, eth1Network: Eth1Network): Eth2NetworkMetada
   loadCompileTimeNetworkMetadata(mergeTestnetsDir & "/" & path,
                                  some eth1Network)
 
+func isMainnetCompatible*(): bool {.compileTime.} =
+  SECONDS_PER_SLOT == 12
+
 when const_preset == "gnosis":
   const
     gnosisMetadata* = loadCompileTimeNetworkMetadata(
@@ -219,7 +222,7 @@ when const_preset == "gnosis":
     doAssert gnosisMetadata.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
     doAssert gnosisMetadata.cfg.EIP4844_FORK_EPOCH == FAR_FUTURE_EPOCH
 
-elif const_preset == "mainnet":
+elif const_preset == "mainnet" and isMainnetCompatible():
   const
     mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
     praterMetadata* = eth2Network("shared/prater", goerli)
@@ -259,7 +262,7 @@ proc getMetadataForNetwork*(
       else:
         loadRuntimeMetadata()
 
-    elif const_preset == "mainnet":
+    elif const_preset == "mainnet" and isMainnetCompatible():
       case toLowerAscii(networkName)
       of "mainnet":
         mainnetMetadata
@@ -293,7 +296,7 @@ proc getRuntimeConfig*(
   if eth2Network.isSome:
     return getMetadataForNetwork(eth2Network.get).cfg
 
-  when const_preset == "mainnet":
+  when const_preset == "mainnet" and isMainnetCompatible():
     mainnetMetadata.cfg
   elif const_preset == "gnosis":
     gnosisMetadata.cfg
