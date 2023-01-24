@@ -905,7 +905,10 @@ proc delayStartBlsToExecution(node: BeaconNode, forkDigest: ForkDigest) {.async.
 proc addCapellaMessageHandlers(
     node: BeaconNode, forkDigest: ForkDigest, slot: Slot) =
   node.addAltairMessageHandlers(forkDigest, slot)
-  if forkDigest == node.dag.forkDigests.capella:
+  const CAPELLA_SLOT_START_TOLERANCE = 3
+  if  forkDigest == node.dag.forkDigests.capella and
+      node.currentSlot() <=
+        node.dag.cfg.CAPELLA_FORK_EPOCH.start_slot + CAPELLA_SLOT_START_TOLERANCE:
     asyncSpawn node.delayStartBlsToExecution(forkDigest)
   else:
     node.network.subscribe(getBlsToExecutionChangeTopic(forkDigest), basicParams)
