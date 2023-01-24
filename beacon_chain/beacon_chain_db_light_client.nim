@@ -162,8 +162,7 @@ proc initHeadersStore(
     getStmt = backend.prepareStmt("""
       SELECT `header`
       FROM `""" & name & """`
-      WHERE `block_root` = ?
-      LIMIT 1;
+      WHERE `block_root` = ?;
     """, array[32, byte], seq[byte], managed = false).expect("SQL query OK")
     putStmt = backend.prepareStmt("""
       INSERT INTO `""" & name & """` (
