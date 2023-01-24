@@ -191,11 +191,11 @@ proc new*(T: type Eth2Processor,
 
 proc processSignedBeaconBlock*(
     self: var Eth2Processor, src: MsgSource,
-    signedBlockAndBlobs: ForkySignedBeaconBlockMaybeBlobs): ValidationRes =
+    signedBlock: ForkySignedBeaconBlock): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
-    signedBlock = toSignedBeaconBlock(signedBlockAndBlobs)
+    # signedBlock = toSignedBeaconBlock(signedBlockAndBlobs)
 
   logScope:
     blockRoot = shortLog(signedBlock.root)
@@ -215,7 +215,7 @@ proc processSignedBeaconBlock*(
   debug "Block received", delay
 
   let v =
-    self.dag.validateBeaconBlock(self.quarantine, signedBlockAndBlobs, wallTime, {})
+    self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {})
 
   if v.isOk():
     # Block passed validation - enqueue it for processing. The block processing
@@ -240,6 +240,55 @@ proc processSignedBeaconBlock*(
     self.blockProcessor[].dumpInvalidBlock(signedBlock)
 
     beacon_blocks_dropped.inc(1, [$v.error[0]])
+
+  v
+
+proc processBlobsSidecar*(
+    self: var Eth2Processor, src: MsgSource, sidecar: BlobsSidecar): ValidationRes =
+  let
+    wallTime = self.getCurrentBeaconTime()
+    (afterGenesis, wallSlot) = wallTime.toSlot()
+
+  logScope:
+    wallSlot
+
+  if not afterGenesis:
+    notice "Block before genesis"
+    return errIgnore("Block before genesis")
+
+  # Potential under/overflows are fine; would just create odd metrics and logs
+  let delay = wallTime - sidecar.beacon_block_slot.start_beacon_time
+
+  # Start of block processing - in reality, we have already gone through SSZ
+  # decoding at this stage, which may be significant
+  debug "Sidecar received", delay
+
+  let v =
+    self.dag.validateBlobsSidecar(self.quarantine, sidecar, wallTime, {})
+
+  if v.isOk():
+    # Block passed validation - enqueue it for processing. The block processing
+    # queue is effectively unbounded as we use a freestanding task to enqueue
+    # the block - this is done so that when blocks arrive concurrently with
+    # sync, we don't lose the gossip blocks, but also don't block the gossip
+    # propagation of seemingly good blocks
+    trace "Sidecar validated"
+
+    # self.blockProcessor[].addBlock(
+    #   src, ForkedSignedBeaconBlock.init(signedBlock),
+    #   Opt.none(eip4844.BlobsSidecar),
+    #   validationDur = nanoseconds(
+    #     (self.getCurrentBeaconTime() - wallTime).nanoseconds))
+
+    # # Validator monitor registration for blocks is done by the processor
+    # beacon_blocks_received.inc()
+    # beacon_block_delay.observe(delay.toFloatSeconds())
+  else:
+    debug "Dropping sidecar", error = v.error()
+
+    # self.blockProcessor[].dumpInvalidBlock(signedBlock)
+
+    # beacon_blocks_dropped.inc(1, [$v.error[0]])
 
   v
 

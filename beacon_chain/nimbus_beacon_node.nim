@@ -788,10 +788,8 @@ proc updateBlocksGossipStatus*(
 
   template blocksTopic(fork: BeaconStateFork, forkDigest: ForkDigest): auto =
     case fork
-    of BeaconStateFork.Phase0 .. BeaconStateFork.Capella:
+    of BeaconStateFork.Phase0 .. BeaconStateFork.Eip4844:
       getBeaconBlocksTopic(forkDigest)
-    of BeaconStateFork.EIP4844:
-      getBeaconBlockAndBlobsSidecarTopic(forkDigest)
 
   let
     newGossipForks = targetGossipState - currentGossipState
@@ -1462,9 +1460,9 @@ proc installMessageValidators(node: BeaconNode) =
 
   if node.dag.cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
     node.network.addValidator(
-      getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
+      getBeaconBlocksTopic(forkDigests.eip4844),
       proc (
-          signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar
+          signedBlock: eip4844.SignedBeaconBlock
       ): ValidationResult =
         if node.shouldSyncOptimistically(node.currentSlot):
           # `shouldSyncOptimistically` is true if all conditions are met:
@@ -1493,10 +1491,20 @@ proc installMessageValidators(node: BeaconNode) =
           # when `shouldSyncOptimistically` flips to `false`.
           toValidationResult(
             node.optimisticProcessor.processSignedBeaconBlock(
-              signedBlock.beacon_block))
+              signedBlock))
         else:
           toValidationResult(node.processor[].processSignedBeaconBlock(
             MsgSource.gossip, signedBlock)))
+    node.network.addValidator(
+      getBeaconBlocksTopic(forkDigests.eip4844),
+      proc (
+          sidecar: eip4844.BlobsSidecar
+      ): ValidationResult =
+        if node.shouldSyncOptimistically(node.currentSlot):
+          ValidationResult.Accept # TODO
+        else:
+          toValidationResult(node.processor[].processBlobsSidecar(
+            MsgSource.gossip, sidecar)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:

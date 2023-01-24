@@ -233,3 +233,7 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
     if getForkedBlockField(v[0], parent_root) == root:
       toRemove.add(k)
       yield v
+
+proc addBlobsSidecar*(quarantine: var Quarantine, sidecar: BlobsSidecar) =
+  # TODO
+  discard

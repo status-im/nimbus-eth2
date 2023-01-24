@@ -220,14 +220,10 @@ template validateBeaconBlockBellatrix(
   # cannot occur here, because Nimbus's optimistic sync waits for either
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
-template validateBlobsSidecar(
-    signed_beacon_block: phase0.SignedBeaconBlock | altair.SignedBeaconBlock |
-    bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock): untyped =
-  discard
-
-template validateBlobsSidecar(
-    signed_beacon_block: eip4844.SignedBeaconBlockAndBlobsSidecar):
-    untyped =
+proc validateBlobsSidecar*(
+    dag: ChainDAGRef, quarantine: ref Quarantine,
+    sidecar: BlobsSidecar,
+    wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # TODO
   # [REJECT] The KZG commitments of the blobs are all correctly encoded
   # compressed BLS G1 points -- i.e. all(bls.KeyValidate(commitment) for
@@ -237,18 +233,24 @@ template validateBlobsSidecar(
   # the transactions list --
   # i.e. verify_kzg_commitments_against_transactions(block.body.execution_payload.transactions,
   # block.body.blob_kzg_commitments)
-  if not verify_kzg_commitments_against_transactions(
-    signed_beacon_block.beacon_block.message.body.execution_payload.transactions.asSeq,
-    signed_beacon_block.beacon_block.message.body.blob_kzg_commitments.asSeq):
-    return errReject("KZG blob commitments not correctly encoded")
 
-  let sidecar = signed_beacon_block.blobs_sidecar
+  let
+    blck = dag.getForkedBlock(BlockId(root: sidecar.beacon_block_root, slot: sidecar.beacon_block_slot)).valueOr:
+      quarantine[].addBlobsSidecar(sidecar)
+      return errIgnore("Sidecare for unknown block")
+    message = blck.eip4844Data.message
+
+  if not verify_kzg_commitments_against_transactions(
+    message.body.execution_payload.transactions.asSeq,
+    message.body.blob_kzg_commitments.asSeq):
+    return errReject("KZG blob commitments not correctly encoded")
 
   # [IGNORE] the sidecar.beacon_block_slot is for the current slot
   # (with a MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e.
   # sidecar.beacon_block_slot == block.slot.
-  if not (sidecar.beacon_block_slot == signed_beacon_block.beacon_block.message.slot):
-     return errIgnore("sidecar and block slots not equal")
+  if not (sidecar.beacon_block_slot == message.slot):
+    # TODO can't happen
+    return errIgnore("sidecar and block slots not equal")
 
   # [REJECT] the sidecar.blobs are all well formatted, i.e. the
   # BLSFieldElement in valid range (x < BLS_MODULUS).
@@ -266,10 +268,9 @@ template validateBlobsSidecar(
   # provided blobs sidecar -- i.e. validate_blobs_sidecar(block.slot,
   # hash_tree_root(block), block.body.blob_kzg_commitments, sidecar)
 
-  let res = validate_blobs_sidecar(signed_beacon_block.beacon_block.message.slot,
-                                   hash_tree_root(signed_beacon_block.beacon_block),
-                                   signed_beacon_block.beacon_block.message
-                                   .body.blob_kzg_commitments.asSeq,
+  let res = validate_blobs_sidecar(sidecar.beacon_block_slot,
+                                   sidecar.beacon_block_root,
+                                   message.body.blob_kzg_commitments.asSeq,
                                    sidecar)
   if res.isErr():
     return errIgnore(res.error())
@@ -279,13 +280,11 @@ template validateBlobsSidecar(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/bellatrix/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    signed_beacon_block_and_blobs: ForkySignedBeaconBlockMaybeBlobs,
+    signed_beacon_block: ForkySignedBeaconBlock,
     wallTime: BeaconTime, flags: UpdateFlags): Result[void, ValidationError] =
   # In general, checks are ordered from cheap to expensive. Especially, crypto
   # verification could be quite a bit more expensive than the rest. This is an
   # externally easy-to-invoke function by tossing network packets at the node.
-
-  let signed_beacon_block = toSignedBeaconBlock(signed_beacon_block_and_blobs)
 
   # [IGNORE] The block is not from a future slot (with a
   # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
@@ -445,7 +444,7 @@ proc validateBeaconBlock*(
 
     return errReject("BeaconBlock: Invalid proposer signature")
 
-  validateBlobsSidecar(signed_beacon_block_and_blobs)
+  # validateBlobsSidecar(signed_beacon_block_and_blobs)
 
   ok()
 

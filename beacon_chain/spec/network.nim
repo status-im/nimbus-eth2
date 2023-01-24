@@ -23,7 +23,7 @@ const
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz_snappy"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix* = "bls_to_execution_change/ssz_snappy"
-  topicBeaconBlockAndBlobsSidecarTopicSuffix* = "beacon_block_and_blobs_sidecar/ssz_snappy"
+  topicBlobsSidecarTopicSuffix* = "blobs_sidecar/ssz_snappy"
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#configuration
   MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
@@ -69,8 +69,8 @@ func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/p2p-interface.md#topics-and-messages
-func getBeaconBlockAndBlobsSidecarTopic*(forkDigest: ForkDigest): string =
-  eth2Prefix(forkDigest) & topicBeaconBlockAndBlobsSidecarTopicSuffix
+func getBlobsSidecarTopic*(forkDigest: ForkDigest): string =
+  eth2Prefix(forkDigest) & topicBlobsSidecarTopicSuffix
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(

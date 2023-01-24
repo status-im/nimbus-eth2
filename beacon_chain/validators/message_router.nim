@@ -93,7 +93,8 @@ proc routeSignedBeaconBlock*(
   # block doesn't get the node into trouble
   block:
     let res = validateBeaconBlock(
-      router[].dag, router[].quarantine, blckAndBlobs, wallTime, {})
+      router[].dag, router[].quarantine, blck, wallTime, {})
+    # TODO validate blob
 
     if not res.isGoodForSending():
       warn "Block failed validation",
