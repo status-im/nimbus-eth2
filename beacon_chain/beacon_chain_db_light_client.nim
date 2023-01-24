@@ -70,8 +70,8 @@ logScope: topics = "lcdata"
 type
   LightClientHeaderStore = object
     getStmt: SqliteStmt[array[32, byte], seq[byte]]
-    putStmt: SqliteStmt[(array[40, byte], seq[byte]), void]
-    keepFromStmt: SqliteStmt[array[8, byte], void]
+    putStmt: SqliteStmt[(array[32, byte], int64, seq[byte]), void]
+    keepFromStmt: SqliteStmt[int64, void]
 
   CurrentSyncCommitteeBranchStore = object
     containsStmt: SqliteStmt[int64, int64]
@@ -110,7 +110,7 @@ type
       ## SQLite backend
 
     headers: array[LightClientDataFork, LightClientHeaderStore]
-      ## (Slot || Eth2Digest) -> LightClientHeader
+      ## Eth2Digest -> (Slot, LightClientHeader)
       ## Cached block headers to support longer retention than block storage.
 
     currentBranches: CurrentSyncCommitteeBranchStore
@@ -150,8 +150,9 @@ proc initHeadersStore(
   if not backend.readOnly:
     ? backend.exec("""
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
-        `slot_and_block_root` BLOB PRIMARY KEY,  -- `Slot || Eth2Digest`
-        `header` BLOB                            -- `""" & typeName & """` (SSZ)
+        `block_root` BLOB PRIMARY KEY,  -- `Eth2Digest`
+        `slot` INTEGER,                 -- `Slot`
+        `header` BLOB                   -- `""" & typeName & """` (SSZ)
       );
     """)
   if not ? backend.hasTable(name):
@@ -161,19 +162,19 @@ proc initHeadersStore(
     getStmt = backend.prepareStmt("""
       SELECT `header`
       FROM `""" & name & """`
-      WHERE substr(`slot_and_block_root`, 9) = ?
+      WHERE `block_root` = ?
       LIMIT 1;
     """, array[32, byte], seq[byte], managed = false).expect("SQL query OK")
     putStmt = backend.prepareStmt("""
       INSERT INTO `""" & name & """` (
-        `slot_and_block_root`, `header`
-      ) VALUES (?, ?);
-    """, (array[40, byte], seq[byte]), void, managed = false)
+        `block_root`, `slot`, `header`
+      ) VALUES (?, ?, ?);
+    """, (array[32, byte], int64, seq[byte]), void, managed = false)
       .expect("SQL query OK")
     keepFromStmt = backend.prepareStmt("""
       DELETE FROM `""" & name & """`
-      WHERE substr(`slot_and_block_root`, 1, 8) < ?;
-    """, array[8, byte], void, managed = false).expect("SQL query OK")
+      WHERE `slot` < ?;
+    """, int64, void, managed = false).expect("SQL query OK")
 
   ok LightClientHeaderStore(
     getStmt: getStmt,
@@ -199,20 +200,16 @@ proc getHeader*[T: ForkyLightClientHeader](
         blockRoot, exc = exc.msg
       return Opt.none(T)
 
-func putHeader[T: ForkyLightClientHeader](
-    db: LightClientDataDB, slotAndBlockRoot: array[40, byte], header: T) =
-  doAssert not db.backend.readOnly and
-    distinctBase(db.headers[T.kind].putStmt) != nil
-  let res = db.headers[T.kind].putStmt.exec(
-    (slotAndBlockRoot, SSZ.encode(header)))
-  res.expect("SQL query OK")
-
 func putHeader*[T: ForkyLightClientHeader](
     db: LightClientDataDB, header: T) =
-  var slotAndBlockRoot: array[40, byte]
-  slotAndBlockRoot[0 ..< 8] = header.beacon.slot.uint64.toBytesBE()
-  slotAndBlockRoot[8 ..< 40] = hash_tree_root(header.beacon).data
-  db.putHeader(slotAndBlockRoot, header)
+  doAssert not db.backend.readOnly and
+    distinctBase(db.headers[T.kind].putStmt) != nil
+  let
+    blockRoot = hash_tree_root(header.beacon)
+    slot = header.beacon.slot
+    res = db.headers[T.kind].putStmt.exec(
+      (blockRoot.data, slot.int64, SSZ.encode(header)))
+  res.expect("SQL query OK")
 
 proc initCurrentBranchesStore(
     backend: SqStoreRef,
@@ -670,11 +667,10 @@ func keepPeriodsFrom*(
   block:
     let res = db.currentBranches.keepFromStmt.exec(minSlot.int64)
     res.expect("SQL query OK")
-  let minSlotBytes = minSlot.uint64.toBytesBE()
   for lcDataFork, store in db.headers:
     if lcDataFork > LightClientDataFork.None and
         distinctBase(store.keepFromStmt) != nil:
-      let res = store.keepFromStmt.exec(minSlotBytes)
+      let res = store.keepFromStmt.exec(minSlot.int64)
       res.expect("SQL query OK")
 
 type LightClientDataDBNames* = object
