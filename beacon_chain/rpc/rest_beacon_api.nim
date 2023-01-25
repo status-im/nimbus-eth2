@@ -254,7 +254,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400,
                                            InvalidValidatorIdValueError)
         let ires = id.get()
-        if len(ires) > MaximumValidatorIds:
+        if len(ires) > ServerMaximumValidatorIds:
           return RestApiResponse.jsonError(Http400,
                                            MaximumNumberOfValidatorIdsError)
         ires
@@ -445,7 +445,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http400,
                                            InvalidValidatorIdValueError)
         let ires = id.get()
-        if len(ires) > MaximumValidatorIds:
+        if len(ires) > ServerMaximumValidatorIds:
           return RestApiResponse.jsonError(Http400,
                                            MaximumNumberOfValidatorIdsError)
         ires

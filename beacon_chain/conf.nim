@@ -451,9 +451,12 @@ type
         name: "rest-max-body-size" .}: Natural
 
       restMaxRequestHeadersSize* {.
-        defaultValue: 64
+        defaultValue: 128
         desc: "Maximum size of REST request headers (kilobytes)"
         name: "rest-max-headers-size" .}: Natural
+        ## NOTE: If you going to adjust this value please check value
+        ## ``ClientMaximumValidatorIds`` and comments in
+        ## `spec/eth2_apis/rest_types.nim`. This values depend on each other.
 
       keymanagerEnabled* {.
         desc: "Enable the REST keymanager API"

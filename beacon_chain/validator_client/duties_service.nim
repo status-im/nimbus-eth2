@@ -51,7 +51,7 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
   var offset = 0
 
   while offset < len(validatorIdents):
-    let arraySize = min(MaximumValidatorIds, len(validatorIdents))
+    let arraySize = min(ClientMaximumValidatorIds, len(validatorIdents))
 
     let idents =
       block:
@@ -119,7 +119,9 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
 
   var offset = 0
   while offset < len(validatorIndices):
-    let arraySize = min(MaximumValidatorIds, len(validatorIndices))
+    let arraySize = min(DutiesMaximumValidatorIds, len(validatorIndices))
+    # We use `DutiesMaximumValidatorIds` here because validator ids are sent
+    # in HTTP request body and NOT in HTTP request headers.
     let indices =
       block:
         var res = newSeq[ValidatorIndex](arraySize)
@@ -255,7 +257,9 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
 
   while offset < len(validatorIndices):
     let
-      arraySize = min(MaximumValidatorIds, remainingItems)
+      arraySize = min(DutiesMaximumValidatorIds, remainingItems)
+      # We use `DutiesMaximumValidatorIds` here because validator ids are sent
+      # in HTTP request body and NOT in HTTP request headers.
       indices = validatorIndices[offset ..< (offset + arraySize)]
 
       res =
