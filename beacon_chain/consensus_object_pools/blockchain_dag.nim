@@ -1097,7 +1097,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   dag.backfill = block:
     let backfillSlot = db.finalizedBlocks.low.expect("tail at least")
-    if backfillSlot < dag.tail.slot:
+    if backfillSlot <= dag.horizon:
+      # Backfill done, no need to load anything
+      BeaconBlockSummary()
+    elif backfillSlot < dag.tail.slot:
       let backfillRoot = db.finalizedBlocks.get(backfillSlot).expect(
         "low to be loadable")
 
