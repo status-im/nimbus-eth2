@@ -387,6 +387,7 @@ proc initFullNode(
   node.blockProcessor = blockProcessor
   node.consensusManager = consensusManager
   node.requestManager = RequestManager.init(node.network, dag,
+  node.requestManager = RequestManager.init(node.network, getBeaconTime,
                                             blockVerifier, blockBlobsVerifier)
   node.syncManager = syncManager
   node.backfiller = backfiller

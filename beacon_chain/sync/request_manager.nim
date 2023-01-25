@@ -39,6 +39,7 @@ type
     network*: Eth2Node
     inpQueue*: AsyncQueue[FetchRecord]
     dag: ChainDAGRef
+    getBeaconTime: GetBeaconTimeFn
     blockVerifier: BlockVerifier
     blockBlobsVerifier: BlockBlobsVerifier
     loopFuture: Future[void]
@@ -51,12 +52,14 @@ func shortLog*(x: seq[FetchRecord]): string =
 
 proc init*(T: type RequestManager, network: Eth2Node,
               dag: ChainDAGRef,
+              getBeaconTime: GetBeaconTimeFn,
               blockVerifier: BlockVerifier,
               blockBlobsVerifier: BlockBlobsVerifier): RequestManager =
   RequestManager(
     network: network,
     inpQueue: newAsyncQueue[FetchRecord](),
     dag: dag,
+    getBeaconTime: getBeaconTime,
     blockVerifier: blockVerifier,
     blockBlobsVerifier: blockBlobsVerifier,
   )
@@ -219,6 +222,8 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
 
       else:
         peer.updateScore(PeerScoreBadResponse)
+      elif blocks.error().responseCode == ResourceUnavailable:
+         result = rman.fetchAncestorBlocksFromNetwork(rootList)
     else:
       peer.updateScore(PeerScoreNoValues)
 
@@ -234,8 +239,8 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
       rman.network.peerPool.release(peer)
 
 
-proc isSlotWithBlobs(rman: RequestManager, s: Slot): bool =
-  return s.epoch >= rman.dag.cfg.EIP4844_FORK_EPOCH
+proc isBlobTime(rman: RequestManager, s: Slot): bool =
+  return rman.getBeaconTime().slotOrZero >= rman.dag.cfg.EIP4844_FORK_EPOCH
 
 proc requestManagerLoop(rman: RequestManager) {.async.} =
   var rootList = newSeq[Eth2Digest]()
@@ -253,7 +258,12 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
 
       let start = SyncMoment.now(0)
 
-      let getBlobs = rman.isSlotWithBlobs(rman.dag.head.slot)
+      # As soon as EIP4844_FORK_EPOCH comes around in wall time, we
+      # switch to requesting blocks and blobs. In the vicinity of the
+      # transition, that means that we *may* request blobs for a
+      # pre-eip4844. In that case, we get ResourceUnavailable from the
+      # peer and fall back to requesting blocks only.
+      let getBlobs = rman.isBlobsTime(rman.dag.head.slot)
       for i in 0 ..< PARALLEL_REQUESTS:
         if getBlobs:
           workers[i] = rman.fetchAncestorBlocksAndBlobsFromNetwork(rootList)
