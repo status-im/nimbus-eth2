@@ -513,6 +513,24 @@ func shortLog*(v: SomeSignedBeaconBlock): auto =
     signature: shortLog(v.signature)
   )
 
+func shortLog*(v: ExecutionPayload): auto =
+  (
+    parent_hash: shortLog(v.parent_hash),
+    fee_recipient: $v.fee_recipient,
+    state_root: shortLog(v.state_root),
+    receipts_root: shortLog(v.receipts_root),
+    prev_randao: shortLog(v.prev_randao),
+    block_number: v.block_number,
+    gas_limit: v.gas_limit,
+    gas_used: v.gas_used,
+    timestamp: v.timestamp,
+    extra_data_len: len(v.extra_data),
+    base_fee_per_gas: $(v.base_fee_per_gas),
+    block_hash: shortLog(v.block_hash),
+    num_transactions: len(v.transactions),
+    num_withdrawals: len(v.withdrawals)
+  )
+
 func shortLog*(v: BLSToExecutionChange): auto =
   (
     validator_index: v.validator_index,
@@ -639,71 +657,6 @@ chronicles.formatIt LightClientBootstrap: shortLog(it)
 chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
-
-template toFull*(
-    update: SomeLightClientUpdate): LightClientUpdate =
-  when update is LightClientUpdate:
-    update
-  elif update is SomeLightClientUpdateWithFinality:
-    LightClientUpdate(
-      attested_header: update.attested_header,
-      finalized_header: update.finalized_header,
-      finality_branch: update.finality_branch,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-  else:
-    LightClientUpdate(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-template toFinality*(
-    update: SomeLightClientUpdate): LightClientFinalityUpdate =
-  when update is LightClientFinalityUpdate:
-    update
-  elif update is SomeLightClientUpdateWithFinality:
-    LightClientFinalityUpdate(
-      attested_header: update.attested_header,
-      finalized_header: update.finalized_header,
-      finality_branch: update.finality_branch,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-  else:
-    LightClientFinalityUpdate(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-template toOptimistic*(
-    update: SomeLightClientUpdate): LightClientOptimisticUpdate =
-  when update is LightClientOptimisticUpdate:
-    update
-  else:
-    LightClientOptimisticUpdate(
-      attested_header: update.attested_header,
-      sync_aggregate: update.sync_aggregate,
-      signature_slot: update.signature_slot)
-
-func matches*[A, B: SomeLightClientUpdate](a: A, b: B): bool =
-  if a.attested_header != b.attested_header:
-    return false
-  when a is SomeLightClientUpdateWithSyncCommittee and
-      b is SomeLightClientUpdateWithSyncCommittee:
-    if a.next_sync_committee != b.next_sync_committee:
-      return false
-    if a.next_sync_committee_branch != b.next_sync_committee_branch:
-      return false
-  when a is SomeLightClientUpdateWithFinality and
-      b is SomeLightClientUpdateWithFinality:
-    if a.finalized_header != b.finalized_header:
-      return false
-    if a.finality_branch != b.finality_branch:
-      return false
-  if a.sync_aggregate != b.sync_aggregate:
-    return false
-  if a.signature_slot != b.signature_slot:
-    return false
-  true
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_store_to_capella
 func upgrade_lc_store_to_capella*(

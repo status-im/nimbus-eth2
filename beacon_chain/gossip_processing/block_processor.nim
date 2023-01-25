@@ -168,7 +168,7 @@ proc storeBackfillBlock(
       when typeof(signedBlock).toFork() >= BeaconBlockFork.EIP4844:
         blobs.isSome() and not
           validate_blobs_sidecar(signedBlock.message.slot,
-                                 hash_tree_root(signedBlock.message),
+                                 signedBlock.root,
                                  signedBlock.message
                                  .body.blob_kzg_commitments.asSeq,
                                  blobs.get()).isOk()
@@ -387,7 +387,8 @@ proc storeBlock*(
     when typeof(signedBlock).toFork() >= BeaconBlockFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if payload.block_hash != payload.compute_execution_block_hash():
-        debug "Execution block hash validation failed", execution_payload = payload
+        debug "Execution block hash validation failed",
+          execution_payload = shortLog(payload)
         doAssert strictVerification notin dag.updateFlags
         self.consensusManager.quarantine[].addUnviable(signedBlock.root)
         return err((VerifierError.Invalid, ProcessingStatus.completed))
@@ -402,13 +403,15 @@ proc storeBlock*(
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
   when typeof(signedBlock).toFork() >= BeaconBlockFork.EIP4844:
-    if blobs.isSome() and not
-         validate_blobs_sidecar(signedBlock.message.slot,
-                                hash_tree_root(signedBlock.message),
-                                signedBlock.message
-                                .body.blob_kzg_commitments.asSeq,
-                                blobs.get()).isOk():
-       return err((VerifierError.Invalid, ProcessingStatus.completed))
+    if blobs.isSome():
+      let res = validate_blobs_sidecar(signedBlock.message.slot,
+                                       signedBlock.root,
+                                       signedBlock.message
+                                       .body.blob_kzg_commitments.asSeq,
+                                       blobs.get())
+      if res.isErr():
+        debug "blobs sidecar validation failed", err = res.error()
+        return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   type Trusted = typeof signedBlock.asTrusted()
   let blck = dag.addHeadBlock(self.verifier, signedBlock, payloadValid) do (

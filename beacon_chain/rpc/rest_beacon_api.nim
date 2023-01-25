@@ -1125,6 +1125,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   # https://github.com/ethereum/beacon-APIs/blob/86850001845df9163da5ae9605dbf15cd318d5d0/apis/beacon/pool/bls_to_execution_changes.yaml
   router.api(MethodPost, "/eth/v1/beacon/pool/bls_to_execution_changes") do (
     contentBody: Option[ContentBody]) -> RestApiResponse:
+    if node.currentSlot().epoch() < node.dag.cfg.CAPELLA_FORK_EPOCH:
+      return RestApiResponse.jsonError(Http400,
+                                       InvalidBlsToExecutionChangeObjectError,
+                                       "Attempt to add to BLS to execution change pool pre-Capella")
     let bls_to_execution_changes =
       block:
         if contentBody.isNone():
