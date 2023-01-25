@@ -439,11 +439,20 @@ p2pProtocol BeaconSync(version = 1,
     let
       dag = peer.networkState.dag
       count = blockRoots.len
+      # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
+      min_epochs =
+        if MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS > dag.head.slot.epoch:
+           dag.head.slot.epoch
+        else:
+          Epoch(MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS)
+
       epochBoundary =
-        if MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS >= dag.head.slot.epoch:
-          GENESIS_EPOCH
+        if dag.head.slot.epoch - min_epochs < dag.cfg.EIP4844_FORK_EPOCH:
+          dag.cfg.EIP4844_FORK_EPOCH
         else:
           dag.head.slot.epoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS
+      minimum_request_epoch = max(dag.finalizedHead.slot.epoch, epochBoundary)
+
     var
       found = 0
       bytes: seq[byte]
@@ -459,7 +468,7 @@ p2pProtocol BeaconSync(version = 1,
       if blck.isNone():
         continue
 
-      if blockRef.bid.slot.epoch < epochBoundary:
+      if blockRef.bid.slot.epoch < minimum_request_epoch:
         raise newException(ResourceUnavailableError, BlobsOutOfRange)
 
       # In general, there is not much intermediate time between post-merge
