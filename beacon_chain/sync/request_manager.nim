@@ -15,6 +15,7 @@ import
   ../networking/eth2_network,
   ../consensus_object_pools/block_quarantine,
   "."/sync_protocol, "."/sync_manager
+from ../beacon_clock import GetBeaconTimeFn
 export block_quarantine, sync_manager
 
 logScope:
@@ -219,11 +220,19 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
         elif gotGoodBlock:
           # We reward peer only if it returns something.
           peer.updateScore(PeerScoreGoodValues)
-
       else:
-        peer.updateScore(PeerScoreBadResponse)
-      elif blocks.error().responseCode == ResourceUnavailable:
-         result = rman.fetchAncestorBlocksFromNetwork(rootList)
+        let err = blocks.error()
+        case err.kind
+        of ReceivedErrorResponse:
+          if err.responseCode == ResourceUnavailable:
+            if not(isNil(peer)):
+              rman.network.peerPool.release(peer)
+            await rman.fetchAncestorBlocksFromNetwork(items)
+            return
+          else:
+            peer.updateScore(PeerScoreBadResponse)
+        else:
+          discard
     else:
       peer.updateScore(PeerScoreNoValues)
 
@@ -239,8 +248,8 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
       rman.network.peerPool.release(peer)
 
 
-proc isBlobTime(rman: RequestManager, s: Slot): bool =
-  return rman.getBeaconTime().slotOrZero >= rman.dag.cfg.EIP4844_FORK_EPOCH
+proc isBlobsTime(rman: RequestManager, s: Slot): bool =
+  return rman.getBeaconTime().slotOrZero.epoch >= rman.dag.cfg.EIP4844_FORK_EPOCH
 
 proc requestManagerLoop(rman: RequestManager) {.async.} =
   var rootList = newSeq[Eth2Digest]()
