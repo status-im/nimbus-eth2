@@ -267,7 +267,7 @@ template validateBlobsSidecar(
   # hash_tree_root(block), block.body.blob_kzg_commitments, sidecar)
 
   let res = validate_blobs_sidecar(signed_beacon_block.beacon_block.message.slot,
-                                   hash_tree_root(signed_beacon_block.beacon_block),
+                                   signed_beacon_block.beacon_block.root,
                                    signed_beacon_block.beacon_block.message
                                    .body.blob_kzg_commitments.asSeq,
                                    sidecar)
