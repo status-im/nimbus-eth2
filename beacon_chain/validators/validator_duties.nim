@@ -879,29 +879,34 @@ proc proposeBlock(node: BeaconNode,
     return head # already logged elsewhere!
 
   var forkedBlck = newBlock.get()
-  var blobs_sidecar = eip4844.BlobsSidecar()
 
   withBlck(forkedBlck):
+    var blobs_sidecar = eip4844.BlobsSidecar(
+      beacon_block_root: hash_tree_root(blck),
+      beacon_block_slot: slot,
+    )
     when blck is eip4844.BeaconBlock and const_preset != "minimal":
-      let
-        lastFcU = node.consensusManager.forkchoiceUpdatedInfo
-        payload_id = bellatrix.PayloadID(lastFcU.get.payloadId)
-        bundle = await getBlobsBundle(node, slot.epoch, validator_index, default(PayloadID))
+      # TODO when lastfcu is none, getExecutionPayload re-queries the EE.
+      # We don't do that here, which could lead us to propose invalid blocks
+      # (with a payload but no blobs).
+      if not (node.eth1Monitor.isNil) and
+         node.consensusManager.forkchoiceUpdatedInfo.isSome():
 
-        # todo: actually compute proof over blobs using nim-kzg-4844
-        kzg_aggregated_proof = default(KZGProof)
+        let
+          lastFcU = node.consensusManager.forkchoiceUpdatedInfo
+          payload_id = bellatrix.PayloadID(lastFcU.get.payloadId)
+          bundle = await getBlobsBundle(node, slot.epoch, validator_index, default(PayloadID))
 
-      blck.body.blob_kzg_commitments =
-          List[eip4844.KZGCommitment, Limit MAX_BLOBS_PER_BLOCK].init(
-            mapIt(bundle.kzgs, eip4844.KzgCommitment(it)))
+          # todo: actually compute proof over blobs using nim-kzg-4844
+          kzg_aggregated_proof = default(KZGProof)
 
-      blobs_sidecar = BlobsSidecar(
-        beacon_block_root: hash_tree_root(blck),
-        beacon_block_slot: slot,
-        blobs: List[eip4844.Blob, Limit MAX_BLOBS_PER_BLOCK].init(
-          mapIt(bundle.blobs, eip4844.Blob(it))),
-        kzg_aggregated_proof: kzg_aggregated_proof
-      )
+        blck.body.blob_kzg_commitments =
+            List[eip4844.KZGCommitment, Limit MAX_BLOBS_PER_BLOCK].init(
+              mapIt(bundle.kzgs, eip4844.KzgCommitment(it)))
+
+        blobs_sidecar.blobs = List[eip4844.Blob, Limit MAX_BLOBS_PER_BLOCK].init(
+          mapIt(bundle.blobs, eip4844.Blob(it)))
+        blobs_sidecar.kzg_aggregated_proof = kzg_aggregated_proof
 
     let
       blockRoot = hash_tree_root(blck)
