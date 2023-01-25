@@ -168,7 +168,7 @@ proc storeBackfillBlock(
       when typeof(signedBlock).toFork() >= BeaconBlockFork.EIP4844:
         blobs.isSome() and not
           validate_blobs_sidecar(signedBlock.message.slot,
-                                 hash_tree_root(signedBlock.message),
+                                 signedBlock.root,
                                  signedBlock.message
                                  .body.blob_kzg_commitments.asSeq,
                                  blobs.get()).isOk()
@@ -405,7 +405,7 @@ proc storeBlock*(
   when typeof(signedBlock).toFork() >= BeaconBlockFork.EIP4844:
     if blobs.isSome():
       let res = validate_blobs_sidecar(signedBlock.message.slot,
-                                       hash_tree_root(signedBlock.message),
+                                       signedBlock.root,
                                        signedBlock.message
                                        .body.blob_kzg_commitments.asSeq,
                                        blobs.get())
