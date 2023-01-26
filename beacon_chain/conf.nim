@@ -560,7 +560,7 @@ type
 
       validatorMonitorDetails* {.
         desc: "Publish detailed metrics for each validator individually - may incur significant overhead with large numbers of validators"
-        defaultValue: true
+        defaultValue: false
         name: "validator-monitor-details" .}: bool
 
       validatorMonitorTotals* {.
