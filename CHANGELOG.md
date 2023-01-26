@@ -1,3 +1,19 @@
+2023-01-25 v23.1.1
+==================
+
+Nimbus `v23.1.1` is a `high-urgency` hotfix for users who have already enabled block
+history pruning after upgrading to `v22.3.0`. It fixes an issue where the client may
+fail to start after the database has been pruned.
+
+### Fixes:
+
+* A crash on start-up after running the client with `--history:prune` option - "backfill block must have a summary".
+  https://github.com/status-im/nimbus-eth2/pull/4554
+
+* The `validator-monitor-details` option was accidentally enabled by default in 23.1.0,
+  which lead to significant increase in resource usage.
+
+
 2023-01-18 v23.1.0
 ==================
 
