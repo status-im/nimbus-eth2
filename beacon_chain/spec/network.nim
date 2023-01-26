@@ -26,8 +26,6 @@ const
   topicBeaconBlockAndBlobsSidecarTopicSuffix* = "beacon_block_and_blobs_sidecar/ssz_snappy"
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#configuration
-  MAX_CHUNK_SIZE* = 1 * 1024 * 1024 # bytes
-  GOSSIP_MAX_SIZE* = 1 * 1024 * 1024 # bytes
   TTFB_TIMEOUT* = 5.seconds
   RESP_TIMEOUT* = 10.seconds
 
