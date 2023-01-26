@@ -27,10 +27,34 @@ export forks, phase0, altair, bellatrix, capella, bellatrix_mev
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validators.yaml#L17
-  MaximumValidatorIds* = 16384
+  # Maximum number of validators that can be served by the REST server in one
+  # request, if the number of validator exceeds this value REST server
+  # will return HTTP error 400.
+  ServerMaximumValidatorIds* = 16384
+
+  # Maximum number of validators that can be sent in single request by
+  # validator client (VC).
+  # NOTE: This value depend on beacon node's `rest-max-headers-size`
+  # configuration option.
+  #
+  # Size of public key in HTTP request could be calculated by formula -
+  # bytes48 * 2 + len("0x") + len(",") = 99 bytes.
+  # So 1024 keys will occupy 101,376 bytes. Default value for HTTP headers size
+  # is 128Kb = 131,072 bytes.
+  ClientMaximumValidatorIds* = 1024
+
+  # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/duties/attester.yaml#L32
+  # https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/duties/sync.yaml#L16
+  # Maximum number of validator ids sent with validator client's duties
+  # requests. Validator ids are sent in decimal encoding with comma, so
+  # number of ids should not exceed beacon node's `rest-max-body-size`.
+  DutiesMaximumValidatorIds* = 16384
 
 const
   preferSSZ* = "application/octet-stream,application/json;q=0.9"
+
+static:
+  doAssert(ClientMaximumValidatorIds <= ServerMaximumValidatorIds)
 
 type
   EventTopic* {.pure.} = enum
