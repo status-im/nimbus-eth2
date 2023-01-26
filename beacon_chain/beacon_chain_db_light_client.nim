@@ -165,7 +165,7 @@ proc initHeadersStore(
       WHERE `block_root` = ?;
     """, array[32, byte], seq[byte], managed = false).expect("SQL query OK")
     putStmt = backend.prepareStmt("""
-      INSERT INTO `""" & name & """` (
+      REPLACE INTO `""" & name & """` (
         `block_root`, `slot`, `header`
       ) VALUES (?, ?, ?);
     """, (array[32, byte], int64, seq[byte]), void, managed = false)
@@ -235,7 +235,7 @@ proc initCurrentBranchesStore(
       WHERE `slot` = ?;
     """, int64, seq[byte], managed = false).expect("SQL query OK")
     putStmt = backend.prepareStmt("""
-      INSERT INTO `""" & name & """` (
+      REPLACE INTO `""" & name & """` (
         `slot`, `branch`
       ) VALUES (?, ?);
     """, (int64, seq[byte]), void, managed = false).expect("SQL query OK")
@@ -317,7 +317,7 @@ proc initSyncCommitteesStore(
       WHERE `period` = ?;
     """, int64, seq[byte], managed = false).expect("SQL query OK")
     putStmt = backend.prepareStmt("""
-      INSERT INTO `""" & name & """` (
+      REPLACE INTO `""" & name & """` (
         `period`, `sync_committee`
       ) VALUES (?, ?);
     """, (int64, seq[byte]), void, managed = false).expect("SQL query OK")
@@ -587,7 +587,7 @@ proc initSealedPeriodsStore(
       WHERE `period` = ?;
     """, int64, int64, managed = false).expect("SQL query OK")
     putStmt = backend.prepareStmt("""
-      INSERT INTO `""" & name & """` (
+      REPLACE INTO `""" & name & """` (
         `period`
       ) VALUES (?);
     """, int64, void, managed = false).expect("SQL query OK")
