@@ -59,6 +59,10 @@ template readSszBytes*(
 template readSszBytes*(
     data: openArray[byte], val: var eip4844.TrustedSignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
+template readSszBytes*(
+    data: openArray[byte], val: var eip4844.SignedBeaconBlockAndBlobsSidecar, updateRoot = true) =
+  readSszValue(data, val)
+  val.beacon_block.root = hash_tree_root(val.beacon_block.message)
 
 template readSszBytes*(
     data: openArray[byte], val: var auto, updateRoot: bool) =

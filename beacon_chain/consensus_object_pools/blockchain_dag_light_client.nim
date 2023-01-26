@@ -569,20 +569,29 @@ proc createLightClientUpdates(
   if is_later and latest.assign_attested_header_with_migration(attested_bid):
     template forkyLatest: untyped = latest.forky(data_fork)
     load_attested_data(attested_bid)
-    let finalized_slot = attested_data.finalized_slot
+    var finalized_slot = attested_data.finalized_slot
     if finalized_slot == forkyLatest.finalized_header.beacon.slot:
       forkyLatest.finality_branch = attested_data.finality_branch
-    elif finalized_slot == GENESIS_SLOT:
-      forkyLatest.finalized_header.reset()
-      forkyLatest.finality_branch = attested_data.finality_branch
-    elif finalized_slot >= dag.tail.slot and
-        load_finalized_bid(finalized_slot) and
-        forkyLatest.assign_finalized_header(finalized_bid):
-      forkyLatest.finality_branch = attested_data.finality_branch
-      newFinality = true
-    else:
+    elif finalized_slot < dag.tail.slot or
+        not load_finalized_bid(finalized_slot):
       forkyLatest.finalized_header.reset()
       forkyLatest.finality_branch.reset()
+    else:
+      if finalized_bid.slot != finalized_slot:
+        finalized_slot = finalized_bid.slot
+        attested_data.finalized_slot = finalized_slot
+        dag.lcDataStore.cache.data[attested_bid] = attested_data
+      if finalized_slot == forkyLatest.finalized_header.beacon.slot:
+        forkyLatest.finality_branch = attested_data.finality_branch
+      elif finalized_slot == GENESIS_SLOT:
+        forkyLatest.finalized_header.reset()
+        forkyLatest.finality_branch = attested_data.finality_branch
+      elif forkyLatest.assign_finalized_header(finalized_bid):
+        forkyLatest.finality_branch = attested_data.finality_branch
+        newFinality = true
+      else:
+        forkyLatest.finalized_header.reset()
+        forkyLatest.finality_branch.reset()
     forkyLatest.sync_aggregate = sync_aggregate
     forkyLatest.signature_slot = signature_slot
     newOptimistic = true
