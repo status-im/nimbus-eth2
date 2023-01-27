@@ -71,8 +71,14 @@ pipeline {
           steps { timeout(5) {
             sh 'make restapi-test'
           } }
+          post { always {
+            sh 'tar cjf restapi-test.tar.gz resttest0_data/*.txt'
+          } }
         }
       }
+      post { always { timeout(5) {
+        archiveArtifacts(artifacts: '*.tar.gz', allowEmptyArchive: true)
+      } } }
     }
 
     stage('Finalizations') {
