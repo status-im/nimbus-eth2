@@ -386,13 +386,15 @@ proc getExecutionPayload[T](
       latestHead =
         if not executionBlockRoot.isZero:
           executionBlockRoot
+        else:
+          (static(default(Eth2Digest)))
       latestSafe = beaconHead.safeExecutionPayloadHash
       latestFinalized = beaconHead.finalizedExecutionPayloadHash
       lastFcU = node.consensusManager.forkchoiceUpdatedInfo
       timestamp = withState(proposalState[]):
         compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
       withdrawals = withState(proposalState[]):
-        when stateFork >= BeaconStateFork.Capella:
+        when stateFork >= ConsensusFork.Capella:
           Opt.some get_expected_withdrawals(forkyState.data)
         else:
           Opt.none(seq[Withdrawal])
