@@ -168,7 +168,7 @@ cli do(validatorsDir: string, secretsDir: string,
           cache).get()
 
       case message.kind
-      of BeaconBlockFork.Phase0:
+      of ConsensusFork.Phase0:
         blockRoot = hash_tree_root(message.phase0Data)
         let signedBlock = phase0.SignedBeaconBlock(
           message: message.phase0Data,
@@ -177,7 +177,7 @@ cli do(validatorsDir: string, secretsDir: string,
             fork, genesis_validators_root, slot, blockRoot,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
-      of BeaconBlockFork.Altair:
+      of ConsensusFork.Altair:
         blockRoot = hash_tree_root(message.altairData)
         let signedBlock = altair.SignedBeaconBlock(
           message: message.altairData,
@@ -186,7 +186,7 @@ cli do(validatorsDir: string, secretsDir: string,
             fork, genesis_validators_root, slot, blockRoot,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
-      of BeaconBlockFork.Bellatrix:
+      of ConsensusFork.Bellatrix:
         blockRoot = hash_tree_root(message.bellatrixData)
         let signedBlock = bellatrix.SignedBeaconBlock(
           message: message.bellatrixData,
@@ -195,7 +195,7 @@ cli do(validatorsDir: string, secretsDir: string,
             fork, genesis_validators_root, slot, blockRoot,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
-      of BeaconBlockFork.Capella:
+      of ConsensusFork.Capella:
         blockRoot = hash_tree_root(message.capellaData)
         let signedBlock = capella.SignedBeaconBlock(
           message: message.capellaData,
@@ -204,7 +204,7 @@ cli do(validatorsDir: string, secretsDir: string,
             fork, genesis_validators_root, slot, blockRoot,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
-      of BeaconBlockFork.EIP4844:
+      of ConsensusFork.EIP4844:
         blockRoot = hash_tree_root(message.eip4844Data)
         let signedBlock = eip4844.SignedBeaconBlock(
           message: message.eip4844Data,
@@ -255,7 +255,7 @@ cli do(validatorsDir: string, secretsDir: string,
 
           aggregates.add(attestation)
 
-      when stateFork >= BeaconStateFork.Altair:
+      when stateFork >= ConsensusFork.Altair:
         let
           nextSlot = slot + 1
           pubkeys =

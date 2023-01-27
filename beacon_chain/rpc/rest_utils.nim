@@ -222,7 +222,7 @@ func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
                                 epoch: Epoch
                                ): Result[seq[ValidatorPubKey], cstring] =
   withState(forkedState):
-    when stateFork >= BeaconStateFork.Altair:
+    when stateFork >= ConsensusFork.Altair:
       let
         epochPeriod = sync_committee_period(epoch)
         curPeriod = sync_committee_period(forkyState.data.slot)
@@ -265,10 +265,10 @@ proc getStateOptimistic*(node: BeaconNode,
                          state: ForkedHashedBeaconState): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
     case state.kind
-    of BeaconStateFork.Phase0, BeaconStateFork.Altair:
+    of ConsensusFork.Phase0, ConsensusFork.Altair:
       some[bool](false)
-    of  BeaconStateFork.Bellatrix, BeaconStateFork.Capella,
-        BeaconStateFork.EIP4844:
+    of  ConsensusFork.Bellatrix, ConsensusFork.Capella,
+        ConsensusFork.EIP4844:
       # A state is optimistic iff the block which created it is
       withState(state):
         # The block root which created the state at slot `n` is at slot `n-1`
@@ -286,9 +286,9 @@ proc getBlockOptimistic*(node: BeaconNode,
                                ForkedSignedBeaconBlock): Option[bool] =
   if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
     case blck.kind
-    of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
+    of ConsensusFork.Phase0, ConsensusFork.Altair:
       some[bool](false)
-    of BeaconBlockFork.Bellatrix, BeaconBlockFork.Capella, BeaconBlockFork.EIP4844:
+    of ConsensusFork.Bellatrix, ConsensusFork.Capella, ConsensusFork.EIP4844:
       some[bool](node.dag.is_optimistic(blck.root))
   else:
     none[bool]()
@@ -296,9 +296,9 @@ proc getBlockOptimistic*(node: BeaconNode,
 proc getBlockRefOptimistic*(node: BeaconNode, blck: BlockRef): bool =
   let blck = node.dag.getForkedBlock(blck.bid).get()
   case blck.kind
-  of BeaconBlockFork.Phase0, BeaconBlockFork.Altair:
+  of ConsensusFork.Phase0, ConsensusFork.Altair:
     false
-  of BeaconBlockFork.Bellatrix, BeaconBlockFork.Capella, BeaconBlockFork.EIP4844:
+  of ConsensusFork.Bellatrix, ConsensusFork.Capella, ConsensusFork.EIP4844:
     node.dag.is_optimistic(blck.root)
 
 const

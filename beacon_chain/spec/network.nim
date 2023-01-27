@@ -146,7 +146,7 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
       next_fork_epoch: FAR_FUTURE_EPOCH)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/altair/p2p-interface.md#transitioning-the-gossip
-type GossipState* = set[BeaconStateFork]
+type GossipState* = set[ConsensusFork]
 func getTargetGossipState*(
     epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH,
     EIP4844_FORK_EPOCH: Epoch, isBehind: bool): GossipState =
@@ -166,22 +166,22 @@ func getTargetGossipState*(
   var targetForks: GossipState
 
   template maybeIncludeFork(
-      targetFork: BeaconStateFork, targetForkEpoch: Epoch,
+      targetFork: ConsensusFork, targetForkEpoch: Epoch,
       successiveForkEpoch: Epoch) =
     # Subscribe one epoch ahead
     if epoch + 1 >= targetForkEpoch and epoch < successiveForkEpoch:
       targetForks.incl targetFork
 
   maybeIncludeFork(
-    BeaconStateFork.Phase0,    GENESIS_EPOCH,        ALTAIR_FORK_EPOCH)
+    ConsensusFork.Phase0,    GENESIS_EPOCH,        ALTAIR_FORK_EPOCH)
   maybeIncludeFork(
-    BeaconStateFork.Altair,    ALTAIR_FORK_EPOCH,    BELLATRIX_FORK_EPOCH)
+    ConsensusFork.Altair,    ALTAIR_FORK_EPOCH,    BELLATRIX_FORK_EPOCH)
   maybeIncludeFork(
-    BeaconStateFork.Bellatrix, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH)
+    ConsensusFork.Bellatrix, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH)
   maybeIncludeFork(
-    BeaconStateFork.Capella,   CAPELLA_FORK_EPOCH,   EIP4844_FORK_EPOCH)
+    ConsensusFork.Capella,   CAPELLA_FORK_EPOCH,   EIP4844_FORK_EPOCH)
   maybeIncludeFork(
-    BeaconStateFork.EIP4844,   EIP4844_FORK_EPOCH,   FAR_FUTURE_EPOCH)
+    ConsensusFork.EIP4844,   EIP4844_FORK_EPOCH,   FAR_FUTURE_EPOCH)
 
   doAssert len(targetForks) <= 2
   targetForks

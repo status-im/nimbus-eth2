@@ -705,7 +705,7 @@ func subnetLog(v: BitArray): string =
   $toSeq(v.oneIndices())
 
 func forkDigests(node: BeaconNode): auto =
-  let forkDigestsArray: array[BeaconStateFork, auto] = [
+  let forkDigestsArray: array[ConsensusFork, auto] = [
     node.dag.forkDigests.phase0,
     node.dag.forkDigests.altair,
     node.dag.forkDigests.bellatrix,
@@ -786,11 +786,11 @@ proc updateBlocksGossipStatus*(
     # Individual forks added / removed
     discard
 
-  template blocksTopic(fork: BeaconStateFork, forkDigest: ForkDigest): auto =
+  template blocksTopic(fork: ConsensusFork, forkDigest: ForkDigest): auto =
     case fork
-    of BeaconStateFork.Phase0 .. BeaconStateFork.Capella:
+    of ConsensusFork.Phase0 .. ConsensusFork.Capella:
       getBeaconBlocksTopic(forkDigest)
-    of BeaconStateFork.EIP4844:
+    of ConsensusFork.EIP4844:
       getBeaconBlockAndBlobsSidecarTopic(forkDigest)
 
   let
@@ -844,7 +844,7 @@ func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
 
 func getCurrentSyncCommiteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   let syncCommittee = withState(node.dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
+    when stateFork >= ConsensusFork.Altair:
       forkyState.data.current_sync_committee
     else:
       return static(default(SyncnetBits))
@@ -853,7 +853,7 @@ func getCurrentSyncCommiteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits 
 
 func getNextSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   let syncCommittee = withState(node.dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
+    when stateFork >= ConsensusFork.Altair:
       forkyState.data.next_sync_committee
     else:
       return static(default(SyncnetBits))
@@ -872,7 +872,7 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   # committee period begins, in which case `epochsToNextSyncPeriod` is none.
   if  epochsToSyncPeriod.isNone or
       node.dag.cfg.stateForkAtEpoch(epoch + epochsToSyncPeriod.get) <
-        BeaconStateFork.Altair:
+        ConsensusFork.Altair:
     return subnets
 
   subnets + node.getNextSyncCommitteeSubnets(epoch)
@@ -1062,7 +1062,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
 
   let forkDigests = node.forkDigests()
 
-  const removeMessageHandlers: array[BeaconStateFork, auto] = [
+  const removeMessageHandlers: array[ConsensusFork, auto] = [
     removePhase0MessageHandlers,
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
@@ -1073,7 +1073,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   for gossipFork in oldGossipForks:
     removeMessageHandlers[gossipFork](node, forkDigests[gossipFork])
 
-  const addMessageHandlers: array[BeaconStateFork, auto] = [
+  const addMessageHandlers: array[ConsensusFork, auto] = [
     addPhase0MessageHandlers,
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)

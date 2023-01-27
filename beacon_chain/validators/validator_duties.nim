@@ -356,14 +356,14 @@ proc getExecutionPayload[T](
     # transmit this information through the Forked types, so this has to
     # be re-proven here.
     withState(proposalState[]):
-      when (stateFork == BeaconStateFork.EIP4844 and
+      when (stateFork == ConsensusFork.EIP4844 and
             T is eip4844.ExecutionPayload) or
-           (stateFork == BeaconStateFork.Capella and
+           (stateFork == ConsensusFork.Capella and
             T is capella.ExecutionPayload) or
-           (stateFork == BeaconStateFork.Bellatrix and
+           (stateFork == ConsensusFork.Bellatrix and
             T is bellatrix.ExecutionPayload):
         build_empty_execution_payload(forkyState.data, feeRecipient)
-      elif stateFork >= BeaconStateFork.Bellatrix:
+      elif stateFork >= ConsensusFork.Bellatrix:
         raiseAssert "getExecutionPayload: mismatched proposalState and ExecutionPayload fork"
       else:
         default(T)
@@ -382,10 +382,9 @@ proc getExecutionPayload[T](
 
     let
       beaconHead = node.attestationPool[].getBeaconHead(node.dag.head)
-      executionBlockRoot = node.dag.loadExecutionBlockRoot(beaconHead.blck)
-      latestHead =
-        if not executionBlockRoot.isZero:
-          executionBlockRoot
+      executionHead = withState(proposalState[]):
+        when stateFork >= ConsensusFork.Bellatrix:
+          forkyState.data.latest_execution_payload_header.block_hash
         else:
           (static(default(Eth2Digest)))
       latestSafe = beaconHead.safeExecutionPayloadHash

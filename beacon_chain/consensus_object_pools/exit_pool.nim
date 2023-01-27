@@ -231,7 +231,7 @@ proc getBeaconBlockValidatorChanges*(
     pool.proposer_slashings, cfg, state, indices, res.proposer_slashings)
   getValidatorChangeMessagesForBlock(
     pool.voluntary_exits, cfg, state, indices, res.voluntary_exits)
-  when typeof(state).toFork() >= BeaconStateFork.Capella:
+  when typeof(state).toFork() >= ConsensusFork.Capella:
     getValidatorChangeMessagesForBlock(
       pool.bls_to_execution_changes, cfg, state, indices,
       res.bls_to_execution_changes)

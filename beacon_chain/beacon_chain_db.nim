@@ -111,13 +111,13 @@ type
     checkpoint*: proc() {.gcsafe, raises: [Defect].}
 
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
-    blocks: array[BeaconBlockFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
+    blocks: array[ConsensusFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
 
     blobs: KvStoreRef # (BlockRoot -> BlobsSidecar)
 
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
 
-    statesNoVal: array[BeaconStateFork, KvStoreRef] # StateRoot -> ForkBeaconStateNoImmutableValidators
+    statesNoVal: array[ConsensusFork, KvStoreRef] # StateRoot -> ForkBeaconStateNoImmutableValidators
 
     stateDiffs: KvStoreRef ##\
       ## StateRoot -> BeaconStateDiff
@@ -851,7 +851,7 @@ proc putState*(db: BeaconChainDB, state: ForkyHashedBeaconState) =
 
 # For testing rollback
 proc putCorruptState*(
-    db: BeaconChainDB, fork: static BeaconStateFork, key: Eth2Digest) =
+    db: BeaconChainDB, fork: static ConsensusFork, key: Eth2Digest) =
   db.statesNoVal[fork].putSnappySSZ(key.data, Validator())
 
 func stateRootKey(root: Eth2Digest, slot: Slot): array[40, byte] =
@@ -869,20 +869,20 @@ proc putStateRoot*(db: BeaconChainDB, root: Eth2Digest, slot: Slot,
 proc putStateDiff*(db: BeaconChainDB, root: Eth2Digest, value: BeaconStateDiff) =
   db.stateDiffs.putSnappySSZ(root.data, value)
 
-proc delBlock*(db: BeaconChainDB, fork: BeaconBlockFork, key: Eth2Digest): bool =
+proc delBlock*(db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest): bool =
   var deleted = false
   db.withManyWrites:
     discard db.summaries.del(key.data).expectDb()
     deleted = db.blocks[fork].del(key.data).expectDb()
   deleted
 
-proc delState*(db: BeaconChainDB, fork: BeaconStateFork, key: Eth2Digest) =
+proc delState*(db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest) =
   discard db.statesNoVal[fork].del(key.data).expectDb()
 
-proc clearBlocks*(db: BeaconChainDB, fork: BeaconBlockFork) =
+proc clearBlocks*(db: BeaconChainDB, fork: ConsensusFork) =
   discard db.blocks[fork].clear().expectDb()
 
-proc clearStates*(db: BeaconChainDB, fork: BeaconStateFork) =
+proc clearStates*(db: BeaconChainDB, fork: ConsensusFork) =
   discard db.statesNoVal[fork].clear().expectDb()
 
 proc delKeyValue*(db: BeaconChainDB, key: array[1, byte]) =
@@ -1021,7 +1021,7 @@ proc getBlockSSZ*(
   func decode(data: openArray[byte]) =
     try: dataPtr[] = snappy.decode(data, maxDecompressedDbRecordSize)
     except CatchableError: success = false
-  db.blocks[BeaconBlockFork.Phase0].get(key.data, decode).expectDb() and success or
+  db.blocks[ConsensusFork.Phase0].get(key.data, decode).expectDb() and success or
     db.v0.getPhase0BlockSSZ(key, data)
 
 proc getBlockSSZ*(
@@ -1047,17 +1047,17 @@ proc getBlockSSZ*[
 
 proc getBlockSSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
-    fork: BeaconBlockFork): bool =
+    fork: ConsensusFork): bool =
   case fork
-  of BeaconBlockFork.Phase0:
+  of ConsensusFork.Phase0:
     getBlockSSZ(db, key, data, phase0.TrustedSignedBeaconBlock)
-  of BeaconBlockFork.Altair:
+  of ConsensusFork.Altair:
     getBlockSSZ(db, key, data, altair.TrustedSignedBeaconBlock)
-  of BeaconBlockFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
-  of BeaconBlockFork.Capella:
+  of ConsensusFork.Capella:
     getBlockSSZ(db, key, data, capella.TrustedSignedBeaconBlock)
-  of BeaconBlockFork.EIP4844:
+  of ConsensusFork.EIP4844:
     getBlockSSZ(db, key, data, eip4844.TrustedSignedBeaconBlock)
 
 
@@ -1077,7 +1077,7 @@ proc getBlockSZ*(
     try: dataPtr[] = snappy.encodeFramed(
       snappy.decode(data, maxDecompressedDbRecordSize))
     except CatchableError: success = false
-  db.blocks[BeaconBlockFork.Phase0].get(key.data, decode).expectDb() and success or
+  db.blocks[ConsensusFork.Phase0].get(key.data, decode).expectDb() and success or
     db.v0.getPhase0BlockSZ(key, data)
 
 proc getBlockSZ*(
@@ -1102,17 +1102,17 @@ proc getBlockSZ*[
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
-    fork: BeaconBlockFork): bool =
+    fork: ConsensusFork): bool =
   case fork
-  of BeaconBlockFork.Phase0:
+  of ConsensusFork.Phase0:
     getBlockSZ(db, key, data, phase0.TrustedSignedBeaconBlock)
-  of BeaconBlockFork.Altair:
+  of ConsensusFork.Altair:
     getBlockSZ(db, key, data, altair.TrustedSignedBeaconBlock)
-  of BeaconBlockFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     getBlockSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
-  of BeaconBlockFork.Capella:
+  of ConsensusFork.Capella:
     getBlockSZ(db, key, data, capella.TrustedSignedBeaconBlock)
-  of BeaconBlockFork.EIP4844:
+  of ConsensusFork.EIP4844:
     getBlockSZ(db, key, data, eip4844.TrustedSignedBeaconBlock)
 
 proc getStateOnlyMutableValidators(
@@ -1301,7 +1301,7 @@ proc getState*(
     rollback)
 
 proc getState*(
-    db: BeaconChainDB, fork: BeaconStateFork, state_root: Eth2Digest,
+    db: BeaconChainDB, fork: ConsensusFork, state_root: Eth2Digest,
     state: var ForkedHashedBeaconState, rollback: RollbackProc): bool =
   if state.kind != fork:
     # Avoid temporary (!)
@@ -1368,13 +1368,13 @@ proc containsBlock*[
     db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
   db.blocks[X.toFork].contains(key.data).expectDb()
 
-proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: BeaconBlockFork): bool =
+proc containsBlock*(db: BeaconChainDB, key: Eth2Digest, fork: ConsensusFork): bool =
   case fork
-  of BeaconBlockFork.Phase0: containsBlock(db, key, phase0.TrustedSignedBeaconBlock)
+  of ConsensusFork.Phase0: containsBlock(db, key, phase0.TrustedSignedBeaconBlock)
   else: db.blocks[fork].contains(key.data).expectDb()
 
 proc containsBlock*(db: BeaconChainDB, key: Eth2Digest): bool =
-  for fork in countdown(BeaconBlockFork.high, BeaconBlockFork.low):
+  for fork in countdown(ConsensusFork.high, ConsensusFork.low):
     if db.containsBlock(key, fork): return true
 
   false
@@ -1385,14 +1385,14 @@ proc containsState*(db: BeaconChainDBV0, key: Eth2Digest): bool =
     db.backend.contains(sk).expectDb() or
     db.backend.contains(subkey(phase0.BeaconState, key)).expectDb()
 
-proc containsState*(db: BeaconChainDB, fork: BeaconStateFork, key: Eth2Digest,
+proc containsState*(db: BeaconChainDB, fork: ConsensusFork, key: Eth2Digest,
     legacy: bool = true): bool =
   if db.statesNoVal[fork].contains(key.data).expectDb(): return true
 
-  (legacy and fork == BeaconStateFork.Phase0 and db.v0.containsState(key))
+  (legacy and fork == ConsensusFork.Phase0 and db.v0.containsState(key))
 
 proc containsState*(db: BeaconChainDB, key: Eth2Digest, legacy: bool = true): bool =
-  for fork in countdown(BeaconStateFork.high, BeaconStateFork.low):
+  for fork in countdown(ConsensusFork.high, ConsensusFork.low):
     if db.statesNoVal[fork].contains(key.data).expectDb(): return true
 
   (legacy and db.v0.containsState(key))
@@ -1505,7 +1505,7 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
 
   # Backwards compat for reading old databases, or those that for whatever
   # reason lost a summary along the way..
-  static: doAssert BeaconBlockFork.high == BeaconBlockFork.EIP4844
+  static: doAssert ConsensusFork.high == ConsensusFork.EIP4844
   while true:
     if db.v0.backend.getSnappySSZ(
         subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:

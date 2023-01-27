@@ -126,7 +126,7 @@ proc initialLoad(
 
   (dag, fkChoice)
 
-proc loadOps(path: string, fork: BeaconStateFork): seq[Operation] =
+proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
   let stepsYAML = readFile(path/"steps.yaml")
   let steps = yaml.loadToJson(stepsYAML)
 
@@ -146,35 +146,35 @@ proc loadOps(path: string, fork: BeaconStateFork): seq[Operation] =
     elif step.hasKey"block":
       let filename = step["block"].getStr()
       case fork
-      of BeaconStateFork.Phase0:
+      of ConsensusFork.Phase0:
         let blck = parseTest(
           path/filename & ".ssz_snappy",
           SSZ, phase0.SignedBeaconBlock
         )
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
-      of BeaconStateFork.Altair:
+      of ConsensusFork.Altair:
         let blck = parseTest(
           path/filename & ".ssz_snappy",
           SSZ, altair.SignedBeaconBlock
         )
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
-      of BeaconStateFork.Bellatrix:
+      of ConsensusFork.Bellatrix:
         let blck = parseTest(
           path/filename & ".ssz_snappy",
           SSZ, bellatrix.SignedBeaconBlock
         )
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
-      of BeaconStateFork.Capella:
+      of ConsensusFork.Capella:
         let blck = parseTest(
           path/filename & ".ssz_snappy",
           SSZ, capella.SignedBeaconBlock
         )
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
-      of BeaconStateFork.EIP4844:
+      of ConsensusFork.EIP4844:
         let blck = parseTest(
           path/filename & ".ssz_snappy",
           SSZ, eip4844.SignedBeaconBlock
@@ -228,7 +228,7 @@ proc stepOnBlock(
   )
 
   # 2. Add block to DAG
-  static: doAssert high(BeaconBlockFork) == BeaconBlockFork.EIP4844
+  static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
   when signedBlock is phase0.SignedBeaconBlock:
     type TrustedBlock = phase0.TrustedSignedBeaconBlock
   elif signedBlock is altair.SignedBeaconBlock:
@@ -330,22 +330,22 @@ proc stepChecks(
     else:
       doAssert false, "Unsupported check '" & $check & "'"
 
-proc doRunTest(path: string, fork: BeaconStateFork) =
+proc doRunTest(path: string, fork: ConsensusFork) =
   let db = BeaconChainDB.new("", inMemory = true)
   defer:
     db.close()
 
   let stores =
     case fork
-    of BeaconStateFork.EIP4844:
+    of ConsensusFork.EIP4844:
       initialLoad(path, db, eip4844.BeaconState, eip4844.BeaconBlock)
-    of BeaconStateFork.Capella:
+    of ConsensusFork.Capella:
       initialLoad(path, db, capella.BeaconState, capella.BeaconBlock)
-    of BeaconStateFork.Bellatrix:
+    of ConsensusFork.Bellatrix:
       initialLoad(path, db, bellatrix.BeaconState, bellatrix.BeaconBlock)
-    of BeaconStateFork.Altair:
+    of ConsensusFork.Altair:
       initialLoad(path, db, altair.BeaconState, altair.BeaconBlock)
-    of BeaconStateFork.Phase0:
+    of ConsensusFork.Phase0:
       initialLoad(path, db, phase0.BeaconState, phase0.BeaconBlock)
 
   var
@@ -391,7 +391,7 @@ proc doRunTest(path: string, fork: BeaconStateFork) =
     else:
       doAssert false, "Unsupported"
 
-proc runTest(testType: static[string], path: string, fork: BeaconStateFork) =
+proc runTest(testType: static[string], path: string, fork: ConsensusFork) =
   const SKIP = [
     # protoArray can handle blocks in the future gracefully
     # spec: https://github.com/ethereum/consensus-specs/blame/v1.1.3/specs/phase0/fork-choice.md#L349

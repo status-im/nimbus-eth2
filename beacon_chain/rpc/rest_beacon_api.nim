@@ -848,11 +848,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
     case currentEpochFork
-    of BeaconStateFork.EIP4844:
+    of ConsensusFork.EIP4844:
       return RestApiResponse.jsonError(Http500, $eip4844ImplementationMissing)
-    of BeaconStateFork.Capella:
+    of ConsensusFork.Capella:
       return RestApiResponse.jsonError(Http500, $capellaImplementationMissing)
-    of BeaconStateFork.Bellatrix:
+    of ConsensusFork.Bellatrix:
       let res =
         block:
           let restBlock = decodeBodyJsonOrSsz(SignedBlindedBeaconBlock, body).valueOr:
@@ -867,7 +867,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http202, BlockValidationError)
 
       return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
-    of BeaconStateFork.Altair, BeaconStateFork.Phase0:
+    of ConsensusFork.Altair, ConsensusFork.Phase0:
       # Pre-Bellatrix, this endpoint will accept a `SignedBeaconBlock`.
       #
       # This is mostly the same as /eth/v1/beacon/blocks for phase 0 and

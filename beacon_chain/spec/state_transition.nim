@@ -172,10 +172,10 @@ func maybeUpgradeStateToAltair(
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.ALTAIR_FORK_EPOCH and
-      state.kind == BeaconStateFork.Phase0:
+      state.kind == ConsensusFork.Phase0:
     let newState = upgrade_to_altair(cfg, state.phase0Data.data)
     state = (ref ForkedHashedBeaconState)(
-      kind: BeaconStateFork.Altair,
+      kind: ConsensusFork.Altair,
       altairData: altair.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
@@ -184,10 +184,10 @@ func maybeUpgradeStateToBellatrix(
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.BELLATRIX_FORK_EPOCH and
-      state.kind == BeaconStateFork.Altair:
+      state.kind == ConsensusFork.Altair:
     let newState = upgrade_to_bellatrix(cfg, state.altairData.data)
     state = (ref ForkedHashedBeaconState)(
-      kind: BeaconStateFork.Bellatrix,
+      kind: ConsensusFork.Bellatrix,
       bellatrixData: bellatrix.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
@@ -196,10 +196,10 @@ func maybeUpgradeStateToCapella(
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.CAPELLA_FORK_EPOCH and
-      state.kind == BeaconStateFork.Bellatrix:
+      state.kind == ConsensusFork.Bellatrix:
     let newState = upgrade_to_capella(cfg, state.bellatrixData.data)
     state = (ref ForkedHashedBeaconState)(
-      kind: BeaconStateFork.Capella,
+      kind: ConsensusFork.Capella,
       capellaData: capella.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
@@ -208,10 +208,10 @@ func maybeUpgradeStateToEIP4844(
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.EIP4844_FORK_EPOCH and
-      state.kind == BeaconStateFork.Capella:
+      state.kind == ConsensusFork.Capella:
     let newState = upgrade_to_eip4844(cfg, state.capellaData.data)
     state = (ref ForkedHashedBeaconState)(
-      kind: BeaconStateFork.EIP4844,
+      kind: ConsensusFork.EIP4844,
       eip4844Data: eip4844.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
@@ -293,7 +293,7 @@ proc state_transition_block*(
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
   let res = withState(state):
-    when stateFork.toBeaconBlockFork() == type(signedBlock).toFork:
+    when stateFork == type(signedBlock).toFork:
       state_transition_block_aux(cfg, forkyState, signedBlock, cache, flags)
     else:
       err("State/block fork mismatch")
@@ -539,7 +539,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
     # Override for MEV
     if transactions_root.isSome and execution_payload_root.isSome:
       withState(state):
-        when stateFork >= BeaconStateFork.Bellatrix:
+        when stateFork >= ConsensusFork.Bellatrix:
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
@@ -567,23 +567,23 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
 
   when T is bellatrix.ExecutionPayload:
     case state.kind
-    of BeaconStateFork.Phase0:    makeBeaconBlock(phase0)
-    of BeaconStateFork.Altair:    makeBeaconBlock(altair)
-    of BeaconStateFork.Bellatrix: makeBeaconBlock(bellatrix)
-    of BeaconStateFork.Capella, BeaconStateFork.EIP4844:
+    of ConsensusFork.Phase0:    makeBeaconBlock(phase0)
+    of ConsensusFork.Altair:    makeBeaconBlock(altair)
+    of ConsensusFork.Bellatrix: makeBeaconBlock(bellatrix)
+    of ConsensusFork.Capella, ConsensusFork.EIP4844:
       raiseAssert "Attempt to use Bellatrix payload with post-Bellatrix state"
   elif T is capella.ExecutionPayload:
     case state.kind
-    of  BeaconStateFork.Phase0, BeaconStateFork.Altair,
-        BeaconStateFork.Bellatrix, BeaconStateFork.EIP4844:
+    of  ConsensusFork.Phase0, ConsensusFork.Altair,
+        ConsensusFork.Bellatrix, ConsensusFork.EIP4844:
       raiseAssert "Attempt to use Capella payload with non-Capella state"
-    of BeaconStateFork.Capella:   makeBeaconBlock(capella)
+    of ConsensusFork.Capella:   makeBeaconBlock(capella)
   elif T is eip4844.ExecutionPayload:
     case state.kind
-    of  BeaconStateFork.Phase0, BeaconStateFork.Altair,
-        BeaconStateFork.Bellatrix, BeaconStateFork.Capella:
+    of  ConsensusFork.Phase0, ConsensusFork.Altair,
+        ConsensusFork.Bellatrix, ConsensusFork.Capella:
       raiseAssert "Attempt to use EIP4844 payload with non-EIP4844 state"
-    of BeaconStateFork.EIP4844: makeBeaconBlock(eip4844)
+    of ConsensusFork.EIP4844: makeBeaconBlock(eip4844)
 
 
 # workaround for https://github.com/nim-lang/Nim/issues/20900 rather than have

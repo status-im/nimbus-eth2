@@ -25,8 +25,8 @@ export
 # #######################
 # Path parsing
 
-func forkForPathComponent*(forkPath: string): Opt[BeaconStateFork] =
-  for fork in BeaconStateFork:
+func forkForPathComponent*(forkPath: string): Opt[ConsensusFork] =
+  for fork in ConsensusFork:
     if ($fork).toLowerAscii() == forkPath:
       return ok fork
   err()
@@ -41,24 +41,24 @@ func readValue*(r: var JsonReader, a: var seq[byte]) =
 # #######################
 # Mock RuntimeConfig
 
-func genesisTestRuntimeConfig*(stateFork: BeaconStateFork): RuntimeConfig =
+func genesisTestRuntimeConfig*(stateFork: ConsensusFork): RuntimeConfig =
   var res = defaultRuntimeConfig
   case stateFork
-  of BeaconStateFork.EIP4844:
+  of ConsensusFork.EIP4844:
     res.EIP4844_FORK_EPOCH = GENESIS_EPOCH
     res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
     res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
     res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-  of BeaconStateFork.Capella:
+  of ConsensusFork.Capella:
     res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
     res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
     res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-  of BeaconStateFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
     res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-  of BeaconStateFork.Altair:
+  of ConsensusFork.Altair:
     res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-  of BeaconStateFork.Phase0:
+  of ConsensusFork.Phase0:
     discard
   res
 
@@ -127,32 +127,32 @@ from ../../beacon_chain/spec/datatypes/capella import BeaconState
 from ../../beacon_chain/spec/datatypes/eip4844 import BeaconState
 
 proc loadForkedState*(
-    path: string, fork: BeaconStateFork): ref ForkedHashedBeaconState =
+    path: string, fork: ConsensusFork): ref ForkedHashedBeaconState =
   var forkedState: ref ForkedHashedBeaconState
   case fork
-  of BeaconStateFork.EIP4844:
+  of ConsensusFork.EIP4844:
     let state = newClone(parseTest(path, SSZ, eip4844.BeaconState))
-    forkedState = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.EIP4844)
+    forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.EIP4844)
     forkedState.eip4844Data.data = state[]
     forkedState.eip4844Data.root = hash_tree_root(state[])
-  of BeaconStateFork.Capella:
+  of ConsensusFork.Capella:
     let state = newClone(parseTest(path, SSZ, capella.BeaconState))
-    forkedState = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Capella)
+    forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Capella)
     forkedState.capellaData.data = state[]
     forkedState.capellaData.root = hash_tree_root(state[])
-  of BeaconStateFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     let state = newClone(parseTest(path, SSZ, bellatrix.BeaconState))
-    forkedState = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Bellatrix)
+    forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Bellatrix)
     forkedState.bellatrixData.data = state[]
     forkedState.bellatrixData.root = hash_tree_root(state[])
-  of BeaconStateFork.Altair:
+  of ConsensusFork.Altair:
     let state = newClone(parseTest(path, SSZ, altair.BeaconState))
-    forkedState = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Altair)
+    forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Altair)
     forkedState.altairData.data = state[]
     forkedState.altairData.root = hash_tree_root(state[])
-  of BeaconStateFork.Phase0:
+  of ConsensusFork.Phase0:
     let state = newClone(parseTest(path, SSZ, phase0.BeaconState))
-    forkedState = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)
+    forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Phase0)
     forkedState.phase0Data.data = state[]
     forkedState.phase0Data.root = hash_tree_root(state[])
   forkedState

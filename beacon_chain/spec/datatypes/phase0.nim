@@ -105,6 +105,7 @@ type
   BeaconStateRef* = ref BeaconState not nil
   NilableBeaconStateRef* = ref BeaconState
 
+  # TODO: There should be only a single generic HashedBeaconState definition
   HashedBeaconState* = object
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
@@ -299,6 +300,10 @@ func shortLog*(v: SomeBeaconBlock): auto =
     block_number: 0'u64, # Bellatrix compat
     fee_recipient: "",
   )
+
+# TODO: There should be only a single generic HashedBeaconState definition
+func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
+  HashedBeaconState(data: s)
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
   (

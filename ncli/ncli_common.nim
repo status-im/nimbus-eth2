@@ -56,7 +56,7 @@ const
 func copyParticipationFlags*(auxiliaryState: var AuxiliaryState,
                              forkedState: ForkedHashedBeaconState) =
   withState(forkedState):
-    when stateFork > BeaconStateFork.Phase0:
+    when stateFork > ConsensusFork.Phase0:
       template flags: untyped = auxiliaryState.epochParticipationFlags
       flags.currentEpochParticipation =
         forkyState.data.current_epoch_participation
@@ -367,7 +367,7 @@ func collectFromAttestations(
     epochParticipationFlags: var ParticipationFlags,
     cache: var StateCache) =
   withStateAndBlck(forkedState, forkedBlock):
-    when stateFork > BeaconStateFork.Phase0:
+    when stateFork > ConsensusFork.Phase0:
       let base_reward_per_increment = get_base_reward_per_increment(
         get_total_active_balance(forkyState.data, cache))
       doAssert base_reward_per_increment > 0
@@ -418,7 +418,7 @@ func collectFromSyncAggregate(
     forkedBlock: ForkedTrustedSignedBeaconBlock,
     cache: var StateCache) =
   withStateAndBlck(forkedState, forkedBlock):
-    when stateFork > BeaconStateFork.Phase0:
+    when stateFork > ConsensusFork.Phase0:
       let
         total_active_balance = get_total_active_balance(forkyState.data, cache)
         participant_reward = get_participant_reward(total_active_balance)

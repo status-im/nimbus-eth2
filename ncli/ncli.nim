@@ -81,11 +81,11 @@ type
 
 template saveSSZFile(filename: string, value: ForkedHashedBeaconState) =
   case value.kind:
-  of BeaconStateFork.Phase0:    SSZ.saveFile(filename, value.phase0Data.data)
-  of BeaconStateFork.Altair:    SSZ.saveFile(filename, value.altairData.data)
-  of BeaconStateFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
-  of BeaconStateFork.Capella:   SSZ.saveFile(filename, value.capellaData.data)
-  of BeaconStateFork.EIP4844:   SSZ.saveFile(filename, value.eip4844Data.data)
+  of ConsensusFork.Phase0:    SSZ.saveFile(filename, value.phase0Data.data)
+  of ConsensusFork.Altair:    SSZ.saveFile(filename, value.altairData.data)
+  of ConsensusFork.Bellatrix: SSZ.saveFile(filename, value.bellatrixData.data)
+  of ConsensusFork.Capella:   SSZ.saveFile(filename, value.capellaData.data)
+  of ConsensusFork.EIP4844:   SSZ.saveFile(filename, value.eip4844Data.data)
 
 proc loadFile(filename: string, T: type): T =
   let

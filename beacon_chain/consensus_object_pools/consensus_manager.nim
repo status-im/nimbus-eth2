@@ -360,7 +360,7 @@ proc runProposalForkchoiceUpdated*(
     feeRecipient = self[].getFeeRecipient(
       nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
     withdrawals = withState(self.dag.headState):
-      when stateFork >= BeaconStateFork.Capella:
+      when stateFork >= ConsensusFork.Capella:
         Opt.some get_expected_withdrawals(forkyState.data)
       else:
         Opt.none(seq[Withdrawal])

@@ -833,7 +833,7 @@ proc validateBlsToExecutionChange*(
   # [REJECT] All of the conditions within `process_bls_to_execution_change`
   # pass validation.
   withState(pool.dag.headState):
-    when stateFork < BeaconStateFork.Capella:
+    when stateFork < ConsensusFork.Capella:
       return errIgnore("validateBlsToExecutionChange: can't validate against pre-Capella state")
     else:
       let res = check_bls_to_execution_change(
