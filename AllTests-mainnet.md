@@ -508,6 +508,11 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
 OK: 23/23 Fail: 0/23 Skip: 0/23
+## Type helpers
+```diff
++ BeaconBlockType                                                                            OK
+```
+OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Validator change pool testing suite
 ```diff
 + addValidatorChangeMessage/getAttesterSlashingMessage                                       OK
@@ -623,4 +628,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 348/353 Fail: 0/353 Skip: 5/353
+OK: 349/354 Fail: 0/354 Skip: 5/354
