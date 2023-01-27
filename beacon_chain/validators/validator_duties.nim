@@ -382,11 +382,10 @@ proc getExecutionPayload[T](
 
     let
       beaconHead = node.attestationPool[].getBeaconHead(node.dag.head)
-      executionHead = withState(proposalState[]):
-        when stateFork >= ConsensusFork.Bellatrix:
-          forkyState.data.latest_execution_payload_header.block_hash
-        else:
-          (static(default(Eth2Digest)))
+      executionBlockRoot = node.dag.loadExecutionBlockRoot(beaconHead.blck)
+      latestHead =
+        if not executionBlockRoot.isZero:
+          executionBlockRoot
       latestSafe = beaconHead.safeExecutionPayloadHash
       latestFinalized = beaconHead.finalizedExecutionPayloadHash
       lastFcU = node.consensusManager.forkchoiceUpdatedInfo
