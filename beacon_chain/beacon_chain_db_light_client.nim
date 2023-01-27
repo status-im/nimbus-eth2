@@ -19,10 +19,30 @@ import
 
 logScope: topics = "lcdata"
 
+# `lc_xxxxx_headers` contains a copy of historic `LightClientHeader`.
+# Data is only kept for blocks that are used in `LightClientBootstrap` objects.
+# Caching is necessary to support longer retention for LC data than state data.
+# SSZ because this data does not compress well, and because this data
+# needs to be bundled together with other data to fulfill requests.
+# Mainnet data size (all columns):
+# - Altair: ~38 KB per `SyncCommitteePeriod` (~1.0 MB per month)
+# - Capella: ~222 KB per `SyncCommitteePeriod` (~6.1 MB per month)
+# - EIP4844: ~230 KB per `SyncCommitteePeriod` (~6.3 MB per month)
+#
 # `lc_altair_current_branches` holds merkle proofs needed to
 # construct `LightClientBootstrap` objects.
 # SSZ because this data does not compress well, and because this data
 # needs to be bundled together with other data to fulfill requests.
+# Mainnet data size (all columns):
+# - Altair ... EIP4844: ~42 KB per `SyncCommitteePeriod` (~1.1 MB per month)
+#
+# `lc_altair_sync_committees` contains a copy of finalized sync committees.
+# They are initially populated from the main DAG (usually a fast state access).
+# Caching is necessary to support longer retention for LC data than state data.
+# SSZ because this data does not compress well, and because this data
+# needs to be bundled together with other data to fulfill requests.
+# Mainnet data size (all columns):
+# - Altair ... EIP4844: ~32 KB per `SyncCommitteePeriod` (~0.9 MB per month)
 #
 # `lc_best_updates` holds full `LightClientUpdate` objects in SSZ form.
 # These objects are frequently queried in bulk, but there is only one per
@@ -35,14 +55,31 @@ logScope: topics = "lcdata"
 # deriving the fork digest; the `kind` column is not sufficient to derive
 # the fork digest, because the same storage format may be used across forks.
 # SSZ storage selected due to the small size and reduced logic complexity.
+# Mainnet data size (all columns):
+# - Altair: ~33 KB per `SyncCommitteePeriod` (~0.9 MB per month)
+# - Capella: ~34 KB per `SyncCommitteePeriod` (~0.9 MB per month)
+# - EIP4844: ~34 KB per `SyncCommitteePeriod` (~0.9 MB per month)
 #
 # `lc_sealed_periods` contains the sync committee periods for which
 # full light client data was imported. Data for these periods may no longer
 # improve regardless of further block processing. The listed periods are skipped
 # when restarting the program.
+# Mainnet data size (all columns):
+# - All forks: 8 bytes per `SyncCommitteePeriod` (~0.0 MB per month)
 
 type
+  LightClientHeaderStore = object
+    getStmt: SqliteStmt[array[32, byte], seq[byte]]
+    putStmt: SqliteStmt[(array[32, byte], int64, seq[byte]), void]
+    keepFromStmt: SqliteStmt[int64, void]
+
   CurrentSyncCommitteeBranchStore = object
+    containsStmt: SqliteStmt[int64, int64]
+    getStmt: SqliteStmt[int64, seq[byte]]
+    putStmt: SqliteStmt[(int64, seq[byte]), void]
+    keepFromStmt: SqliteStmt[int64, void]
+
+  SyncCommitteeStore = object
     containsStmt: SqliteStmt[int64, int64]
     getStmt: SqliteStmt[int64, seq[byte]]
     putStmt: SqliteStmt[(int64, seq[byte]), void]
@@ -72,11 +109,19 @@ type
     backend: SqStoreRef
       ## SQLite backend
 
+    headers: array[LightClientDataFork, LightClientHeaderStore]
+      ## Eth2Digest -> (Slot, LightClientHeader)
+      ## Cached block headers to support longer retention than block storage.
+
     currentBranches: CurrentSyncCommitteeBranchStore
       ## Slot -> altair.CurrentSyncCommitteeBranch
       ## Cached data for creating future `LightClientBootstrap` instances.
       ## Key is the block slot of which the post state was used to get the data.
       ## Data stored for all finalized epoch boundary blocks.
+
+    syncCommittees: SyncCommitteeStore
+      ## SyncCommitteePeriod -> altair.SyncCommittee
+      ## Cached sync committees to support longer retention than state storage.
 
     legacyBestUpdates: LegacyBestLightClientUpdateStore
       ## SyncCommitteePeriod -> altair.LightClientUpdate
@@ -96,6 +141,74 @@ template disposeSafe(s: untyped): untyped =
   if distinctBase(s) != nil:
     s.dispose()
     s = nil
+
+proc initHeadersStore(
+    backend: SqStoreRef,
+    name, typeName: string): KvResult[LightClientHeaderStore] =
+  if name == "":
+    return ok LightClientHeaderStore()
+  if not backend.readOnly:
+    ? backend.exec("""
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `block_root` BLOB PRIMARY KEY,  -- `Eth2Digest`
+        `slot` INTEGER,                 -- `Slot`
+        `header` BLOB                   -- `""" & typeName & """` (SSZ)
+      );
+    """)
+  if not ? backend.hasTable(name):
+    return ok LightClientHeaderStore()
+
+  let
+    getStmt = backend.prepareStmt("""
+      SELECT `header`
+      FROM `""" & name & """`
+      WHERE `block_root` = ?;
+    """, array[32, byte], seq[byte], managed = false).expect("SQL query OK")
+    putStmt = backend.prepareStmt("""
+      REPLACE INTO `""" & name & """` (
+        `block_root`, `slot`, `header`
+      ) VALUES (?, ?, ?);
+    """, (array[32, byte], int64, seq[byte]), void, managed = false)
+      .expect("SQL query OK")
+    keepFromStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
+      WHERE `slot` < ?;
+    """, int64, void, managed = false).expect("SQL query OK")
+
+  ok LightClientHeaderStore(
+    getStmt: getStmt,
+    putStmt: putStmt,
+    keepFromStmt: keepFromStmt)
+
+func close(store: var LightClientHeaderStore) =
+  store.getStmt.disposeSafe()
+  store.putStmt.disposeSafe()
+  store.keepFromStmt.disposeSafe()
+
+proc getHeader*[T: ForkyLightClientHeader](
+    db: LightClientDataDB, blockRoot: Eth2Digest): Opt[T] =
+  if distinctBase(db.headers[T.kind].getStmt) == nil:
+    return Opt.none(T)
+  var header: seq[byte]
+  for res in db.headers[T.kind].getStmt.exec(blockRoot.data, header):
+    res.expect("SQL query OK")
+    try:
+      return ok SSZ.decode(header, T)
+    except SszError as exc:
+      error "LC data store corrupted", store = "headers", kind = T.kind,
+        blockRoot, exc = exc.msg
+      return Opt.none(T)
+
+func putHeader*[T: ForkyLightClientHeader](
+    db: LightClientDataDB, header: T) =
+  doAssert not db.backend.readOnly and
+    distinctBase(db.headers[T.kind].putStmt) != nil
+  let
+    blockRoot = hash_tree_root(header.beacon)
+    slot = header.beacon.slot
+    res = db.headers[T.kind].putStmt.exec(
+      (blockRoot.data, slot.int64, SSZ.encode(header)))
+  res.expect("SQL query OK")
 
 proc initCurrentBranchesStore(
     backend: SqStoreRef,
@@ -122,7 +235,7 @@ proc initCurrentBranchesStore(
       WHERE `slot` = ?;
     """, int64, seq[byte], managed = false).expect("SQL query OK")
     putStmt = backend.prepareStmt("""
-      INSERT INTO `""" & name & """` (
+      REPLACE INTO `""" & name & """` (
         `slot`, `branch`
       ) VALUES (?, ?);
     """, (int64, seq[byte]), void, managed = false).expect("SQL query OK")
@@ -156,19 +269,19 @@ func hasCurrentSyncCommitteeBranch*(
   false
 
 proc getCurrentSyncCommitteeBranch*(
-    db: LightClientDataDB, slot: Slot): altair.CurrentSyncCommitteeBranch =
+    db: LightClientDataDB, slot: Slot): Opt[altair.CurrentSyncCommitteeBranch] =
   if not slot.isSupportedBySQLite or
       distinctBase(db.currentBranches.getStmt) == nil:
-    return default(altair.CurrentSyncCommitteeBranch)
+    return Opt.none(altair.CurrentSyncCommitteeBranch)
   var branch: seq[byte]
   for res in db.currentBranches.getStmt.exec(slot.int64, branch):
     res.expect("SQL query OK")
     try:
-      return SSZ.decode(branch, altair.CurrentSyncCommitteeBranch)
+      return ok SSZ.decode(branch, altair.CurrentSyncCommitteeBranch)
     except SszError as exc:
       error "LC data store corrupted", store = "currentBranches",
         slot, exc = exc.msg
-      return default(altair.CurrentSyncCommitteeBranch)
+      return Opt.none(altair.CurrentSyncCommitteeBranch)
 
 func putCurrentSyncCommitteeBranch*(
     db: LightClientDataDB, slot: Slot,
@@ -177,6 +290,89 @@ func putCurrentSyncCommitteeBranch*(
   if not slot.isSupportedBySQLite:
     return
   let res = db.currentBranches.putStmt.exec((slot.int64, SSZ.encode(branch)))
+  res.expect("SQL query OK")
+
+proc initSyncCommitteesStore(
+    backend: SqStoreRef,
+    name: string): KvResult[SyncCommitteeStore] =
+  if not backend.readOnly:
+    ? backend.exec("""
+      CREATE TABLE IF NOT EXISTS `""" & name & """` (
+        `period` INTEGER PRIMARY KEY,  -- `SyncCommitteePeriod`
+        `sync_committee` BLOB          -- `altair.SyncCommittee` (SSZ)
+      );
+    """)
+  if not ? backend.hasTable(name):
+    return ok SyncCommitteeStore()
+
+  let
+    containsStmt = backend.prepareStmt("""
+      SELECT 1 AS `exists`
+      FROM `""" & name & """`
+      WHERE `period` = ?;
+    """, int64, int64, managed = false).expect("SQL query OK")
+    getStmt = backend.prepareStmt("""
+      SELECT `sync_committee`
+      FROM `""" & name & """`
+      WHERE `period` = ?;
+    """, int64, seq[byte], managed = false).expect("SQL query OK")
+    putStmt = backend.prepareStmt("""
+      REPLACE INTO `""" & name & """` (
+        `period`, `sync_committee`
+      ) VALUES (?, ?);
+    """, (int64, seq[byte]), void, managed = false).expect("SQL query OK")
+    keepFromStmt = backend.prepareStmt("""
+      DELETE FROM `""" & name & """`
+      WHERE `period` < ?;
+    """, int64, void, managed = false).expect("SQL query OK")
+
+  ok SyncCommitteeStore(
+    containsStmt: containsStmt,
+    getStmt: getStmt,
+    putStmt: putStmt,
+    keepFromStmt: keepFromStmt)
+
+func close(store: var SyncCommitteeStore) =
+  store.containsStmt.disposeSafe()
+  store.getStmt.disposeSafe()
+  store.putStmt.disposeSafe()
+  store.keepFromStmt.disposeSafe()
+
+func hasSyncCommittee*(
+    db: LightClientDataDB, period: SyncCommitteePeriod): bool =
+  doAssert period.isSupportedBySQLite
+  if distinctBase(db.syncCommittees.containsStmt) == nil:
+    return false
+  var exists: int64
+  for res in db.syncCommittees.containsStmt.exec(period.int64, exists):
+    res.expect("SQL query OK")
+    doAssert exists == 1
+    return true
+  false
+
+proc getSyncCommittee*(
+    db: LightClientDataDB, period: SyncCommitteePeriod
+): Opt[altair.SyncCommittee] =
+  doAssert period.isSupportedBySQLite
+  if distinctBase(db.syncCommittees.getStmt) == nil:
+    return Opt.none(altair.SyncCommittee)
+  var branch: seq[byte]
+  for res in db.syncCommittees.getStmt.exec(period.int64, branch):
+    res.expect("SQL query OK")
+    try:
+      return ok SSZ.decode(branch, altair.SyncCommittee)
+    except SszError as exc:
+      error "LC data store corrupted", store = "syncCommittees",
+        period, exc = exc.msg
+      return Opt.none(altair.SyncCommittee)
+
+func putSyncCommittee*(
+    db: LightClientDataDB, period: SyncCommitteePeriod,
+    syncCommittee: altair.SyncCommittee) =
+  doAssert not db.backend.readOnly  # All `stmt` are non-nil
+  doAssert period.isSupportedBySQLite
+  let res = db.syncCommittees.putStmt.exec(
+    (period.int64, SSZ.encode(syncCommittee)))
   res.expect("SQL query OK")
 
 proc initLegacyBestUpdatesStore(
@@ -391,7 +587,7 @@ proc initSealedPeriodsStore(
       WHERE `period` = ?;
     """, int64, int64, managed = false).expect("SQL query OK")
     putStmt = backend.prepareStmt("""
-      INSERT INTO `""" & name & """` (
+      REPLACE INTO `""" & name & """` (
         `period`
       ) VALUES (?);
     """, int64, void, managed = false).expect("SQL query OK")
@@ -448,7 +644,7 @@ func delNonFinalizedPeriodsFrom*(
   block:
     let res = db.legacyBestUpdates.delFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
-  # `currentBranches` only has finalized data
+  # `syncCommittees`, `currentBranches` and `headers` only have finalized data
 
 func keepPeriodsFrom*(
     db: LightClientDataDB, minPeriod: SyncCommitteePeriod) =
@@ -463,13 +659,25 @@ func keepPeriodsFrom*(
   block:
     let res = db.legacyBestUpdates.keepFromStmt.exec(minPeriod.int64)
     res.expect("SQL query OK")
+  block:
+    let res = db.syncCommittees.keepFromStmt.exec(minPeriod.int64)
+    res.expect("SQL query OK")
   let minSlot = min(minPeriod.start_slot, int64.high.Slot)
   block:
     let res = db.currentBranches.keepFromStmt.exec(minSlot.int64)
     res.expect("SQL query OK")
+  for lcDataFork, store in db.headers:
+    if lcDataFork > LightClientDataFork.None and
+        distinctBase(store.keepFromStmt) != nil:
+      let res = store.keepFromStmt.exec(minSlot.int64)
+      res.expect("SQL query OK")
 
 type LightClientDataDBNames* = object
+  altairHeaders*: string
+  capellaHeaders*: string
+  eip4844Headers*: string
   altairCurrentBranches*: string
+  altairSyncCommittees*: string
   legacyAltairBestUpdates*: string
   bestUpdates*: string
   sealedPeriods*: string
@@ -477,9 +685,25 @@ type LightClientDataDBNames* = object
 proc initLightClientDataDB*(
     backend: SqStoreRef,
     names: LightClientDataDBNames): KvResult[LightClientDataDB] =
+  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
   let
+    headers = [
+      # LightClientDataFork.None
+      LightClientHeaderStore(),
+      # LightClientDataFork.Altair
+      ? backend.initHeadersStore(
+        names.altairHeaders, "altair.LightClientHeader"),
+      # LightClientDataFork.Capella
+      ? backend.initHeadersStore(
+        names.capellaHeaders, "capella.LightClientHeader"),
+      # LightClientDataFork.EIP4844
+      ? backend.initHeadersStore(
+        names.eip4844Headers, "eip4844.LightClientHeader")
+    ]
     currentBranches =
       ? backend.initCurrentBranchesStore(names.altairCurrentBranches)
+    syncCommittees =
+      ? backend.initSyncCommitteesStore(names.altairSyncCommittees)
     legacyBestUpdates =
       ? backend.initLegacyBestUpdatesStore(names.legacyAltairBestUpdates)
     bestUpdates =
@@ -489,15 +713,21 @@ proc initLightClientDataDB*(
       ? backend.initSealedPeriodsStore(names.sealedPeriods)
 
   ok LightClientDataDB(
+    headers: headers,
     backend: backend,
     currentBranches: currentBranches,
+    syncCommittees: syncCommittees,
     legacyBestUpdates: legacyBestUpdates,
     bestUpdates: bestUpdates,
     sealedPeriods: sealedPeriods)
 
 proc close*(db: LightClientDataDB) =
   if db.backend != nil:
+    for lcDataFork in LightClientDataFork:
+      if lcDataFork > LightClientDataFork.None:
+        db.headers[lcDataFork].close()
     db.currentBranches.close()
+    db.syncCommittees.close()
     db.legacyBestUpdates.close()
     db.bestUpdates.close()
     db.sealedPeriods.close()

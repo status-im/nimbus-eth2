@@ -103,9 +103,9 @@ proc initLightClientHeadersStore(
   if not backend.readOnly:
     ? backend.exec("""
       CREATE TABLE IF NOT EXISTS `""" & name & """` (
-        `key` INTEGER PRIMARY KEY,   -- `LightClientHeaderKey`
-        `kind` INTEGER,              -- `LightClientDataFork`
-        `header` BLOB                -- `LightClientHeader` (SSZ)
+        `key` INTEGER PRIMARY KEY,  -- `LightClientHeaderKey`
+        `kind` INTEGER,             -- `LightClientDataFork`
+        `header` BLOB               -- `LightClientHeader` (SSZ)
       );
     """)
     if ? backend.hasTable(legacyAltairName):
