@@ -15,8 +15,8 @@ export base
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz_snappy"
@@ -26,7 +26,6 @@ const
   topicBeaconBlockAndBlobsSidecarTopicSuffix* = "beacon_block_and_blobs_sidecar/ssz_snappy"
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#configuration
-  TTFB_TIMEOUT* = 5.seconds
   RESP_TIMEOUT* = 10.seconds
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/bellatrix/p2p-interface.md#configuration
