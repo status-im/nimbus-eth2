@@ -649,9 +649,8 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       missingParentSlot: Option[Slot]
       goodBlock: Option[Slot]
 
-      # compiler segfault if this is moved into the for loop, at time of writing
-      # TODO this does segfault in 1.2 but not 1.6, so remove workaround when 1.2
-      # is dropped.
+      # TODO when https://github.com/nim-lang/Nim/issues/21306 is fixed in used
+      # Nim versions, remove workaround and move `res` into for loop
       res: Result[void, VerifierError]
 
     for blk in sq.blocks(item):
