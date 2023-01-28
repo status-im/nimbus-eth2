@@ -525,8 +525,6 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/eip4844/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Update ranking - minimal/altair/light_client/update_ranking/pyspec_tests/up OK
 + Light client - Update ranking - minimal/bellatrix/light_client/update_ranking/pyspec_tests OK
-+ Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u OK
-+ Light client - Update ranking - minimal/eip4844/light_client/update_ranking/pyspec_tests/u OK
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
 + Sync - minimal/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + Sync - minimal/eip4844/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
@@ -918,7 +916,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 ```
-OK: 906/915 Fail: 0/915 Skip: 9/915
+OK: 904/913 Fail: 0/913 Skip: 9/913
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2195,6 +2193,12 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 + test_process_light_client_update_not_timeout                                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
+## EF - Light client - Update ranking [Preset: minimal]
+```diff
+  Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u Skip
+  Light client - Update ranking - minimal/eip4844/light_client/update_ranking/pyspec_tests/u Skip
+```
+OK: 0/2 Fail: 0/2 Skip: 2/2
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK
@@ -2763,4 +2767,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 102/102 Fail: 0/102 Skip: 0/102
 
 ---TOTAL---
-OK: 2444/2453 Fail: 0/2453 Skip: 9/2453
+OK: 2442/2453 Fail: 0/2453 Skip: 11/2453
