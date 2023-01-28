@@ -117,7 +117,7 @@ proc nfuzz_block(input: openArray[byte], xoutput: ptr byte,
       fhState = (ref ForkedHashedBeaconState)(
         phase0Data: phase0.HashedBeaconState(
           data: data.state, root: hash_tree_root(data.state)),
-        kind: BeaconStateFork.Phase0)
+        kind: ConsensusFork.Phase0)
       cache = StateCache()
       info = ForkedEpochInfo()
     result =

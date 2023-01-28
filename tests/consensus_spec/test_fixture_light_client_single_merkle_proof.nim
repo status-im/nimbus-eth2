@@ -64,12 +64,11 @@ suite "EF - Light client - Single merkle proof" & preset():
         continue
       let objName = path
       withStateFork(fork):
-        const blockFork = stateFork.toBeaconBlockFork()
         for kind, path in walkDir(suitePath, relative = true, checkDir = true):
           case objName
           of "BeaconBlockBody":
-            runTest(suitePath/path, blockFork.BeaconBlockBody)
+            runTest(suitePath/path, BeaconBlockBodyType(stateFork))
           of "BeaconState":
-            runTest(suitePath/path, stateFork.BeaconState)
+            runTest(suitePath/path, BeaconStateType(stateFork))
           else:
             raiseAssert "Unknown test object: " & suitePath/path

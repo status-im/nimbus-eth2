@@ -283,7 +283,7 @@ proc installMessageValidators*(
 
   template validate[T: SomeForkyLightClientObject](
       msg: T,
-      contextFork: BeaconStateFork,
+      contextFork: ConsensusFork,
       validatorProcName: untyped): ValidationResult =
     msg.logReceived()
 
@@ -343,7 +343,7 @@ proc installMessageValidators*(
     ValidationResult.Ignore
 
   let forkDigests = lightClient.forkDigests
-  for stateFork in BeaconStateFork:
+  for stateFork in ConsensusFork:
     withLcDataFork(lcDataForkAtStateFork(stateFork)):
       when lcDataFork > LightClientDataFork.None:
         let
@@ -412,7 +412,7 @@ proc updateGossipStatus*(
     oldGossipForks = currentGossipState - targetGossipState
 
   for gossipFork in oldGossipForks:
-    if gossipFork >= BeaconStateFork.Altair:
+    if gossipFork >= ConsensusFork.Altair:
       let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
       lightClient.network.unsubscribe(
         getLightClientFinalityUpdateTopic(forkDigest))
@@ -420,7 +420,7 @@ proc updateGossipStatus*(
         getLightClientOptimisticUpdateTopic(forkDigest))
 
   for gossipFork in newGossipForks:
-    if gossipFork >= BeaconStateFork.Altair:
+    if gossipFork >= ConsensusFork.Altair:
       let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
       lightClient.network.subscribe(
         getLightClientFinalityUpdateTopic(forkDigest),

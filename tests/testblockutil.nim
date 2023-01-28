@@ -168,9 +168,9 @@ proc addTestBlockAux[EP: bellatrix.ExecutionPayload | capella.ExecutionPayload](
 
   let execution_payload =
     withState(state):
-      when (stateFork == BeaconStateFork.Bellatrix and
+      when (stateFork == ConsensusFork.Bellatrix and
             EP is bellatrix.ExecutionPayload) or
-           (stateFork == BeaconStateFork.Capella and
+           (stateFork == ConsensusFork.Capella and
             EP is capella.ExecutionPayload):
         # Merge shortly after Bellatrix
         if  forkyState.data.slot >
@@ -225,15 +225,15 @@ proc addTestBlock*(
     graffiti = default(GraffitiBytes), flags: set[UpdateFlag] = {},
     nextSlot = true, cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   case state.kind
-  of BeaconStateFork.Phase0, BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
+  of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix:
     addTestBlockAux[bellatrix.ExecutionPayload](
       state, cache, eth1_data, attestations, deposits, sync_aggregate,
       graffiti, flags, nextSlot, cfg)
-  of BeaconStateFork.Capella:
+  of ConsensusFork.Capella:
     addTestBlockAux[capella.ExecutionPayload](
       state, cache, eth1_data, attestations, deposits, sync_aggregate,
       graffiti, flags, nextSlot, cfg)
-  of BeaconStateFork.EIP4844:
+  of ConsensusFork.EIP4844:
     raiseAssert $eip4844ImplementationMissing & ": tests/testblockutil.nim addTestBlock"
 
 proc makeTestBlock*(
@@ -409,7 +409,7 @@ proc makeSyncAggregate(
   let
     syncCommittee =
       withState(state):
-        when stateFork >= BeaconStateFork.Altair:
+        when stateFork >= ConsensusFork.Altair:
           if (forkyState.data.slot + 1).is_sync_committee_period():
             forkyState.data.next_sync_committee
           else:

@@ -392,13 +392,13 @@ iterator getBlockIds*(
     # `case` ensures we're on a fork for which the `PartialBeaconState`
     # definition is consistent
     case db.cfg.stateForkAtEpoch(slot.epoch)
-    of BeaconStateFork.Phase0, BeaconStateFork.Altair, BeaconStateFork.Bellatrix:
+    of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix:
       let stateSlot = (slot.era() + 1).start_slot()
       if not getPartialState(db, historical_roots, stateSlot, state[]):
         state = nil # No `return` in iterators
-    of BeaconStateFork.Capella:
+    of ConsensusFork.Capella:
       debugRaiseAssert $capellaImplementationMissing & ": era_db.nim: getBlockIds"
-    of BeaconStateFork.EIP4844:
+    of ConsensusFork.EIP4844:
       debugRaiseAssert $eip4844ImplementationMissing & ": era_db.nim: getBlockIds"
 
     if state == nil:

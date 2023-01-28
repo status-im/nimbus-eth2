@@ -142,7 +142,7 @@ func validatorKey*(
 template is_merge_transition_complete*(
     stateParam: ForkedHashedBeaconState): bool =
   withState(stateParam):
-    when stateFork >= BeaconStateFork.Bellatrix:
+    when stateFork >= ConsensusFork.Bellatrix:
       is_merge_transition_complete(forkyState.data)
     else:
       false
@@ -209,7 +209,7 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(BeaconBlockFork) == BeaconBlockFork.EIP4844
+  static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
   if (let blck = db.getBlock(root, eip4844.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
@@ -731,7 +731,7 @@ proc currentSyncCommitteeForPeriod*(
     bsi = ? dag.getBlockIdAtSlot(syncCommitteeSlot)
   dag.withUpdatedState(tmpState, bsi) do:
     withState(updatedState):
-      when stateFork >= BeaconStateFork.Altair:
+      when stateFork >= ConsensusFork.Altair:
         ok forkyState.data.current_sync_committee
       else: err()
   do: err()
@@ -857,31 +857,31 @@ proc applyBlock(
   loadStateCache(dag, cache, bid, getStateField(state, slot).epoch)
 
   case dag.cfg.blockForkAtEpoch(bid.slot.epoch)
-  of BeaconBlockFork.Phase0:
+  of ConsensusFork.Phase0:
     let data = getBlock(dag, bid, phase0.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
-  of BeaconBlockFork.Altair:
+  of ConsensusFork.Altair:
     let data = getBlock(dag, bid, altair.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
-  of BeaconBlockFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     let data = getBlock(dag, bid, bellatrix.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
-  of BeaconBlockFork.Capella:
+  of ConsensusFork.Capella:
     let data = getBlock(dag, bid, capella.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
-  of BeaconBlockFork.EIP4844:
+  of ConsensusFork.EIP4844:
     let data = getBlock(dag, bid, eip4844.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
@@ -1034,11 +1034,11 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   let
     configFork = case dag.headState.kind
-      of BeaconStateFork.Phase0: genesisFork(cfg)
-      of BeaconStateFork.Altair: altairFork(cfg)
-      of BeaconStateFork.Bellatrix: bellatrixFork(cfg)
-      of BeaconStateFork.Capella: capellaFork(cfg)
-      of BeaconStateFork.EIP4844: eip4844Fork(cfg)
+      of ConsensusFork.Phase0: genesisFork(cfg)
+      of ConsensusFork.Altair: altairFork(cfg)
+      of ConsensusFork.Bellatrix: bellatrixFork(cfg)
+      of ConsensusFork.Capella: capellaFork(cfg)
+      of ConsensusFork.EIP4844: eip4844Fork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   if stateFork != configFork:
@@ -1165,7 +1165,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   dag.updateValidatorKeys(getStateField(dag.headState, validators).asSeq())
 
   withState(dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
+    when stateFork >= ConsensusFork.Altair:
       dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
   info "Block DAG initialized",
@@ -1184,7 +1184,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   # If these aren't actually optimistic, the first fcU will resolve that
   withState(dag.headState):
-    when stateFork >= BeaconStateFork.Bellatrix:
+    when stateFork >= ConsensusFork.Bellatrix:
       template executionPayloadHeader(): auto =
         forkyState().data.latest_execution_payload_header
       const emptyExecutionPayloadHeader =
@@ -1700,7 +1700,7 @@ iterator syncSubcommitteePairs*(
 func syncCommitteeParticipants*(dag: ChainDAGRef,
                                 slot: Slot): seq[ValidatorIndex] =
   withState(dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
+    when stateFork >= ConsensusFork.Altair:
       let
         period = sync_committee_period(slot)
         curPeriod = sync_committee_period(forkyState.data.slot)
@@ -1730,7 +1730,7 @@ func getSubcommitteePositions*(
     subcommitteeIdx: SyncSubcommitteeIndex,
     validatorIdx: uint64): seq[uint64] =
   withState(dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
+    when stateFork >= ConsensusFork.Altair:
       let
         period = sync_committee_period(slot)
         curPeriod = sync_committee_period(forkyState.data.slot)
@@ -1920,25 +1920,25 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
       # pruned easily by fork)
 
       let stateFork = dag.cfg.stateForkAtEpoch(tailSlot.epoch)
-      if stateFork > BeaconStateFork.Phase0:
-        for fork in BeaconStateFork.Phase0..<stateFork:
+      if stateFork > ConsensusFork.Phase0:
+        for fork in ConsensusFork.Phase0..<stateFork:
           dag.db.clearStates(fork)
 
       let blockFork = dag.cfg.blockForkAtEpoch(blockHorizon.epoch)
 
-      if blockFork > BeaconBlockFork.Phase0:
-        for fork in BeaconBlockFork.Phase0..<blockFork:
+      if blockFork > ConsensusFork.Phase0:
+        for fork in ConsensusFork.Phase0..<blockFork:
           dag.db.clearBlocks(fork)
 
 proc loadExecutionBlockRoot*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
-  if dag.cfg.blockForkAtEpoch(bid.slot.epoch) < BeaconBlockFork.Bellatrix:
+  if dag.cfg.blockForkAtEpoch(bid.slot.epoch) < ConsensusFork.Bellatrix:
     return ZERO_HASH
 
   let blockData = dag.getForkedBlock(bid).valueOr:
     return ZERO_HASH
 
   withBlck(blockData):
-    when stateFork >= BeaconStateFork.Bellatrix:
+    when stateFork >= ConsensusFork.Bellatrix:
       blck.message.body.execution_payload.block_hash
     else:
       ZERO_HASH
@@ -2012,12 +2012,12 @@ proc updateHead*(
 
   if dag.headState.kind > lastHeadKind:
     case dag.headState.kind
-    of BeaconStateFork.Phase0 .. BeaconStateFork.Bellatrix:
+    of ConsensusFork.Phase0 .. ConsensusFork.Bellatrix:
       discard
-    of BeaconStateFork.Capella:
+    of ConsensusFork.Capella:
       if dag.vanityLogs.onUpgradeToCapella != nil:
         dag.vanityLogs.onUpgradeToCapella()
-    of BeaconStateFork.EIP4844:
+    of ConsensusFork.EIP4844:
       discard
 
   dag.db.putHeadBlock(newHead.root)
@@ -2025,7 +2025,7 @@ proc updateHead*(
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
 
   withState(dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
+    when stateFork >= ConsensusFork.Altair:
       dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
   let

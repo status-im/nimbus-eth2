@@ -34,6 +34,14 @@ template testTrustedSignedBeaconBlock(T: type, s: Slot) =
   check:
     forked.kind == T.toFork()
 
+suite "Type helpers":
+  test "BeaconBlockType":
+    check:
+      BeaconBlockType(ConsensusFork.Phase0) is phase0.BeaconBlock
+      BeaconBlockType(ConsensusFork.Bellatrix) is bellatrix.BeaconBlock
+      BeaconBlockBodyType(ConsensusFork.Altair) is altair.BeaconBlockBody
+      BeaconBlockBodyType(ConsensusFork.Bellatrix) is bellatrix.BeaconBlockBody
+
 suite "Forked SSZ readers":
   var
     cfg = defaultRuntimeConfig

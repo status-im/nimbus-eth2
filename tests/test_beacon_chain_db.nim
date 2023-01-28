@@ -99,7 +99,7 @@ func withDigest(blck: eip4844.TrustedBeaconBlock):
     root: hash_tree_root(blck)
   )
 
-proc getTestStates(stateFork: BeaconStateFork): auto =
+proc getTestStates(stateFork: ConsensusFork): auto =
   let
     db = makeTestDB(SLOTS_PER_EPOCH)
     validatorMonitor = newClone(ValidatorMonitor.init())
@@ -114,11 +114,11 @@ proc getTestStates(stateFork: BeaconStateFork): auto =
 
 # Each set of states gets used twice, so scope them to module
 let
-  testStatesPhase0    = getTestStates(BeaconStateFork.Phase0)
-  testStatesAltair    = getTestStates(BeaconStateFork.Altair)
-  testStatesBellatrix = getTestStates(BeaconStateFork.Bellatrix)
-  testStatesCapella   = getTestStates(BeaconStateFork.Capella)
-  testStatesEIP4844   = getTestStates(BeaconStateFork.EIP4844)
+  testStatesPhase0    = getTestStates(ConsensusFork.Phase0)
+  testStatesAltair    = getTestStates(ConsensusFork.Altair)
+  testStatesBellatrix = getTestStates(ConsensusFork.Bellatrix)
+  testStatesCapella   = getTestStates(ConsensusFork.Capella)
+  testStatesEIP4844   = getTestStates(ConsensusFork.EIP4844)
 doAssert len(testStatesPhase0) > 8
 doAssert len(testStatesAltair) > 8
 doAssert len(testStatesBellatrix) > 8
@@ -158,7 +158,7 @@ suite "Beacon chain DB" & preset():
       uncompressedLenFramed(tmp2).isSome
 
     check:
-      db.delBlock(BeaconBlockFork.Phase0, root)
+      db.delBlock(ConsensusFork.Phase0, root)
       not db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
@@ -205,7 +205,7 @@ suite "Beacon chain DB" & preset():
       uncompressedLenFramed(tmp2).isSome
 
     check:
-      db.delBlock(BeaconBlockFork.Altair, root)
+      db.delBlock(ConsensusFork.Altair, root)
       not db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
@@ -252,7 +252,7 @@ suite "Beacon chain DB" & preset():
       uncompressedLenFramed(tmp2).isSome
 
     check:
-      db.delBlock(BeaconBlockFork.Bellatrix, root)
+      db.delBlock(ConsensusFork.Bellatrix, root)
       not db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
@@ -299,7 +299,7 @@ suite "Beacon chain DB" & preset():
       uncompressedLenFramed(tmp2).isSome
 
     check:
-      db.delBlock(BeaconBlockFork.Capella, root)
+      db.delBlock(ConsensusFork.Capella, root)
       not db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
@@ -346,7 +346,7 @@ suite "Beacon chain DB" & preset():
       uncompressedLenFramed(tmp2).isSome
 
     check:
-      db.delBlock(BeaconBlockFork.EIP4844, root)
+      db.delBlock(ConsensusFork.EIP4844, root)
       not db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
@@ -379,7 +379,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(db.getPhase0StateRef(root)[]) == root
 
-      db.delState(BeaconStateFork.Phase0, root)
+      db.delState(ConsensusFork.Phase0, root)
       check:
         not db.containsState(root)
         db.getPhase0StateRef(root).isNil
@@ -397,7 +397,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(db.getAltairStateRef(root)[]) == root
 
-      db.delState(BeaconStateFork.Altair, root)
+      db.delState(ConsensusFork.Altair, root)
       check:
         not db.containsState(root)
         db.getAltairStateRef(root).isNil
@@ -415,7 +415,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(db.getBellatrixStateRef(root)[]) == root
 
-      db.delState(BeaconStateFork.Bellatrix, root)
+      db.delState(ConsensusFork.Bellatrix, root)
       check:
         not db.containsState(root)
         db.getBellatrixStateRef(root).isNil
@@ -433,7 +433,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(db.getCapellaStateRef(root)[]) == root
 
-      db.delState(BeaconStateFork.Capella, root)
+      db.delState(ConsensusFork.Capella, root)
       check:
         not db.containsState(root)
         db.getCapellaStateRef(root).isNil
@@ -451,7 +451,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(db.getEIP4844StateRef(root)[]) == root
 
-      db.delState(BeaconStateFork.EIP4844, root)
+      db.delState(ConsensusFork.EIP4844, root)
       check:
         not db.containsState(root)
         db.getEIP4844StateRef(root).isNil
@@ -471,7 +471,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
-      db.delState(BeaconStateFork.Phase0, root)
+      db.delState(ConsensusFork.Phase0, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -491,7 +491,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
-      db.delState(BeaconStateFork.Altair, root)
+      db.delState(ConsensusFork.Altair, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -511,7 +511,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
-      db.delState(BeaconStateFork.Bellatrix, root)
+      db.delState(ConsensusFork.Bellatrix, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -531,7 +531,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
-      db.delState(BeaconStateFork.Capella, root)
+      db.delState(ConsensusFork.Capella, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -551,7 +551,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
-      db.delState(BeaconStateFork.EIP4844, root)
+      db.delState(ConsensusFork.EIP4844, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -564,12 +564,12 @@ suite "Beacon chain DB" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: phase0.HashedBeaconState(data: phase0.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptState(BeaconStateFork.Phase0, root)
+    db.putCorruptState(ConsensusFork.Phase0, root)
 
     let restoreAddr = addr dag.headState
 
@@ -587,12 +587,12 @@ suite "Beacon chain DB" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Altair,
+        kind: ConsensusFork.Altair,
         altairData: altair.HashedBeaconState(data: altair.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptState(BeaconStateFork.Altair, root)
+    db.putCorruptState(ConsensusFork.Altair, root)
 
     let restoreAddr = addr dag.headState
 
@@ -604,7 +604,7 @@ suite "Beacon chain DB" & preset():
       not db.getState(root, state[].altairData.data, restore)
 
       # assign() has switched the case object fork
-      state[].kind == BeaconStateFork.Phase0
+      state[].kind == ConsensusFork.Phase0
       state[].phase0Data.data.slot != 10.Slot
 
   test "sanity check Bellatrix and cross-fork getState rollback" & preset():
@@ -613,12 +613,12 @@ suite "Beacon chain DB" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Bellatrix,
+        kind: ConsensusFork.Bellatrix,
         bellatrixData: bellatrix.HashedBeaconState(data: bellatrix.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptState(BeaconStateFork.Bellatrix, root)
+    db.putCorruptState(ConsensusFork.Bellatrix, root)
 
     let restoreAddr = addr dag.headState
 
@@ -630,7 +630,7 @@ suite "Beacon chain DB" & preset():
       not db.getState(root, state[].bellatrixData.data, restore)
 
       # assign() has switched the case object fork
-      state[].kind == BeaconStateFork.Phase0
+      state[].kind == ConsensusFork.Phase0
       state[].phase0Data.data.slot != 10.Slot
 
   test "sanity check Capella and cross-fork getState rollback" & preset():
@@ -639,12 +639,12 @@ suite "Beacon chain DB" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Capella,
+        kind: ConsensusFork.Capella,
         capellaData: capella.HashedBeaconState(data: capella.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptState(BeaconStateFork.Capella, root)
+    db.putCorruptState(ConsensusFork.Capella, root)
 
     let restoreAddr = addr dag.headState
 
@@ -656,7 +656,7 @@ suite "Beacon chain DB" & preset():
       not db.getState(root, state[].capellaData.data, restore)
 
       # assign() has switched the case object fork
-      state[].kind == BeaconStateFork.Phase0
+      state[].kind == ConsensusFork.Phase0
       state[].phase0Data.data.slot != 10.Slot
 
   test "sanity check EIP4844 and cross-fork getState rollback" & preset():
@@ -665,12 +665,12 @@ suite "Beacon chain DB" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.EIP4844,
+        kind: ConsensusFork.EIP4844,
         eip4844Data: eip4844.HashedBeaconState(data: eip4844.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptState(BeaconStateFork.EIP4844, root)
+    db.putCorruptState(ConsensusFork.EIP4844, root)
 
     let restoreAddr = addr dag.headState
 
@@ -682,7 +682,7 @@ suite "Beacon chain DB" & preset():
       not db.getState(root, state[].eip4844Data.data, restore)
 
       # assign() has switched the case object fork
-      state[].kind == BeaconStateFork.Phase0
+      state[].kind == ConsensusFork.Phase0
       state[].phase0Data.data.slot != 10.Slot
 
   test "find ancestors" & preset():
@@ -734,7 +734,7 @@ suite "Beacon chain DB" & preset():
 
     check db.containsState(state[].root)
     let state2 = db.getPhase0StateRef(state[].root)
-    db.delState(BeaconStateFork.Phase0, state[].root)
+    db.delState(ConsensusFork.Phase0, state[].root)
     check not db.containsState(state[].root)
     db.close()
 

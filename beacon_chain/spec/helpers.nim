@@ -339,7 +339,7 @@ func is_merge_transition_complete*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/sync/optimistic.md#helpers
 func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
-  when typeof(blck).toFork >= BeaconBlockFork.Bellatrix:
+  when typeof(blck).toFork >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload =
       default(typeof(blck.body.execution_payload))
     blck.body.execution_payload != defaultExecutionPayload
@@ -420,12 +420,12 @@ proc payloadToBlockHeader*(
   let
     txRoot = payload.computeTransactionsTrieRoot()
     withdrawalsRoot =
-      when typeof(payload).toFork >= BeaconBlockFork.Capella:
+      when typeof(payload).toFork >= ConsensusFork.Capella:
         some payload.computeWithdrawalsTrieRoot()
       else:
         none(Hash256)
     excessDataGas =
-      when typeof(payload).toFork >= BeaconBlockFork.EIP4844:
+      when typeof(payload).toFork >= ConsensusFork.EIP4844:
         some payload.excess_data_gas
       else:
         none(UInt256)

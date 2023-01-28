@@ -251,19 +251,19 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
     withTimer(timers[tLoadBlock]):
       case cfg.blockForkAtEpoch(blck.slot.epoch)
-      of BeaconBlockFork.Phase0:
+      of ConsensusFork.Phase0:
         blocks[0].add dag.db.getBlock(
           blck.root, phase0.TrustedSignedBeaconBlock).get()
-      of BeaconBlockFork.Altair:
+      of ConsensusFork.Altair:
         blocks[1].add dag.db.getBlock(
           blck.root, altair.TrustedSignedBeaconBlock).get()
-      of BeaconBlockFork.Bellatrix:
+      of ConsensusFork.Bellatrix:
         blocks[2].add dag.db.getBlock(
           blck.root, bellatrix.TrustedSignedBeaconBlock).get()
-      of BeaconBlockFork.Capella:
+      of ConsensusFork.Capella:
         blocks[3].add dag.db.getBlock(
           blck.root, capella.TrustedSignedBeaconBlock).get()
-      of BeaconBlockFork.EIP4844:
+      of ConsensusFork.EIP4844:
         raiseAssert $eip4844ImplementationMissing
 
   let stateData = newClone(dag.headState)
@@ -321,28 +321,28 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
 
             withTimer(timers[tDbLoad]):
               case stateFork
-              of BeaconStateFork.Phase0:
+              of ConsensusFork.Phase0:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[0][].data, noRollback)
-              of BeaconStateFork.Altair:
+              of ConsensusFork.Altair:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[1][].data, noRollback)
-              of BeaconStateFork.Bellatrix:
+              of ConsensusFork.Bellatrix:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[2][].data, noRollback)
-              of BeaconStateFork.Capella:
+              of ConsensusFork.Capella:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[3][].data, noRollback)
-              of BeaconStateFork.EIP4844:
+              of ConsensusFork.EIP4844:
                 raiseAssert $eip4844ImplementationMissing & ": ncli_db.nim: cmdBench (1)"
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case stateFork
-                of BeaconStateFork.Phase0:    hash_tree_root(loadedState[0][].data)
-                of BeaconStateFork.Altair:    hash_tree_root(loadedState[1][].data)
-                of BeaconStateFork.Bellatrix: hash_tree_root(loadedState[2][].data)
-                of BeaconStateFork.Capella:   hash_tree_root(loadedState[3][].data)
-                of BeaconStateFork.EIP4844:   raiseAssert $eip4844ImplementationMissing & ": ncli_db.nim: cmdBench (2)"
+                of ConsensusFork.Phase0:    hash_tree_root(loadedState[0][].data)
+                of ConsensusFork.Altair:    hash_tree_root(loadedState[1][].data)
+                of ConsensusFork.Bellatrix: hash_tree_root(loadedState[2][].data)
+                of ConsensusFork.Capella:   hash_tree_root(loadedState[3][].data)
+                of ConsensusFork.EIP4844:   raiseAssert $eip4844ImplementationMissing & ": ncli_db.nim: cmdBench (2)"
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])
@@ -1035,7 +1035,7 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       if nextSlot.is_epoch:
         withState(tmpState[]):
           var stateData = newClone(forkyState.data)
-          when stateFork == BeaconStateFork.EIP4844:
+          when stateFork == ConsensusFork.EIP4844:
             debugRaiseAssert $eip4844ImplementationMissing & ": ncli_db.nim:cmdValidatorDb"
           else:
             rewardsAndPenalties.collectEpochRewardsAndPenalties(

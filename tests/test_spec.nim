@@ -29,7 +29,7 @@ suite "Beacon state" & preset():
   test "process_slots":
     var
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
           defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
@@ -43,7 +43,7 @@ suite "Beacon state" & preset():
   test "latest_block_root":
     var
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
           defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
@@ -69,7 +69,7 @@ suite "Beacon state" & preset():
   test "get_beacon_proposer_index":
     var
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
           defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
@@ -94,7 +94,7 @@ suite "Beacon state" & preset():
   test "dependent_root":
     var
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
           defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))
@@ -134,7 +134,7 @@ suite "Beacon state" & preset():
   test "can_advance_slots":
     var
       state = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
           defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH, {}), {skipBlsValidation}))

@@ -143,7 +143,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
           var unrealized: FinalityCheckpoints
           if enableTestFeatures in dag.updateFlags and blckRef == dag.head:
             unrealized = withState(dag.headState):
-              when stateFork >= BeaconStateFork.Altair:
+              when stateFork >= ConsensusFork.Altair:
                 forkyState.data.compute_unrealized_finality()
               else:
                 var cache: StateCache

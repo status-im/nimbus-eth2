@@ -277,7 +277,7 @@ proc routeSyncCommitteeMessages*(
     router: ref MessageRouter, msgs: seq[SyncCommitteeMessage]):
     Future[seq[SendResult]] {.async.} =
   return withState(router[].dag.headState):
-    when stateFork >= BeaconStateFork.Altair:
+    when stateFork >= ConsensusFork.Altair:
       var statuses = newSeq[Option[SendResult]](len(msgs))
 
       let

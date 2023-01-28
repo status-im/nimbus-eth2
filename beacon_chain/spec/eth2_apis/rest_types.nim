@@ -286,12 +286,12 @@ type
   RestPublishedBeaconBlock* = distinct ForkedBeaconBlock
 
   RestPublishedBeaconBlockBody* = object
-    case kind*: BeaconBlockFork
-    of BeaconBlockFork.Phase0:    phase0Body*:    phase0.BeaconBlockBody
-    of BeaconBlockFork.Altair:    altairBody*:    altair.BeaconBlockBody
-    of BeaconBlockFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
-    of BeaconBlockFork.Capella:   capellaBody*:   capella.BeaconBlockBody
-    of BeaconBlockFork.EIP4844:   eip4844Body*: eip4844.BeaconBlockBody
+    case kind*: ConsensusFork
+    of ConsensusFork.Phase0:    phase0Body*:    phase0.BeaconBlockBody
+    of ConsensusFork.Altair:    altairBody*:    altair.BeaconBlockBody
+    of ConsensusFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
+    of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
+    of ConsensusFork.EIP4844:   eip4844Body*:   eip4844.BeaconBlockBody
 
   RestSpec* = object
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/presets/mainnet/phase0.yaml
