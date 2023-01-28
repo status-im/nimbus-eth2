@@ -525,6 +525,8 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/eip4844/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Update ranking - minimal/altair/light_client/update_ranking/pyspec_tests/up OK
 + Light client - Update ranking - minimal/bellatrix/light_client/update_ranking/pyspec_tests OK
+  Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u Skip
+  Light client - Update ranking - minimal/eip4844/light_client/update_ranking/pyspec_tests/u Skip
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
 + Sync - minimal/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + Sync - minimal/eip4844/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
@@ -916,7 +918,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 ```
-OK: 904/913 Fail: 0/913 Skip: 9/913
+OK: 904/915 Fail: 0/915 Skip: 11/915
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2193,12 +2195,6 @@ OK: 48/48 Fail: 0/48 Skip: 0/48
 + test_process_light_client_update_not_timeout                                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## EF - Light client - Update ranking [Preset: minimal]
-```diff
-  Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u Skip
-  Light client - Update ranking - minimal/eip4844/light_client/update_ranking/pyspec_tests/u Skip
-```
-OK: 0/2 Fail: 0/2 Skip: 2/2
 ## EF - Phase 0 - Epoch Processing - Effective balance updates [Preset: minimal]
 ```diff
 + Effective balance updates - effective_balance_hysteresis [Preset: minimal]                 OK

@@ -26,6 +26,10 @@ type
 
 proc runTest(path: string, lcDataFork: static LightClientDataFork) =
   test "Light client - Update ranking - " & path.relativePath(SszTestsDir):
+    when lcDataFork >= LightClientDataFork.Capella:
+      skip()
+      return
+
     let meta = block:
       var s = openFileStream(path/"meta.yaml")
       defer: close(s)
@@ -63,10 +67,6 @@ suite "EF - Light client - Update ranking" & preset():
     for kind, path in walkDir(testsPath, relative = true, checkDir = true):
       withStateFork(fork):
         const lcDataFork = lcDataForkAtStateFork(stateFork)
-        when lcDataFork >= LightClientDataFork.Capella:
-          test "Light client - Update ranking - " &
-              (testsPath/path).relativePath(SszTestsDir):
-            skip()
-        elif lcDataFork > LightClientDataFork.None:
+        when lcDataFork > LightClientDataFork.None:
           runTest(testsPath/path, lcDataFork)
         else: raiseAssert "Unreachable"
