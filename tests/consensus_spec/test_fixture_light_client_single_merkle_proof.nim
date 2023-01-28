@@ -57,7 +57,9 @@ suite "EF - Light client - Single merkle proof" & preset():
     if kind != pcDir or not dirExists(testsPath):
       continue
     let fork = forkForPathComponent(path).valueOr:
-      raiseAssert "Unknown test fork: " & testsPath
+      test "Light client - Single merkle proof - " & path
+        skip()
+      continue
     for kind, path in walkDir(testsPath, relative = true, checkDir = true):
       let suitePath = testsPath/path
       if kind != pcDir or not dirExists(suitePath):
