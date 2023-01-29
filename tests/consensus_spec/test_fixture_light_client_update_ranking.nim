@@ -26,10 +26,6 @@ type
 
 proc runTest(path: string, lcDataFork: static LightClientDataFork) =
   test "Light client - Update ranking - " & path.relativePath(SszTestsDir):
-    when lcDataFork >= LightClientDataFork.Capella:
-      skip()
-      return
-
     let meta = block:
       var s = openFileStream(path/"meta.yaml")
       defer: close(s)
