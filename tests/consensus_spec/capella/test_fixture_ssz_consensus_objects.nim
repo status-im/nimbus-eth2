@@ -122,15 +122,15 @@ suite "EF - Capella - SSZ consensus objects " & preset():
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
           of "LightClientBootstrap":
-            discard  # checkSSZ(capella.LightClientBootstrap, path, hash)
+            checkSSZ(capella.LightClientBootstrap, path, hash)
           of "LightClientHeader":
-            discard  # checkSSZ(capella.LightClientHeader, path, hash)
+            checkSSZ(capella.LightClientHeader, path, hash)
           of "LightClientUpdate":
-            discard  # checkSSZ(capella.LightClientUpdate, path, hash)
+            checkSSZ(capella.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
-            discard  # checkSSZ(capella.LightClientFinalityUpdate, path, hash)
+            checkSSZ(capella.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
-            discard  # checkSSZ(capella.LightClientOptimisticUpdate, path, hash)
+            checkSSZ(capella.LightClientOptimisticUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
