@@ -664,11 +664,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
           # Fast path for when all remaining candidates fit
           if candidates.lenu64 < MAX_ATTESTATIONS: candidates.len - 1
           else: maxIndex(candidates)
-        # TODO slot not used; replace with _ when
-        # https://github.com/nim-lang/Nim/issues/15972 and
-        # https://github.com/nim-lang/Nim/issues/16217 are
-        # fixed in Status's Nim.
-        (_, slot, entry, j) = candidates[candidate]
+        (_, _, entry, j) = candidates[candidate]
 
       candidates.del(candidate) # careful, `del` reorders candidates
 

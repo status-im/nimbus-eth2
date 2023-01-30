@@ -642,7 +642,7 @@ proc forkchoiceUpdated*(
         withdrawals: mapIt(withdrawals.get, it.asEngineWithdrawal))))
 
 # TODO can't be defined within exchangeTransitionConfiguration
-proc `==`(x, y: Quantity): bool {.borrow, noSideEffect.}
+func `==`(x, y: Quantity): bool {.borrow.}
 
 type
   EtcStatus {.pure.} = enum
