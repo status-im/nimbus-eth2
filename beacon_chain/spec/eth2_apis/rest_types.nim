@@ -18,11 +18,11 @@ import
   stew/base10, web3/ethtypes,
   ".."/forks,
   ".."/datatypes/[phase0, altair, bellatrix, eip4844],
-  ".."/mev/bellatrix_mev
+  ".."/mev/[bellatrix_mev, capella_mev]
 
 from ".."/datatypes/capella import BeaconBlockBody
 
-export forks, phase0, altair, bellatrix, capella, bellatrix_mev
+export forks, phase0, altair, bellatrix, capella, bellatrix_mev, capella_mev
 
 const
   # https://github.com/ethereum/eth2.0-APIs/blob/master/apis/beacon/states/validator_balances.yaml#L17
@@ -613,7 +613,7 @@ type
   GetEpochCommitteesResponse* = DataEnclosedObject[seq[RestBeaconStatesCommittees]]
   GetForkScheduleResponse* = DataEnclosedObject[seq[Fork]]
   GetGenesisResponse* = DataEnclosedObject[RestGenesis]
-  GetHeaderResponse* = DataVersionEnclosedObject[SignedBuilderBid]
+  GetHeaderResponse* = DataVersionEnclosedObject[bellatrix_mev.SignedBuilderBid]
   GetNetworkIdentityResponse* = DataEnclosedObject[RestNetworkIdentity]
   GetPeerCountResponse* = DataMetaEnclosedObject[RestPeerCount]
   GetPeerResponse* = DataMetaEnclosedObject[RestNodePeer]
@@ -640,7 +640,8 @@ type
   ProduceBlockResponseV2* = ForkedBeaconBlock
   ProduceBlindedBlockResponse* = ForkedBlindedBeaconBlock
   ProduceSyncCommitteeContributionResponse* = DataEnclosedObject[SyncCommitteeContribution]
-  SubmitBlindedBlockResponse* = DataEnclosedObject[bellatrix.ExecutionPayload]
+  SubmitBlindedBlockResponseBellatrix* = DataEnclosedObject[bellatrix.ExecutionPayload]
+  SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
 

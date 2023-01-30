@@ -355,7 +355,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         block_root: Eth2Digest,
                         blck: ForkedBeaconBlock | ForkedBlindedBeaconBlock |
-                              BlindedBeaconBlock
+                              bellatrix_mev.BlindedBeaconBlock
                        ): Future[SignatureResult] {.async.} =
   return
     case v.kind

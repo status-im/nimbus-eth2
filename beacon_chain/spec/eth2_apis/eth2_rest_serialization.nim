@@ -13,7 +13,7 @@ import stew/[assign2, results, base10, byteutils], presto/common,
 import ".."/[eth2_ssz_serialization, forks, keystore],
        ".."/../consensus_object_pools/block_pools_types,
        ".."/datatypes/[phase0, altair, bellatrix],
-       ".."/mev/bellatrix_mev,
+       ".."/mev/[bellatrix_mev, capella_mev],
        ".."/../validators/slashing_protection_common,
        "."/[rest_types, rest_keymanager_types]
 import nimcrypto/utils as ncrutils
@@ -85,7 +85,8 @@ type
     PrepareBeaconProposer |
     ProposerSlashing |
     SetFeeRecipientRequest |
-    SignedBlindedBeaconBlock |
+    bellatrix_mev.SignedBlindedBeaconBlock |
+    capella_mev.SignedBlindedBeaconBlock |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
     Web3SignerRequest

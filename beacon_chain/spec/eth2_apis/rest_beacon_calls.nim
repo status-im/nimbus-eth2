@@ -143,7 +143,8 @@ proc publishBlindedBlock*(body: altair.SignedBeaconBlock): RestPlainResponse {.
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock
 
-proc publishBlindedBlock*(body: SignedBlindedBeaconBlock): RestPlainResponse {.
+proc publishBlindedBlock*(body: bellatrix_mev.SignedBlindedBeaconBlock):
+       RestPlainResponse {.
      rest, endpoint: "/eth/v1/beacon/blinded_blocks",
      meth: MethodPost.}
   ## https://ethereum.github.io/beacon-APIs/#/Beacon/publishBlindedBlock

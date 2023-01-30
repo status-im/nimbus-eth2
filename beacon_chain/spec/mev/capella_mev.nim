@@ -1,0 +1,79 @@
+# beacon_chain
+# Copyright (c) 2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
+#   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+import ".."/datatypes/[altair, capella]
+from stew/byteutils import to0xHex
+
+{.push raises: [].}
+
+type
+  # https://github.com/jimmygchen/builder-specs/blob/0e15394bc239d3fee1ba9e42f4ce67ff6565537b/specs/builder.md#builderbid-1
+  BuilderBid* = object
+    header*: capella.ExecutionPayloadHeader # [Modified in Capella]
+    value*: UInt256
+    pubkey*: ValidatorPubKey
+
+  # https://github.com/jimmygchen/builder-specs/blob/0e15394bc239d3fee1ba9e42f4ce67ff6565537b/specs/builder.md#signedbuilderbid-1
+  SignedBuilderBid* = object
+    message*: BuilderBid # [Modified in Capella]
+    signature*: ValidatorSig
+
+  # https://github.com/jimmygchen/builder-specs/blob/0e15394bc239d3fee1ba9e42f4ce67ff6565537b/specs/builder.md#blindedbeaconblockbody-1
+  BlindedBeaconBlockBody = object
+    randao_reveal*: ValidatorSig
+    eth1_data*: Eth1Data
+    graffiti*: GraffitiBytes
+    proposer_slashings*: List[ProposerSlashing, Limit MAX_PROPOSER_SLASHINGS]
+    attester_slashings*: List[AttesterSlashing, Limit MAX_ATTESTER_SLASHINGS]
+    attestations*: List[Attestation, Limit MAX_ATTESTATIONS]
+    deposits*: List[Deposit, Limit MAX_DEPOSITS]
+    voluntary_exits*: List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
+    sync_aggregate*: SyncAggregate
+    execution_payload_header*:
+      capella.ExecutionPayloadHeader # [Modified in Capella]
+    bls_to_execution_changes*:
+      List[SignedBLSToExecutionChange,
+        Limit MAX_BLS_TO_EXECUTION_CHANGES]  # [New in Capella]
+
+  # https://github.com/jimmygchen/builder-specs/blob/0e15394bc239d3fee1ba9e42f4ce67ff6565537b/specs/builder.md#blindedbeaconblock-1
+  BlindedBeaconBlock* = object
+    slot*: Slot
+    proposer_index*: uint64
+    parent_root*: Eth2Digest
+    state_root*: Eth2Digest
+    body*: BlindedBeaconBlockBody # [Modified in Capella]
+
+  # https://github.com/jimmygchen/builder-specs/blob/0e15394bc239d3fee1ba9e42f4ce67ff6565537b/specs/builder.md#signedblindedbeaconblock-1
+  SignedBlindedBeaconBlock* = object
+    message*: BlindedBeaconBlock
+    signature*: ValidatorSig
+
+func shortLog*(v: BlindedBeaconBlock): auto =
+  (
+    slot: shortLog(v.slot),
+    proposer_index: v.proposer_index,
+    parent_root: shortLog(v.parent_root),
+    state_root: shortLog(v.state_root),
+    eth1data: v.body.eth1_data,
+    graffiti: $v.body.graffiti,
+    proposer_slashings_len: v.body.proposer_slashings.len(),
+    attester_slashings_len: v.body.attester_slashings.len(),
+    attestations_len: v.body.attestations.len(),
+    deposits_len: v.body.deposits.len(),
+    voluntary_exits_len: v.body.voluntary_exits.len(),
+    sync_committee_participants: v.body.sync_aggregate.num_active_participants,
+    block_number: v.body.execution_payload_header.block_number,
+    # TODO checksum hex? shortlog?
+    fee_recipient: to0xHex(v.body.execution_payload_header.fee_recipient.data),
+    bls_to_execution_changes_len: v.body.bls_to_execution_changes.len()
+  )
+
+func shortLog*(v: SignedBlindedBeaconBlock): auto =
+  (
+    blck: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
