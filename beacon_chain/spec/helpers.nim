@@ -136,9 +136,8 @@ func compute_domain*(
     genesis_validators_root: Eth2Digest = ZERO_HASH): Eth2Domain =
   ## Return the domain for the ``domain_type`` and ``fork_version``.
   #
-  # TODO Can't be used as part of a const/static expression:
+  # TODO toOpenArray can't be used from JavaScript backend
   # https://github.com/nim-lang/Nim/issues/15952
-  # https://github.com/nim-lang/Nim/issues/19969
   let fork_data_root =
     compute_fork_data_root(fork_version, genesis_validators_root)
   result[0..3] = domain_type.data

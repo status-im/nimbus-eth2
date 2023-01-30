@@ -50,46 +50,44 @@ const
 
   NANOSECONDS_PER_SLOT = SECONDS_PER_SLOT * 1_000_000_000'u64
 
-# TODO when https://github.com/nim-lang/Nim/issues/14440 lands in Status's Nim,
-# switch proc {.noSideEffect.} to func.
 template ethTimeUnit*(typ: type) {.dirty.} =
-  proc `+`*(x: typ, y: uint64): typ {.borrow, noSideEffect.}
-  proc `-`*(x: typ, y: uint64): typ {.borrow, noSideEffect.}
-  proc `-`*(x: uint64, y: typ): typ {.borrow, noSideEffect.}
+  func `+`*(x: typ, y: uint64): typ {.borrow.}
+  func `-`*(x: typ, y: uint64): typ {.borrow.}
+  func `-`*(x: uint64, y: typ): typ {.borrow.}
 
   # Not closed over type in question (Slot or Epoch)
-  proc `mod`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
-  proc `div`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
-  proc `div`*(x: uint64, y: typ): uint64 {.borrow, noSideEffect.}
-  proc `-`*(x: typ, y: typ): uint64 {.borrow, noSideEffect.}
+  func `mod`*(x: typ, y: uint64): uint64 {.borrow.}
+  func `div`*(x: typ, y: uint64): uint64 {.borrow.}
+  func `div`*(x: uint64, y: typ): uint64 {.borrow.}
+  func `-`*(x: typ, y: typ): uint64 {.borrow.}
 
   iterator countdown*(a, b: typ, step: Positive = 1): typ =
     # otherwise we use the signed version that breaks at the boundary
     for i in countdown(distinctBase(a), distinctBase(b), step):
       yield typ(i)
 
-  proc `*`*(x: typ, y: uint64): uint64 {.borrow, noSideEffect.}
+  func `*`*(x: typ, y: uint64): uint64 {.borrow.}
 
-  proc `+=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
-  proc `+=`*(x: var typ, y: uint64) {.borrow, noSideEffect.}
-  proc `-=`*(x: var typ, y: typ) {.borrow, noSideEffect.}
-  proc `-=`*(x: var typ, y: uint64) {.borrow, noSideEffect.}
+  func `+=`*(x: var typ, y: typ) {.borrow.}
+  func `+=`*(x: var typ, y: uint64) {.borrow.}
+  func `-=`*(x: var typ, y: typ) {.borrow.}
+  func `-=`*(x: var typ, y: uint64) {.borrow.}
 
   # Comparison operators
-  proc `<`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
-  proc `<`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
-  proc `<`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
-  proc `<=`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
-  proc `<=`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
-  proc `<=`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
+  func `<`*(x: typ, y: typ): bool {.borrow.}
+  func `<`*(x: typ, y: uint64): bool {.borrow.}
+  func `<`*(x: uint64, y: typ): bool {.borrow.}
+  func `<=`*(x: typ, y: typ): bool {.borrow.}
+  func `<=`*(x: typ, y: uint64): bool {.borrow.}
+  func `<=`*(x: uint64, y: typ): bool {.borrow.}
 
-  proc `==`*(x: typ, y: typ): bool {.borrow, noSideEffect.}
-  proc `==`*(x: typ, y: uint64): bool {.borrow, noSideEffect.}
-  proc `==`*(x: uint64, y: typ): bool {.borrow, noSideEffect.}
+  func `==`*(x: typ, y: typ): bool {.borrow.}
+  func `==`*(x: typ, y: uint64): bool {.borrow.}
+  func `==`*(x: uint64, y: typ): bool {.borrow.}
 
   # Nim integration
-  proc `$`*(x: typ): string {.borrow, noSideEffect.}
-  proc hash*(x: typ): Hash {.borrow, noSideEffect.}
+  func `$`*(x: typ): string {.borrow.}
+  func hash*(x: typ): Hash {.borrow.}
 
   template asUInt64*(v: typ): uint64 = distinctBase(v)
   template shortLog*(v: typ): auto = distinctBase(v)

@@ -408,11 +408,8 @@ func prune*(
 
   trace "Pruning blocks from fork choice", checkpoints
 
-  var finalPhysicalIdx = finalizedIdx - self.nodes.offset
+  let finalPhysicalIdx = finalizedIdx - self.nodes.offset
   for nodeIdx in 0 ..< finalPhysicalIdx:
-    if self.nodes.buf[nodeIdx].bid.root == checkpoints.justified.root:
-      finalPhysicalIdx = nodeIdx
-      break
     self.currentEpochTips.del nodeIdx
     self.indices.del(self.nodes.buf[nodeIdx].bid.root)
 
@@ -425,7 +422,7 @@ func prune*(
   self.nodes.buf.setLen(tail)
 
   # update offset
-  self.nodes.offset = finalPhysicalIdx + self.nodes.offset
+  self.nodes.offset = finalizedIdx
 
   ok()
 

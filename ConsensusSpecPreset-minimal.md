@@ -304,6 +304,8 @@ ConsensusSpecPreset-minimal
 + EF - EIP4844 - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]     OK
 + EF - EIP4844 - Transition - transition_with_attester_slashing_right_after_fork [Preset: mi OK
 + EF - EIP4844 - Transition - transition_with_attester_slashing_right_before_fork [Preset: m OK
++ EF - EIP4844 - Transition - transition_with_btec_right_after_fork [Preset: minimal]        OK
++ EF - EIP4844 - Transition - transition_with_btec_right_before_fork [Preset: minimal]       OK
 + EF - EIP4844 - Transition - transition_with_deposit_right_after_fork [Preset: minimal]     OK
 + EF - EIP4844 - Transition - transition_with_deposit_right_before_fork [Preset: minimal]    OK
 + EF - EIP4844 - Transition - transition_with_finality [Preset: minimal]                     OK
@@ -508,16 +510,26 @@ ConsensusSpecPreset-minimal
 + Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - minimal/eip4844/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/eip4844/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/eip4844/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/eip4844/light_client/single_merkle_proof/Beac OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/advance_finality_witho OK
++ Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/capella_store_with_leg OK
++ Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/eip4844_store_with_leg OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync      OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/supply_sync_committee_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/advance_finality_wi OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_eip4844_for OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_fork        OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_store_with_ OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/eip4844_store_with_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync   OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/supply_sync_committ OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/advance_finality_with OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/eip4844_fork          OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/eip4844_store_with_le OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync     OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Sync - minimal/eip4844/light_client/sync/pyspec_tests/advance_finality_with OK
@@ -525,8 +537,8 @@ ConsensusSpecPreset-minimal
 + Light client - Sync - minimal/eip4844/light_client/sync/pyspec_tests/supply_sync_committee OK
 + Light client - Update ranking - minimal/altair/light_client/update_ranking/pyspec_tests/up OK
 + Light client - Update ranking - minimal/bellatrix/light_client/update_ranking/pyspec_tests OK
-  Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u Skip
-  Light client - Update ranking - minimal/eip4844/light_client/update_ranking/pyspec_tests/u Skip
++ Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u OK
++ Light client - Update ranking - minimal/eip4844/light_client/update_ranking/pyspec_tests/u OK
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
 + Sync - minimal/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
 + Sync - minimal/eip4844/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
@@ -796,6 +808,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
++ [Valid]   EF - Capella - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
 + [Valid]   EF - Capella - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 + [Valid]   EF - Capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 + [Valid]   EF - EIP4844 - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
@@ -865,6 +878,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 + [Valid]   EF - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
@@ -918,7 +932,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 ```
-OK: 904/915 Fail: 0/915 Skip: 11/915
+OK: 920/929 Fail: 0/929 Skip: 9/929
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2711,8 +2725,8 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 + [Valid]   EF - Capella - Operations - Withdrawals - success_all_partially_withdrawable     OK
 + [Valid]   EF - Capella - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
 + [Valid]   EF - Capella - Operations - Withdrawals - success_max_partial_withdrawable       OK
-+ [Valid]   EF - Capella - Operations - Withdrawals - success_max_per_slot                   OK
 + [Valid]   EF - Capella - Operations - Withdrawals - success_max_plus_one_withdrawable      OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_mixed_fully_and_partial_withdr OK
 + [Valid]   EF - Capella - Operations - Withdrawals - success_no_excess_balance              OK
 + [Valid]   EF - Capella - Operations - Withdrawals - success_no_max_effective_balance       OK
 + [Valid]   EF - Capella - Operations - Withdrawals - success_one_full_withdrawal            OK
@@ -2743,8 +2757,8 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_all_partially_withdrawable     OK
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_max_partial_withdrawable       OK
-+ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_max_per_slot                   OK
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_max_plus_one_withdrawable      OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_mixed_fully_and_partial_withdr OK
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_no_excess_balance              OK
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_no_max_effective_balance       OK
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_one_full_withdrawal            OK
@@ -2763,4 +2777,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 102/102 Fail: 0/102 Skip: 0/102
 
 ---TOTAL---
-OK: 2442/2453 Fail: 0/2453 Skip: 11/2453
+OK: 2458/2467 Fail: 0/2467 Skip: 9/2467

@@ -126,15 +126,15 @@ suite "EF - EIP4844 - SSZ consensus objects " & preset():
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
           of "LightClientBootstrap":
-            discard  # checkSSZ(eip4844.LightClientBootstrap, path, hash)
+            checkSSZ(eip4844.LightClientBootstrap, path, hash)
           of "LightClientHeader":
-            discard  # checkSSZ(eip4844.LightClientHeader, path, hash)
+            checkSSZ(eip4844.LightClientHeader, path, hash)
           of "LightClientUpdate":
-            discard  # checkSSZ(eip4844.LightClientUpdate, path, hash)
+            checkSSZ(eip4844.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
-            discard  # checkSSZ(eip4844.LightClientFinalityUpdate, path, hash)
+            checkSSZ(eip4844.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
-            discard  # checkSSZ(eip4844.LightClientOptimisticUpdate, path, hash)
+            checkSSZ(eip4844.LightClientOptimisticUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
