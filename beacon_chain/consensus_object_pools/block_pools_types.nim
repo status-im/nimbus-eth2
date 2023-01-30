@@ -235,7 +235,7 @@ type
       ## committee messages will be rejected
 
     optimisticRoots*: HashSet[Eth2Digest]
-      ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/sync/optimistic.md#helpers
+      ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/sync/optimistic.md#helpers
 
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and
