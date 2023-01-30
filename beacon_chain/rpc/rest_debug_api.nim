@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -82,7 +82,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     )
 
   # https://github.com/ethereum/beacon-APIs/pull/232
-  if node.config.debugForkChoice:
+  if node.config.debugForkChoice or experimental in node.dag.updateFlags:
     router.api(MethodGet,
                "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
       type
@@ -109,17 +109,6 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
       var responses: seq[ForkChoiceResponse]
       for item in node.attestationPool[].forkChoice.backend.proto_array:
         let
-          bid = node.dag.getBlockId(item.root)
-          slot =
-            if bid.isOk:
-              bid.unsafeGet.slot
-            else:
-              FAR_FUTURE_SLOT
-          executionPayloadRoot =
-            if bid.isOk:
-              node.dag.loadExecutionBlockRoot(bid.unsafeGet)
-            else:
-              ZERO_HASH
           unrealized = item.unrealized.get(item.checkpoints)
           u_justified_checkpoint =
             if unrealized.justified != item.checkpoints.justified:
@@ -133,14 +122,14 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
               none(Checkpoint)
 
         responses.add ForkChoiceResponse(
-          slot: slot,
-          block_root: item.root,
+          slot: item.bid.slot,
+          block_root: item.bid.root,
           parent_root: item.parent,
           justified_epoch: item.checkpoints.justified.epoch,
           finalized_epoch: item.checkpoints.finalized.epoch,
           weight: cast[uint64](item.weight),
-          execution_optimistic: node.dag.is_optimistic(item.root),
-          execution_payload_root: executionPayloadRoot,
+          execution_optimistic: node.dag.is_optimistic(item.bid.root),
+          execution_payload_root: node.dag.loadExecutionBlockRoot(item.bid),
           extra_data: some ForkChoiceResponseExtraData(
             justified_root: item.checkpoints.justified.root,
             finalized_root: item.checkpoints.finalized.root,

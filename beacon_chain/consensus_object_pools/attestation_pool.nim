@@ -134,7 +134,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
           # and then to make sure the fork choice data structure doesn't grow
           # too big - getting an EpochRef can be expensive.
           forkChoice.backend.process_block(
-            blckRef.root, blckRef.parent.root, epochRef.checkpoints)
+            blckRef.bid, blckRef.parent.root, epochRef.checkpoints)
         else:
           epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch, false).expect(
             "Getting an EpochRef should always work for non-finalized blocks")

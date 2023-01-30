@@ -142,8 +142,7 @@ proc loadChainDag(
     db: BeaconChainDB,
     eventBus: EventBus,
     validatorMonitor: ref ValidatorMonitor,
-    networkGenesisValidatorsRoot: Opt[Eth2Digest],
-    shouldEnableTestFeatures: bool): ChainDAGRef =
+    networkGenesisValidatorsRoot: Opt[Eth2Digest]): ChainDAGRef =
   info "Loading block DAG from database", path = config.databaseDir
 
   var dag: ChainDAGRef
@@ -170,10 +169,12 @@ proc loadChainDag(
             jsonVersion: contextFork,
             sszContext: dag.forkDigests[].atStateFork(contextFork)))
 
+  var extraFlags = {enableTestFeatures}
+  if config.deploymentPhase <= DeploymentPhase.Testnet:
+    extraFlags.incl experimental
+  if config.deploymentPhase <= DeploymentPhase.Devnet:
+    extraFlags.incl lowParticipation
   let
-    extraFlags =
-      if shouldEnableTestFeatures: {enableTestFeatures, lowParticipation}
-      else: {enableTestFeatures}
     chainDagFlags =
       if config.strictVerification: {strictVerification}
       else: {}
@@ -548,8 +549,7 @@ proc init*(T: type BeaconNode,
 
     dag = loadChainDag(
       config, cfg, db, eventBus,
-      validatorMonitor, networkGenesisValidatorsRoot,
-      config.deploymentPhase <= DeploymentPhase.Testnet)
+      validatorMonitor, networkGenesisValidatorsRoot)
     genesisTime = getStateField(dag.headState, genesis_time)
     beaconClock = BeaconClock.init(genesisTime)
     getBeaconTime = beaconClock.getBeaconTimeFn()

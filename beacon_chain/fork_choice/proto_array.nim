@@ -81,17 +81,21 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
                                        parentIdx: Index,
                                        childIdx: Index): FcResult[void]
 
-func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool
-func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool]
+func nodeIsViableForHead(
+    self: ProtoArray, node: ProtoNode, nodeIdx: Index): bool
+func nodeLeadsToViableHead(
+    self: ProtoArray, node: ProtoNode, nodeIdx: Index): FcResult[bool]
 
 # ProtoArray routines
 # ----------------------------------------------------------------------
 
 func init*(
     T: type ProtoArray, checkpoints: FinalityCheckpoints,
-    hasLowParticipation: bool): T =
+    experimental, hasLowParticipation: bool): T =
   let node = ProtoNode(
-    root: checkpoints.finalized.root,
+    bid: BlockId(
+      slot: checkpoints.finalized.epoch.start_slot,
+      root: checkpoints.finalized.root),
     parent: none(int),
     checkpoints: checkpoints,
     weight: 0,
@@ -99,10 +103,11 @@ func init*(
     bestChild: none(int),
     bestDescendant: none(int))
 
-  T(hasLowParticipation: hasLowParticipation,
+  T(experimental: experimental,
+    hasLowParticipation: hasLowParticipation,
     checkpoints: checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
-    indices: {node.root: 0}.toTable())
+    indices: {node.bid.root: 0}.toTable())
 
 iterator realizePendingCheckpoints*(
     self: var ProtoArray, resetTipTracking = true): FinalityCheckpoints =
@@ -111,7 +116,7 @@ iterator realizePendingCheckpoints*(
     let physicalIdx = idx - self.nodes.offset
     if unrealized != self.nodes.buf[physicalIdx].checkpoints:
       trace "Pulling up chain tip",
-        blck = self.nodes.buf[physicalIdx].root,
+        blck = self.nodes.buf[physicalIdx].bid.root,
         checkpoints = self.nodes.buf[physicalIdx].checkpoints,
         unrealized
       self.nodes.buf[physicalIdx].checkpoints = unrealized
@@ -173,7 +178,7 @@ func applyScoreChanges*(self: var ProtoArray,
   self.checkpoints = checkpoints
 
   # If previous epoch is justified, pull up all current tips to previous epoch
-  if self.hasLowParticipation and self.isPreviousEpochJustified:
+  if self.experimental and self.isPreviousEpochJustified:
     for realized in self.realizePendingCheckpoints(resetTipTracking = false):
       discard
 
@@ -187,7 +192,7 @@ func applyScoreChanges*(self: var ProtoArray,
 
   # Iterate backwards through all the indices in `self.nodes`
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
-    if node.root.isZero:
+    if node.bid.root.isZero:
       continue
 
     var nodeDelta = deltas[nodePhysicalIdx]
@@ -195,7 +200,7 @@ func applyScoreChanges*(self: var ProtoArray,
     # If we find the node for which the proposer boost was previously applied,
     # decrease the delta by the previous score amount.
     if  (not self.previousProposerBoostRoot.isZero) and
-        self.previousProposerBoostRoot == node.root:
+        self.previousProposerBoostRoot == node.bid.root:
           if  nodeDelta < 0 and
               nodeDelta - low(Delta) < self.previousProposerBoostScore.int64:
             return err ForkChoiceError(
@@ -207,7 +212,7 @@ func applyScoreChanges*(self: var ProtoArray,
     # the delta by the new score amount.
     #
     # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
-    if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.root:
+    if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
       proposerBoostScore = calculateProposerBoost(newBalances)
       if  nodeDelta >= 0 and
           high(Delta) - nodeDelta < proposerBoostScore.int64:
@@ -265,7 +270,7 @@ func applyScoreChanges*(self: var ProtoArray,
   self.previousProposerBoostScore = proposerBoostScore
 
   for nodePhysicalIdx in countdown(self.nodes.len - 1, 0):
-    if node.root.isZero:
+    if node.bid.root.isZero:
       continue
 
     if node.parent.isSome():
@@ -281,7 +286,7 @@ func applyScoreChanges*(self: var ProtoArray,
   ok()
 
 func onBlock*(self: var ProtoArray,
-              root: Eth2Digest,
+              bid: BlockId,
               parent: Eth2Digest,
               checkpoints: FinalityCheckpoints,
               unrealized = none(FinalityCheckpoints)): FcResult[void] =
@@ -294,7 +299,7 @@ func onBlock*(self: var ProtoArray,
   # Note: if parent is an "Option" type, we can run out of stack space.
 
   # If the block is already known, ignore it
-  if root in self.indices:
+  if bid.root in self.indices:
     return ok()
 
   var parentIdx: Index
@@ -303,13 +308,13 @@ func onBlock*(self: var ProtoArray,
   do:
     return err ForkChoiceError(
       kind: fcUnknownParent,
-      childRoot: root,
+      childRoot: bid.root,
       parentRoot: parent)
 
   let nodeLogicalIdx = self.nodes.offset + self.nodes.buf.len
 
   let node = ProtoNode(
-    root: root,
+    bid: bid,
     parent: some(parentIdx),
     checkpoints: checkpoints,
     weight: 0,
@@ -317,11 +322,11 @@ func onBlock*(self: var ProtoArray,
     bestChild: none(int),
     bestDescendant: none(int))
 
-  self.indices[node.root] = nodeLogicalIdx
+  self.indices[node.bid.root] = nodeLogicalIdx
   self.nodes.add node
 
+  self.currentEpochTips.del parentIdx
   if unrealized.isSome:
-    self.currentEpochTips.del parentIdx
     self.currentEpochTips[nodeLogicalIdx] = unrealized.get
 
   ? self.maybeUpdateBestChildAndDescendant(parentIdx, nodeLogicalIdx)
@@ -359,34 +364,38 @@ func findHead*(self: var ProtoArray,
       index: bestDescendantIdx)
 
   # Perform a sanity check to ensure the node can be head
-  if not self.nodeIsViableForHead(bestNode.get()):
+  if not self.nodeIsViableForHead(bestNode.get(), bestDescendantIdx):
     return err ForkChoiceError(
       kind: fcInvalidBestNode,
       startRoot: justifiedRoot,
       fkChoiceCheckpoints: self.checkpoints,
-      headRoot: justifiedNode.get().root,
+      headRoot: justifiedNode.get().bid.root,
       headCheckpoints: justifiedNode.get().checkpoints)
 
-  head = bestNode.get().root
+  head = bestNode.get().bid.root
   ok()
 
-func prune*(self: var ProtoArray, finalizedRoot: Eth2Digest): FcResult[void] =
+func prune*(
+    self: var ProtoArray,
+    checkpoints: FinalityCheckpoints): FcResult[void] =
   ## Update the tree with new finalization information.
   ## The tree is pruned if and only if:
-  ## - The `finalizedRoot` and finalized epoch are different from current
+  ## - `checkpoints.finalized.root` and finalized epoch
+  ##   are different from current
   ##
   ## Returns error if:
   ## - The finalized epoch is less than the current one
-  ## - The finalized epoch matches the current one but the finalized root is different
+  ## - The finalized epoch matches the current one but the f
+  ##   inalized root is different
   ## - Internal error due to invalid indices in `self`
 
   var finalizedIdx: int
-  self.indices.withValue(finalizedRoot, value) do:
+  self.indices.withValue(checkpoints.finalized.root, value) do:
     finalizedIdx = value[]
   do:
     return err ForkChoiceError(
       kind: fcFinalizedNodeUnknown,
-      blockRoot: finalizedRoot)
+      blockRoot: checkpoints.finalized.root)
 
   if finalizedIdx == self.nodes.offset:
     # Nothing to do
@@ -395,15 +404,17 @@ func prune*(self: var ProtoArray, finalizedRoot: Eth2Digest): FcResult[void] =
   if finalizedIdx < self.nodes.offset:
     return err ForkChoiceError(
       kind: fcPruningFromOutdatedFinalizedRoot,
-      finalizedRoot: finalizedRoot)
+      finalizedRoot: checkpoints.finalized.root)
 
-  trace "Pruning blocks from fork choice",
-    finalizedRoot = shortLog(finalizedRoot)
+  trace "Pruning blocks from fork choice", checkpoints
 
-  let finalPhysicalIdx = finalizedIdx - self.nodes.offset
+  var finalPhysicalIdx = finalizedIdx - self.nodes.offset
   for nodeIdx in 0 ..< finalPhysicalIdx:
+    if self.nodes.buf[nodeIdx].bid.root == checkpoints.justified.root:
+      finalPhysicalIdx = nodeIdx
+      break
     self.currentEpochTips.del nodeIdx
-    self.indices.del(self.nodes.buf[nodeIdx].root)
+    self.indices.del(self.nodes.buf[nodeIdx].bid.root)
 
   # Drop all nodes prior to finalization.
   # This is done in-place with `moveMem` to avoid costly reallocations.
@@ -414,7 +425,7 @@ func prune*(self: var ProtoArray, finalizedRoot: Eth2Digest): FcResult[void] =
   self.nodes.buf.setLen(tail)
 
   # update offset
-  self.nodes.offset = finalizedIdx
+  self.nodes.offset = finalPhysicalIdx + self.nodes.offset
 
   ok()
 
@@ -445,7 +456,8 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
       kind: fcInvalidNodeIndex,
       index: parentIdx)
 
-  let childLeadsToViableHead = ? self.nodeLeadsToViableHead(child.get())
+  let childLeadsToViableHead =
+    ? self.nodeLeadsToViableHead(child.get(), childIdx)
 
   let # Aliases to the 3 possible (bestChild, bestDescendant) tuples
     changeToNone = (none(Index), none(Index))
@@ -477,7 +489,7 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
             index: bestChildIdx)
 
         let bestChildLeadsToViableHead =
-          ? self.nodeLeadsToViableHead(bestChild.get())
+          ? self.nodeLeadsToViableHead(bestChild.get(), bestChildIdx)
 
         if childLeadsToViableHead and not bestChildLeadsToViableHead:
           # The child leads to a viable head, but the current best-child doesn't
@@ -487,7 +499,7 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
           noChange
         elif child.get().weight == bestChild.get().weight:
           # Tie-breaker of equal weights by root
-          if child.get().root.tiebreak(bestChild.get().root):
+          if child.get().bid.root.tiebreak(bestChild.get().bid.root):
             changeToChild
           else:
             noChange
@@ -511,7 +523,8 @@ func maybeUpdateBestChildAndDescendant(self: var ProtoArray,
 
   ok()
 
-func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool] =
+func nodeLeadsToViableHead(
+    self: ProtoArray, node: ProtoNode, nodeIdx: Index): FcResult[bool] =
   ## Indicates if the node itself or its best-descendant are viable
   ## for blockchain head
   let bestDescendantIsViableForHead = block:
@@ -522,13 +535,14 @@ func nodeLeadsToViableHead(self: ProtoArray, node: ProtoNode): FcResult[bool] =
         return err ForkChoiceError(
           kind: fcInvalidBestDescendant,
           index: bestDescendantIdx)
-      self.nodeIsViableForHead(bestDescendant.get())
+      self.nodeIsViableForHead(bestDescendant.get(), bestDescendantIdx)
     else:
       false
 
-  ok(bestDescendantIsViableForHead or self.nodeIsViableForHead(node))
+  ok(bestDescendantIsViableForHead or self.nodeIsViableForHead(node, nodeIdx))
 
-func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
+func nodeIsViableForHead(
+    self: ProtoArray, node: ProtoNode, nodeIdx: Index): bool =
   ## This is the equivalent of `filter_block_tree` function in eth2 spec
   ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/fork-choice.md#filter_block_tree
 
@@ -544,6 +558,35 @@ func nodeIsViableForHead(self: ProtoArray, node: ProtoNode): bool =
       else:
         node.checkpoints.finalized == self.checkpoints.finalized or
         self.checkpoints.finalized.epoch == GENESIS_EPOCH
+
+  if self.experimental:
+    var correctJustified =
+      self.checkpoints.justified.epoch == GENESIS_EPOCH or
+      node.checkpoints.justified.epoch == self.checkpoints.justified.epoch
+    if not correctJustified and self.isPreviousEpochJustified and
+        node.bid.slot.epoch == self.currentEpoch:
+      let unrealized =
+        self.currentEpochTips.getOrDefault(nodeIdx, node.checkpoints)
+      correctJustified =
+        unrealized.justified.epoch >= self.checkpoints.justified.epoch and
+        node.checkpoints.justified.epoch + 2 >= self.currentEpoch
+    return
+      if not correctJustified:
+        false
+      elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
+        true
+      else:
+        let finalizedSlot = self.checkpoints.finalized.epoch.start_slot
+        var ancestor = some node
+        while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot:
+          if ancestor.unsafeGet.parent.isSome:
+            ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
+          else:
+            ancestor.reset()
+        if ancestor.isSome:
+          ancestor.unsafeGet.bid.root == self.checkpoints.finalized.root
+        else:
+          false
 
   ## Any node that has a different finalized or justified epoch
   ## should not be viable for the head.
@@ -582,7 +625,7 @@ func propagateInvalidity*(
 # Helpers to dump internal state
 
 type ProtoArrayItem* = object
-  root*: Eth2Digest
+  bid*: BlockId
   parent*: Eth2Digest
   checkpoints*: FinalityCheckpoints
   unrealized*: Option[FinalityCheckpoints]
@@ -597,13 +640,13 @@ func root(self: ProtoNodes, logicalIdx: Option[Index]): Eth2Digest =
   let node = self[logicalIdx.unsafeGet]
   if node.isNone:
     return ZERO_HASH
-  node.unsafeGet.root
+  node.unsafeGet.bid.root
 
 iterator items*(self: ProtoArray): ProtoArrayItem =
   ## Iterate over all nodes known by fork choice.
   doAssert self.indices.len == self.nodes.len
   for nodePhysicalIdx, node in self.nodes.buf:
-    if node.root.isZero:
+    if node.bid.root.isZero:
       continue
 
     let unrealized = block:
@@ -614,7 +657,7 @@ iterator items*(self: ProtoArray): ProtoArrayItem =
         none(FinalityCheckpoints)
 
     yield ProtoArrayItem(
-      root: node.root,
+      bid: node.bid,
       parent: self.nodes.root(node.parent),
       checkpoints: node.checkpoints,
       unrealized: unrealized,
