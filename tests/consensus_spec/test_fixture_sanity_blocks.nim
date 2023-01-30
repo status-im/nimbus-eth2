@@ -63,8 +63,6 @@ proc runTest(
 
   `testImpl _ blck _ testName`()
 
-from std/strutils import contains
-
 template runForkBlockTests(
     forkDirName, forkHumanName: static[string], BeaconStateType,
     BeaconBlockType: untyped) =
@@ -78,13 +76,6 @@ template runForkBlockTests(
 
   suite "EF - " & forkHumanName & " - Sanity - Blocks " & preset():
     for kind, path in walkDir(SanityBlocksDir, relative = true, checkDir = true):
-      if  path.contains("top_up_to_fully_withdrawn_validator") or
-          path.contains("activate_and_partial_withdrawal_overdeposit") or
-          path.contains("activate_and_partial_withdrawal_max_effective_balance"):
-        # TODO when GitHub Actions CI returns and can verify the hotfix working
-        # within Windows `MAX_PATH` constraints, not, try updating and enabling
-        # these tests.
-        continue
       runTest(
         BeaconStateType, BeaconBlockType,
         "EF - " & forkHumanName & " - Sanity - Blocks", SanityBlocksDir, path)

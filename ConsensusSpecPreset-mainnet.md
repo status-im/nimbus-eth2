@@ -706,6 +706,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
 + [Valid]   EF - Capella - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
++ [Valid]   EF - Capella - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: ma OK
 + [Valid]   EF - Capella - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 + [Valid]   EF - Capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
 + [Valid]   EF - EIP4844 - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
@@ -771,6 +772,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: ma OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
 + [Valid]   EF - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
@@ -819,7 +821,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 ```
-OK: 807/816 Fail: 0/816 Skip: 9/816
+OK: 809/818 Fail: 0/818 Skip: 9/818
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2602,4 +2604,4 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 OK: 100/100 Fail: 0/100 Skip: 0/100
 
 ---TOTAL---
-OK: 2299/2308 Fail: 0/2308 Skip: 9/2308
+OK: 2301/2310 Fail: 0/2310 Skip: 9/2310
