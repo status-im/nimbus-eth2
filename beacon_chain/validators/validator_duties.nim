@@ -846,12 +846,7 @@ proc proposeBlock(node: BeaconNode,
           return head
         res.get()
 
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#responsibilites-during-the-merge-transition
-  # "Honest validators will not utilize the external builder network until
-  # after the transition from the proof-of-work chain to the proof-of-stake
-  # beacon chain has been finalized by the proof-of-stake validators."
-  if  node.config.payloadBuilderEnable and
-      not node.dag.loadExecutionBlockRoot(node.dag.finalizedHead.blck).isZero:
+  if node.config.payloadBuilderEnable:
     let newBlockMEV = await node.proposeBlockMEV(
       head, validator, slot, randao, validator_index)
 
