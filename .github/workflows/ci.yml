@@ -90,12 +90,6 @@ jobs:
           # for miniupnp that runs "wingenminiupnpcstrings.exe" from the current dir
           echo "." >> $GITHUB_PATH
 
-      - name: Install build dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install gnu-getopt
-          brew link --force gnu-getopt
-
       - name: Derive environment variables
         run: |
           if [[ '${{ matrix.target.cpu }}' == 'amd64' ]]; then
