@@ -764,6 +764,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Random - randomized_7 [Preset: minimal]                           OK
 + [Valid]   EF - Capella - Random - randomized_8 [Preset: minimal]                           OK
 + [Valid]   EF - Capella - Random - randomized_9 [Preset: minimal]                           OK
++ [Valid]   EF - Capella - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_b OK
++ [Valid]   EF - Capella - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pr OK
 + [Valid]   EF - Capella - Sanity - Blocks - attestation [Preset: minimal]                   OK
 + [Valid]   EF - Capella - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
 + [Valid]   EF - Capella - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
@@ -809,6 +811,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
 + [Valid]   EF - Capella - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
++ [Valid]   EF - Capella - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mi OK
 + [Valid]   EF - Capella - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 + [Valid]   EF - Capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 + [Valid]   EF - EIP4844 - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
@@ -832,6 +835,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - EIP4844 - Random - randomized_7 [Preset: minimal]                           OK
 + [Valid]   EF - EIP4844 - Random - randomized_8 [Preset: minimal]                           OK
 + [Valid]   EF - EIP4844 - Random - randomized_9 [Preset: minimal]                           OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - activate_and_partial_withdrawal_max_effective_b OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - activate_and_partial_withdrawal_overdeposit [Pr OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - attestation [Preset: minimal]                   OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
@@ -879,6 +884,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: mi OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - withdrawal_success_two_blocks [Preset: minimal] OK
 + [Valid]   EF - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: minimal]       OK
@@ -932,7 +938,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 ```
-OK: 920/929 Fail: 0/929 Skip: 9/929
+OK: 926/935 Fail: 0/935 Skip: 9/935
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2777,4 +2783,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 102/102 Fail: 0/102 Skip: 0/102
 
 ---TOTAL---
-OK: 2458/2467 Fail: 0/2467 Skip: 9/2467
+OK: 2464/2473 Fail: 0/2473 Skip: 9/2473
