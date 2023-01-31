@@ -259,13 +259,6 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
 ```
 OK: 4/4 Fail: 0/4 Skip: 0/4
-## Interop
-```diff
-+ Interop genesis                                                                            OK
-+ Interop signatures                                                                         OK
-+ Mocked start private key                                                                   OK
-```
-OK: 3/3 Fail: 0/3 Skip: 0/3
 ## Key spliting
 ```diff
 + k < n                                                                                      OK
@@ -628,4 +621,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 349/354 Fail: 0/354 Skip: 5/354
+OK: 346/351 Fail: 0/351 Skip: 5/351

@@ -21,7 +21,7 @@ import
   ./spec/[deposit_snapshots, engine_authentication, weak_subjectivity],
   ./validators/[keystore_management, validator_duties],
   "."/[
-    beacon_node, beacon_node_light_client, deposits, interop,
+    beacon_node, beacon_node_light_client, deposits,
     nimbus_binary_common, statusbar, trusted_node_sync, wallets]
 
 when defined(posix):
