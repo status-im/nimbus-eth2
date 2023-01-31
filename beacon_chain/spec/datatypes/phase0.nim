@@ -22,7 +22,7 @@ import
 export base
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
     genesis_time*: uint64
@@ -72,7 +72,7 @@ type
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/beacon-chain.md#get_total_balance
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/beacon-chain.md#get_total_balance
   TotalBalances* = object
     # The total effective balance of all active validators during the _current_
     # epoch.
@@ -105,11 +105,12 @@ type
   BeaconStateRef* = ref BeaconState not nil
   NilableBeaconStateRef* = ref BeaconState
 
+  # TODO: There should be only a single generic HashedBeaconState definition
   HashedBeaconState* = object
     data*: BeaconState
     root*: Eth2Digest # hash_tree_root(data)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/beacon-chain.md#beaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/beacon-chain.md#beaconblock
   BeaconBlock* = object
     ## For each slot, a proposer is chosen from the validator pool to propose
     ## a new block. Once the block as been proposed, it is transmitted to
@@ -128,7 +129,7 @@ type
 
     body*: BeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/p2p-interface.md#metadata
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/p2p-interface.md#metadata
   MetaData* = object
     seq_number*: uint64
     attnets*: AttnetBits
@@ -170,7 +171,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -219,7 +220,7 @@ type
     deposits*: List[Deposit, Limit MAX_DEPOSITS]
     voluntary_exits*: List[TrustedSignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/beacon-chain.md#signedbeaconblock
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object
     message*: BeaconBlock
     signature*: ValidatorSig
@@ -299,6 +300,10 @@ func shortLog*(v: SomeBeaconBlock): auto =
     block_number: 0'u64, # Bellatrix compat
     fee_recipient: "",
   )
+
+# TODO: There should be only a single generic HashedBeaconState definition
+func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
+  HashedBeaconState(data: s)
 
 func shortLog*(v: SomeSignedBeaconBlock): auto =
   (

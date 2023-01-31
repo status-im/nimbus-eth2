@@ -369,25 +369,25 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
         let
           web3SignerBlock =
             case blck.kind
-            of BeaconBlockFork.Phase0:
+            of ConsensusFork.Phase0:
               Web3SignerForkedBeaconBlock(
-                kind: BeaconBlockFork.Phase0,
+                kind: ConsensusFork.Phase0,
                 phase0Data: blck.phase0Data)
-            of BeaconBlockFork.Altair:
+            of ConsensusFork.Altair:
               Web3SignerForkedBeaconBlock(
-                kind: BeaconBlockFork.Altair,
+                kind: ConsensusFork.Altair,
                 altairData: blck.altairData)
-            of BeaconBlockFork.Bellatrix:
+            of ConsensusFork.Bellatrix:
               Web3SignerForkedBeaconBlock(
-                kind: BeaconBlockFork.Bellatrix,
+                kind: ConsensusFork.Bellatrix,
                 bellatrixData: blck.bellatrixData.toBeaconBlockHeader)
-            of BeaconBlockFork.Capella:
+            of ConsensusFork.Capella:
               Web3SignerForkedBeaconBlock(
-                kind: BeaconBlockFork.Capella,
+                kind: ConsensusFork.Capella,
                 capellaData: blck.capellaData.toBeaconBlockHeader)
-            of BeaconBlockFork.EIP4844:
+            of ConsensusFork.EIP4844:
               Web3SignerForkedBeaconBlock(
-                kind: BeaconBlockFork.EIP4844,
+                kind: ConsensusFork.EIP4844,
                 eip4844Data: blck.eip4844Data.toBeaconBlockHeader)
 
           request = Web3SignerRequest.init(
@@ -397,32 +397,32 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
         let request = Web3SignerRequest.init(
           fork, genesis_validators_root,
           Web3SignerForkedBeaconBlock(
-            kind: BeaconBlockFork.Bellatrix,
+            kind: ConsensusFork.Bellatrix,
             bellatrixData: blck.toBeaconBlockHeader))
         await v.signData(request)
       else:
         let
           web3SignerBlock =
             case blck.kind
-            of BeaconBlockFork.Phase0:
+            of ConsensusFork.Phase0:
               Web3SignerForkedBeaconBlock(
-                kind: BeaconBlockFork.Phase0,
+                kind: ConsensusFork.Phase0,
                 phase0Data: blck.phase0Data)
-            of BeaconBlockFork.Altair:
+            of ConsensusFork.Altair:
               Web3SignerForkedBeaconBlock(
-                kind: BeaconBlockFork.Altair,
+                kind: ConsensusFork.Altair,
                 altairData: blck.altairData)
-            of BeaconBlockFork.Bellatrix:
+            of ConsensusFork.Bellatrix:
               Web3SignerForkedBeaconBlock(
-                kind: BeaconBlockFork.Bellatrix,
+                kind: ConsensusFork.Bellatrix,
                 bellatrixData: blck.bellatrixData.toBeaconBlockHeader)
-            of BeaconBlockFork.Capella:
+            of ConsensusFork.Capella:
               Web3SignerForkedBeaconBlock(
-                kind: BeaconBlockFork.Capella,
+                kind: ConsensusFork.Capella,
                 capellaData: blck.capellaData.toBeaconBlockHeader)
-            of BeaconBlockFork.EIP4844:
+            of ConsensusFork.EIP4844:
               Web3SignerForkedBeaconBlock(
-                kind: BeaconBlockFork.EIP4844,
+                kind: ConsensusFork.EIP4844,
                 eip4844Data: blck.eip4844Data.toBeaconBlockHeader)
 
           request = Web3SignerRequest.init(

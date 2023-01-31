@@ -165,7 +165,7 @@ proc storeBackfillBlock(
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
   let blobsOk =
-      when typeof(signedBlock).toFork() >= BeaconBlockFork.EIP4844:
+      when typeof(signedBlock).toFork() >= ConsensusFork.EIP4844:
         blobs.isSome() and not
           validate_blobs_sidecar(signedBlock.message.slot,
                                  signedBlock.root,
@@ -213,7 +213,7 @@ proc expectValidForkchoiceUpdated(
     (payloadExecutionStatus, _) = await eth1Monitor.runForkchoiceUpdated(
       headBlockHash, safeBlockHash, finalizedBlockHash)
     receivedExecutionBlockHash =
-      when typeof(receivedBlock).toFork >= BeaconBlockFork.Bellatrix:
+      when typeof(receivedBlock).toFork >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
       else:
         # https://github.com/nim-lang/Nim/issues/19802
@@ -364,7 +364,7 @@ proc storeBlock*(
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
     payloadStatus =
-      when typeof(signedBlock).toFork() >= BeaconBlockFork.Bellatrix:
+      when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
          await self.consensusManager.eth1Monitor.getExecutionValidity(signedBlock)
       else:
         NewPayloadStatus.valid # vacuously
@@ -384,7 +384,7 @@ proc storeBlock*(
     # Client software MUST validate blockHash value as being equivalent to
     # Keccak256(RLP(ExecutionBlockHeader))
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#specification
-    when typeof(signedBlock).toFork() >= BeaconBlockFork.Bellatrix:
+    when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if payload.block_hash != payload.compute_execution_block_hash():
         debug "Execution block hash validation failed",
@@ -402,7 +402,7 @@ proc storeBlock*(
 
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  when typeof(signedBlock).toFork() >= BeaconBlockFork.EIP4844:
+  when typeof(signedBlock).toFork() >= ConsensusFork.EIP4844:
     if blobs.isSome():
       let res = validate_blobs_sidecar(signedBlock.message.slot,
                                        signedBlock.root,
@@ -430,7 +430,7 @@ proc storeBlock*(
           trustedBlock.message.slot)
 
     withState(dag[].clearanceState):
-      when stateFork >= BeaconStateFork.Altair and
+      when stateFork >= ConsensusFork.Altair and
           Trusted isnot phase0.TrustedSignedBeaconBlock: # altair+
         for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():
           vm[].registerSyncAggregateInBlock(
@@ -631,7 +631,7 @@ proc processBlock(
     # - MUST NOT optimistically import the block.
     # - MUST NOT apply the block to the fork choice store.
     # - MAY queue the block for later processing.
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/sync/optimistic.md#execution-engine-errors
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].addBlock(
       entry.src, entry.blck, entry.blobs, entry.resfut, entry.validationDur)

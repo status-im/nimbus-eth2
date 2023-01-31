@@ -57,19 +57,20 @@ suite "EF - Light client - Single merkle proof" & preset():
     if kind != pcDir or not dirExists(testsPath):
       continue
     let fork = forkForPathComponent(path).valueOr:
-      raiseAssert "Unknown test fork: " & testsPath
+      test "Light client - Single merkle proof - " & path:
+        skip()
+      continue
     for kind, path in walkDir(testsPath, relative = true, checkDir = true):
       let suitePath = testsPath/path
       if kind != pcDir or not dirExists(suitePath):
         continue
       let objName = path
       withStateFork(fork):
-        const blockFork = stateFork.toBeaconBlockFork()
         for kind, path in walkDir(suitePath, relative = true, checkDir = true):
           case objName
           of "BeaconBlockBody":
-            runTest(suitePath/path, blockFork.BeaconBlockBody)
+            runTest(suitePath/path, BeaconBlockBodyType(stateFork))
           of "BeaconState":
-            runTest(suitePath/path, stateFork.BeaconState)
+            runTest(suitePath/path, BeaconStateType(stateFork))
           else:
             raiseAssert "Unknown test object: " & suitePath/path

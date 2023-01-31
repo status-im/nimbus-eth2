@@ -9,7 +9,7 @@
 
 import
   std/[options, tables, sets, macros],
-  chronicles, chronos, snappy/codec,
+  chronicles, chronos, snappy, snappy/codec,
   libp2p/switch,
   ../spec/datatypes/[phase0, altair, bellatrix, capella, eip4844],
   ../spec/[helpers, forks, network],
@@ -488,10 +488,14 @@ p2pProtocol BeaconSync(version = 1,
       let sbbabs = SignedBeaconBlockAndBlobsSidecar(
         beacon_block: asSigned(blck.get()),
         blobs_sidecar: blobsSidecar.get())
-      let uncompressedLen = sszSize(sbbabs).uint64
+      bytes = snappy.encodeFramed(SSZ.encode(sbbabs))
+
+      let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+        warn "Cannot read block and blobs size", length = bytes.len()
+        continue
 
       await response.writeBytesSZ(
-        uncompressedLen, SSZ.encode(sbbabs),
+        uncompressedLen, bytes,
         peer.networkState.forkDigestAtEpoch(blockRef.slot.epoch).data)
 
       inc found

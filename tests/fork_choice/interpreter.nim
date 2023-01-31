@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -46,7 +46,7 @@ type
       justified_state_balances*: seq[Gwei]
       expected_head*: Eth2Digest
     of ProcessBlock:
-      root*: Eth2Digest
+      bid*: BlockId
       parent_root*: Eth2Digest
       blk_checkpoints*: FinalityCheckpoints
     of ProcessAttestation:
@@ -54,7 +54,7 @@ type
       block_root*: Eth2Digest
       target_epoch*: Epoch
     of Prune: # ProtoArray specific
-      finalized_root*: Eth2Digest
+      prune_checkpoints*: FinalityCheckpoints
       expected_len*: int
 
 func apply(ctx: var ForkChoiceBackend, id: int, op: Operation) =
@@ -79,11 +79,11 @@ func apply(ctx: var ForkChoiceBackend, id: int, op: Operation) =
       debugEcho &"    Detected an expected invalid head from justified checkpoint {op.checkpoints.justified}, finalized checkpoint {op.checkpoints.finalized}"
   of ProcessBlock:
     let r = ctx.process_block(
-      block_root = op.root,
+      bid = op.bid,
       parent_root = op.parent_root,
       checkpoints = op.blk_checkpoints)
     doAssert r.isOk(), &"process_block (op #{id}) returned an error: {r.error}"
-    debugEcho "    Processed block      0x", op.root, " with parent 0x", op.parent_root, " and justified checkpoint ", op.blk_checkpoints.justified
+    debugEcho "    Processed block      0x", op.bid.root, " with parent 0x", op.parent_root, " and justified checkpoint ", op.blk_checkpoints.justified
   of ProcessAttestation:
     ctx.process_attestation(
       validator_index = op.validator_index,
@@ -91,11 +91,11 @@ func apply(ctx: var ForkChoiceBackend, id: int, op: Operation) =
       target_epoch = op.target_epoch)
     debugEcho "    Processed att target 0x", op.block_root, " from validator ", op.validator_index, " for epoch ", op.target_epoch
   of Prune:
-    let r = ctx.prune(op.finalized_root)
+    let r = ctx.prune(op.prune_checkpoints)
     doAssert r.isOk(), &"prune (op #{id}) returned an error: {r.error}"
     doAssert ctx.proto_array.nodes.len == op.expected_len,
       &"prune (op #{id}): the resulting length ({ctx.proto_array.nodes.len}) was not expected ({op.expected_len})"
-    debugEcho "    Maybe_pruned block preceding finalized block 0x", op.finalized_root
+    debugEcho "    Maybe_pruned block preceding finalized block 0x", op.prune_checkpoints.finalized.root
 
 func run*(ctx: var ForkChoiceBackend, ops: seq[Operation]) =
   ## Apply a sequence of fork-choice operations on a store

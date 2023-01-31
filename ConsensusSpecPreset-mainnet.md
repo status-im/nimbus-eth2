@@ -284,6 +284,8 @@ ConsensusSpecPreset-mainnet
 + EF - EIP4844 - Transition - transition_with_activation_at_fork_epoch [Preset: mainnet]     OK
 + EF - EIP4844 - Transition - transition_with_attester_slashing_right_after_fork [Preset: ma OK
 + EF - EIP4844 - Transition - transition_with_attester_slashing_right_before_fork [Preset: m OK
++ EF - EIP4844 - Transition - transition_with_btec_right_after_fork [Preset: mainnet]        OK
++ EF - EIP4844 - Transition - transition_with_btec_right_before_fork [Preset: mainnet]       OK
 + EF - EIP4844 - Transition - transition_with_deposit_right_after_fork [Preset: mainnet]     OK
 + EF - EIP4844 - Transition - transition_with_deposit_right_before_fork [Preset: mainnet]    OK
 + EF - EIP4844 - Transition - transition_with_finality [Preset: mainnet]                     OK
@@ -444,6 +446,8 @@ ConsensusSpecPreset-mainnet
 + Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
@@ -701,6 +705,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
++ [Valid]   EF - Capella - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
++ [Valid]   EF - Capella - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: ma OK
 + [Valid]   EF - Capella - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 + [Valid]   EF - Capella - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
 + [Valid]   EF - EIP4844 - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
@@ -765,6 +771,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee_genesis__empty [Preset OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee_genesis__full [Preset: OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - sync_committee_committee_genesis__half [Preset: OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - top_up_and_partial_withdrawable_validator [Pres OK
++ [Valid]   EF - EIP4844 - Sanity - Blocks - top_up_to_fully_withdrawn_validator [Preset: ma OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 + [Valid]   EF - EIP4844 - Sanity - Blocks - withdrawal_success_two_blocks [Preset: mainnet] OK
 + [Valid]   EF - Phase 0 - Finality - finality_no_updates_at_genesis [Preset: mainnet]       OK
@@ -813,7 +821,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 ```
-OK: 801/810 Fail: 0/810 Skip: 9/810
+OK: 809/818 Fail: 0/818 Skip: 9/818
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2546,7 +2554,7 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 + [Valid]   EF - Capella - Operations - Withdrawals - success_all_partially_withdrawable_in_ OK
 + [Valid]   EF - Capella - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
 + [Valid]   EF - Capella - Operations - Withdrawals - success_max_partial_withdrawable       OK
-+ [Valid]   EF - Capella - Operations - Withdrawals - success_max_per_slot                   OK
++ [Valid]   EF - Capella - Operations - Withdrawals - success_mixed_fully_and_partial_withdr OK
 + [Valid]   EF - Capella - Operations - Withdrawals - success_no_excess_balance              OK
 + [Valid]   EF - Capella - Operations - Withdrawals - success_no_max_effective_balance       OK
 + [Valid]   EF - Capella - Operations - Withdrawals - success_one_full_withdrawal            OK
@@ -2577,7 +2585,7 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_all_partially_withdrawable_in_ OK
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_excess_balance_but_no_max_effe OK
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_max_partial_withdrawable       OK
-+ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_max_per_slot                   OK
++ [Valid]   EF - EIP4844 - Operations - Withdrawals - success_mixed_fully_and_partial_withdr OK
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_no_excess_balance              OK
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_no_max_effective_balance       OK
 + [Valid]   EF - EIP4844 - Operations - Withdrawals - success_one_full_withdrawal            OK
@@ -2596,4 +2604,4 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 OK: 100/100 Fail: 0/100 Skip: 0/100
 
 ---TOTAL---
-OK: 2293/2302 Fail: 0/2302 Skip: 9/2302
+OK: 2301/2310 Fail: 0/2310 Skip: 9/2310

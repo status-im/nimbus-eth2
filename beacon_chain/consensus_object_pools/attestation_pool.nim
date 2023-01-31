@@ -134,7 +134,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
           # and then to make sure the fork choice data structure doesn't grow
           # too big - getting an EpochRef can be expensive.
           forkChoice.backend.process_block(
-            blckRef.root, blckRef.parent.root, epochRef.checkpoints)
+            blckRef.bid, blckRef.parent.root, epochRef.checkpoints)
         else:
           epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch, false).expect(
             "Getting an EpochRef should always work for non-finalized blocks")
@@ -143,7 +143,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
           var unrealized: FinalityCheckpoints
           if enableTestFeatures in dag.updateFlags and blckRef == dag.head:
             unrealized = withState(dag.headState):
-              when stateFork >= BeaconStateFork.Altair:
+              when stateFork >= ConsensusFork.Altair:
                 forkyState.data.compute_unrealized_finality()
               else:
                 var cache: StateCache
@@ -664,11 +664,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
           # Fast path for when all remaining candidates fit
           if candidates.lenu64 < MAX_ATTESTATIONS: candidates.len - 1
           else: maxIndex(candidates)
-        # TODO slot not used; replace with _ when
-        # https://github.com/nim-lang/Nim/issues/15972 and
-        # https://github.com/nim-lang/Nim/issues/16217 are
-        # fixed in Status's Nim.
-        (_, slot, entry, j) = candidates[candidate]
+        (_, _, entry, j) = candidates[candidate]
 
       candidates.del(candidate) # careful, `del` reorders candidates
 

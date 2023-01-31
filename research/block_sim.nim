@@ -701,11 +701,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.stateForkAtEpoch(slot.epoch)
-        of BeaconStateFork.EIP4844:   proposeEIP4844Block(slot)
-        of BeaconStateFork.Capella:   proposeCapellaBlock(slot)
-        of BeaconStateFork.Bellatrix: proposeBellatrixBlock(slot)
-        of BeaconStateFork.Altair:    proposeAltairBlock(slot)
-        of BeaconStateFork.Phase0:    proposePhase0Block(slot)
+        of ConsensusFork.EIP4844:   proposeEIP4844Block(slot)
+        of ConsensusFork.Capella:   proposeCapellaBlock(slot)
+        of ConsensusFork.Bellatrix: proposeBellatrixBlock(slot)
+        of ConsensusFork.Altair:    proposeAltairBlock(slot)
+        of ConsensusFork.Phase0:    proposePhase0Block(slot)
     if attesterRatio > 0.0:
       withTimer(timers[tAttest]):
         handleAttestations(slot)

@@ -19,7 +19,7 @@ export beacon_chain_db, testblockutil, kvstore, kvstore_sqlite3
 proc makeTestDB*(validators: Natural): BeaconChainDB =
   let
     genState = (ref ForkedHashedBeaconState)(
-      kind: BeaconStateFork.Phase0,
+      kind: ConsensusFork.Phase0,
       phase0Data: initialize_hashed_beacon_state_from_eth1(
         defaultRuntimeConfig,
         ZERO_HASH,

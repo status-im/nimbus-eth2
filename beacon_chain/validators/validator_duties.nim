@@ -356,14 +356,14 @@ proc getExecutionPayload[T](
     # transmit this information through the Forked types, so this has to
     # be re-proven here.
     withState(proposalState[]):
-      when (stateFork == BeaconStateFork.EIP4844 and
+      when (stateFork == ConsensusFork.EIP4844 and
             T is eip4844.ExecutionPayload) or
-           (stateFork == BeaconStateFork.Capella and
+           (stateFork == ConsensusFork.Capella and
             T is capella.ExecutionPayload) or
-           (stateFork == BeaconStateFork.Bellatrix and
+           (stateFork == ConsensusFork.Bellatrix and
             T is bellatrix.ExecutionPayload):
         build_empty_execution_payload(forkyState.data, feeRecipient)
-      elif stateFork >= BeaconStateFork.Bellatrix:
+      elif stateFork >= ConsensusFork.Bellatrix:
         raiseAssert "getExecutionPayload: mismatched proposalState and ExecutionPayload fork"
       else:
         default(T)
@@ -394,7 +394,7 @@ proc getExecutionPayload[T](
       timestamp = withState(proposalState[]):
         compute_timestamp_at_slot(forkyState.data, forkyState.data.slot)
       withdrawals = withState(proposalState[]):
-        when stateFork >= BeaconStateFork.Capella:
+        when stateFork >= ConsensusFork.Capella:
           Opt.some get_expected_withdrawals(forkyState.data)
         else:
           Opt.none(seq[Withdrawal])
@@ -846,12 +846,7 @@ proc proposeBlock(node: BeaconNode,
           return head
         res.get()
 
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#responsibilites-during-the-merge-transition
-  # "Honest validators will not utilize the external builder network until
-  # after the transition from the proof-of-work chain to the proof-of-stake
-  # beacon chain has been finalized by the proof-of-stake validators."
-  if  node.config.payloadBuilderEnable and
-      not node.dag.loadExecutionBlockRoot(node.dag.finalizedHead.blck).isZero:
+  if node.config.payloadBuilderEnable:
     let newBlockMEV = await node.proposeBlockMEV(
       head, validator, slot, randao, validator_index)
 

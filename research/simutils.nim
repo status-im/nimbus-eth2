@@ -111,7 +111,7 @@ proc loadGenesis*(validators: Natural, validate: bool):
       depositContractState: merkleizer.toDepositContractState)
 
     let res = (ref ForkedHashedBeaconState)(
-      kind: BeaconStateFork.Phase0,
+      kind: ConsensusFork.Phase0,
       phase0Data: initialize_hashed_beacon_state_from_eth1(
         cfg, ZERO_HASH, 0, deposits, flags))
 

@@ -300,7 +300,7 @@ suite "Block pool altair processing" & preset():
         cfg, state[], cfg.ALTAIR_FORK_EPOCH.start_slot(), cache,
         info, {}).isOk()
 
-      state[].kind == BeaconStateFork.Altair
+      state[].kind == ConsensusFork.Altair
 
     var
       b1 = addTestBlock(state[], cache).altairData
@@ -535,7 +535,7 @@ suite "chain DAG finalization tests" & preset():
     check: dag2.getForkedBlock(lateBlock.root).isNone
 
   test "orphaned epoch block" & preset():
-    let prestate = (ref ForkedHashedBeaconState)(kind: BeaconStateFork.Phase0)
+    let prestate = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Phase0)
     for i in 0 ..< SLOTS_PER_EPOCH:
       if i == SLOTS_PER_EPOCH - 1:
         assign(prestate[], dag.headState)
@@ -743,7 +743,7 @@ suite "Backfill":
   setup:
     let
       genState = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
           defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),
@@ -937,7 +937,7 @@ suite "Starting states":
   setup:
     let
       genState = (ref ForkedHashedBeaconState)(
-        kind: BeaconStateFork.Phase0,
+        kind: ConsensusFork.Phase0,
         phase0Data: initialize_hashed_beacon_state_from_eth1(
           defaultRuntimeConfig, ZERO_HASH, 0,
           makeInitialDeposits(SLOTS_PER_EPOCH.uint64, flags = {skipBlsValidation}),

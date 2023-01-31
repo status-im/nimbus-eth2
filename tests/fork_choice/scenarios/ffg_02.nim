@@ -47,7 +47,9 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   #  Left branch
   result.ops.add Operation(
     kind: ProcessBlock,
-    root: fakeHash(1),
+    bid: BlockId(
+      slot: Slot(1),
+      root: fakeHash(1)),
     parent_root: GenesisRoot,
     blk_checkpoints: FinalityCheckpoints(
       justified: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
@@ -55,7 +57,9 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
 
   result.ops.add Operation(
     kind: ProcessBlock,
-    root: fakeHash(3),
+    bid: BlockId(
+      slot: Epoch(2).start_slot,
+      root: fakeHash(3)),
     parent_root: fakeHash(1),
     blk_checkpoints: FinalityCheckpoints(
       justified: Checkpoint(root: fakeHash(1), epoch: Epoch(1)),
@@ -63,7 +67,9 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
 
   result.ops.add Operation(
     kind: ProcessBlock,
-    root: fakeHash(5),
+    bid: BlockId(
+      slot: Epoch(2).start_slot + 2,
+      root: fakeHash(5)),
     parent_root: fakeHash(3),
     blk_checkpoints: FinalityCheckpoints(
       justified: Checkpoint(root: fakeHash(1), epoch: Epoch(1)),
@@ -71,7 +77,9 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
 
   result.ops.add Operation(
     kind: ProcessBlock,
-    root: fakeHash(7),
+    bid: BlockId(
+      slot: Epoch(2).start_slot + 4,
+      root: fakeHash(7)),
     parent_root: fakeHash(5),
     blk_checkpoints: FinalityCheckpoints(
       justified: Checkpoint(root: fakeHash(1), epoch: Epoch(1)),
@@ -79,7 +87,9 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
 
   result.ops.add Operation(
     kind: ProcessBlock,
-    root: fakeHash(9),
+    bid: BlockId(
+      slot: Epoch(3).start_slot,
+      root: fakeHash(9)),
     parent_root: fakeHash(7),
     blk_checkpoints: FinalityCheckpoints(
       justified: Checkpoint(root: fakeHash(3), epoch: Epoch(2)),
@@ -102,7 +112,9 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
   #  Right branch
   result.ops.add Operation(
     kind: ProcessBlock,
-    root: fakeHash(2),
+    bid: BlockId(
+      slot: Slot(2),
+      root: fakeHash(2)),
     parent_root: GenesisRoot,
     blk_checkpoints: FinalityCheckpoints(
       justified: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
@@ -110,7 +122,9 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
 
   result.ops.add Operation(
     kind: ProcessBlock,
-    root: fakeHash(4),
+    bid: BlockId(
+      slot: Epoch(1).start_slot + 1,
+      root: fakeHash(4)),
     parent_root: fakeHash(2),
     blk_checkpoints: FinalityCheckpoints(
       justified: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
@@ -118,7 +132,9 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
 
   result.ops.add Operation(
     kind: ProcessBlock,
-    root: fakeHash(6),
+    bid: BlockId(
+      slot: Epoch(2).start_slot + 3,
+      root: fakeHash(6)),
     parent_root: fakeHash(4),
     blk_checkpoints: FinalityCheckpoints(
       justified: Checkpoint(root: GenesisRoot, epoch: Epoch(0)),
@@ -126,7 +142,9 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
 
   result.ops.add Operation(
     kind: ProcessBlock,
-    root: fakeHash(8),
+    bid: BlockId(
+      slot: Epoch(3).start_slot + 1,
+      root: fakeHash(8)),
     parent_root: fakeHash(6),
     blk_checkpoints: FinalityCheckpoints(
       justified: Checkpoint(root: fakeHash(2), epoch: Epoch(1)),
@@ -134,7 +152,9 @@ func setup_finality_02(): tuple[fork_choice: ForkChoiceBackend, ops: seq[Operati
 
   result.ops.add Operation(
     kind: ProcessBlock,
-    root: fakeHash(10),
+    bid: BlockId(
+      slot: Epoch(5).start_slot + 1,
+      root: fakeHash(10)),
     parent_root: fakeHash(8),
     blk_checkpoints: FinalityCheckpoints(
       justified: Checkpoint(root: fakeHash(4), epoch: Epoch(2)),

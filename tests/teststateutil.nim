@@ -42,7 +42,7 @@ proc valid_deposit(state: var ForkyHashedBeaconState) =
   state.root = hash_tree_root(state.data)
 
 proc getTestStates*(
-    initialState: ForkedHashedBeaconState, stateFork: BeaconStateFork):
+    initialState: ForkedHashedBeaconState, stateFork: ConsensusFork):
     seq[ref ForkedHashedBeaconState] =
   # Randomly generated slot numbers, with a jump to around
   # SLOTS_PER_HISTORICAL_ROOT to force wraparound of those
@@ -65,14 +65,14 @@ proc getTestStates*(
     info = ForkedEpochInfo()
     cfg = defaultRuntimeConfig
 
-  static: doAssert high(BeaconStateFork) == BeaconStateFork.EIP4844
-  if stateFork >= BeaconStateFork.Altair:
+  static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
+  if stateFork >= ConsensusFork.Altair:
     cfg.ALTAIR_FORK_EPOCH = 1.Epoch
-  if stateFork >= BeaconStateFork.Bellatrix:
+  if stateFork >= ConsensusFork.Bellatrix:
     cfg.BELLATRIX_FORK_EPOCH = 2.Epoch
-  if stateFork >= BeaconStateFork.Capella:
+  if stateFork >= ConsensusFork.Capella:
     cfg.CAPELLA_FORK_EPOCH = 3.Epoch
-  if stateFork >= BeaconStateFork.EIP4844:
+  if stateFork >= ConsensusFork.EIP4844:
     cfg.EIP4844_FORK_EPOCH = 4.Epoch
 
   for i, epoch in stateEpochs:

@@ -1679,15 +1679,15 @@ proc publishBlock*(
       vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
                               {BeaconNodeRole.BlockProposalPublish}):
         case data.kind
-        of BeaconBlockFork.Phase0:
+        of ConsensusFork.Phase0:
           publishBlock(it, data.phase0Data)
-        of BeaconBlockFork.Altair:
+        of ConsensusFork.Altair:
           publishBlock(it, data.altairData)
-        of BeaconBlockFork.Bellatrix:
+        of ConsensusFork.Bellatrix:
           publishBlock(it, data.bellatrixData)
-        of BeaconBlockFork.Capella:
+        of ConsensusFork.Capella:
           publishBlock(it, data.capellaData)
-        of BeaconBlockFork.EIP4844:
+        of ConsensusFork.EIP4844:
           debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlock (1)"
           let f = newFuture[RestPlainResponse]("")
           f.fail(new RestError)
@@ -1734,15 +1734,15 @@ proc publishBlock*(
     vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
                               {BeaconNodeRole.BlockProposalPublish}):
       case data.kind
-      of BeaconBlockFork.Phase0:
+      of ConsensusFork.Phase0:
         publishBlock(it, data.phase0Data)
-      of BeaconBlockFork.Altair:
+      of ConsensusFork.Altair:
         publishBlock(it, data.altairData)
-      of BeaconBlockFork.Bellatrix:
+      of ConsensusFork.Bellatrix:
         publishBlock(it, data.bellatrixData)
-      of BeaconBlockFork.Capella:
+      of ConsensusFork.Capella:
         publishBlock(it, data.capellaData)
-      of BeaconBlockFork.EIP4844:
+      of ConsensusFork.EIP4844:
         debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlock (2)"
         let f = newFuture[RestPlainResponse]("")
         f.fail(new RestError)
@@ -1884,15 +1884,15 @@ proc publishBlindedBlock*(
       vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
                               {BeaconNodeRole.BlockProposalPublish}):
         case data.kind
-        of BeaconBlockFork.Phase0:
+        of ConsensusFork.Phase0:
           publishBlindedBlock(it, data.phase0Data)
-        of BeaconBlockFork.Altair:
+        of ConsensusFork.Altair:
           publishBlindedBlock(it, data.altairData)
-        of BeaconBlockFork.Bellatrix:
+        of ConsensusFork.Bellatrix:
           publishBlindedBlock(it, data.bellatrixData)
-        of BeaconBlockFork.Capella:
+        of ConsensusFork.Capella:
           publishBlindedBlock(it, data.capellaData)
-        of BeaconBlockFork.EIP4844:
+        of ConsensusFork.EIP4844:
           debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlindedBlock (1)"
           let f = newFuture[RestPlainResponse]("")
           f.fail(new RestError)
@@ -1938,15 +1938,15 @@ proc publishBlindedBlock*(
     vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
                               {BeaconNodeRole.BlockProposalPublish}):
       case data.kind
-      of BeaconBlockFork.Phase0:
+      of ConsensusFork.Phase0:
         publishBlindedBlock(it, data.phase0Data)
-      of BeaconBlockFork.Altair:
+      of ConsensusFork.Altair:
         publishBlindedBlock(it, data.altairData)
-      of BeaconBlockFork.Bellatrix:
+      of ConsensusFork.Bellatrix:
         publishBlindedBlock(it, data.bellatrixData)
-      of BeaconBlockFork.Capella:
+      of ConsensusFork.Capella:
         publishBlindedBlock(it, data.capellaData)
-      of BeaconBlockFork.EIP4844:
+      of ConsensusFork.EIP4844:
         debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlindedBlock (2)"
         let f = newFuture[RestPlainResponse]("")
         f.fail(new RestError)

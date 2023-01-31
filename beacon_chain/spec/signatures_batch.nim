@@ -65,7 +65,7 @@ proc aggregateAttesters(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Eth2 spec requires at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
   let
@@ -91,7 +91,7 @@ proc aggregateAttesters(
     # Aggregation spec requires non-empty collection
     # - https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-04
     # Eth2 spec requires at least one attesting index in attestation
-    # - https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
+    # - https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/beacon-chain.md#is_valid_indexed_attestation
     return err("aggregateAttesters: no attesting indices")
 
   var attestersAgg{.noinit.}: AggregatePublicKey
@@ -376,7 +376,7 @@ proc collectSignatureSets*(
       # 7. SyncAggregate
       # ----------------------------------------------------
       withState(state):
-        when stateFork >= BeaconStateFork.Altair:
+        when stateFork >= ConsensusFork.Altair:
           if signed_block.message.body.sync_aggregate.sync_committee_bits.countOnes() == 0:
             if signed_block.message.body.sync_aggregate.sync_committee_signature != ValidatorSig.infinity():
               return err("collectSignatureSets: empty sync aggregates need signature of point at infinity")

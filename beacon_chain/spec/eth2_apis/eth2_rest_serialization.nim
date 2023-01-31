@@ -139,7 +139,7 @@ type
 
   RestVersioned*[T] = object
     data*: T
-    jsonVersion*: BeaconStateFork
+    jsonVersion*: ConsensusFork
     sszContext*: ForkDigest
 
 {.push raises: [].}
@@ -307,7 +307,7 @@ proc jsonResponseWOpt*(t: typedesc[RestApiResponse], data: auto,
   RestApiResponse.response(res, Http200, "application/json")
 
 proc jsonResponseWVersion*(t: typedesc[RestApiResponse], data: auto,
-                           version: BeaconStateFork): RestApiResponse =
+                           version: ConsensusFork): RestApiResponse =
   let
     headers = [("eth-consensus-version", version.toString())]
     res =
@@ -907,7 +907,7 @@ template unrecognizedFieldWarning =
 ## ForkedBeaconBlock
 template prepareForkedBlockReading(
     reader: var JsonReader[RestJson], value: untyped,
-    version: var Option[BeaconBlockFork],
+    version: var Option[ConsensusFork],
     data: var Option[JsonString],
     blockTypeName: cstring) =
   for fieldName {.inject.} in readObjectFields(reader):
@@ -919,13 +919,13 @@ template prepareForkedBlockReading(
       let vres = reader.readValue(string).toLowerAscii()
       case vres
       of "phase0":
-        version = some(BeaconBlockFork.Phase0)
+        version = some(ConsensusFork.Phase0)
       of "altair":
-        version = some(BeaconBlockFork.Altair)
+        version = some(ConsensusFork.Altair)
       of "bellatrix":
-        version = some(BeaconBlockFork.Bellatrix)
+        version = some(ConsensusFork.Bellatrix)
       of "capella":
-        version = some(BeaconBlockFork.Bellatrix)
+        version = some(ConsensusFork.Bellatrix)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "block", "block_header", "data":
@@ -945,13 +945,13 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     reader: var JsonReader[RestJson],
     value: var BlockType) {.raises: [IOError, SerializationError, Defect].} =
   var
-    version: Option[BeaconBlockFork]
+    version: Option[ConsensusFork]
     data: Option[JsonString]
 
   prepareForkedBlockReading(reader, value, version, data, "ForkedBeaconBlock")
 
   case version.get():
-  of BeaconBlockFork.Phase0:
+  of ConsensusFork.Phase0:
     let res =
       try:
         some(RestJson.decode(string(data.get()),
@@ -963,7 +963,7 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect phase0 block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
-  of BeaconBlockFork.Altair:
+  of ConsensusFork.Altair:
     let res =
       try:
         some(RestJson.decode(string(data.get()),
@@ -975,7 +975,7 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
-  of BeaconBlockFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     let res =
       try:
         some(RestJson.decode(string(data.get()),
@@ -987,7 +987,7 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect bellatrix block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
-  of BeaconBlockFork.Capella:
+  of ConsensusFork.Capella:
     let res =
       try:
         some(RestJson.decode(string(data.get()),
@@ -999,7 +999,7 @@ proc readValue*[BlockType: ForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
-  of BeaconBlockFork.EIP4844:
+  of ConsensusFork.EIP4844:
     reader.raiseUnexpectedValue($eip4844ImplementationMissing)
 
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
@@ -1007,14 +1007,14 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        value: var BlockType
      ) {.raises: [IOError, SerializationError, Defect].} =
   var
-    version: Option[BeaconBlockFork]
+    version: Option[ConsensusFork]
     data: Option[JsonString]
 
   prepareForkedBlockReading(reader, value, version, data,
                             "ForkedBlindedBeaconBlock")
 
   case version.get():
-  of BeaconBlockFork.Phase0:
+  of ConsensusFork.Phase0:
     let res =
       try:
         RestJson.decode(string(data.get()),
@@ -1024,9 +1024,9 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
       except SerializationError as exc:
         reader.raiseUnexpectedValue("Incorrect phase0 block format, [" &
                                     exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: BeaconBlockFork.Phase0,
+    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Phase0,
                                      phase0Data: res)
-  of BeaconBlockFork.Altair:
+  of ConsensusFork.Altair:
     let res =
       try:
         RestJson.decode(string(data.get()),
@@ -1036,9 +1036,9 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
       except SerializationError as exc:
         reader.raiseUnexpectedValue("Incorrect altair block format, [" &
                                     exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: BeaconBlockFork.Altair,
+    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Altair,
                                      altairData: res)
-  of BeaconBlockFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     let res =
       try:
         RestJson.decode(string(data.get()),
@@ -1048,26 +1048,26 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
       except SerializationError as exc:
         reader.raiseUnexpectedValue("Incorrect bellatrix block format, [" &
                                     exc.formatMsg("BlindedBlock") & "]")
-    value = ForkedBlindedBeaconBlock(kind: BeaconBlockFork.Bellatrix,
+    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Bellatrix,
                                      bellatrixData: res)
-  of BeaconBlockFork.Capella:
+  of ConsensusFork.Capella:
     reader.raiseUnexpectedValue($capellaImplementationMissing)
 
-  of BeaconBlockFork.EIP4844:
+  of ConsensusFork.EIP4844:
     reader.raiseUnexpectedValue($eip4844ImplementationMissing)
 
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
     value: var BlockType) {.raises: [IOError, SerializationError, Defect].} =
   var
-    version: Option[BeaconBlockFork]
+    version: Option[ConsensusFork]
     data: Option[JsonString]
 
   prepareForkedBlockReading(reader, value, version, data,
                             "Web3SignerForkedBeaconBlock")
 
   case version.get():
-  of BeaconBlockFork.Phase0:
+  of ConsensusFork.Phase0:
     let res =
       try:
         some(RestJson.decode(string(data.get()),
@@ -1079,9 +1079,9 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect phase0 block format")
     value = Web3SignerForkedBeaconBlock(
-      kind: BeaconBlockFork.Phase0,
+      kind: ConsensusFork.Phase0,
       phase0Data: res.get())
-  of BeaconBlockFork.Altair:
+  of ConsensusFork.Altair:
     let res =
       try:
         some(RestJson.decode(string(data.get()),
@@ -1093,9 +1093,9 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair block format")
     value = Web3SignerForkedBeaconBlock(
-      kind: BeaconBlockFork.Altair,
+      kind: ConsensusFork.Altair,
       altairData: res.get())
-  of BeaconBlockFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     let res =
       try:
         some(RestJson.decode(string(data.get()),
@@ -1107,9 +1107,9 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect bellatrix block format")
     value = Web3SignerForkedBeaconBlock(
-      kind: BeaconBlockFork.Bellatrix,
+      kind: ConsensusFork.Bellatrix,
       bellatrixData: res.get())
-  of BeaconBlockFork.Capella:
+  of ConsensusFork.Capella:
     let res =
       try:
         some(RestJson.decode(string(data.get()),
@@ -1121,9 +1121,9 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = Web3SignerForkedBeaconBlock(
-      kind: BeaconBlockFork.Capella,
+      kind: ConsensusFork.Capella,
       capellaData: res.get())
-  of BeaconBlockFork.EIP4844:
+  of ConsensusFork.EIP4844:
     reader.raiseUnexpectedValue($eip4844ImplementationMissing)
 
 proc writeValue*[
@@ -1136,19 +1136,19 @@ proc writeValue*[
   # https://github.com/ConsenSys/web3signer/blob/d51337e96ba5ce410222943556bed7c4856b8e57/core/src/main/java/tech/pegasys/web3signer/core/service/http/handlers/signing/eth2/json/BlockRequestDeserializer.java#L42-L58
   writer.beginRecord()
   case value.kind
-  of BeaconBlockFork.Phase0:
+  of ConsensusFork.Phase0:
     writer.writeField("version", forkIdentifier "phase0")
     writer.writeField("block", value.phase0Data)
-  of BeaconBlockFork.Altair:
+  of ConsensusFork.Altair:
     writer.writeField("version", forkIdentifier "altair")
     writer.writeField("block", value.altairData)
-  of BeaconBlockFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     writer.writeField("version", forkIdentifier "bellatrix")
     writer.writeField("block_header", value.bellatrixData)
-  of BeaconBlockFork.Capella:
+  of ConsensusFork.Capella:
     writer.writeField("version", forkIdentifier "capella")
     writer.writeField("block_header", value.capellaData)
-  of BeaconBlockFork.EIP4844:
+  of ConsensusFork.EIP4844:
     writer.writeField("version", forkIdentifier "eip4844")
     writer.writeField("block_header", value.eip4844Data)
   writer.endRecord()
@@ -1166,19 +1166,19 @@ proc writeValue*[
 
   writer.beginRecord()
   case value.kind
-  of BeaconBlockFork.Phase0:
+  of ConsensusFork.Phase0:
     writer.writeField("version", forkIdentifier "phase0")
     writer.writeField("data", value.phase0Data)
-  of BeaconBlockFork.Altair:
+  of ConsensusFork.Altair:
     writer.writeField("version", forkIdentifier "altair")
     writer.writeField("data", value.altairData)
-  of BeaconBlockFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     writer.writeField("version", forkIdentifier "bellatrix")
     writer.writeField("data", value.bellatrixData)
-  of BeaconBlockFork.Capella:
+  of ConsensusFork.Capella:
     writer.writeField("version", forkIdentifier "capella")
     writer.writeField("data", value.capellaData)
-  of BeaconBlockFork.EIP4844:
+  of ConsensusFork.EIP4844:
     writer.writeField("version", forkIdentifier "eip4844")
     writer.writeField("data", value.eip4844Data)
   writer.endRecord()
@@ -1283,16 +1283,16 @@ proc readValue*(reader: var JsonReader[RestJson],
   discard $capellaImplementationMissing & ": autodetect via added field"
   let bodyKind =
     if execution_payload.isSome() and sync_aggregate.isSome():
-      BeaconBlockFork.Bellatrix
+      ConsensusFork.Bellatrix
     elif execution_payload.isNone() and sync_aggregate.isSome():
-      BeaconBlockFork.Altair
+      ConsensusFork.Altair
     else:
-      BeaconBlockFork.Phase0
+      ConsensusFork.Phase0
 
   case bodyKind
-  of BeaconBlockFork.Phase0:
+  of ConsensusFork.Phase0:
     value = RestPublishedBeaconBlockBody(
-      kind: BeaconBlockFork.Phase0,
+      kind: ConsensusFork.Phase0,
       phase0Body: phase0.BeaconBlockBody(
         randao_reveal: randao_reveal.get(),
         eth1_data: eth1_data.get(),
@@ -1304,9 +1304,9 @@ proc readValue*(reader: var JsonReader[RestJson],
         voluntary_exits: voluntary_exits.get()
       )
     )
-  of BeaconBlockFork.Altair:
+  of ConsensusFork.Altair:
     value = RestPublishedBeaconBlockBody(
-      kind: BeaconBlockFork.Altair,
+      kind: ConsensusFork.Altair,
       altairBody: altair.BeaconBlockBody(
         randao_reveal: randao_reveal.get(),
         eth1_data: eth1_data.get(),
@@ -1319,9 +1319,9 @@ proc readValue*(reader: var JsonReader[RestJson],
         sync_aggregate: sync_aggregate.get()
       )
     )
-  of BeaconBlockFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     value = RestPublishedBeaconBlockBody(
-      kind: BeaconBlockFork.Bellatrix,
+      kind: ConsensusFork.Bellatrix,
       bellatrixBody: bellatrix.BeaconBlockBody(
         randao_reveal: randao_reveal.get(),
         eth1_data: eth1_data.get(),
@@ -1335,9 +1335,9 @@ proc readValue*(reader: var JsonReader[RestJson],
         execution_payload: execution_payload.get()
       )
     )
-  of BeaconBlockFork.Capella:
+  of ConsensusFork.Capella:
     reader.raiseUnexpectedValue($capellaImplementationMissing)
-  of BeaconBlockFork.EIP4844:
+  of ConsensusFork.EIP4844:
     reader.raiseUnexpectedValue($eip4844ImplementationMissing)
 
 ## RestPublishedBeaconBlock
@@ -1395,7 +1395,7 @@ proc readValue*(reader: var JsonReader[RestJson],
   let body = blockBody.get()
   value = RestPublishedBeaconBlock(
     case body.kind
-    of BeaconBlockFork.Phase0:
+    of ConsensusFork.Phase0:
       ForkedBeaconBlock.init(
         phase0.BeaconBlock(
           slot: slot.get(),
@@ -1405,7 +1405,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           body: body.phase0Body
         )
       )
-    of BeaconBlockFork.Altair:
+    of ConsensusFork.Altair:
       ForkedBeaconBlock.init(
         altair.BeaconBlock(
           slot: slot.get(),
@@ -1415,7 +1415,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           body: body.altairBody
         )
       )
-    of BeaconBlockFork.Bellatrix:
+    of ConsensusFork.Bellatrix:
       ForkedBeaconBlock.init(
         bellatrix.BeaconBlock(
           slot: slot.get(),
@@ -1425,7 +1425,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           body: body.bellatrixBody
         )
       )
-    of BeaconBlockFork.Capella:
+    of ConsensusFork.Capella:
       ForkedBeaconBlock.init(
         capella.BeaconBlock(
           slot: slot.get(),
@@ -1435,7 +1435,7 @@ proc readValue*(reader: var JsonReader[RestJson],
           body: body.capellaBody
         )
       )
-    of BeaconBlockFork.EIP4844:
+    of ConsensusFork.EIP4844:
       reader.raiseUnexpectedValue($eip4844ImplementationMissing)
   )
 
@@ -1468,35 +1468,35 @@ proc readValue*(reader: var JsonReader[RestJson],
   let blck = ForkedBeaconBlock(message.get())
   value = RestPublishedSignedBeaconBlock(
     case blck.kind
-    of BeaconBlockFork.Phase0:
+    of ConsensusFork.Phase0:
       ForkedSignedBeaconBlock.init(
         phase0.SignedBeaconBlock(
           message: blck.phase0Data,
           signature: signature.get()
         )
       )
-    of BeaconBlockFork.Altair:
+    of ConsensusFork.Altair:
       ForkedSignedBeaconBlock.init(
         altair.SignedBeaconBlock(
           message: blck.altairData,
           signature: signature.get()
         )
       )
-    of BeaconBlockFork.Bellatrix:
+    of ConsensusFork.Bellatrix:
       ForkedSignedBeaconBlock.init(
         bellatrix.SignedBeaconBlock(
           message: blck.bellatrixData,
           signature: signature.get()
         )
       )
-    of BeaconBlockFork.Capella:
+    of ConsensusFork.Capella:
       ForkedSignedBeaconBlock.init(
         capella.SignedBeaconBlock(
           message: blck.capellaData,
           signature: signature.get()
         )
       )
-    of BeaconBlockFork.EIP4844:
+    of ConsensusFork.EIP4844:
       reader.raiseUnexpectedValue($eip4844ImplementationMissing)
   )
 
@@ -1505,7 +1505,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                 value: var ForkedSignedBeaconBlock) {.
      raises: [IOError, SerializationError, Defect].} =
   var
-    version: Option[BeaconBlockFork]
+    version: Option[ConsensusFork]
     data: Option[JsonString]
 
   for fieldName in readObjectFields(reader):
@@ -1517,13 +1517,13 @@ proc readValue*(reader: var JsonReader[RestJson],
       let vres = reader.readValue(string)
       case vres
       of "phase0":
-        version = some(BeaconBlockFork.Phase0)
+        version = some(ConsensusFork.Phase0)
       of "altair":
-        version = some(BeaconBlockFork.Altair)
+        version = some(ConsensusFork.Altair)
       of "bellatrix":
-        version = some(BeaconBlockFork.Bellatrix)
+        version = some(ConsensusFork.Bellatrix)
       of "capella":
-        version = some(BeaconBlockFork.Capella)
+        version = some(ConsensusFork.Capella)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
@@ -1540,7 +1540,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     reader.raiseUnexpectedValue("Field data is missing")
 
   case version.get():
-  of BeaconBlockFork.Phase0:
+  of ConsensusFork.Phase0:
     let res =
       try:
         some(RestJson.decode(string(data.get()),
@@ -1552,7 +1552,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect phase0 block format")
     value = ForkedSignedBeaconBlock.init(res.get())
-  of BeaconBlockFork.Altair:
+  of ConsensusFork.Altair:
     let res =
       try:
         some(RestJson.decode(string(data.get()),
@@ -1564,7 +1564,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect altair block format")
     value = ForkedSignedBeaconBlock.init(res.get())
-  of BeaconBlockFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     let res =
       try:
         some(RestJson.decode(string(data.get()),
@@ -1576,7 +1576,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect bellatrix block format")
     value = ForkedSignedBeaconBlock.init(res.get())
-  of BeaconBlockFork.Capella:
+  of ConsensusFork.Capella:
     let res =
       try:
         some(RestJson.decode(string(data.get()),
@@ -1588,7 +1588,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     if res.isNone():
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = ForkedSignedBeaconBlock.init(res.get())
-  of BeaconBlockFork.EIP4844:
+  of ConsensusFork.EIP4844:
     reader.raiseUnexpectedValue($eip4844ImplementationMissing)
   withBlck(value):
     blck.root = hash_tree_root(blck.message)
@@ -1598,19 +1598,19 @@ proc writeValue*(writer: var JsonWriter[RestJson],
      raises: [IOError, Defect].} =
   writer.beginRecord()
   case value.kind
-  of BeaconBlockFork.Phase0:
+  of ConsensusFork.Phase0:
     writer.writeField("version", "phase0")
     writer.writeField("data", value.phase0Data)
-  of BeaconBlockFork.Altair:
+  of ConsensusFork.Altair:
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairData)
-  of BeaconBlockFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     writer.writeField("version", "bellatrix")
     writer.writeField("data", value.bellatrixData)
-  of BeaconBlockFork.Capella:
+  of ConsensusFork.Capella:
     writer.writeField("version", "capella")
     writer.writeField("data", value.capellaData)
-  of BeaconBlockFork.EIP4844:
+  of ConsensusFork.EIP4844:
     writer.writeField("version", "eip4844")
     writer.writeField("data", value.eip4844Data)
   writer.endRecord()
@@ -1621,7 +1621,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                 value: var ForkedHashedBeaconState) {.
      raises: [IOError, SerializationError, Defect].} =
   var
-    version: Option[BeaconStateFork]
+    version: Option[ConsensusFork]
     data: Option[JsonString]
 
   for fieldName in readObjectFields(reader):
@@ -1632,11 +1632,11 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "ForkedBeaconState")
       let vres = reader.readValue(string)
       version = case vres
-      of "phase0": some(BeaconStateFork.Phase0)
-      of "altair": some(BeaconStateFork.Altair)
-      of "bellatrix": some(BeaconStateFork.Bellatrix)
-      of "capella": some(BeaconStateFork.Capella)
-      of "eip4844": some(BeaconStateFork.EIP4844)
+      of "phase0": some(ConsensusFork.Phase0)
+      of "altair": some(ConsensusFork.Altair)
+      of "bellatrix": some(ConsensusFork.Bellatrix)
+      of "capella": some(ConsensusFork.Capella)
+      of "eip4844": some(ConsensusFork.EIP4844)
       else: reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":
       if data.isSome():
@@ -1664,7 +1664,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     value.field.root = hash_tree_root(value.field.data)
 
   case version.get():
-  of BeaconStateFork.Phase0:
+  of ConsensusFork.Phase0:
     try:
       tmp[].phase0Data.data = RestJson.decode(
         string(data.get()),
@@ -1675,7 +1675,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Incorrect phase0 beacon state format")
 
     toValue(phase0Data)
-  of BeaconStateFork.Altair:
+  of ConsensusFork.Altair:
     try:
       tmp[].altairData.data = RestJson.decode(
         string(data.get()),
@@ -1686,7 +1686,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Incorrect altair beacon state format")
 
     toValue(altairData)
-  of BeaconStateFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     try:
       tmp[].bellatrixData.data = RestJson.decode(
         string(data.get()),
@@ -1696,7 +1696,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     except SerializationError:
       reader.raiseUnexpectedValue("Incorrect bellatrix beacon state format")
     toValue(bellatrixData)
-  of BeaconStateFork.Capella:
+  of ConsensusFork.Capella:
     try:
       tmp[].capellaData.data = RestJson.decode(
         string(data.get()),
@@ -1706,7 +1706,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     except SerializationError:
       reader.raiseUnexpectedValue("Incorrect capella beacon state format")
     toValue(capellaData)
-  of BeaconStateFork.EIP4844:
+  of ConsensusFork.EIP4844:
     try:
       tmp[].eip4844Data.data = RestJson.decode(
         string(data.get()),
@@ -1721,19 +1721,19 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
                 {.raises: [IOError, Defect].} =
   writer.beginRecord()
   case value.kind
-  of BeaconStateFork.Phase0:
+  of ConsensusFork.Phase0:
     writer.writeField("version", "phase0")
     writer.writeField("data", value.phase0Data.data)
-  of BeaconStateFork.Altair:
+  of ConsensusFork.Altair:
     writer.writeField("version", "altair")
     writer.writeField("data", value.altairData.data)
-  of BeaconStateFork.Bellatrix:
+  of ConsensusFork.Bellatrix:
     writer.writeField("version", "bellatrix")
     writer.writeField("data", value.bellatrixData.data)
-  of BeaconStateFork.Capella:
+  of ConsensusFork.Capella:
     writer.writeField("version", "capella")
     writer.writeField("data", value.capellaData.data)
-  of BeaconStateFork.EIP4844:
+  of ConsensusFork.EIP4844:
     writer.writeField("version", "eip4844")
     writer.writeField("data", value.eip4844Data.data)
   writer.endRecord()
@@ -2633,9 +2633,9 @@ proc decodeBody*(
         return err("Unexpected deserialization error")
     ok(data)
   elif body.contentType == OctetStreamMediaType:
-    let blockFork = ? BeaconBlockFork.decodeString(version)
+    let blockFork = ? ConsensusFork.decodeString(version)
     case blockFork
-    of BeaconBlockFork.Phase0:
+    of ConsensusFork.Phase0:
       let blck =
         try:
           SSZ.decode(body.data, phase0.SignedBeaconBlock)
@@ -2644,7 +2644,7 @@ proc decodeBody*(
         except CatchableError:
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
-    of BeaconBlockFork.Altair:
+    of ConsensusFork.Altair:
       let blck =
         try:
           SSZ.decode(body.data, altair.SignedBeaconBlock)
@@ -2653,7 +2653,7 @@ proc decodeBody*(
         except CatchableError:
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
-    of BeaconBlockFork.Bellatrix:
+    of ConsensusFork.Bellatrix:
       let blck =
         try:
           SSZ.decode(body.data, bellatrix.SignedBeaconBlock)
@@ -2662,7 +2662,7 @@ proc decodeBody*(
         except CatchableError:
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
-    of BeaconBlockFork.Capella:
+    of ConsensusFork.Capella:
       let blck =
         try:
           SSZ.decode(body.data, capella.SignedBeaconBlock)
@@ -2671,7 +2671,7 @@ proc decodeBody*(
         except CatchableError:
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
-    of BeaconBlockFork.EIP4844:
+    of ConsensusFork.EIP4844:
       return err($eip4844ImplementationMissing)
   else:
     return err("Unsupported or invalid content media type")
@@ -3157,22 +3157,12 @@ proc decodeString*(t: typedesc[ValidatorFilter],
   else:
     err("Incorrect validator state identifier value")
 
-proc decodeString*(t: typedesc[BeaconBlockFork],
-                   value: string): Result[BeaconBlockFork, cstring] =
+proc decodeString*(t: typedesc[ConsensusFork],
+                   value: string): Result[ConsensusFork, cstring] =
   case toLowerAscii(value)
-  of "phase0": ok(BeaconBlockFork.Phase0)
-  of "altair": ok(BeaconBlockFork.Altair)
-  of "bellatrix": ok(BeaconBlockFork.Bellatrix)
-  of "capella": ok(BeaconBlockFork.Capella)
-  of "eip4844": ok(BeaconBlockFork.EIP4844)
+  of "phase0": ok(ConsensusFork.Phase0)
+  of "altair": ok(ConsensusFork.Altair)
+  of "bellatrix": ok(ConsensusFork.Bellatrix)
+  of "capella": ok(ConsensusFork.Capella)
+  of "eip4844": ok(ConsensusFork.EIP4844)
   else: err("Unsupported or invalid beacon block fork version")
-
-proc decodeString*(t: typedesc[BeaconStateFork],
-                   value: string): Result[BeaconStateFork, cstring] =
-  case toLowerAscii(value)
-  of "phase0": ok(BeaconStateFork.Phase0)
-  of "altair": ok(BeaconStateFork.Altair)
-  of "bellatrix": ok(BeaconStateFork.Bellatrix)
-  of "capella": ok(BeaconStateFork.Capella)
-  of "eip4844": ok(BeaconStateFork.EIP4844)
-  else: err("Unsupported or invalid beacon state fork version")

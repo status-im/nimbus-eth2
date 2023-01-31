@@ -799,19 +799,15 @@ proc uncompressFramedStream(conn: Connection,
 func chunkMaxSize[T](): uint32 =
   # compiler error on (T: type) syntax...
   when T is ForkySignedBeaconBlock:
-    when T is phase0.SignedBeaconBlock or T is altair.SignedBeaconBlock:
-      MAX_CHUNK_SIZE
-    elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock:
+    when T is phase0.SignedBeaconBlock or T is altair.SignedBeaconBlock or
+         T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock:
       MAX_CHUNK_SIZE_BELLATRIX
     else:
       {.fatal: "what's the chunk size here?".}
   elif isFixedSize(T):
     uint32 fixedPortionSize(T)
   else:
-    MAX_CHUNK_SIZE
-
-func maxGossipMaxSize(): auto {.compileTime.} =
-  max(GOSSIP_MAX_SIZE, GOSSIP_MAX_SIZE_BELLATRIX)
+    MAX_CHUNK_SIZE_BELLATRIX
 
 from ../spec/datatypes/capella import SignedBeaconBlock
 from ../spec/datatypes/eip4844 import SignedBeaconBlockAndBlobsSidecar
@@ -830,10 +826,10 @@ template gossipMaxSize(T: untyped): uint32 =
     elif T is Attestation or T is AttesterSlashing or
          T is SignedAggregateAndProof or T is phase0.SignedBeaconBlock or
          T is altair.SignedBeaconBlock or T is SomeForkyLightClientObject:
-      GOSSIP_MAX_SIZE
+      GOSSIP_MAX_SIZE_BELLATRIX
     else:
       {.fatal: "unknown type " & name(T).}
-  static: doAssert maxSize <= maxGossipMaxSize()
+  static: doAssert maxSize <= GOSSIP_MAX_SIZE_BELLATRIX
   maxSize.uint32
 
 proc readChunkPayload*(conn: Connection, peer: Peer,
@@ -2321,7 +2317,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
     try:
       # This doesn't have to be a tight bound, just enough to avoid denial of
       # service attacks.
-      let decoded = snappy.decode(m.data, maxGossipMaxSize())
+      let decoded = snappy.decode(m.data, GOSSIP_MAX_SIZE_BELLATRIX)
       ok(gossipId(decoded, phase0Prefix, topic))
     except CatchableError:
       err(ValidationResult.Reject)
@@ -2378,7 +2374,7 @@ proc createEth2Node*(rng: ref HmacDrbgContext,
       sign = false,
       verifySignature = false,
       anonymize = true,
-      maxMessageSize = maxGossipMaxSize(),
+      maxMessageSize = GOSSIP_MAX_SIZE_BELLATRIX,
       parameters = params)
 
   switch.mount(pubsub)
@@ -2489,7 +2485,7 @@ proc gossipEncode(msg: auto): seq[byte] =
   let uncompressed = SSZ.encode(msg)
   # This function only for messages we create. A message this large amounts to
   # an internal logic error.
-  doAssert uncompressed.len <= maxGossipMaxSize()
+  doAssert uncompressed.len <= GOSSIP_MAX_SIZE_BELLATRIX
 
   snappy.encode(uncompressed)
 

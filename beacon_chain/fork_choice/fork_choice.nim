@@ -50,12 +50,13 @@ logScope: topics = "fork_choice"
 
 func init*(
     T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints,
-    hasLowParticipation = false): T =
-  T(proto_array: ProtoArray.init(checkpoints, hasLowParticipation))
+    experimental = false, hasLowParticipation = false): T =
+  T(proto_array: ProtoArray.init(
+    checkpoints, experimental, hasLowParticipation))
 
 proc init*(
     T: type ForkChoice, epochRef: EpochRef, blck: BlockRef,
-    hasLowParticipation = false): T =
+    experimental = false, hasLowParticipation = false): T =
   ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
@@ -68,8 +69,9 @@ proc init*(
       FinalityCheckpoints(
         justified: checkpoint,
         finalized: checkpoint),
-      hasLowParticipation),
+      experimental, hasLowParticipation),
     checkpoints: Checkpoints(
+      experimental: experimental,
       justified: BalanceCheckpoint(
         checkpoint: checkpoint,
         balances: epochRef.effective_balances),
@@ -116,7 +118,7 @@ proc update_justified(
     epochRef = dag.getEpochRef(blck, epoch, false).valueOr:
       # Shouldn't happen for justified data unless out of sync with ChainDAG
       warn "Skipping justified checkpoint update, no EpochRef - report bug",
-        blck, epoch, best = self.best_justified.epoch, error
+        blck, epoch, error
       return
     justified = Checkpoint(root: blck.root, epoch: epochRef.epoch)
 
@@ -144,10 +146,13 @@ proc update_checkpoints(
   ## Update checkpoints in store if necessary
   # Update justified checkpoint
   if checkpoints.justified.epoch > self.justified.checkpoint.epoch:
-    if checkpoints.justified.epoch > self.best_justified.epoch:
-      self.best_justified = checkpoints.justified
+    if not self.experimental:
+      if checkpoints.justified.epoch > self.best_justified.epoch:
+        self.best_justified = checkpoints.justified
 
-    if ? should_update_justified_checkpoint(self, dag, checkpoints.justified):
+      if ? should_update_justified_checkpoint(self, dag, checkpoints.justified):
+        ? self.update_justified(dag, checkpoints.justified)
+    else:
       ? self.update_justified(dag, checkpoints.justified)
 
   # Update finalized checkpoint
@@ -155,8 +160,9 @@ proc update_checkpoints(
     trace "Updating finalized",
       store = self.finalized, state = checkpoints.finalized
     self.finalized = checkpoints.finalized
-    if checkpoints.justified != self.justified.checkpoint:
-      ? self.update_justified(dag, checkpoints.justified)
+    if not self.experimental:
+      if checkpoints.justified != self.justified.checkpoint:
+        ? self.update_justified(dag, checkpoints.justified)
 
   ok()
 
@@ -185,18 +191,19 @@ proc on_tick(
 
   # Update store.justified_checkpoint if a better checkpoint on the
   # store.finalized_checkpoint chain
-  let
-    best_justified_epoch = self.checkpoints.best_justified.epoch
-    store_justified_epoch = self.checkpoints.justified.checkpoint.epoch
-  if best_justified_epoch > store_justified_epoch:
+  if not self.checkpoints.experimental:
     let
-      blck = dag.getBlockRef(self.checkpoints.best_justified.root).valueOr:
-        return err ForkChoiceError(
-          kind: fcJustifiedNodeUnknown,
-          blockRoot: self.checkpoints.best_justified.root)
-      finalized_ancestor = blck.atEpochStart(self.checkpoints.finalized.epoch)
-    if finalized_ancestor.blck.root == self.checkpoints.finalized.root:
-      self.checkpoints.update_justified(dag, blck, best_justified_epoch)
+      best_justified_epoch = self.checkpoints.best_justified.epoch
+      store_justified_epoch = self.checkpoints.justified.checkpoint.epoch
+    if best_justified_epoch > store_justified_epoch:
+      let
+        blck = dag.getBlockRef(self.checkpoints.best_justified.root).valueOr:
+          return err ForkChoiceError(
+            kind: fcJustifiedNodeUnknown,
+            blockRoot: self.checkpoints.best_justified.root)
+        finalized_ancestor = blck.atEpochStart(self.checkpoints.finalized.epoch)
+      if finalized_ancestor.blck.root == self.checkpoints.finalized.root:
+        self.checkpoints.update_justified(dag, blck, best_justified_epoch)
 
   # Pull-up chain tips from previous epoch
   for realized in self.backend.proto_array.realizePendingCheckpoints():
@@ -307,11 +314,11 @@ func process_equivocation*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/fork-choice.md#on_block
 func process_block*(self: var ForkChoiceBackend,
-                    block_root: Eth2Digest,
+                    bid: BlockId,
                     parent_root: Eth2Digest,
                     checkpoints: FinalityCheckpoints,
                     unrealized = none(FinalityCheckpoints)): FcResult[void] =
-  self.proto_array.onBlock(block_root, parent_root, checkpoints, unrealized)
+  self.proto_array.onBlock(bid, parent_root, checkpoints, unrealized)
 
 proc process_block*(self: var ForkChoice,
                     dag: ChainDAGRef,
@@ -358,14 +365,14 @@ proc process_block*(self: var ForkChoice,
         blck = shortLog(blckRef), checkpoints = epochRef.checkpoints, unrealized
       ? update_checkpoints(self.checkpoints, dag, unrealized)
       ? process_block(
-        self.backend, blckRef.root, blck.parent_root, unrealized)
+        self.backend, blckRef.bid, blck.parent_root, unrealized)
     else:
       ? process_block(
-        self.backend, blckRef.root, blck.parent_root,
+        self.backend, blckRef.bid, blck.parent_root,
         epochRef.checkpoints, some unrealized) # Realized in `on_tick`
   else:
     ? process_block(
-      self.backend, blckRef.root, blck.parent_root, epochRef.checkpoints)
+      self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints)
 
   ok()
 
@@ -424,13 +431,16 @@ func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
   self.checkpoints.justified.checkpoint.root
 
 func prune*(
-       self: var ForkChoiceBackend, finalized_root: Eth2Digest
+       self: var ForkChoiceBackend, checkpoints: FinalityCheckpoints
      ): FcResult[void] =
   ## Prune blocks preceding the finalized root as they are now unneeded.
-  self.proto_array.prune(finalized_root)
+  self.proto_array.prune(checkpoints)
 
 func prune*(self: var ForkChoice): FcResult[void] =
-  self.backend.prune(self.checkpoints.finalized.root)
+  self.backend.prune(
+    FinalityCheckpoints(
+      justified: self.checkpoints.justified.checkpoint,
+      finalized: self.checkpoints.finalized))
 
 func mark_root_invalid*(self: var ForkChoice, root: Eth2Digest) =
   try:

@@ -198,19 +198,19 @@ suite "Gossip validation - Extra": # Not based on preset config
             dag.headState, cache, int(SLOTS_PER_EPOCH), false, cfg = cfg):
           let added =
             case blck.kind
-            of BeaconBlockFork.Phase0:
+            of ConsensusFork.Phase0:
               const nilCallback = OnPhase0BlockAdded(nil)
               dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
-            of BeaconBlockFork.Altair:
+            of ConsensusFork.Altair:
               const nilCallback = OnAltairBlockAdded(nil)
               dag.addHeadBlock(verifier, blck.altairData, nilCallback)
-            of BeaconBlockFork.Bellatrix:
+            of ConsensusFork.Bellatrix:
               const nilCallback = OnBellatrixBlockAdded(nil)
               dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
-            of BeaconBlockFork.Capella:
+            of ConsensusFork.Capella:
               const nilCallback = OnCapellaBlockAdded(nil)
               dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
-            of BeaconBlockFork.EIP4844:
+            of ConsensusFork.EIP4844:
               const nilCallback = OnEIP4844BlockAdded(nil)
               dag.addHeadBlock(verifier, blck.eip4844Data, nilCallback)
           check: added.isOk()
