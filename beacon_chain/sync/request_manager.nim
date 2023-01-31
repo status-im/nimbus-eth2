@@ -248,7 +248,7 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
       rman.network.peerPool.release(peer)
 
 
-proc isBlobsTime(rman: RequestManager, s: Slot): bool =
+proc isBlobsTime(rman: RequestManager): bool =
   return rman.getBeaconTime().slotOrZero.epoch >= rman.dag.cfg.EIP4844_FORK_EPOCH
 
 proc requestManagerLoop(rman: RequestManager) {.async.} =
@@ -272,7 +272,7 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
       # transition, that means that we *may* request blobs for a
       # pre-eip4844. In that case, we get ResourceUnavailable from the
       # peer and fall back to requesting blocks only.
-      let getBlobs = rman.isBlobsTime(rman.dag.head.slot)
+      let getBlobs = rman.isBlobsTime()
       for i in 0 ..< PARALLEL_REQUESTS:
         if getBlobs:
           workers[i] = rman.fetchAncestorBlocksAndBlobsFromNetwork(rootList)
