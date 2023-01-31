@@ -274,11 +274,10 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
       # peer and fall back to requesting blocks only.
       let getBlobs = rman.isBlobsTime()
       for i in 0 ..< PARALLEL_REQUESTS:
-        if getBlobs:
-          workers[i] = rman.fetchAncestorBlocksAndBlobsFromNetwork(rootList)
-        else:
-          workers[i] = rman.fetchAncestorBlocksFromNetwork(rootList)
-
+        workers[i] = if getBlobs:
+                       rman.fetchAncestorBlocksAndBlobsFromNetwork(rootList)
+                     else:
+                       rman.fetchAncestorBlocksFromNetwork(rootList)
 
       # We do not care about
       await allFutures(workers)
