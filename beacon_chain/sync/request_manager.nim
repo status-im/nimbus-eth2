@@ -170,8 +170,8 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
   var peer: Peer
   try:
     peer = await rman.network.peerPool.acquire()
-    debug "Requesting blocks by root", peer = peer, blocks = shortLog(items),
-                                       peer_score = peer.getScore()
+    debug "Requesting blocks and sidecars by root",
+      peer = peer, blocks = shortLog(items), peer_score = peer.getScore()
 
     let blocks = (await beaconBlockAndBlobsSidecarByRoot_v1(peer, BlockRootsList items))
 
@@ -203,7 +203,7 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
             of VerifierError.Invalid:
               # We stop processing blocks because peer is either sending us
               # junk or working a different fork
-              notice "Received invalid block",
+              notice "Received invalid block and blobs",
                 peer = peer, blocks = shortLog(items),
                 peer_score = peer.getScore()
               peer.updateScore(PeerScoreBadValues)
@@ -213,7 +213,7 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
             gotGoodBlock = true
 
         if gotUnviableBlock:
-          notice "Received blocks from an unviable fork",
+          notice "Received blocks and blobs from an unviable fork",
             peer = peer, blocks = shortLog(items),
             peer_score = peer.getScore()
           peer.updateScore(PeerScoreUnviableFork)
@@ -240,7 +240,7 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
     raise exc
   except CatchableError as exc:
     peer.updateScore(PeerScoreNoValues)
-    debug "Error while fetching ancestor blocks", exc = exc.msg,
+    debug "Error while fetching ancestor blocks and blobs", exc = exc.msg,
           items = shortLog(items), peer = peer, peer_score = peer.getScore()
     raise exc
   finally:
