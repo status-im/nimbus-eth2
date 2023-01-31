@@ -201,6 +201,7 @@ proc processSignedBeaconBlock*(
     blockRoot = shortLog(signedBlock.root)
     blck = shortLog(signedBlock.message)
     signature = shortLog(signedBlock.signature)
+    hasBlobs = optBlobs(signedBlockAndBlobs).isSome
     wallSlot
 
   if not afterGenesis:
@@ -227,7 +228,7 @@ proc processSignedBeaconBlock*(
 
     self.blockProcessor[].addBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
-      Opt.none(eip4844.BlobsSidecar),
+      optBlobs(signedBlockAndBlobs),
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
 

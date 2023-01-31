@@ -374,11 +374,8 @@ proc validateBeaconBlock*(
         # validation.
         return errReject("BeaconBlock: rejected, parent from unviable fork")
 
-    let blobs =
-      when signed_beacon_block is eip4844.SignedBeaconBlockAndBlobsSidecar:
-        Opt.some(signed_beacon_block.blobs_sidecar)
-      else:
-        Opt.none(eip4844.BlobsSidecar)
+    let blobs = optBlobs(signed_beacon_block_and_blobs)
+
     # When the parent is missing, we can't validate the block - we'll queue it
     # in the quarantine for later processing
     if not quarantine[].addOrphan(
