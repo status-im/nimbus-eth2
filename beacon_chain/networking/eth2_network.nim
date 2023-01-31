@@ -204,8 +204,8 @@ type
   Eth2NetworkingError = object
     case kind*: Eth2NetworkingErrorKind
     of ReceivedErrorResponse:
-      responseCode: ResponseCode
-      errorMsg: string
+      responseCode*: ResponseCode
+      errorMsg*: string
     else:
       discard
 
