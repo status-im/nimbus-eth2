@@ -261,8 +261,8 @@ local-testnet-mainnet:
 
 # test binaries that can output an XML report
 XML_TEST_BINARIES_CORE := \
-	consensus_spec_tests_mainnet \
-	consensus_spec_tests_minimal
+	consensus_spec_tests_minimal \
+	consensus_spec_tests_mainnet
 
 XML_TEST_BINARIES := \
 	$(XML_TEST_BINARIES_CORE) \

@@ -79,15 +79,18 @@ template withUpdatedState*(
     else:
       failureBody
 
-func get_effective_balances(validators: openArray[Validator], epoch: Epoch):
-    seq[Gwei] =
+func get_effective_balances(
+    validators: openArray[Validator],
+    epoch: Epoch,
+    ignoreSlashed: bool): seq[Gwei] =
   ## Get the balances from a state as counted for fork choice
   result.newSeq(validators.len) # zero-init
 
   for i in 0 ..< result.len:
     # All non-active validators have a 0 balance
     let validator = unsafeAddr validators[i]
-    if validator[].is_active_validator(epoch):
+    if validator[].is_active_validator(epoch) and (
+        ignoreSlashed or not validator[].slashed):
       result[i] = validator[].effective_balance
 
 proc updateValidatorKeys*(dag: ChainDAGRef, validators: openArray[Validator]) =
@@ -569,7 +572,9 @@ func init*(
   epochRef.effective_balances_bytes =
     snappyEncode(SSZ.encode(
       List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT](
-        get_effective_balances(getStateField(state, validators).asSeq, epoch))))
+        get_effective_balances(
+          getStateField(state, validators).asSeq, epoch,
+          experimental notin dag.updateFlags))))
 
   epochRef
 
@@ -898,7 +903,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   cfg.checkForkConsistency()
 
   doAssert updateFlags - {
-      strictVerification, enableTestFeatures, lowParticipation
+      strictVerification, experimental, enableTestFeatures, lowParticipation
     } == {}, "Other flags not supported in ChainDAG"
 
   # TODO we require that the db contains both a head and a tail block -
@@ -928,7 +933,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       # The only allowed flag right now is strictVerification, as the others all
       # allow skipping some validation.
       updateFlags: updateFlags * {
-        strictVerification, enableTestFeatures, lowParticipation
+        strictVerification, experimental, enableTestFeatures, lowParticipation
       },
       cfg: cfg,
 

@@ -88,6 +88,7 @@ type
     ## Subtracted from logical index to get the physical index
 
   ProtoArray* = object
+    experimental*: bool
     hasLowParticipation*: bool
     currentEpoch*: Epoch
     checkpoints*: FinalityCheckpoints
@@ -98,7 +99,7 @@ type
     previousProposerBoostScore*: uint64
 
   ProtoNode* = object
-    root*: Eth2Digest
+    bid*: BlockId
     parent*: Option[Index]
     checkpoints*: FinalityCheckpoints
     weight*: int64
@@ -111,6 +112,7 @@ type
     balances*: seq[Gwei]
 
   Checkpoints* = object
+    experimental*: bool
     time*: BeaconTime
     justified*: BalanceCheckpoint
     finalized*: Checkpoint
