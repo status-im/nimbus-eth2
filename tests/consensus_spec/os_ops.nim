@@ -2,7 +2,7 @@ import std/os
 import stew/io2
 
 export walkDir, PathComponent, walkDirRec, walkPattern, `/`, relativePath,
-       os.DirSep
+       os.DirSep, os.splitPath
 export io2.readAllBytes
 
 proc fileExists*(path: string): bool = io2.isFile(path)
