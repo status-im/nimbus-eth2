@@ -411,7 +411,7 @@ proc runTest(testType: static[string], path: string, fork: ConsensusFork) =
       # Some test files have very long paths
       skip()
     else:
-      if splitPath(path).tail in SKIP:
+      if os_ops.splitPath(path).tail in SKIP:
         skip()
       else:
         doRunTest(path, fork)
