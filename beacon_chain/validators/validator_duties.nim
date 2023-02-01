@@ -377,7 +377,8 @@ proc getExecutionPayload[T](
     # Minimize window for Eth1 monitor to shut down connection
     await node.consensusManager.eth1Monitor.ensureDataProvider()
 
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#request-2
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#request-2
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/shanghai.md#request-2
     const GETPAYLOAD_TIMEOUT = 1.seconds
 
     let
@@ -447,7 +448,7 @@ proc getBlobsBundle(
   # Minimize window for Eth1 monitor to shut down connection
   await node.consensusManager.eth1Monitor.ensureDataProvider()
 
-  # https://github.com/ethereum/execution-apis/blob/8058687053598e8fa3cc25a4ca4965fb96cf1e65/src/engine/experimental/blob-extension.md#engine_getblobsbundlev1
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/experimental/blob-extension.md#engine_getblobsbundlev1
   const GETBLOBS_TIMEOUT = 1.seconds
 
   let payload = try:
