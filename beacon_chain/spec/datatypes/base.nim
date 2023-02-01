@@ -979,6 +979,11 @@ func clear*(cache: var StateCache) =
   cache.beacon_proposer_indices.clear
   cache.sync_committees.clear
 
+const eth1BlockHash* = block:
+  var x: Eth2Digest
+  for v in x.data.mitems: v = 0x42
+  x
+
 func checkForkConsistency*(cfg: RuntimeConfig) =
   doAssert cfg.SHARDING_FORK_EPOCH == FAR_FUTURE_EPOCH
 
