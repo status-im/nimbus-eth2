@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  os, strutils, streams, strformat, strscans,
+  strutils, streams, strformat, strscans,
   macros, typetraits,
   # Status libraries
   faststreams, snappy, stint, ../testutil,
@@ -19,7 +19,7 @@ import
   ../../beacon_chain/spec/digest,
   ../../beacon_chain/spec/datatypes/base,
   # Test utilities
-  ./fixtures_utils
+  ./fixtures_utils, ./os_ops
 
 # Parsing definitions
 # ------------------------------------------------------------------------

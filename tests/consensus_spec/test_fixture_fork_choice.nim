@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[json, os, sequtils, strutils, tables],
+  std/[json, sequtils, strutils, tables],
   # Status libraries
   stew/results, chronicles,
   eth/keys, taskpools,
@@ -26,7 +26,7 @@ import
   yaml,
   # Test
   ../testutil, ../testdbutil,
-  ./fixtures_utils
+  ./fixtures_utils, ./os_ops
 
 # Test format described at https://github.com/ethereum/consensus-specs/tree/v1.2.0-rc.1/tests/formats/fork_choice
 # Note that our implementation has been optimized with "ProtoArray"
@@ -127,7 +127,7 @@ proc initialLoad(
   (dag, fkChoice)
 
 proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
-  let stepsYAML = readFile(path/"steps.yaml")
+  let stepsYAML = os_ops.readFile(path/"steps.yaml")
   let steps = yaml.loadToJson(stepsYAML)
 
   result = @[]
@@ -421,7 +421,7 @@ template fcSuite(suiteName: static[string], testPathElem: static[string]) =
     const presetPath = SszTestsDir/const_preset
     for kind, path in walkDir(presetPath, relative = true, checkDir = true):
       let testsPath = presetPath/path/testPathElem
-      if kind != pcDir or not dirExists(testsPath):
+      if kind != pcDir or not os_ops.dirExists(testsPath):
         continue
       let fork = forkForPathComponent(path).valueOr:
         raiseAssert "Unknown test fork: " & testsPath

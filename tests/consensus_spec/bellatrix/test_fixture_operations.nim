@@ -17,10 +17,9 @@ import
   ../../../beacon_chain/spec/datatypes/bellatrix,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils,
+  ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
 
-from std/os import fileExists, walkDir, `/`
 from std/sequtils import mapIt, toSeq
 from std/strutils import contains
 
@@ -132,7 +131,7 @@ suite baseDescription & "Execution Payload " & preset():
         executionPayload: bellatrix.ExecutionPayload):
         Result[void, cstring] =
       let payloadValid =
-        readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
+        os_ops.readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
           contains("execution_valid: true")
       func executePayload(_: bellatrix.ExecutionPayload): bool = payloadValid
       process_execution_payload(

@@ -9,13 +9,12 @@
 
 import
   # Standard library
-  std/os,
   # Beacon chain internals
   ../../beacon_chain/spec/[validator, helpers, state_transition_epoch],
   ../../beacon_chain/spec/datatypes/phase0,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils
+  ../fixtures_utils, ../os_ops
 
 const
   RewardsDirBase = SszTestsDir/const_preset/"phase0"/"rewards"

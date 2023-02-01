@@ -9,9 +9,9 @@
 
 import
   yaml,
-  ../../beacon_chain/spec/[state_transition, forks]
+  ../../beacon_chain/spec/[state_transition, forks],
+  ./os_ops
 
-from std/os import walkDir, walkPattern, `/`
 from std/sequtils import toSeq
 from streams import close, openFileStream
 from ../testutil import preset, suite, test

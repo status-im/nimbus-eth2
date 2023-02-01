@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[os, sequtils, sets, strutils],
+  std/[sequtils, sets, strutils],
   # Utilities
   chronicles,
   unittest2,
@@ -19,7 +19,7 @@ import
   ../../../beacon_chain/spec/datatypes/capella,
   # Test utilities
   ../../testutil,
-  ../fixtures_utils,
+  ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
 
 const
@@ -147,7 +147,7 @@ suite baseDescription & "Execution Payload " & preset():
         executionPayload: capella.ExecutionPayload):
         Result[void, cstring] =
       let payloadValid =
-        readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
+        os_ops.readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
           contains("execution_valid: true")
       func executePayload(_: capella.ExecutionPayload): bool = payloadValid
       process_execution_payload(

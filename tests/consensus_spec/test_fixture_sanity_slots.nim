@@ -8,7 +8,7 @@
 {.used.}
 
 import ../../beacon_chain/spec/forks
-from std/os import walkDir, `/`
+import os_ops
 from std/strutils import parseInt
 from ./fixtures_utils import SszTestsDir, parseTest
 from ../testutil import check, preset, suite, test
