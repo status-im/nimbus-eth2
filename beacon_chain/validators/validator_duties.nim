@@ -877,7 +877,6 @@ proc proposeBlock(node: BeaconNode,
 
   withBlck(forkedBlck):
     var blobs_sidecar = eip4844.BlobsSidecar(
-      beacon_block_root: hash_tree_root(blck),
       beacon_block_slot: slot,
     )
     when blck is eip4844.BeaconBlock and const_preset != "minimal":
@@ -912,6 +911,7 @@ proc proposeBlock(node: BeaconNode,
         .slashingProtection
         .registerBlock(validator_index, validator.pubkey, slot, signingRoot)
 
+    blobs_sidecar.beacon_block_root = blockRoot
     if notSlashable.isErr:
       warn "Slashing protection activated for block proposal",
         blockRoot = shortLog(blockRoot), blck = shortLog(blck),
