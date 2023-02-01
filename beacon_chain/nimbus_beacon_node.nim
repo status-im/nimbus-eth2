@@ -675,7 +675,7 @@ proc init*(T: type BeaconNode,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache,
     nextExchangeTransitionConfTime:
-      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#specification-3
+      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#specification-3
       # Consensus Layer client software **SHOULD** poll this endpoint every
       # 60 seconds.
       # Delay first call by that time to allow for EL syncing to begin; it can
@@ -1328,11 +1328,11 @@ proc onSecond(node: BeaconNode, time: Moment) =
   updateThreadMetrics()
 
   if time >= node.nextExchangeTransitionConfTime and not node.eth1Monitor.isNil:
-    # The EL client SHOULD log a warning when not receiving an exchange message
-    # at least once every 120 seconds. If we only attempt to exchange every 60
-    # seconds, the warning would be triggered if a single message is missed.
+    # Execution Layer client software **SHOULD** surface an error to the user
+    # if it does not receive a request on this endpoint at least once every 120
+    # seconds.
     # To accommodate for that, exchange slightly more frequently.
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#engine_exchangetransitionconfigurationv1
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#specification-3
     node.nextExchangeTransitionConfTime = time + chronos.seconds(45)
 
     if node.currentSlot.epoch >= node.dag.cfg.BELLATRIX_FORK_EPOCH:

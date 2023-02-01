@@ -25,7 +25,8 @@ import
 export json_serialization, base
 
 const
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#request-1
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#request-1
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/shanghai.md#request-1
   FORKCHOICEUPDATED_TIMEOUT* = 8.seconds
 
 type

@@ -25,7 +25,7 @@ from ../beacon_chain/spec/presets import Eth1Address, defaultRuntimeConfig
 # TODO hm, actually factor this out into a callable function
 # and have a version with the result of the JWT secret slurp for testing purposes
 proc readJwtSecret(jwtSecretFile: string): Result[seq[byte], cstring] =
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/authentication.md#key-distribution
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/authentication.md#key-distribution
   # If such a parameter is given, but the file cannot be read, or does not
   # contain a hex-encoded key of 256 bits, the client should treat this as an
   # error: either abort the startup, or show error and continue without

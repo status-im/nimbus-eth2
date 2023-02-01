@@ -661,7 +661,7 @@ proc exchangeTransitionConfiguration*(p: Eth1Monitor): Future[EtcStatus] {.async
   if dataProvider.isNil:
     return EtcStatus.exchangeError
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#engine_exchangetransitionconfigurationv1
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#engine_exchangetransitionconfigurationv1
   let consensusCfg = TransitionConfigurationV1(
     terminalTotalDifficulty: p.depositsChain.cfg.TERMINAL_TOTAL_DIFFICULTY,
     terminalBlockHash: p.depositsChain.cfg.TERMINAL_BLOCK_HASH,
@@ -1194,7 +1194,7 @@ proc detectPrimaryProviderComingOnline(m: Eth1Monitor) {.async.} =
     var tempProvider = tempProviderRes.get
 
     # Use one of the get/request-type methods from
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#underlying-protocol
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/common.md#underlying-protocol
     # which doesn't take parameters and returns a small structure, to ensure
     # this works with engine API endpoints.
     let testRequest = tempProvider.web3.provider.eth_syncing()

@@ -232,7 +232,7 @@ type
       desc: "Number of worker threads (\"0\" = use as many threads as there are CPU cores available)"
       name: "num-threads" .}: int
 
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/authentication.md#key-distribution
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/authentication.md#key-distribution
     jwtSecret* {.
       desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating JWT tokens"
       name: "jwt-secret" .}: Option[string]

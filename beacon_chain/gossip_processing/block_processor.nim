@@ -276,7 +276,8 @@ proc newExecutionPayload*(
     baseFeePerGas = $executionPayload.base_fee_per_gas,
     numTransactions = executionPayload.transactions.len
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#request
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#request
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/shanghai.md#request
   const NEWPAYLOAD_TIMEOUT = 8.seconds
 
   try:
@@ -383,7 +384,7 @@ proc storeBlock*(
 
     # Client software MUST validate blockHash value as being equivalent to
     # Keccak256(RLP(ExecutionBlockHeader))
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#specification
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#specification
     when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if payload.block_hash != payload.compute_execution_block_hash():
@@ -503,7 +504,7 @@ proc storeBlock*(
       # > Client software MAY skip an update of the forkchoice state and MUST
       #   NOT begin a payload build process if `forkchoiceState.headBlockHash`
       #   references an ancestor of the head of canonical chain.
-      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#engine_forkchoiceupdatedv1
+      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#specification-1
       #
       # However, in practice, an EL client may not have completed importing all
       # block headers, so may be unaware of a block's ancestor status.
