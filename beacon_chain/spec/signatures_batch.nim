@@ -57,7 +57,7 @@ func init(T: type SignatureSet,
     blscurve.Signature(signature)
   )
 
-proc aggregateAttesters(
+func aggregateAttesters(
       validatorIndices: openArray[uint64|ValidatorIndex],
       validatorKeys: auto,
      ): Result[CookedPubKey, cstring] =
@@ -82,7 +82,7 @@ proc aggregateAttesters(
 
   ok(finish(attestersAgg))
 
-proc aggregateAttesters(
+func aggregateAttesters(
       validatorIndices: openArray[uint64|ValidatorIndex],
       bits: auto,
       validatorKeys: auto,
@@ -116,7 +116,7 @@ proc aggregateAttesters(
 # ------------------------------------------------------
 
 # See also: verify_slot_signature
-proc slot_signature_set*(
+func slot_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_slot_signing_root(
@@ -125,7 +125,7 @@ proc slot_signature_set*(
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_epoch_signature
-proc epoch_signature_set*(
+func epoch_signature_set*(
    fork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
   let signing_root = compute_epoch_signing_root(
@@ -134,7 +134,7 @@ proc epoch_signature_set*(
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_block_signature
-proc block_signature_set*(
+func block_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
     blck: Eth2Digest | SomeForkyBeaconBlock | BeaconBlockHeader,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
@@ -144,7 +144,7 @@ proc block_signature_set*(
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_aggregate_and_proof_signature
-proc aggregate_and_proof_signature_set*(
+func aggregate_and_proof_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     aggregate_and_proof: AggregateAndProof,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
@@ -154,7 +154,7 @@ proc aggregate_and_proof_signature_set*(
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_attestation_signature
-proc attestation_signature_set*(
+func attestation_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     attestation_data: AttestationData,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
@@ -164,7 +164,7 @@ proc attestation_signature_set*(
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_voluntary_exit_signature
-proc voluntary_exit_signature_set*(
+func voluntary_exit_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     voluntary_exit: VoluntaryExit,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
@@ -174,7 +174,7 @@ proc voluntary_exit_signature_set*(
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_sync_committee_message_signature
-proc sync_committee_message_signature_set*(
+func sync_committee_message_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     slot: Slot, block_root: Eth2Digest,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
@@ -184,7 +184,7 @@ proc sync_committee_message_signature_set*(
   SignatureSet.init(pubkey, signing_root, signature)
 
 # See also: verify_sync_committee_selection_proof
-proc sync_committee_selection_proof_set*(
+func sync_committee_selection_proof_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     slot: Slot, subcommittee_index: SyncSubcommitteeIndex,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
@@ -193,7 +193,7 @@ proc sync_committee_selection_proof_set*(
 
   SignatureSet.init(pubkey, signing_root, signature)
 
-proc contribution_and_proof_signature_set*(
+func contribution_and_proof_signature_set*(
     fork: Fork, genesis_validators_root: Eth2Digest,
     msg: ContributionAndProof,
     pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
@@ -202,7 +202,7 @@ proc contribution_and_proof_signature_set*(
 
   SignatureSet.init(pubkey, signing_root, signature)
 
-proc collectSignatureSets*(
+func collectSignatureSets*(
        sigs: var seq[SignatureSet],
        signed_block: ForkySignedBeaconBlock,
        validatorKeys: auto,
@@ -230,8 +230,6 @@ proc collectSignatureSets*(
   let
     fork = getStateField(state, fork)
     genesis_validators_root = getStateField(state, genesis_validators_root)
-
-  let
     proposer_index = signed_block.message.proposer_index
     proposer_key = validatorKeys.load(proposer_index).valueOr:
       return err("collectSignatureSets: invalid proposer index")
