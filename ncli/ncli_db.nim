@@ -1035,11 +1035,8 @@ proc cmdValidatorDb(conf: DbConf, cfg: RuntimeConfig) =
       if nextSlot.is_epoch:
         withState(tmpState[]):
           var stateData = newClone(forkyState.data)
-          when stateFork == ConsensusFork.EIP4844:
-            debugRaiseAssert $eip4844ImplementationMissing & ": ncli_db.nim:cmdValidatorDb"
-          else:
-            rewardsAndPenalties.collectEpochRewardsAndPenalties(
-              stateData[], cache, cfg, flags)
+          rewardsAndPenalties.collectEpochRewardsAndPenalties(
+            stateData[], cache, cfg, flags)
 
       let res = process_slots(cfg, tmpState[], nextSlot, cache, forkedInfo, flags)
       doAssert res.isOk, "Slot processing can't fail with correct inputs"
