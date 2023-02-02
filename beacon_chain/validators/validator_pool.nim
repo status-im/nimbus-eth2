@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[options, tables, json, streams, sequtils, uri],
+  std/[tables, json, streams, sequtils, uri],
   chronos, chronicles, metrics, eth/async_utils,
   json_serialization/std/net,
   presto, presto/client,
@@ -21,7 +21,7 @@ import
   ./slashing_protection
 
 export
-  streams, options, keystore, phase0, altair, tables, uri, crypto,
+  streams, keystore, phase0, altair, tables, uri, crypto,
   rest_types, eth2_rest_serialization, rest_remote_signer_calls,
   slashing_protection
 

@@ -535,7 +535,7 @@ func shortLog*(v: BLSToExecutionChange): auto =
   (
     validator_index: v.validator_index,
     from_bls_pubkey: shortLog(v.from_bls_pubkey),
-    to_execution_address: v.to_execution_address
+    to_execution_address: $v.to_execution_address
   )
 
 func shortLog*(v: SignedBLSToExecutionChange): auto =

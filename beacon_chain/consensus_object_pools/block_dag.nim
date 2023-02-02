@@ -34,7 +34,7 @@ type
     bid*: BlockId ##\
       ## Root that can be used to retrieve block data from database
 
-    executionBlockRoot*: Option[Eth2Digest]
+    executionBlockRoot*: Opt[Eth2Digest]
 
     parent*: BlockRef ##\
       ## Not nil, except for the finalized head
@@ -54,7 +54,7 @@ template slot*(blck: BlockRef): Slot = blck.bid.slot
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
-    executionPayloadRoot: Option[Eth2Digest], slot: Slot): BlockRef =
+    executionPayloadRoot: Opt[Eth2Digest], slot: Slot): BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
     executionBlockRoot: executionPayloadRoot)
@@ -63,7 +63,7 @@ func init*(
     T: type BlockRef, root: Eth2Digest,
     blck: phase0.SomeBeaconBlock | altair.SomeBeaconBlock |
           phase0.TrustedBeaconBlock | altair.TrustedBeaconBlock): BlockRef =
-  BlockRef.init(root, some ZERO_HASH, blck.slot)
+  BlockRef.init(root, Opt.some ZERO_HASH, blck.slot)
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
@@ -71,7 +71,8 @@ func init*(
           capella.SomeBeaconBlock | capella.TrustedBeaconBlock |
           eip4844.SomeBeaconBlock | eip4844.TrustedBeaconBlock): BlockRef =
   BlockRef.init(
-    root, some Eth2Digest(blck.body.execution_payload.block_hash), blck.slot)
+    root, Opt.some Eth2Digest(blck.body.execution_payload.block_hash),
+    blck.slot)
 
 func parent*(bs: BlockSlot): BlockSlot =
   ## Return a blockslot representing the previous slot, using the parent block

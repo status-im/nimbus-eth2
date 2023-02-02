@@ -968,7 +968,8 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # hasn't been written yet
   for blck in db.getAncestorSummaries(head.root):
     # The execution block root gets filled in as needed
-    let newRef = BlockRef.init(blck.root, none Eth2Digest, blck.summary.slot)
+    let newRef =
+      BlockRef.init(blck.root, Opt.none Eth2Digest, blck.summary.slot)
     if headRef == nil:
       headRef = newRef
 
@@ -1950,7 +1951,7 @@ proc loadExecutionBlockRoot*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
 
 proc loadExecutionBlockRoot*(dag: ChainDAGRef, blck: BlockRef): Eth2Digest =
   if blck.executionBlockRoot.isNone:
-    blck.executionBlockRoot = some dag.loadExecutionBlockRoot(blck.bid)
+    blck.executionBlockRoot = Opt.some dag.loadExecutionBlockRoot(blck.bid)
   blck.executionBlockRoot.unsafeGet
 
 proc updateHead*(

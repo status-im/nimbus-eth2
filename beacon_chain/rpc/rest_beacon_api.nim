@@ -1119,7 +1119,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
   router.api(MethodGet, "/eth/v1/beacon/pool/bls_to_execution_changes") do (
     ) -> RestApiResponse:
     return RestApiResponse.jsonResponse(
-      toSeq(node.validatorChangePool.bls_to_execution_changes))
+      toSeq(node.validatorChangePool.bls_to_execution_changes_gossip) &
+      toSeq(node.validatorChangePool.bls_to_execution_changes_api))
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/submitPoolBLSToExecutionChange
   # https://github.com/ethereum/beacon-APIs/blob/86850001845df9163da5ae9605dbf15cd318d5d0/apis/beacon/pool/bls_to_execution_changes.yaml
