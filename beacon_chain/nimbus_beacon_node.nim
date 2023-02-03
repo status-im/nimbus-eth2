@@ -321,7 +321,8 @@ proc initFullNode(
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
       rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime)
-    blockVerifier = proc(signedBlock: ForkedSignedBeaconBlock):
+    blockVerifier =
+        proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
@@ -329,7 +330,8 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       let resfut = newFuture[Result[void, VerifierError]]("blockVerifier")
       blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                Opt.none(eip4844.BlobsSidecar), resfut)
+                                Opt.none(eip4844.BlobsSidecar), resfut,
+                                maybeFinalized = maybeFinalized)
       resfut
     blockBlobsVerifier = proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar):
         Future[Result[void, VerifierError]] =

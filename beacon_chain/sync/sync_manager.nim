@@ -362,7 +362,15 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
 
       # Scoring will happen in `syncUpdate`.
       man.workers[index].status = SyncWorkerStatus.Queueing
-      await man.queue.push(req, data, proc() =
+      let
+        peerFinalized = peer.getFinalizedEpoch().start_slot()
+        lastSlot = req.slot + req.count
+        # The peer claims the block is finalized - our own block processing will
+        # verify this point down the line
+        # TODO descore peers that lie
+        maybeFinalized = lastSlot < peerFinalized
+
+      await man.queue.push(req, data, maybeFinalized, proc() =
         man.workers[index].status = SyncWorkerStatus.Processing)
     else:
       peer.updateScore(PeerScoreNoValues)

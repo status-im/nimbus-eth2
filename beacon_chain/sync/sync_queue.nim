@@ -26,7 +26,7 @@ type
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [Defect].}
   ProcessingCallback* = proc() {.gcsafe, raises: [Defect].}
   BlockVerifier* =
-    proc(signedBlock: ForkedSignedBeaconBlock):
+    proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 
   SyncQueueKind* {.pure.} = enum
@@ -578,6 +578,7 @@ func numAlreadyKnownSlots[T](sq: SyncQueue[T], sr: SyncRequest[T]): uint64 =
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ref ForkedSignedBeaconBlock],
+              maybeFinalized: bool = false,
               processingCb: ProcessingCallback = nil) {.async.} =
   logScope:
     sync_ident = sq.ident
@@ -654,7 +655,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       res: Result[void, VerifierError]
 
     for blk in sq.blocks(item):
-      res = await sq.blockVerifier(blk[])
+      res = await sq.blockVerifier(blk[], maybeFinalized)
       if res.isOk():
         goodBlock = some(blk[].slot)
       else:
