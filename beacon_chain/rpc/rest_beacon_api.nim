@@ -798,6 +798,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         if forked.kind != node.dag.cfg.blockForkAtEpoch(
              getForkedBlockField(forked, slot).epoch):
+          doAssert strictVerification notin node.dag.updateFlags
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
         withBlck(forked):
