@@ -603,6 +603,21 @@ func loadStateCache(
   if epoch > 0:
     load(epoch - 1)
 
+  if dag.head != nil: # nil during init.. sigh
+    let period = dag.head.slot.sync_committee_period
+    if period == epoch.sync_committee_period and
+        period notin cache.sync_committees and
+        period > dag.cfg.ALTAIR_FORK_EPOCH.sync_committee_period():
+      # If the block we're aiming for shares ancestry with head, we can reuse
+      # the cached head committee - this accounts for most "live" cases like
+      # syncing and checking blocks since the committees rarely change
+      let periodBsi = dag.atSlot(bid, period.start_slot)
+      if periodBsi.isSome and periodBsi ==
+          dag.atSlot(dag.head.bid, period.start_slot):
+        # We often end up sharing sync committees with head during sync / gossip
+        # validation / head updates
+        cache.sync_committees[period] = dag.headSyncCommittees
+
 func containsForkBlock*(dag: ChainDAGRef, root: Eth2Digest): bool =
   ## Checks for blocks at the finalized checkpoint or newer
   KeyedBlockRef.asLookupKey(root) in dag.forkBlocks
@@ -1014,6 +1029,10 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
         head = shortLog(head), tail = shortLog(dag.tail)
       quit 1
 
+  withState(dag.headState):
+    when stateFork >= ConsensusFork.Altair:
+      dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
+
   block:
     # EpochRef needs an epoch boundary state
     assign(dag.epochRefState, dag.headState)
@@ -1169,10 +1188,6 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
   # Fill validator key cache in case we're loading an old database that doesn't
   # have a cache
   dag.updateValidatorKeys(getStateField(dag.headState, validators).asSeq())
-
-  withState(dag.headState):
-    when stateFork >= ConsensusFork.Altair:
-      dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
   info "Block DAG initialized",
     head = shortLog(dag.head),
