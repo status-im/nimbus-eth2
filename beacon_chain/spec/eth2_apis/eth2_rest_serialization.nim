@@ -925,7 +925,9 @@ template prepareForkedBlockReading(
       of "bellatrix":
         version = some(ConsensusFork.Bellatrix)
       of "capella":
-        version = some(ConsensusFork.Bellatrix)
+        version = some(ConsensusFork.Capella)
+      of "eip4844":
+        version = some(ConsensusFork.EIP4844)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "block", "block_header", "data":
@@ -1200,7 +1202,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     voluntary_exits: Option[
       List[SignedVoluntaryExit, Limit MAX_VOLUNTARY_EXITS]]
     sync_aggregate: Option[SyncAggregate]
-    execution_payload: Option[bellatrix.ExecutionPayload]
+    execution_payload: Option[RestExecutionPayload]
+    bls_to_execution_changes: Option[SignedBLSToExecutionChangeList]
 
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -1259,7 +1262,12 @@ proc readValue*(reader: var JsonReader[RestJson],
       if execution_payload.isSome():
         reader.raiseUnexpectedField("Multiple `execution_payload` fields found",
                                     "RestPublishedBeaconBlockBody")
-      execution_payload = some(reader.readValue(bellatrix.ExecutionPayload))
+      execution_payload = some(reader.readValue(RestExecutionPayload))
+    of "bls_to_execution_changes":
+      if bls_to_execution_changes.isSome():
+        reader.raiseUnexpectedField("Multiple `bls_to_execution_changes` fields found",
+                                    "RestPublishedBeaconBlockBody")
+      bls_to_execution_changes = some(reader.readValue(SignedBLSToExecutionChangeList))
     else:
       unrecognizedFieldWarning()
 
@@ -1280,14 +1288,35 @@ proc readValue*(reader: var JsonReader[RestJson],
   if voluntary_exits.isNone():
     reader.raiseUnexpectedValue("Field `voluntary_exits` is missing")
 
-  discard $capellaImplementationMissing & ": autodetect via added field"
   let bodyKind =
-    if execution_payload.isSome() and sync_aggregate.isSome():
+    if  execution_payload.isSome() and
+        execution_payload.get().withdrawals.isSome() and
+        bls_to_execution_changes.isSome() and
+        sync_aggregate.isSome():
+      ConsensusFork.Capella
+    elif execution_payload.isSome() and sync_aggregate.isSome():
       ConsensusFork.Bellatrix
     elif execution_payload.isNone() and sync_aggregate.isSome():
       ConsensusFork.Altair
     else:
       ConsensusFork.Phase0
+
+  template ep_src: auto = execution_payload.get()
+  template copy_ep_bellatrix(ep_dst: auto) =
+    assign(ep_dst.parent_hash, ep_src.parent_hash)
+    assign(ep_dst.fee_recipient, ep_src.fee_recipient)
+    assign(ep_dst.state_root, ep_src.state_root)
+    assign(ep_dst.receipts_root, ep_src.receipts_root)
+    assign(ep_dst.logs_bloom, ep_src.logs_bloom)
+    assign(ep_dst.prev_randao, ep_src.prev_randao)
+    assign(ep_dst.block_number, ep_src.block_number)
+    assign(ep_dst.gas_limit, ep_src.gas_limit)
+    assign(ep_dst.gas_used, ep_src.gas_used)
+    assign(ep_dst.timestamp, ep_src.timestamp)
+    assign(ep_dst.extra_Data, ep_src.extra_Data)
+    assign(ep_dst.base_fee_per_Gas, ep_src.base_fee_per_Gas)
+    assign(ep_dst.block_hash, ep_src.block_hash)
+    assign(ep_dst.transactions, ep_src.transactions)
 
   case bodyKind
   of ConsensusFork.Phase0:
@@ -1332,11 +1361,29 @@ proc readValue*(reader: var JsonReader[RestJson],
         deposits: deposits.get(),
         voluntary_exits: voluntary_exits.get(),
         sync_aggregate: sync_aggregate.get(),
-        execution_payload: execution_payload.get()
       )
     )
+    copy_ep_bellatrix(value.bellatrixBody.execution_payload)
   of ConsensusFork.Capella:
-    reader.raiseUnexpectedValue($capellaImplementationMissing)
+    value = RestPublishedBeaconBlockBody(
+      kind: ConsensusFork.Capella,
+      capellaBody: capella.BeaconBlockBody(
+        randao_reveal: randao_reveal.get(),
+        eth1_data: eth1_data.get(),
+        graffiti: graffiti.get(),
+        proposer_slashings: proposer_slashings.get(),
+        attester_slashings: attester_slashings.get(),
+        attestations: attestations.get(),
+        deposits: deposits.get(),
+        voluntary_exits: voluntary_exits.get(),
+        sync_aggregate: sync_aggregate.get(),
+        bls_to_execution_changes: bls_to_execution_changes.get()
+      )
+    )
+    copy_ep_bellatrix(value.capellaBody.execution_payload)
+    assign(
+      value.capellaBody.execution_payload.withdrawals,
+      ep_src.withdrawals.get())
   of ConsensusFork.EIP4844:
     reader.raiseUnexpectedValue($eip4844ImplementationMissing)
 
@@ -1524,6 +1571,8 @@ proc readValue*(reader: var JsonReader[RestJson],
         version = some(ConsensusFork.Bellatrix)
       of "capella":
         version = some(ConsensusFork.Capella)
+      of "eip4844":
+        version = some(ConsensusFork.EIP4844)
       else:
         reader.raiseUnexpectedValue("Incorrect version field value")
     of "data":

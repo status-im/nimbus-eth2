@@ -183,8 +183,7 @@ switch("warning", "ObservableStores:off")
 switch("warning", "LockLevel:off")
 
 # Too many of these because of Defect compat in 1.2
-if (NimMajor, NimMinor) >= (1, 6):
-  switch("hint", "XCannotRaiseY:off")
+switch("hint", "XCannotRaiseY:off")
 
 # Useful for Chronos metrics.
 #--define:chronosFutureTracking
