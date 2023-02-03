@@ -413,7 +413,9 @@ proc processBlsToExecutionChange*(
 
   if v.isOk():
     trace "BLS to execution change validated"
-    self.validatorChangePool[].addMessage(blsToExecutionChange)
+    # Prioritize API-provided messages
+    self.validatorChangePool[].addMessage(
+      blsToExecutionChange, src == MsgSource.api)
   else:
     debug "Dropping BLS to execution change", validationError = v.error
     beacon_attester_slashings_dropped.inc(1, [$v.error[0]])

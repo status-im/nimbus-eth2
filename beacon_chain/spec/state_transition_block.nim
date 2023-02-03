@@ -407,9 +407,8 @@ proc check_bls_to_execution_change*(
     return err("process_bls_to_execution_change: invalid withdrawal credentials")
 
   if not verify_bls_to_execution_change_signature(
-      cfg.genesisFork, state.genesis_validators_root, state.get_current_epoch,
-      signed_address_change, address_change.from_bls_pubkey,
-      signed_address_change.signature):
+      cfg.genesisFork, state.genesis_validators_root, signed_address_change,
+      address_change.from_bls_pubkey, signed_address_change.signature):
     return err("process_bls_to_execution_change: invalid signature")
 
   ok()

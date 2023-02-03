@@ -370,16 +370,27 @@ proc verify_builder_signature*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 func compute_bls_to_execution_change_signing_root(
     genesisFork: Fork, genesis_validators_root: Eth2Digest,
-    epoch: Epoch, msg: BLSToExecutionChange): Eth2Digest =
+    msg: BLSToExecutionChange): Eth2Digest =
+  # So the epoch doesn't matter when calling get_domain
+  doAssert genesisFork.previous_version == genesisFork.current_version
+
   let domain = get_domain(
-    genesisFork, DOMAIN_BLS_TO_EXECUTION_CHANGE, epoch,
+    genesisFork, DOMAIN_BLS_TO_EXECUTION_CHANGE, GENESIS_EPOCH,
     genesis_validators_root)
   compute_signing_root(msg, domain)
 
+proc get_bls_to_execution_change_signature*(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: BLSToExecutionChange, privkey: ValidatorPrivKey):
+    CookedSig =
+  let signing_root = compute_bls_to_execution_change_signing_root(
+    genesisFork, genesis_validators_root, msg)
+  blsSign(privkey, signing_root.data)
+
 proc verify_bls_to_execution_change_signature*(
-    genesisFork: Fork, genesis_validators_root: Eth2Digest, epoch: Epoch,
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
     msg: SignedBLSToExecutionChange,
     pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
   let signing_root = compute_bls_to_execution_change_signing_root(
-    genesisFork, genesis_validators_root, epoch, msg.message)
+    genesisFork, genesis_validators_root, msg.message)
   blsVerify(pubkey, signing_root.data, signature)

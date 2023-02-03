@@ -10,16 +10,12 @@
 import
   # Standard libraries
   std/[deques, sets],
-  # Status libraries
-  chronicles,
   # Internal
   ../spec/datatypes/base,
   ../spec/[helpers, state_transition_block],
   "."/[attestation_pool, blockchain_dag]
 
-export base, deques, sets, blockchain_dag
-
-logScope: topics = "exitpool"
+export base, deques, blockchain_dag
 
 const
   ATTESTER_SLASHINGS_BOUND = MAX_ATTESTER_SLASHINGS * 4
@@ -27,7 +23,7 @@ const
   VOLUNTARY_EXITS_BOUND = MAX_VOLUNTARY_EXITS * 4
 
   # For Capella launch; scale back later
-  BLS_TO_EXECUTION_CHANGES_BOUND = 32768'u64
+  BLS_TO_EXECUTION_CHANGES_BOUND = 16384'u64
 
 type
   OnVoluntaryExitCallback =
@@ -47,23 +43,26 @@ type
     voluntary_exits*: Deque[SignedVoluntaryExit]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
-    bls_to_execution_changes*: Deque[SignedBLSToExecutionChange]  ## \
+    bls_to_execution_changes_gossip*: Deque[SignedBLSToExecutionChange]  ## \
     ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
 
-    prior_seen_attester_slashed_indices*: HashSet[uint64] ## \
+    bls_to_execution_changes_api*: Deque[SignedBLSToExecutionChange]  ## \
+    ## Not a function of chain DAG branch; just used as a FIFO queue for blocks
+
+    prior_seen_attester_slashed_indices: HashSet[uint64] ## \
     ## Records attester-slashed indices seen.
 
-    prior_seen_proposer_slashed_indices*: HashSet[uint64] ## \
+    prior_seen_proposer_slashed_indices: HashSet[uint64] ## \
     ## Records proposer-slashed indices seen.
 
-    prior_seen_voluntary_exit_indices*: HashSet[uint64] ##\
+    prior_seen_voluntary_exit_indices: HashSet[uint64] ##\
     ## Records voluntary exit indices seen.
 
-    prior_seen_bls_to_execution_change_indices*: HashSet[uint64] ##\
+    prior_seen_bls_to_execution_change_indices: HashSet[uint64] ##\
     ## Records BLS to execution change indices seen.
 
     dag*: ChainDAGRef
-    attestationPool*: ref AttestationPool
+    attestationPool: ref AttestationPool
     onVoluntaryExitReceived*: OnVoluntaryExitCallback
 
 func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
@@ -78,7 +77,12 @@ func init*(T: type ValidatorChangePool, dag: ChainDAGRef,
       initDeque[ProposerSlashing](initialSize = PROPOSER_SLASHINGS_BOUND.int),
     voluntary_exits:
       initDeque[SignedVoluntaryExit](initialSize = VOLUNTARY_EXITS_BOUND.int),
-    bls_to_execution_changes:
+    bls_to_execution_changes_gossip:
+      # TODO scale-back to BLS_TO_EXECUTION_CHANGES_BOUND post-capella, but
+      # given large bound, allow to grow dynamically rather than statically
+      # allocate all at once
+      initDeque[SignedBLSToExecutionChange](initialSize = 1024),
+    bls_to_execution_changes_api:
       # TODO scale-back to BLS_TO_EXECUTION_CHANGES_BOUND post-capella, but
       # given large bound, allow to grow dynamically rather than statically
       # allocate all at once
@@ -153,28 +157,34 @@ func addMessage*(pool: var ValidatorChangePool, msg: SignedVoluntaryExit) =
   pool.voluntary_exits.addValidatorChangeMessage(
     pool.prior_seen_voluntary_exit_indices, msg, VOLUNTARY_EXITS_BOUND)
 
-func addMessage*(pool: var ValidatorChangePool, msg: SignedBLSToExecutionChange) =
+func addMessage*(
+    pool: var ValidatorChangePool, msg: SignedBLSToExecutionChange,
+    localPriorityMessage: bool) =
   pool.prior_seen_bls_to_execution_change_indices.incl(
     msg.message.validator_index)
-  pool.bls_to_execution_changes.addValidatorChangeMessage(
-    pool.prior_seen_bls_to_execution_change_indices, msg,
-    BLS_TO_EXECUTION_CHANGES_BOUND)
+  template addMessageAux(subpool) =
+    addValidatorChangeMessage(
+      subpool, pool.prior_seen_bls_to_execution_change_indices, msg,
+      BLS_TO_EXECUTION_CHANGES_BOUND)
+  if localPriorityMessage:
+    addMessageAux(pool.bls_to_execution_changes_api)
+  else:
+    addMessageAux(pool.bls_to_execution_changes_gossip)
 
-proc validateExitMessage(
+proc validateValidatorChangeMessage(
     cfg: RuntimeConfig, state: ForkyBeaconState, msg: ProposerSlashing): bool =
   check_proposer_slashing(state, msg, {}).isOk
-proc validateExitMessage(
+proc validateValidatorChangeMessage(
     cfg: RuntimeConfig, state: ForkyBeaconState, msg: AttesterSlashing): bool =
   check_attester_slashing(state, msg, {}).isOk
-proc validateExitMessage(
+proc validateValidatorChangeMessage(
     cfg: RuntimeConfig, state: ForkyBeaconState, msg: SignedVoluntaryExit):
     bool =
   check_voluntary_exit(cfg, state, msg, {}).isOk
-proc validateExitMessage(
+proc validateValidatorChangeMessage(
     cfg: RuntimeConfig, state: ForkyBeaconState,
     msg: SignedBLSToExecutionChange): bool =
-  true
-  # TODO check_voluntary_exit(cfg, state, msg, {}).isOk
+  check_bls_to_execution_change(cfg, state, msg).isOk
 
 proc getValidatorChangeMessagesForBlock(
     subpool: var Deque, cfg: RuntimeConfig, state: ForkyBeaconState,
@@ -200,20 +210,20 @@ proc getValidatorChangeMessagesForBlock(
   # removed them, if we have the chance.
   while subpool.len > 0 and output.len < output.maxLen:
     # Prefer recent messages
-    let exit_message = subpool.popLast()
+    let validator_change_message = subpool.popLast()
     # Re-check that message is still valid in the state that we're proposing
-    if not validateExitMessage(cfg, state, exit_message):
+    if not validateValidatorChangeMessage(cfg, state, validator_change_message):
       continue
 
     var skip = false
-    for slashed_index in getValidatorIndices(exit_message):
+    for slashed_index in getValidatorIndices(validator_change_message):
       if seen.containsOrIncl(slashed_index):
         skip = true
         break
     if skip:
       continue
 
-    if not output.add exit_message:
+    if not output.add validator_change_message:
       break
 
   subpool.clear()
@@ -232,8 +242,13 @@ proc getBeaconBlockValidatorChanges*(
   getValidatorChangeMessagesForBlock(
     pool.voluntary_exits, cfg, state, indices, res.voluntary_exits)
   when typeof(state).toFork() >= ConsensusFork.Capella:
+    # Prioritize these
     getValidatorChangeMessagesForBlock(
-      pool.bls_to_execution_changes, cfg, state, indices,
+      pool.bls_to_execution_changes_api, cfg, state, indices,
+      res.bls_to_execution_changes)
+
+    getValidatorChangeMessagesForBlock(
+      pool.bls_to_execution_changes_gossip, cfg, state, indices,
       res.bls_to_execution_changes)
 
   res

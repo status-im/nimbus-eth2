@@ -49,6 +49,8 @@ func makeSignedVoluntaryExit(
       fork, genesis_validators_root, tmp,
       MockPrivKeys[validator_index]).toValidatorSig)
 
+from std/sequtils import allIt
+
 suite "Validator change pool testing suite":
   setup:
     let
@@ -129,7 +131,6 @@ suite "Validator change pool testing suite":
 
     for i in 0'u64 .. MAX_VOLUNTARY_EXITS + 5:
       for j in 0'u64 .. i:
-        # Cannot exit until
         let msg = makeSignedVoluntaryExit(
           fork, genesis_validators_root, dag.headState.get_current_epoch(), j)
         if i == 0:
@@ -159,12 +160,17 @@ suite "Validator change pool testing suite":
 
     for i in 0'u64 .. MAX_BLS_TO_EXECUTION_CHANGES + 5:
       for j in 0'u64 .. i:
-        let msg = SignedBLSToExecutionChange(
-          message: BLSToExecutionChange(validator_index: j))
+        var msg = SignedBLSToExecutionChange(
+          message: BLSToExecutionChange(
+            validator_index: j,
+            from_bls_pubkey: MockPubKeys[j]))
+        msg.signature = toValidatorSig(get_bls_to_execution_change_signature(
+          dag.cfg.genesisFork(), dag.genesis_validators_root, msg.message,
+          MockPrivKeys[msg.message.validator_index]))
         if i == 0:
           check not pool[].isSeen(msg)
 
-        pool[].addMessage(msg)
+        pool[].addMessage(msg, false)
         check: pool[].isSeen(msg)
 
       withState(dag.headState):
@@ -184,20 +190,33 @@ suite "Validator change pool testing suite":
     let fork = dag.forkAtEpoch(dag.headState.get_current_epoch())
 
     for i in 0'u64 .. MAX_BLS_TO_EXECUTION_CHANGES + 5:
+      var priorityMessages: seq[SignedBLSToExecutionChange]
       for j in 0'u64 .. i:
-        let msg = SignedBLSToExecutionChange(
-          message: BLSToExecutionChange(validator_index: j))
+        var msg = SignedBLSToExecutionChange(
+          message: BLSToExecutionChange(
+            validator_index: j,
+            from_bls_pubkey: MockPubKeys[j]))
+        msg.signature = toValidatorSig(get_bls_to_execution_change_signature(
+          dag.cfg.genesisFork(), dag.genesis_validators_root, msg.message,
+          MockPrivKeys[msg.message.validator_index]))
         if i == 0:
           check not pool[].isSeen(msg)
 
-        pool[].addMessage(msg)
+        let isPriorityMessage = i mod 2 == 0
+        pool[].addMessage(msg, localPriorityMessage = isPriorityMessage)
+        if isPriorityMessage:
+          priorityMessages.add msg
         check: pool[].isSeen(msg)
 
       withState(dag.headState):
+        let blsToExecutionChanges = pool[].getBeaconBlockValidatorChanges(
+          cfg, forkyState.data).bls_to_execution_changes
         check:
-          pool[].getBeaconBlockValidatorChanges(
-              cfg, forkyState.data).bls_to_execution_changes.lenu64 ==
-            min(i + 1, MAX_BLS_TO_EXECUTION_CHANGES)
+          blsToExecutionChanges.lenu64 == min(i + 1, MAX_BLS_TO_EXECUTION_CHANGES)
+
+          # Ensure priority of API to gossip messages is observed
+          allIt(priorityMessages, pool[].isSeen(it))
+
           pool[].getBeaconBlockValidatorChanges(
             cfg, forkyState.data).bls_to_execution_changes.len == 0
 
