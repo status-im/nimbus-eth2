@@ -1251,7 +1251,8 @@ func latestEth1BlockNumber(m: Eth1Monitor): Eth1BlockNumber =
     Eth1BlockNumber 0
 
 func earliestBlockOfInterest(m: Eth1Monitor): Eth1BlockNumber =
-  m.latestEth1BlockNumber - (2 * m.cfg.ETH1_FOLLOW_DISTANCE) - votedBlocksSafetyMargin
+  m.latestEth1BlockNumber - SLOTS_PER_ETH1_VOTING_PERIOD - (2 *
+      m.cfg.ETH1_FOLLOW_DISTANCE) - votedBlocksSafetyMargin
 
 proc syncBlockRange(m: Eth1Monitor,
                     fromBlock, toBlock,
