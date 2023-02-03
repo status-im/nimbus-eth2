@@ -39,7 +39,7 @@ type
   RequestManager* = object
     network*: Eth2Node
     inpQueue*: AsyncQueue[FetchRecord]
-    cfg: RuntimeConfig
+    EIP4844_FORK_EPOCH: Epoch
     getBeaconTime: GetBeaconTimeFn
     blockVerifier: BlockVerifier
     blockBlobsVerifier: BlockBlobsVerifier
@@ -52,14 +52,14 @@ func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
 proc init*(T: type RequestManager, network: Eth2Node,
-              cfg: RuntimeConfig,
+              eip4844Epoch: Epoch,
               getBeaconTime: GetBeaconTimeFn,
               blockVerifier: BlockVerifier,
               blockBlobsVerifier: BlockBlobsVerifier): RequestManager =
   RequestManager(
     network: network,
     inpQueue: newAsyncQueue[FetchRecord](),
-    cfg: cfg,
+    EIP4844_FORK_EPOCH: eip4844Epoch,
     getBeaconTime: getBeaconTime,
     blockVerifier: blockVerifier,
     blockBlobsVerifier: blockBlobsVerifier,
@@ -249,7 +249,7 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
 
 
 proc isBlobsTime(rman: RequestManager): bool =
-  rman.getBeaconTime().slotOrZero.epoch >= rman.cfg.EIP4844_FORK_EPOCH
+  rman.getBeaconTime().slotOrZero.epoch >= rman.EIP4844_FORK_EPOCH
 
 proc requestManagerLoop(rman: RequestManager) {.async.} =
   var rootList = newSeq[Eth2Digest]()
