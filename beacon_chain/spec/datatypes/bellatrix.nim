@@ -404,7 +404,12 @@ func shortLog*(v: ExecutionPayload): auto =
     gas_used: v.gas_used,
     timestamp: v.timestamp,
     extra_data_len: len(v.extra_data),
-    base_fee_per_gas: $(v.base_fee_per_gas),
+
+    # TODO re-enable when this doesn't trigger multiple
+    # nimbus-eth2/vendor/nim-stint/stint/private/uint_div.nim(240, 24) Warning:
+    # See corresponding Defect; DivByZeroError is deprecated [Deprecated]
+    # base_fee_per_gas: $(v.base_fee_per_gas),
+
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions)
   )
