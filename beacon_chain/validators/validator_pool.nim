@@ -111,7 +111,7 @@ func init*(T: type ValidatorPool,
 template count*(pool: ValidatorPool): int =
   len(pool.validators)
 
-proc addLocalValidator*(
+proc addLocalValidator(
     pool: var ValidatorPool, keystore: KeystoreData,
     feeRecipient: Eth1Address): AttachedValidator =
   doAssert keystore.kind == KeystoreKind.Local
@@ -132,9 +132,9 @@ proc addLocalValidator*(
 
   v
 
-proc addRemoteValidator*(pool: var ValidatorPool, keystore: KeystoreData,
-                         clients: seq[(RestClientRef, RemoteSignerInfo)],
-                         feeRecipient: Eth1Address): AttachedValidator =
+proc addRemoteValidator(pool: var ValidatorPool, keystore: KeystoreData,
+                        clients: seq[(RestClientRef, RemoteSignerInfo)],
+                        feeRecipient: Eth1Address): AttachedValidator =
   doAssert keystore.kind == KeystoreKind.Remote
   let v = AttachedValidator(
     kind: ValidatorKind.Remote,
@@ -153,6 +153,42 @@ proc addRemoteValidator*(pool: var ValidatorPool, keystore: KeystoreData,
   validators.set(pool.count().int64)
 
   v
+
+proc addRemoteValidator(pool: var ValidatorPool,
+                        keystore: KeystoreData,
+                        feeRecipient: Eth1Address): AttachedValidator =
+  let
+    httpFlags =
+      if RemoteKeystoreFlag.IgnoreSSLVerification in keystore.flags:
+        {HttpClientFlag.NoVerifyHost, HttpClientFlag.NoVerifyServerName}
+      else:
+        {}
+    prestoFlags = {RestClientFlag.CommaSeparatedArray}
+    clients =
+      block:
+        var res: seq[(RestClientRef, RemoteSignerInfo)]
+        for remote in keystore.remotes:
+          let client = RestClientRef.new($remote.url, prestoFlags, httpFlags)
+          if client.isErr():
+            # TODO keep trying in case of temporary network failure
+            warn "Unable to resolve distributed signer address",
+                  remote_url = $remote.url, validator = $remote.pubkey
+          else:
+            res.add((client.get(), remote))
+        res
+
+  pool.addRemoteValidator(keystore, clients, feeRecipient)
+
+proc addValidator*(pool: var ValidatorPool,
+                   keystore: KeystoreData,
+                   feeRecipient: Eth1Address): AttachedValidator =
+  pool.validators.withValue(keystore.pubkey, v):
+    notice "Adding already-known validator", validator = shortLog(v[])
+    return v[]
+
+  case keystore.kind
+  of KeystoreKind.Local: pool.addLocalValidator(keystore, feeRecipient)
+  of KeystoreKind.Remote: pool.addRemoteValidator(keystore, feeRecipient)
 
 proc getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =
@@ -178,19 +214,29 @@ proc removeValidator*(pool: var ValidatorPool, pubkey: ValidatorPubKey) =
 proc needsUpdate*(validator: AttachedValidator): bool =
   validator.index.isNone() or validator.activationEpoch == FAR_FUTURE_EPOCH
 
-proc updateValidator*(validator: AttachedValidator,
-                      index: ValidatorIndex, activationEpoch: Epoch) =
+proc updateValidator*(
+    validator: AttachedValidator,
+    index: ValidatorIndex, activationEpoch: Epoch) =
   ## Update activation information for a validator
-  validator.index = Opt.some(index)
-  validator.activationEpoch = activationEpoch
+  if validator.index != Opt.some index:
+    validator.index = Opt.some index
 
-  if validator.doppelStatus == DoppelgangerStatus.Unknown:
-    if validator.doppelEpoch.isSome() and activationEpoch != FAR_FUTURE_EPOCH:
-      let doppelEpoch = validator.doppelEpoch.get()
-      if doppelEpoch >= validator.activationEpoch + DOPPELGANGER_EPOCHS_COUNT:
-        validator.doppelStatus = DoppelgangerStatus.Checking
-      else:
-        validator.doppelStatus = DoppelgangerStatus.Checked
+  if validator.activationEpoch != activationEpoch:
+    # In theory, activation epoch could change but that's rare enough that it
+    # shouldn't practically matter for the current uses
+    info "Validator activation updated",
+      validator = shortLog(validator), pubkey = validator.pubkey, index,
+      activationEpoch
+
+    validator.activationEpoch = activationEpoch
+
+    if validator.doppelStatus == DoppelgangerStatus.Unknown:
+      if validator.doppelEpoch.isSome() and activationEpoch != FAR_FUTURE_EPOCH:
+        let doppelEpoch = validator.doppelEpoch.get()
+        if doppelEpoch >= validator.activationEpoch + DOPPELGANGER_EPOCHS_COUNT:
+          validator.doppelStatus = DoppelgangerStatus.Checking
+        else:
+          validator.doppelStatus = DoppelgangerStatus.Checked
 
 proc close*(pool: var ValidatorPool) =
   ## Unlock and close all validator keystore's files managed by ``pool``.
@@ -199,26 +245,6 @@ proc close*(pool: var ValidatorPool) =
     if res.isErr():
       notice "Could not unlock validator's keystore file",
              pubkey = validator.pubkey, validator = shortLog(validator)
-
-proc addRemoteValidator*(pool: var ValidatorPool,
-                         keystore: KeystoreData,
-                         feeRecipient: Eth1Address): AttachedValidator =
-  var clients: seq[(RestClientRef, RemoteSignerInfo)]
-  let httpFlags =
-    block:
-      var res: set[HttpClientFlag]
-      if RemoteKeystoreFlag.IgnoreSSLVerification in keystore.flags:
-        res.incl({HttpClientFlag.NoVerifyHost,
-                  HttpClientFlag.NoVerifyServerName})
-      res
-  let prestoFlags = {RestClientFlag.CommaSeparatedArray}
-  for remote in keystore.remotes:
-    let client = RestClientRef.new($remote.url, prestoFlags, httpFlags)
-    if client.isErr():
-      warn "Unable to resolve distributed signer address",
-          remote_url = $remote.url, validator = $remote.pubkey
-    clients.add((client.get(), remote))
-  pool.addRemoteValidator(keystore, clients, feeRecipient)
 
 iterator publicKeys*(pool: ValidatorPool): ValidatorPubKey =
   for item in pool.validators.keys():

@@ -130,7 +130,7 @@ proc handleAddRemoteValidatorReq(host: KeymanagerHost,
       data = host.getValidatorData(keystore.pubkey)
       feeRecipient = host.getSuggestedFeeRecipient(keystore.pubkey).valueOr(
         host.defaultFeeRecipient)
-      v = host.validatorPool[].addRemoteValidator(res.get, feeRecipient)
+      v = host.validatorPool[].addValidator(res.get, feeRecipient)
     if data.isSome():
       v.updateValidator(data.get().index, data.get().validator.activation_epoch)
 

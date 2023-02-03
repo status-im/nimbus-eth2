@@ -1329,8 +1329,7 @@ proc addLocalValidator*(host: KeymanagerHost, keystore: KeystoreData) =
     data = host.getValidatorData(keystore.pubkey)
     feeRecipient = host.getSuggestedFeeRecipient(keystore.pubkey).valueOr(
       host.defaultFeeRecipient)
-
-  let v = host.validatorPool[].addLocalValidator(keystore, feeRecipient)
+    v = host.validatorPool[].addValidator(keystore, feeRecipient)
   if data.isSome():
     v.updateValidator(data.get().index, data.get().validator.activation_epoch)
 

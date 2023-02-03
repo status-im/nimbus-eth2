@@ -96,11 +96,20 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
       list.add(validator)
 
   if len(updated) > 0:
-    info "Validator indices updated", missing_validators = len(missing),
-         updated_validators = len(updated)
+    info "Validator indices updated",
+      pending = len(validatorIdents) - len(updated),
+      missing = len(missing),
+      updated = len(updated)
     trace "Validator indices update dump", missing_validators = missing,
           updated_validators = updated
     vc.indicesAvailable.fire()
+
+  if not vc.polledIndices:
+    vc.polledIndices = true
+    for validator in vc.attachedValidators[].items():
+      if validator.needsUpdate():
+        notice "Validator deposit not yet processed, monitoring",
+          pubkey = validator.pubkey
 
 proc pollForAttesterDuties*(vc: ValidatorClientRef,
                             epoch: Epoch): Future[int] {.async.} =

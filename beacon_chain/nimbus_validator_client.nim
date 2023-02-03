@@ -84,16 +84,10 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
       return melem
 
 proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
-  info "Initializaing validators", path = vc.config.validatorsDir()
+  info "Loading validators", validatorsDir = vc.config.validatorsDir()
   var duplicates: seq[ValidatorPubKey]
   for keystore in listLoadableKeystores(vc.config):
-    let pubkey = keystore.pubkey
-    if pubkey in duplicates:
-      warn "Duplicate validator key found", validator_pubkey = pubkey
-      continue
-    else:
-      duplicates.add(pubkey)
-      vc.addValidator(keystore)
+    vc.addValidator(keystore)
   return true
 
 proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =

@@ -99,14 +99,13 @@ proc getValidator*(validators: auto,
   if idx == -1:
     # We allow adding a validator even if its key is not in the state registry:
     # it might be that the deposit for this validator has not yet been processed
-    notice "Validator deposit not yet processed, monitoring", pubkey
     Opt.none ValidatorAndIndex
   else:
     Opt.some ValidatorAndIndex(index: ValidatorIndex(idx),
                                validator: validators[idx])
 
 proc addValidators*(node: BeaconNode) =
-  debug "Loading validators", validatorsDir = node.config.validatorsDir()
+  info "Loading validators", validatorsDir = node.config.validatorsDir()
   let
     epoch = node.currentSlot().epoch
   for keystore in listLoadableKeystores(node.config):
@@ -121,18 +120,13 @@ proc addValidators*(node: BeaconNode) =
       feeRecipient = node.consensusManager[].getFeeRecipient(
         keystore.pubkey, index, epoch)
 
-    let v = case keystore.kind
-    of KeystoreKind.Local:
-      node.attachedValidators[].addLocalValidator(keystore, feeRecipient)
-    of KeystoreKind.Remote:
-      node.attachedValidators[].addRemoteValidator(keystore, feeRecipient)
+      v = node.attachedValidators[].addValidator(keystore, feeRecipient)
 
     if data.isSome:
       v.updateValidator(data.get().index, data.get().validator.activation_epoch)
-
-proc getAttachedValidator(node: BeaconNode,
-                          pubkey: ValidatorPubKey): AttachedValidator =
-  node.attachedValidators[].getValidator(pubkey)
+    else:
+      notice "Validator deposit not yet processed, monitoring",
+        pubkey = keystore.pubkey
 
 proc getValidatorForDuties*(
     node: BeaconNode,
@@ -1459,6 +1453,27 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
     warn "registerValidators: exception",
       error = exc.msg
 
+proc updateValidators(
+    node: BeaconNode, validators: openArray[Validator]) =
+  # Since validator indicies are stable, we only check the "updated" range -
+  # checking all validators would significantly slow down this loop when there
+  # are many inactive keys
+  for i in node.dutyValidatorCount..validators.high:
+    let v = node.attachedValidators[].getValidator(validators[i].pubkey)
+    if v != nil:
+      v.index = Opt.some ValidatorIndex(i)
+
+  node.dutyValidatorCount = validators.len
+
+  for validator in node.attachedValidators[]:
+    # Check if any validators have been activated
+    if validator.needsUpdate and validator.index.isSome():
+      # Activation epoch can change after index is assigned..
+      let index = validator.index.get()
+      if index < validators.lenu64:
+        validator.updateValidator(
+          index, validators[int index].activation_epoch)
+
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
   if node.attachedValidators[].count == 0:
@@ -1489,18 +1504,8 @@ proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   of SyncStatus.synced:
     discard # keep going
 
-  for validator in node.attachedValidators[]:
-    # Check if any validators have been activated
-    # TODO we could do this the other way around and update only validators
-    #      based on a "last-updated" index since only the tail end of the
-    #      validator list in the state ever changes
-    if validator.needsUpdate:
-      let data = withState(node.dag.headState):
-        getValidator(forkyState.data.validators.asSeq(), validator.pubkey)
-      if data.isSome():
-        # Activation epoch can change after index is assigned..
-        validator.updateValidator(
-          data.get().index, data.get().validator.activation_epoch)
+  withState(node.dag.headState):
+    node.updateValidators(forkyState.data.validators.asSeq())
 
   var curSlot = lastSlot + 1
 
