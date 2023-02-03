@@ -349,11 +349,11 @@ proc initFullNode(
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, rng, getBeaconTime, taskpool)
     syncManager = newSyncManager[Peer, PeerId](
-      node.network.peerPool, dag.cfg, SyncQueueKind.Forward, getLocalHeadSlot,
+      node.network.peerPool, dag.cfg.EIP4844_FORK_EPOCH, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.tail.slot, blockVerifier, blockBlobsVerifier)
     backfiller = newSyncManager[Peer, PeerId](
-      node.network.peerPool, dag.cfg, SyncQueueKind.Backward, getLocalHeadSlot,
+      node.network.peerPool, dag.cfg.EIP4844_FORK_EPOCH, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
       getFrontfillSlot, dag.backfill.slot, blockVerifier, blockBlobsVerifier,
       maxHeadAge = 0)

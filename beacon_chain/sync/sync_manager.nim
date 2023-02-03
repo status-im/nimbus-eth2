@@ -47,7 +47,7 @@ type
 
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
-    cfg: RuntimeConfig
+    EIP4844_FORK_EPOCH: Epoch
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
     getLocalHeadSlot: GetSlotCallback
@@ -116,7 +116,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                                man.ident)
 
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
-                           cfg: RuntimeConfig,
+                           eip4844Epoch: Epoch,
                            direction: SyncQueueKind,
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
@@ -139,7 +139,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
 
   var res = SyncManager[A, B](
     pool: pool,
-    cfg: cfg,
+    EIP4844_FORK_EPOCH: eip4844Epoch,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     getSafeSlot: getSafeSlot,
@@ -186,6 +186,12 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
     debug "Error, while waiting getBlocks response", request = req,
           errName = exc.name, errMsg = exc.msg
     return
+
+proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
+  let wallEpoch = man.getLocalWallSlot().epoch
+  e >= man.EIP4844_FORK_EPOCH and
+  (wallEpoch < MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS or
+   e >=  wallEpoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS)
 
 proc getBlobsSidecars*[A, B](man: SyncManager[A, B], peer: A,
                       req: SyncRequest): Future[BlobsSidecarRes] {.async.} =
@@ -390,10 +396,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
       return
 
     let blobData =
-      if req.slot.epoch >= man.cfg.EIP4844_FORK_EPOCH and
-         (man.getLocalWallSlot().epoch < MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS or
-         req.slot.epoch >= man.getLocalWallSlot().epoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS):
-        debug "will get blobs", epoch=req.slot.epoch, eip4844_epoch=man.cfg.EIP4844_FORK_EPOCH, diff=man.getLocalWallSlot().epoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS
+      if man.shouldGetBlobs(req.slot.epoch):
         let blobs = await man.getBlobsSidecars(peer, req)
         if blobs.isErr():
           peer.updateScore(PeerScoreNoValues)
