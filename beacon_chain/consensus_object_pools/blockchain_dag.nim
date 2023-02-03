@@ -534,6 +534,8 @@ func init*(
 
     attester_dependent_root = withState(state):
       forkyState.attester_dependent_root
+    total_active_balance = withState(state):
+      get_total_active_balance(forkyState.data, cache)
     epochRef = EpochRef(
       key: dag.epochKey(state.latest_block_id, epoch).expect(
         "Valid epoch ancestor when processing state"),
@@ -551,7 +553,8 @@ func init*(
       # beacon_proposers: Separately filled below
       proposer_dependent_root: proposer_dependent_root,
 
-      shufflingRef: shufflingRef
+      shufflingRef: shufflingRef,
+      total_active_balance: total_active_balance
     )
     epochStart = epoch.start_slot()
 
@@ -597,6 +600,7 @@ func loadStateCache(
           let start_slot = epoch.start_slot()
           for i, idx in epochRef[][].beacon_proposers:
             cache.beacon_proposer_indices[start_slot + i] = idx
+          cache.total_active_balance[epoch] = epochRef[][].total_active_balance
 
   load(epoch)
 

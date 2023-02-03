@@ -271,6 +271,8 @@ type
 
     shufflingRef*: ShufflingRef
 
+    total_active_balance*: Gwei
+
     # balances, as used in fork choice
     effective_balances_bytes*: seq[byte]
 
