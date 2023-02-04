@@ -4,8 +4,8 @@ The recommended system requirements for running the Nimbus beacon node are:
 
 | What       |  Recommended |
 | ---------- | ------ |
-| Operating system | Linux [64-bit](https://en.wikipedia.org/wiki/64-bit_computing), Windows 64-bit, macOS X 10.15+ |
-| Memory     | 8GB |
+| Operating system | Linux [64-bit](https://en.wikipedia.org/wiki/64-bit_computing), Windows 64-bit, macOS 11+ |
+| Memory     | 4GB (running) or 8GB (building) |
 | Disk space | 200GB |
 | Network    | Reliable broadband |
 
