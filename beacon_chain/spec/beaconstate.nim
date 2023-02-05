@@ -836,7 +836,7 @@ func is_partially_withdrawable_validator(
   has_eth1_withdrawal_credential(validator) and
     has_max_effective_balance and has_excess_balance
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/beacon-chain.md#new-get_expected_withdrawals
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#new-get_expected_withdrawals
 func get_expected_withdrawals*(
     state: capella.BeaconState | eip4844.BeaconState): seq[Withdrawal] =
   let
