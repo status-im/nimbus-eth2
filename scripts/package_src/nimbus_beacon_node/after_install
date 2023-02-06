@@ -19,4 +19,5 @@ fi
 mkdir -p /var/lib/nimbus
 chown nimbus:nimbus /var/lib/nimbus
 
-systemctl daemon-reload
+# Systems like docker containers do not have systemd.
+systemctl daemon-reload || echo "notice: systemd daemon not reloaded" >&2
