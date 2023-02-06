@@ -2,10 +2,15 @@
 
 set -e
 
-DISTRO=$(lsb_release -si)
+DISTRO="UNKNOWN"
+if [[ -r /etc/os-release ]]; then
+    . /etc/os-release
+    DISTRO="${ID}"
+fi
+
 if ! id -u nimbus > /dev/null 2>&1; then
   case $DISTRO in
-    Ubuntu|Debian)
+    Ubuntu|ubuntu|Debian|debian)
       # Debian uses `adduser` to create user...
       adduser --system --no-create-home --group nimbus
       ;;
