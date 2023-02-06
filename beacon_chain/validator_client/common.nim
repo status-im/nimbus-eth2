@@ -173,7 +173,6 @@ type
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
     rng*: ref HmacDrbgContext
-    polledIndices*: bool
 
   ValidatorClientRef* = ref ValidatorClient
 

@@ -40,6 +40,10 @@ type
 
   ValidatorConnection* = RestClientRef
 
+  ValidatorAndIndex* = object
+    index*: ValidatorIndex
+    validator*: Validator
+
   DoppelgangerStatus {.pure.} = enum
     Unknown, Checking, Checked
 
@@ -52,6 +56,7 @@ type
       clients*: seq[(RestClientRef, RemoteSignerInfo)]
       threshold*: uint32
 
+    updated*: bool
     index*: Opt[ValidatorIndex]
       ## Validator index which is assigned after the eth1 deposit has been
       ## processed - this index is valid across all eth2 forks for fork depths
@@ -215,13 +220,24 @@ proc needsUpdate*(validator: AttachedValidator): bool =
   validator.index.isNone() or validator.activationEpoch == FAR_FUTURE_EPOCH
 
 proc updateValidator*(
-    validator: AttachedValidator,
-    index: ValidatorIndex, activationEpoch: Epoch) =
-  ## Update activation information for a validator
-  if validator.index != Opt.some index:
-    validator.index = Opt.some index
+    validator: AttachedValidator, validatorData: Opt[ValidatorAndIndex]) =
+  defer: validator.updated = true
 
-  if validator.activationEpoch != activationEpoch:
+  let
+    data = validatorData.valueOr:
+      if not validator.updated:
+        notice "Validator deposit not yet processed, monitoring",
+          pubkey = validator.pubkey
+
+      return
+    index = data.index
+    activationEpoch = data.validator.activation_epoch
+
+  ## Update activation information for a validator
+  if validator.index != Opt.some data.index:
+    validator.index = Opt.some data.index
+
+  if validator.activationEpoch != data.validator.activation_epoch:
     # In theory, activation epoch could change but that's rare enough that it
     # shouldn't practically matter for the current uses
     info "Validator activation updated",

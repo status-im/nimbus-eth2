@@ -89,9 +89,12 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
   for item in validators:
     var validator = vc.attachedValidators[].getValidator(item.validator.pubkey)
     if isNil(validator):
+      validator.updateValidator(Opt.none ValidatorAndIndex)
       missing.add(validatorLog(item.validator.pubkey, item.index))
     else:
-      validator.updateValidator(item.index, item.validator.activation_epoch)
+      validator.updateValidator(Opt.some ValidatorAndIndex(
+        index: item.index,
+        validator: item.validator))
       updated.add(validatorLog(item.validator.pubkey, item.index))
       list.add(validator)
 
@@ -103,13 +106,6 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
     trace "Validator indices update dump", missing_validators = missing,
           updated_validators = updated
     vc.indicesAvailable.fire()
-
-  if not vc.polledIndices:
-    vc.polledIndices = true
-    for validator in vc.attachedValidators[].items():
-      if validator.needsUpdate():
-        notice "Validator deposit not yet processed, monitoring",
-          pubkey = validator.pubkey
 
 proc pollForAttesterDuties*(vc: ValidatorClientRef,
                             epoch: Epoch): Future[int] {.async.} =

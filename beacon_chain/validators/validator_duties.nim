@@ -121,12 +121,7 @@ proc addValidators*(node: BeaconNode) =
         keystore.pubkey, index, epoch)
 
       v = node.attachedValidators[].addValidator(keystore, feeRecipient)
-
-    if data.isSome:
-      v.updateValidator(data.get().index, data.get().validator.activation_epoch)
-    else:
-      notice "Validator deposit not yet processed, monitoring",
-        pubkey = keystore.pubkey
+    v.updateValidator(data)
 
 proc getValidatorForDuties*(
     node: BeaconNode,
@@ -1472,7 +1467,9 @@ proc updateValidators(
       let index = validator.index.get()
       if index < validators.lenu64:
         validator.updateValidator(
-          index, validators[int index].activation_epoch)
+          Opt.some(ValidatorAndIndex(
+            index: index, validator: validators[int index]
+          )))
 
 proc handleValidatorDuties*(node: BeaconNode, lastSlot, slot: Slot) {.async.} =
   ## Perform validator duties - create blocks, vote and aggregate existing votes
