@@ -30,7 +30,7 @@ const
 
 type
   BlockVerifier* =
-    proc(signedBlock: ForkedSignedBeaconBlock):
+    proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   BlockBlobsVerifier* =
     proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar):
@@ -111,7 +111,7 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
           gotUnviableBlock = false
 
         for b in ublocks:
-          let ver = await rman.blockVerifier(b[])
+          let ver = await rman.blockVerifier(b[], false)
           if ver.isErr():
             case ver.error()
             of VerifierError.MissingParent:

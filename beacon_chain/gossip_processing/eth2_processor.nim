@@ -191,7 +191,8 @@ proc new*(T: type Eth2Processor,
 
 proc processSignedBeaconBlock*(
     self: var Eth2Processor, src: MsgSource,
-    signedBlockAndBlobs: ForkySignedBeaconBlockMaybeBlobs): ValidationRes =
+    signedBlockAndBlobs: ForkySignedBeaconBlockMaybeBlobs,
+    maybeFinalized: bool = false): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
@@ -230,6 +231,7 @@ proc processSignedBeaconBlock*(
     self.blockProcessor[].addBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
       blobs,
+      maybeFinalized = maybeFinalized,
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
 

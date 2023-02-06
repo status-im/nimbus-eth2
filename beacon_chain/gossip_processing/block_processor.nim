@@ -39,10 +39,19 @@ export sszdump, signatures_batch
 declareHistogram beacon_store_block_duration_seconds,
   "storeBlock() duration", buckets = [0.25, 0.5, 1, 2, 4, 8, Inf]
 
+const
+  SLOTS_PER_PAYLOAD = SLOTS_PER_HISTORICAL_ROOT
+    ## Number of slots we process between each execution payload execution, while
+    ## syncing the finalized part of the chain
+  PAYLOAD_PRE_WALL_SLOTS = SLOTS_PER_EPOCH * 2
+    ## Number of slots from wall time that we start processing every payload
+
 type
   BlockEntry* = object
     blck*: ForkedSignedBeaconBlock
     blobs*: Opt[eip4844.BlobsSidecar]
+    maybeFinalized*: bool
+      ## The block source claims the block has been finalized already
     resfut*: Future[Result[void, VerifierError]]
     queueTick*: Moment # Moment when block was enqueued
     validationDur*: Duration # Time it took to perform gossip validation
@@ -86,6 +95,10 @@ type
 
     verifier: BatchVerifier
 
+    lastPayload: Slot
+      ## The slot at which we sent a payload to the execution client the last
+      ## time
+
   NewPayloadStatus {.pure.} = enum
     valid
     notValid
@@ -100,6 +113,7 @@ proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
     blobs: Opt[eip4844.BlobsSidecar],
     resfut: Future[Result[void, VerifierError]] = nil,
+    maybeFinalized = false,
     validationDur = Duration())
 
 # Initialization
@@ -353,6 +367,7 @@ proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
     blobs: Opt[eip4844.BlobsSidecar],
+    maybeFinalized = false,
     queueTick: Moment = Moment.now(), validationDur = Duration()):
     Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async.} =
   ## storeBlock is the main entry point for unvalidated blocks - all untrusted
@@ -364,11 +379,23 @@ proc storeBlock*(
     startTick = Moment.now()
     vm = self.validatorMonitor
     dag = self.consensusManager.dag
+    wallSlot = wallTime.slotOrZero
     payloadStatus =
-      when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
-         await self.consensusManager.eth1Monitor.getExecutionValidity(signedBlock)
+      if maybeFinalized and
+          (self.lastPayload + SLOTS_PER_PAYLOAD) > signedBlock.message.slot and
+          (signedBlock.message.slot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot:
+        # Skip payload validation when message source (reasonably) claims block
+        # has been finalized - this speeds up forward sync - in the worst case
+        # that the claim is false, we will correct every time we process a block
+        # from an honest source (or when we're close to head).
+        # Occasionally we also send a payload to the the EL so that it can
+        # progress in its own sync.
+        NewPayloadStatus.noResponse
       else:
-        NewPayloadStatus.valid # vacuously
+        when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
+          await self.consensusManager.eth1Monitor.getExecutionValidity(signedBlock)
+        else:
+          NewPayloadStatus.valid # vacuously
     payloadValid = payloadStatus == NewPayloadStatus.valid
 
   # The block is certainly not missing any more
@@ -467,6 +494,10 @@ proc storeBlock*(
 
     return err((blck.error, ProcessingStatus.completed))
 
+  if payloadStatus in {NewPayloadStatus.valid, NewPayloadStatus.notValid}:
+    # If the EL responded at all, we don't need to try again for a while
+    self[].lastPayload = signedBlock.message.slot
+
   # write blobs now that block has been written.
   if blobs.isSome():
     self.consensusManager.dag.db.putBlobsSidecar(blobs.get())
@@ -490,7 +521,6 @@ proc storeBlock*(
   # Grab the new head according to our latest attestation data; determines how
   # async this needs to be.
   let
-    wallSlot = wallTime.slotOrZero
     newHead = attestationPool[].selectOptimisticHead(
         wallSlot.start_beacon_time)
 
@@ -575,7 +605,9 @@ proc storeBlock*(
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar], resfut: Future[Result[void, VerifierError]] = nil,
+    blobs: Opt[eip4844.BlobsSidecar],
+    resfut: Future[Result[void, VerifierError]] = nil,
+    maybeFinalized = false,
     validationDur = Duration()) =
   ## Enqueue a Gossip-validated block for consensus verification
   # Backpressure:
@@ -599,6 +631,7 @@ proc addBlock*(
     self.blockQueue.addLastNoWait(BlockEntry(
       blck: blck,
       blobs: blobs,
+      maybeFinalized: maybeFinalized,
       resfut: resfut, queueTick: Moment.now(),
       validationDur: validationDur,
       src: src))
@@ -623,8 +656,8 @@ proc processBlock(
 
   let res = withBlck(entry.blck):
     await self.storeBlock(
-      entry.src, wallTime, blck, entry.blobs, entry.queueTick,
-      entry.validationDur)
+      entry.src, wallTime, blck, entry.blobs, entry.maybeFinalized,
+      entry.queueTick, entry.validationDur)
 
   if res.isErr and res.error[1] == ProcessingStatus.notCompleted:
     # When an execution engine returns an error or fails to respond to a
@@ -635,7 +668,8 @@ proc processBlock(
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/sync/optimistic.md#execution-engine-errors
     await sleepAsync(chronos.seconds(1))
     self[].addBlock(
-      entry.src, entry.blck, entry.blobs, entry.resfut, entry.validationDur)
+      entry.src, entry.blck, entry.blobs, entry.resfut, entry.maybeFinalized,
+      entry.validationDur)
     # To ensure backpressure on the sync manager, do not complete these futures.
     return
 

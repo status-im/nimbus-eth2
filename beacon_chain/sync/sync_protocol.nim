@@ -750,6 +750,10 @@ proc getHeadSlot*(peer: Peer): Slot =
   ## Returns head slot for specific peer ``peer``.
   peer.state(BeaconSync).statusMsg.headSlot
 
+proc getFinalizedEpoch*(peer: Peer): Epoch =
+  ## Returns head slot for specific peer ``peer``.
+  peer.state(BeaconSync).statusMsg.finalizedEpoch
+
 proc initBeaconSync*(network: Eth2Node, dag: ChainDAGRef,
                      getBeaconTime: GetBeaconTimeFn) =
   var networkState = network.protocolState(BeaconSync)
