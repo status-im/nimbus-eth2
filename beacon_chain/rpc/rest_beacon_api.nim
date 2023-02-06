@@ -856,7 +856,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     of ConsensusFork.Bellatrix:
       let res =
         block:
-          let restBlock = decodeBodyJsonOrSsz(SignedBlindedBeaconBlock, body).valueOr:
+          let restBlock = decodeBodyJsonOrSsz(
+              bellatrix_mev.SignedBlindedBeaconBlock, body).valueOr:
             return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
                                              $error)
           await node.unblindAndRouteBlockMEV(restBlock)

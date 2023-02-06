@@ -38,7 +38,7 @@ import
   ../gossip_processing/block_processor,
   ".."/[conf, beacon_clock, beacon_node],
   "."/[slashing_protection, validator_pool, keystore_management],
-  ".."/spec/mev/rest_bellatrix_mev_calls
+  ".."/spec/mev/[rest_bellatrix_mev_calls, rest_capella_mev_calls]
 
 from eth/async_utils import awaitWithTimeout
 
@@ -86,7 +86,7 @@ logScope: topics = "beacval"
 
 type
   ForkedBlockResult* = Result[ForkedBeaconBlock, string]
-  BlindedBlockResult* = Result[BlindedBeaconBlock, string]
+  BlindedBlockResult* = Result[bellatrix_mev.BlindedBeaconBlock, string]
 
   SyncStatus* {.pure.} = enum
     synced
@@ -749,11 +749,12 @@ proc proposeBlockMEV(
 
   # This is only substantively asynchronous with a remote key signer
   let blindedBlock = awaitWithTimeout(
-      getBlindedBeaconBlock[SignedBlindedBeaconBlock](
+      getBlindedBeaconBlock[bellatrix_mev.SignedBlindedBeaconBlock](
         node, slot, validator, validator_index, forkedBlck,
         executionPayloadHeader),
       500.milliseconds):
-    Result[SignedBlindedBeaconBlock, string].err "getBlindedBlock timed out"
+    Result[bellatrix_mev.SignedBlindedBeaconBlock, string].err(
+      "getBlindedBlock timed out")
 
   if blindedBlock.isErr:
     info "proposeBlockMEV: getBlindedBeaconBlock failed",
@@ -815,7 +816,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*(
     return err("Unable to create blinded block")
 
   let (executionPayloadHeader, forkedBlck) = blindedBlockParts.get
-  return ok constructPlainBlindedBlock[BlindedBeaconBlock](
+  return ok constructPlainBlindedBlock[bellatrix_mev.BlindedBeaconBlock](
     forkedBlck, executionPayloadHeader)
 
 from ../spec/datatypes/eip4844 import shortLog

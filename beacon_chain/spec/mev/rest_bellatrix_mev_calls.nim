@@ -27,8 +27,8 @@ proc getHeader*(slot: Slot,
      meth: MethodGet, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.2.0/apis/builder/header.yaml
 
-proc submitBlindedBlock*(body: SignedBlindedBeaconBlock
-                        ): RestResponse[SubmitBlindedBlockResponse] {.
+proc submitBlindedBlock*(body: bellatrix_mev.SignedBlindedBeaconBlock
+                        ): RestResponse[SubmitBlindedBlockResponseBellatrix] {.
      rest, endpoint: "/eth/v1/builder/blinded_blocks",
      meth: MethodPost, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.2.0/apis/builder/blinded_blocks.yaml

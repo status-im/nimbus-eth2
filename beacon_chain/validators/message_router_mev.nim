@@ -14,6 +14,7 @@ import ../beacon_node
 from eth/async_utils import awaitWithTimeout
 from ../spec/datatypes/bellatrix import SignedBeaconBlock
 from ../spec/mev/rest_bellatrix_mev_calls import submitBlindedBlock
+from ../spec/mev/rest_capella_mev_calls import submitBlindedBlock
 
 const
   BUILDER_BLOCK_SUBMISSION_DELAY_TOLERANCE = 4.seconds
@@ -41,7 +42,7 @@ macro copyFields*(
         newDotExpr(dst, ident(name)), newDotExpr(src, ident(name)))
 
 proc unblindAndRouteBlockMEV*(
-    node: BeaconNode, blindedBlock: SignedBlindedBeaconBlock):
+    node: BeaconNode, blindedBlock: bellatrix_mev.SignedBlindedBeaconBlock):
     Future[Result[Opt[BlockRef], string]] {.async.} =
   # By time submitBlindedBlock is called, must already have done slashing
   # protection check
