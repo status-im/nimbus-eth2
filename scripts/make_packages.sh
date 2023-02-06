@@ -142,7 +142,6 @@ fpm -s dir -t deb -n "${PKG_NAME}" \
   -C "${PKG_IMG_DIR}" \
   -p "${PKG_PATH_DEB}" \
   -a "${PKG_ARCH_DEB}" \
-  --depends lsb-release \
   --after-install "${PKG_SRC_DIR}/after_install" \
   --before-remove "${PKG_SRC_DIR}/before_remove" \
   --after-remove "${PKG_SRC_DIR}/after_remove" \
@@ -159,7 +158,6 @@ fpm -s dir -t rpm -n "${PKG_NAME}" \
   -C "${PKG_IMG_DIR}" \
   -p "${PKG_PATH_RPM}" \
   -a "${PKG_ARCH_RPM}" \
-  --depends redhat-lsb-core \
   --after-install "${PKG_SRC_DIR}/after_install" \
   --before-remove "${PKG_SRC_DIR}/before_remove" \
   --after-remove "${PKG_SRC_DIR}/after_remove" \
