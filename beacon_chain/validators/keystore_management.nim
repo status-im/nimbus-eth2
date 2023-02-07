@@ -1310,7 +1310,7 @@ proc addValidator*(host: KeymanagerHost, keystore: KeystoreData) =
       host.defaultFeeRecipient)
     v = host.validatorPool[].addValidator(keystore, feeRecipient)
 
-  if host.getValidatorAndIdxFn != nil:
+  if not isNil(host.getValidatorAndIdxFn):
     let data = host.getValidatorAndIdxFn(keystore.pubkey)
     v.updateValidator(data)
 
