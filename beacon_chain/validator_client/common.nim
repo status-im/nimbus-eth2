@@ -508,37 +508,8 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
     feeRecipient = vc.config.validatorsDir.getSuggestedFeeRecipient(
       keystore.pubkey, vc.config.defaultFeeRecipient).valueOr(
         vc.config.defaultFeeRecipient)
-  case keystore.kind
-  of KeystoreKind.Local:
-    discard vc.attachedValidators[].addLocalValidator(keystore, feeRecipient)
-  of KeystoreKind.Remote:
-    let
-      httpFlags =
-        block:
-          var res: set[HttpClientFlag]
-          if RemoteKeystoreFlag.IgnoreSSLVerification in keystore.flags:
-            res.incl({HttpClientFlag.NoVerifyHost,
-                      HttpClientFlag.NoVerifyServerName})
-          res
-      prestoFlags = {RestClientFlag.CommaSeparatedArray}
-      clients =
-        block:
-          var res: seq[(RestClientRef, RemoteSignerInfo)]
-          for remote in keystore.remotes:
-            let client = RestClientRef.new($remote.url, prestoFlags,
-                                           httpFlags)
-            if client.isErr():
-              warn "Unable to resolve distributed signer address",
-                   remote_url = $remote.url, validator = $remote.pubkey
-            else:
-              res.add((client.get(), remote))
-          res
-    if len(clients) > 0:
-      discard vc.attachedValidators[].addRemoteValidator(keystore, clients,
-                                                         feeRecipient)
-    else:
-      warn "Unable to initialize remote validator",
-           validator = $keystore.pubkey
+
+  discard vc.attachedValidators[].addValidator(keystore, feeRecipient)
 
 proc removeValidator*(vc: ValidatorClientRef,
                       pubkey: ValidatorPubKey) {.async.} =

@@ -126,13 +126,7 @@ proc handleAddRemoteValidatorReq(host: KeymanagerHost,
                                  keystore: RemoteKeystore): RequestItemStatus =
   let res = importKeystore(host.validatorPool[], host.validatorsDir, keystore)
   if res.isOk:
-    let
-      data = host.getValidatorData(keystore.pubkey)
-      feeRecipient = host.getSuggestedFeeRecipient(keystore.pubkey).valueOr(
-        host.defaultFeeRecipient)
-      v = host.validatorPool[].addRemoteValidator(res.get, feeRecipient)
-    if data.isSome():
-      v.updateValidator(data.get().index, data.get().validator.activation_epoch)
+    host.addValidator(res.get())
 
     RequestItemStatus(status: $KeystoreStatus.imported)
   else:
@@ -199,7 +193,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
           response.data.add(
             RequestItemStatus(status: $KeystoreStatus.duplicate))
       else:
-        host.addLocalValidator(res.get())
+        host.addValidator(res.get())
         response.data.add(
           RequestItemStatus(status: $KeystoreStatus.imported))
 

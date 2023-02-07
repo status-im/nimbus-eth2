@@ -84,16 +84,10 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
       return melem
 
 proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
-  info "Initializaing validators", path = vc.config.validatorsDir()
+  info "Loading validators", validatorsDir = vc.config.validatorsDir()
   var duplicates: seq[ValidatorPubKey]
   for keystore in listLoadableKeystores(vc.config):
-    let pubkey = keystore.pubkey
-    if pubkey in duplicates:
-      warn "Duplicate validator key found", validator_pubkey = pubkey
-      continue
-    else:
-      duplicates.add(pubkey)
-      vc.addValidator(keystore)
+    vc.addValidator(keystore)
   return true
 
 proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
@@ -277,9 +271,6 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
     vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
     vc.keymanagerServer = keymanagerInitResult.server
     if vc.keymanagerServer != nil:
-      func getValidatorData(pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
-        Opt.none(ValidatorAndIndex)
-
       vc.keymanagerHost = newClone KeymanagerHost.init(
         validatorPool,
         vc.rng,
@@ -287,7 +278,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
         vc.config.validatorsDir,
         vc.config.secretsDir,
         vc.config.defaultFeeRecipient,
-        getValidatorData,
+        nil,
         vc.beaconClock.getBeaconTimeFn)
 
   except CatchableError as exc:

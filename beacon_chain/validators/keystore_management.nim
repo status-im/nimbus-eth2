@@ -64,10 +64,6 @@ type
 
   ImportResult*[T] = Result[T, AddValidatorFailure]
 
-  ValidatorAndIndex* = object
-    index*: ValidatorIndex
-    validator*: Validator
-
   ValidatorPubKeyToDataFn* =
     proc (pubkey: ValidatorPubKey): Opt[ValidatorAndIndex]
          {.raises: [Defect], gcsafe.}
@@ -108,22 +104,6 @@ func init*(T: type KeymanagerHost,
     defaultFeeRecipient: defaultFeeRecipient,
     getValidatorAndIdxFn: getValidatorAndIdxFn,
     getBeaconTimeFn: getBeaconTimeFn)
-
-proc getValidatorIdx*(host: KeymanagerHost,
-                      pubkey: ValidatorPubKey): Opt[ValidatorIndex] =
-  if not(isNil(host.getValidatorAndIdxFn)):
-    let res = host.getValidatorAndIdxFn(pubkey).valueOr:
-      return Opt.none ValidatorIndex
-    Opt.some res.index
-  else:
-    Opt.none ValidatorIndex
-
-proc getValidatorData*(host: KeymanagerHost,
-                       pubkey: ValidatorPubKey): Opt[ValidatorAndIndex] =
-  if not(isNil(host.getValidatorAndIdxFn)):
-    host.getValidatorAndIdxFn(pubkey)
-  else:
-    Opt.none ValidatorAndIndex
 
 proc echoP*(msg: string) =
   ## Prints a paragraph aligned to 80 columns
@@ -1324,15 +1304,15 @@ proc getSuggestedFeeRecipient*(
     pubkey: ValidatorPubKey): Result[Eth1Address, FeeRecipientStatus] =
   host.validatorsDir.getSuggestedFeeRecipient(pubkey, host.defaultFeeRecipient)
 
-proc addLocalValidator*(host: KeymanagerHost, keystore: KeystoreData) =
+proc addValidator*(host: KeymanagerHost, keystore: KeystoreData) =
   let
-    data = host.getValidatorData(keystore.pubkey)
     feeRecipient = host.getSuggestedFeeRecipient(keystore.pubkey).valueOr(
       host.defaultFeeRecipient)
+    v = host.validatorPool[].addValidator(keystore, feeRecipient)
 
-  let v = host.validatorPool[].addLocalValidator(keystore, feeRecipient)
-  if data.isSome():
-    v.updateValidator(data.get().index, data.get().validator.activation_epoch)
+  if not isNil(host.getValidatorAndIdxFn):
+    let data = host.getValidatorAndIdxFn(keystore.pubkey)
+    v.updateValidator(data)
 
 proc generateDeposits*(cfg: RuntimeConfig,
                        rng: var HmacDrbgContext,

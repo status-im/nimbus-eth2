@@ -11,6 +11,13 @@ import
   unittest2,
   ../beacon_chain/validators/validator_pool
 
+func makeValidatorAndIndex(
+    index: ValidatorIndex, activation_epoch: Epoch): Opt[ValidatorAndIndex] =
+  Opt.some ValidatorAndIndex(
+    index: index,
+    validator: Validator(activation_epoch: activation_epoch)
+  )
+
 suite "Validator pool":
   test "Doppelganger for genesis validator":
     let
@@ -19,7 +26,7 @@ suite "Validator pool":
     check:
       not v.triggersDoppelganger(GENESIS_EPOCH)
 
-    v.updateValidator(ValidatorIndex(1), GENESIS_EPOCH)
+    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(1), GENESIS_EPOCH))
 
     check:
       not v.triggersDoppelganger(GENESIS_EPOCH)
@@ -33,13 +40,13 @@ suite "Validator pool":
       not v.triggersDoppelganger(GENESIS_EPOCH)
       not v.triggersDoppelganger(now.epoch())
 
-    v.updateValidator(ValidatorIndex(5), FAR_FUTURE_EPOCH)
+    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), FAR_FUTURE_EPOCH))
 
     check: # We still don't know when validator activates so we wouldn't trigger
       not v.triggersDoppelganger(GENESIS_EPOCH)
       not v.triggersDoppelganger(now.epoch())
 
-    v.updateValidator(ValidatorIndex(5), now.epoch())
+    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), now.epoch()))
 
     check:
       # Activates in current epoch, shouldn't trigger
@@ -50,7 +57,7 @@ suite "Validator pool":
       v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
       now = Epoch(10).start_slot()
 
-    v.updateValidator(ValidatorIndex(5), now.epoch() - 1)
+    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), now.epoch() - 1))
 
     check:
       # Already activated, should trigger
@@ -61,7 +68,7 @@ suite "Validator pool":
       v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
       now = Epoch(10).start_slot()
 
-    v.updateValidator(ValidatorIndex(5), now.epoch() + 1)
+    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), now.epoch() + 1))
 
     check:
       # Activates in the future, should not be checked
@@ -72,7 +79,7 @@ suite "Validator pool":
       v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
       now = Epoch(10).start_slot()
 
-    v.updateValidator(ValidatorIndex(5), now.epoch() - 4)
+    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), now.epoch() - 4))
 
     check:
       v.triggersDoppelganger(now.epoch)
@@ -92,7 +99,7 @@ suite "Validator pool":
     check:
       not v.triggersDoppelganger(now.epoch)
 
-    v.updateValidator(ValidatorIndex(5), now.epoch())
+    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), now.epoch()))
 
     check: # already proven not to validate
       not v.triggersDoppelganger(now.epoch)
@@ -103,7 +110,7 @@ suite "Validator pool":
       now = Epoch(10).start_slot()
 
     v.updateDoppelganger(now.epoch())
-    v.updateValidator(ValidatorIndex(5), now.epoch() + 1)
+    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), now.epoch() + 1))
 
     check: # doesn't trigger check just after activation
       not v.triggersDoppelganger(now.epoch() + 1)

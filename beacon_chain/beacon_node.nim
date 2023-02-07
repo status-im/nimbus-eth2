@@ -95,6 +95,8 @@ type
     externalBuilderRegistrations*:
       Table[ValidatorPubKey, SignedValidatorRegistrationV1]
     mergeAtEpoch*: Epoch
+    dutyValidatorCount*: int
+      ## Number of validators that we've checked for activation
 
 const
   MaxEmptySlotCount* = uint64(10*60) div SECONDS_PER_SLOT
