@@ -607,14 +607,8 @@ type
         serializedFieldName: "validator_registration".}:
           Web3SignerValidatorRegistration
 
-  GetBlockResponse* = DataEnclosedObject[phase0.SignedBeaconBlock]
-  GetStateResponse* = DataEnclosedObject[phase0.BeaconState]
   GetBlockV2Response* = ForkedSignedBeaconBlock
   GetStateV2Response* = ref ForkedHashedBeaconState
-  GetPhase0StateSszResponse* = phase0.BeaconState
-  GetAltairStateSszResponse* = altair.BeaconState
-  GetPhase0BlockSszResponse* = phase0.SignedBeaconBlock
-  GetAltairBlockSszResponse* = altair.SignedBeaconBlock
 
   RestRoot* = object
     root*: Eth2Digest

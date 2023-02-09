@@ -134,10 +134,6 @@ type
     Web3SignerSignatureResponse |
     Web3SignerStatusResponse
 
-  SszDecodeTypes* =
-    GetPhase0StateSszResponse |
-    GetPhase0BlockSszResponse
-
   RestVersioned*[T] = object
     data*: T
     jsonVersion*: ConsensusFork
@@ -2860,29 +2856,6 @@ proc decodeBytes*[T: DecodeTypes](
       debug "Failed to deserialize REST JSON data",
             err = exc.formatMsg("<data>"),
             data = string.fromBytes(value)
-      err("Serialization error")
-  else:
-    err("Content-Type not supported")
-
-proc decodeBytes*[T: SszDecodeTypes](
-       t: typedesc[T],
-       value: openArray[byte],
-       contentType: Opt[ContentTypeData],
-       updateRoot = true
-     ): RestResult[T] =
-
-  if contentType.isNone() or
-     isWildCard(contentType.get().mediaType):
-    return err("Missing or incorrect Content-Type")
-
-  let mediaType = contentType.get().mediaType
-  if mediaType == OctetStreamMediaType:
-    try:
-      var v: RestResult[T]
-      v.ok(T()) # This optimistically avoids an expensive genericAssign
-      readSszBytes(value, v.get(), updateRoot)
-      v
-    except SerializationError as exc:
       err("Serialization error")
   else:
     err("Content-Type not supported")
