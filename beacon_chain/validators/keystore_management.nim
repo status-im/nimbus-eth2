@@ -34,6 +34,7 @@ const
   RemoteKeystoreFileName* = "remote_keystore.json"
   NetKeystoreFileName* = "network_keystore.json"
   FeeRecipientFilename* = "suggested_fee_recipient.hex"
+  GasLimitFilename* = "suggested_gas_limit.json"
   KeyNameSize* = 98 # 0x + hexadecimal key representation 96 characters.
   MaxKeystoreFileSize* = 65536
 
@@ -75,6 +76,7 @@ type
     validatorsDir*: string
     secretsDir*: string
     defaultFeeRecipient*: Eth1Address
+    defaultGasLimit*: uint64
     getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
     getBeaconTimeFn*: GetBeaconTimeFn
 
@@ -94,6 +96,7 @@ func init*(T: type KeymanagerHost,
            validatorsDir: string,
            secretsDir: string,
            defaultFeeRecipient: Eth1Address,
+           defaultGasLimit: uint64,
            getValidatorAndIdxFn: ValidatorPubKeyToDataFn,
            getBeaconTimeFn: GetBeaconTimeFn): T =
   T(validatorPool: validatorPool,
@@ -102,6 +105,7 @@ func init*(T: type KeymanagerHost,
     validatorsDir: validatorsDir,
     secretsDir: secretsDir,
     defaultFeeRecipient: defaultFeeRecipient,
+    defaultGasLimit: defaultGasLimit,
     getValidatorAndIdxFn: getValidatorAndIdxFn,
     getBeaconTimeFn: getBeaconTimeFn)
 
@@ -699,9 +703,9 @@ iterator listLoadableKeystores*(config: AnyConf): KeystoreData =
     yield el
 
 type
-  FeeRecipientStatus* = enum
+  ValidatorConfigFileStatus* = enum
     noSuchValidator
-    invalidFeeRecipientFile
+    malformedConfigFile
 
 func validatorKeystoreDir(
     validatorsDir: string, pubkey: ValidatorPubKey): string =
@@ -711,10 +715,14 @@ func feeRecipientPath(validatorsDir: string,
                        pubkey: ValidatorPubKey): string =
   validatorsDir.validatorKeystoreDir(pubkey) / FeeRecipientFilename
 
+func gasLimitPath(validatorsDir: string,
+                  pubkey: ValidatorPubKey): string =
+  validatorsDir.validatorKeystoreDir(pubkey) / GasLimitFilename
+
 proc getSuggestedFeeRecipient*(
     validatorsDir: string,
     pubkey: ValidatorPubKey,
-    defaultFeeRecipient: Eth1Address): Result[Eth1Address, FeeRecipientStatus] =
+    defaultFeeRecipient: Eth1Address): Result[Eth1Address, ValidatorConfigFileStatus] =
   # In this particular case, an error might be by design. If the file exists,
   # but doesn't load or parse that's a more urgent matter to fix. Many people
   # people might prefer, however, not to override their default suggested fee
@@ -735,10 +743,37 @@ proc getSuggestedFeeRecipient*(
   except CatchableError as exc:
     # Because the nonexistent validator case was already checked, any failure
     # at this point is serious enough to alert the user.
-    warn "getSuggestedFeeRecipient: failed loading fee recipient file; falling back to default fee recipient",
-      feeRecipientPath,
+    warn "Failed to load fee recipient file; falling back to default fee recipient",
+      feeRecipientPath, defaultFeeRecipient,
       err = exc.msg
-    err invalidFeeRecipientFile
+    err malformedConfigFile
+
+proc getSuggestedGasLimit*(
+    validatorsDir: string,
+    pubkey: ValidatorPubKey,
+    defaultGasLimit: uint64): Result[uint64, ValidatorConfigFileStatus] =
+  # In this particular case, an error might be by design. If the file exists,
+  # but doesn't load or parse that's a more urgent matter to fix. Many people
+  # people might prefer, however, not to override their default suggested gas
+  # limit per validator, so don't warn very loudly, if at all.
+  if not dirExists(validatorsDir.validatorKeystoreDir(pubkey)):
+    return err noSuchValidator
+
+  let gasLimitPath = validatorsDir.gasLimitPath(pubkey)
+  if not fileExists(gasLimitPath):
+    return ok defaultGasLimit
+  try:
+    ok parseBiggestUInt(strutils.strip(
+      readFile(gasLimitPath), leading = false, trailing = true))
+  except SerializationError as e:
+    warn "Invalid local gas limit file", gasLimitPath,
+      err= e.formatMsg(gasLimitPath)
+    err malformedConfigFile
+  except CatchableError as exc:
+    warn "Failed to load gas limit file; falling back to default gas limit",
+      gasLimitPath, defaultGasLimit,
+      err = exc.msg
+    err malformedConfigFile
 
 type
   KeystoreGenerationErrorKind* = enum
@@ -1280,9 +1315,23 @@ func feeRecipientPath*(host: KeymanagerHost,
                        pubkey: ValidatorPubKey): string =
   host.validatorsDir.feeRecipientPath(pubkey)
 
+func gasLimitPath*(host: KeymanagerHost,
+                   pubkey: ValidatorPubKey): string =
+  host.validatorsDir.gasLimitPath(pubkey)
+
 proc removeFeeRecipientFile*(host: KeymanagerHost,
                              pubkey: ValidatorPubKey): Result[void, string] =
   let path = host.feeRecipientPath(pubkey)
+  if fileExists(path):
+    let res = io2.removeFile(path)
+    if res.isErr:
+      return err res.error.ioErrorMsg
+
+  return ok()
+
+proc removeGasLimitFile*(host: KeymanagerHost,
+                         pubkey: ValidatorPubKey): Result[void, string] =
+  let path = host.gasLimitPath(pubkey)
   if fileExists(path):
     let res = io2.removeFile(path)
     if res.isErr:
@@ -1299,16 +1348,34 @@ proc setFeeRecipient*(host: KeymanagerHost, pubkey: ValidatorPubKey, feeRecipien
   io2.writeFile(validatorKeystoreDir / FeeRecipientFilename, $feeRecipient)
     .mapErr(proc(e: auto): string = "Failed to write fee recipient file: " & $e)
 
+proc setGasLimit*(host: KeymanagerHost,
+                  pubkey: ValidatorPubKey,
+                  gasLimit: uint64): Result[void, string] =
+  let validatorKeystoreDir = host.validatorKeystoreDir(pubkey)
+
+  ? secureCreatePath(validatorKeystoreDir).mapErr(proc(e: auto): string =
+    "Could not create wallet directory [" & validatorKeystoreDir & "]: " & $e)
+
+  io2.writeFile(validatorKeystoreDir / GasLimitFilename, $gasLimit)
+    .mapErr(proc(e: auto): string = "Failed to write gas limit file: " & $e)
+
 proc getSuggestedFeeRecipient*(
     host: KeymanagerHost,
-    pubkey: ValidatorPubKey): Result[Eth1Address, FeeRecipientStatus] =
+    pubkey: ValidatorPubKey): Result[Eth1Address, ValidatorConfigFileStatus] =
   host.validatorsDir.getSuggestedFeeRecipient(pubkey, host.defaultFeeRecipient)
+
+proc getSuggestedGasLimit*(
+    host: KeymanagerHost,
+    pubkey: ValidatorPubKey): Result[uint64, ValidatorConfigFileStatus] =
+  host.validatorsDir.getSuggestedGasLimit(pubkey, host.defaultGasLimit)
 
 proc addValidator*(host: KeymanagerHost, keystore: KeystoreData) =
   let
     feeRecipient = host.getSuggestedFeeRecipient(keystore.pubkey).valueOr(
       host.defaultFeeRecipient)
-    v = host.validatorPool[].addValidator(keystore, feeRecipient)
+    gasLimit = host.getSuggestedGasLimit(keystore.pubkey).valueOr(
+      host.defaultGasLimit)
+    v = host.validatorPool[].addValidator(keystore, feeRecipient, gasLimit)
 
   if not isNil(host.getValidatorAndIdxFn):
     let data = host.getValidatorAndIdxFn(keystore.pubkey)

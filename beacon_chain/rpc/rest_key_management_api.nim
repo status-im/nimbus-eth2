@@ -343,7 +343,7 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
       case ethaddress.error
       of noSuchValidator:
         keymanagerApiError(Http404, "No matching validator found")
-      of invalidFeeRecipientFile:
+      of malformedConfigFile:
         keymanagerApiError(Http500, "Error reading fee recipient file")
 
   # https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/SetFeeRecipient
@@ -389,6 +389,73 @@ proc installKeymanagerHandlers*(router: var RestRouter, host: KeymanagerHost) =
     else:
       keymanagerApiError(
         Http500, "Failed to remove fee recipient file: " & res.error)
+
+  # https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/getGasLimit
+  router.api(MethodGet, "/eth/v1/validator/{pubkey}/gas_limit") do (
+             pubkey: ValidatorPubKey)  -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+
+    let
+      pubkey = pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      gasLimit = host.getSuggestedGasLimit(pubkey)
+
+    return if gasLimit.isOk:
+      RestApiResponse.jsonResponse(GetValidatorGasLimitResponse(
+        pubkey: pubkey,
+        gas_limit: gasLimit.get))
+    else:
+      case gasLimit.error
+      of noSuchValidator:
+        keymanagerApiError(Http404, "No matching validator found")
+      of malformedConfigFile:
+        keymanagerApiError(Http500, "Error reading gas limit file")
+
+  # https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/setGasLimit
+  router.api(MethodPost, "/eth/v1/validator/{pubkey}/gas_limit") do (
+             pubkey: ValidatorPubKey,
+             contentBody: Option[ContentBody]) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let
+      pubkey = pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      gasLimitReq =
+        block:
+          if contentBody.isNone():
+            return keymanagerApiError(Http400, InvalidGasLimitRequestError)
+          let dres = decodeBody(SetGasLimitRequest, contentBody.get())
+          if dres.isErr():
+            return keymanagerApiError(Http400, InvalidGasLimitRequestError)
+          dres.get()
+
+      status = host.setGasLimit(pubkey, gasLimitReq.gas_limit)
+
+    return if status.isOk:
+      RestApiResponse.response("", Http202, "text/plain")
+    else:
+      keymanagerApiError(
+        Http500, "Failed to set gas limit: " & status.error)
+
+  # https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/deleteGasLimit
+  router.api(MethodDelete, "/eth/v1/validator/{pubkey}/gas_limit") do (
+             pubkey: ValidatorPubKey) -> RestApiResponse:
+    let authStatus = checkAuthorization(request, host)
+    if authStatus.isErr():
+      return authErrorResponse authStatus.error
+    let
+      pubkey = pubkey.valueOr:
+        return keymanagerApiError(Http400, InvalidValidatorPublicKey)
+      res = host.removeGasLimitFile(pubkey)
+
+    return if res.isOk:
+      RestApiResponse.response("", Http204, "text/plain")
+    else:
+      keymanagerApiError(
+        Http500, "Failed to remove gas limit file: " & res.error)
 
   # TODO: These URLs will be changed once we submit a proposal for
   #       /eth/v2/remotekeys that supports distributed keys.

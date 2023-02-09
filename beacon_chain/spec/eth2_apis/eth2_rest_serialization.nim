@@ -85,6 +85,7 @@ type
     PrepareBeaconProposer |
     ProposerSlashing |
     SetFeeRecipientRequest |
+    SetGasLimitRequest |
     bellatrix_mev.SignedBlindedBeaconBlock |
     capella_mev.SignedBlindedBeaconBlock |
     SignedValidatorRegistrationV1 |

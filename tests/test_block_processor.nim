@@ -12,7 +12,7 @@ import
   std/[options, sequtils],
   unittest2,
   eth/keys, taskpools,
-  ../beacon_chain/beacon_clock,
+  ../beacon_chain/[conf, beacon_clock],
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
   ../beacon_chain/spec/datatypes/eip4844,
   ../beacon_chain/gossip_processing/block_processor,
@@ -48,7 +48,7 @@ suite "Block processor" & preset():
       consensusManager = ConsensusManager.new(
         dag, attestationPool, quarantine, eth1Monitor, actionTracker,
         newClone(DynamicFeeRecipientsStore.init()), "",
-        default(Eth1Address))
+        default(Eth1Address), defaultGasLimit)
       state = newClone(dag.headState)
       cache = StateCache()
       b1 = addTestBlock(state[], cache).phase0Data
