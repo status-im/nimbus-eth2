@@ -77,7 +77,7 @@ type
     slots*: uint64
 
   BeaconBlocksRes = NetRes[List[ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS]]
-  BlobsSidecarRes = NetRes[List[BlobsSidecar, MAX_REQUEST_BLOBS_SIDECARS]]
+  BlobsSidecarRes = NetRes[List[ref BlobsSidecar, MAX_REQUEST_BLOBS_SIDECARS]]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)
@@ -405,7 +405,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
           return
         let blobData = blobs.get().asSeq()
         let slots = map(blobData,
-                        proc(x: BlobsSidecar): Slot = x.beacon_block_slot)
+                        proc(x: ref BlobsSidecar): Slot = x[].beacon_block_slot)
         if not(checkResponse(req, slots)):
           peer.updateScore(PeerScoreBadResponse)
           warn "Received blobs sequence is not in requested range",
@@ -414,13 +414,18 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
           return
         Opt.some(blobData)
       else:
-        Opt.none(seq[BlobsSidecar])
+        Opt.none(seq[ref BlobsSidecar])
 
     if blobData.isSome:
       let blobSmap = getShortMap(req, blobData.get(@[]))
       debug "Received blobs on request", blobs_count = len(blobData.get(@[])),
           blobs_map = blobSmap, request = req
       let blobs = blobData.get()
+      if len(blobs) != len(blockData):
+        info "block and blobs have different lengths", blobs=len(blobs), blocks=len(blockData)
+        peer.updateScore(PeerScoreNoValues)
+        man.queue.push(req)
+        return
       for i, blk in blockData:
         if blk[].slot != blobs[i].beacon_block_slot:
           peer.updateScore(PeerScoreNoValues)

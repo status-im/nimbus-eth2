@@ -29,7 +29,8 @@ type
     proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   BlockBlobsVerifier* =
-    proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar):
+    proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar,
+         maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 
   SyncQueueKind* {.pure.} = enum
@@ -45,7 +46,7 @@ type
   SyncResult*[T] = object
     request*: SyncRequest[T]
     data*: seq[ref ForkedSignedBeaconBlock]
-    blobs*: Opt[seq[BlobsSidecar]]
+    blobs*: Opt[seq[ref BlobsSidecar]]
 
   GapItem*[T] = object
     start*: Slot
@@ -115,7 +116,7 @@ proc getShortMap*[T](req: SyncRequest[T],
   res
 
 proc getShortMap*[T](req: SyncRequest[T],
-                     data: openArray[BlobsSidecar]): string =
+                     data: openArray[ref BlobsSidecar]): string =
   ## Returns all slot numbers in ``data`` as placement map.
   var res = newStringOfCap(req.count)
   var slider = req.slot
@@ -606,8 +607,8 @@ func numAlreadyKnownSlots[T](sq: SyncQueue[T], sr: SyncRequest[T]): uint64 =
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ref ForkedSignedBeaconBlock],
+              blobs: Opt[seq[ref BlobsSidecar]],
               maybeFinalized: bool = false,
-              blobs: Opt[seq[BlobsSidecar]],
               processingCb: ProcessingCallback = nil) {.async.} =
   logScope:
     sync_ident = sq.ident
@@ -688,7 +689,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       if reqres.get().blobs.isNone():
         res = await sq.blockVerifier(blk[], maybeFinalized)
       else:
-        res = await sq.blockBlobsVerifier(blk[], reqres.get().blobs.get()[i], maybeFinalized)
+        res = await sq.blockBlobsVerifier(blk[], reqres.get().blobs.get()[i][], maybeFinalized)
       inc(i)
 
       if res.isOk():

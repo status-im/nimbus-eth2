@@ -138,6 +138,25 @@ proc readChunkPayload*(
     return neterr InvalidContextBytes
 
 proc readChunkPayload*(
+    conn: Connection, peer: Peer, MsgType: type (ref BlobsSidecar)):
+    Future[NetRes[MsgType]] {.async.} =
+  var contextBytes: ForkDigest
+  try:
+    await conn.readExactly(addr contextBytes, sizeof contextBytes)
+  except CatchableError:
+    return neterr UnexpectedEOF
+
+  if contextBytes == peer.network.forkDigests.eip4844:
+    let res = await readChunkPayload(conn, peer, BlobsSidecar)
+    if res.isOk:
+      return ok newClone(res.get)
+    else:
+      return err(res.error)
+  else:
+    return neterr InvalidContextBytes
+
+
+proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type SomeForkedLightClientObject):
     Future[NetRes[MsgType]] {.async.} =
   var contextBytes: ForkDigest
@@ -515,7 +534,7 @@ p2pProtocol BeaconSync(version = 1,
       startSlot: Slot,
       reqCount: uint64,
       response: MultipleChunksResponse[
-        BlobsSidecar, MAX_REQUEST_BLOBS_SIDECARS])
+        ref BlobsSidecar, MAX_REQUEST_BLOBS_SIDECARS])
       {.async, libp2pProtocol("blobs_sidecars_by_range", 1).} =
     # TODO This code is more complicated than it needs to be, since the type
     #      of the multiple chunks response is not actually used in this server
