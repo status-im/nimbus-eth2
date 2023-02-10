@@ -1054,8 +1054,17 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Bellatrix,
                                      bellatrixData: res)
   of ConsensusFork.Capella:
-    reader.raiseUnexpectedValue($capellaImplementationMissing)
-
+    let res =
+      try:
+        RestJson.decode(string(data.get()),
+                        BlindedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError as exc:
+        reader.raiseUnexpectedValue("Incorrect capella block format, [" &
+                                    exc.formatMsg("BlindedBlock") & "]")
+    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Capella,
+                                     capellaData: res)
   of ConsensusFork.EIP4844:
     reader.raiseUnexpectedValue($eip4844ImplementationMissing)
 

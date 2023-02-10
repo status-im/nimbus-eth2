@@ -539,7 +539,10 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
     # Override for MEV
     if transactions_root.isSome and execution_payload_root.isSome:
       withState(state):
-        when stateFork >= ConsensusFork.Bellatrix:
+        when stateFork < ConsensusFork.Bellatrix:
+          # Vacuously
+          discard
+        elif stateFork == ConsensusFork.Bellatrix:
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
@@ -547,7 +550,6 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
           # Effectively hash_tree_root(ExecutionPayload) with the beacon block
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.
-          discard $capellaImplementationMissing # need different htr to match capella changes
           forkyState.data.latest_block_header.body_root = hash_tree_root(
             [hash_tree_root(randao_reveal),
              hash_tree_root(eth1_data),
@@ -559,6 +561,28 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
              hash_tree_root(validator_changes.voluntary_exits),
              hash_tree_root(sync_aggregate),
              execution_payload_root.get])
+        elif stateFork == ConsensusFork.Capella:
+          forkyState.data.latest_execution_payload_header.transactions_root =
+            transactions_root.get
+
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#beaconblockbody
+          # Effectively hash_tree_root(ExecutionPayload) with the beacon block
+          # body, with the execution payload replaced by the execution payload
+          # header. htr(payload) == htr(payload header), so substitute.
+          forkyState.data.latest_block_header.body_root = hash_tree_root(
+            [hash_tree_root(randao_reveal),
+             hash_tree_root(eth1_data),
+             hash_tree_root(graffiti),
+             hash_tree_root(validator_changes.proposer_slashings),
+             hash_tree_root(validator_changes.attester_slashings),
+             hash_tree_root(List[Attestation, Limit MAX_ATTESTATIONS](attestations)),
+             hash_tree_root(List[Deposit, Limit MAX_DEPOSITS](deposits)),
+             hash_tree_root(validator_changes.voluntary_exits),
+             hash_tree_root(sync_aggregate),
+             execution_payload_root.get,
+             hash_tree_root(validator_changes.bls_to_execution_changes)])
+        elif stateFork > ConsensusFork.Capella:
+          discard eip4844ImplementationMissing
 
     state.`kind Data`.root = hash_tree_root(state.`kind Data`.data)
     blck.`kind Data`.state_root = state.`kind Data`.root
