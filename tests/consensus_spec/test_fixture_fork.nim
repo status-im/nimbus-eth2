@@ -13,10 +13,8 @@ import
   ../../beacon_chain/spec/datatypes/phase0,
   # Test utilities
   ../testutil,
-  ./fixtures_utils,
+  ./fixtures_utils, ./os_ops,
   ../helpers/debug_state
-
-from std/os import walkDir, `/`
 
 proc runTest(
     BeaconStateAnte, BeaconStatePost: type, forkNameName, forkDir: static[string],

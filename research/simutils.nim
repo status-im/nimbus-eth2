@@ -6,9 +6,8 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  stew/io2,
-  stats, os, strformat, times,
-  ../tests/testblockutil,
+  stats, strformat, times,
+  ../tests/testblockutil, ../tests/consensus_spec/os_ops,
   ../beacon_chain/beacon_chain_db,
   ../beacon_chain/spec/datatypes/[phase0, altair],
   ../beacon_chain/spec/[beaconstate, deposit_snapshots, forks, helpers],

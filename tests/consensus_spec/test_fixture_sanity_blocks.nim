@@ -11,9 +11,9 @@ import
   chronicles,
   ../../beacon_chain/spec/datatypes/phase0,
   ../../beacon_chain/spec/state_transition,
+  ./os_ops,
   ../testutil
 
-from std/os import fileExists, walkDir, walkPattern, `/`
 from std/sequtils import toSeq
 from ../../../beacon_chain/spec/forks import
   ForkedEpochInfo, ForkedHashedBeaconState, fromSszBytes, getStateRoot, new

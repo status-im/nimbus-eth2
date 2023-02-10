@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[os, sequtils, streams],
+  std/[sequtils, streams],
   # Status libraries
   stew/bitops2,
   # Third-party
@@ -18,7 +18,7 @@ import
   ../../../beacon_chain/spec/helpers,
   # Test utilities
   ../testutil,
-  ./fixtures_utils
+  ./fixtures_utils, ./os_ops
 
 proc runTest[T](path: string, objType: typedesc[T]) =
   test "Light client - Single merkle proof - " & path.relativePath(SszTestsDir):

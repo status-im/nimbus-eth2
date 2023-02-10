@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[algorithm, os, streams],
+  std/[algorithm, streams],
   # Status libraries
   stew/base10,
   # Third-party
@@ -18,7 +18,7 @@ import
   ../../../beacon_chain/spec/helpers,
   # Test utilities
   ../testutil,
-  ./fixtures_utils
+  ./fixtures_utils, ./os_ops
 
 type
   TestMeta = object

@@ -15,9 +15,8 @@ import
   # Status libraries
   snappy,
   # Test utilities
-  ../../testutil, ../fixtures_utils
+  ../../testutil, ../fixtures_utils, ../os_ops
 
-from std/os import dirExists, pcDir, walkDir, `/`
 from std/streams import close, openFileStream
 from std/strformat import `&`
 from std/strutils import toLowerAscii

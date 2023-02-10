@@ -13,12 +13,10 @@ import
   ../../../beacon_chain/spec/datatypes/[altair, bellatrix],
   # Test utilities
   ../../testutil,
-  ../fixtures_utils,
+  ../fixtures_utils, ../os_ops,
   ./test_fixture_rewards,
   ../../helpers/debug_state
 
-from std/os import
-  DirSep, dirExists, fileExists, pcDir, walkDir, walkDirRec, `/`
 from std/strutils import rsplit
 from std/sequtils import mapIt, toSeq
 
