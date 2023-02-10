@@ -1870,6 +1870,9 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
+  if not (metadata.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH or
+      config.deploymentPhase == DeploymentPhase.None):
+    config.deploymentPhase = DeploymentPhase.CapellaReady
 
   let node = BeaconNode.init(rng, config, metadata)
 

@@ -116,6 +116,7 @@ type
 
   DeploymentPhase* {.pure.} = enum
     Devnet = "devnet"
+    CapellaReady = "capella"
     Testnet = "testnet"
     Mainnet = "mainnet"
     None = "none"
