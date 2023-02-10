@@ -281,9 +281,10 @@ p2pProtocol BeaconSync(version = 1,
     {.libp2pProtocol("ping", 1, isRequired = true).} =
     return peer.network.metadata.seq_number
 
-  proc getMetaData(peer: Peer): phase0.MetaData
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/altair/p2p-interface.md#transitioning-from-v1-to-v2
+  proc getMetaData(peer: Peer): uint64
     {.libp2pProtocol("metadata", 1, isRequired = true).} =
-    return peer.network.phase0metadata
+    raise newException(InvalidInputsError, "GetMetaData v1 unsupported")
 
   proc getMetadata_v2(peer: Peer): altair.MetaData
     {.libp2pProtocol("metadata", 2, isRequired = true).} =

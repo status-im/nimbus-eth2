@@ -129,11 +129,6 @@ type
 
     body*: BeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/p2p-interface.md#metadata
-  MetaData* = object
-    seq_number*: uint64
-    attnets*: AttnetBits
-
   SigVerifiedBeaconBlock* = object
     ## A BeaconBlock that contains verified signatures
     ## but that has not been verified for state transition

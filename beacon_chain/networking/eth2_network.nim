@@ -216,16 +216,6 @@ type
   NetRes*[T] = Result[T, Eth2NetworkingError]
     ## This is type returned from all network requests
 
-func phase0metadata*(node: Eth2Node): phase0.MetaData =
-  phase0.MetaData(
-    seq_number: node.metadata.seq_number,
-    attnets: node.metadata.attnets)
-
-func toAltairMetadata(phase0: phase0.MetaData): altair.MetaData =
-  altair.MetaData(
-    seq_number: phase0.seq_number,
-    attnets: phase0.attnets)
-
 const
   clientId* = "Nimbus beacon node " & fullVersionStr
 
@@ -2081,15 +2071,10 @@ proc updatePeerMetadata(node: Eth2Node, peerId: PeerId) {.async.} =
   let newMetadata =
     try:
       tryGet(await peer.getMetadata_v2())
-    except CatchableError:
-      let metadataV1 =
-        try: tryGet(await peer.getMetaData())
-        except CatchableError as exc:
-          debug "Failed to retrieve metadata from peer!", peerId, msg=exc.msg
-          peer.failedMetadataRequests.inc()
-          return
-
-      toAltairMetadata(metadataV1)
+    except CatchableError as exc:
+      debug "Failed to retrieve metadata from peer!", peerId, msg=exc.msg
+      peer.failedMetadataRequests.inc()
+      return
 
   peer.metadata = some(newMetadata)
   peer.failedMetadataRequests = 0
