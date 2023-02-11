@@ -7,8 +7,9 @@
 
 import
   # Standard library
-  std/[os, strutils, typetraits],
+  std/[strutils, typetraits],
   # Internals
+  ./os_ops,
   ../../beacon_chain/spec/datatypes/[phase0, altair, bellatrix],
   ../../beacon_chain/spec/[
     eth2_merkleization, eth2_ssz_serialization, forks],
@@ -90,15 +91,12 @@ const
 proc parseTest*(path: string, Format: typedesc[Json], T: typedesc): T =
   try:
     # debugEcho "          [Debug] Loading file: \"", path, '\"'
-    result = Format.loadFile(path, T)
+    result = Format.decode(readFileBytes(path), T)
   except SerializationError as err:
     writeStackTrace()
     stderr.write $Format & " load issue for file \"", path, "\"\n"
     stderr.write err.formatMsg(path), "\n"
     quit 1
-
-template readFileBytes*(path: string): seq[byte] =
-  cast[seq[byte]](readFile(path))
 
 proc sszDecodeEntireInput*(input: openArray[byte], Decoded: type): Decoded =
   let stream = unsafeMemoryInput(input)

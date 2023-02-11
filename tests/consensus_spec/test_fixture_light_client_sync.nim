@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[json, os, streams],
+  std/[json, streams],
   # Status libraries
   stew/byteutils,
   # Third-party
@@ -18,7 +18,7 @@ import
   ../../../beacon_chain/spec/[forks, light_client_sync],
   # Test utilities
   ../testutil,
-  ./fixtures_utils
+  ./fixtures_utils, ./os_ops
 
 type
   TestMeta = object
@@ -53,7 +53,7 @@ type
     checks: TestChecks
 
 proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
-  let stepsYAML = readFile(path/"steps.yaml")
+  let stepsYAML = os_ops.readFile(path/"steps.yaml")
   let steps = yaml.loadToJson(stepsYAML)
 
   result = @[]

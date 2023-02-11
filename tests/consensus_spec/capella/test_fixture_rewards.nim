@@ -8,14 +8,12 @@
 {.used.}
 
 import
-  # Standard library
-  std/os,
   # Beacon chain internals
   ../../beacon_chain/spec/[beaconstate, validator, helpers, state_transition_epoch],
   ../../beacon_chain/spec/datatypes/[altair, capella],
   # Test utilities
   ../../testutil,
-  ../fixtures_utils
+  ../fixtures_utils, ../os_ops
 
 const
   RewardsDirBase = SszTestsDir/const_preset/"capella"/"rewards"

@@ -15,12 +15,10 @@ import
   ../../../beacon_chain/spec/datatypes/[altair, capella],
   # Test utilities
   ../../testutil,
-  ../fixtures_utils,
+  ../fixtures_utils, ../os_ops,
   ./test_fixture_rewards,
   ../../helpers/debug_state
 
-from std/os import
-  DirSep, dirExists, fileExists, pcDir, walkDir, walkDirRec, `/`
 from std/sequtils import mapIt, toSeq
 from std/strutils import rsplit
 
