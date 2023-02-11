@@ -47,6 +47,7 @@ type
 
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
+    EIP4844_FORK_EPOCH: Epoch
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
     getLocalHeadSlot: GetSlotCallback
@@ -62,6 +63,7 @@ type
     queue: SyncQueue[A]
     syncFut: Future[void]
     blockVerifier: BlockVerifier
+    blockBlobsVerifier: BlockBlobsVerifier
     inProgress*: bool
     insSyncSpeed*: float
     avgSyncSpeed*: float
@@ -75,6 +77,7 @@ type
     slots*: uint64
 
   BeaconBlocksRes = NetRes[List[ref ForkedSignedBeaconBlock, MAX_REQUEST_BLOCKS]]
+  BlobsSidecarRes = NetRes[List[ref BlobsSidecar, MAX_REQUEST_BLOBS_SIDECARS]]
 
 proc now*(sm: typedesc[SyncMoment], slots: uint64): SyncMoment {.inline.} =
   SyncMoment(stamp: now(chronos.Moment), slots: slots)
@@ -94,7 +97,8 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
   of SyncQueueKind.Forward:
     man.queue = SyncQueue.init(A, man.direction, man.getFirstSlot(),
                                man.getLastSlot(), man.chunkSize,
-                               man.getSafeSlot, man.blockVerifier, 1,
+                               man.getSafeSlot, man.blockVerifier,
+                               man.blockBlobsVerifier, 1,
                                man.ident)
   of SyncQueueKind.Backward:
     let
@@ -108,10 +112,11 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                     Slot(firstSlot - 1'u64)
     man.queue = SyncQueue.init(A, man.direction, startSlot, lastSlot,
                                man.chunkSize, man.getSafeSlot,
-                               man.blockVerifier, 1,
+                               man.blockVerifier, man.blockBlobsVerifier, 1,
                                man.ident)
 
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
+                           eip4844Epoch: Epoch,
                            direction: SyncQueueKind,
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
@@ -120,6 +125,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getFrontfillSlotCb: GetSlotCallback,
                            progressPivot: Slot,
                            blockVerifier: BlockVerifier,
+                           blockBlobsVerifier: BlockBlobsVerifier,
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
                            chunkSize = uint64(SLOTS_PER_EPOCH),
                            flags: set[SyncManagerFlag] = {},
@@ -133,6 +139,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
 
   var res = SyncManager[A, B](
     pool: pool,
+    EIP4844_FORK_EPOCH: eip4844Epoch,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     getSafeSlot: getSafeSlot,
@@ -142,6 +149,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     maxHeadAge: maxHeadAge,
     chunkSize: chunkSize,
     blockVerifier: blockVerifier,
+    blockBlobsVerifier: blockBlobsVerifier,
     notInSyncEvent: newAsyncEvent(),
     direction: direction,
     ident: ident,
@@ -176,6 +184,41 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
     return
   except CatchableError as exc:
     debug "Error, while waiting getBlocks response", request = req,
+          errName = exc.name, errMsg = exc.msg
+    return
+
+proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
+  let wallEpoch = man.getLocalWallSlot().epoch
+  e >= man.EIP4844_FORK_EPOCH and
+  (wallEpoch < MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS or
+   e >=  wallEpoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS)
+
+proc getBlobsSidecars*[A, B](man: SyncManager[A, B], peer: A,
+                      req: SyncRequest): Future[BlobsSidecarRes] {.async.} =
+  mixin getScore, `==`
+
+  logScope:
+    peer_score = peer.getScore()
+    peer_speed = peer.netKbps()
+    sync_ident = man.ident
+    direction = man.direction
+    topics = "syncman"
+
+  doAssert(not(req.isEmpty()), "Request must not be empty!")
+  debug "Requesting blobs sidecars from peer", request = req
+  try:
+    let res = await blobsSidecarsByRange(peer, req.slot, req.count)
+
+    if res.isErr():
+      debug "Error, while reading blobsSidecarsByRange response", request = req,
+             error = $res.error()
+      return
+    return res
+  except CancelledError:
+    debug "Interrupt, while waiting blobsSidecarsByRange response", request = req
+    return
+  except CatchableError as exc:
+    debug "Error, while waiting blobsSidecarsByRange response", request = req,
           errName = exc.name, errMsg = exc.msg
     return
 
@@ -333,50 +376,87 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
 
   try:
     let blocks = await man.getBlocks(peer, req)
-    if blocks.isOk():
-      let data = blocks.get().asSeq()
-      let smap = getShortMap(req, data)
-      debug "Received blocks on request", blocks_count = len(data),
-            blocks_map = smap, request = req
-
-      if not(checkResponse(req, data)):
-        peer.updateScore(PeerScoreBadResponse)
-        warn "Received blocks sequence is not in requested range",
-             blocks_count = len(data), blocks_map = smap,
-             request = req
-        return
-
-      if len(data) == 0 and man.direction == SyncQueueKind.Backward and
-          req.contains(man.getSafeSlot()):
-        # The sync protocol does not distinguish between:
-        # - All requested slots are empty
-        # - Peer does not have data available about requested range
-        #
-        # However, we include the `backfill` slot in backward sync requests.
-        # If we receive an empty response to a request covering that slot,
-        # we know that the response is incomplete and can descore.
-        peer.updateScore(PeerScoreNoValues)
-        man.queue.push(req)
-        debug "Response does not include known-to-exist block", request = req
-        return
-
-      # Scoring will happen in `syncUpdate`.
-      man.workers[index].status = SyncWorkerStatus.Queueing
-      let
-        peerFinalized = peer.getFinalizedEpoch().start_slot()
-        lastSlot = req.slot + req.count
-        # The peer claims the block is finalized - our own block processing will
-        # verify this point down the line
-        # TODO descore peers that lie
-        maybeFinalized = lastSlot < peerFinalized
-
-      await man.queue.push(req, data, maybeFinalized, proc() =
-        man.workers[index].status = SyncWorkerStatus.Processing)
-    else:
+    if blocks.isErr():
       peer.updateScore(PeerScoreNoValues)
       man.queue.push(req)
       debug "Failed to receive blocks on request", request = req
       return
+    let blockData = blocks.get().asSeq()
+    let blockSmap = getShortMap(req, blockData)
+    debug "Received blocks on request", blocks_count = len(blockData),
+          blocks_map = blockSmap, request = req
+
+    let slots = mapIt(blockData, it[].slot)
+    if not(checkResponse(req, slots)):
+      peer.updateScore(PeerScoreBadResponse)
+      warn "Received blocks sequence is not in requested range",
+           blocks_count = len(blockData), blocks_map = blockSmap,
+           request = req
+      return
+
+    let blobData =
+      if man.shouldGetBlobs(req.slot.epoch):
+        let blobs = await man.getBlobsSidecars(peer, req)
+        if blobs.isErr():
+          peer.updateScore(PeerScoreNoValues)
+          man.queue.push(req)
+          debug "Failed to receive blobs on request", request = req
+          return
+        let blobData = blobs.get().asSeq()
+        let slots = mapIt(blobData, it[].beacon_block_slot)
+        if not(checkResponse(req, slots)):
+          peer.updateScore(PeerScoreBadResponse)
+          warn "Received blobs sequence is not in requested range",
+            blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
+            request = req
+          return
+        Opt.some(blobData)
+      else:
+        Opt.none(seq[ref BlobsSidecar])
+
+    if blobData.isSome:
+      let blobSmap = getShortMap(req, blobData.get(@[]))
+      debug "Received blobs on request", blobs_count = len(blobData.get(@[])),
+          blobs_map = blobSmap, request = req
+      let blobs = blobData.get()
+      if len(blobs) != len(blockData):
+        info "block and blobs have different lengths", blobs=len(blobs), blocks=len(blockData)
+        peer.updateScore(PeerScoreNoValues)
+        man.queue.push(req)
+        return
+      for i, blk in blockData:
+        if blk[].slot != blobs[i].beacon_block_slot:
+          peer.updateScore(PeerScoreNoValues)
+          man.queue.push(req)
+          debug "block and blobs data have inconsistent slots"
+          return
+
+    if len(blockData) == 0 and man.direction == SyncQueueKind.Backward and
+        req.contains(man.getSafeSlot()):
+      # The sync protocol does not distinguish between:
+      # - All requested slots are empty
+      # - Peer does not have data available about requested range
+      #
+      # However, we include the `backfill` slot in backward sync requests.
+      # If we receive an empty response to a request covering that slot,
+      # we know that the response is incomplete and can descore.
+      peer.updateScore(PeerScoreNoValues)
+      man.queue.push(req)
+      debug "Response does not include known-to-exist block", request = req
+      return
+
+    # Scoring will happen in `syncUpdate`.
+    man.workers[index].status = SyncWorkerStatus.Queueing
+    let
+      peerFinalized = peer.getFinalizedEpoch().start_slot()
+      lastSlot = req.slot + req.count
+      # The peer claims the block is finalized - our own block processing will
+      # verify this point down the line
+      # TODO descore peers that lie
+      maybeFinalized = lastSlot < peerFinalized
+
+    await man.queue.push(req, blockData, blobData, maybeFinalized, proc() =
+      man.workers[index].status = SyncWorkerStatus.Processing)
 
   except CatchableError as exc:
     debug "Unexpected exception while receiving blocks", request = req,

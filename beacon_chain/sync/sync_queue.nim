@@ -28,6 +28,10 @@ type
   BlockVerifier* =
     proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
+  BlockBlobsVerifier* =
+    proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar,
+         maybeFinalized: bool):
+      Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 
   SyncQueueKind* {.pure.} = enum
     Forward, Backward
@@ -42,6 +46,7 @@ type
   SyncResult*[T] = object
     request*: SyncRequest[T]
     data*: seq[ref ForkedSignedBeaconBlock]
+    blobs*: Opt[seq[ref BlobsSidecar]]
 
   GapItem*[T] = object
     start*: Slot
@@ -74,6 +79,7 @@ type
     readyQueue: HeapQueue[SyncResult[T]]
     rewind: Option[RewindPoint]
     blockVerifier: BlockVerifier
+    blockBlobsVerifier: BlockBlobsVerifier
     ident*: string
 
 chronicles.formatIt SyncQueueKind: toLowerAscii($it)
@@ -109,6 +115,27 @@ proc getShortMap*[T](req: SyncRequest[T],
     slider = slider + 1
   res
 
+proc getShortMap*[T](req: SyncRequest[T],
+                     data: openArray[ref BlobsSidecar]): string =
+  ## Returns all slot numbers in ``data`` as placement map.
+  var res = newStringOfCap(req.count)
+  var slider = req.slot
+  var last = 0
+  for i in 0 ..< req.count:
+    if last < len(data):
+      for k in last ..< len(data):
+        if slider == data[k].beacon_block_slot:
+          res.add('x')
+          last = k + 1
+          break
+        elif slider < data[k].beacon_block_slot:
+          res.add('.')
+          break
+    else:
+      res.add('.')
+    slider = slider + 1
+  res
+
 proc contains*[T](req: SyncRequest[T], slot: Slot): bool {.inline.} =
   slot >= req.slot and slot < req.slot + req.count
 
@@ -116,7 +143,7 @@ proc cmp*[T](a, b: SyncRequest[T]): int =
   cmp(uint64(a.slot), uint64(b.slot))
 
 proc checkResponse*[T](req: SyncRequest[T],
-                       data: openArray[ref ForkedSignedBeaconBlock]): bool =
+                       data: openArray[Slot]): bool =
   if len(data) == 0:
     # Impossible to verify empty response.
     return true
@@ -131,9 +158,9 @@ proc checkResponse*[T](req: SyncRequest[T],
   var dindex = 0
 
   while (rindex < req.count) and (dindex < len(data)):
-    if slot < data[dindex][].slot:
+    if slot < data[dindex]:
       discard
-    elif slot == data[dindex][].slot:
+    elif slot == data[dindex]:
       inc(dindex)
     else:
       return false
@@ -174,6 +201,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               start, final: Slot, chunkSize: uint64,
               getSafeSlotCb: GetSlotCallback,
               blockVerifier: BlockVerifier,
+              blockBlobsVerifier: BlockBlobsVerifier,
               syncQueueSize: int = -1,
               ident: string = "main"): SyncQueue[T] =
   ## Create new synchronization queue with parameters
@@ -245,6 +273,7 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     inpSlot: start,
     outSlot: start,
     blockVerifier: blockVerifier,
+    blockBlobsVerifier: blockBlobsVerifier,
     ident: ident
   )
 
@@ -578,6 +607,7 @@ func numAlreadyKnownSlots[T](sq: SyncQueue[T], sr: SyncRequest[T]): uint64 =
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ref ForkedSignedBeaconBlock],
+              blobs: Opt[seq[ref BlobsSidecar]],
               maybeFinalized: bool = false,
               processingCb: ProcessingCallback = nil) {.async.} =
   logScope:
@@ -605,7 +635,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
         # SyncQueue reset happens. We are exiting to wake up sync-worker.
         return
     else:
-      let syncres = SyncResult[T](request: sr, data: data)
+      let syncres = SyncResult[T](request: sr, data: data, blobs: blobs)
       sq.readyQueue.push(syncres)
       break
 
@@ -654,8 +684,14 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       # Nim versions, remove workaround and move `res` into for loop
       res: Result[void, VerifierError]
 
+    var i=0
     for blk in sq.blocks(item):
-      res = await sq.blockVerifier(blk[], maybeFinalized)
+      if reqres.get().blobs.isNone():
+        res = await sq.blockVerifier(blk[], maybeFinalized)
+      else:
+        res = await sq.blockBlobsVerifier(blk[], reqres.get().blobs.get()[i][], maybeFinalized)
+      inc(i)
+
       if res.isOk():
         goodBlock = some(blk[].slot)
       else:

@@ -330,10 +330,13 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       let resfut = newFuture[Result[void, VerifierError]]("blockVerifier")
       blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                Opt.none(eip4844.BlobsSidecar), resfut,
+                                Opt.none(eip4844.BlobsSidecar),
+                                resfut,
                                 maybeFinalized = maybeFinalized)
       resfut
-    blockBlobsVerifier = proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar):
+    blockBlobsVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
+                              blobs: eip4844.BlobsSidecar,
+                              maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
       # The design with a callback for block verification is unusual compared
       # to the rest of the application, but fits with the general approach
@@ -341,7 +344,7 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       let resfut = newFuture[Result[void, VerifierError]]("blockVerifier")
       blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                Opt.some(blobs), resfut)
+                                Opt.some(blobs), resfut, maybeFinalized = maybeFinalized)
       resfut
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
@@ -349,13 +352,14 @@ proc initFullNode(
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
       lightClientPool, quarantine, rng, getBeaconTime, taskpool)
     syncManager = newSyncManager[Peer, PeerId](
-      node.network.peerPool, SyncQueueKind.Forward, getLocalHeadSlot,
+      node.network.peerPool, dag.cfg.EIP4844_FORK_EPOCH, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, dag.tail.slot, blockVerifier)
+      getFrontfillSlot, dag.tail.slot, blockVerifier, blockBlobsVerifier)
     backfiller = newSyncManager[Peer, PeerId](
-      node.network.peerPool, SyncQueueKind.Backward, getLocalHeadSlot,
+      node.network.peerPool, dag.cfg.EIP4844_FORK_EPOCH, SyncQueueKind.Backward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
-      getFrontfillSlot, dag.backfill.slot, blockVerifier, maxHeadAge = 0)
+      getFrontfillSlot, dag.backfill.slot, blockVerifier, blockBlobsVerifier,
+      maxHeadAge = 0)
     router = (ref MessageRouter)(
       processor: processor,
       network: node.network)

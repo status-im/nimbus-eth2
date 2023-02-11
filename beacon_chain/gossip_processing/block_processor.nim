@@ -180,7 +180,7 @@ proc storeBackfillBlock(
   # writing the block in case of blob error.
   let blobsOk =
       when typeof(signedBlock).toFork() >= ConsensusFork.EIP4844:
-        blobs.isSome() and not
+          blobs.isNone or
           validate_blobs_sidecar(signedBlock.message.slot,
                                  signedBlock.root,
                                  signedBlock.message

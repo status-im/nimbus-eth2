@@ -33,7 +33,8 @@ type
     proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   BlockBlobsVerifier* =
-    proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar):
+    proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar,
+         maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 
   RequestManager* = object
@@ -173,7 +174,8 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
     debug "Requesting blocks and sidecars by root",
       peer = peer, blocks = shortLog(items), peer_score = peer.getScore()
 
-    let blocks = (await beaconBlockAndBlobsSidecarByRoot_v1(peer, BlockRootsList items))
+    let blocks = await beaconBlockAndBlobsSidecarByRoot_v1(peer,
+                                                           BlockRootsList items)
 
     if blocks.isOk:
       let ublocks = blocks.get()
@@ -183,7 +185,9 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
           gotUnviableBlock = false
 
         for b in ublocks:
-          let ver = await rman.blockBlobsVerifier(ForkedSignedBeaconBlock.init(b[].beacon_block), b[].blobs_sidecar)
+          let ver = await rman.blockBlobsVerifier(
+            ForkedSignedBeaconBlock.init(b[].beacon_block),
+            b[].blobs_sidecar, false)
           if ver.isErr():
             case ver.error()
             of VerifierError.MissingParent:
