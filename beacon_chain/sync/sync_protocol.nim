@@ -155,7 +155,6 @@ proc readChunkPayload*(
   else:
     return neterr InvalidContextBytes
 
-
 proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type SomeForkedLightClientObject):
     Future[NetRes[MsgType]] {.async.} =

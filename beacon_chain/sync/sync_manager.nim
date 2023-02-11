@@ -386,8 +386,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
     debug "Received blocks on request", blocks_count = len(blockData),
           blocks_map = blockSmap, request = req
 
-    let slots = map(blockData,
-                proc(x: ref ForkedSignedBeaconBlock): Slot = x[].slot)
+    let slots = mapIt(blockData, it[].slot)
     if not(checkResponse(req, slots)):
       peer.updateScore(PeerScoreBadResponse)
       warn "Received blocks sequence is not in requested range",
@@ -404,8 +403,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
           debug "Failed to receive blobs on request", request = req
           return
         let blobData = blobs.get().asSeq()
-        let slots = map(blobData,
-                        proc(x: ref BlobsSidecar): Slot = x[].beacon_block_slot)
+        let slots = mapIt(blobData, it[].beacon_block_slot)
         if not(checkResponse(req, slots)):
           peer.updateScore(PeerScoreBadResponse)
           warn "Received blobs sequence is not in requested range",

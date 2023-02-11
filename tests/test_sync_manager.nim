@@ -1034,8 +1034,7 @@ suite "SyncManager test suite":
     let chain = createChain(Slot(10), Slot(20))
     let r1 = SyncRequest[SomeTPeer](slot: Slot(11), count: 1'u64)
     let r21 = SyncRequest[SomeTPeer](slot: Slot(11), count: 2'u64)
-    let slots = map(chain,
-                    proc(x: ref ForkedSignedBeaconBlock): Slot = x[].slot)
+    let slots = mapIt(chain, it[].slot)
 
     check:
       checkResponse(r1, @[slots[1]]) == true
