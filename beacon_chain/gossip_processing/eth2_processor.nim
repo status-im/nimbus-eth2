@@ -85,11 +85,6 @@ type
     ## of gossip interleaving between nodes so long as they don't gossip at
     ## the same time.
 
-    nodeLaunchSlot*: Slot ##\
-    ## Set once, at node launch. This functions as a basic protection against
-    ## false positives from attestations persisting within the gossip network
-    ## across quick restarts.
-
   Eth2Processor* = object
     ## The Eth2Processor is the entry point for untrusted message processing -
     ## when we receive messages from various sources, we pass them to the
@@ -164,7 +159,6 @@ proc new*(T: type Eth2Processor,
   (ref Eth2Processor)(
     doppelgangerDetectionEnabled: doppelgangerDetectionEnabled,
     doppelgangerDetection: DoppelgangerProtection(
-      nodeLaunchSlot: getBeaconTime().slotOrZero,
       broadcastStartEpoch: FAR_FUTURE_EPOCH),
     blockProcessor: blockProcessor,
     validatorMonitor: validatorMonitor,
@@ -263,8 +257,7 @@ proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   if self.doppelgangerDetectionEnabled:
     notice "Setting up doppelganger detection",
       epoch = slot.epoch,
-      broadcast_epoch = self.doppelgangerDetection.broadcastStartEpoch,
-      nodestart_epoch = self.doppelgangerDetection.nodeLaunchSlot.epoch()
+      broadcast_epoch = self.doppelgangerDetection.broadcastStartEpoch
 
 proc clearDoppelgangerProtection*(self: var Eth2Processor) =
   self.doppelgangerDetection.broadcastStartEpoch = FAR_FUTURE_EPOCH
@@ -278,25 +271,17 @@ proc checkForPotentialDoppelganger(
   if not self.doppelgangerDetectionEnabled:
     return
 
-  if attestation.data.slot <= self.doppelgangerDetection.nodeLaunchSlot + 1:
-    return
-
-  let broadcastStartEpoch = self.doppelgangerDetection.broadcastStartEpoch
-
   for validatorIndex in attesterIndices:
     let
-      validatorPubkey = self.dag.validatorKey(validatorIndex).get().toPubKey()
-      validator = self.validatorPool[].getValidator(validatorPubkey)
+      pubkey = self.dag.validatorKey(validatorIndex).get().toPubKey()
 
-    if not(isNil(validator)):
-      if validator.triggersDoppelganger(broadcastStartEpoch):
-        warn "Doppelganger attestation",
-          validator = shortLog(validator),
-          validator_index = validatorIndex,
-          activation_epoch = validator.activationEpoch,
-          broadcast_epoch = broadcastStartEpoch,
-          attestation = shortLog(attestation)
-        quitDoppelganger()
+    if self.validatorPool[].triggersDoppelganger(
+        pubkey, attestation.data.slot.epoch):
+      warn "Doppelganger attestation",
+        validator = shortLog(pubkey),
+        validator_index = validatorIndex,
+        attestation = shortLog(attestation)
+      quitDoppelganger()
 
 proc processAttestation*(
     self: ref Eth2Processor, src: MsgSource,

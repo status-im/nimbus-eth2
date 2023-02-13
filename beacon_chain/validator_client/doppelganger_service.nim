@@ -16,7 +16,8 @@ logScope: service = ServiceName
 proc getCheckingList*(vc: ValidatorClientRef, epoch: Epoch): seq[ValidatorIndex] =
   var res: seq[ValidatorIndex]
   for validator in vc.attachedValidators[]:
-    if validator.index.isSome and validator.triggersDoppelganger(epoch):
+    if validator.index.isSome and
+        (validator.doppelCheck.isNone or validator.doppelCheck.get() < epoch):
       res.add validator.index.get()
   res
 
@@ -36,12 +37,11 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
       let vindex = item.index
       for validator in vc.attachedValidators[]:
         if validator.index == Opt.some(vindex):
-          if item.is_live:
-            if validator.triggersDoppelganger(epoch):
-              vc.doppelExit.fire()
-              return
-        else:
-          validator.updateDoppelganger(epoch)
+          validator.doppelgangerChecked(epoch)
+
+          if item.is_live and validator.triggersDoppelganger(epoch):
+            vc.doppelExit.fire()
+            return
 
 proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
   let vc = service.client

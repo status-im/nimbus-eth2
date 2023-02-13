@@ -125,10 +125,12 @@ proc addValidators*(node: BeaconNode) =
 
 proc getValidatorForDuties*(
     node: BeaconNode,
-    idx: ValidatorIndex, slot: Slot): Opt[AttachedValidator] =
+    idx: ValidatorIndex, slot: Slot,
+    doppelActivity = false): Opt[AttachedValidator] =
   let key = ? node.dag.validatorKey(idx)
 
-  node.attachedValidators[].getValidatorForDuties(key.toPubKey(), slot)
+  node.attachedValidators[].getValidatorForDuties(
+    key.toPubKey(), slot, doppelActivity)
 
 proc isSynced*(node: BeaconNode, head: BlockRef): SyncStatus =
   ## TODO This function is here as a placeholder for some better heurestics to
@@ -1014,7 +1016,8 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       epochRef.shufflingRef, slot, committee_index)
 
     for index_in_committee, validator_index in committee:
-      let validator = node.getValidatorForDuties(validator_index, slot).valueOr:
+      let validator = node.getValidatorForDuties(
+          validator_index, slot, true).valueOr:
         continue
 
       let

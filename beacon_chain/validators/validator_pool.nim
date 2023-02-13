@@ -27,12 +27,11 @@ export
 
 const
   WEB3_SIGNER_DELAY_TOLERANCE = 3.seconds
-  DOPPELGANGER_EPOCHS_COUNT = 1
-    ## The number of full epochs that we monitor validators for doppelganger
-    ## protection
 
 declareGauge validators,
   "Number of validators attached to the beacon node"
+
+logScope: topics = "val_pool"
 
 type
   ValidatorKind* {.pure.} = enum
@@ -43,9 +42,6 @@ type
   ValidatorAndIndex* = object
     index*: ValidatorIndex
     validator*: Validator
-
-  DoppelgangerStatus {.pure.} = enum
-    Unknown, Checking, Checked
 
   AttachedValidator* = ref object
     data*: KeystoreData
@@ -76,9 +72,10 @@ type
     # builder should be informed of current validators
     externalBuilderRegistration*: Opt[SignedValidatorRegistrationV1]
 
-    doppelStatus: DoppelgangerStatus
-    doppelEpoch*: Opt[Epoch]
-      ## The epoch where doppelganger detection started doing its monitoring
+    doppelCheck*: Opt[Epoch]
+      ## The epoch where doppelganger detection last performed a check
+    doppelActivity*: Opt[Epoch]
+      ## The last time we attempted to perform a duty with this validator
 
     lastWarning*: Opt[Slot]
 
@@ -246,14 +243,6 @@ proc updateValidator*(
 
     validator.activationEpoch = activationEpoch
 
-    if validator.doppelStatus == DoppelgangerStatus.Unknown:
-      if validator.doppelEpoch.isSome() and activationEpoch != FAR_FUTURE_EPOCH:
-        let doppelEpoch = validator.doppelEpoch.get()
-        if doppelEpoch >= validator.activationEpoch + DOPPELGANGER_EPOCHS_COUNT:
-          validator.doppelStatus = DoppelgangerStatus.Checking
-        else:
-          validator.doppelStatus = DoppelgangerStatus.Checked
-
 proc close*(pool: var ValidatorPool) =
   ## Unlock and close all validator keystore's files managed by ``pool``.
   for validator in pool.validators.values():
@@ -275,52 +264,61 @@ iterator items*(pool: ValidatorPool): AttachedValidator =
   for item in pool.validators.values():
     yield item
 
-proc triggersDoppelganger*(v: AttachedValidator, epoch: Epoch): bool =
-  ## Returns true iff detected activity in the given epoch would trigger
-  ## doppelganger detection
-  if v.doppelStatus != DoppelgangerStatus.Checked:
-    if v.activationEpoch == FAR_FUTURE_EPOCH:
-      false
-    elif epoch < v.activationEpoch + DOPPELGANGER_EPOCHS_COUNT:
-      v.doppelStatus = DoppelgangerStatus.Checked
-      false
-    else:
-      true
+proc doppelgangerChecked*(validator: AttachedValidator, epoch: Epoch) =
+  ## Call when the validator was checked for activity in the given epoch
+
+  if validator.doppelCheck.isNone():
+    debug "Doppelganger first check",
+      validator = shortLog(validator), epoch
+  elif validator.doppelCheck.get() + 1 != epoch:
+    debug "Doppelganger stale check",
+      validator = shortLog(validator),
+      checked = validator.doppelCheck.get(), epoch
+
+  validator.doppelCheck = Opt.some epoch
+
+proc doppelgangerActivity*(validator: AttachedValidator, epoch: Epoch) =
+  ## Call when we performed a doppelganger-monitored activity in the epoch
+  if validator.doppelActivity.isNone():
+    debug "Doppelganger first activity",
+      validator = shortLog(validator), epoch
+  elif validator.doppelActivity.get() + 1 != epoch:
+    debug "Doppelganger stale activity",
+      validator = shortLog(validator),
+      checked = validator.doppelActivity.get(), epoch
+
+  validator.doppelActivity = Opt.some epoch
+
+func triggersDoppelganger*(v: AttachedValidator, epoch: Epoch): bool =
+  ## Returns true iff we have proof that an activity in the given epoch
+  ## triggers doppelganger detection: this means the network was active for this
+  ## validator during the given epoch (via doppelgangerChecked) but the activity
+  ## did not originate from this instance.
+
+  if v.doppelActivity.isSome() and v.doppelActivity.get() >= epoch:
+    false # This was our own activity
+  elif v.doppelCheck.isNone():
+    false # Can't prove that the activity triggers the check
   else:
-    false
+    v.doppelCheck.get() == epoch
 
-proc updateDoppelganger*(validator: AttachedValidator, epoch: Epoch) =
-  ## Called when the validator has proven to be inactive in the given epoch -
-  ## this call should be made after the end of `epoch` before acting on duties
-  ## in `epoch + 1`.
-
-  if validator.doppelStatus == DoppelgangerStatus.Checked:
-    return
-
-  if validator.doppelEpoch.isNone():
-    validator.doppelEpoch = Opt.some epoch
-
-  let doppelEpoch = validator.doppelEpoch.get()
-
-  if validator.doppelStatus == DoppelgangerStatus.Unknown:
-    if validator.activationEpoch == FAR_FUTURE_EPOCH:
-      return
-
-    # We don't do doppelganger checking for validators that are about to be
-    # activated since both clients would be waiting for the other to start
-    # performing duties - this accounts for genesis as well
-    # The slot is rounded up to ensure we cover all slots
-    if doppelEpoch + 1 <= validator.activationEpoch + DOPPELGANGER_EPOCHS_COUNT:
-      validator.doppelStatus = DoppelgangerStatus.Checked
-      return
-
-    validator.doppelStatus = DoppelgangerStatus.Checking
-
-  if epoch + 1 >= doppelEpoch + DOPPELGANGER_EPOCHS_COUNT:
-    validator.doppelStatus = DoppelgangerStatus.Checked
+proc doppelgangerReady*(validator: AttachedValidator, slot: Slot): bool =
+  ## Returns true iff the validator has passed doppelganger detection by being
+  ## monitored in the previous epoch (or the given epoch is the activation
+  ## epoch, in which case we always consider it ready)
+  ##
+  ## If we checked doppelganger, we allow the check to lag by one slot to avoid
+  ## a race condition where the check for epoch N is ongoing and block
+  ## block production for slot_start(N+1) is about to happen
+  let epoch = slot.epoch
+  epoch == validator.activationEpoch or
+    (validator.doppelCheck.isSome and
+      (validator.doppelCheck.get() + 1 == epoch or
+      ((validator.doppelCheck.get() + 2).start_slot) == slot))
 
 proc getValidatorForDuties*(
-    pool: ValidatorPool, key: ValidatorPubKey, slot: Slot):
+    pool: ValidatorPool, key: ValidatorPubKey, slot: Slot,
+    doppelActivity = false):
     Opt[AttachedValidator] =
   ## Return validator only if it is ready for duties (has index and has passed
   ## doppelganger check where applicable)
@@ -329,15 +327,26 @@ proc getValidatorForDuties*(
     return Opt.none(AttachedValidator)
 
   if pool.doppelgangerDetectionEnabled and
-      validator.triggersDoppelganger(slot.epoch):
-    # If the validator would trigger for an activity in the given slot, we don't
-    # return it for duties
+      not validator.doppelgangerReady(slot):
     notice "Doppelganger detection active - " &
-           "skipping validator duties while observing the network",
-            validator = shortLog(validator)
+          "skipping validator duties while observing the network",
+            validator = shortLog(validator),
+            doppelCheck = validator.doppelCheck,
+            activationEpoch = shortLog(validator.activationEpoch)
+
     return Opt.none(AttachedValidator)
 
+  if doppelActivity:
+    # Record the activity
+    # TODO consider moving to the the "registration point"
+    validator.doppelgangerActivity(slot.epoch)
+
   return Opt.some(validator)
+
+func triggersDoppelganger*(
+    pool: ValidatorPool, pubkey: ValidatorPubKey, epoch: Epoch): bool =
+  let v = pool.getValidator(pubkey)
+  v != nil and v.triggersDoppelganger(epoch)
 
 proc signWithDistributedKey(v: AttachedValidator,
                             request: Web3SignerRequest): Future[SignatureResult]
