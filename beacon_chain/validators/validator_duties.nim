@@ -430,7 +430,7 @@ proc getExecutionPayload[T](
               payload_id, err = err.msg
         empty_execution_payload
 
-    when T isnot bellatrix.ExecutionPayload:
+    when T is capella.ExecutionPayload:
       if payload.isSome and withdrawals.get() != payload.get.withdrawals.asSeq:
         warn "Execution client did not return correct withdrawals",
           payload = shortLog(payload.get()),
