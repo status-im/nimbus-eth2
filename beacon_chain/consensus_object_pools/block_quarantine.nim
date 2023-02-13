@@ -88,7 +88,7 @@ func checkMissing*(quarantine: var Quarantine): seq[FetchRecord] =
 
 # TODO stew/sequtils2
 template anyIt(s, pred: untyped): bool =
-  # https://github.com/nim-lang/Nim/blob/version-1-2/lib/pure/collections/sequtils.nim#L682-L704
+  # https://github.com/nim-lang/Nim/blob/v1.6.10/lib/pure/collections/sequtils.nim#L753-L775
   # without the items(...)
   var result = false
   for it {.inject.} in s:
