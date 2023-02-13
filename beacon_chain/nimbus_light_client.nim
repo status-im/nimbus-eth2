@@ -239,7 +239,7 @@ programMain:
 
       targetGossipState = getTargetGossipState(
         slot.epoch, cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH,
-        cfg.CAPELLA_FORK_EPOCH, cfg.EIP4844_FORK_EPOCH, isBehind)
+        cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH, isBehind)
 
     template currentGossipState(): auto = blocksGossipState
     if currentGossipState == targetGossipState:

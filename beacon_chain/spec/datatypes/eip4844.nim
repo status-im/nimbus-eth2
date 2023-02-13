@@ -523,7 +523,7 @@ func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
 
-  if epoch >= cfg.EIP4844_FORK_EPOCH:
+  if epoch >= cfg.DENEB_FORK_EPOCH:
     return hash_tree_root(header.execution)
 
   if epoch >= cfg.CAPELLA_FORK_EPOCH:
@@ -552,7 +552,7 @@ func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
 
-  if epoch < cfg.EIP4844_FORK_EPOCH:
+  if epoch < cfg.DENEB_FORK_EPOCH:
     if header.execution.excess_data_gas != 0.u256:
       return false
 

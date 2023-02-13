@@ -310,7 +310,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
   cfg.ALTAIR_FORK_EPOCH = 1.Epoch
   cfg.BELLATRIX_FORK_EPOCH = 2.Epoch
   cfg.CAPELLA_FORK_EPOCH = 3.Epoch
-  cfg.EIP4844_FORK_EPOCH = 4.Epoch
+  cfg.DENEB_FORK_EPOCH = 4.Epoch
 
   echo "Starting simulation..."
 

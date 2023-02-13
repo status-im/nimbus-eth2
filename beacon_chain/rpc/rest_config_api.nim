@@ -153,6 +153,10 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             "0x" & $cfg.CAPELLA_FORK_VERSION,
           CAPELLA_FORK_EPOCH:
             Base10.toString(uint64(cfg.CAPELLA_FORK_EPOCH)),
+          DENEB_FORK_VERSION:
+            "0x" & $cfg.DENEB_FORK_VERSION,
+          DENEB_FORK_EPOCH:
+            Base10.toString(uint64(cfg.DENEB_FORK_EPOCH)),
           SECONDS_PER_SLOT:
             Base10.toString(SECONDS_PER_SLOT),
           SECONDS_PER_ETH1_BLOCK:
@@ -272,8 +276,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
              "/eth/v1/config/spec") do () -> RestApiResponse:
     return RestApiResponse.response(cachedConfigSpec, Http200,
                                     "application/json")
-  # EIP4844_FORK_EPOCH and EIP4844_FORK_VERSION not yet in config
-  discard $eip4844ImplementationMissing
 
   # https://ethereum.github.io/beacon-APIs/#/Config/getDepositContract
   router.api(MethodGet,

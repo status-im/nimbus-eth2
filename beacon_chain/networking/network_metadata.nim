@@ -217,7 +217,7 @@ when const_preset == "gnosis":
   static:
     checkForkConsistency(gnosisMetadata.cfg)
     doAssert gnosisMetadata.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
-    doAssert gnosisMetadata.cfg.EIP4844_FORK_EPOCH == FAR_FUTURE_EPOCH
+    doAssert gnosisMetadata.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 elif const_preset == "mainnet":
   const
@@ -225,11 +225,12 @@ elif const_preset == "mainnet":
     praterMetadata* = eth2Network("shared/prater", goerli)
     sepoliaMetadata* = mergeTestnet("sepolia", sepolia)
   static:
-    for network in [
-        mainnetMetadata, praterMetadata, sepoliaMetadata]:
+    for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
       checkForkConsistency(network.cfg)
+
+    for network in [mainnetMetadata, praterMetadata]:
       doAssert network.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
-      doAssert network.cfg.EIP4844_FORK_EPOCH == FAR_FUTURE_EPOCH
+      doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 proc getMetadataForNetwork*(
     networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =

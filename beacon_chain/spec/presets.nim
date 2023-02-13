@@ -52,10 +52,8 @@ type
     BELLATRIX_FORK_EPOCH*: Epoch
     CAPELLA_FORK_VERSION*: Version
     CAPELLA_FORK_EPOCH*: Epoch
-    EIP4844_FORK_VERSION*: Version
-    EIP4844_FORK_EPOCH*: Epoch
-    SHARDING_FORK_VERSION*: Version
-    SHARDING_FORK_EPOCH*: Epoch
+    DENEB_FORK_VERSION*: Version
+    DENEB_FORK_EPOCH*: Epoch
 
     # Time parameters
     # TODO SECONDS_PER_SLOT*: uint64
@@ -159,12 +157,9 @@ when const_preset == "mainnet":
     # Capella
     CAPELLA_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x00],
     CAPELLA_FORK_EPOCH: FAR_FUTURE_EPOCH,
-    # eip4844
-    EIP4844_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x00],
-    EIP4844_FORK_EPOCH: FAR_FUTURE_EPOCH,
-    # Sharding
-    SHARDING_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x00],
-    SHARDING_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Deneb
+    DENEB_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x00],
+    DENEB_FORK_EPOCH: FAR_FUTURE_EPOCH,
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -266,12 +261,10 @@ elif const_preset == "gnosis":
     # Capella
     CAPELLA_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x64],
     CAPELLA_FORK_EPOCH: FAR_FUTURE_EPOCH,
-    # eip4844
-    EIP4844_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x64],
-    EIP4844_FORK_EPOCH: FAR_FUTURE_EPOCH,
-    # Sharding
-    SHARDING_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x64],
-    SHARDING_FORK_EPOCH: FAR_FUTURE_EPOCH,
+    # Deneb
+    DENEB_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x64],
+    DENEB_FORK_EPOCH: FAR_FUTURE_EPOCH,
+
 
     # Time parameters
     # ---------------------------------------------------------------
@@ -369,12 +362,9 @@ elif const_preset == "minimal":
     # Capella
     CAPELLA_FORK_VERSION: Version [byte 0x03, 0x00, 0x00, 0x01],
     CAPELLA_FORK_EPOCH: Epoch(uint64.high),
-    # eip4844
-    EIP4844_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x01],
-    EIP4844_FORK_EPOCH: Epoch(uint64.high),
-    # Sharding
-    SHARDING_FORK_VERSION: Version [byte 0x05, 0x00, 0x00, 0x00],
-    SHARDING_FORK_EPOCH: Epoch(uint64.high),
+    # Deneb
+    DENEB_FORK_VERSION: Version [byte 0x04, 0x00, 0x00, 0x01],
+    DENEB_FORK_EPOCH: Epoch(uint64.high),
 
 
     # Time parameters
@@ -597,6 +587,20 @@ proc readRuntimeConfig*(
 
   # Isn't being used as a preset in the usual way: at any time, there's one correct value
   checkCompatibility PROPOSER_SCORE_BOOST
+
+  # BEGIN TODO
+  # It should be possible to remove these once we migrate to the next
+  # release of the consensus test suite:
+  template readAliasedField(currentName: untyped, oldName: static string) =
+    if oldName in values:
+      cfg.currentName = try:
+        parse(typeof(cfg.currentName), values[oldName])
+      except ValueError as err:
+        raise (ref PresetFileError)(msg: "Unable to parse " & oldName)
+
+  readAliasedField DENEB_FORK_EPOCH, "EIP4844_FORK_EPOCH"
+  readAliasedField DENEB_FORK_VERSION, "EIP4844_FORK_VERSION"
+  # END TODO
 
   for name, field in cfg.fieldPairs():
     if name in values:

@@ -527,7 +527,8 @@ proc new*(T: type BeaconChainDB,
         else:
           "",
       eip4844Headers:
-        if cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
+        if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+          # TODO: We should probably rename this to match the official fork name
           "lc_eip4844_headers"
         else:
           "",
@@ -539,7 +540,7 @@ proc new*(T: type BeaconChainDB,
   static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
 
   var blobs : KvStoreRef
-  if cfg.EIP4844_FORK_EPOCH != FAR_FUTURE_EPOCH:
+  if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
     blobs = kvStore db.openKvStore("eip4844_blobs").expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`

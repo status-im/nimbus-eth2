@@ -472,8 +472,8 @@ p2pProtocol BeaconSync(version = 1,
           Epoch(MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS)
 
       epochBoundary =
-        if dag.head.slot.epoch - min_epochs < dag.cfg.EIP4844_FORK_EPOCH:
-          dag.cfg.EIP4844_FORK_EPOCH
+        if dag.head.slot.epoch - min_epochs < dag.cfg.DENEB_FORK_EPOCH:
+          dag.cfg.DENEB_FORK_EPOCH
         else:
           dag.head.slot.epoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS
       minimum_request_epoch = max(dag.finalizedHead.slot.epoch, epochBoundary)

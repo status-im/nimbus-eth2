@@ -46,7 +46,7 @@ func genesisTestRuntimeConfig*(stateFork: ConsensusFork): RuntimeConfig =
   var res = defaultRuntimeConfig
   case stateFork
   of ConsensusFork.EIP4844:
-    res.EIP4844_FORK_EPOCH = GENESIS_EPOCH
+    res.DENEB_FORK_EPOCH = GENESIS_EPOCH
     res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
     res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
     res.ALTAIR_FORK_EPOCH = GENESIS_EPOCH

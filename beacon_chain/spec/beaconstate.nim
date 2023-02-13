@@ -1145,7 +1145,7 @@ func upgrade_to_eip4844*(cfg: RuntimeConfig, pre: capella.BeaconState):
     slot: pre.slot,
     fork: Fork(
       previous_version: pre.fork.current_version,
-      current_version: cfg.EIP4844_FORK_VERSION,  # [Modified in EIP4844]
+      current_version: cfg.DENEB_FORK_VERSION, # [Modified in EIP4844]
       epoch: epoch
     ),
 

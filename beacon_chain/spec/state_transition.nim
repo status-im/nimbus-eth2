@@ -207,7 +207,7 @@ func maybeUpgradeStateToEIP4844(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
-  if getStateField(state, slot).epoch == cfg.EIP4844_FORK_EPOCH and
+  if getStateField(state, slot).epoch == cfg.DENEB_FORK_EPOCH and
       state.kind == ConsensusFork.Capella:
     let newState = upgrade_to_eip4844(cfg, state.capellaData.data)
     state = (ref ForkedHashedBeaconState)(
