@@ -15,9 +15,8 @@ import
 
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, checkNextProposer, optimisticExecutionPayloadHash,
-  runForkchoiceUpdated, runForkchoiceUpdatedDiscardResult,
-  runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
-  updateHeadWithExecution
+  runForkchoiceUpdated, runProposalForkchoiceUpdated, shouldSyncOptimistically,
+  updateHead, updateHeadWithExecution
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
@@ -549,7 +548,7 @@ proc storeBlock*(
       # - "Beacon chain gapped" from DAG head to optimistic head,
       # - followed by "Beacon chain reorged" from optimistic head back to DAG.
       self.consensusManager[].updateHead(newHead.get.blck)
-      await eth1Monitor.runForkchoiceUpdatedDiscardResult(
+      discard await eth1Monitor.runForkchoiceUpdated(
         headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
         safeBlockHash = newHead.get.safeExecutionPayloadHash,
         finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash)

@@ -123,9 +123,9 @@ programMain:
 
               # engine_forkchoiceUpdatedV1
               discard await eth1Monitor.runForkchoiceUpdated(
-                headBlockRoot = payload.block_hash,
-                safeBlockRoot = payload.block_hash,  # stub value
-                finalizedBlockRoot = ZERO_HASH)
+                headBlockHash = payload.block_hash,
+                safeBlockHash = payload.block_hash,  # stub value
+                finalizedBlockHash = ZERO_HASH)
         else: discard
     optimisticProcessor = initOptimisticProcessor(
       getBeaconTime, optimisticHandler)

@@ -1310,8 +1310,8 @@ proc readValue*(reader: var JsonReader[RestJson],
     assign(ep_dst.gas_limit, ep_src.gas_limit)
     assign(ep_dst.gas_used, ep_src.gas_used)
     assign(ep_dst.timestamp, ep_src.timestamp)
-    assign(ep_dst.extra_Data, ep_src.extra_Data)
-    assign(ep_dst.base_fee_per_Gas, ep_src.base_fee_per_Gas)
+    assign(ep_dst.extra_data, ep_src.extra_data)
+    assign(ep_dst.base_fee_per_gas, ep_src.base_fee_per_gas)
     assign(ep_dst.block_hash, ep_src.block_hash)
     assign(ep_dst.transactions, ep_src.transactions)
 
