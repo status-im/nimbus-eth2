@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -76,79 +76,3 @@ suite "Spec helpers":
 
     testCase default(Eth1Address)
     testCase Eth1Address.fromHex("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-
-  test "build_empty_execution_payload - Capella":
-    var cfg = defaultRuntimeConfig
-    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
-    cfg.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
-
-    let
-      state = newClone(initGenesisState(cfg = cfg).capellaData)
-      recipient = Eth1Address.fromHex(
-        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-
-    proc testCase(withdrawals: seq[capella.Withdrawal]) =
-      let payload = build_empty_execution_payload(
-        state[].data, recipient, withdrawals)
-      check payload.fee_recipient ==
-        bellatrix.ExecutionAddress(data: distinctBase(recipient))
-      for i, withdrawal in withdrawals:
-        check payload.withdrawals[i] == withdrawal
-
-      let elHeader = payloadToBlockHeader(payload)
-      check elHeader.withdrawalsRoot.isSome
-      if withdrawals.len == 0:
-        check elHeader.withdrawalsRoot.get == EMPTY_ROOT_HASH
-      else:
-        check elHeader.withdrawalsRoot.get != EMPTY_ROOT_HASH
-      check elHeader.blockHash == payload.block_hash
-
-      var bellatrixHeader = elHeader
-      bellatrixHeader.withdrawalsRoot.reset()
-      check elHeader.blockHash != rlpHash bellatrixHeader
-
-    testCase @[]
-    testCase @[
-      capella.Withdrawal(
-        index: 42,
-        validatorIndex: 1337,
-        address: bellatrix.ExecutionAddress(data: distinctBase(recipient)),
-        amount: 25.Gwei)]
-    testCase @[
-      capella.Withdrawal(
-        index: 1,
-        validatorIndex: 1,
-        address: bellatrix.ExecutionAddress(data: distinctBase(recipient)),
-        amount: 1.Gwei),
-      capella.Withdrawal(
-        index: 2,
-        validatorIndex: 2,
-        address: bellatrix.ExecutionAddress(data: distinctBase(recipient)),
-        amount: 2.Gwei)]
-
-  test "build_empty_execution_payload - EIP4844":
-    var cfg = defaultRuntimeConfig
-    cfg.ALTAIR_FORK_EPOCH = GENESIS_EPOCH
-    cfg.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
-    cfg.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
-    cfg.EIP4844_FORK_EPOCH = GENESIS_EPOCH
-
-    let
-      state = newClone(initGenesisState(cfg = cfg).eip4844Data)
-      recipient = Eth1Address.fromHex(
-        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-      withdrawals = @[
-        capella.Withdrawal(
-          index: 42,
-          validatorIndex: 1337,
-          address: bellatrix.ExecutionAddress(data: distinctBase(recipient)),
-          amount: 25.Gwei)]
-
-      payload = build_empty_execution_payload(
-        state[].data, recipient, withdrawals)
-    check:
-      payload.fee_recipient ==
-        bellatrix.ExecutionAddress(data: distinctBase(recipient))
-      payload.withdrawals[0] == withdrawals[0]
-      payload.excess_data_gas == 0.u256

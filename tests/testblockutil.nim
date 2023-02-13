@@ -78,9 +78,6 @@ func signBlock(
         ValidatorSig()
   ForkedSignedBeaconBlock.init(forked, root, signature)
 
-from ../beacon_chain/spec/datatypes/capella import
-  BeaconState, ExecutionPayload, SignedBLSToExecutionChangeList
-
 proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
     bellatrix.ExecutionPayload =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
@@ -108,44 +105,17 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
 
   payload
 
-proc build_empty_merge_execution_payload(state: capella.BeaconState):
-    capella.ExecutionPayload =
-  ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
-  ## without any transactions from a non-merged block.
-
-  doAssert not is_merge_transition_complete(state)
-
-  let
-    latest = state.latest_execution_payload_header
-    timestamp = compute_timestamp_at_slot(state, state.slot)
-    randao_mix = get_randao_mix(state, get_current_epoch(state))
-
-  var payload = capella.ExecutionPayload(
-    parent_hash: latest.block_hash,
-    state_root: latest.state_root, # no changes to the state
-    receipts_root: EMPTY_ROOT_HASH,
-    block_number: latest.block_number + 1,
-    prev_randao: randao_mix,
-    gas_limit: 30000000, # retain same limit
-    gas_used: 0, # empty block, 0 gas
-    timestamp: timestamp,
-    base_fee_per_gas: EIP1559_INITIAL_BASE_FEE)
-
-  payload.block_hash = rlpHash payloadToBlockHeader(payload)
-
-  payload
-
-proc addTestBlockAux[EP: bellatrix.ExecutionPayload | capella.ExecutionPayload](
+proc addTestBlock*(
     state: var ForkedHashedBeaconState,
     cache: var StateCache,
-    eth1_data: Eth1Data,
-    attestations: seq[Attestation],
-    deposits: seq[Deposit],
-    sync_aggregate: SyncAggregate,
-    graffiti: GraffitiBytes,
-    flags: set[UpdateFlag],
-    nextSlot: bool,
-    cfg: RuntimeConfig): ForkedSignedBeaconBlock =
+    eth1_data: Eth1Data = Eth1Data(),
+    attestations: seq[Attestation] = newSeq[Attestation](),
+    deposits: seq[Deposit] = newSeq[Deposit](),
+    sync_aggregate: SyncAggregate = SyncAggregate.init(),
+    graffiti: GraffitiBytes = default(GraffitiBytes),
+    flags: set[UpdateFlag] = {},
+    nextSlot: bool = true,
+    cfg: RuntimeConfig = defaultRuntimeConfig): ForkedSignedBeaconBlock =
   # Create and add a block to state - state will advance by one slot!
   if nextSlot:
     var info = ForkedEpochInfo()
@@ -167,23 +137,25 @@ proc addTestBlockAux[EP: bellatrix.ExecutionPayload | capella.ExecutionPayload](
         ValidatorSig()
 
   let execution_payload =
-    withState(state):
-      when (stateFork == ConsensusFork.Bellatrix and
-            EP is bellatrix.ExecutionPayload) or
-           (stateFork == ConsensusFork.Capella and
-            EP is capella.ExecutionPayload):
-        # Merge shortly after Bellatrix
-        if  forkyState.data.slot >
-            cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH + 10:
-          if is_merge_transition_complete(forkyState.data):
-            const feeRecipient = default(Eth1Address)
-            build_empty_execution_payload(forkyState.data, feeRecipient)
+    if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
+      # Can't keep correctly doing this once Capella happens, but LVH search
+      # test relies on merging. So, merge only if no Capella transition.
+      default(bellatrix.ExecutionPayload)
+    else:
+      withState(state):
+        when stateFork == ConsensusFork.Bellatrix:
+          # Merge shortly after Bellatrix
+          if  forkyState.data.slot >
+              cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH + 10:
+            if is_merge_transition_complete(forkyState.data):
+              const feeRecipient = default(Eth1Address)
+              build_empty_execution_payload(forkyState.data, feeRecipient)
+            else:
+              build_empty_merge_execution_payload(forkyState.data)
           else:
-            build_empty_merge_execution_payload(forkyState.data)
+            default(bellatrix.ExecutionPayload)
         else:
-          default(EP)
-      else:
-        default(EP)
+          default(bellatrix.ExecutionPayload)
 
   let
     message = makeBeaconBlock(
@@ -217,24 +189,6 @@ proc addTestBlockAux[EP: bellatrix.ExecutionPayload | capella.ExecutionPayload](
       flags)
 
   new_block
-
-proc addTestBlock*(
-    state: var ForkedHashedBeaconState, cache: var StateCache,
-    eth1_data = Eth1Data(), attestations = newSeq[Attestation](),
-    deposits = newSeq[Deposit](), sync_aggregate = SyncAggregate.init(),
-    graffiti = default(GraffitiBytes), flags: set[UpdateFlag] = {},
-    nextSlot = true, cfg = defaultRuntimeConfig): ForkedSignedBeaconBlock =
-  case state.kind
-  of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix:
-    addTestBlockAux[bellatrix.ExecutionPayload](
-      state, cache, eth1_data, attestations, deposits, sync_aggregate,
-      graffiti, flags, nextSlot, cfg)
-  of ConsensusFork.Capella:
-    addTestBlockAux[capella.ExecutionPayload](
-      state, cache, eth1_data, attestations, deposits, sync_aggregate,
-      graffiti, flags, nextSlot, cfg)
-  of ConsensusFork.EIP4844:
-    raiseAssert $eip4844ImplementationMissing & ": tests/testblockutil.nim addTestBlock"
 
 proc makeTestBlock*(
     state: ForkedHashedBeaconState,
