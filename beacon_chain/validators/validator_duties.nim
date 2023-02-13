@@ -300,19 +300,19 @@ proc forkchoice_updated(
 
 proc get_execution_payload[EP](
     payload_id: Option[bellatrix.PayloadID], execution_engine: Eth1Monitor):
-    Future[EP] {.async.} =
+    Future[Opt[EP]] {.async.} =
   return if payload_id.isNone():
     # Pre-merge, empty payload
-    default(EP)
+    Opt.some default(EP)
   else:
     when EP is bellatrix.ExecutionPayload:
-      asConsensusExecutionPayload(
+      Opt.some asConsensusExecutionPayload(
         await execution_engine.getPayloadV1(payload_id.get))
     elif EP is capella.ExecutionPayload:
-      asConsensusExecutionPayload(
+      Opt.some asConsensusExecutionPayload(
         await execution_engine.getPayloadV2(payload_id.get))
     elif EP is eip4844.ExecutionPayload:
-      asConsensusExecutionPayload(
+      Opt.some asConsensusExecutionPayload(
         await execution_engine.getPayloadV3(payload_id.get))
     else:
       static: doAssert "unknown execution payload type"
@@ -345,22 +345,25 @@ proc getExecutionPayload[T](
     # transmit this information through the Forked types, so this has to
     # be re-proven here.
     withState(proposalState[]):
-      when (stateFork == ConsensusFork.EIP4844 and
-            T is eip4844.ExecutionPayload) or
-           (stateFork == ConsensusFork.Capella and
-            T is capella.ExecutionPayload) or
-           (stateFork == ConsensusFork.Bellatrix and
+      when stateFork >= ConsensusFork.Capella:
+        # As of Capella, because EL state root changes in way more difficult to
+        # compute way from CL due to incorporation of withdrawals into EL state
+        # cannot use fake-EL fallback. Unlike transactions, withdrawals are not
+        # optional, so one cannot avoid this by not including any withdrawals.
+        Opt.none T
+      elif (stateFork == ConsensusFork.Bellatrix and
             T is bellatrix.ExecutionPayload):
-        build_empty_execution_payload(forkyState.data, feeRecipient)
-      elif stateFork >= ConsensusFork.Bellatrix:
+        Opt.some build_empty_execution_payload(forkyState.data, feeRecipient)
+      elif stateFork == ConsensusFork.Bellatrix:
         raiseAssert "getExecutionPayload: mismatched proposalState and ExecutionPayload fork"
       else:
-        default(T)
+        # Vacuously -- these are pre-Bellatrix and not used.
+        Opt.some default(T)
 
   if node.eth1Monitor.isNil:
     beacon_block_payload_errors.inc()
     warn "getExecutionPayload: eth1Monitor not initialized; using empty execution payload"
-    return Opt.some empty_execution_payload
+    return empty_execution_payload
 
   try:
     # Minimize window for Eth1 monitor to shut down connection
@@ -422,12 +425,12 @@ proc getExecutionPayload[T](
               payload_id, err = err.msg
         empty_execution_payload
 
-    return Opt.some payload
+    return payload
   except CatchableError as err:
     beacon_block_payload_errors.inc()
     error "Error creating non-empty execution payload; using empty execution payload",
       msg = err.msg
-    return Opt.some empty_execution_payload
+    return empty_execution_payload
 
 proc getBlobsBundle(
     node: BeaconNode, epoch: Epoch, validator_index: ValidatorIndex,
