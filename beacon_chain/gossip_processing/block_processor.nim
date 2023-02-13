@@ -512,7 +512,13 @@ proc storeBlock*(
   #
   # Three general scenarios: (1) pre-merge; (2) merge, already `VALID` by way
   # of `newPayload`; (3) optimistically imported, need to call fcU before DAG
-  # updateHead. Handle each with as little async latency as feasible.
+  # updateHead. Because in a non-finalizing network, completing sync isn't as
+  # useful because regular reorgs likely still occur, and when finalizing the
+  # EL is only called every SLOTS_PER_PAYLOAD slots regardless, await, rather
+  # than asyncSpawn forkchoiceUpdated calls.
+  #
+  # This reduces in-flight fcU spam, which both reduces EL load and decreases
+  # otherwise somewhat unpredictable CL head movement.
 
   if payloadValid:
     self.consensusManager.dag.markBlockVerified(
@@ -543,7 +549,7 @@ proc storeBlock*(
       # - "Beacon chain gapped" from DAG head to optimistic head,
       # - followed by "Beacon chain reorged" from optimistic head back to DAG.
       self.consensusManager[].updateHead(newHead.get.blck)
-      asyncSpawn eth1Monitor.runForkchoiceUpdatedDiscardResult(
+      await eth1Monitor.runForkchoiceUpdatedDiscardResult(
         headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
         safeBlockHash = newHead.get.safeExecutionPayloadHash,
         finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash)
@@ -563,7 +569,7 @@ proc storeBlock*(
 
         if self.consensusManager.checkNextProposer(wallSlot).isNone:
           # No attached validator is next proposer, so use non-proposal fcU
-          asyncSpawn eth1Monitor.expectValidForkchoiceUpdated(
+          await eth1Monitor.expectValidForkchoiceUpdated(
             headBlockHash = headExecutionPayloadHash,
             safeBlockHash = newHead.get.safeExecutionPayloadHash,
             finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
@@ -572,10 +578,10 @@ proc storeBlock*(
           # Some attached validator is next proposer, so prepare payload. As
           # updateHead() updated the DAG head, runProposalForkchoiceUpdated,
           # which needs the state corresponding to that head block, can run.
-          asyncSpawn self.consensusManager.runProposalForkchoiceUpdated(
+          await self.consensusManager.runProposalForkchoiceUpdated(
             wallSlot)
       else:
-        asyncSpawn self.consensusManager.updateHeadWithExecution(
+        await self.consensusManager.updateHeadWithExecution(
           newHead.get, self.getBeaconTime)
   else:
     warn "Head selection failed, using previous head",
