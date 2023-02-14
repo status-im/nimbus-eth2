@@ -177,11 +177,6 @@ func applyScoreChanges*(self: var ProtoArray,
   self.currentEpoch = currentEpoch
   self.checkpoints = checkpoints
 
-  # If previous epoch is justified, pull up all current tips to previous epoch
-  if self.experimental and self.isPreviousEpochJustified:
-    for realized in self.realizePendingCheckpoints(resetTipTracking = false):
-      discard
-
   ## Alias
   # This cannot raise the IndexError exception, how to tell compiler?
   template node: untyped {.dirty.} =
@@ -545,16 +540,6 @@ func nodeIsViableForHead(
 
   if node.invalid:
     return false
-
-  if self.hasLowParticipation:
-    return
-      if node.checkpoints.justified.epoch < self.checkpoints.justified.epoch:
-        false
-      elif self.isPreviousEpochJustified:
-        node.checkpoints.finalized.epoch >= self.checkpoints.finalized.epoch
-      else:
-        node.checkpoints.finalized == self.checkpoints.finalized or
-        self.checkpoints.finalized.epoch == GENESIS_EPOCH
 
   if self.experimental:
     var correctJustified =
