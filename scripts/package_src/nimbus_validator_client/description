@@ -1,1 +1,12 @@
-Nimbus Validator Client
+Nimbus Validator Client for Ethereum
+Nimbus is a client for the Ethereum network that is lightweight,
+secure and easy to use.
+.
+Its efficiency and low resource consumption allows it to perform well
+on all kinds of systems, ranging from Raspberry Pi's and mobile devices
+where it contributes to low power consumption and security
+-- to powerful servers where it leaves resources free to perform other tasks,
+such as running an execution node.
+.
+The validator client allows advanced users to run validators in a separate
+process from the beacon node, allowing more flexible deployment strategies.

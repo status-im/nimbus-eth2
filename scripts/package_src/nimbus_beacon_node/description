@@ -1,1 +1,12 @@
 Nimbus Beacon Node / Ethereum Consensus client
+Nimbus is a client for the Ethereum network that is lightweight,
+secure and easy to use.
+.
+Its efficiency and low resource consumption allows it to perform well
+on all kinds of systems, ranging from Raspberry Pi's and mobile devices
+where it contributes to low power consumption and security
+-- to powerful servers where it leaves resources free to perform other tasks,
+such as running an execution node.
+.
+The beacon node connects to the beacon chain network, syncs historical data
+and provides API's to monitor and interact with the beacon chain.
