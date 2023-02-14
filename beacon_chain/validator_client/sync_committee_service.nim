@@ -348,7 +348,21 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     block:
       try:
         let res = await vc.getHeadBlockRoot(ApiStrategyKind.First)
-        res.root
+        let fork = vc.consensusForkAtEpoch(slot.epoch).valueOr:
+          error "Unknown or invalid fork version", slot = slot
+          return
+        if fork in {ConsensusFork.Phase0, ConsensusFork.Altair}:
+          res.data.root
+        else:
+          if res.execution_optimistic.isNone():
+            error "Missing `execution_optimistic` flag in response",
+                  slot = slot
+            return
+          if res.execution_optimistic.get():
+            error "Could not obtain head block's root because beacon node " &
+                  "only optimistically synced", slot = slot
+            return
+          res.data.root
       except ValidatorApiError as exc:
         error "Unable to retrieve head block's root to sign", reason = exc.msg
         return

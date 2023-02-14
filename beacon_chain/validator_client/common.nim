@@ -496,6 +496,22 @@ proc forkAtEpoch*(vc: ValidatorClientRef, epoch: Epoch): Fork =
       break
   res
 
+proc consensusForkAtEpoch*(vc: ValidatorClientRef,
+                           epoch: Epoch): Result[ConsensusFork, cstring] =
+  let fork = vc.forkAtEpoch(epoch)
+  if fork.current_version == defaultRuntimeConfig.GENESIS_FORK_VERSION:
+    ok(ConsensusFork.Phase0)
+  elif fork.current_version == defaultRuntimeConfig.ALTAIR_FORK_VERSION:
+    ok(ConsensusFork.Altair)
+  elif fork.current_version == defaultRuntimeConfig.BELLATRIX_FORK_VERSION:
+    ok(ConsensusFork.Bellatrix)
+  elif fork.current_version == defaultRuntimeConfig.CAPELLA_FORK_VERSION:
+    ok(ConsensusFork.Capella)
+  elif fork.current_version == defaultRuntimeConfig.EIP4844_FORK_VERSION:
+    ok(ConsensusFork.EIP4844)
+  else:
+    err("Unknown fork version")
+
 proc getSubcommitteeIndex*(index: IndexInSyncCommittee): SyncSubcommitteeIndex =
   SyncSubcommitteeIndex(uint16(index) div SYNC_SUBCOMMITTEE_SIZE)
 
