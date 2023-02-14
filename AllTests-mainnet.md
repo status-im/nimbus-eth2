@@ -518,15 +518,10 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Validator pool
 ```diff
-+ Activation after check                                                                     OK
-+ Doppelganger for already active validator                                                  OK
 + Doppelganger for genesis validator                                                         OK
-+ Doppelganger for validator that activates in future epoch                                  OK
-+ Doppelganger for validator that activates in previous epoch                                OK
 + Doppelganger for validator that activates in same epoch as check                           OK
-+ Future activation after check                                                              OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 2/2 Fail: 0/2 Skip: 0/2
 ## Zero signature sanity checks
 ```diff
 + SSZ serialization roundtrip of SignedBeaconBlockHeader                                     OK
@@ -621,4 +616,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 346/351 Fail: 0/351 Skip: 5/351
+OK: 341/346 Fail: 0/346 Skip: 5/346

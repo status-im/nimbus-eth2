@@ -126,11 +126,11 @@ proc addValidators*(node: BeaconNode) =
 proc getValidatorForDuties*(
     node: BeaconNode,
     idx: ValidatorIndex, slot: Slot,
-    doppelActivity = false): Opt[AttachedValidator] =
+    doppelActivity = false, syncCommitteeDuty = false): Opt[AttachedValidator] =
   let key = ? node.dag.validatorKey(idx)
 
   node.attachedValidators[].getValidatorForDuties(
-    key.toPubKey(), slot, doppelActivity)
+    key.toPubKey(), slot, doppelActivity, syncCommitteeDuty)
 
 proc isSynced*(node: BeaconNode, head: BlockRef): SyncStatus =
   ## TODO This function is here as a placeholder for some better heurestics to
@@ -1088,7 +1088,8 @@ proc handleSyncCommitteeMessages(node: BeaconNode, head: BlockRef, slot: Slot) =
 
   for subcommitteeIdx in SyncSubcommitteeIndex:
     for valIdx in syncSubcommittee(syncCommittee, subcommitteeIdx):
-      let validator = node.getValidatorForDuties(valIdx, slot).valueOr:
+      let validator = node.getValidatorForDuties(
+          valIdx, slot, syncCommitteeDuty = true).valueOr:
         continue
       asyncSpawn createAndSendSyncCommitteeMessage(node, validator, slot,
                                                    subcommitteeIdx, head)

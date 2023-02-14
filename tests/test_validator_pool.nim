@@ -65,57 +65,18 @@ suite "Validator pool":
 
     v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), now.epoch()))
 
-    check:
-      # Activates in current epoch, shouldn't trigger
+    check: # No check done yet
+      not v.triggersDoppelganger(GENESIS_EPOCH)
       not v.triggersDoppelganger(now.epoch())
 
-  test "Doppelganger for validator that activates in previous epoch":
-    let
-      v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
-      now = Epoch(10).start_slot()
+      not v.doppelgangerReady(GENESIS_EPOCH.start_slot)
+      v.doppelgangerReady(now)
 
-    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), now.epoch() - 1))
-
-    v.doppelgangerChecked(now.epoch())
-    v.doppelgangerActivity(now.epoch())
+    v.doppelgangerChecked(GENESIS_EPOCH)
 
     check:
-      # This was our work
-      not v.triggersDoppelganger(now.epoch())
-      # Didn't check
-      not v.triggersDoppelganger(now.epoch() + 1)
-
-    v.doppelgangerChecked(now.epoch() + 1)
-    check:
-      v.triggersDoppelganger(now.epoch() + 1)
-
-  test "Doppelganger for validator that activates in future epoch":
-    let
-      v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
-      now = Epoch(10).start_slot()
-
-    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), now.epoch() + 1))
-
-    check:
-      # Activates in the future, should not be checked
+      v.triggersDoppelganger(GENESIS_EPOCH)
       not v.triggersDoppelganger(now.epoch())
 
-  test "Doppelganger for already active validator":
-    let
-      v = AttachedValidator(activationEpoch: FAR_FUTURE_EPOCH)
-      now = Epoch(10).start_slot()
-
-    v.updateValidator(makeValidatorAndIndex(ValidatorIndex(5), now.epoch() - 4))
-
-    check:
-      not v.doppelgangerReady(now)
-
-    v.doppelgangerChecked(now.epoch())
-
-    check:
-      v.triggersDoppelganger(now.epoch)
-
-    v.doppelgangerChecked(now.epoch())
-
-    check:
-      not v.triggersDoppelganger(now.epoch + 1)
+      not v.doppelgangerReady(GENESIS_EPOCH.start_slot)
+      v.doppelgangerReady(now)

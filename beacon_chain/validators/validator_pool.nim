@@ -270,7 +270,7 @@ proc doppelgangerChecked*(validator: AttachedValidator, epoch: Epoch) =
   if validator.doppelCheck.isNone():
     debug "Doppelganger first check",
       validator = shortLog(validator), epoch
-  elif validator.doppelCheck.get() + 1 != epoch:
+  elif validator.doppelCheck.get() + 1 notin [epoch, epoch + 1]:
     debug "Doppelganger stale check",
       validator = shortLog(validator),
       checked = validator.doppelCheck.get(), epoch
@@ -282,7 +282,7 @@ proc doppelgangerActivity*(validator: AttachedValidator, epoch: Epoch) =
   if validator.doppelActivity.isNone():
     debug "Doppelganger first activity",
       validator = shortLog(validator), epoch
-  elif validator.doppelActivity.get() + 1 != epoch:
+  elif validator.doppelActivity.get() + 1 notin [epoch, epoch + 1]:
     debug "Doppelganger stale activity",
       validator = shortLog(validator),
       checked = validator.doppelActivity.get(), epoch
@@ -318,7 +318,7 @@ proc doppelgangerReady*(validator: AttachedValidator, slot: Slot): bool =
 
 proc getValidatorForDuties*(
     pool: ValidatorPool, key: ValidatorPubKey, slot: Slot,
-    doppelActivity = false):
+    doppelActivity = false, syncCommitteeDuty = false):
     Opt[AttachedValidator] =
   ## Return validator only if it is ready for duties (has index and has passed
   ## doppelganger check where applicable)
@@ -326,8 +326,11 @@ proc getValidatorForDuties*(
   if isNil(validator) or validator.index.isNone():
     return Opt.none(AttachedValidator)
 
+  # Sync committee duties are not slashable, so we perform them even during
+  # doppelganger detection
   if pool.doppelgangerDetectionEnabled and
-      not validator.doppelgangerReady(slot):
+      not validator.doppelgangerReady(slot) and
+      not syncCommitteeDuty:
     notice "Doppelganger detection active - " &
           "skipping validator duties while observing the network",
             validator = shortLog(validator),
