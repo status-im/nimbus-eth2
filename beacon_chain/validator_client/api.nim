@@ -895,7 +895,7 @@ proc getForkSchedule*(
 proc getHeadBlockRoot*(
        vc: ValidatorClientRef,
        strategy: ApiStrategyKind
-     ): Future[RestRoot] {.async.} =
+     ): Future[DataRestRoot] {.async.} =
   logScope:
     request = "getHeadBlockRoot"
     strategy = $strategy
@@ -937,7 +937,7 @@ proc getHeadBlockRoot*(
           RestBeaconNodeStatus.Offline
     if res.isErr():
       raise newException(ValidatorApiError, res.error())
-    return res.get().data.data
+    return res.get().data
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(RestResponse[GetBlockRootResponse], SlotDuration,
@@ -951,7 +951,7 @@ proc getHeadBlockRoot*(
         case response.status
         of 200:
           trace ResponseSuccess, endpoint = node
-          return response.data.data
+          return response.data
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node

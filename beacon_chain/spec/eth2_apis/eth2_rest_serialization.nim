@@ -132,7 +132,9 @@ type
     Web3SignerErrorResponse |
     Web3SignerKeysResponse |
     Web3SignerSignatureResponse |
-    Web3SignerStatusResponse
+    Web3SignerStatusResponse |
+    GetStateRootResponse |
+    GetBlockRootResponse
 
   RestVersioned*[T] = object
     data*: T
