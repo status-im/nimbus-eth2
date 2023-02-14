@@ -1010,11 +1010,9 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
   assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.EIP4844_FORK_EPOCH)
 
 # This is a readily/uniquely searchable token of where a false assertion is
-# due to Capella implementation missing. checkForkConsistency() checks that
-# Nimbus does not actually run any non-FAR_FUTURE_EPOCH Capella network, so
-# such cases won't be hit.
-const capellaImplementationMissing* = false
-
+# due to a Deneb implementation missing. checkForkConsistency() checks that
+# Nimbus does not run any non-FAR_FUTURE_EPOCH Deneb network, so such cases
+# won't be hit.
 const eip4844ImplementationMissing* = false
 
 #template debugRaiseAssert*(x: string) = raiseAssert x
