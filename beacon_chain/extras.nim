@@ -40,7 +40,5 @@ type
     ## Whether to enable extra features in development.
     enableTestFeatures ##\
     ## Whether to enable extra features for testing.
-    lowParticipation ##\
-    ## Whether the network is prone to low participation.
 
   UpdateFlags* = set[UpdateFlag]
