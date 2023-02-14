@@ -113,4 +113,4 @@ runForkBlockTests(
 from ../../../beacon_chain/spec/datatypes/eip4844 import
   BeaconState, SignedBeaconBlock
 runForkBlockTests(
-  "eip4844", "EIP4844", eip4844.BeaconState, eip4844.SignedBeaconBlock)
+  "eip4844", "Deneb", eip4844.BeaconState, eip4844.SignedBeaconBlock)

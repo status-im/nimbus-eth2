@@ -48,7 +48,7 @@ doAssert (toHashSet(mapIt(toSeq(walkDir(RootDir, relative = false)), it.path)) -
 
 template runSuite(
     suiteDir, testName: string, transitionProc: untyped): untyped =
-  suite "EF - EIP4844 - Epoch Processing - " & testName & preset():
+  suite "EF - Deneb - Epoch Processing - " & testName & preset():
     for testDir in walkDirRec(
         suiteDir / "pyspec_tests", yieldFilter = {pcDir}, checkDir = true):
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
