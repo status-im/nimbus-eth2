@@ -276,18 +276,7 @@ proc newExecutionPayload*(
     return Opt.none PayloadExecutionStatus
 
   debug "newPayload: inserting block into execution engine",
-    parentHash = executionPayload.parent_hash,
-    blockHash = executionPayload.block_hash,
-    stateRoot = shortLog(executionPayload.state_root),
-    receiptsRoot = shortLog(executionPayload.receipts_root),
-    prevRandao = shortLog(executionPayload.prev_randao),
-    blockNumber = executionPayload.block_number,
-    gasLimit = executionPayload.gas_limit,
-    gasUsed = executionPayload.gas_used,
-    timestamp = executionPayload.timestamp,
-    extraDataLen = executionPayload.extra_data.len,
-    baseFeePerGas = $executionPayload.base_fee_per_gas,
-    numTransactions = executionPayload.transactions.len
+    executionPayload = shortLog(executionPayload)
 
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#request
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/shanghai.md#request
@@ -525,9 +514,8 @@ proc storeBlock*(
 
   # Grab the new head according to our latest attestation data; determines how
   # async this needs to be.
-  let
-    newHead = attestationPool[].selectOptimisticHead(
-        wallSlot.start_beacon_time)
+  let newHead = attestationPool[].selectOptimisticHead(
+    wallSlot.start_beacon_time)
 
   if newHead.isOk:
     template eth1Monitor(): auto = self.consensusManager.eth1Monitor
@@ -557,8 +545,10 @@ proc storeBlock*(
         headExecutionPayloadHash =
           self.consensusManager.dag.loadExecutionBlockRoot(newHead.get.blck)
         wallSlot = self.getBeaconTime().slotOrZero
-      if headExecutionPayloadHash.isZero:
-        # Blocks without execution payloads can't be optimistic.
+      if  headExecutionPayloadHash.isZero or
+          NewPayloadStatus.noResponse == payloadStatus:
+        # Blocks without execution payloads can't be optimistic, and don't try
+        # to fcU to a block the EL hasn't seen
         self.consensusManager[].updateHead(newHead.get.blck)
       elif not self.consensusManager.dag.is_optimistic newHead.get.blck.root:
         # Not `NOT_VALID`; either `VALID` or `INVALIDATED`, but latter wouldn't
