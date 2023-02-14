@@ -35,7 +35,7 @@ const
   OpVoluntaryExitDir        = OpDir/"voluntary_exit"
   OpWithdrawalsDir          = OpDir/"withdrawals"
 
-  baseDescription = "EF - EIP4844 - Operations - "
+  baseDescription = "EF - Deneb - Operations - "
 
 doAssert toHashSet(mapIt(toSeq(walkDir(OpDir, relative = false)), it.path)) ==
   toHashSet([

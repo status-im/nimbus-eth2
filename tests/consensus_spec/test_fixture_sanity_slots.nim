@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -83,8 +83,8 @@ suite "EF - Capella - Sanity - Slots " & preset():
 
 from ../../../beacon_chain/spec/datatypes/eip4844 import BeaconState
 
-suite "EF - EIP4844 - Sanity - Slots " & preset():
+suite "EF - Deneb - Sanity - Slots " & preset():
   const eip4844SanitySlotsDir = sanitySlotsDir("eip4844")
   for kind, path in walkDir(
       eip4844SanitySlotsDir, relative = true, checkDir = true):
-    runTest(eip4844.BeaconState, eip4844SanitySlotsDir, "EIP4844", path)
+    runTest(eip4844.BeaconState, eip4844SanitySlotsDir, "Deneb", path)
