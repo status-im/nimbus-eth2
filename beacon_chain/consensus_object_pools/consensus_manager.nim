@@ -166,9 +166,9 @@ func setOptimisticHead*(
 
 proc runForkchoiceUpdated*(
     eth1Monitor: Eth1Monitor,
-    headBlockRoot, safeBlockRoot, finalizedBlockRoot: Eth2Digest):
+    headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest):
     Future[(PayloadExecutionStatus, Option[BlockHash])] {.async.} =
-  # Allow finalizedBlockRoot to be 0 to avoid sync deadlocks.
+  # Allow finalizedBlockHash to be 0 to avoid sync deadlocks.
   #
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3675.md#pos-events
   # has "Before the first finalized block occurs in the system the finalized
@@ -178,7 +178,7 @@ proc runForkchoiceUpdated*(
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/bellatrix/validator.md#executionpayload
   # notes "`finalized_block_hash` is the hash of the latest finalized execution
   # payload (`Hash32()` if none yet finalized)"
-  doAssert not headBlockRoot.isZero
+  doAssert not headBlockHash.isZero
 
   try:
     # Minimize window for Eth1 monitor to shut down connection
@@ -186,18 +186,18 @@ proc runForkchoiceUpdated*(
 
     let fcuR = awaitWithTimeout(
       forkchoiceUpdated(
-        eth1Monitor, headBlockRoot, safeBlockRoot, finalizedBlockRoot),
+        eth1Monitor, headBlockHash, safeBlockHash, finalizedBlockHash),
       FORKCHOICEUPDATED_TIMEOUT):
         debug "runForkchoiceUpdated: forkchoiceUpdated timed out",
-          headBlockRoot = shortLog(headBlockRoot),
-          safeBlockRoot = shortLog(safeBlockRoot),
-          finalizedBlockRoot = shortLog(finalizedBlockRoot)
+          headBlockHash = shortLog(headBlockHash),
+          safeBlockHash = shortLog(safeBlockHash),
+          finalizedBlockHash = shortLog(finalizedBlockHash)
         ForkchoiceUpdatedResponse(
           payloadStatus: PayloadStatusV1(
             status: PayloadExecutionStatus.syncing))
 
     debug "runForkchoiceUpdated: ran forkchoiceUpdated",
-      headBlockRoot, safeBlockRoot, finalizedBlockRoot,
+      headBlockHash, safeBlockHash, finalizedBlockHash,
       payloadStatus = $fcuR.payloadStatus.status,
       latestValidHash = $fcuR.payloadStatus.latestValidHash,
       validationError = $fcuR.payloadStatus.validationError
@@ -206,16 +206,10 @@ proc runForkchoiceUpdated*(
   except CatchableError as err:
     warn "forkchoiceUpdated failed - check execution client",
       err = err.msg,
-      headBlockRoot = shortLog(headBlockRoot),
-      safeBlockRoot = shortLog(safeBlockRoot),
-      finalizedBlockRoot = shortLog(finalizedBlockRoot)
+      headBlockHash = shortLog(headBlockHash),
+      safeBlockHash = shortLog(safeBlockHash),
+      finalizedBlockHash = shortLog(finalizedBlockHash)
     return (PayloadExecutionStatus.syncing, none BlockHash)
-
-proc runForkchoiceUpdatedDiscardResult*(
-    eth1Monitor: Eth1Monitor,
-    headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest) {.async.} =
-  discard await eth1Monitor.runForkchoiceUpdated(
-    headBlockHash, safeBlockHash, finalizedBlockHash)
 
 from ../beacon_clock import GetBeaconTimeFn
 from ../fork_choice/fork_choice import mark_root_invalid
