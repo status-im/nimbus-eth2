@@ -11,7 +11,7 @@ import
   std/[options, tables, sets, macros],
   chronicles, chronos, snappy, snappy/codec,
   libp2p/switch,
-  ../spec/datatypes/[phase0, altair, bellatrix, capella, eip4844],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
   ../spec/[helpers, forks, network],
   ".."/[beacon_clock],
   ../networking/eth2_network,
@@ -110,8 +110,8 @@ proc readChunkPayload*(
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:
       return err(res.error)
-  elif contextBytes == peer.network.forkDigests.eip4844:
-    let res = await readChunkPayload(conn, peer, eip4844.SignedBeaconBlock)
+  elif contextBytes == peer.network.forkDigests.deneb:
+    let res = await readChunkPayload(conn, peer, deneb.SignedBeaconBlock)
     if res.isOk:
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:
@@ -128,7 +128,7 @@ proc readChunkPayload*(
   except CatchableError:
     return neterr UnexpectedEOF
 
-  if contextBytes == peer.network.forkDigests.eip4844:
+  if contextBytes == peer.network.forkDigests.deneb:
     let res = await readChunkPayload(conn, peer, SignedBeaconBlockAndBlobsSidecar)
     if res.isOk:
       return ok newClone(res.get)
@@ -146,7 +146,7 @@ proc readChunkPayload*(
   except CatchableError:
     return neterr UnexpectedEOF
 
-  if contextBytes == peer.network.forkDigests.eip4844:
+  if contextBytes == peer.network.forkDigests.deneb:
     let res = await readChunkPayload(conn, peer, BlobsSidecar)
     if res.isOk:
       return ok newClone(res.get)
@@ -445,7 +445,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
   proc beaconBlockAndBlobsSidecarByRoot_v1(
       peer: Peer,
       # Please note that the SSZ list here ensures that the
@@ -464,7 +464,7 @@ p2pProtocol BeaconSync(version = 1,
     let
       dag = peer.networkState.dag
       count = blockRoots.len
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
+      # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/deneb/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
       min_epochs =
         if MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS > dag.head.slot.epoch:
            dag.head.slot.epoch
@@ -481,7 +481,7 @@ p2pProtocol BeaconSync(version = 1,
     var
       found = 0
       bytes: seq[byte]
-      blck: Opt[eip4844.TrustedSignedBeaconBlock]
+      blck: Opt[deneb.TrustedSignedBeaconBlock]
       blobsSidecar: Opt[BlobsSidecar]
 
     for i in 0..<count:
@@ -489,7 +489,7 @@ p2pProtocol BeaconSync(version = 1,
         blockRef = dag.getBlockRef(blockRoots[i]).valueOr:
           continue
 
-      blck = dag.getBlock(blockRef.bid, eip4844.TrustedSignedBeaconBlock)
+      blck = dag.getBlock(blockRef.bid, deneb.TrustedSignedBeaconBlock)
       if blck.isNone():
         continue
 
@@ -528,7 +528,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block and blobs sidecar root request done",
       peer, roots = blockRoots.len, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#blobssidecarsbyrange-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/deneb/p2p-interface.md#blobssidecarsbyrange-v1
   proc blobsSidecarsByRange(
       peer: Peer,
       startSlot: Slot,

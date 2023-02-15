@@ -14,7 +14,7 @@ import
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
   ../spec/[deposit_snapshots, eth2_merkleization, forks, network, validator],
-  ../spec/datatypes/[phase0, altair, eip4844],
+  ../spec/datatypes/[phase0, altair, deneb],
   ../validators/message_router_mev
 
 export rest_utils
@@ -804,11 +804,11 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
         withBlck(forked):
           blck.root = hash_tree_root(blck.message)
           let signedBlockAndBlobs =
-            when blck is eip4844.SignedBeaconBlock:
+            when blck is deneb.SignedBeaconBlock:
               # TODO: Fetch blobs from EE
-              eip4844.SignedBeaconBlockAndBlobsSidecar(
+              deneb.SignedBeaconBlockAndBlobsSidecar(
                 beacon_block: blck,
-                blobs_sidecar: eip4844.BlobsSidecar()
+                blobs_sidecar: deneb.BlobsSidecar()
               )
             else:
               blck
@@ -849,8 +849,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       return RestApiResponse.jsonError(Http400, BlockIncorrectFork)
 
     case currentEpochFork
-    of ConsensusFork.EIP4844:
-      return RestApiResponse.jsonError(Http500, $eip4844ImplementationMissing)
+    of ConsensusFork.Deneb:
+      return RestApiResponse.jsonError(Http500, $denebImplementationMissing)
     of ConsensusFork.Capella:
       let res =
         block:
@@ -902,10 +902,10 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
       let res = withBlck(forked):
         blck.root = hash_tree_root(blck.message)
         let signedBlockAndBlobs =
-          when blck is eip4844.SignedBeaconBlock:
-            eip4844.SignedBeaconBlockAndBlobsSidecar(
+          when blck is deneb.SignedBeaconBlock:
+            deneb.SignedBeaconBlockAndBlobsSidecar(
               beacon_block: blck,
-              blobs_sidecar: eip4844.BlobsSidecar()
+              blobs_sidecar: deneb.BlobsSidecar()
             )
           else:
             blck

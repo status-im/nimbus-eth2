@@ -17,7 +17,7 @@ import
   ../gossip_processing/eth2_processor,
   ../networking/eth2_network,
   ./activity_metrics,
-  ../spec/datatypes/eip4844
+  ../spec/datatypes/deneb
 
 export eth2_processor, eth2_network
 
@@ -109,7 +109,7 @@ proc routeSignedBeaconBlock*(
     # to apply to our state.
 
   let res =
-    when blckAndBlobs is eip4844.SignedBeaconBlockAndBlobsSidecar:
+    when blckAndBlobs is deneb.SignedBeaconBlockAndBlobsSidecar:
       await router[].network.broadcastBeaconBlockAndBlobsSidecar(blckAndBlobs)
     else:
       await router[].network.broadcastBeaconBlock(blck)

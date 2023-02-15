@@ -598,8 +598,8 @@ proc readRuntimeConfig*(
       except ValueError as err:
         raise (ref PresetFileError)(msg: "Unable to parse " & oldName)
 
-  readAliasedField DENEB_FORK_EPOCH, "EIP4844_FORK_EPOCH"
-  readAliasedField DENEB_FORK_VERSION, "EIP4844_FORK_VERSION"
+  readAliasedField DENEB_FORK_EPOCH, "Deneb_FORK_EPOCH"
+  readAliasedField DENEB_FORK_VERSION, "Deneb_FORK_VERSION"
   # END TODO
 
   for name, field in cfg.fieldPairs():

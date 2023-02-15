@@ -27,7 +27,7 @@ import
 when defined(posix):
   import system/ansi_c
 
-from ./spec/datatypes/eip4844 import SignedBeaconBlock
+from ./spec/datatypes/deneb import SignedBeaconBlock
 
 from
   libp2p/protocols/pubsub/gossipsub
@@ -328,12 +328,12 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       let resfut = newFuture[Result[void, VerifierError]]("blockVerifier")
       blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                Opt.none(eip4844.BlobsSidecar),
+                                Opt.none(deneb.BlobsSidecar),
                                 resfut,
                                 maybeFinalized = maybeFinalized)
       resfut
     blockBlobsVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
-                              blobs: eip4844.BlobsSidecar,
+                              blobs: deneb.BlobsSidecar,
                               maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
       # The design with a callback for block verification is unusual compared
@@ -728,7 +728,7 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.altair,
     node.dag.forkDigests.bellatrix,
     node.dag.forkDigests.capella,
-    node.dag.forkDigests.eip4844]
+    node.dag.forkDigests.deneb]
   forkDigestsArray
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/validator.md#phase-0-attestation-subnet-stability
@@ -808,7 +808,7 @@ proc updateBlocksGossipStatus*(
     case fork
     of ConsensusFork.Phase0 .. ConsensusFork.Capella:
       getBeaconBlocksTopic(forkDigest)
-    of ConsensusFork.EIP4844:
+    of ConsensusFork.Deneb:
       getBeaconBlockAndBlobsSidecarTopic(forkDigest)
 
   let
@@ -1085,7 +1085,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
+    removeCapellaMessageHandlers  # deneb (capella handlers, different forkDigest)
   ]
 
   for gossipFork in oldGossipForks:
@@ -1096,7 +1096,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
-    addCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
+    addCapellaMessageHandlers  # deneb (capella handlers, different forkDigest)
   ]
 
   for gossipFork in newGossipForks:
@@ -1446,7 +1446,7 @@ proc installMessageValidators(node: BeaconNode) =
   installPhase0Validators(forkDigests.bellatrix)
   installPhase0Validators(forkDigests.capella)
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    installPhase0Validators(forkDigests.eip4844)
+    installPhase0Validators(forkDigests.deneb)
 
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.altair),
@@ -1480,9 +1480,9 @@ proc installMessageValidators(node: BeaconNode) =
 
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
     node.network.addValidator(
-      getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
+      getBeaconBlockAndBlobsSidecarTopic(forkDigests.deneb),
       proc (
-          signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar
+          signedBlock: deneb.SignedBeaconBlockAndBlobsSidecar
       ): ValidationResult =
         if node.shouldSyncOptimistically(node.currentSlot):
           # `shouldSyncOptimistically` is true if all conditions are met:
@@ -1504,7 +1504,7 @@ proc installMessageValidators(node: BeaconNode) =
           # trigger EL sync. Note that only new heads are provided to the EL
           # optimistically; finality is always sourced from the DAG.
           #
-          # With EIP4844, blobs are paired with beacon blocks.
+          # With Deneb, blobs are paired with beacon blocks.
           # The blob is not relevant for triggering sync on the EL; therefore,
           # it is discarded here. The blob is re-obtained once the main DAG
           # sufficiently catches up, and then passed into `node.processor[]`
@@ -1539,7 +1539,7 @@ proc installMessageValidators(node: BeaconNode) =
   installSyncCommitteeeValidators(forkDigests.bellatrix)
   installSyncCommitteeeValidators(forkDigests.capella)
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    installSyncCommitteeeValidators(forkDigests.eip4844)
+    installSyncCommitteeeValidators(forkDigests.deneb)
 
   template installBlsToExecutionChangeValidators(digest: auto) =
     node.network.addValidator(
@@ -1550,7 +1550,7 @@ proc installMessageValidators(node: BeaconNode) =
 
   installBlsToExecutionChangeValidators(forkDigests.capella)
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    installBlsToExecutionChangeValidators(forkDigests.eip4844)
+    installBlsToExecutionChangeValidators(forkDigests.deneb)
 
   node.installLightClientMessageValidators()
 

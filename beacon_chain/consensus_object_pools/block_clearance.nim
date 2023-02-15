@@ -16,7 +16,7 @@ import
   "."/[block_dag, blockchain_dag, blockchain_dag_light_client]
 
 from ../spec/datatypes/capella import asSigVerified, asTrusted, shortLog
-from ../spec/datatypes/eip4844 import asSigVerified, asTrusted, shortLog
+from ../spec/datatypes/deneb import asSigVerified, asTrusted, shortLog
 
 export results, signatures_batch, block_dag, blockchain_dag
 
@@ -104,7 +104,7 @@ proc addResolvedHeadBlock(
     var unrealized: FinalityCheckpoints
     if enableTestFeatures in dag.updateFlags:
       unrealized = withState(state):
-        static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
+        static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
         when stateFork >= ConsensusFork.Altair:
           forkyState.data.compute_unrealized_finality()
         else:

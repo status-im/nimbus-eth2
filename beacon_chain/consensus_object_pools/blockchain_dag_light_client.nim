@@ -11,7 +11,7 @@ import
   # Status libraries
   stew/bitops2,
   # Beacon chain internals
-  ../spec/datatypes/[phase0, altair, bellatrix, capella, eip4844],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
   ../beacon_chain_db_light_client,
   "."/[block_pools_types, blockchain_dag]
 
@@ -19,13 +19,13 @@ logScope: topics = "chaindag_lc"
 
 type
   HashedBeaconStateWithSyncCommittee =
-    eip4844.HashedBeaconState |
+    deneb.HashedBeaconState |
     capella.HashedBeaconState |
     bellatrix.HashedBeaconState |
     altair.HashedBeaconState
 
   TrustedSignedBeaconBlockWithSyncAggregate =
-    eip4844.TrustedSignedBeaconBlock |
+    deneb.TrustedSignedBeaconBlock |
     capella.TrustedSignedBeaconBlock |
     bellatrix.TrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock
@@ -780,9 +780,9 @@ proc processNewBlockForLightClient*(
   if signedBlock.message.slot < dag.lcDataStore.cache.tailSlot:
     return
 
-  when signedBlock is eip4844.TrustedSignedBeaconBlock:
-    dag.cacheLightClientData(state.eip4844Data, signedBlock.toBlockId())
-    dag.createLightClientUpdates(state.eip4844Data, signedBlock, parentBid)
+  when signedBlock is deneb.TrustedSignedBeaconBlock:
+    dag.cacheLightClientData(state.denebData, signedBlock.toBlockId())
+    dag.createLightClientUpdates(state.denebData, signedBlock, parentBid)
   elif signedBlock is capella.TrustedSignedBeaconBlock:
     dag.cacheLightClientData(state.capellaData, signedBlock.toBlockId())
     dag.createLightClientUpdates(state.capellaData, signedBlock, parentBid)
@@ -995,8 +995,8 @@ proc getLightClientBootstrap*(
         dag.lcDataStore.db, blockRoot)
       if header.isOk:
         return dag.getLightClientBootstrap(header.get)
-  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
-  tryFromCache(LightClientDataFork.EIP4844)
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
+  tryFromCache(LightClientDataFork.Deneb)
   tryFromCache(LightClientDataFork.Capella)
   tryFromCache(LightClientDataFork.Altair)
 

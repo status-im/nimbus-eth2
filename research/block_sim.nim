@@ -19,7 +19,7 @@ import
   chronos/timer, eth/keys, taskpools,
   ../tests/testblockutil,
   ../beacon_chain/spec/[forks, state_transition],
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, eip4844],
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, deneb],
   ../beacon_chain/[beacon_chain_db, beacon_clock],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
@@ -34,7 +34,7 @@ from std/random import Rand, initRand, rand
 from std/stats import RunningStat
 from std/strformat import `&`
 from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
-from ../beacon_chain/spec/datatypes/eip4844 import
+from ../beacon_chain/spec/datatypes/deneb import
   HashedBeaconState, asSigVerified
 from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index,
@@ -102,7 +102,7 @@ proc makeBeaconBlock(
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
     attestations, deposits, exits, sync_aggregate,
-    static(default(eip4844.KZGCommitmentList)), execution_payload)
+    static(default(deneb.KZGCommitmentList)), execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -146,7 +146,7 @@ proc makeBeaconBlock(
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
     attestations, deposits, exits, sync_aggregate,
-    static(default(eip4844.KZGCommitmentList)), execution_payload)
+    static(default(deneb.KZGCommitmentList)), execution_payload)
 
   # Signatures are verified elsewhere, so don't duplicate inefficiently here
   let res = process_block(
@@ -191,7 +191,7 @@ proc makeBeaconBlock(
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
     attestations, deposits, exits, sync_aggregate,
-    static(default(eip4844.KZGCommitmentList)), execution_payload)
+    static(default(deneb.KZGCommitmentList)), execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -235,7 +235,7 @@ proc makeBeaconBlock(
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
     attestations, deposits, exits, sync_aggregate,
-    static(default(eip4844.KZGCommitmentList)), execution_payload)
+    static(default(deneb.KZGCommitmentList)), execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -251,7 +251,7 @@ proc makeBeaconBlock(
 
 proc makeBeaconBlock(
     cfg: RuntimeConfig,
-    state: var eip4844.HashedBeaconState,
+    state: var deneb.HashedBeaconState,
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
@@ -260,14 +260,14 @@ proc makeBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: eip4844.ExecutionPayload,
+    execution_payload: deneb.ExecutionPayload,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
-    rollback: RollbackHashedProc[eip4844.HashedBeaconState],
+    rollback: RollbackHashedProc[deneb.HashedBeaconState],
     cache: var StateCache,
     # TODO:
     # `verificationFlags` is needed only in tests and can be
     # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[eip4844.BeaconBlock, cstring] =
+    verificationFlags: UpdateFlags = {}): Result[deneb.BeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
@@ -279,7 +279,7 @@ proc makeBeaconBlock(
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
     attestations, deposits, exits, sync_aggregate,
-    default(eip4844.KZGCommitmentList), execution_payload)
+    default(deneb.KZGCommitmentList), execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -488,7 +488,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         when T is phase0.SignedBeaconBlock:
           SyncAggregate.init()
         elif T is altair.SignedBeaconBlock or T is bellatrix.SignedBeaconBlock or
-             T is capella.SignedBeaconBlock or T is eip4844.SignedBeaconBlock:
+             T is capella.SignedBeaconBlock or T is deneb.SignedBeaconBlock:
           syncCommitteePool[].produceSyncAggregate(dag.head.root)
         else:
           static: doAssert false
@@ -501,8 +501,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           addr state.bellatrixData
         elif T is capella.SignedBeaconBlock:
           addr state.capellaData
-        elif T is eip4844.SignedBeaconBlock:
-          addr state.eip4844Data
+        elif T is deneb.SignedBeaconBlock:
+          addr state.denebData
         else:
           static: doAssert false
       message = makeBeaconBlock(
@@ -519,8 +519,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         eth1ProposalData.deposits,
         BeaconBlockValidatorChanges(),
         sync_aggregate,
-        when T is eip4844.SignedBeaconBlock:
-          default(eip4844.ExecutionPayload)
+        when T is deneb.SignedBeaconBlock:
+          default(deneb.ExecutionPayload)
         elif T is capella.SignedBeaconBlock:
           default(capella.ExecutionPayload)
         else:
@@ -639,15 +639,15 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     do:
       raiseAssert "withUpdatedState failed"
 
-  proc proposeEIP4844Block(slot: Slot) =
+  proc proposeDenebBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
 
     dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
-        newBlock = getNewBlock[eip4844.SignedBeaconBlock](updatedState, slot, cache)
+        newBlock = getNewBlock[deneb.SignedBeaconBlock](updatedState, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
-            blckRef: BlockRef, signedBlock: eip4844.TrustedSignedBeaconBlock,
+            blckRef: BlockRef, signedBlock: deneb.TrustedSignedBeaconBlock,
             epochRef: EpochRef, unrealized: FinalityCheckpoints):
           # Callback add to fork choice if valid
           attPool.addForkChoice(
@@ -701,7 +701,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.stateForkAtEpoch(slot.epoch)
-        of ConsensusFork.EIP4844:   proposeEIP4844Block(slot)
+        of ConsensusFork.Deneb:   proposeDenebBlock(slot)
         of ConsensusFork.Capella:   proposeCapellaBlock(slot)
         of ConsensusFork.Bellatrix: proposeBellatrixBlock(slot)
         of ConsensusFork.Altair:    proposeAltairBlock(slot)

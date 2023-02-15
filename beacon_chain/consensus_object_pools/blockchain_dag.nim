@@ -18,7 +18,7 @@ import
   ".."/[beacon_chain_db, era_db],
   "."/[block_pools_types, block_quarantine]
 
-from ../spec/datatypes/eip4844 import shortLog
+from ../spec/datatypes/deneb import shortLog
 
 export
   eth2_merkleization, eth2_ssz_serialization,
@@ -212,8 +212,8 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
-  if (let blck = db.getBlock(root, eip4844.TrustedSignedBeaconBlock);
+  static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
+  if (let blck = db.getBlock(root, deneb.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
   elif (let blck = db.getBlock(root, capella.TrustedSignedBeaconBlock);
@@ -905,8 +905,8 @@ proc applyBlock(
     state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
-  of ConsensusFork.EIP4844:
-    let data = getBlock(dag, bid, eip4844.TrustedSignedBeaconBlock).valueOr:
+  of ConsensusFork.Deneb:
+    let data = getBlock(dag, bid, deneb.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
       dag.cfg, state, data, cache, info,
@@ -1067,7 +1067,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.Altair: altairFork(cfg)
       of ConsensusFork.Bellatrix: bellatrixFork(cfg)
       of ConsensusFork.Capella: capellaFork(cfg)
-      of ConsensusFork.EIP4844: denebFork(cfg)
+      of ConsensusFork.Deneb: denebFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   if stateFork != configFork:
@@ -2042,7 +2042,7 @@ proc updateHead*(
     of ConsensusFork.Capella:
       if dag.vanityLogs.onUpgradeToCapella != nil:
         dag.vanityLogs.onUpgradeToCapella()
-    of ConsensusFork.EIP4844:
+    of ConsensusFork.Deneb:
       discard
 
   dag.db.putHeadBlock(newHead.root)

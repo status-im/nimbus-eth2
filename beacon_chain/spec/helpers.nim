@@ -16,7 +16,7 @@ import
   eth/eip1559, eth/common/[eth_types, eth_types_rlp],
   eth/rlp, eth/trie/[db, hexary],
   # Internal
-  ./datatypes/[phase0, altair, bellatrix, capella, eip4844],
+  ./datatypes/[phase0, altair, bellatrix, capella, deneb],
   "."/[eth2_merkleization, forks, ssz_codec]
 
 # TODO although eth2_merkleization already exports ssz_codec, *sometimes* code
@@ -333,7 +333,7 @@ func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
-    state: bellatrix.BeaconState | capella.BeaconState | eip4844.BeaconState): bool =
+    state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState): bool =
   const defaultExecutionPayloadHeader =
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
@@ -349,26 +349,26 @@ func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
-    state: bellatrix.BeaconState | capella.BeaconState | eip4844.BeaconState,
+    state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
           bellatrix.SigVerifiedBeaconBlockBody |
           capella.BeaconBlockBody | capella.TrustedBeaconBlockBody |
           capella.SigVerifiedBeaconBlockBody |
-          eip4844.BeaconBlockBody | eip4844.TrustedBeaconBlockBody |
-          eip4844.SigVerifiedBeaconBlockBody): bool =
+          deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody |
+          deneb.SigVerifiedBeaconBlockBody): bool =
   const defaultExecutionPayload = default(typeof(body.execution_payload))
   not is_merge_transition_complete(state) and
     body.execution_payload != defaultExecutionPayload
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
-    state: bellatrix.BeaconState | capella.BeaconState | eip4844.BeaconState,
+    state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
           bellatrix.SigVerifiedBeaconBlockBody |
           capella.BeaconBlockBody | capella.TrustedBeaconBlockBody |
           capella.SigVerifiedBeaconBlockBody |
-          eip4844.BeaconBlockBody | eip4844.TrustedBeaconBlockBody |
-          eip4844.SigVerifiedBeaconBlockBody): bool =
+          deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody |
+          deneb.SigVerifiedBeaconBlockBody): bool =
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
@@ -400,7 +400,7 @@ func toExecutionWithdrawal*(
 
 # https://eips.ethereum.org/EIPS/eip-4895
 proc computeWithdrawalsTrieRoot*(
-    payload: capella.ExecutionPayload | eip4844.ExecutionPayload): Hash256 =
+    payload: capella.ExecutionPayload | deneb.ExecutionPayload): Hash256 =
   if payload.withdrawals.len == 0:
     return EMPTY_ROOT_HASH
 
@@ -426,7 +426,7 @@ proc payloadToBlockHeader*(
       else:
         none(Hash256)
     excessDataGas =
-      when typeof(payload).toFork >= ConsensusFork.EIP4844:
+      when typeof(payload).toFork >= ConsensusFork.Deneb:
         some payload.excess_data_gas
       else:
         none(UInt256)

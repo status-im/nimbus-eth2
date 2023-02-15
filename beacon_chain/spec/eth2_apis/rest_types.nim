@@ -17,7 +17,7 @@ import
   std/json,
   stew/base10, web3/ethtypes,
   ".."/forks,
-  ".."/datatypes/[phase0, altair, bellatrix, eip4844],
+  ".."/datatypes/[phase0, altair, bellatrix, deneb],
   ".."/mev/[bellatrix_mev, capella_mev]
 
 from ".."/datatypes/capella import BeaconBlockBody
@@ -311,7 +311,7 @@ type
     of ConsensusFork.Altair:    altairBody*:    altair.BeaconBlockBody
     of ConsensusFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
     of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
-    of ConsensusFork.EIP4844:   eip4844Body*:   eip4844.BeaconBlockBody
+    of ConsensusFork.Deneb:   denebBody*:   deneb.BeaconBlockBody
 
   RestSpec* = object
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/presets/mainnet/phase0.yaml

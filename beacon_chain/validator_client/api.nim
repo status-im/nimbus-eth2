@@ -1687,8 +1687,8 @@ proc publishBlock*(
           publishBlock(it, data.bellatrixData)
         of ConsensusFork.Capella:
           publishBlock(it, data.capellaData)
-        of ConsensusFork.EIP4844:
-          debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlock (1)"
+        of ConsensusFork.Deneb:
+          debugRaiseAssert $denebImplementationMissing & ": validator_client/api.nim:publishBlock (1)"
           let f = newFuture[RestPlainResponse]("")
           f.fail(new RestError)
           f
@@ -1742,8 +1742,8 @@ proc publishBlock*(
         publishBlock(it, data.bellatrixData)
       of ConsensusFork.Capella:
         publishBlock(it, data.capellaData)
-      of ConsensusFork.EIP4844:
-        debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlock (2)"
+      of ConsensusFork.Deneb:
+        debugRaiseAssert $denebImplementationMissing & ": validator_client/api.nim:publishBlock (2)"
         let f = newFuture[RestPlainResponse]("")
         f.fail(new RestError)
         f
@@ -1892,8 +1892,8 @@ proc publishBlindedBlock*(
           publishBlindedBlock(it, data.bellatrixData)
         of ConsensusFork.Capella:
           publishBlindedBlock(it, data.capellaData)
-        of ConsensusFork.EIP4844:
-          debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlindedBlock (1)"
+        of ConsensusFork.Deneb:
+          debugRaiseAssert $denebImplementationMissing & ": validator_client/api.nim:publishBlindedBlock (1)"
           let f = newFuture[RestPlainResponse]("")
           f.fail(new RestError)
           f
@@ -1946,8 +1946,8 @@ proc publishBlindedBlock*(
         publishBlindedBlock(it, data.bellatrixData)
       of ConsensusFork.Capella:
         publishBlindedBlock(it, data.capellaData)
-      of ConsensusFork.EIP4844:
-        debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlindedBlock (2)"
+      of ConsensusFork.Deneb:
+        debugRaiseAssert $denebImplementationMissing & ": validator_client/api.nim:publishBlindedBlock (2)"
         let f = newFuture[RestPlainResponse]("")
         f.fail(new RestError)
         f

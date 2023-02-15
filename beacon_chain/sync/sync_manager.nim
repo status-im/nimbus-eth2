@@ -116,7 +116,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                                man.ident)
 
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
-                           eip4844Epoch: Epoch,
+                           denebEpoch: Epoch,
                            direction: SyncQueueKind,
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
@@ -139,7 +139,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
 
   var res = SyncManager[A, B](
     pool: pool,
-    DENEB_FORK_EPOCH: eip4844Epoch,
+    DENEB_FORK_EPOCH: denebEpoch,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     getSafeSlot: getSafeSlot,

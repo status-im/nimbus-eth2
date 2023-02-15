@@ -14,7 +14,7 @@ import
   eth/keys, taskpools,
   ../beacon_chain/[conf, beacon_clock],
   ../beacon_chain/spec/[beaconstate, forks, helpers, state_transition],
-  ../beacon_chain/spec/datatypes/eip4844,
+  ../beacon_chain/spec/datatypes/deneb,
   ../beacon_chain/gossip_processing/block_processor,
   ../beacon_chain/consensus_object_pools/[
     attestation_pool, blockchain_dag, block_quarantine, block_clearance,

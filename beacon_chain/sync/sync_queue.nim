@@ -29,7 +29,7 @@ type
     proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   BlockBlobsVerifier* =
-    proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar,
+    proc(signedBlock: ForkedSignedBeaconBlock, blobs: deneb.BlobsSidecar,
          maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 

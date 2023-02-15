@@ -66,11 +66,11 @@ suite "EF - Capella - Fork " & preset():
     runTest(bellatrix.BeaconState, capella.BeaconState, "Capella", OpForkDir,
             upgrade_to_capella, path)
 
-from ../../beacon_chain/spec/datatypes/eip4844 import BeaconState
+from ../../beacon_chain/spec/datatypes/deneb import BeaconState
 
 suite "EF - Deneb - Fork " & preset():
   const OpForkDir =
-    SszTestsDir/const_preset/"eip4844"/"fork"/"fork"/"pyspec_tests"
+    SszTestsDir/const_preset/"deneb"/"fork"/"fork"/"pyspec_tests"
   for kind, path in walkDir(OpForkDir, relative = true, checkDir = true):
-    runTest(capella.BeaconState, eip4844.BeaconState, "Deneb", OpForkDir,
-            upgrade_to_eip4844, path)
+    runTest(capella.BeaconState, deneb.BeaconState, "Deneb", OpForkDir,
+            upgrade_to_deneb, path)

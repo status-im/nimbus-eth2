@@ -22,7 +22,7 @@ import
   ./batch_validation
 
 from ../spec/datatypes/capella import SignedBeaconBlock
-from ../spec/datatypes/eip4844 import
+from ../spec/datatypes/deneb import
   SignedBeaconBlock, SignedBeaconBlockAndBlobsSidecar, BLS_MODULUS
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
@@ -182,7 +182,7 @@ template validateBeaconBlockBellatrix(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/bellatrix/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
        signed_beacon_block: bellatrix.SignedBeaconBlock |
-       capella.SignedBeaconBlock | eip4844.SignedBeaconBlock,
+       capella.SignedBeaconBlock | deneb.SignedBeaconBlock,
        parent: BlockRef): untyped =
   # If the execution is enabled for the block -- i.e.
   # is_execution_enabled(state, block.body) then validate the following:
@@ -226,7 +226,7 @@ template validateBlobsSidecar(
   discard
 
 template validateBlobsSidecar(
-    signed_beacon_block: eip4844.SignedBeaconBlockAndBlobsSidecar):
+    signed_beacon_block: deneb.SignedBeaconBlockAndBlobsSidecar):
     untyped =
   # TODO
   # [REJECT] The KZG commitments of the blobs are all correctly encoded

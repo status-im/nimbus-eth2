@@ -13,7 +13,7 @@ import
   ./gossip_processing/optimistic_processor,
   ./networking/topic_params,
   ./spec/beaconstate,
-  ./spec/datatypes/[phase0, altair, bellatrix, capella, eip4844],
+  ./spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
   "."/[filepath, light_client, light_client_db, nimbus_binary_common, version]
 
 from ./consensus_object_pools/consensus_manager import runForkchoiceUpdated
@@ -157,9 +157,9 @@ programMain:
       toValidationResult(
         optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   network.addValidator(
-    getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
+    getBeaconBlockAndBlobsSidecarTopic(forkDigests.deneb),
     proc (
-        signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar
+        signedBlock: deneb.SignedBeaconBlockAndBlobsSidecar
     ): ValidationResult =
       toValidationResult(
         optimisticProcessor.processSignedBeaconBlock(

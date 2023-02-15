@@ -26,7 +26,7 @@ from ../consensus_object_pools/block_quarantine import
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
-from ../spec/datatypes/eip4844 import BlobsSidecar
+from ../spec/datatypes/deneb import BlobsSidecar
 from ../spec/state_transition_block import validate_blobs_sidecar
 
 export sszdump, signatures_batch
@@ -48,7 +48,7 @@ const
 type
   BlockEntry* = object
     blck*: ForkedSignedBeaconBlock
-    blobs*: Opt[eip4844.BlobsSidecar]
+    blobs*: Opt[deneb.BlobsSidecar]
     maybeFinalized*: bool
       ## The block source claims the block has been finalized already
     resfut*: Future[Result[void, VerifierError]]
@@ -110,7 +110,7 @@ type
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar],
+    blobs: Opt[deneb.BlobsSidecar],
     resfut: Future[Result[void, VerifierError]] = nil,
     maybeFinalized = false,
     validationDur = Duration())
@@ -170,7 +170,7 @@ from ../beacon_chain_db import putBlobsSidecar
 proc storeBackfillBlock(
     self: var BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar]): Result[void, VerifierError] =
+    blobs: Opt[deneb.BlobsSidecar]): Result[void, VerifierError] =
 
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
@@ -178,7 +178,7 @@ proc storeBackfillBlock(
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
   let blobsOk =
-      when typeof(signedBlock).toFork() >= ConsensusFork.EIP4844:
+      when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
           blobs.isNone or
           validate_blobs_sidecar(signedBlock.message.slot,
                                  signedBlock.root,
@@ -270,7 +270,7 @@ from ../spec/datatypes/capella import
 proc newExecutionPayload*(
     eth1Monitor: Eth1Monitor,
     executionPayload: bellatrix.ExecutionPayload | capella.ExecutionPayload |
-    eip4844.ExecutionPayload):
+    deneb.ExecutionPayload):
     Future[Opt[PayloadExecutionStatus]] {.async.} =
   if eth1Monitor.isNil:
     return Opt.none PayloadExecutionStatus
@@ -313,14 +313,14 @@ proc newExecutionPayload*(
     return Opt.none PayloadExecutionStatus
 
 # TODO investigate why this seems to allow compilation even though it doesn't
-# directly address eip4844.ExecutionPayload when complaint was that it didn't
-# know about "eip4844"
-from ../spec/datatypes/eip4844 import SignedBeaconBlock, asTrusted, shortLog
+# directly address deneb.ExecutionPayload when complaint was that it didn't
+# know about "deneb"
+from ../spec/datatypes/deneb import SignedBeaconBlock, asTrusted, shortLog
 
 proc getExecutionValidity(
     eth1Monitor: Eth1Monitor,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-    eip4844.SignedBeaconBlock):
+    deneb.SignedBeaconBlock):
     Future[NewPayloadStatus] {.async.} =
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously
@@ -354,7 +354,7 @@ proc getExecutionValidity(
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar],
+    blobs: Opt[deneb.BlobsSidecar],
     maybeFinalized = false,
     queueTick: Moment = Moment.now(), validationDur = Duration()):
     Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async.} =
@@ -418,7 +418,7 @@ proc storeBlock*(
 
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  when typeof(signedBlock).toFork() >= ConsensusFork.EIP4844:
+  when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
     if blobs.isSome():
       let res = validate_blobs_sidecar(signedBlock.message.slot,
                                        signedBlock.root,
@@ -600,7 +600,7 @@ proc storeBlock*(
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar],
+    blobs: Opt[deneb.BlobsSidecar],
     resfut: Future[Result[void, VerifierError]] = nil,
     maybeFinalized = false,
     validationDur = Duration()) =

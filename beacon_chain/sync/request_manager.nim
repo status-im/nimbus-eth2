@@ -33,7 +33,7 @@ type
     proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   BlockBlobsVerifier* =
-    proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar,
+    proc(signedBlock: ForkedSignedBeaconBlock, blobs: deneb.BlobsSidecar,
          maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 
@@ -53,14 +53,14 @@ func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
 proc init*(T: type RequestManager, network: Eth2Node,
-              eip4844Epoch: Epoch,
+              denebEpoch: Epoch,
               getBeaconTime: GetBeaconTimeFn,
               blockVerifier: BlockVerifier,
               blockBlobsVerifier: BlockBlobsVerifier): RequestManager =
   RequestManager(
     network: network,
     inpQueue: newAsyncQueue[FetchRecord](),
-    DENEB_FORK_EPOCH: eip4844Epoch,
+    DENEB_FORK_EPOCH: denebEpoch,
     getBeaconTime: getBeaconTime,
     blockVerifier: blockVerifier,
     blockBlobsVerifier: blockBlobsVerifier,
@@ -274,7 +274,7 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
       # As soon as DENEB_FORK_EPOCH comes around in wall time, we
       # switch to requesting blocks and blobs. In the vicinity of the
       # transition, that means that we *may* request blobs for a
-      # pre-eip4844. In that case, we get ResourceUnavailable from the
+      # pre-deneb. In that case, we get ResourceUnavailable from the
       # peer and fall back to requesting blocks only.
       let getBlobs = rman.isBlobsTime()
       for i in 0 ..< PARALLEL_REQUESTS:

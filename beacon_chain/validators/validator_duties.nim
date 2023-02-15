@@ -312,7 +312,7 @@ proc get_execution_payload[EP](
     elif EP is capella.ExecutionPayload:
       Opt.some asConsensusExecutionPayload(
         await execution_engine.getPayloadV2(payload_id.get))
-    elif EP is eip4844.ExecutionPayload:
+    elif EP is deneb.ExecutionPayload:
       Opt.some asConsensusExecutionPayload(
         await execution_engine.getPayloadV3(payload_id.get))
     else:
@@ -330,7 +330,7 @@ proc getGasLimit(node: BeaconNode,
 
 from web3/engine_api_types import PayloadExecutionStatus
 from ../spec/datatypes/capella import BeaconBlock, ExecutionPayload
-from ../spec/datatypes/eip4844 import BeaconBlock, ExecutionPayload
+from ../spec/datatypes/deneb import BeaconBlock, ExecutionPayload
 
 proc getExecutionPayload[T](
     node: BeaconNode, proposalState: ref ForkedHashedBeaconState,
@@ -440,7 +440,7 @@ proc getExecutionPayload[T](
 proc getBlobsBundle(
     node: BeaconNode, epoch: Epoch, validator_index: ValidatorIndex,
     payload_id: PayloadID): Future[BlobsBundleV1] {.async.} =
-    # https://github.com/ethereum/consensus-specs/blob/dev/specs/eip4844/validator.md#get_blobs_and_kzg_commitments
+    # https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/validator.md#get_blobs_and_kzg_commitments
 
   # Minimize window for Eth1 monitor to shut down connection
   await node.consensusManager.eth1Monitor.ensureDataProvider()
@@ -816,7 +816,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*(
   return ok constructPlainBlindedBlock[bellatrix_mev.BlindedBeaconBlock](
     forkedBlck, executionPayloadHeader)
 
-from ../spec/datatypes/eip4844 import shortLog
+from ../spec/datatypes/deneb import shortLog
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
@@ -860,7 +860,7 @@ proc proposeBlock(node: BeaconNode,
 
   let newBlock =
     if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-      await makeBeaconBlockForHeadAndSlot[eip4844.ExecutionPayload](
+      await makeBeaconBlockForHeadAndSlot[deneb.ExecutionPayload](
         node, randao, validator_index, node.graffitiBytes, head, slot)
     elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
       await makeBeaconBlockForHeadAndSlot[capella.ExecutionPayload](
@@ -875,10 +875,10 @@ proc proposeBlock(node: BeaconNode,
   var forkedBlck = newBlock.get()
 
   withBlck(forkedBlck):
-    var blobs_sidecar = eip4844.BlobsSidecar(
+    var blobs_sidecar = deneb.BlobsSidecar(
       beacon_block_slot: slot,
     )
-    when blck is eip4844.BeaconBlock and const_preset != "minimal":
+    when blck is deneb.BeaconBlock and const_preset != "minimal":
       # TODO when lastfcu is none, getExecutionPayload re-queries the EE.
       # We don't do that here, which could lead us to propose invalid blocks
       # (with a payload but no blobs).
@@ -894,11 +894,11 @@ proc proposeBlock(node: BeaconNode,
           kzg_aggregated_proof = default(KZGProof)
 
         blck.body.blob_kzg_commitments =
-            List[eip4844.KZGCommitment, Limit MAX_BLOBS_PER_BLOCK].init(
-              mapIt(bundle.kzgs, eip4844.KzgCommitment(it)))
+            List[deneb.KZGCommitment, Limit MAX_BLOBS_PER_BLOCK].init(
+              mapIt(bundle.kzgs, deneb.KzgCommitment(it)))
 
-        blobs_sidecar.blobs = List[eip4844.Blob, Limit MAX_BLOBS_PER_BLOCK].init(
-          mapIt(bundle.blobs, eip4844.Blob(it)))
+        blobs_sidecar.blobs = List[deneb.Blob, Limit MAX_BLOBS_PER_BLOCK].init(
+          mapIt(bundle.blobs, deneb.Blob(it)))
         blobs_sidecar.kzg_aggregated_proof = kzg_aggregated_proof
 
     let
@@ -943,9 +943,9 @@ proc proposeBlock(node: BeaconNode,
         elif blck is capella.BeaconBlock:
           capella.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
-        elif blck is eip4844.BeaconBlock:
-          eip4844.SignedBeaconBlockAndBlobsSidecar(
-            beacon_block:eip4844.SignedBeaconBlock(message: blck, signature: signature, root: blockRoot),
+        elif blck is deneb.BeaconBlock:
+          deneb.SignedBeaconBlockAndBlobsSidecar(
+            beacon_block:deneb.SignedBeaconBlock(message: blck, signature: signature, root: blockRoot),
             blobs_sidecar: blobs_sidecar
           )
         else:

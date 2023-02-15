@@ -347,7 +347,7 @@ proc installMessageValidators*(
     withLcDataFork(lcDataForkAtStateFork(stateFork)):
       when lcDataFork > LightClientDataFork.None:
         let
-          contextFork = stateFork  # Copy to avoid capturing `EIP4844` (Nim 1.6)
+          contextFork = stateFork  # Copy to avoid capturing `Deneb` (Nim 1.6)
           digest = forkDigests[].atStateFork(contextFork)
 
         lightClient.network.addValidator(

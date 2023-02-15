@@ -128,18 +128,18 @@ suite "EF - Capella - Transition " & preset():
       capella.SignedBeaconBlock, cfg, "EF - Capella - Transition",
       TransitionDir, path, transitionInfo.fork_block)
 
-from ../../beacon_chain/spec/datatypes/eip4844 import
+from ../../beacon_chain/spec/datatypes/deneb import
   BeaconState, SignedBeaconBlock
 
 suite "EF - Deneb - Transition " & preset():
   const TransitionDir =
-    SszTestsDir/const_preset/"eip4844"/"transition"/"core"/"pyspec_tests"
+    SszTestsDir/const_preset/"deneb"/"transition"/"core"/"pyspec_tests"
 
   for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
     let transitionInfo = getTransitionInfo(TransitionDir / path)
     var cfg = defaultRuntimeConfig
     cfg.DENEB_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
     runTest(
-      capella.BeaconState, eip4844.BeaconState, capella.SignedBeaconBlock,
-      eip4844.SignedBeaconBlock, cfg, "EF - EIP4844 - Transition",
+      capella.BeaconState, deneb.BeaconState, capella.SignedBeaconBlock,
+      deneb.SignedBeaconBlock, cfg, "EF - Deneb - Transition",
       TransitionDir, path, transitionInfo.fork_block)

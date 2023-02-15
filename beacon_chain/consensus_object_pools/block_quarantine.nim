@@ -11,7 +11,7 @@ import
   std/[tables],
   stew/bitops2,
   ../spec/forks,
-  ../spec/datatypes/eip4844
+  ../spec/datatypes/deneb
 
 export tables, forks
 
@@ -40,7 +40,7 @@ type
     ## Trivially invalid blocks may be dropped before reaching this stage.
 
     orphans*: Table[(Eth2Digest, ValidatorSig),
-                    (ForkedSignedBeaconBlock, Opt[eip4844.BlobsSidecar])]
+                    (ForkedSignedBeaconBlock, Opt[deneb.BlobsSidecar])]
       ## Blocks that we don't have a parent for - when we resolve the parent, we
       ## can proceed to resolving the block as well - we index this by root and
       ## signature such that a block with invalid signature won't cause a block
@@ -193,7 +193,7 @@ func clearAfterReorg*(quarantine: var Quarantine) =
 func addOrphan*(
     quarantine: var Quarantine, finalizedSlot: Slot,
     signedBlock: ForkedSignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar]): bool =
+    blobs: Opt[deneb.BlobsSidecar]): bool =
   ## Adds block to quarantine's `orphans` and `missing` lists.
   if not isViableOrphan(finalizedSlot, signedBlock):
     quarantine.addUnviable(signedBlock.root)
@@ -221,7 +221,7 @@ func addOrphan*(
   true
 
 iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
-    (ForkedSignedBeaconBlock, Opt[eip4844.BlobsSidecar]) =
+    (ForkedSignedBeaconBlock, Opt[deneb.BlobsSidecar]) =
   # Pop orphans whose parent is the block identified by `root`
 
   var toRemove: seq[(Eth2Digest, ValidatorSig)]

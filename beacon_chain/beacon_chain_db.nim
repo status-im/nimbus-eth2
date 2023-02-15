@@ -23,7 +23,7 @@ import
   "."/[beacon_chain_db_light_client, filepath]
 
 from ./spec/datatypes/capella import BeaconState
-from ./spec/datatypes/eip4844 import TrustedSignedBeaconBlock, BlobsSidecar
+from ./spec/datatypes/deneb import TrustedSignedBeaconBlock, BlobsSidecar
 
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
@@ -504,7 +504,7 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("altair_blocks").expectDb(),
       kvStore db.openKvStore("bellatrix_blocks").expectDb(),
       kvStore db.openKvStore("capella_blocks").expectDb(),
-      kvStore db.openKvStore("eip4844_blocks").expectDb()]
+      kvStore db.openKvStore("deneb_blocks").expectDb()]
 
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
@@ -513,7 +513,7 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("altair_state_no_validators").expectDb(),
       kvStore db.openKvStore("bellatrix_state_no_validators").expectDb(),
       kvStore db.openKvStore("capella_state_no_validator_pubkeys").expectDb(),
-      kvStore db.openKvStore("eip4844_state_no_validator_pubkeys").expectDb()]
+      kvStore db.openKvStore("deneb_state_no_validator_pubkeys").expectDb()]
 
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
@@ -526,10 +526,10 @@ proc new*(T: type BeaconChainDB,
           "lc_capella_headers"
         else:
           "",
-      eip4844Headers:
+      denebHeaders:
         if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
           # TODO: We should probably rename this to match the official fork name
-          "lc_eip4844_headers"
+          "lc_deneb_headers"
         else:
           "",
       altairCurrentBranches: "lc_altair_current_branches",
@@ -537,11 +537,11 @@ proc new*(T: type BeaconChainDB,
       legacyAltairBestUpdates: "lc_altair_best_updates",
       bestUpdates: "lc_best_updates",
       sealedPeriods: "lc_sealed_periods")).expectDb()
-  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
 
   var blobs : KvStoreRef
   if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    blobs = kvStore db.openKvStore("eip4844_blobs").expectDb()
+    blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
@@ -787,7 +787,7 @@ proc putBlock*(
     db: BeaconChainDB,
     value: bellatrix.TrustedSignedBeaconBlock |
            capella.TrustedSignedBeaconBlock |
-           eip4844.TrustedSignedBeaconBlock) =
+           deneb.TrustedSignedBeaconBlock) =
   db.withManyWrites:
     db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
@@ -827,9 +827,9 @@ template toBeaconStateNoImmutableValidators(state: capella.BeaconState):
     CapellaBeaconStateNoImmutableValidators =
   isomorphicCast[CapellaBeaconStateNoImmutableValidators](state)
 
-template toBeaconStateNoImmutableValidators(state: eip4844.BeaconState):
-    EIP4844BeaconStateNoImmutableValidators =
-  isomorphicCast[EIP4844BeaconStateNoImmutableValidators](state)
+template toBeaconStateNoImmutableValidators(state: deneb.BeaconState):
+    DenebBeaconStateNoImmutableValidators =
+  isomorphicCast[DenebBeaconStateNoImmutableValidators](state)
 
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
@@ -840,7 +840,7 @@ proc putState*(
 
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
-    value: bellatrix.BeaconState | capella.BeaconState | eip4844.BeaconState) =
+    value: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState) =
   db.updateImmutableValidators(value.validators.asSeq())
   db.statesNoVal[type(value).toFork()].putSZSSZ(
     key.data, toBeaconStateNoImmutableValidators(value))
@@ -975,7 +975,7 @@ proc getBlock*(
 
 proc getBlock*[
     X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
-       eip4844.TrustedSignedBeaconBlock](
+       deneb.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest,
     T: type X): Opt[T] =
   # We only store blocks that we trust in the database
@@ -1037,7 +1037,7 @@ proc getBlockSSZ*(
 
 proc getBlockSSZ*[
     X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
-       eip4844.TrustedSignedBeaconBlock](
+       deneb.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: type X): bool =
   let dataPtr = addr data # Short-lived
   var success = true
@@ -1058,8 +1058,8 @@ proc getBlockSSZ*(
     getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
   of ConsensusFork.Capella:
     getBlockSSZ(db, key, data, capella.TrustedSignedBeaconBlock)
-  of ConsensusFork.EIP4844:
-    getBlockSSZ(db, key, data, eip4844.TrustedSignedBeaconBlock)
+  of ConsensusFork.Deneb:
+    getBlockSSZ(db, key, data, deneb.TrustedSignedBeaconBlock)
 
 
 proc getBlobsSidecarSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte]):
@@ -1094,7 +1094,7 @@ proc getBlockSZ*(
 
 proc getBlockSZ*[
     X: bellatrix.TrustedSignedBeaconBlock | capella.TrustedSignedBeaconBlock |
-       eip4844.TrustedSignedBeaconBlock](
+       deneb.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte], T: type X): bool =
   let dataPtr = addr data # Short-lived
   func decode(data: openArray[byte]) =
@@ -1113,8 +1113,8 @@ proc getBlockSZ*(
     getBlockSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
   of ConsensusFork.Capella:
     getBlockSZ(db, key, data, capella.TrustedSignedBeaconBlock)
-  of ConsensusFork.EIP4844:
-    getBlockSZ(db, key, data, eip4844.TrustedSignedBeaconBlock)
+  of ConsensusFork.Deneb:
+    getBlockSZ(db, key, data, deneb.TrustedSignedBeaconBlock)
 
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
@@ -1195,7 +1195,7 @@ proc getStateOnlyMutableValidators(
 proc getStateOnlyMutableValidators(
     immutableValidators: openArray[ImmutableValidatorData2],
     store: KvStoreRef, key: openArray[byte],
-    output: var (capella.BeaconState | eip4844.BeaconState),
+    output: var (capella.BeaconState | deneb.BeaconState),
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -1276,7 +1276,7 @@ proc getState*(
 proc getState*(
     db: BeaconChainDB, key: Eth2Digest,
     output: var (altair.BeaconState | bellatrix.BeaconState |
-                 capella.BeaconState | eip4844.BeaconState),
+                 capella.BeaconState | deneb.BeaconState),
     rollback: RollbackProc): bool =
   ## Load state into `output` - BeaconState is large so we want to avoid
   ## re-allocating it if possible
@@ -1355,7 +1355,7 @@ proc containsBlock*(
 
 proc containsBlock*[
     X: altair.TrustedSignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
-       capella.TrustedSignedBeaconBlock | eip4844.TrustedSignedBeaconBlock](
+       capella.TrustedSignedBeaconBlock | deneb.TrustedSignedBeaconBlock](
     db: BeaconChainDB, key: Eth2Digest, T: type X): bool =
   db.blocks[X.toFork].contains(key.data).expectDb()
 
@@ -1496,7 +1496,7 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
 
   # Backwards compat for reading old databases, or those that for whatever
   # reason lost a summary along the way..
-  static: doAssert ConsensusFork.high == ConsensusFork.EIP4844
+  static: doAssert ConsensusFork.high == ConsensusFork.Deneb
   while true:
     if db.v0.backend.getSnappySSZ(
         subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:
@@ -1509,7 +1509,7 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
       res.summary = blck.get().message.toBeaconBlockSummary()
     elif (let blck = db.getBlock(res.root, capella.TrustedSignedBeaconBlock); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
-    elif (let blck = db.getBlock(res.root, eip4844.TrustedSignedBeaconBlock); blck.isSome()):
+    elif (let blck = db.getBlock(res.root, deneb.TrustedSignedBeaconBlock); blck.isSome()):
       res.summary = blck.get().message.toBeaconBlockSummary()
     else:
       break

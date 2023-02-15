@@ -266,7 +266,7 @@ func findValidatorIndex*(state: ForkyBeaconState, pubkey: ValidatorPubKey):
     if state.validators.asSeq[vidx].pubkey == pubkey:
       return Opt[ValidatorIndex].ok(vidx)
 
-from ./datatypes/eip4844 import
+from ./datatypes/deneb import
   BLOB_TX_TYPE, BeaconState, KZGCommitment, VersionedHash
 
 proc process_deposit*(cfg: RuntimeConfig,
@@ -308,7 +308,7 @@ proc process_deposit*(cfg: RuntimeConfig,
         raiseAssert "adding validator succeeded, so should balances"
 
       when state is altair.BeaconState or state is bellatrix.BeaconState or
-           state is capella.BeaconState or state is eip4844.BeaconState:
+           state is capella.BeaconState or state is deneb.BeaconState:
         if not state.previous_epoch_participation.add(ParticipationFlags(0)):
           return err("process_deposit: too many validators (previous_epoch_participation)")
         if not state.current_epoch_participation.add(ParticipationFlags(0)):
@@ -389,7 +389,7 @@ proc process_voluntary_exit*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 proc check_bls_to_execution_change*(
-    cfg: RuntimeConfig, state: capella.BeaconState | eip4844.BeaconState,
+    cfg: RuntimeConfig, state: capella.BeaconState | deneb.BeaconState,
     signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
   let address_change = signed_address_change.message
 
@@ -414,7 +414,7 @@ proc check_bls_to_execution_change*(
   ok()
 
 proc process_bls_to_execution_change*(
-    cfg: RuntimeConfig, state: var (capella.BeaconState | eip4844.BeaconState),
+    cfg: RuntimeConfig, state: var (capella.BeaconState | deneb.BeaconState),
     signed_address_change: SignedBLSToExecutionChange): Result[void, cstring] =
   ? check_bls_to_execution_change(cfg, state, signed_address_change)
   let address_change = signed_address_change.message
@@ -483,7 +483,7 @@ func get_proposer_reward*(participant_reward: Gwei): Gwei =
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/altair/beacon-chain.md#sync-committee-processing
 proc process_sync_aggregate*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
-                capella.BeaconState | eip4844.BeaconState),
+                capella.BeaconState | deneb.BeaconState),
     sync_aggregate: SomeSyncAggregate, total_active_balance: Gwei,
     cache: var StateCache):
     Result[void, cstring]  =
@@ -620,10 +620,10 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
-    state: var eip4844.BeaconState, payload: eip4844.ExecutionPayload,
-    notify_new_payload: eip4844.ExecutePayload): Result[void, cstring] =
+    state: var deneb.BeaconState, payload: deneb.ExecutionPayload,
+    notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
   ## Verify consistency of the parent hash with respect to the previous
   ## execution payload header
   if is_merge_transition_complete(state):
@@ -644,7 +644,7 @@ proc process_execution_payload*(
     return err("process_execution_payload: execution payload invalid")
 
   # Cache execution payload header
-  state.latest_execution_payload_header = eip4844.ExecutionPayloadHeader(
+  state.latest_execution_payload_header = deneb.ExecutionPayloadHeader(
     parent_hash: payload.parent_hash,
     fee_recipient: payload.fee_recipient,
     state_root: payload.state_root,
@@ -656,7 +656,7 @@ proc process_execution_payload*(
     gas_used: payload.gas_used,
     timestamp: payload.timestamp,
     base_fee_per_gas: payload.base_fee_per_gas,
-    excess_data_gas: payload.excess_data_gas,  # [New in EIP-4844]
+    excess_data_gas: payload.excess_data_gas,  # [New in Deneb]
     block_hash: payload.block_hash,
     extra_data: payload.extra_data,
     transactions_root: hash_tree_root(payload.transactions),
@@ -666,8 +666,8 @@ proc process_execution_payload*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#new-process_withdrawals
 func process_withdrawals*(
-    state: var (capella.BeaconState | eip4844.BeaconState),
-    payload: capella.ExecutionPayload | eip4844.ExecutionPayload):
+    state: var (capella.BeaconState | deneb.BeaconState),
+    payload: capella.ExecutionPayload | deneb.ExecutionPayload):
     Result[void, cstring] =
   let expected_withdrawals = get_expected_withdrawals(state)
 
@@ -706,11 +706,11 @@ func process_withdrawals*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#tx_peek_blob_versioned_hashes
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/beacon-chain.md#tx_peek_blob_versioned_hashes
 func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
     Result[seq[VersionedHash], cstring] =
   ## This function retrieves the hashes from the `SignedBlobTransaction` as
-  ## defined in EIP-4844, using SSZ offsets. Offsets are little-endian `uint32`
+  ## defined in Deneb, using SSZ offsets. Offsets are little-endian `uint32`
   ## values, as defined in the SSZ specification. See the full details of
   ## `blob_versioned_hashes` offset calculation.
   if not (opaque_tx[0] == BLOB_TX_TYPE):
@@ -735,10 +735,10 @@ func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
     res.add versionedHash
   ok res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#kzg_commitment_to_versioned_hash
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash(
-    kzg_commitment: eip4844.KZGCommitment): VersionedHash =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#blob
+    kzg_commitment: deneb.KZGCommitment): VersionedHash =
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/beacon-chain.md#blob
   const VERSIONED_HASH_VERSION_KZG = 0x01'u8
 
   var res: VersionedHash
@@ -746,10 +746,10 @@ func kzg_commitment_to_versioned_hash(
   res[1 .. 31] = eth2digest(kzg_commitment).data.toOpenArray(1, 31)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#verify_kzg_commitments_against_transactions
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/beacon-chain.md#verify_kzg_commitments_against_transactions
 func verify_kzg_commitments_against_transactions*(
     transactions: seq[Transaction],
-    kzg_commitments: seq[eip4844.KZGCommitment]): bool =
+    kzg_commitments: seq[deneb.KZGCommitment]): bool =
   var all_versioned_hashes: seq[VersionedHash]
   for tx in transactions:
     if tx[0] == BLOB_TX_TYPE:
@@ -763,11 +763,11 @@ func verify_kzg_commitments_against_transactions*(
 
   all_versioned_hashes == mapIt(kzg_commitments, it.kzg_commitment_to_versioned_hash)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#blob-kzg-commitments
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/beacon-chain.md#blob-kzg-commitments
 func process_blob_kzg_commitments(
-    state: var eip4844.BeaconState,
-    body: eip4844.BeaconBlockBody | eip4844.TrustedBeaconBlockBody |
-          eip4844.SigVerifiedBeaconBlockBody):
+    state: var deneb.BeaconState,
+    body: deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody |
+          deneb.SigVerifiedBeaconBlockBody):
     Result[void, cstring] =
   if verify_kzg_commitments_against_transactions(
       body.execution_payload.transactions.asSeq,
@@ -776,10 +776,10 @@ func process_blob_kzg_commitments(
   else:
     return err("process_blob_kzg_commitments: verify_kzg_commitments_against_transactions failed")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/beacon-chain.md#validate_blobs_sidecar
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/deneb/beacon-chain.md#validate_blobs_sidecar
 proc validate_blobs_sidecar*(slot: Slot, root: Eth2Digest,
-                          expected_kzg_commitments: seq[eip4844.KZGCommitment],
-                          blobs_sidecar: eip4844.BlobsSidecar):
+                          expected_kzg_commitments: seq[deneb.KZGCommitment],
+                          blobs_sidecar: deneb.BlobsSidecar):
                             Result[void, cstring] =
   if slot != blobs_sidecar.beacon_block_slot:
     return err("validate_blobs_sidecar: different slot in block and sidecar")
@@ -796,11 +796,11 @@ proc validate_blobs_sidecar*(slot: Slot, root: Eth2Digest,
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/fork-choice.md#is_data_available
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/fork-choice.md#is_data_available
 func is_data_available(
     slot: Slot, beacon_block_root: Eth2Digest,
-    blob_kzg_commitments: seq[eip4844.KZGCommitment]): bool =
-  discard $eip4844ImplementationMissing & ": state_transition_block.nim:is_data_available"
+    blob_kzg_commitments: seq[deneb.KZGCommitment]): bool =
+  discard $denebImplementationMissing & ": state_transition_block.nim:is_data_available"
 
   true
 
@@ -917,13 +917,13 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/deneb/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
-type SomeEIP4844Block =
-  eip4844.BeaconBlock | eip4844.SigVerifiedBeaconBlock | eip4844.TrustedBeaconBlock
+type SomeDenebBlock =
+  deneb.BeaconBlock | deneb.SigVerifiedBeaconBlock | deneb.TrustedBeaconBlock
 proc process_block*(
     cfg: RuntimeConfig,
-    state: var eip4844.BeaconState, blck: SomeEIP4844Block,
+    state: var deneb.BeaconState, blck: SomeDenebBlock,
     flags: UpdateFlags, cache: var StateCache): Result[void, cstring]=
   ## When there's a new block, we need to verify that the block is sane and
   ## update the state accordingly - the state is left in an unknown state when
@@ -934,7 +934,7 @@ proc process_block*(
     ? process_withdrawals(state, blck.body.execution_payload)
     ? process_execution_payload(
         state, blck.body.execution_payload,
-        func(_: eip4844.ExecutionPayload): bool = true)  # [Modified in EIP-4844]
+        func(_: deneb.ExecutionPayload): bool = true)  # [Modified in Deneb]
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
 
@@ -947,9 +947,9 @@ proc process_block*(
   ? process_sync_aggregate(
     state, blck.body.sync_aggregate, total_active_balance, cache)
 
-  ? process_blob_kzg_commitments(state, blck.body)  # [New in EIP-4844]
+  ? process_blob_kzg_commitments(state, blck.body)  # [New in Deneb]
 
-  # New in EIP-4844
+  # New in Deneb
   if not is_data_available(
       blck.slot, hash_tree_root(blck), blck.body.blob_kzg_commitments.asSeq):
     return err("not is_data_available")

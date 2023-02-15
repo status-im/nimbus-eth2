@@ -12,7 +12,7 @@ import
   chronicles,
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, presets, state_transition_epoch],
-  ../../../beacon_chain/spec/datatypes/[altair, eip4844],
+  ../../../beacon_chain/spec/datatypes/[altair, deneb],
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
@@ -23,7 +23,7 @@ from std/sequtils import mapIt, toSeq
 from std/strutils import rsplit
 
 const
-  RootDir = SszTestsDir/const_preset/"eip4844"/"epoch_processing"
+  RootDir = SszTestsDir/const_preset/"deneb"/"epoch_processing"
 
   JustificationFinalizationDir = RootDir/"justification_and_finalization"
   InactivityDir =                RootDir/"inactivity_updates"
@@ -54,7 +54,7 @@ template runSuite(
       let unitTestName = testDir.rsplit(DirSep, 1)[1]
       test testName & " - " & unitTestName & preset():
         # BeaconState objects are stored on the heap to avoid stack overflow
-        type T = eip4844.BeaconState
+        type T = deneb.BeaconState
         let preState {.inject.} = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
         var cache {.inject, used.} = StateCache()
         template state: untyped {.inject, used.} = preState[]

@@ -10,7 +10,7 @@
 import
   unittest2,
   ../beacon_chain/spec/forks,
-  ../beacon_chain/spec/datatypes/[phase0,eip4844],
+  ../beacon_chain/spec/datatypes/[phase0,deneb],
   ../beacon_chain/consensus_object_pools/block_quarantine
 
 func makeBlock(slot: Slot, parent: Eth2Digest): ForkedSignedBeaconBlock =

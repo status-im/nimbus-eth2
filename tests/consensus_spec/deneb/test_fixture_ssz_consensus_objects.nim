@@ -14,7 +14,7 @@ import
   # Third-party
   yaml,
   # Beacon chain internals
-  ../../beacon_chain/spec/datatypes/[altair, eip4844],
+  ../../beacon_chain/spec/datatypes/[altair, deneb],
   # Status libraries
   snappy,
   # Test utilities
@@ -31,7 +31,7 @@ from ../../beacon_chain/spec/datatypes/capella import
 # ----------------------------------------------------------------
 
 const
-  SSZDir = SszTestsDir/const_preset/"eip4844"/"ssz_static"
+  SSZDir = SszTestsDir/const_preset/"deneb"/"ssz_static"
 
 type
   SSZHashTreeRoot = object
@@ -44,7 +44,7 @@ type
 # Note this only tracks HashTreeRoot
 # Checking the values against the yaml file is TODO (require more flexible Yaml parser)
 
-proc checkSSZ(T: type eip4844.SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeRoot) =
+proc checkSSZ(T: type deneb.SignedBeaconBlock, dir: string, expectedHash: SSZHashTreeRoot) =
    # Deserialize into a ref object to not fill Nim stack
    let encoded = snappy.decode(
      readFileBytes(dir/"serialized.ssz_snappy"), MaxObjectSize)
@@ -104,10 +104,10 @@ suite "EF - Deneb - SSZ consensus objects " & preset():
           of "Attestation": checkSSZ(Attestation, path, hash)
           of "AttestationData": checkSSZ(AttestationData, path, hash)
           of "AttesterSlashing": checkSSZ(AttesterSlashing, path, hash)
-          of "BeaconBlock": checkSSZ(eip4844.BeaconBlock, path, hash)
-          of "BeaconBlockBody": checkSSZ(eip4844.BeaconBlockBody, path, hash)
+          of "BeaconBlock": checkSSZ(deneb.BeaconBlock, path, hash)
+          of "BeaconBlockBody": checkSSZ(deneb.BeaconBlockBody, path, hash)
           of "BeaconBlockHeader": checkSSZ(BeaconBlockHeader, path, hash)
-          of "BeaconState": checkSSZ(eip4844.BeaconState, path, hash)
+          of "BeaconState": checkSSZ(deneb.BeaconState, path, hash)
           of "BlobsSidecar": checkSSZ(BlobsSidecar, path, hash)
           of "BLSToExecutionChange": checkSSZ(BLSToExecutionChange, path, hash)
           of "Checkpoint": checkSSZ(Checkpoint, path, hash)
@@ -126,24 +126,24 @@ suite "EF - Deneb - SSZ consensus objects " & preset():
           of "HistoricalSummary": checkSSZ(HistoricalSummary, path, hash)
           of "IndexedAttestation": checkSSZ(IndexedAttestation, path, hash)
           of "LightClientBootstrap":
-            checkSSZ(eip4844.LightClientBootstrap, path, hash)
+            checkSSZ(deneb.LightClientBootstrap, path, hash)
           of "LightClientHeader":
-            checkSSZ(eip4844.LightClientHeader, path, hash)
+            checkSSZ(deneb.LightClientHeader, path, hash)
           of "LightClientUpdate":
-            checkSSZ(eip4844.LightClientUpdate, path, hash)
+            checkSSZ(deneb.LightClientUpdate, path, hash)
           of "LightClientFinalityUpdate":
-            checkSSZ(eip4844.LightClientFinalityUpdate, path, hash)
+            checkSSZ(deneb.LightClientFinalityUpdate, path, hash)
           of "LightClientOptimisticUpdate":
-            checkSSZ(eip4844.LightClientOptimisticUpdate, path, hash)
+            checkSSZ(deneb.LightClientOptimisticUpdate, path, hash)
           of "PendingAttestation": checkSSZ(PendingAttestation, path, hash)
           of "PowBlock": checkSSZ(PowBlock, path, hash)
           of "ProposerSlashing": checkSSZ(ProposerSlashing, path, hash)
           of "SignedAggregateAndProof":
             checkSSZ(SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock":
-            checkSSZ(eip4844.SignedBeaconBlock, path, hash)
+            checkSSZ(deneb.SignedBeaconBlock, path, hash)
           of "SignedBeaconBlockAndBlobsSidecar":
-            checkSSZ(eip4844.SignedBeaconBlockAndBlobsSidecar, path, hash)
+            checkSSZ(deneb.SignedBeaconBlockAndBlobsSidecar, path, hash)
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)
           of "SignedBLSToExecutionChange":

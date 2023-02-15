@@ -43,7 +43,7 @@ proc fetchDepositSnapshot(client: RestClientRef):
 
   return ok snapshot
 
-from ./spec/datatypes/eip4844 import asSigVerified, shortLog
+from ./spec/datatypes/deneb import asSigVerified, shortLog
 
 proc doTrustedNodeSync*(
     cfg: RuntimeConfig,

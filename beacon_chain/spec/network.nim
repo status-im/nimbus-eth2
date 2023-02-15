@@ -16,7 +16,7 @@ export base
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/p2p-interface.md#topics-and-messages
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/p2p-interface.md#topics-and-messages
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/p2p-interface.md#topics-and-messages
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/deneb/p2p-interface.md#topics-and-messages
   topicBeaconBlocksSuffix* = "beacon_block/ssz_snappy"
   topicVoluntaryExitsSuffix* = "voluntary_exit/ssz_snappy"
   topicProposerSlashingsSuffix* = "proposer_slashing/ssz_snappy"
@@ -65,7 +65,7 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/dev/specs/deneb/p2p-interface.md#topics-and-messages
 func getBeaconBlockAndBlobsSidecarTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBeaconBlockAndBlobsSidecarTopicSuffix
 
@@ -180,7 +180,7 @@ func getTargetGossipState*(
   maybeIncludeFork(
     ConsensusFork.Capella,   CAPELLA_FORK_EPOCH,   DENEB_FORK_EPOCH)
   maybeIncludeFork(
-    ConsensusFork.EIP4844,   DENEB_FORK_EPOCH,     FAR_FUTURE_EPOCH)
+    ConsensusFork.Deneb,   DENEB_FORK_EPOCH,     FAR_FUTURE_EPOCH)
 
   doAssert len(targetForks) <= 2
   targetForks

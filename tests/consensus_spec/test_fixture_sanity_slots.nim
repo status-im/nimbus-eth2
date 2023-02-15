@@ -81,10 +81,10 @@ suite "EF - Capella - Sanity - Slots " & preset():
       capellaSanitySlotsDir, relative = true, checkDir = true):
     runTest(capella.BeaconState, capellaSanitySlotsDir, "Capella", path)
 
-from ../../../beacon_chain/spec/datatypes/eip4844 import BeaconState
+from ../../../beacon_chain/spec/datatypes/deneb import BeaconState
 
 suite "EF - Deneb - Sanity - Slots " & preset():
-  const eip4844SanitySlotsDir = sanitySlotsDir("eip4844")
+  const denebSanitySlotsDir = sanitySlotsDir("deneb")
   for kind, path in walkDir(
-      eip4844SanitySlotsDir, relative = true, checkDir = true):
-    runTest(eip4844.BeaconState, eip4844SanitySlotsDir, "Deneb", path)
+      denebSanitySlotsDir, relative = true, checkDir = true):
+    runTest(deneb.BeaconState, denebSanitySlotsDir, "Deneb", path)

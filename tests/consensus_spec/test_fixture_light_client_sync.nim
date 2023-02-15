@@ -130,12 +130,12 @@ proc runTest(path: string) =
 
       # TODO
       # Uncomment the assertion below and remove the loop below.
-      # The two unknown constants are "EIP4844_FORK_VERSION", "EIP4844_FORK_EPOCH"
+      # The two unknown constants are "Deneb_FORK_VERSION", "Deneb_FORK_EPOCH"
       # This is likely to be fixed in the next release of the test suite where
-      # EIP4844 will be renamed to DENEB (our code is already using the new name).
+      # Deneb will be renamed to DENEB (our code is already using the new name).
       # doAssert unknowns.len == 0, "Unknown config constants: " & $unknowns
       for name in unknowns:
-        if name notin ["EIP4844_FORK_VERSION", "EIP4844_FORK_EPOCH"]:
+        if name notin ["Deneb_FORK_VERSION", "Deneb_FORK_EPOCH"]:
           raiseAssert "Unknown constant: " & name
 
       type TestMetaYaml {.sparse.} = object

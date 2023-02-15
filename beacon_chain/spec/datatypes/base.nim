@@ -1011,7 +1011,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
 # due to a Deneb implementation missing. checkForkConsistency() checks that
 # Nimbus does not run any non-FAR_FUTURE_EPOCH Deneb network, so such cases
 # won't be hit.
-const eip4844ImplementationMissing* = false
+const denebImplementationMissing* = false
 
 #template debugRaiseAssert*(x: string) = raiseAssert x
 template debugRaiseAssert*(x: string) = discard
