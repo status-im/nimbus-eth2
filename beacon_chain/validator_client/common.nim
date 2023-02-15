@@ -34,7 +34,6 @@ const
   HISTORICAL_DUTIES_EPOCHS* = 2'u64
   TIME_DELAY_FROM_SLOT* = 79.milliseconds
   SUBSCRIPTION_BUFFER_SLOTS* = 2'u64
-  VALIDATOR_DEFAULT_GAS_LIMIT* = 30_000_000'u64 # Stand-in, reasonable default
   EPOCHS_BETWEEN_VALIDATOR_REGISTRATION* = 1
 
   DelayBuckets* = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
@@ -49,7 +48,8 @@ type
     proposers*: seq[ValidatorPubKey]
 
   RegistrationKind* {.pure.} = enum
-    Cached, IncorrectTime, MissingIndex, MissingFee, ErrorSignature, NoSignature
+    Cached, IncorrectTime, MissingIndex, MissingFee, MissingGasLimit
+      ErrorSignature, NoSignature
 
   PendingValidatorRegistration* = object
     registration*: SignedValidatorRegistrationV1
@@ -508,8 +508,11 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
     feeRecipient = vc.config.validatorsDir.getSuggestedFeeRecipient(
       keystore.pubkey, vc.config.defaultFeeRecipient).valueOr(
         vc.config.defaultFeeRecipient)
+    gasLimit = vc.config.validatorsDir.getSuggestedGasLimit(
+      keystore.pubkey, vc.config.suggestedGasLimit).valueOr(
+        vc.config.suggestedGasLimit)
 
-  discard vc.attachedValidators[].addValidator(keystore, feeRecipient)
+  discard vc.attachedValidators[].addValidator(keystore, feeRecipient, gasLimit)
 
 proc removeValidator*(vc: ValidatorClientRef,
                       pubkey: ValidatorPubKey) {.async.} =
@@ -544,6 +547,12 @@ proc getFeeRecipient*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
       Opt.some(staticRecipient.get())
     else:
       Opt.none(Eth1Address)
+
+proc getGasLimit*(vc: ValidatorClientRef,
+                  pubkey: ValidatorPubKey): uint64 =
+  getSuggestedGasLimit(
+    vc.config.validatorsDir, pubkey, vc.config.suggestedGasLimit).valueOr:
+      vc.config.suggestedGasLimit
 
 proc prepareProposersList*(vc: ValidatorClientRef,
                            epoch: Epoch): seq[PrepareBeaconProposer] =
@@ -585,7 +594,7 @@ proc isExpired*(vc: ValidatorClientRef,
     else:
       true
 
-proc getValidatorRegistraion(
+proc getValidatorRegistration(
        vc: ValidatorClientRef,
        validator: AttachedValidator,
        timestamp: Time,
@@ -613,13 +622,13 @@ proc getValidatorRegistraion(
       debug "Could not get fee recipient for registration data",
             validator = shortLog(validator)
       return err(RegistrationKind.MissingFee)
-
+    let gasLimit = vc.getGasLimit(validator.pubkey)
     var registration =
       SignedValidatorRegistrationV1(
         message: ValidatorRegistrationV1(
           fee_recipient:
             ExecutionAddress(data: distinctBase(feeRecipient.get())),
-          gas_limit: VALIDATOR_DEFAULT_GAS_LIMIT,
+          gas_limit: gasLimit,
           timestamp: uint64(timestamp.toUnix()),
           pubkey: validator.pubkey
         )
@@ -667,11 +676,12 @@ proc prepareRegistrationList*(
     errors = 0
     indexMissing = 0
     feeMissing = 0
+    gasLimit = 0
     cached = 0
     timed = 0
 
   for validator in vc.attachedValidators[].items():
-    let res = vc.getValidatorRegistraion(validator, timestamp, fork)
+    let res = vc.getValidatorRegistration(validator, timestamp, fork)
     if res.isOk():
       let preg = res.get()
       if preg.future.isNil():
@@ -687,6 +697,7 @@ proc prepareRegistrationList*(
       of RegistrationKind.ErrorSignature: inc(errors)
       of RegistrationKind.MissingIndex: inc(indexMissing)
       of RegistrationKind.MissingFee: inc(feeMissing)
+      of RegistrationKind.MissingGasLimit: inc(gasLimit)
 
   succeed = len(registrations)
 

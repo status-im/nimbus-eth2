@@ -118,7 +118,7 @@ template count*(pool: ValidatorPool): int =
 
 proc addLocalValidator(
     pool: var ValidatorPool, keystore: KeystoreData,
-    feeRecipient: Eth1Address): AttachedValidator =
+    feeRecipient: Eth1Address, gasLimit: uint64): AttachedValidator =
   doAssert keystore.kind == KeystoreKind.Local
   let v = AttachedValidator(
     kind: ValidatorKind.Local,
@@ -132,14 +132,16 @@ proc addLocalValidator(
   notice "Local validator attached",
     pubkey = v.pubkey,
     validator = shortLog(v),
-    initial_fee_recipient = feeRecipient.toHex()
+    initial_fee_recipient = feeRecipient.toHex(),
+    initial_gas_limit = gasLimit
   validators.set(pool.count().int64)
 
   v
 
 proc addRemoteValidator(pool: var ValidatorPool, keystore: KeystoreData,
                         clients: seq[(RestClientRef, RemoteSignerInfo)],
-                        feeRecipient: Eth1Address): AttachedValidator =
+                        feeRecipient: Eth1Address,
+                        gasLimit: uint64): AttachedValidator =
   doAssert keystore.kind == KeystoreKind.Remote
   let v = AttachedValidator(
     kind: ValidatorKind.Remote,
@@ -153,7 +155,8 @@ proc addRemoteValidator(pool: var ValidatorPool, keystore: KeystoreData,
     pubkey = v.pubkey,
     validator = shortLog(v),
     remote_signer = $keystore.remotes,
-    initial_fee_recipient = feeRecipient.toHex()
+    initial_fee_recipient = feeRecipient.toHex(),
+    initial_gas_limit = gasLimit
 
   validators.set(pool.count().int64)
 
@@ -161,7 +164,8 @@ proc addRemoteValidator(pool: var ValidatorPool, keystore: KeystoreData,
 
 proc addRemoteValidator(pool: var ValidatorPool,
                         keystore: KeystoreData,
-                        feeRecipient: Eth1Address): AttachedValidator =
+                        feeRecipient: Eth1Address,
+                        gasLimit: uint64): AttachedValidator =
   let
     httpFlags =
       if RemoteKeystoreFlag.IgnoreSSLVerification in keystore.flags:
@@ -182,18 +186,21 @@ proc addRemoteValidator(pool: var ValidatorPool,
             res.add((client.get(), remote))
         res
 
-  pool.addRemoteValidator(keystore, clients, feeRecipient)
+  pool.addRemoteValidator(keystore, clients, feeRecipient, gasLimit)
 
 proc addValidator*(pool: var ValidatorPool,
                    keystore: KeystoreData,
-                   feeRecipient: Eth1Address): AttachedValidator =
+                   feeRecipient: Eth1Address,
+                   gasLimit: uint64): AttachedValidator =
   pool.validators.withValue(keystore.pubkey, v):
     notice "Adding already-known validator", validator = shortLog(v[])
     return v[]
 
   case keystore.kind
-  of KeystoreKind.Local: pool.addLocalValidator(keystore, feeRecipient)
-  of KeystoreKind.Remote: pool.addRemoteValidator(keystore, feeRecipient)
+  of KeystoreKind.Local:
+    pool.addLocalValidator(keystore, feeRecipient, gasLimit)
+  of KeystoreKind.Remote:
+    pool.addRemoteValidator(keystore, feeRecipient, gasLimit)
 
 proc getValidator*(pool: ValidatorPool,
                    validatorKey: ValidatorPubKey): AttachedValidator =

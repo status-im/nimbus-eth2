@@ -99,6 +99,23 @@ proc deleteFeeRecipientPlain*(pubkey: ValidatorPubKey,
      meth: MethodDelete.}
   ## https://ethereum.github.io/keymanager-APIs/#/Fee%20Recipient/DeleteFeeRecipient
 
+proc listGasLimitPlain*(pubkey: ValidatorPubKey): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/{pubkey}/gas_limit",
+     meth: MethodGet.}
+  ## https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit
+
+proc setGasLimitPlain*(pubkey: ValidatorPubKey,
+                       body: SetGasLimitRequest): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/{pubkey}/gas_limit",
+     meth: MethodPost.}
+  ## https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/setGasLimit
+
+proc deleteGasLimitPlain *(pubkey: ValidatorPubKey,
+                           body: EmptyBody): RestPlainResponse {.
+     rest, endpoint: "/eth/v1/validator/{pubkey}/gas_limit",
+     meth: MethodDelete.}
+  ## https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit/deleteGasLimit
+
 proc listRemoteDistributedKeysPlain*(): RestPlainResponse {.
      rest, endpoint: "/eth/v1/remotekeys/distributed",
      meth: MethodGet.}
@@ -180,6 +197,59 @@ proc deleteFeeRecipient*(client: RestClientRef,
   of 204:
     discard
   of 401, 403, 404, 500:
+    raiseKeymanagerGenericError(resp)
+  else:
+    raiseUnknownStatusError(resp)
+
+proc listGasLimit*(client: RestClientRef,
+                  pubkey: ValidatorPubKey,
+                  token: string): Future[uint64] {.async.} =
+  let resp = await client.listGasLimitPlain(
+    pubkey,
+    extraHeaders = @[("Authorization", "Bearer " & token)])
+
+  case resp.status:
+  of 200:
+    let res = decodeBytes(DataEnclosedObject[ListGasLimitResponse],
+                          resp.data,
+                          resp.contentType)
+    if res.isErr:
+      raise newException(RestError, $res.error)
+    return res.get.data.gas_limit
+  of 400, 401, 403, 404, 500:
+    raiseKeymanagerGenericError(resp)
+  else:
+    raiseUnknownStatusError(resp)
+
+proc setGasLimit*(client: RestClientRef,
+                  pubkey: ValidatorPubKey,
+                  gasLimit: uint64,
+                  token: string) {.async.} =
+  let resp = await client.setGasLimitPlain(
+    pubkey,
+    SetGasLimitRequest(gasLimit: gasLimit),
+    extraHeaders = @[("Authorization", "Bearer " & token)])
+
+  case resp.status:
+  of 202:
+    discard
+  of 400, 401, 403, 404, 500:
+    raiseKeymanagerGenericError(resp)
+  else:
+    raiseUnknownStatusError(resp)
+
+proc deleteGasLimit*(client: RestClientRef,
+                     pubkey: ValidatorPubKey,
+                     token: string) {.async.} =
+  let resp = await client.deleteGasLimitPlain(
+    pubkey,
+    EmptyBody(),
+    extraHeaders = @[("Authorization", "Bearer " & token)])
+
+  case resp.status:
+  of 204:
+    discard
+  of 400, 401, 403, 404, 500:
     raiseKeymanagerGenericError(resp)
   else:
     raiseUnknownStatusError(resp)

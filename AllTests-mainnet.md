@@ -219,6 +219,17 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + should raise on unknown data                                                               OK
 ```
 OK: 7/7 Fail: 0/7 Skip: 0/7
+## Gas limit management [Beacon Node] [Preset: mainnet]
+```diff
++ Configuring the gas limit [Beacon Node] [Preset: mainnet]                                  OK
++ Invalid Authorization Header [Beacon Node] [Preset: mainnet]                               OK
++ Invalid Authorization Token [Beacon Node] [Preset: mainnet]                                OK
++ Missing Authorization header [Beacon Node] [Preset: mainnet]                               OK
++ Obtaining the gas limit of a missing validator returns 404 [Beacon Node] [Preset: mainnet] OK
++ Obtaining the gas limit of an unconfigured validator returns the suggested default [Beacon OK
++ Setting the gas limit on a missing validator creates a record for it [Beacon Node] [Preset OK
+```
+OK: 7/7 Fail: 0/7 Skip: 0/7
 ## Gossip fork transition
 ```diff
 + Gossip fork transition                                                                     OK
@@ -619,4 +630,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 344/349 Fail: 0/349 Skip: 5/349
+OK: 351/356 Fail: 0/356 Skip: 5/356
