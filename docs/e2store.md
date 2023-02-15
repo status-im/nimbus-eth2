@@ -17,10 +17,15 @@ The header corresponds to an SSZ object defined as such:
 ```python
 class Header(Container):
     type: Vector[byte, 2]
-    length: uint48
+    length: uint32
+    reserved: uint16
 ```
 
-The `length` is the length of the data that follows the header, not including the length of the header itself. For example, the entry with header type `[0x22, 0x32]`, the length `4` and the bytes `[0x01, 0x02, 0x03, 0x04]` will be stored as the byte sequence `[0x22, 0x32, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04]`.
+The `length` is the length of the data that follows the header, not including the length of the header itself.
+
+The `reserved` field must be set to `0`.
+
+For example, an entry with header type `[0x22, 0x32]`, length `4` and the content `[0x01, 0x02, 0x03, 0x04]` will be stored as the byte sequence `[0x22, 0x32, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04]`.
 
 `.e2s` files may freely be concatenated, and may contain out-of-order records.
 
@@ -40,7 +45,7 @@ def read_entry(f):
   if not header: return None
 
   typ = header[0:2] # 2 bytes of type
-  dlen = struct.unpack("<q", header[2:8] + b"\0\0")[0] # 6 bytes of little-endian length
+  dlen = struct.unpack("<I", header[2:6])[0] # 4 bytes of unsigned little-endian length
 
   data = f.read(dlen)
 
@@ -66,7 +71,6 @@ def print_stats(name):
     for k, v in dict(sorted(sizes.items())).items():
       print("type", k.hex(), "bytes", v[0], "count", v[1], "average", v[0] / v[1])
 ```
-
 
 ## Writing
 
@@ -340,3 +344,9 @@ In the end though, the applied block state is used throughout in the protocol - 
 ## How can block roots be accessed without computing them?
 
 Each era file contains a full `BeaconState` object whose `block_roots` field corresponds to the block contents of the file. The easiest way to access the roots is to read the "header" of the `BeaconState` without reading all fields.
+
+## Why is length `uint32`?
+
+Offsets in `SSZ` are `uint32` thus from a practical point of view, any one SSZ object may generally not exceed that size.
+
+A future entry type can introduce chunking should larger entries be needed, or spill the remaining size bytes into `reserved`, effectively turning the encoding of the length into a fictive `uint48` type.

@@ -20,8 +20,9 @@ const
   SnappyBeaconState* = [byte 0x02, 0x00]
 
   TypeFieldLen = 2
-  LengthFieldLen = 6
-  HeaderFieldLen = TypeFieldLen + LengthFieldLen
+  LengthFieldLen = 4
+  ReservedFieldLen = 2
+  HeaderFieldLen = TypeFieldLen + LengthFieldLen + ReservedFieldLen
 
   FAR_FUTURE_ERA* = Era(not 0'u64)
 
@@ -71,10 +72,14 @@ proc append(f: IoHandle, data: openArray[byte]): Result[void, string] =
   ok()
 
 proc appendHeader(f: IoHandle, typ: Type, dataLen: int): Result[int64, string] =
+  if dataLen.uint64 > uint32.high:
+    return err("entry does not fit 32-bit length")
+
   let start = ? getFilePos(f).mapErr(toString)
 
   ? append(f, typ)
-  ? append(f, toBytesLE(dataLen.uint64).toOpenArray(0, 5))
+  ? append(f, toBytesLE(dataLen.uint32))
+  ? append(f, [0'u8, 0'u8])
 
   ok(start)
 
@@ -137,9 +142,9 @@ proc readHeader(f: IoHandle): Result[Header, string] =
     typ: Type
   discard typ.copyFrom(buf)
 
-  # Cast safe because we had only 6 bytes of length data
+  # Cast safe because we had only 4 bytes of length data
   let
-    len = cast[int64](uint64.fromBytesLE(buf.toOpenArray(2, 9)))
+    len = cast[int64](uint32.fromBytesLE(buf.toOpenArray(2, 5)))
 
   # No point reading these..
   if len > int.high(): return err("header length exceeds int.high")
