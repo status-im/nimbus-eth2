@@ -138,7 +138,7 @@ suite "EF - Deneb - Transition " & preset():
   for kind, path in walkDir(TransitionDir, relative = true, checkDir = true):
     let transitionInfo = getTransitionInfo(TransitionDir / path)
     var cfg = defaultRuntimeConfig
-    cfg.EIP4844_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
+    cfg.DENEB_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
     runTest(
       capella.BeaconState, eip4844.BeaconState, capella.SignedBeaconBlock,
       eip4844.SignedBeaconBlock, cfg, "EF - EIP4844 - Transition",

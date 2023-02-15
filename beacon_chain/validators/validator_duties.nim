@@ -854,7 +854,7 @@ proc proposeBlock(node: BeaconNode,
       return newBlockMEV.get
 
   let newBlock =
-    if slot.epoch >= node.dag.cfg.EIP4844_FORK_EPOCH:
+    if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
       await makeBeaconBlockForHeadAndSlot[eip4844.ExecutionPayload](
         node, randao, validator_index, node.graffitiBytes, head, slot)
     elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:

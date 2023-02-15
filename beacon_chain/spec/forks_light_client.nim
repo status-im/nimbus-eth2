@@ -149,7 +149,7 @@ type
 func lcDataForkAtEpoch*(
     cfg: RuntimeConfig, epoch: Epoch): LightClientDataFork =
   static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
-  if epoch >= cfg.EIP4844_FORK_EPOCH:
+  if epoch >= cfg.DENEB_FORK_EPOCH:
     LightClientDataFork.EIP4844
   elif epoch >= cfg.CAPELLA_FORK_EPOCH:
     LightClientDataFork.Capella

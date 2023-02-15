@@ -1067,7 +1067,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.Altair: altairFork(cfg)
       of ConsensusFork.Bellatrix: bellatrixFork(cfg)
       of ConsensusFork.Capella: capellaFork(cfg)
-      of ConsensusFork.EIP4844: eip4844Fork(cfg)
+      of ConsensusFork.EIP4844: denebFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   if stateFork != configFork:

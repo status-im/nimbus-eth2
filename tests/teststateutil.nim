@@ -73,7 +73,7 @@ proc getTestStates*(
   if stateFork >= ConsensusFork.Capella:
     cfg.CAPELLA_FORK_EPOCH = 3.Epoch
   if stateFork >= ConsensusFork.EIP4844:
-    cfg.EIP4844_FORK_EPOCH = 4.Epoch
+    cfg.DENEB_FORK_EPOCH = 4.Epoch
 
   for i, epoch in stateEpochs:
     let slot = epoch.Epoch.start_slot
