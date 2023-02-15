@@ -613,6 +613,10 @@ type
   RestRoot* = object
     root*: Eth2Digest
 
+  DataRestRoot* = object
+    execution_optimistic*: Option[bool]
+    data*: RestRoot
+
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[Attestation]
@@ -620,7 +624,7 @@ type
   GetBlockAttestationsResponse* = DataEnclosedObject[seq[Attestation]]
   GetBlockHeaderResponse* = DataEnclosedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
-  GetBlockRootResponse* = DataEnclosedObject[RestRoot]
+  GetBlockRootResponse* = DataRestRoot
   GetDebugChainHeadsResponse* = DataEnclosedObject[seq[RestChainHead]]
   GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
   GetDepositSnapshotResponse* = DataEnclosedObject[RestDepositSnapshot]
@@ -641,7 +645,7 @@ type
   GetSpecVCResponse* = DataEnclosedObject[RestSpecVC]
   GetStateFinalityCheckpointsResponse* = DataEnclosedObject[RestBeaconStatesFinalityCheckpoints]
   GetStateForkResponse* = DataEnclosedObject[Fork]
-  GetStateRootResponse* = DataEnclosedObject[RestRoot]
+  GetStateRootResponse* = DataRestRoot
   GetStateValidatorBalancesResponse* = DataEnclosedObject[seq[RestValidatorBalance]]
   GetStateValidatorResponse* = DataEnclosedObject[RestValidator]
   GetStateValidatorsResponse* = DataEnclosedObject[seq[RestValidator]]

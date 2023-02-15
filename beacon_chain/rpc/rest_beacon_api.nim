@@ -852,7 +852,21 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
     of ConsensusFork.EIP4844:
       return RestApiResponse.jsonError(Http500, $eip4844ImplementationMissing)
     of ConsensusFork.Capella:
-      return RestApiResponse.jsonError(Http500, $capellaImplementationMissing)
+      let res =
+        block:
+          let restBlock = decodeBodyJsonOrSsz(
+              capella_mev.SignedBlindedBeaconBlock, body).valueOr:
+            return RestApiResponse.jsonError(Http400, InvalidBlockObjectError,
+                                             $error)
+          await node.unblindAndRouteBlockMEV(restBlock)
+
+      if res.isErr():
+        return RestApiResponse.jsonError(
+          Http503, BeaconNodeInSyncError, $res.error())
+      if res.get().isNone():
+        return RestApiResponse.jsonError(Http202, BlockValidationError)
+
+      return RestApiResponse.jsonMsgResponse(BlockValidationSuccess)
     of ConsensusFork.Bellatrix:
       let res =
         block:

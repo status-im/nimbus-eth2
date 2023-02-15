@@ -83,7 +83,7 @@ proc loadExpectedHashTreeRoot(dir: string): SSZHashTreeRoot =
 # Test runner
 # ----------------------------------------------------------------
 
-suite "EF - EIP4844 - SSZ consensus objects " & preset():
+suite "EF - Deneb - SSZ consensus objects " & preset():
   doAssert dirExists(SSZDir), "You need to run the \"download_test_vectors.sh\" script to retrieve the consensus spec test vectors."
   for pathKind, sszType in walkDir(SSZDir, relative = true, checkDir = true):
     doAssert pathKind == pcDir

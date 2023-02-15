@@ -172,8 +172,6 @@ proc loadChainDag(
   var extraFlags = {enableTestFeatures}
   if config.deploymentPhase <= DeploymentPhase.Testnet:
     extraFlags.incl experimental
-  if config.deploymentPhase <= DeploymentPhase.Devnet:
-    extraFlags.incl lowParticipation
   let
     chainDagFlags =
       if config.strictVerification: {strictVerification}
