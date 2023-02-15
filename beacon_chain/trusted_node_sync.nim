@@ -83,7 +83,7 @@ proc doTrustedNodeSync*(
             genesisRoot = genesisRoot.get()
           quit 1
         genesisStateRoot = getForkedBlockField(genesisBlock, state_root)
-        stateFork = cfg.stateForkAtEpoch(GENESIS_EPOCH)
+        stateFork = cfg.consensusForkAtEpoch(GENESIS_EPOCH)
 
         tmp = (ref ForkedHashedBeaconState)(kind: stateFork)
       if not db.getState(stateFork, genesisStateRoot, tmp[], noRollback):
