@@ -348,16 +348,14 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     block:
       try:
         let res = await vc.getHeadBlockRoot(ApiStrategyKind.First)
-        let fork = vc.consensusForkAtEpoch(slot.epoch).valueOr:
-          error "Unknown or invalid fork version", slot = slot
-          return
-        if fork in {ConsensusFork.Phase0, ConsensusFork.Altair}:
+        if res.execution_optimistic.isNone():
+          ## The `execution_optimistic` is missing from the response, we assume
+          ## that the BN is unaware optimistic sync, so we consider the BN
+          ## to be synchronized with the network.
+          ## TODO (cheatfate): This should be removed when VC will be able to
+          ## handle getSpec() API call with fork constants.
           res.data.root
         else:
-          if res.execution_optimistic.isNone():
-            error "Missing `execution_optimistic` flag in response",
-                  slot = slot
-            return
           if res.execution_optimistic.get():
             error "Could not obtain head block's root because beacon node " &
                   "only optimistically synced", slot = slot
