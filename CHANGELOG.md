@@ -1,3 +1,63 @@
+2023-02-16 v23.2.0
+==================
+
+Nimbus `v23.2.0` is a `low-urgency` upgrade providing full support for the upcoming
+Capella hard-fork. So far, the fork epoch is specified only for the Sepolia testnet
+which will execute the transition on 28th of February.
+
+### Improvements
+
+* The `deposits import` command now provides the option `--method=single-salt` which
+  will significantly improve the keystore loading speed on start-up on beacon nodes
+  and validator clients running with a very large number of validators. Please see
+  the documentation provided in the Nimbus guide in order to understand the security
+  implications of using the option:
+  https://nimbus.guide/keys.html#optimised-import-for-a-large-number-of-validators
+  https://github.com/status-im/nimbus-eth2/pull/4372
+
+* More efficient sync committee caching strategies bring 20-30% of syncing
+  speed improvement post Altair:
+  https://github.com/status-im/nimbus-eth2/pull/4592
+
+* Nimbus performs less interactions with the EL node during optimistic syncing
+  which further improves the syncing speed:
+  https://github.com/status-im/nimbus-eth2/pull/4591
+
+* The Keymanager API now supports all `gas_limit` end-points:
+  https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit  
+  https://github.com/status-im/nimbus-eth2/pull/4612
+
+* Nimbus serves light client updates up to the retention period mandated by
+  the spec even when pruning is enabled:
+  https://github.com/status-im/nimbus-eth2/pull/4499
+
+* The Linux packages of Nimbus no longer depend on `lsb-release`:
+  https://github.com/status-im/nimbus-eth2/pull/4597
+
+* The list of bootstrap nodes for the Gnosis network has been expanded:
+  https://github.com/status-im/nimbus-eth2/pull/4603
+
+* Nimbus now performs fewer `forkchoiceUpdated` Engine API calls with lower risk
+  of reporting conflicting data to the EL node:
+  https://github.com/status-im/nimbus-eth2/pull/4609
+  https://github.com/status-im/nimbus-eth2/pull/4614
+  https://github.com/status-im/nimbus-eth2/pull/4623
+
+### Fixes
+
+* Nimbus will no longer suffer from performance issues when a large number of
+  non-active validators are imported in the beacon node or the validator client:
+  https://github.com/status-im/nimbus-eth2/pull/4590
+
+* Nimbus will no longer crash when it fails to resolve the hostname of a remote
+  validator imported through the Keymanager API:
+  https://github.com/status-im/nimbus-eth2/pull/4590
+
+* The Nimbus validator client won't attempt to perform sync committee duties when
+  the attached beacon node is only optimistically synced:
+  https://github.com/status-im/nimbus-eth2/pull/4622
+
+
 2023-01-25 v23.1.1
 ==================
 
