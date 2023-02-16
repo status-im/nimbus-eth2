@@ -34,7 +34,8 @@ proc getSignedExitMessage(config: BeaconNodeConf,
     validatorsDir,
     config.secretsDir,
     validatorKeyAsStr,
-    config.nonInteractive)
+    config.nonInteractive,
+    nil)
 
   if signingItem.isNone:
     fatal "Unable to continue without decrypted signing key"
@@ -344,7 +345,7 @@ proc doDeposits*(config: BeaconNodeConf, rng: var HmacDrbgContext) {.
         quit 1
 
     importKeystoresFromDir(
-      rng,
+      rng, config.importMethod,
       validatorKeysDir.string,
       config.validatorsDir, config.secretsDir)
 

@@ -73,6 +73,7 @@ type
     restServer*: RestServerRef
     keymanagerHost*: ref KeymanagerHost
     keymanagerServer*: RestServerRef
+    keystoreCache*: KeystoreCacheRef
     eventBus*: EventBus
     vcProcess*: Process
     requestManager*: RequestManager

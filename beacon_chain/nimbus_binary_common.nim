@@ -19,7 +19,7 @@ import
   stew/io2,
 
   # Local modules
-  ./spec/[helpers],
+  ./spec/[helpers, keystore],
   ./spec/datatypes/base,
   "."/[beacon_clock, beacon_node_status, conf, version]
 
@@ -244,6 +244,18 @@ proc resetStdin*() =
     discard fd.tcGetAttr(attrs.addr)
     attrs.c_lflag = attrs.c_lflag or Cflag(ECHO)
     discard fd.tcSetAttr(TCSANOW, attrs.addr)
+
+proc runKeystoreCachePruningLoop*(cache: KeystoreCacheRef) {.async.} =
+  while true:
+    let exitLoop =
+      try:
+        await sleepAsync(60.seconds)
+        false
+      except CatchableError:
+        cache.clear()
+        true
+    if exitLoop: break
+    cache.pruneExpiredKeys()
 
 proc runSlotLoop*[T](node: T, startTime: BeaconTime,
                      slotProc: SlotStartProc[T]) {.async.} =
