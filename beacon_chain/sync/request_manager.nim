@@ -40,7 +40,7 @@ type
   RequestManager* = object
     network*: Eth2Node
     inpQueue*: AsyncQueue[FetchRecord]
-    EIP4844_FORK_EPOCH: Epoch
+    DENEB_FORK_EPOCH: Epoch
     getBeaconTime: GetBeaconTimeFn
     blockVerifier: BlockVerifier
     blockBlobsVerifier: BlockBlobsVerifier
@@ -60,7 +60,7 @@ proc init*(T: type RequestManager, network: Eth2Node,
   RequestManager(
     network: network,
     inpQueue: newAsyncQueue[FetchRecord](),
-    EIP4844_FORK_EPOCH: eip4844Epoch,
+    DENEB_FORK_EPOCH: eip4844Epoch,
     getBeaconTime: getBeaconTime,
     blockVerifier: blockVerifier,
     blockBlobsVerifier: blockBlobsVerifier,
@@ -253,7 +253,7 @@ proc fetchAncestorBlocksAndBlobsFromNetwork(rman: RequestManager,
 
 
 proc isBlobsTime(rman: RequestManager): bool =
-  rman.getBeaconTime().slotOrZero.epoch >= rman.EIP4844_FORK_EPOCH
+  rman.getBeaconTime().slotOrZero.epoch >= rman.DENEB_FORK_EPOCH
 
 proc requestManagerLoop(rman: RequestManager) {.async.} =
   var rootList = newSeq[Eth2Digest]()
@@ -271,7 +271,7 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
 
       let start = SyncMoment.now(0)
 
-      # As soon as EIP4844_FORK_EPOCH comes around in wall time, we
+      # As soon as DENEB_FORK_EPOCH comes around in wall time, we
       # switch to requesting blocks and blobs. In the vicinity of the
       # transition, that means that we *may* request blobs for a
       # pre-eip4844. In that case, we get ResourceUnavailable from the

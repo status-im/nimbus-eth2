@@ -103,7 +103,9 @@ proc initValidators(sn: var SigningNode): bool =
     let feeRecipient = default(Eth1Address)
     case keystore.kind
     of KeystoreKind.Local:
-      discard sn.attachedValidators.addValidator(keystore, feeRecipient)
+      discard sn.attachedValidators.addValidator(keystore,
+                                                 feeRecipient,
+                                                 defaultGasLimit)
       publicKeyIdents.add("\"0x" & keystore.pubkey.toHex() & "\"")
     of KeystoreKind.Remote:
       error "Signing node do not support remote validators",

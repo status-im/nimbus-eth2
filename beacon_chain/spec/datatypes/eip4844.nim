@@ -27,13 +27,13 @@ import
 export json_serialization, base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/polynomial-commitments.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/polynomial-commitments.md#constants
   BYTES_PER_FIELD_ELEMENT = 32
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/eip4844/beacon-chain.md#blob
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#blob
   BLOB_TX_TYPE* = 0x05'u8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/polynomial-commitments.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/polynomial-commitments.md#constants
   BLS_MODULUS* = "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#configuration
   MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS* = 4096'u64
@@ -523,7 +523,7 @@ func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
 
-  if epoch >= cfg.EIP4844_FORK_EPOCH:
+  if epoch >= cfg.DENEB_FORK_EPOCH:
     return hash_tree_root(header.execution)
 
   if epoch >= cfg.CAPELLA_FORK_EPOCH:
@@ -552,7 +552,7 @@ func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
 
-  if epoch < cfg.EIP4844_FORK_EPOCH:
+  if epoch < cfg.DENEB_FORK_EPOCH:
     if header.execution.excess_data_gas != 0.u256:
       return false
 

@@ -119,8 +119,9 @@ proc addValidators*(node: BeaconNode) =
           Opt.none(ValidatorIndex)
       feeRecipient = node.consensusManager[].getFeeRecipient(
         keystore.pubkey, index, epoch)
+      gasLimit = node.consensusManager[].getGasLimit(keystore.pubkey)
 
-      v = node.attachedValidators[].addValidator(keystore, feeRecipient)
+      v = node.attachedValidators[].addValidator(keystore, feeRecipient, gasLimit)
     v.updateValidator(data)
 
 proc getValidator*(node: BeaconNode, idx: ValidatorIndex): Opt[AttachedValidator] =
@@ -328,6 +329,10 @@ proc getFeeRecipient(node: BeaconNode,
                      validatorIdx: ValidatorIndex,
                      epoch: Epoch): Eth1Address =
   node.consensusManager[].getFeeRecipient(pubkey, Opt.some(validatorIdx), epoch)
+
+proc getGasLimit(node: BeaconNode,
+                 pubkey: ValidatorPubKey): uint64 =
+  node.consensusManager[].getGasLimit(pubkey)
 
 from web3/engine_api_types import PayloadExecutionStatus
 from ../spec/datatypes/capella import BeaconBlock, ExecutionPayload
@@ -860,7 +865,7 @@ proc proposeBlock(node: BeaconNode,
       return newBlockMEV.get
 
   let newBlock =
-    if slot.epoch >= node.dag.cfg.EIP4844_FORK_EPOCH:
+    if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
       await makeBeaconBlockForHeadAndSlot[eip4844.ExecutionPayload](
         node, randao, validator_index, node.graffitiBytes, head, slot)
     elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
@@ -1301,15 +1306,13 @@ from std/times import epochTime
 proc getValidatorRegistration(
     node: BeaconNode, validator: AttachedValidator, epoch: Epoch):
     Future[Result[SignedValidatorRegistrationV1, string]] {.async.} =
-  # Stand-in, reasonable default
-  const gasLimit = 30000000
-
   let validatorIdx = validator.index.valueOr:
     # The validator index will be missing when the validator was not
     # activated for duties yet. We can safely skip the registration then.
     return
 
   let feeRecipient = node.getFeeRecipient(validator.pubkey, validatorIdx, epoch)
+  let gasLimit = node.getGasLimit(validator.pubkey)
   var validatorRegistration = SignedValidatorRegistrationV1(
     message: ValidatorRegistrationV1(
       fee_recipient: ExecutionAddress(data: distinctBase(feeRecipient)),

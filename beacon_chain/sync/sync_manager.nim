@@ -47,7 +47,7 @@ type
 
   SyncManager*[A, B] = ref object
     pool: PeerPool[A, B]
-    EIP4844_FORK_EPOCH: Epoch
+    DENEB_FORK_EPOCH: Epoch
     responseTimeout: chronos.Duration
     maxHeadAge: uint64
     getLocalHeadSlot: GetSlotCallback
@@ -139,7 +139,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
 
   var res = SyncManager[A, B](
     pool: pool,
-    EIP4844_FORK_EPOCH: eip4844Epoch,
+    DENEB_FORK_EPOCH: eip4844Epoch,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     getSafeSlot: getSafeSlot,
@@ -189,7 +189,7 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
 
 proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
   let wallEpoch = man.getLocalWallSlot().epoch
-  e >= man.EIP4844_FORK_EPOCH and
+  e >= man.DENEB_FORK_EPOCH and
   (wallEpoch < MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS or
    e >=  wallEpoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS)
 

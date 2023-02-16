@@ -27,7 +27,7 @@ const
 
   blockResponseCost = allowedOpsPerSecondCost(64) # Allow syncing ~64 blocks/sec (minus request costs)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/altair/light-client/p2p-interface.md#configuration
   MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
   lightClientBootstrapResponseCost = allowedOpsPerSecondCost(1)
     ## Only one bootstrap per peer should ever be needed - no need to allow more
@@ -445,7 +445,7 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
   proc beaconBlockAndBlobsSidecarByRoot_v1(
       peer: Peer,
       # Please note that the SSZ list here ensures that the
@@ -472,8 +472,8 @@ p2pProtocol BeaconSync(version = 1,
           Epoch(MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS)
 
       epochBoundary =
-        if dag.head.slot.epoch - min_epochs < dag.cfg.EIP4844_FORK_EPOCH:
-          dag.cfg.EIP4844_FORK_EPOCH
+        if dag.head.slot.epoch - min_epochs < dag.cfg.DENEB_FORK_EPOCH:
+          dag.cfg.DENEB_FORK_EPOCH
         else:
           dag.head.slot.epoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS
       minimum_request_epoch = max(dag.finalizedHead.slot.epoch, epochBoundary)

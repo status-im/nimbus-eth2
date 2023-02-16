@@ -112,6 +112,7 @@ The following options are available:
      --validator-monitor-totals  Publish metrics to single 'totals' label for better collection performance when
                                monitoring many validators (BETA) [=false].
      --suggested-fee-recipient  Suggested fee recipient.
+     --suggested-gas-limit     Suggested gas limit [=30000000].     
      --payload-builder         Enable external payload builder [=false].
      --payload-builder-url     Payload builder URL.
 

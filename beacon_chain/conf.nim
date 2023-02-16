@@ -48,6 +48,7 @@ const
   defaultSigningNodeRequestTimeout* = 60
   defaultBeaconNode* = "http://127.0.0.1:" & $defaultEth2RestPort
   defaultBeaconNodeUri* = parseUri(defaultBeaconNode)
+  defaultGasLimit* = 30_000_000
 
   defaultListenAddressDesc* = $defaultListenAddress
   defaultAdminListenAddressDesc* = $defaultAdminListenAddress
@@ -582,6 +583,11 @@ type
         desc: "Suggested fee recipient"
         name: "suggested-fee-recipient" .}: Option[Address]
 
+      suggestedGasLimit* {.
+        desc: "Suggested gas limit"
+        defaultValue: defaultGasLimit
+        name: "suggested-gas-limit" .}: uint64
+
       payloadBuilderEnable* {.
         desc: "Enable external payload builder"
         defaultValue: false
@@ -884,6 +890,11 @@ type
     suggestedFeeRecipient* {.
       desc: "Suggested fee recipient"
       name: "suggested-fee-recipient" .}: Option[Address]
+
+    suggestedGasLimit* {.
+      desc: "Suggested gas limit"
+      defaultValue: 30_000_000
+      name: "suggested-gas-limit" .}: uint64
 
     keymanagerEnabled* {.
       desc: "Enable the REST keymanager API"

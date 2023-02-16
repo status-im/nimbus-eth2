@@ -50,6 +50,8 @@ const
     "Unable to decode voluntary exit object(s)"
   InvalidFeeRecipientRequestError* =
     "Bad request. Request was malformed and could not be processed"
+  InvalidGasLimitRequestError* =
+    "Bad request. Request was malformed and could not be processed"
   VoluntaryExitValidationError* =
     "Invalid voluntary exit, it will never pass validation so it's rejected"
   VoluntaryExitValidationSuccess* =

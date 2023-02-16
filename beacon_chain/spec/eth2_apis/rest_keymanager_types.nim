@@ -45,6 +45,10 @@ type
   GetDistributedKeystoresResponse* = object
     data*: seq[DistributedKeystoreInfo]
 
+  GetValidatorGasLimitResponse* = object
+    pubkey*: ValidatorPubKey
+    gas_limit*: uint64
+
   ImportRemoteKeystoresBody* = object
     remote_keys*: seq[RemoteKeystoreInfo]
 
@@ -71,6 +75,13 @@ type
   ListFeeRecipientResponse* = object
     pubkey*: ValidatorPubKey
     ethaddress*: Eth1Address
+
+  ListGasLimitResponse* = object
+    pubkey*: ValidatorPubKey
+    gas_limit*: uint64
+
+  SetGasLimitRequest* = object
+    gas_limit*: uint64
 
   KeystoreStatus* = enum
     error =  "error"

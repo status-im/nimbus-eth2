@@ -61,11 +61,11 @@ func getAttesterSlashingsTopic*(forkDigest: ForkDigest): string =
 func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicAggregateAndProofsSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/p2p-interface.md#topics-and-messages
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/p2p-interface.md#topics-and-messages
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/p2p-interface.md#topics-and-messages
 func getBeaconBlockAndBlobsSidecarTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBeaconBlockAndBlobsSidecarTopicSuffix
 
@@ -102,7 +102,7 @@ func getSyncCommitteeContributionAndProofTopic*(forkDigest: ForkDigest): string 
   ## For subscribing and unsubscribing to/from a subnet.
   eth2Prefix(forkDigest) & "sync_committee_contribution_and_proof/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
   eth2Prefix(forkDigest) & "light_client_finality_update/ssz_snappy"
@@ -148,13 +148,13 @@ func getDiscoveryForkID*(cfg: RuntimeConfig,
 type GossipState* = set[ConsensusFork]
 func getTargetGossipState*(
     epoch, ALTAIR_FORK_EPOCH, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH,
-    EIP4844_FORK_EPOCH: Epoch, isBehind: bool): GossipState =
+    DENEB_FORK_EPOCH: Epoch, isBehind: bool): GossipState =
   if isBehind:
     return {}
 
   doAssert BELLATRIX_FORK_EPOCH >= ALTAIR_FORK_EPOCH
   doAssert CAPELLA_FORK_EPOCH >= BELLATRIX_FORK_EPOCH
-  doAssert EIP4844_FORK_EPOCH >= CAPELLA_FORK_EPOCH
+  doAssert DENEB_FORK_EPOCH >= CAPELLA_FORK_EPOCH
 
   # https://github.com/ethereum/consensus-specs/issues/2902
   # Don't care whether ALTAIR_FORK_EPOCH == BELLATRIX_FORK_EPOCH or
@@ -178,9 +178,9 @@ func getTargetGossipState*(
   maybeIncludeFork(
     ConsensusFork.Bellatrix, BELLATRIX_FORK_EPOCH, CAPELLA_FORK_EPOCH)
   maybeIncludeFork(
-    ConsensusFork.Capella,   CAPELLA_FORK_EPOCH,   EIP4844_FORK_EPOCH)
+    ConsensusFork.Capella,   CAPELLA_FORK_EPOCH,   DENEB_FORK_EPOCH)
   maybeIncludeFork(
-    ConsensusFork.EIP4844,   EIP4844_FORK_EPOCH,   FAR_FUTURE_EPOCH)
+    ConsensusFork.EIP4844,   DENEB_FORK_EPOCH,     FAR_FUTURE_EPOCH)
 
   doAssert len(targetForks) <= 2
   targetForks

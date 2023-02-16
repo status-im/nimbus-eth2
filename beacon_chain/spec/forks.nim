@@ -648,7 +648,7 @@ func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
     doAssert ConsensusFork.Altair    > ConsensusFork.Phase0
     doAssert GENESIS_EPOCH == 0
 
-  if   epoch >= cfg.EIP4844_FORK_EPOCH:   ConsensusFork.EIP4844
+  if   epoch >= cfg.DENEB_FORK_EPOCH:     ConsensusFork.EIP4844
   elif epoch >= cfg.CAPELLA_FORK_EPOCH:   ConsensusFork.Capella
   elif epoch >= cfg.BELLATRIX_FORK_EPOCH: ConsensusFork.Bellatrix
   elif epoch >= cfg.ALTAIR_FORK_EPOCH:    ConsensusFork.Altair
@@ -657,7 +657,7 @@ func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
 func blockForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
   ## Return the current fork for the given epoch.
   static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
-  if   epoch >= cfg.EIP4844_FORK_EPOCH:   ConsensusFork.EIP4844
+  if   epoch >= cfg.DENEB_FORK_EPOCH:     ConsensusFork.EIP4844
   elif epoch >= cfg.CAPELLA_FORK_EPOCH:   ConsensusFork.Capella
   elif epoch >= cfg.BELLATRIX_FORK_EPOCH: ConsensusFork.Bellatrix
   elif epoch >= cfg.ALTAIR_FORK_EPOCH:    ConsensusFork.Altair
@@ -891,15 +891,15 @@ func capellaFork*(cfg: RuntimeConfig): Fork =
     current_version: cfg.CAPELLA_FORK_VERSION,
     epoch: cfg.CAPELLA_FORK_EPOCH)
 
-func eip4844Fork*(cfg: RuntimeConfig): Fork =
+func denebFork*(cfg: RuntimeConfig): Fork =
   Fork(
     previous_version: cfg.CAPELLA_FORK_VERSION,
-    current_version: cfg.EIP4844_FORK_VERSION,
-    epoch: cfg.EIP4844_FORK_EPOCH)
+    current_version: cfg.DENEB_FORK_VERSION,
+    epoch: cfg.DENEB_FORK_EPOCH)
 
 func forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   case cfg.stateForkAtEpoch(epoch)
-  of ConsensusFork.EIP4844:   cfg.eip4844Fork
+  of ConsensusFork.EIP4844:   cfg.denebFork
   of ConsensusFork.Capella:   cfg.capellaFork
   of ConsensusFork.Bellatrix: cfg.bellatrixFork
   of ConsensusFork.Altair:    cfg.altairFork
@@ -907,7 +907,7 @@ func forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
 
 func forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
   case cfg.stateForkAtEpoch(epoch)
-  of ConsensusFork.EIP4844:   cfg.EIP4844_FORK_VERSION
+  of ConsensusFork.EIP4844:   cfg.DENEB_FORK_VERSION
   of ConsensusFork.Capella:   cfg.CAPELLA_FORK_VERSION
   of ConsensusFork.Bellatrix: cfg.BELLATRIX_FORK_VERSION
   of ConsensusFork.Altair:    cfg.ALTAIR_FORK_VERSION
@@ -916,7 +916,7 @@ func forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
 func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
   case cfg.stateForkAtEpoch(epoch)
   of ConsensusFork.EIP4844:   FAR_FUTURE_EPOCH
-  of ConsensusFork.Capella:   cfg.EIP4844_FORK_EPOCH
+  of ConsensusFork.Capella:   cfg.DENEB_FORK_EPOCH
   of ConsensusFork.Bellatrix: cfg.CAPELLA_FORK_EPOCH
   of ConsensusFork.Altair:    cfg.BELLATRIX_FORK_EPOCH
   of ConsensusFork.Phase0:    cfg.ALTAIR_FORK_EPOCH
@@ -927,7 +927,7 @@ func forkVersion*(cfg: RuntimeConfig, consensusFork: ConsensusFork): Version =
   of ConsensusFork.Altair:      cfg.ALTAIR_FORK_VERSION
   of ConsensusFork.Bellatrix:   cfg.BELLATRIX_FORK_VERSION
   of ConsensusFork.Capella:     cfg.CAPELLA_FORK_VERSION
-  of ConsensusFork.EIP4844:     cfg.EIP4844_FORK_VERSION
+  of ConsensusFork.EIP4844:     cfg.DENEB_FORK_VERSION
 
 func lcDataForkAtStateFork*(stateFork: ConsensusFork): LightClientDataFork =
   static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
@@ -947,7 +947,7 @@ func getForkSchedule*(cfg: RuntimeConfig): array[5, Fork] =
   ##
   ## NOTE: Update this procedure when new fork will be scheduled.
   [cfg.genesisFork(), cfg.altairFork(), cfg.bellatrixFork(), cfg.capellaFork(),
-   cfg.eip4844Fork()]
+   cfg.denebFork()]
 
 type
   # The first few fields of a state, shared across all forks
@@ -1041,7 +1041,7 @@ func init*(T: type ForkDigests,
     capella:
       compute_fork_digest(cfg.CAPELLA_FORK_VERSION, genesis_validators_root),
     eip4844:
-      compute_fork_digest(cfg.EIP4844_FORK_VERSION, genesis_validators_root)
+      compute_fork_digest(cfg.DENEB_FORK_VERSION, genesis_validators_root)
   )
 
 func toBlockId*(header: BeaconBlockHeader): BlockId =

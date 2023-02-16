@@ -985,12 +985,10 @@ const eth1BlockHash* = block:
   x
 
 func checkForkConsistency*(cfg: RuntimeConfig) =
-  doAssert cfg.SHARDING_FORK_EPOCH == FAR_FUTURE_EPOCH
-
   let forkVersions =
     [cfg.GENESIS_FORK_VERSION, cfg.ALTAIR_FORK_VERSION,
      cfg.BELLATRIX_FORK_VERSION, cfg.CAPELLA_FORK_VERSION,
-     cfg.EIP4844_FORK_VERSION]
+     cfg.DENEB_FORK_VERSION]
 
   for i in 0 ..< forkVersions.len:
     for j in i+1 ..< forkVersions.len:
@@ -1007,7 +1005,7 @@ func checkForkConsistency*(cfg: RuntimeConfig) =
 
   assertForkEpochOrder(cfg.ALTAIR_FORK_EPOCH, cfg.BELLATRIX_FORK_EPOCH)
   assertForkEpochOrder(cfg.BELLATRIX_FORK_EPOCH, cfg.CAPELLA_FORK_EPOCH)
-  assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.EIP4844_FORK_EPOCH)
+  assertForkEpochOrder(cfg.CAPELLA_FORK_EPOCH, cfg.DENEB_FORK_EPOCH)
 
 # This is a readily/uniquely searchable token of where a false assertion is
 # due to a Deneb implementation missing. checkForkConsistency() checks that

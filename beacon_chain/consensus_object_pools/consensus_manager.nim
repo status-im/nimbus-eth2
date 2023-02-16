@@ -18,7 +18,7 @@ from ../spec/datatypes/capella import Withdrawal
 from ../spec/eth2_apis/dynamic_fee_recipients import
   DynamicFeeRecipientsStore, getDynamicFeeRecipient
 from ../validators/keystore_management import
-  KeymanagerHost, getSuggestedFeeRecipient
+  KeymanagerHost, getSuggestedFeeRecipient, getSuggestedGasLimit
 from ../validators/action_tracker import ActionTracker, getNextProposalSlot
 
 type
@@ -57,6 +57,7 @@ type
     dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore
     validatorsDir: string
     defaultFeeRecipient: Eth1Address
+    defaultGasLimit: uint64
 
     # Tracking last proposal forkchoiceUpdated payload information
     # ----------------------------------------------------------------
@@ -74,7 +75,8 @@ func new*(T: type ConsensusManager,
           actionTracker: ActionTracker,
           dynamicFeeRecipientsStore: ref DynamicFeeRecipientsStore,
           validatorsDir: string,
-          defaultFeeRecipient: Eth1Address
+          defaultFeeRecipient: Eth1Address,
+          defaultGasLimit: uint64
          ): ref ConsensusManager =
   (ref ConsensusManager)(
     dag: dag,
@@ -85,7 +87,8 @@ func new*(T: type ConsensusManager,
     dynamicFeeRecipientsStore: dynamicFeeRecipientsStore,
     validatorsDir: validatorsDir,
     forkchoiceUpdatedInfo: Opt.none ForkchoiceUpdatedInformation,
-    defaultFeeRecipient: defaultFeeRecipient
+    defaultFeeRecipient: defaultFeeRecipient,
+    defaultGasLimit: defaultGasLimit
   )
 
 # Consensus Management
@@ -332,6 +335,12 @@ proc getFeeRecipient*(
         pubkey, self.defaultFeeRecipient).valueOr:
       # Ignore errors and use default - errors are logged in gsfr
       self.defaultFeeRecipient
+
+proc getGasLimit*(
+    self: ConsensusManager, pubkey: ValidatorPubKey): uint64 =
+  self.validatorsDir.getSuggestedGasLimit(
+      pubkey, self.defaultGasLimit).valueOr:
+    self.defaultGasLimit
 
 from ../spec/datatypes/bellatrix import PayloadID
 
