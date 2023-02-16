@@ -89,7 +89,6 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
   for item in validators:
     var validator = vc.attachedValidators[].getValidator(item.validator.pubkey)
     if isNil(validator):
-      validator.updateValidator(Opt.none ValidatorAndIndex)
       missing.add(validatorLog(item.validator.pubkey, item.index))
     else:
       validator.updateValidator(Opt.some ValidatorAndIndex(
