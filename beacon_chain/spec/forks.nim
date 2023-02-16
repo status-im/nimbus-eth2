@@ -654,15 +654,6 @@ func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
   elif epoch >= cfg.ALTAIR_FORK_EPOCH:    ConsensusFork.Altair
   else:                                   ConsensusFork.Phase0
 
-func blockForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
-  ## Return the current fork for the given epoch.
-  static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
-  if   epoch >= cfg.DENEB_FORK_EPOCH:     ConsensusFork.EIP4844
-  elif epoch >= cfg.CAPELLA_FORK_EPOCH:   ConsensusFork.Capella
-  elif epoch >= cfg.BELLATRIX_FORK_EPOCH: ConsensusFork.Bellatrix
-  elif epoch >= cfg.ALTAIR_FORK_EPOCH:    ConsensusFork.Altair
-  else:                                   ConsensusFork.Phase0
-
 func stateForkForDigest*(
     forkDigests: ForkDigests, forkDigest: ForkDigest): Opt[ConsensusFork] =
   static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
@@ -1000,7 +991,7 @@ func readSszForkedSignedBeaconBlock*(
 
   # TODO https://github.com/nim-lang/Nim/issues/19357
   result = ForkedSignedBeaconBlock(
-    kind: cfg.blockForkAtEpoch(header.slot.epoch()))
+    kind: cfg.consensusForkAtEpoch(header.slot.epoch()))
 
   withBlck(result):
     readSszBytes(data, blck)
