@@ -796,7 +796,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                              $error)
           forked = ForkedSignedBeaconBlock(restBlock)
 
-        if forked.kind != node.dag.cfg.blockForkAtEpoch(
+        if forked.kind != node.dag.cfg.consensusForkAtEpoch(
              getForkedBlockField(forked, slot).epoch):
           doAssert strictVerification notin node.dag.updateFlags
           return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
@@ -895,7 +895,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            $error)
         forked = ForkedSignedBeaconBlock(restBlock)
 
-      if forked.kind != node.dag.cfg.blockForkAtEpoch(
+      if forked.kind != node.dag.cfg.consensusForkAtEpoch(
            getForkedBlockField(forked, slot).epoch):
         return RestApiResponse.jsonError(Http400, InvalidBlockObjectError)
 
@@ -950,7 +950,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
           return RestApiResponse.jsonError(Http404, BlockNotFoundError)
 
         let
-          fork = node.dag.cfg.blockForkAtEpoch(bid.slot.epoch)
+          fork = node.dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
           headers = [("eth-consensus-version", fork.toString())]
 
         RestApiResponse.sszResponsePlain(data, headers)

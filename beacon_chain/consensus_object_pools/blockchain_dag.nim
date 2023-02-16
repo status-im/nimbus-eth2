@@ -206,7 +206,7 @@ func getBlockIdAtSlot*(dag: ChainDAGRef, slot: Slot): Opt[BlockSlotId] =
 
 proc containsBlock(
     cfg: RuntimeConfig, db: BeaconChainDB, slot: Slot, root: Eth2Digest): bool =
-  db.containsBlock(root, cfg.blockForkAtEpoch(slot.epoch))
+  db.containsBlock(root, cfg.consensusForkAtEpoch(slot.epoch))
 
 proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
@@ -232,7 +232,7 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     err()
 
 proc containsBlock(dag: ChainDAGRef, bid: BlockId): bool =
-  let fork = dag.cfg.blockForkAtEpoch(bid.slot.epoch)
+  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
   if dag.db.containsBlock(bid.root, fork):
     return true
 
@@ -254,7 +254,7 @@ proc getBlock*(
 proc getBlockSSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
   # Load the SSZ-encoded data of a block into `bytes`, overwriting the existing
   # content
-  let fork = dag.cfg.blockForkAtEpoch(bid.slot.epoch)
+  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
   dag.db.getBlockSSZ(bid.root, bytes, fork) or
     (bid.slot <= dag.finalizedHead.slot and
       getBlockSSZ(
@@ -266,7 +266,7 @@ proc getBlockSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
   # `bytes`, overwriting the existing content
   # careful: there are two snappy encodings in use, with and without framing!
   # Returns true if the block is found, false if not
-  let fork = dag.cfg.blockForkAtEpoch(bid.slot.epoch)
+  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
   dag.db.getBlockSZ(bid.root, bytes, fork) or
     (bid.slot <= dag.finalizedHead.slot and
       getBlockSZ(
@@ -276,7 +276,7 @@ proc getBlockSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
 proc getForkedBlock*(
     dag: ChainDAGRef, bid: BlockId): Opt[ForkedTrustedSignedBeaconBlock] =
 
-  let fork = dag.cfg.blockForkAtEpoch(bid.slot.epoch)
+  let fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
   result.ok(ForkedTrustedSignedBeaconBlock(kind: fork))
   withBlck(result.get()):
     type T = type(blck)
@@ -883,7 +883,7 @@ proc applyBlock(
 
   loadStateCache(dag, cache, bid, getStateField(state, slot).epoch)
 
-  case dag.cfg.blockForkAtEpoch(bid.slot.epoch)
+  case dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
   of ConsensusFork.Phase0:
     let data = getBlock(dag, bid, phase0.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
@@ -1629,7 +1629,7 @@ proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
     dag.optimisticRoots.excl bs.blck.root
     dag.forkBlocks.excl(KeyedBlockRef.init(bs.blck))
     discard dag.db.delBlock(
-      dag.cfg.blockForkAtEpoch(bs.blck.slot.epoch), bs.blck.root)
+      dag.cfg.consensusForkAtEpoch(bs.blck.slot.epoch), bs.blck.root)
 
 proc pruneBlocksDAG(dag: ChainDAGRef) =
   ## This prunes the block DAG
@@ -1929,7 +1929,7 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
       while cur.isSome:
         let
           bid = cur.get()
-          fork = dag.cfg.blockForkAtEpoch(bid.slot.epoch)
+          fork = dag.cfg.consensusForkAtEpoch(bid.slot.epoch)
 
         if bid.slot == GENESIS_SLOT:
           # Leave genesis block for nostalgia and the REST API
@@ -1953,14 +1953,14 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
         for fork in ConsensusFork.Phase0..<stateFork:
           dag.db.clearStates(fork)
 
-      let blockFork = dag.cfg.blockForkAtEpoch(blockHorizon.epoch)
+      let blockFork = dag.cfg.consensusForkAtEpoch(blockHorizon.epoch)
 
       if blockFork > ConsensusFork.Phase0:
         for fork in ConsensusFork.Phase0..<blockFork:
           dag.db.clearBlocks(fork)
 
 proc loadExecutionBlockRoot*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
-  if dag.cfg.blockForkAtEpoch(bid.slot.epoch) < ConsensusFork.Bellatrix:
+  if dag.cfg.consensusForkAtEpoch(bid.slot.epoch) < ConsensusFork.Bellatrix:
     return ZERO_HASH
 
   let blockData = dag.getForkedBlock(bid).valueOr:
