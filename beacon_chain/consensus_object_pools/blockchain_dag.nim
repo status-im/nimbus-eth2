@@ -650,7 +650,7 @@ proc getState(
   let state_root = db.getStateRoot(block_root, slot).valueOr:
     return false
 
-  db.getState(cfg.stateForkAtEpoch(slot.epoch), state_root, state, rollback)
+  db.getState(cfg.consensusForkAtEpoch(slot.epoch), state_root, state, rollback)
 
 proc containsState*(
     db: BeaconChainDB, cfg: RuntimeConfig, block_root: Eth2Digest,
@@ -659,7 +659,8 @@ proc containsState*(
   while slot >= slots.a:
     let state_root = db.getStateRoot(block_root, slot)
     if state_root.isSome() and
-        db.containsState(cfg.stateForkAtEpoch(slot.epoch), state_root.get()):
+        db.containsState(
+          cfg.consensusForkAtEpoch(slot.epoch), state_root.get()):
       return true
 
     if slot == slots.a: # avoid underflow at genesis
@@ -676,7 +677,8 @@ proc getState*(
     let state_root = db.getStateRoot(block_root, slot)
     if state_root.isSome() and
         db.getState(
-          cfg.stateForkAtEpoch(slot.epoch), state_root.get(), state, rollback):
+          cfg.consensusForkAtEpoch(slot.epoch), state_root.get(), state,
+          rollback):
       return true
 
     if slot == slots.a: # avoid underflow at genesis
@@ -831,7 +833,8 @@ proc putState(dag: ChainDAGRef, state: ForkedHashedBeaconState, bid: BlockId) =
   # Don't consider legacy tables here, they are slow to read so we'll want to
   # rewrite things in the new table anyway.
   if dag.db.containsState(
-      dag.cfg.stateForkAtEpoch(slot.epoch), getStateRoot(state), legacy = false):
+      dag.cfg.consensusForkAtEpoch(slot.epoch), getStateRoot(state),
+      legacy = false):
     return
 
   let startTick = Moment.now()
@@ -1612,7 +1615,8 @@ proc delState(dag: ChainDAGRef, bsi: BlockSlotId) =
   if (let root = dag.db.getStateRoot(bsi.bid.root, bsi.slot); root.isSome()):
     dag.db.withManyWrites:
       dag.db.delStateRoot(bsi.bid.root, bsi.slot)
-      dag.db.delState(dag.cfg.stateForkAtEpoch(bsi.slot.epoch), root.get())
+      dag.db.delState(
+        dag.cfg.consensusForkAtEpoch(bsi.slot.epoch), root.get())
 
 proc pruneBlockSlot(dag: ChainDAGRef, bs: BlockSlot) =
   # TODO: should we move that disk I/O to `onSlotEnd`
@@ -1944,7 +1948,7 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
       # so as to "mostly" clean up the phase0 tables as well (which cannot be
       # pruned easily by fork)
 
-      let stateFork = dag.cfg.stateForkAtEpoch(tailSlot.epoch)
+      let stateFork = dag.cfg.consensusForkAtEpoch(tailSlot.epoch)
       if stateFork > ConsensusFork.Phase0:
         for fork in ConsensusFork.Phase0..<stateFork:
           dag.db.clearStates(fork)
@@ -2383,7 +2387,7 @@ proc rebuildIndex*(dag: ChainDAGRef) =
         junk.add((k, v))
         continue
 
-    if not dag.db.containsState(dag.cfg.stateForkAtEpoch(k[0].epoch), v):
+    if not dag.db.containsState(dag.cfg.consensusForkAtEpoch(k[0].epoch), v):
       continue # If it's not in the database..
 
     canonical[k[0].epoch div EPOCHS_PER_STATE_SNAPSHOT] = v
@@ -2423,7 +2427,8 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
       else:
         if not dag.db.getState(
-            dag.cfg.stateForkAtEpoch(slot.epoch), state_root, state[], noRollback):
+            dag.cfg.consensusForkAtEpoch(slot.epoch), state_root, state[],
+            noRollback):
           fatal "Cannot load state, database corrupt or created for a different network?",
             state_root, slot
           quit 1
@@ -2446,7 +2451,9 @@ proc rebuildIndex*(dag: ChainDAGRef) =
       slot, startStateRoot = canonical[i - 1],  startSlot
 
     if getStateRoot(state[]) != canonical[i - 1]:
-      if not dag.db.getState(dag.cfg.stateForkAtEpoch(startSlot.epoch), canonical[i - 1], state[], noRollback):
+      if not dag.db.getState(
+          dag.cfg.consensusForkAtEpoch(startSlot.epoch), canonical[i - 1],
+          state[], noRollback):
         error "Can't load start state, database corrupt?",
           startStateRoot = shortLog(canonical[i - 1]), slot = startSlot
         return
@@ -2491,4 +2498,4 @@ proc rebuildIndex*(dag: ChainDAGRef) =
 
     for i in junk:
       dag.db.delStateRoot(i[0][1], i[0][0])
-      dag.db.delState(dag.cfg.stateForkAtEpoch(i[0][0].epoch), i[1])
+      dag.db.delState(dag.cfg.consensusForkAtEpoch(i[0][0].epoch), i[1])

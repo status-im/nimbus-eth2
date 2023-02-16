@@ -840,7 +840,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     let
       currentEpochFork =
-        node.dag.cfg.stateForkAtEpoch(node.currentSlot().epoch())
+        node.dag.cfg.consensusForkAtEpoch(node.currentSlot().epoch())
       version = request.headers.getString("eth-consensus-version")
       body = contentBody.get()
 

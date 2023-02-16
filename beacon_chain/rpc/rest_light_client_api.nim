@@ -38,7 +38,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyBootstrap.contextEpoch
-          contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
+          contextFork = node.dag.cfg.consensusForkAtEpoch(contextEpoch)
         return
           if contentType == sszMediaType:
             let headers = [("eth-consensus-version", contextFork.toString())]
@@ -101,7 +101,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
             forkyUpdate.contextEpoch
           else:
             continue
-        contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
+        contextFork = node.dag.cfg.consensusForkAtEpoch(contextEpoch)
       updates.add RestVersioned[ForkedLightClientUpdate](
         data: update,
         jsonVersion: contextFork,
@@ -133,7 +133,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyFinalityUpdate.contextEpoch
-          contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
+          contextFork = node.dag.cfg.consensusForkAtEpoch(contextEpoch)
         return
           if contentType == sszMediaType:
             let headers = [("eth-consensus-version", contextFork.toString())]
@@ -164,7 +164,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       when lcDataFork > LightClientDataFork.None:
         let
           contextEpoch = forkyOptimisticUpdate.contextEpoch
-          contextFork = node.dag.cfg.stateForkAtEpoch(contextEpoch)
+          contextFork = node.dag.cfg.consensusForkAtEpoch(contextEpoch)
         return
           if contentType == sszMediaType:
             let headers = [("eth-consensus-version", contextFork.toString())]
