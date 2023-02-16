@@ -18,28 +18,29 @@ type
     offline*: int
     uninitalized*: int
     incompatible*: int
-    nosync*: int
+    optsync*: int
+    notsync*: int
 
-proc onlineNodes*(vc: ValidatorClientRef,
+proc nodesCount*(vc: ValidatorClientRef,
+                 statuses: set[RestBeaconNodeStatus],
+                 roles: set[BeaconNodeRole] = {}): int =
+  if len(roles) == 0:
+    vc.beaconNodes.countIt(it.status in statuses)
+  else:
+    vc.beaconNodes.countIt((it.roles * roles != {}) and (it.status in statuses))
+
+proc filterNodes*(vc: ValidatorClientRef, statuses: set[RestBeaconNodeStatus],
                   roles: set[BeaconNodeRole] = {}): seq[BeaconNodeServerRef] =
   if len(roles) == 0:
-    vc.beaconNodes.filterIt(it.status == RestBeaconNodeStatus.Online)
+    vc.beaconNodes.filterIt(it.status in statuses)
   else:
     vc.beaconNodes.filterIt((it.roles * roles != {}) and
-                            (it.status == RestBeaconNodeStatus.Online))
+                            (it.status in statuses))
 
-proc onlineNodesCount*(vc: ValidatorClientRef,
-                       roles: set[BeaconNodeRole] = {}): int =
-  if len(roles) == 0:
-    vc.beaconNodes.countIt(it.status == RestBeaconNodeStatus.Online)
-  else:
-    vc.beaconNodes.countIt((it.roles * roles != {}) and
-                           (it.status == RestBeaconNodeStatus.Online))
-
-proc unusableNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
+proc otherNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
   vc.beaconNodes.filterIt(it.status != RestBeaconNodeStatus.Online)
 
-proc unusableNodesCount*(vc: ValidatorClientRef): int =
+proc otherNodesCount*(vc: ValidatorClientRef): int =
   vc.beaconNodes.countIt(it.status != RestBeaconNodeStatus.Online)
 
 proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
@@ -53,44 +54,48 @@ proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
     of RestBeaconNodeStatus.Incompatible:
       inc(res.incompatible)
     of RestBeaconNodeStatus.NotSynced:
-      inc(res.nosync)
+      inc(res.notsync)
+    of RestBeaconNodeStatus.OptSynced:
+      inc(res.optsync)
     of RestBeaconNodeStatus.Online:
       inc(res.online)
   res
 
-proc waitOnlineNodes*(vc: ValidatorClientRef, timeoutFut: Future[void] = nil,
-                      roles: set[BeaconNodeRole] = {}) {.async.} =
+proc waitNodes*(vc: ValidatorClientRef, timeoutFut: Future[void],
+                statuses: set[RestBeaconNodeStatus],
+                roles: set[BeaconNodeRole], waitChanges: bool) {.async.} =
   doAssert(not(isNil(vc.fallbackService)))
+  var iterations = 0
   while true:
-    if vc.onlineNodesCount(roles) != 0:
-      break
-    else:
-      if vc.fallbackService.onlineEvent.isSet():
-        vc.fallbackService.onlineEvent.clear()
-        warn "Connection with beacon node(s) has been lost",
-              online_nodes = vc.onlineNodesCount(),
-              unusable_nodes = vc.unusableNodesCount(),
-              total_nodes = len(vc.beaconNodes)
-      if isNil(timeoutFut):
-        await vc.fallbackService.onlineEvent.wait()
-      else:
-        let breakLoop =
-          block:
-            let waitFut = vc.fallbackService.onlineEvent.wait()
-            try:
-              discard await race(waitFut, timeoutFut)
-            except CancelledError as exc:
-              if not(waitFut.finished()):
-                await waitFut.cancelAndWait()
-              raise exc
+    if not(waitChanges) or (iterations != 0):
+      if vc.nodesCount(statuses, roles) != 0:
+        break
 
+    if vc.fallbackService.changesEvent.isSet():
+      vc.fallbackService.changesEvent.clear()
+
+    if isNil(timeoutFut):
+      await vc.fallbackService.changesEvent.wait()
+    else:
+      let breakLoop =
+        block:
+          let waitFut = vc.fallbackService.changesEvent.wait()
+          try:
+            discard await race(waitFut, timeoutFut)
+          except CancelledError as exc:
             if not(waitFut.finished()):
               await waitFut.cancelAndWait()
-              true
-            else:
-              false
-        if breakLoop:
-          break
+            raise exc
+
+          if not(waitFut.finished()):
+            await waitFut.cancelAndWait()
+            true
+          else:
+            false
+      if breakLoop:
+        break
+
+    inc(iterations)
 
 proc checkCompatible(vc: ValidatorClientRef,
                      node: BeaconNodeServerRef) {.async.} =
@@ -207,10 +212,11 @@ proc checkSync(vc: ValidatorClientRef,
                head_slot = syncInfo.head_slot, is_optimistic = optimistic
           RestBeaconNodeStatus.Online
         else:
-          warn "Execution client not in sync (beacon node optimistically synced)",
+          warn "Execution client not in sync " &
+               "(beacon node optimistically synced)",
                sync_distance = syncInfo.sync_distance,
                head_slot = syncInfo.head_slot, is_optimistic = optimistic
-          RestBeaconNodeStatus.NotSynced
+          RestBeaconNodeStatus.OptSynced
       else:
         warn "Beacon node not in sync", sync_distance = syncInfo.sync_distance,
              head_slot = syncInfo.head_slot, is_optimistic = optimistic
@@ -237,28 +243,46 @@ proc checkOnline(node: BeaconNodeServerRef) {.async.} =
             error_message = exc.msg
       node.status = RestBeaconNodeStatus.Offline
       return
-  info "Beacon node has been identified", agent = agent.version
+  debug "Beacon node has been identified", agent = agent.version
   node.ident = some(agent.version)
   node.status = RestBeaconNodeStatus.Online
 
 proc checkNode(vc: ValidatorClientRef,
-               node: BeaconNodeServerRef) {.async.} =
-  debug "Checking beacon node", endpoint = node
-  await node.checkOnline()
-  if node.status != RestBeaconNodeStatus.Online:
-    return
-  await vc.checkCompatible(node)
-  if node.status != RestBeaconNodeStatus.Online:
-    return
-  await vc.checkSync(node)
+               node: BeaconNodeServerRef): Future[bool] {.async.} =
+  let status = node.status
+  debug "Checking beacon node", endpoint = node, status = status
 
-proc checkNodes*(service: FallbackServiceRef) {.async.} =
+  if status in {RestBeaconNodeStatus.Uninitalized,
+                RestBeaconNodeStatus.Offline}:
+    await node.checkOnline()
+    if node.status != RestBeaconNodeStatus.Online:
+      return (status != node.status)
+
+  if status in {RestBeaconNodeStatus.Uninitalized,
+                RestBeaconNodeStatus.Offline,
+                RestBeaconNodeStatus.Incompatible}:
+    await vc.checkCompatible(node)
+    if node.status != RestBeaconNodeStatus.Online:
+      return (status != node.status)
+
+  if status in {RestBeaconNodeStatus.Uninitalized,
+                RestBeaconNodeStatus.Offline,
+                RestBeaconNodeStatus.Incompatible,
+                RestBeaconNodeStatus.OptSynced,
+                RestBeaconNodeStatus.NotSynced}:
+    await vc.checkSync(node)
+    return (status != node.status)
+
+proc checkNodes*(service: FallbackServiceRef): Future[bool] {.async.} =
   let
-    nodesToCheck = service.client.unusableNodes()
+    nodesToCheck = service.client.otherNodes()
     pendingChecks = nodesToCheck.mapIt(service.client.checkNode(it))
-
+  var res = false
   try:
     await allFutures(pendingChecks)
+    for fut in pendingChecks:
+      if fut.completed() and fut.read():
+        res = true
   except CancelledError as exc:
     var pending: seq[Future[void]]
     for future in pendingChecks:
@@ -266,6 +290,7 @@ proc checkNodes*(service: FallbackServiceRef) {.async.} =
         pending.add(future.cancelAndWait())
     await allFutures(pending)
     raise exc
+  return res
 
 proc mainLoop(service: FallbackServiceRef) {.async.} =
   let vc = service.client
@@ -278,19 +303,8 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
     # become safe to combine loops, breaks and exception handlers.
     let breakLoop =
       try:
-        await service.checkNodes()
+        if await service.checkNodes(): service.changesEvent.fire()
         await sleepAsync(2.seconds)
-        if service.client.onlineNodesCount() != 0:
-          service.onlineEvent.fire()
-        else:
-          let counter = vc.getNodeCounts()
-          warn "No suitable beacon nodes available",
-               online_nodes = counter.online,
-               offline_nodes = counter.offline,
-               uninitalized_nodes = counter.uninitalized,
-               incompatible_nodes = counter.incompatible,
-               nonsynced_nodes = counter.nosync,
-               total_nodes = len(vc.beaconNodes)
         false
       except CancelledError as exc:
         debug "Service interrupted"
@@ -308,10 +322,10 @@ proc init*(t: typedesc[FallbackServiceRef],
   logScope: service = ServiceName
   var res = FallbackServiceRef(name: ServiceName, client: vc,
                                state: ServiceState.Initialized,
-                               onlineEvent: newAsyncEvent())
+                               changesEvent: newAsyncEvent())
   debug "Initializing service"
   # Perform initial nodes check.
-  await res.checkNodes()
+  if await res.checkNodes(): res.changesEvent.fire()
   return res
 
 proc start*(service: FallbackServiceRef) =

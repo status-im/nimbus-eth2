@@ -64,7 +64,7 @@ type
   DutiesServiceRef* = ref object of ClientServiceRef
 
   FallbackServiceRef* = ref object of ClientServiceRef
-    onlineEvent*: AsyncEvent
+    changesEvent*: AsyncEvent
 
   ForkServiceRef* = ref object of ClientServiceRef
 
@@ -127,7 +127,7 @@ type
     duties*: Table[Epoch, SyncCommitteeDuty]
 
   RestBeaconNodeStatus* {.pure.} = enum
-    Uninitalized, Offline, Incompatible, NotSynced, Online
+    Uninitalized, Offline, Incompatible, NotSynced, OptSynced, Online
 
   BeaconNodeServerRef* = ref BeaconNodeServer
 

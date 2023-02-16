@@ -36,6 +36,11 @@ type
     status*: ApiOperation
     data*: seq[ApiNodeResponse[T]]
 
+const
+  ViableNodeStatus = {RestBeaconNodeStatus.Online,
+                      RestBeaconNodeStatus.NotSynced,
+                      RestBeaconNodeStatus.OptSynced}
+
 proc `$`*(strategy: ApiStrategyKind): string =
   case strategy
   of ApiStrategyKind.First:
@@ -81,10 +86,13 @@ template firstSuccessParallel*(
            vc: ValidatorClientRef,
            responseType: typedesc,
            timeout: Duration,
+           statuses: set[RestBeaconNodeStatus],
            roles: set[BeaconNodeRole],
            body1, body2: untyped
          ): ApiResponse[responseType] =
-  var it {.inject.}: RestClientRef
+  var
+    it {.inject.}: RestClientRef
+    iterations = 0
 
   var timerFut =
     if timeout != InfiniteDuration:
@@ -97,9 +105,14 @@ template firstSuccessParallel*(
     var resultReady = false
     let onlineNodes =
       try:
-        if not isNil(timerFut):
-          await vc.waitOnlineNodes(timerFut, roles)
-        vc.onlineNodes(roles)
+        if iterations == 0:
+          # We are not going to wait for BNs if there some available.
+          await vc.waitNodes(timerFut, statuses, roles, false)
+        else:
+          # We get here only, if all the requests are failed. To avoid requests
+          # spam we going to wait for changes in BNs statuses.
+          await vc.waitNodes(timerFut, statuses, roles, true)
+        vc.filterNodes(statuses, roles)
       except CancelledError as exc:
         if not(isNil(timerFut)) and not(timerFut.finished()):
           await timerFut.cancelAndWait()
@@ -215,11 +228,18 @@ template firstSuccessParallel*(
           break
     if resultReady:
       break
+
+    inc(iterations)
   retRes
 
-template bestSuccess*(vc: ValidatorClientRef, responseType: typedesc,
-                      timeout: Duration, bodyRequest,
-                      bodyScore: untyped): ApiResponse[responseType] =
+template bestSuccess*(
+           vc: ValidatorClientRef,
+           responseType: typedesc,
+           timeout: Duration,
+           statuses: set[RestBeaconNodeStatus],
+           roles: set[BeaconNodeRole],
+           bodyRequest,
+           bodyScore: untyped): ApiResponse[responseType] =
   var it {.inject.}: RestClientRef
   type BodyType = typeof(bodyRequest)
 
@@ -231,9 +251,8 @@ template bestSuccess*(vc: ValidatorClientRef, responseType: typedesc,
 
   let onlineNodes =
     try:
-      if not isNil(timerFut):
-        await vc.waitOnlineNodes(timerFut)
-      vc.onlineNodes()
+      await vc.waitNodes(timerFut, statuses, roles, false)
+      vc.filterNodes(statuses, roles)
     except CancelledError as exc:
       if not(isNil(timerFut)) and not(timerFut.finished()):
         await timerFut.cancelAndWait()
@@ -339,9 +358,14 @@ template bestSuccess*(vc: ValidatorClientRef, responseType: typedesc,
       else:
         ApiResponse[responseType].err("Unable to get best response")
 
-template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
-                    timeout: Duration, roles: set[BeaconNodeRole],
-                    body: untyped): ApiResponseSeq[responseType] =
+template onceToAll*(
+           vc: ValidatorClientRef,
+           responseType: typedesc,
+           timeout: Duration,
+           statuses: set[RestBeaconNodeStatus],
+           roles: set[BeaconNodeRole],
+           body: untyped
+         ): ApiResponseSeq[responseType] =
   var it {.inject.}: RestClientRef
   type BodyType = typeof(body)
 
@@ -353,9 +377,8 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
 
   let onlineNodes =
     try:
-      if not isNil(timerFut):
-        await vc.waitOnlineNodes(timerFut, roles)
-      vc.onlineNodes(roles)
+      await vc.waitNodes(timerFut, statuses, roles, false)
+      vc.filterNodes(statuses, roles)
     except CancelledError as exc:
       if not(isNil(timerFut)) and not(timerFut.finished()):
         await timerFut.cancelAndWait()
@@ -459,12 +482,19 @@ template onceToAll*(vc: ValidatorClientRef, responseType: typedesc,
 
     ApiResponseSeq[responseType](status: status, data: responses)
 
-template firstSuccessSequential*(vc: ValidatorClientRef, respType: typedesc,
-                                 timeout: Duration,
-                                 roles: set[BeaconNodeRole], body: untyped,
-                                 handlers: untyped): untyped =
+template firstSuccessSequential*(
+           vc: ValidatorClientRef,
+           respType: typedesc,
+           timeout: Duration,
+           statuses: set[RestBeaconNodeStatus],
+           roles: set[BeaconNodeRole],
+           body: untyped,
+           handlers: untyped
+         ): untyped =
   doAssert(timeout != ZeroDuration)
-  var it {.inject.}: RestClientRef
+  var
+    it {.inject.}: RestClientRef
+    iterations = 0
 
   var timerFut =
     if timeout != InfiniteDuration:
@@ -472,15 +502,19 @@ template firstSuccessSequential*(vc: ValidatorClientRef, respType: typedesc,
     else:
       nil
 
-  var iterationsCount = 0
-
   while true:
     let onlineNodes =
       try:
-        await vc.waitOnlineNodes(timerFut, roles)
-        vc.onlineNodes(roles)
+        if iterations == 0:
+          # We are not going to wait for BNs if there some available.
+          await vc.waitNodes(timerFut, statuses, roles, false)
+        else:
+          # We get here only, if all the requests are failed. To avoid requests
+          # spam we going to wait for changes in BNs statuses.
+          await vc.waitNodes(timerFut, statuses, roles, true)
+        vc.filterNodes(statuses, roles)
       except CancelledError as exc:
-        # waitOnlineNodes do not cancel `timoutFuture`.
+        # waitNodes do not cancel `timoutFuture`.
         if not(isNil(timerFut)) and not(timerFut.finished()):
           await timerFut.cancelAndWait()
         raise exc
@@ -493,8 +527,8 @@ template firstSuccessSequential*(vc: ValidatorClientRef, respType: typedesc,
       # `onlineNodes` sequence is empty only if operation timeout exceeded.
       break
 
-    if iterationsCount != 0:
-      debug "Request got failed", iterations_count = iterationsCount
+    if iterations != 0:
+      debug "Request got failed", iterations_count = iterations
 
     var exitNow = false
 
@@ -614,7 +648,9 @@ proc getProposerDuties*(
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(RestResponse[GetProposerDutiesResponse],
-                                      SlotDuration, {BeaconNodeRole.Duties},
+                                      SlotDuration,
+                                      ViableNodeStatus,
+                                      {BeaconNodeRole.Duties},
                                       getProposerDuties(it, epoch)):
       if apiResponse.isErr():
         trace ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -647,7 +683,9 @@ proc getProposerDuties*(
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(RestResponse[GetProposerDutiesResponse],
-                              SlotDuration, {BeaconNodeRole.Duties},
+                              SlotDuration,
+                              ViableNodeStatus,
+                              {BeaconNodeRole.Duties},
                               getProposerDuties(it, epoch)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node,  error = apiResponse.error()
@@ -692,7 +730,9 @@ proc getAttesterDuties*(
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(RestResponse[GetAttesterDutiesResponse],
-                                      SlotDuration, {BeaconNodeRole.Duties},
+                                      SlotDuration,
+                                      ViableNodeStatus,
+                                      {BeaconNodeRole.Duties},
                                       getAttesterDuties(it, epoch, validators)):
       if apiResponse.isErr():
         trace ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -725,7 +765,9 @@ proc getAttesterDuties*(
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(RestResponse[GetAttesterDutiesResponse],
-                              SlotDuration, {BeaconNodeRole.Duties},
+                              SlotDuration,
+                              ViableNodeStatus,
+                              {BeaconNodeRole.Duties},
                               getAttesterDuties(it, epoch, validators)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node,
@@ -770,8 +812,11 @@ proc getSyncCommitteeDuties*(
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(
-      RestResponse[GetSyncCommitteeDutiesResponse], SlotDuration,
-      {BeaconNodeRole.Duties}, getSyncCommitteeDuties(it, epoch, validators)):
+      RestResponse[GetSyncCommitteeDutiesResponse],
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.Duties},
+      getSyncCommitteeDuties(it, epoch, validators)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
         RestBeaconNodeStatus.Offline
@@ -803,7 +848,9 @@ proc getSyncCommitteeDuties*(
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(RestResponse[GetSyncCommitteeDutiesResponse],
-                              SlotDuration, {BeaconNodeRole.Duties},
+                              SlotDuration,
+                              ViableNodeStatus,
+                              {BeaconNodeRole.Duties},
                               getSyncCommitteeDuties(it, epoch, validators)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -846,7 +893,9 @@ proc getForkSchedule*(
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(RestResponse[GetForkScheduleResponse],
-                                      SlotDuration, {BeaconNodeRole.Duties},
+                                      SlotDuration,
+                                      ViableNodeStatus,
+                                      {BeaconNodeRole.Duties},
                                       getForkSchedule(it)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -871,7 +920,9 @@ proc getForkSchedule*(
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(RestResponse[GetForkScheduleResponse],
-                              SlotDuration, {BeaconNodeRole.Duties},
+                              SlotDuration,
+                              ViableNodeStatus,
+                              {BeaconNodeRole.Duties},
                               getForkSchedule(it)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -908,6 +959,7 @@ proc getHeadBlockRoot*(
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(RestResponse[GetBlockRootResponse],
                                       SlotDuration,
+                                      ViableNodeStatus,
                                       {BeaconNodeRole.SyncCommitteeData},
                                       getBlockRoot(it, blockIdent)):
       if apiResponse.isErr():
@@ -940,7 +992,9 @@ proc getHeadBlockRoot*(
     return res.get().data
 
   of ApiStrategyKind.Priority:
-    vc.firstSuccessSequential(RestResponse[GetBlockRootResponse], SlotDuration,
+    vc.firstSuccessSequential(RestResponse[GetBlockRootResponse],
+                              SlotDuration,
+                              ViableNodeStatus,
                               {BeaconNodeRole.SyncCommitteeData},
                               getBlockRoot(it, blockIdent)):
       if apiResponse.isErr():
@@ -986,7 +1040,9 @@ proc getValidators*(
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(RestResponse[GetStateValidatorsResponse],
-                                      SlotDuration, {BeaconNodeRole.Duties},
+                                      SlotDuration,
+                                      ViableNodeStatus,
+                                      {BeaconNodeRole.Duties},
                                       getStateValidators(it, stateIdent, id)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1019,7 +1075,9 @@ proc getValidators*(
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(RestResponse[GetStateValidatorsResponse],
-                              SlotDuration, {BeaconNodeRole.Duties},
+                              SlotDuration,
+                              ViableNodeStatus,
+                              {BeaconNodeRole.Duties},
                               getStateValidators(it, stateIdent, id)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1065,7 +1123,9 @@ proc produceAttestationData*(
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(
       RestResponse[ProduceAttestationDataResponse],
-      OneThirdDuration, {BeaconNodeRole.AttestationData},
+      OneThirdDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.AttestationData},
       produceAttestationData(it, slot, committee_index)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1099,7 +1159,9 @@ proc produceAttestationData*(
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(
       RestResponse[ProduceAttestationDataResponse],
-      OneThirdDuration, {BeaconNodeRole.AttestationData},
+      OneThirdDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.AttestationData},
       produceAttestationData(it, slot, committee_index)):
 
       if apiResponse.isErr():
@@ -1145,7 +1207,9 @@ proc submitPoolAttestations*(
 
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
-    let res = vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
+    let res = vc.firstSuccessParallel(RestPlainResponse,
+                                      SlotDuration,
+                                      ViableNodeStatus,
                                       {BeaconNodeRole.AttestationPublish},
                                       submitPoolAttestations(it, data)):
       if apiResponse.isErr():
@@ -1159,22 +1223,27 @@ proc submitPoolAttestations*(
           RestBeaconNodeStatus.Online
         of 400:
           debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, response_error = response.getIndexedErrorMessage()
+                endpoint = node,
+                response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
-                endpoint = node, response_error = response.getIndexedErrorMessage()
+                endpoint = node,
+                response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
         else:
           debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, response_error = response.getIndexedErrorMessage()
+                endpoint = node,
+                response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
     if res.isErr():
       raise newException(ValidatorApiError, res.error())
     return true
 
   of ApiStrategyKind.Priority:
-    vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+    vc.firstSuccessSequential(RestPlainResponse,
+                              SlotDuration,
+                              ViableNodeStatus,
                               {BeaconNodeRole.AttestationPublish},
                               submitPoolAttestations(it, data)):
       if apiResponse.isErr():
@@ -1188,15 +1257,18 @@ proc submitPoolAttestations*(
           return true
         of 400:
           debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, response_error = response.getIndexedErrorMessage()
+                endpoint = node,
+                response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
-                endpoint = node, response_error = response.getIndexedErrorMessage()
+                endpoint = node,
+                response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
         else:
           debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, response_error = response.getIndexedErrorMessage()
+                endpoint = node,
+                response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
 
     raise newException(ValidatorApiError, ErrorMessage)
@@ -1224,7 +1296,10 @@ proc submitPoolSyncCommitteeSignature*(
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res =  vc.firstSuccessParallel(
-      RestPlainResponse, SlotDuration, {BeaconNodeRole.SyncCommitteePublish},
+      RestPlainResponse,
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.SyncCommitteePublish},
       submitPoolSyncCommitteeSignatures(it, @[restData])):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1237,15 +1312,18 @@ proc submitPoolSyncCommitteeSignature*(
           RestBeaconNodeStatus.Online
         of 400:
           debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, response_error = response.getIndexedErrorMessage()
+                endpoint = node,
+                response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
-                endpoint = node, response_error = response.getIndexedErrorMessage()
+                endpoint = node,
+                response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
         else:
           debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, response_error = response.getIndexedErrorMessage()
+                endpoint = node,
+                response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
     if res.isErr():
       raise newException(ValidatorApiError, res.error())
@@ -1253,7 +1331,10 @@ proc submitPoolSyncCommitteeSignature*(
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(
-      RestPlainResponse, SlotDuration, {BeaconNodeRole.SyncCommitteePublish},
+      RestPlainResponse,
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.SyncCommitteePublish},
       submitPoolSyncCommitteeSignatures(it, @[restData])):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1266,15 +1347,18 @@ proc submitPoolSyncCommitteeSignature*(
           return true
         of 400:
           debug ResponseInvalidError, response_code = response.status,
-                endpoint = node, response_error = response.getIndexedErrorMessage()
+                endpoint = node,
+                response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Incompatible
         of 500:
           debug ResponseInternalError, response_code = response.status,
-                endpoint = node, response_error = response.getIndexedErrorMessage()
+                endpoint = node,
+                response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
         else:
           debug ResponseUnexpectedError, response_code = response.status,
-                endpoint = node, response_error = response.getIndexedErrorMessage()
+                endpoint = node,
+                response_error = response.getIndexedErrorMessage()
           RestBeaconNodeStatus.Offline
 
     raise newException(ValidatorApiError, ErrorMessage)
@@ -1295,7 +1379,9 @@ proc getAggregatedAttestation*(
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(
       RestResponse[GetAggregatedAttestationResponse],
-      OneThirdDuration, {BeaconNodeRole.AggregatedData},
+      OneThirdDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.AggregatedData},
       getAggregatedAttestation(it, root, slot)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1325,7 +1411,9 @@ proc getAggregatedAttestation*(
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(
       RestResponse[GetAggregatedAttestationResponse],
-      OneThirdDuration, {BeaconNodeRole.AggregatedData},
+      OneThirdDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.AggregatedData},
       getAggregatedAttestation(it, root, slot)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1367,7 +1455,9 @@ proc produceSyncCommitteeContribution*(
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(
-      RestResponse[ProduceSyncCommitteeContributionResponse], OneThirdDuration,
+      RestResponse[ProduceSyncCommitteeContributionResponse],
+      OneThirdDuration,
+      ViableNodeStatus,
       {BeaconNodeRole.SyncCommitteeData},
       produceSyncCommitteeContribution(it, slot, subcommitteeIndex, root)):
       if apiResponse.isErr():
@@ -1397,7 +1487,9 @@ proc produceSyncCommitteeContribution*(
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(
-      RestResponse[ProduceSyncCommitteeContributionResponse], OneThirdDuration,
+      RestResponse[ProduceSyncCommitteeContributionResponse],
+      OneThirdDuration,
+      ViableNodeStatus,
       {BeaconNodeRole.SyncCommitteeData},
       produceSyncCommitteeContribution(it, slot, subcommitteeIndex, root)):
       if apiResponse.isErr():
@@ -1439,7 +1531,9 @@ proc publishAggregateAndProofs*(
 
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
-    let res = vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
+    let res = vc.firstSuccessParallel(RestPlainResponse,
+                                      SlotDuration,
+                                      ViableNodeStatus,
                                       {BeaconNodeRole.AggregatedPublish},
                                       publishAggregateAndProofs(it, data)):
       if apiResponse.isErr():
@@ -1471,7 +1565,9 @@ proc publishAggregateAndProofs*(
     return true
 
   of ApiStrategyKind.Priority:
-    vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+    vc.firstSuccessSequential(RestPlainResponse,
+                              SlotDuration,
+                              ViableNodeStatus,
                               {BeaconNodeRole.AggregatedPublish},
                               publishAggregateAndProofs(it, data)):
       if apiResponse.isErr():
@@ -1516,7 +1612,9 @@ proc publishContributionAndProofs*(
 
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
-    let res = vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
+    let res = vc.firstSuccessParallel(RestPlainResponse,
+                                      SlotDuration,
+                                      ViableNodeStatus,
                                       {BeaconNodeRole.SyncCommitteePublish},
                                       publishContributionAndProofs(it, data)):
       if apiResponse.isErr():
@@ -1549,7 +1647,9 @@ proc publishContributionAndProofs*(
     return true
 
   of ApiStrategyKind.Priority:
-    vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+    vc.firstSuccessSequential(RestPlainResponse,
+                              SlotDuration,
+                              ViableNodeStatus,
                               {BeaconNodeRole.SyncCommitteePublish},
                               publishContributionAndProofs(it, data)):
       if apiResponse.isErr():
@@ -1595,7 +1695,9 @@ proc produceBlockV2*(
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(
       RestResponse[ProduceBlockResponseV2],
-      SlotDuration, {BeaconNodeRole.BlockProposalData},
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.BlockProposalData},
       produceBlockV2(it, slot, randao_reveal, graffiti)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1629,7 +1731,9 @@ proc produceBlockV2*(
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(
       RestResponse[ProduceBlockResponseV2],
-      SlotDuration, {BeaconNodeRole.BlockProposalData},
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.BlockProposalData},
       produceBlockV2(it, slot, randao_reveal, graffiti)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1676,7 +1780,9 @@ proc publishBlock*(
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = block:
-      vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
+      vc.firstSuccessParallel(RestPlainResponse,
+                              SlotDuration,
+                              ViableNodeStatus,
                               {BeaconNodeRole.BlockProposalPublish}):
         case data.kind
         of ConsensusFork.Phase0:
@@ -1688,7 +1794,8 @@ proc publishBlock*(
         of ConsensusFork.Capella:
           publishBlock(it, data.capellaData)
         of ConsensusFork.EIP4844:
-          debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlock (1)"
+          debugRaiseAssert $eip4844ImplementationMissing &
+                           ": validator_client/api.nim:publishBlock (1)"
           let f = newFuture[RestPlainResponse]("")
           f.fail(new RestError)
           f
@@ -1731,7 +1838,9 @@ proc publishBlock*(
     return true
 
   of ApiStrategyKind.Priority:
-    vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+    vc.firstSuccessSequential(RestPlainResponse,
+                              SlotDuration,
+                              ViableNodeStatus,
                               {BeaconNodeRole.BlockProposalPublish}):
       case data.kind
       of ConsensusFork.Phase0:
@@ -1743,7 +1852,8 @@ proc publishBlock*(
       of ConsensusFork.Capella:
         publishBlock(it, data.capellaData)
       of ConsensusFork.EIP4844:
-        debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlock (2)"
+        debugRaiseAssert $eip4844ImplementationMissing &
+                         ": validator_client/api.nim:publishBlock (2)"
         let f = newFuture[RestPlainResponse]("")
         f.fail(new RestError)
         f
@@ -1800,7 +1910,9 @@ proc produceBlindedBlock*(
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = vc.firstSuccessParallel(
       RestResponse[ProduceBlindedBlockResponse],
-      SlotDuration, {BeaconNodeRole.BlockProposalData},
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.BlockProposalData},
       produceBlindedBlock(it, slot, randao_reveal, graffiti)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1834,7 +1946,9 @@ proc produceBlindedBlock*(
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(
       RestResponse[ProduceBlindedBlockResponse],
-      SlotDuration, {BeaconNodeRole.BlockProposalData},
+      SlotDuration,
+      ViableNodeStatus,
+      {BeaconNodeRole.BlockProposalData},
       produceBlindedBlock(it, slot, randao_reveal, graffiti)):
       if apiResponse.isErr():
         debug ErrorMessage, endpoint = node, error = apiResponse.error()
@@ -1881,7 +1995,9 @@ proc publishBlindedBlock*(
   case strategy
   of ApiStrategyKind.First, ApiStrategyKind.Best:
     let res = block:
-      vc.firstSuccessParallel(RestPlainResponse, SlotDuration,
+      vc.firstSuccessParallel(RestPlainResponse,
+                              SlotDuration,
+                              ViableNodeStatus,
                               {BeaconNodeRole.BlockProposalPublish}):
         case data.kind
         of ConsensusFork.Phase0:
@@ -1893,7 +2009,8 @@ proc publishBlindedBlock*(
         of ConsensusFork.Capella:
           publishBlindedBlock(it, data.capellaData)
         of ConsensusFork.EIP4844:
-          debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlindedBlock (1)"
+          debugRaiseAssert $eip4844ImplementationMissing &
+                           ": validator_client/api.nim:publishBlindedBlock (1)"
           let f = newFuture[RestPlainResponse]("")
           f.fail(new RestError)
           f
@@ -1935,7 +2052,9 @@ proc publishBlindedBlock*(
     return true
 
   of ApiStrategyKind.Priority:
-    vc.firstSuccessSequential(RestPlainResponse, SlotDuration,
+    vc.firstSuccessSequential(RestPlainResponse,
+                              SlotDuration,
+                              ViableNodeStatus,
                               {BeaconNodeRole.BlockProposalPublish}):
       case data.kind
       of ConsensusFork.Phase0:
@@ -1947,7 +2066,8 @@ proc publishBlindedBlock*(
       of ConsensusFork.Capella:
         publishBlindedBlock(it, data.capellaData)
       of ConsensusFork.EIP4844:
-        debugRaiseAssert $eip4844ImplementationMissing & ": validator_client/api.nim:publishBlindedBlock (2)"
+        debugRaiseAssert $eip4844ImplementationMissing &
+                         ": validator_client/api.nim:publishBlindedBlock (2)"
         let f = newFuture[RestPlainResponse]("")
         f.fail(new RestError)
         f
@@ -1992,7 +2112,9 @@ proc prepareBeaconCommitteeSubnet*(
        data: seq[RestCommitteeSubscription],
      ): Future[int] {.async.} =
   logScope: request = "prepareBeaconCommitteeSubnet"
-  let resp = vc.onceToAll(RestPlainResponse, SlotDuration,
+  let resp = vc.onceToAll(RestPlainResponse,
+                          SlotDuration,
+                          ViableNodeStatus,
                           {BeaconNodeRole.AggregatedData},
                           prepareBeaconCommitteeSubnet(it, data))
   if len(resp.data) == 0:
@@ -2034,7 +2156,9 @@ proc prepareSyncCommitteeSubnets*(
        data: seq[RestSyncCommitteeSubscription],
      ): Future[int] {.async.} =
   logScope: request = "prepareSyncCommitteeSubnet"
-  let resp = vc.onceToAll(RestPlainResponse, SlotDuration,
+  let resp = vc.onceToAll(RestPlainResponse,
+                          SlotDuration,
+                          ViableNodeStatus,
                           {BeaconNodeRole.SyncCommitteeData},
                           prepareSyncCommitteeSubnets(it, data))
   if len(resp.data) == 0:
@@ -2075,7 +2199,9 @@ proc getValidatorsActivity*(
        validators: seq[ValidatorIndex]
      ): Future[GetValidatorsActivityResponse] {.async.} =
   logScope: request = "getValidatorsActivity"
-  let resp = vc.onceToAll(RestPlainResponse, SlotDuration,
+  let resp = vc.onceToAll(RestPlainResponse,
+                          SlotDuration,
+                          ViableNodeStatus,
                           {BeaconNodeRole.Duties},
                           getValidatorsActivity(it, epoch, validators))
   case resp.status
@@ -2177,7 +2303,9 @@ proc prepareBeaconProposer*(
        data: seq[PrepareBeaconProposer]
      ): Future[int] {.async.} =
   logScope: request = "prepareBeaconProposer"
-  let resp = vc.onceToAll(RestPlainResponse, SlotDuration,
+  let resp = vc.onceToAll(RestPlainResponse,
+                          SlotDuration,
+                          ViableNodeStatus,
                           {BeaconNodeRole.BlockProposalPublish},
                           prepareBeaconProposer(it, data))
   if len(resp.data) == 0:
@@ -2218,7 +2346,9 @@ proc registerValidator*(
        data: seq[SignedValidatorRegistrationV1]
      ): Future[int] {.async.} =
   logScope: request = "registerValidators"
-  let resp = vc.onceToAll(RestPlainResponse, SlotDuration,
+  let resp = vc.onceToAll(RestPlainResponse,
+                          SlotDuration,
+                          ViableNodeStatus,
                           {BeaconNodeRole.BlockProposalPublish},
                           registerValidator(it, data))
   if len(resp.data) == 0:
@@ -2259,7 +2389,9 @@ proc getValidatorsLiveness*(
        validators: seq[ValidatorIndex]
      ): Future[GetValidatorsLivenessResponse] {.async.} =
   logScope: request = "getValidatorsActivity"
-  let resp = vc.onceToAll(RestPlainResponse, SlotDuration,
+  let resp = vc.onceToAll(RestPlainResponse,
+                          SlotDuration,
+                          ViableNodeStatus,
                           {BeaconNodeRole.Duties},
                           getValidatorsLiveness(it, epoch, validators))
   case resp.status
