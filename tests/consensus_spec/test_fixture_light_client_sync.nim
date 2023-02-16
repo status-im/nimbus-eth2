@@ -87,7 +87,7 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
           distinctBase(ForkDigest).fromHex(s{"update_fork_digest"}.getStr(
             distinctBase(fork_digests.altair).toHex())).ForkDigest
         update_state_fork =
-          fork_digests.stateForkForDigest(update_fork_digest)
+          fork_digests.consensusForkForDigest(update_fork_digest)
             .expect("Unknown update fork " & $update_fork_digest)
         update_filename = s["update"].getStr()
 
@@ -112,7 +112,7 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
           distinctBase(ForkDigest).fromHex(
             s["store_fork_digest"].getStr()).ForkDigest
         store_state_fork =
-          fork_digests.stateForkForDigest(store_fork_digest)
+          fork_digests.consensusForkForDigest(store_fork_digest)
             .expect("Unknown store fork " & $store_fork_digest)
 
       result.add TestStep(
@@ -177,7 +177,7 @@ proc runTest(path: string) =
     # Reduce stack size by making this a `proc`
     proc loadBootstrap(): ForkedLightClientBootstrap =
       let bootstrap_state_fork =
-        meta.fork_digests.stateForkForDigest(meta.bootstrap_fork_digest)
+        meta.fork_digests.consensusForkForDigest(meta.bootstrap_fork_digest)
           .expect("Unknown bootstrap fork " & $meta.bootstrap_fork_digest)
       var bootstrap {.noinit.}: ForkedLightClientBootstrap
       withLcDataFork(lcDataForkAtStateFork(bootstrap_state_fork)):
@@ -194,7 +194,7 @@ proc runTest(path: string) =
     proc initializeStore(
         bootstrap: ref ForkedLightClientBootstrap): ForkedLightClientStore =
       let store_state_fork =
-        meta.fork_digests.stateForkForDigest(meta.store_fork_digest)
+        meta.fork_digests.consensusForkForDigest(meta.store_fork_digest)
           .expect("Unknown store fork " & $meta.store_fork_digest)
       var store {.noinit.}: ForkedLightClientStore
       withLcDataFork(lcDataForkAtStateFork(store_state_fork)):

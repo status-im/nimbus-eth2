@@ -654,7 +654,7 @@ func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
   elif epoch >= cfg.ALTAIR_FORK_EPOCH:    ConsensusFork.Altair
   else:                                   ConsensusFork.Phase0
 
-func stateForkForDigest*(
+func consensusForkForDigest*(
     forkDigests: ForkDigests, forkDigest: ForkDigest): Opt[ConsensusFork] =
   static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
   if   forkDigest == forkDigests.eip4844:

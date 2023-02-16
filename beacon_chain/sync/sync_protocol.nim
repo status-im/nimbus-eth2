@@ -164,7 +164,7 @@ proc readChunkPayload*(
   except CatchableError:
     return neterr UnexpectedEOF
   let contextFork =
-    peer.network.forkDigests[].stateForkForDigest(contextBytes).valueOr:
+    peer.network.forkDigests[].consensusForkForDigest(contextBytes).valueOr:
       return neterr InvalidContextBytes
 
   withLcDataFork(lcDataForkAtStateFork(contextFork)):
