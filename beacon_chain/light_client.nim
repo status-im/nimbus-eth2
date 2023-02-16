@@ -287,7 +287,7 @@ proc installMessageValidators*(
       validatorProcName: untyped): ValidationResult =
     msg.logReceived()
 
-    if contextFork != lightClient.cfg.stateForkAtEpoch(msg.contextEpoch):
+    if contextFork != lightClient.cfg.consensusForkAtEpoch(msg.contextEpoch):
       msg.logDropped(
         (ValidationResult.Reject, cstring "Invalid context fork"))
       return ValidationResult.Reject

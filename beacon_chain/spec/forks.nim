@@ -638,7 +638,7 @@ func getStateRoot*(x: ForkedHashedBeaconState): Eth2Digest =
 func setStateRoot*(x: var ForkedHashedBeaconState, root: Eth2Digest) =
   withState(x): forkyState.root = root
 
-func stateForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
+func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
   ## Return the current fork for the given epoch.
   static:
     doAssert high(ConsensusFork) == ConsensusFork.EIP4844
@@ -695,7 +695,7 @@ func atStateFork*(
 
 template atEpoch*(
     forkDigests: ForkDigests, epoch: Epoch, cfg: RuntimeConfig): ForkDigest =
-  forkDigests.atStateFork(cfg.stateForkAtEpoch(epoch))
+  forkDigests.atStateFork(cfg.consensusForkAtEpoch(epoch))
 
 template asSigned*(
     x: ForkedMsgTrustedSignedBeaconBlock |
@@ -898,7 +898,7 @@ func denebFork*(cfg: RuntimeConfig): Fork =
     epoch: cfg.DENEB_FORK_EPOCH)
 
 func forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
-  case cfg.stateForkAtEpoch(epoch)
+  case cfg.consensusForkAtEpoch(epoch)
   of ConsensusFork.EIP4844:   cfg.denebFork
   of ConsensusFork.Capella:   cfg.capellaFork
   of ConsensusFork.Bellatrix: cfg.bellatrixFork
@@ -906,7 +906,7 @@ func forkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Fork =
   of ConsensusFork.Phase0:    cfg.genesisFork
 
 func forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
-  case cfg.stateForkAtEpoch(epoch)
+  case cfg.consensusForkAtEpoch(epoch)
   of ConsensusFork.EIP4844:   cfg.DENEB_FORK_VERSION
   of ConsensusFork.Capella:   cfg.CAPELLA_FORK_VERSION
   of ConsensusFork.Bellatrix: cfg.BELLATRIX_FORK_VERSION
@@ -914,7 +914,8 @@ func forkVersionAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Version =
   of ConsensusFork.Phase0:    cfg.GENESIS_FORK_VERSION
 
 func nextForkEpochAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): Epoch =
-  case cfg.stateForkAtEpoch(epoch)
+  static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
+  case cfg.consensusForkAtEpoch(epoch)
   of ConsensusFork.EIP4844:   FAR_FUTURE_EPOCH
   of ConsensusFork.Capella:   cfg.DENEB_FORK_EPOCH
   of ConsensusFork.Bellatrix: cfg.CAPELLA_FORK_EPOCH
@@ -961,7 +962,7 @@ func readSszForkedHashedBeaconState*(
     ForkedHashedBeaconState {.raises: [Defect, SszError].} =
   # TODO https://github.com/nim-lang/Nim/issues/19357
   result = ForkedHashedBeaconState(
-    kind: cfg.stateForkAtEpoch(slot.epoch()))
+    kind: cfg.consensusForkAtEpoch(slot.epoch()))
 
   withState(result):
     readSszBytes(data, forkyState.data)

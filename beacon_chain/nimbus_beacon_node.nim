@@ -151,7 +151,7 @@ proc loadChainDag(
     withForkyFinalityUpdate(data):
       when lcDataFork > LightClientDataFork.None:
         let contextFork =
-          dag.cfg.stateForkAtEpoch(forkyFinalityUpdate.contextEpoch)
+          dag.cfg.consensusForkAtEpoch(forkyFinalityUpdate.contextEpoch)
         eventBus.finUpdateQueue.emit(
           RestVersioned[ForkedLightClientFinalityUpdate](
             data: data,
@@ -162,7 +162,7 @@ proc loadChainDag(
     withForkyOptimisticUpdate(data):
       when lcDataFork > LightClientDataFork.None:
         let contextFork =
-          dag.cfg.stateForkAtEpoch(forkyOptimisticUpdate.contextEpoch)
+          dag.cfg.consensusForkAtEpoch(forkyOptimisticUpdate.contextEpoch)
         eventBus.optUpdateQueue.emit(
           RestVersioned[ForkedLightClientOptimisticUpdate](
             data: data,
@@ -889,7 +889,7 @@ func getSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   # but more than SYNC_COMMITTEE_SUBNET_COUNT epochs from when the next sync
   # committee period begins, in which case `epochsToNextSyncPeriod` is none.
   if  epochsToSyncPeriod.isNone or
-      node.dag.cfg.stateForkAtEpoch(epoch + epochsToSyncPeriod.get) <
+      node.dag.cfg.consensusForkAtEpoch(epoch + epochsToSyncPeriod.get) <
         ConsensusFork.Altair:
     return subnets
 
