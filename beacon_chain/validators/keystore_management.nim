@@ -578,8 +578,7 @@ proc removeValidator*(pool: var ValidatorPool,
                       publicKey: ValidatorPubKey,
                       kind: KeystoreKind): KmResult[RemoveValidatorStatus] {.
      raises: [Defect].} =
-  let validator = pool.getValidator(publicKey)
-  if isNil(validator):
+  let validator = pool.getValidator(publicKey).valueOr:
     return ok(RemoveValidatorStatus.notFound)
   if validator.kind.toKeystoreKind() != kind:
     return ok(RemoveValidatorStatus.notFound)

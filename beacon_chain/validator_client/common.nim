@@ -515,22 +515,23 @@ proc addValidator*(vc: ValidatorClientRef, keystore: KeystoreData) =
 
 proc removeValidator*(vc: ValidatorClientRef,
                       pubkey: ValidatorPubKey) {.async.} =
-  let validator = vc.attachedValidators[].getValidator(pubkey)
-  if not(isNil(validator)):
-    case validator.kind
-    of ValidatorKind.Local:
-      discard
-    of ValidatorKind.Remote:
-      # We must close all the REST clients running for the remote validator.
-      let pending =
-        block:
-          var res: seq[Future[void]]
-          for item in validator.clients:
-            res.add(item[0].closeWait())
-          res
-      await allFutures(pending)
-    # Remove validator from ValidatorPool.
-    vc.attachedValidators[].removeValidator(pubkey)
+  let validator = vc.attachedValidators[].getValidator(pubkey).valueOr:
+    return
+  # Remove validator from ValidatorPool.
+  vc.attachedValidators[].removeValidator(pubkey)
+
+  case validator.kind
+  of ValidatorKind.Local:
+    discard
+  of ValidatorKind.Remote:
+    # We must close all the REST clients running for the remote validator.
+    let pending =
+      block:
+        var res: seq[Future[void]]
+        for item in validator.clients:
+          res.add(item[0].closeWait())
+        res
+    await allFutures(pending)
 
 proc getFeeRecipient*(vc: ValidatorClientRef, pubkey: ValidatorPubKey,
                       validatorIdx: ValidatorIndex,

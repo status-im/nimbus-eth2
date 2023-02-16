@@ -193,8 +193,9 @@ proc addValidator*(pool: var ValidatorPool,
   of KeystoreKind.Remote: pool.addRemoteValidator(keystore, feeRecipient)
 
 proc getValidator*(pool: ValidatorPool,
-                   validatorKey: ValidatorPubKey): AttachedValidator =
-  pool.validators.getOrDefault(validatorKey)
+                   validatorKey: ValidatorPubKey): Opt[AttachedValidator] =
+  let v = pool.validators.getOrDefault(validatorKey)
+  if v == nil: Opt.none(AttachedValidator) else: Opt.some(v)
 
 proc contains*(pool: ValidatorPool, pubkey: ValidatorPubKey): bool =
   ## Returns ``true`` if validator with key ``pubkey`` present in ``pool``.
@@ -313,27 +314,28 @@ proc doppelgangerReady*(validator: AttachedValidator, slot: Slot): bool =
   let epoch = slot.epoch
   epoch == validator.activationEpoch or
     (validator.doppelCheck.isSome and
-      (validator.doppelCheck.get() + 1 == epoch or
-      ((validator.doppelCheck.get() + 2).start_slot) == slot))
+      (((validator.doppelCheck.get() + 1) == epoch) or
+      (((validator.doppelCheck.get() + 2).start_slot) == slot)))
 
 proc getValidatorForDuties*(
     pool: ValidatorPool, key: ValidatorPubKey, slot: Slot,
-    doppelActivity = false, syncCommitteeDuty = false):
+    doppelActivity = false, slashingSafe = false):
     Opt[AttachedValidator] =
   ## Return validator only if it is ready for duties (has index and has passed
   ## doppelganger check where applicable)
-  let validator = pool.getValidator(key)
-  if isNil(validator) or validator.index.isNone():
+  let validator = ? pool.getValidator(key)
+  if validator.index.isNone():
     return Opt.none(AttachedValidator)
 
   # Sync committee duties are not slashable, so we perform them even during
   # doppelganger detection
   if pool.doppelgangerDetectionEnabled and
       not validator.doppelgangerReady(slot) and
-      not syncCommitteeDuty:
+      not slashingSafe:
     notice "Doppelganger detection active - " &
           "skipping validator duties while observing the network",
             validator = shortLog(validator),
+            slot,
             doppelCheck = validator.doppelCheck,
             activationEpoch = shortLog(validator.activationEpoch)
 
@@ -349,7 +351,7 @@ proc getValidatorForDuties*(
 func triggersDoppelganger*(
     pool: ValidatorPool, pubkey: ValidatorPubKey, epoch: Epoch): bool =
   let v = pool.getValidator(pubkey)
-  v != nil and v.triggersDoppelganger(epoch)
+  v.isSome() and v[].triggersDoppelganger(epoch)
 
 proc signWithDistributedKey(v: AttachedValidator,
                             request: Web3SignerRequest): Future[SignatureResult]

@@ -87,16 +87,15 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
     list: seq[AttachedValidator]
 
   for item in validators:
-    var validator = vc.attachedValidators[].getValidator(item.validator.pubkey)
-    if isNil(validator):
-      validator.updateValidator(Opt.none ValidatorAndIndex)
+    let validator = vc.attachedValidators[].getValidator(item.validator.pubkey)
+    if validator.isNone():
       missing.add(validatorLog(item.validator.pubkey, item.index))
     else:
-      validator.updateValidator(Opt.some ValidatorAndIndex(
+      validator.get().updateValidator(Opt.some ValidatorAndIndex(
         index: item.index,
         validator: item.validator))
       updated.add(validatorLog(item.validator.pubkey, item.index))
-      list.add(validator)
+      list.add(validator.get())
 
   if len(updated) > 0:
     info "Validator indices updated",
@@ -199,7 +198,9 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
     var pendingRequests: seq[Future[SignatureResult]]
     var validators: seq[AttachedValidator]
     for item in addOrReplaceItems:
-      let validator = vc.attachedValidators[].getValidator(item.duty.pubkey)
+      let validator =
+          vc.attachedValidators[].getValidator(item.duty.pubkey).valueOr:
+        continue
       let fork = vc.forkAtEpoch(item.duty.slot.epoch)
       let future = validator.getSlotSignature(
         fork, genesisRoot, item.duty.slot)
