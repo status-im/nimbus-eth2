@@ -250,7 +250,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
     let blck = blockRefs[blockRefs.len - b - 1]
 
     withTimer(timers[tLoadBlock]):
-      case cfg.blockForkAtEpoch(blck.slot.epoch)
+      case cfg.consensusForkAtEpoch(blck.slot.epoch)
       of ConsensusFork.Phase0:
         blocks[0].add dag.db.getBlock(
           blck.root, phase0.TrustedSignedBeaconBlock).get()

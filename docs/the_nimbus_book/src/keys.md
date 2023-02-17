@@ -53,6 +53,10 @@ If your `validator_keys` folder is stored elsewhere, you can pass its location t
 
 Replacing `/path/to/keys` with the full pathname of where the `validator_keys` directory is found.
 
+## Optimised import for a large number of validators
+
+If you plan to use a large number of validators (e.g. more than 100) on a single beacon node or a validator client, you might benefit from running the `deposits import` command with the option `--method=single-salt`. This will force Nimbus to use the same password and random salt value when encrypting all of the imported keystores which will later enable it to load the large number of validator keys almost instantly. The theoretical downside of using this approach is that it makes the brute-force cracking of all imported keystores computationally equivalent to cracking just one of them. Nevertheless, the security parameters used by Ethereum are such that cracking even a single keystore is considered computationally infeasible with current hardware.
+
 ## Troubleshooting
 
 If you come across an error, make sure that:

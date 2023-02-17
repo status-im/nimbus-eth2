@@ -154,10 +154,12 @@ type
     syncCommitteeService*: SyncCommitteeServiceRef
     doppelgangerService*: DoppelgangerServiceRef
     runSlotLoopFut*: Future[void]
+    runKeystoreCachePruningLoopFut*: Future[void]
     sigintHandleFut*: Future[void]
     sigtermHandleFut*: Future[void]
     keymanagerHost*: ref KeymanagerHost
     keymanagerServer*: RestServerRef
+    keystoreCache*: KeystoreCacheRef
     beaconClock*: BeaconClock
     attachedValidators*: ref ValidatorPool
     forks*: seq[Fork]

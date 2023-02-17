@@ -67,7 +67,7 @@ proc main =
     secretsDir = conf.secretsDir
     keystore = loadKeystore(validatorsDir,
                             secretsDir,
-                            conf.key, true).valueOr:
+                            conf.key, true, nil).valueOr:
       error "Can't load keystore", validatorsDir, secretsDir, pubkey = conf.key
       quit 1
 
@@ -88,7 +88,7 @@ proc main =
 
   let
     outSharesDir = conf.outDir / "shares"
-    status = generateDistirbutedStore(
+    status = generateDistributedStore(
       rngCtx,
       shares,
       signingPubKey,

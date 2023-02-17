@@ -675,6 +675,7 @@ proc init*(T: type BeaconNode,
     restServer: restServer,
     keymanagerHost: keymanagerHost,
     keymanagerServer: keymanagerInitResult.server,
+    keystoreCache: KeystoreCacheRef.init(),
     eventBus: eventBus,
     gossipState: {},
     blocksGossipState: {},
@@ -1542,11 +1543,13 @@ proc installMessageValidators(node: BeaconNode) =
     installSyncCommitteeeValidators(forkDigests.eip4844)
 
   template installBlsToExecutionChangeValidators(digest: auto) =
-    node.network.addValidator(
+    node.network.addAsyncValidator(
       getBlsToExecutionChangeTopic(digest),
-      proc(msg: SignedBLSToExecutionChange): ValidationResult =
+      proc(msg: SignedBLSToExecutionChange):
+          Future[ValidationResult] {.async.} =
         return toValidationResult(
-          node.processor[].processBlsToExecutionChange(MsgSource.gossip, msg)))
+          await node.processor.processBlsToExecutionChange(
+            MsgSource.gossip, msg)))
 
   installBlsToExecutionChangeValidators(forkDigests.capella)
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
@@ -1612,6 +1615,7 @@ proc run(node: BeaconNode) {.raises: [Defect, CatchableError].} =
   asyncSpawn runSlotLoop(node, wallTime, onSlotStart)
   asyncSpawn runOnSecondLoop(node)
   asyncSpawn runQueueProcessingLoop(node.blockProcessor)
+  asyncSpawn runKeystoreCachePruningLoop(node.keystoreCache)
 
   ## Ctrl+C handling
   proc controlCHandler() {.noconv.} =

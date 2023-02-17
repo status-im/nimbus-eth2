@@ -202,11 +202,21 @@ func contribution_and_proof_signature_set*(
 
   SignatureSet.init(pubkey, signing_root, signature)
 
-func collectSignatureSets*(
+func bls_to_execution_change_signature_set*(
+    genesisFork: Fork, genesis_validators_root: Eth2Digest,
+    msg: BLSToExecutionChange,
+    pubkey: CookedPubKey, signature: CookedSig): SignatureSet =
+  let signing_root = compute_bls_to_execution_change_signing_root(
+    genesisFork, genesis_validators_root, msg)
+
+  SignatureSet.init(pubkey, signing_root, signature)
+
+proc collectSignatureSets*(
        sigs: var seq[SignatureSet],
        signed_block: ForkySignedBeaconBlock,
        validatorKeys: auto,
        state: ForkedHashedBeaconState,
+       genesis_fork: Fork,
        cache: var StateCache): Result[void, cstring] =
   ## Collect all signature verifications that process_block would normally do
   ## except deposits, in one go.
@@ -218,7 +228,8 @@ func collectSignatureSets*(
   ## - Attester slashings
   ## - Attestations
   ## - VoluntaryExits
-  ## - SyncCommittee (altair+)
+  ## - SyncCommittee (Altair+)
+  ## - BLS to execution changes (Capella+)
   ##
   ## We do not include deposits as they can be invalid while still leaving the
   ## block valid
@@ -234,6 +245,8 @@ func collectSignatureSets*(
     proposer_key = validatorKeys.load(proposer_index).valueOr:
       return err("collectSignatureSets: invalid proposer index")
     epoch = signed_block.message.slot.epoch()
+
+  doAssert genesis_fork.previous_version == genesis_fork.current_version
 
   # 1. Block proposer
   # ----------------------------------------------------
@@ -394,6 +407,27 @@ func collectSignatureSets*(
               pubkey,
               signed_block.message.body.sync_aggregate.sync_committee_signature.load().valueOr do:
                 return err("collectSignatureSets: cannot load signature"))
+
+  block:
+    # 8. BLS to execution changes
+    when typeof(signed_block).toFork() >= ConsensusFork.Capella:
+      withState(state):
+        when stateFork >= ConsensusFork.Capella:
+          for bls_change in signed_block.message.body.bls_to_execution_changes:
+            let sig = bls_change.signature.load.valueOr:
+              return err("collectSignatureSets: cannot load BLS to execution change signature")
+
+            # Otherwise, expensive loadWithCache can be spammed with irrelevant pubkeys
+            ? check_bls_to_execution_change(
+              genesis_fork, forkyState.data, bls_change, {skipBlsValidation})
+
+            let validator_pubkey =
+              bls_change.message.from_bls_pubkey.loadWithCache.valueOr:
+                return err("collectSignatureSets: cannot load BLS to execution change pubkey")
+
+            sigs.add bls_to_execution_change_signature_set(
+              genesis_fork, genesis_validators_root, bls_change.message,
+              validator_pubkey, sig)
 
   ok()
 

@@ -86,7 +86,7 @@ proc initGenesis(vc: ValidatorClientRef): Future[RestGenesis] {.async.} =
 proc initValidators(vc: ValidatorClientRef): Future[bool] {.async.} =
   info "Loading validators", validatorsDir = vc.config.validatorsDir()
   var duplicates: seq[ValidatorPubKey]
-  for keystore in listLoadableKeystores(vc.config):
+  for keystore in listLoadableKeystores(vc.config, vc.keystoreCache):
     vc.addValidator(keystore)
   return true
 
@@ -208,7 +208,8 @@ proc new*(T: type ValidatorClientRef,
       indicesAvailable: newAsyncEvent(),
       dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
       sigintHandleFut: waitSignal(SIGINT),
-      sigtermHandleFut: waitSignal(SIGTERM)
+      sigtermHandleFut: waitSignal(SIGTERM),
+      keystoreCache: KeystoreCacheRef.init()
     )
   else:
     ValidatorClientRef(
@@ -222,7 +223,8 @@ proc new*(T: type ValidatorClientRef,
       doppelExit: newAsyncEvent(),
       dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()),
       sigintHandleFut: newFuture[void]("sigint_placeholder"),
-      sigtermHandleFut: newFuture[void]("sigterm_placeholder")
+      sigtermHandleFut: newFuture[void]("sigterm_placeholder"),
+      keystoreCache: KeystoreCacheRef.init()
     )
 
 proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
@@ -311,6 +313,8 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   var doppelEventFut = vc.doppelExit.wait()
   try:
     vc.runSlotLoopFut = runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
+    vc.runKeystoreCachePruningLoopFut =
+      runKeystorecachePruningLoop(vc.keystoreCache)
     discard await race(vc.runSlotLoopFut, doppelEventFut)
     if not(vc.runSlotLoopFut.finished()):
       notice "Received shutdown event, exiting"
@@ -334,6 +338,8 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   var pending: seq[Future[void]]
   if not(vc.runSlotLoopFut.finished()):
     pending.add(vc.runSlotLoopFut.cancelAndWait())
+  if not(vc.runKeystoreCachePruningLoopFut.finished()):
+    pending.add(vc.runKeystoreCachePruningLoopFut.cancelAndWait())
   if not(doppelEventFut.finished()):
     pending.add(doppelEventFut.cancelAndWait())
   debug "Stopping running services"
