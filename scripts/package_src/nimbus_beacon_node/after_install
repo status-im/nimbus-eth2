@@ -3,7 +3,7 @@ set -e
 
 DISTRO="UNKNOWN"
 if [ -r /etc/os-release ]; then
-    source /etc/os-release
+    . /etc/os-release
     DISTRO="${ID}"
 fi
 
