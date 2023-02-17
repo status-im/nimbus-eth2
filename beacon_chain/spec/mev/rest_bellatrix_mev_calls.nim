@@ -16,24 +16,24 @@ proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
                        ): RestPlainResponse {.
      rest, endpoint: "/eth/v1/builder/validators",
      meth: MethodPost, connection: {Dedicated, Close}.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.2.0/apis/builder/validators.yaml
-  ## https://github.com/ethereum/beacon-APIs/blob/master/apis/validator/register_validator.yaml
+  ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/validators.yaml
+  ## https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
 
 proc getHeader*(slot: Slot,
                 parent_hash: Eth2Digest,
                 pubkey: ValidatorPubKey
-               ): RestResponse[GetHeaderResponse] {.
+               ): RestResponse[GetHeaderResponseBellatrix] {.
      rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
      meth: MethodGet, connection: {Dedicated, Close}.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.2.0/apis/builder/header.yaml
+  ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/header.yaml
 
 proc submitBlindedBlock*(body: bellatrix_mev.SignedBlindedBeaconBlock
                         ): RestResponse[SubmitBlindedBlockResponseBellatrix] {.
      rest, endpoint: "/eth/v1/builder/blinded_blocks",
      meth: MethodPost, connection: {Dedicated, Close}.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.2.0/apis/builder/blinded_blocks.yaml
+  ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/blinded_blocks.yaml
 
 proc checkBuilderStatus*(): RestPlainResponse {.
      rest, endpoint: "/eth/v1/builder/status",
      meth: MethodGet, connection: {Dedicated, Close}.}
-  ## https://github.com/ethereum/builder-specs/blob/v0.2.0/apis/builder/status.yaml
+  ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/status.yaml

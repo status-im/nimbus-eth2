@@ -11,30 +11,30 @@ from stew/byteutils import to0xHex
 {.push raises: [].}
 
 type
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#validatorregistrationv1
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#validatorregistrationv1
   ValidatorRegistrationV1* = object
     fee_recipient*: ExecutionAddress
     gas_limit*: uint64
     timestamp*: uint64
     pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#signedvalidatorregistrationv1
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signedvalidatorregistrationv1
   SignedValidatorRegistrationV1* = object
     message*: ValidatorRegistrationV1
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#builderbid
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#builderbid
   BuilderBid* = object
     header*: ExecutionPayloadHeader
     value*: UInt256
     pubkey*: ValidatorPubKey
 
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#signedbuilderbid
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signedbuilderbid
   SignedBuilderBid* = object
     message*: BuilderBid
     signature*: ValidatorSig
 
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#blindedbeaconblockbody
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#blindedbeaconblockbody
   BlindedBeaconBlockBody = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -47,7 +47,7 @@ type
     sync_aggregate*: SyncAggregate
     execution_payload_header*: ExecutionPayloadHeader
 
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#blindedbeaconblock
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#blindedbeaconblock
   BlindedBeaconBlock* = object
     slot*: Slot
     proposer_index*: uint64
@@ -55,16 +55,16 @@ type
     state_root*: Eth2Digest
     body*: BlindedBeaconBlockBody
 
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#signedblindedbeaconblock
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signedblindedbeaconblock
   SignedBlindedBeaconBlock* = object
     message*: BlindedBeaconBlock
     signature*: ValidatorSig
 
 const
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#domain-types
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#domain-types
   DOMAIN_APPLICATION_BUILDER* = DomainType([byte 0x00, 0x00, 0x00, 0x01])
 
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#constants
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#constants
   EPOCHS_PER_VALIDATOR_REGISTRATION_SUBMISSION* = 1
   BUILDER_PROPOSAL_DELAY_TOLERANCE* = 1.seconds
 

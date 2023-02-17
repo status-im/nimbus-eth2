@@ -76,7 +76,7 @@ proc unblindAndRouteBlockMEV*(
     else:
       # Signature provided is consistent with unblinded execution payload,
       # so construct full beacon block
-      # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#block-proposal
+      # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
       var signedBlock = bellatrix.SignedBeaconBlock(
         signature: blindedBlock.signature)
       copyFields(
@@ -110,12 +110,12 @@ proc unblindAndRouteBlockMEV*(
     debug "unblindAndRouteBlockMEV: submitBlindedBlock failed",
       blindedBlock, payloadStatus = unblindedPayload.status
 
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#proposer-slashing
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#proposer-slashing
   # This means if a validator publishes a signature for a
   # `BlindedBeaconBlock` (via a dissemination of a
   # `SignedBlindedBeaconBlock`) then the validator **MUST** not use the
   # local build process as a fallback, even in the event of some failure
-  # with the external buildernetwork.
+  # with the external builder network.
   return err("unblindAndRouteBlockMEV error")
 
 # TODO currently cannot be combined into one generic function
