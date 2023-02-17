@@ -403,15 +403,17 @@ proc processSignedAggregateAndProof*(
     err(v.error())
 
 proc processBlsToExecutionChange*(
-    self: var Eth2Processor, src: MsgSource,
-    blsToExecutionChange: SignedBLSToExecutionChange): ValidationRes =
+    self: ref Eth2Processor, src: MsgSource,
+    blsToExecutionChange: SignedBLSToExecutionChange):
+    Future[ValidationRes] {.async.} =
   logScope:
     blsToExecutionChange = shortLog(blsToExecutionChange)
 
   debug "BLS to execution change received"
 
-  let v = self.validatorChangePool[].validateBlsToExecutionChange(
-    blsToExecutionChange, self.getCurrentBeaconTime().slotOrZero.epoch)
+  let v = await self.validatorChangePool[].validateBlsToExecutionChange(
+    self.batchCrypto, blsToExecutionChange,
+    self.getCurrentBeaconTime().slotOrZero.epoch)
 
   if v.isOk():
     trace "BLS to execution change validated"
@@ -422,7 +424,7 @@ proc processBlsToExecutionChange*(
     debug "Dropping BLS to execution change", validationError = v.error
     beacon_attester_slashings_dropped.inc(1, [$v.error[0]])
 
-  v
+  return v
 
 proc processAttesterSlashing*(
     self: var Eth2Processor, src: MsgSource,

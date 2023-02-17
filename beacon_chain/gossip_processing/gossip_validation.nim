@@ -814,8 +814,9 @@ proc validateAggregate*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/p2p-interface.md#bls_to_execution_change
 proc validateBlsToExecutionChange*(
-    pool: ValidatorChangePool, signed_address_change: SignedBLSToExecutionChange,
-    wallEpoch: Epoch): Result[void, ValidationError] =
+    pool: ValidatorChangePool, batchCrypto: ref BatchCrypto,
+    signed_address_change: SignedBLSToExecutionChange,
+    wallEpoch: Epoch): Future[Result[void, ValidationError]] {.async.} =
   # [IGNORE] `current_epoch >= CAPELLA_FORK_EPOCH`, where `current_epoch` is
   # defined by the current wall-clock time.
   if not (wallEpoch >= pool.dag.cfg.CAPELLA_FORK_EPOCH):
@@ -834,11 +835,28 @@ proc validateBlsToExecutionChange*(
       return errIgnore("validateBlsToExecutionChange: can't validate against pre-Capella state")
     else:
       let res = check_bls_to_execution_change(
-        pool.dag.cfg, forkyState.data, signed_address_change)
+        pool.dag.cfg.genesisFork, forkyState.data, signed_address_change,
+        {skipBlsValidation})
       if res.isErr:
         return errReject(res.error)
 
-  ok()
+    # BLS to execution change signatures are batch-verified
+    let deferredCrypto = batchCrypto.scheduleBlsToExecutionChangeCheck(
+      pool.dag.cfg.genesisFork, pool.dag.genesis_validators_root,
+      signed_address_change)
+    if deferredCrypto.isErr():
+      return checkedReject(deferredCrypto.error)
+
+    let (cryptoFut, sig) = deferredCrypto.get()
+    case await cryptoFut
+    of BatchResult.Invalid:
+      return checkedReject("validateBlsToExecutionChange: invalid signature")
+    of BatchResult.Timeout:
+      return errIgnore("validateBlsToExecutionChange: timeout checking signature")
+    of BatchResult.Valid:
+      discard  # keep going only in this case
+
+  return ok()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
