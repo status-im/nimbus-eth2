@@ -2,10 +2,13 @@
 ==================
 
 Nimbus `v23.2.0` is a `low-urgency` upgrade providing full support for the upcoming
-Capella hard-fork. So far, the fork epoch is specified only for the Sepolia testnet
-which will execute the transition on 28th of February.
+Capella hard-fork on the Sepolia testnet. Keep an eye out for future mainnet releases!
 
 ### Improvements
+
+* Status now provides an APT repository that will host the latest version of the
+  Nimbus beacon node and validator client software:
+  https://apt.status.im/
 
 * The `deposits import` command now provides the option `--method=single-salt` which
   will significantly improve the keystore loading speed on start-up on beacon nodes
