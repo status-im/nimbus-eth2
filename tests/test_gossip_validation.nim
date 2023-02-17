@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -47,7 +47,9 @@ suite "Gossip validation " & preset():
       state = newClone(dag.headState)
       cache = StateCache()
       info = ForkedEpochInfo()
-      batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false, taskpool)
+      batchCrypto = BatchCrypto.new(
+        keys.newRng(), eager = proc(): bool = false,
+        genesis_validators_root = dag.genesis_validators_root, taskpool)
     # Slot 0 is a finalized slot - won't be making attestations for it..
     check:
       process_slots(
@@ -185,7 +187,6 @@ suite "Gossip validation - Extra": # Not based on preset config
         cfg
       taskpool = Taskpool.new()
       quarantine = newClone(Quarantine.init())
-      batchCrypto = BatchCrypto.new(keys.newRng(), eager = proc(): bool = false, taskpool)
     var
       verifier = BatchVerifier(rng: keys.newRng(), taskpool: Taskpool.new())
       dag = block:
@@ -216,6 +217,12 @@ suite "Gossip validation - Extra": # Not based on preset config
           check: added.isOk()
           dag.updateHead(added[], quarantine[])
         dag
+
+    let batchCrypto = BatchCrypto.new(
+      keys.newRng(), eager = proc(): bool = false,
+      genesis_validators_root = dag.genesis_validators_root, taskpool)
+
+    var
       state = assignClone(dag.headState.altairData)
       slot = state[].data.slot
 
