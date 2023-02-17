@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 DISTRO="UNKNOWN"
-if [[ -r /etc/os-release ]]; then
+if [ -r /etc/os-release ]; then
     source /etc/os-release
     DISTRO="${ID}"
 fi
