@@ -431,7 +431,8 @@ proc getExecutionPayload[T](
         empty_execution_payload
 
     when T is capella.ExecutionPayload:
-      if payload.isSome and withdrawals.get() != payload.get.withdrawals.asSeq:
+      if  payload.isSome and withdrawals.isSome and
+          withdrawals.get() != payload.get.withdrawals.asSeq:
         warn "Execution client did not return correct withdrawals",
           payload = shortLog(payload.get()),
           withdrawals_from_cl = withdrawals.get(),
