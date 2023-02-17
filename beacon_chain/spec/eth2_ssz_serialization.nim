@@ -16,7 +16,7 @@ import
   ./datatypes/[phase0, altair, bellatrix, capella],
   ./eth2_merkleization
 
-from ./datatypes/eip4844 import SignedBeaconBlock, TrustedSignedBeaconBlock
+from ./datatypes/deneb import SignedBeaconBlock, TrustedSignedBeaconBlock
 
 export phase0, altair, ssz_codec, ssz_serialization, eth2_merkleization
 
@@ -54,13 +54,13 @@ template readSszBytes*(
     data: openArray[byte], val: var capella.TrustedSignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
-    data: openArray[byte], val: var eip4844.SignedBeaconBlock, updateRoot = true) =
+    data: openArray[byte], val: var deneb.SignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
-    data: openArray[byte], val: var eip4844.TrustedSignedBeaconBlock, updateRoot = true) =
+    data: openArray[byte], val: var deneb.TrustedSignedBeaconBlock, updateRoot = true) =
   readAndUpdateRoot(data, val, updateRoot)
 template readSszBytes*(
-    data: openArray[byte], val: var eip4844.SignedBeaconBlockAndBlobsSidecar, updateRoot = true) =
+    data: openArray[byte], val: var deneb.SignedBeaconBlockAndBlobsSidecar, updateRoot = true) =
   readSszValue(data, val)
   val.beacon_block.root = hash_tree_root(val.beacon_block.message)
 

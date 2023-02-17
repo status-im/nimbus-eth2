@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  ./datatypes/[phase0, altair, bellatrix, capella, eip4844],
+  ./datatypes/[phase0, altair, bellatrix, capella, deneb],
   ./eth2_merkleization
 
 type
@@ -21,27 +21,27 @@ type
   ForkyLightClientHeader* =
     altair.LightClientHeader |
     capella.LightClientHeader |
-    eip4844.LightClientHeader
+    deneb.LightClientHeader
 
   ForkyLightClientBootstrap* =
     altair.LightClientBootstrap |
     capella.LightClientBootstrap |
-    eip4844.LightClientBootstrap
+    deneb.LightClientBootstrap
 
   ForkyLightClientUpdate* =
     altair.LightClientUpdate |
     capella.LightClientUpdate |
-    eip4844.LightClientUpdate
+    deneb.LightClientUpdate
 
   ForkyLightClientFinalityUpdate* =
     altair.LightClientFinalityUpdate |
     capella.LightClientFinalityUpdate |
-    eip4844.LightClientFinalityUpdate
+    deneb.LightClientFinalityUpdate
 
   ForkyLightClientOptimisticUpdate* =
     altair.LightClientOptimisticUpdate |
     capella.LightClientOptimisticUpdate |
-    eip4844.LightClientOptimisticUpdate
+    deneb.LightClientOptimisticUpdate
 
   SomeForkyLightClientUpdateWithSyncCommittee* =
     ForkyLightClientUpdate
@@ -62,7 +62,7 @@ type
   ForkyLightClientStore* =
     altair.LightClientStore |
     capella.LightClientStore |
-    eip4844.LightClientStore
+    deneb.LightClientStore
 
   ForkedLightClientHeader* = object
     case kind*: LightClientDataFork
@@ -73,7 +73,7 @@ type
     of LightClientDataFork.Capella:
       capellaData*: capella.LightClientHeader
     of LightClientDataFork.EIP4844:
-      eip4844Data*: eip4844.LightClientHeader
+      eip4844Data*: deneb.LightClientHeader
 
   ForkedLightClientBootstrap* = object
     case kind*: LightClientDataFork
@@ -84,7 +84,7 @@ type
     of LightClientDataFork.Capella:
       capellaData*: capella.LightClientBootstrap
     of LightClientDataFork.EIP4844:
-      eip4844Data*: eip4844.LightClientBootstrap
+      eip4844Data*: deneb.LightClientBootstrap
 
   ForkedLightClientUpdate* = object
     case kind*: LightClientDataFork
@@ -95,7 +95,7 @@ type
     of LightClientDataFork.Capella:
       capellaData*: capella.LightClientUpdate
     of LightClientDataFork.EIP4844:
-      eip4844Data*: eip4844.LightClientUpdate
+      eip4844Data*: deneb.LightClientUpdate
 
   ForkedLightClientFinalityUpdate* = object
     case kind*: LightClientDataFork
@@ -106,7 +106,7 @@ type
     of LightClientDataFork.Capella:
       capellaData*: capella.LightClientFinalityUpdate
     of LightClientDataFork.EIP4844:
-      eip4844Data*: eip4844.LightClientFinalityUpdate
+      eip4844Data*: deneb.LightClientFinalityUpdate
 
   ForkedLightClientOptimisticUpdate* = object
     case kind*: LightClientDataFork
@@ -117,7 +117,7 @@ type
     of LightClientDataFork.Capella:
       capellaData*: capella.LightClientOptimisticUpdate
     of LightClientDataFork.EIP4844:
-      eip4844Data*: eip4844.LightClientOptimisticUpdate
+      eip4844Data*: deneb.LightClientOptimisticUpdate
 
   SomeForkedLightClientUpdateWithSyncCommittee* =
     ForkedLightClientUpdate
@@ -144,7 +144,7 @@ type
     of LightClientDataFork.Capella:
       capellaData*: capella.LightClientStore
     of LightClientDataFork.EIP4844:
-      eip4844Data*: eip4844.LightClientStore
+      eip4844Data*: deneb.LightClientStore
 
 func lcDataForkAtEpoch*(
     cfg: RuntimeConfig, epoch: Epoch): LightClientDataFork =
@@ -180,12 +180,12 @@ template kind*(
 
 template kind*(
     x: typedesc[ # `SomeLightClientObject` doesn't work here (Nim 1.6)
-      eip4844.LightClientHeader |
-      eip4844.LightClientBootstrap |
-      eip4844.LightClientUpdate |
-      eip4844.LightClientFinalityUpdate |
-      eip4844.LightClientOptimisticUpdate |
-      eip4844.LightClientStore]): LightClientDataFork =
+      deneb.LightClientHeader |
+      deneb.LightClientBootstrap |
+      deneb.LightClientUpdate |
+      deneb.LightClientFinalityUpdate |
+      deneb.LightClientOptimisticUpdate |
+      deneb.LightClientStore]): LightClientDataFork =
   LightClientDataFork.EIP4844
 
 template LightClientHeader*(kind: static LightClientDataFork): auto =
@@ -874,24 +874,24 @@ func toEIP4844LightClientHeader(
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock
-): eip4844.LightClientHeader =
+): deneb.LightClientHeader =
   # Note that during fork transitions, `finalized_header` may still
   # point to earlier forks. While Bellatrix blocks also contain an
   # `ExecutionPayload` (minus `withdrawals_root`), it was not included
   # in the corresponding light client data. To ensure compatibility
   # with legacy data going through `upgrade_lc_header_to_capella`,
   # leave out execution data.
-  eip4844.LightClientHeader(
+  deneb.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader())
 
 func toEIP4844LightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock
-): eip4844.LightClientHeader =
+): deneb.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
-  eip4844.LightClientHeader(
+  deneb.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader(),
-    execution: eip4844.ExecutionPayloadHeader(
+    execution: deneb.ExecutionPayloadHeader(
       parent_hash: payload.parent_hash,
       fee_recipient: payload.fee_recipient,
       state_root: payload.state_root,
@@ -912,12 +912,12 @@ func toEIP4844LightClientHeader(
 
 func toEIP4844LightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
-      eip4844.SignedBeaconBlock | eip4844.TrustedSignedBeaconBlock
-): eip4844.LightClientHeader =
+      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock
+): deneb.LightClientHeader =
   template payload: untyped = blck.message.body.execution_payload
-  eip4844.LightClientHeader(
+  deneb.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader(),
-    execution: eip4844.ExecutionPayloadHeader(
+    execution: deneb.ExecutionPayloadHeader(
       parent_hash: payload.parent_hash,
       fee_recipient: payload.fee_recipient,
       state_root: payload.state_root,
@@ -943,7 +943,7 @@ func toLightClientHeader*(
       altair.SignedBeaconBlock | altair.TrustedSignedBeaconBlock |
       bellatrix.SignedBeaconBlock | bellatrix.TrustedSignedBeaconBlock |
       capella.SignedBeaconBlock | capella.TrustedSignedBeaconBlock |
-      eip4844.SignedBeaconBlock | eip4844.TrustedSignedBeaconBlock,
+      deneb.SignedBeaconBlock | deneb.TrustedSignedBeaconBlock,
     kind: static LightClientDataFork): auto =
   when kind == LightClientDataFork.EIP4844:
     blck.toEIP4844LightClientHeader()
