@@ -22,7 +22,7 @@ proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
 proc getHeader*(slot: Slot,
                 parent_hash: Eth2Digest,
                 pubkey: ValidatorPubKey
-               ): RestResponse[GetHeaderResponseBellatrix] {.
+               ): RestResponse[GetHeaderResponse] {.
      rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
      meth: MethodGet, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/header.yaml
