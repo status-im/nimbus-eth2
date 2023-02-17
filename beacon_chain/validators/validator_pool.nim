@@ -326,7 +326,7 @@ proc doppelgangerReady*(validator: AttachedValidator, slot: Slot): bool =
 
 proc getValidatorForDuties*(
     pool: ValidatorPool, key: ValidatorPubKey, slot: Slot,
-    doppelActivity = false, slashingSafe = false):
+    doppelActivity: bool, slashingSafe: bool):
     Opt[AttachedValidator] =
   ## Return validator only if it is ready for duties (has index and has passed
   ## doppelganger check where applicable)

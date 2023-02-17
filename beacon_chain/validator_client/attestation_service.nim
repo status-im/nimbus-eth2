@@ -261,7 +261,7 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
     block:
       var res: seq[AggregateItem]
       for duty in duties:
-        let validator = vc.attachedValidators[].getValidatorForDuties(
+        let validator = vc.getValidatorForDuties(
             duty.data.pubkey, slot).valueOr:
           continue
 
