@@ -456,3 +456,39 @@ proc scheduleContributionChecks*(
         contribution.beacon_block_root, contributionKey, contributionSig)
 
   ok((aggregatorFut, proofFut, contributionFut, contributionSig))
+
+proc scheduleBlsToExecutionChangeCheck*(
+      batchCrypto: ref BatchCrypto,
+      genesisFork: Fork, genesis_validators_root: Eth2Digest,
+      signedBLSToExecutionChange: SignedBLSToExecutionChange): Result[tuple[
+       blsToExecutionFut: Future[BatchResult],
+       sig: CookedSig], cstring] =
+  ## Schedule crypto verification of all signatures in a
+  ## SignedBLSToExecutionChange message
+  ##
+  ## The buffer is processed:
+  ## - when eager processing is enabled and the batch is full
+  ## - otherwise after 10ms (BatchAttAccumTime)
+  ##
+  ## This returns an error if crypto sanity checks failed
+  ## and a future with the deferred check otherwise.
+
+  # Must be genesis fork
+  doAssert genesis_fork.previous_version == genesis_fork.current_version
+
+  let
+    # Only called when matching already-known withdrawal credentials, so it's
+    # resistant to allowing loadWithCache DoSing
+    validatorChangePubkey =
+      signedBLSToExecutionChange.message.from_bls_pubkey.loadWithCache.valueOr:
+        return err("scheduleBlsToExecutionChangeCheck: cannot load BLS to withdrawals pubkey")
+
+    validatorChangeSig = signedBLSToExecutionChange.signature.load().valueOr:
+      return err("scheduleBlsToExecutionChangeCheck: invalid validator change signature")
+    validatorChangeFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.contribution"):
+      bls_to_execution_change_signature_set(
+        genesis_fork, genesis_validators_root,
+        signedBLSToExecutionChange.message,
+        validatorChangePubkey, validatorChangeSig)
+
+  ok((validatorChangeFut, validatorChangeSig))

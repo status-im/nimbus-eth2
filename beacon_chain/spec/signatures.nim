@@ -368,12 +368,13 @@ proc verify_builder_signature*(
   blsVerify(pubkey, signing_root.data, signature)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
-func compute_bls_to_execution_change_signing_root(
+func compute_bls_to_execution_change_signing_root*(
     genesisFork: Fork, genesis_validators_root: Eth2Digest,
     msg: BLSToExecutionChange): Eth2Digest =
   # So the epoch doesn't matter when calling get_domain
   doAssert genesisFork.previous_version == genesisFork.current_version
 
+  # Fork-agnostic domain since address changes are valid across forks
   let domain = get_domain(
     genesisFork, DOMAIN_BLS_TO_EXECUTION_CHANGE, GENESIS_EPOCH,
     genesis_validators_root)

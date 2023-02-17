@@ -15,6 +15,8 @@ import
   ../spec/[helpers, state_transition_block],
   "."/[attestation_pool, blockchain_dag]
 
+from ../spec/beaconstate import check_bls_to_execution_change
+
 export base, deques, blockchain_dag
 
 const
@@ -184,7 +186,7 @@ proc validateValidatorChangeMessage(
 proc validateValidatorChangeMessage(
     cfg: RuntimeConfig, state: ForkyBeaconState,
     msg: SignedBLSToExecutionChange): bool =
-  check_bls_to_execution_change(cfg, state, msg).isOk
+  check_bls_to_execution_change(cfg.genesisFork, state, msg, {}).isOk
 
 proc getValidatorChangeMessagesForBlock(
     subpool: var Deque, cfg: RuntimeConfig, state: ForkyBeaconState,

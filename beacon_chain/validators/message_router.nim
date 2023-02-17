@@ -459,7 +459,7 @@ proc routeBlsToExecutionChange*(
     bls_to_execution_change: SignedBLSToExecutionChange):
     Future[SendResult] {.async.} =
   block:
-    let res = router[].processor[].processBlsToExecutionChange(
+    let res = await router.processor.processBlsToExecutionChange(
       MsgSource.api, bls_to_execution_change)
     if not res.isGoodForSending:
       warn "BLS to execution change request failed validation",

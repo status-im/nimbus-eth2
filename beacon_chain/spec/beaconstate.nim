@@ -696,6 +696,35 @@ proc check_attestation*(
 
   ok()
 
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
+proc check_bls_to_execution_change*(
+    genesisFork: Fork, state: capella.BeaconState | eip4844.BeaconState,
+    signed_address_change: SignedBLSToExecutionChange, flags: UpdateFlags):
+    Result[void, cstring] =
+  let address_change = signed_address_change.message
+
+  if not (address_change.validator_index < state.validators.lenu64):
+    return err("process_bls_to_execution_change: invalid validator index")
+
+  var withdrawal_credentials =
+    state.validators.item(address_change.validator_index).withdrawal_credentials
+
+  if not (withdrawal_credentials.data[0] == BLS_WITHDRAWAL_PREFIX):
+    return err("process_bls_to_execution_change: invalid withdrawal prefix")
+
+  if not (withdrawal_credentials.data.toOpenArray(1, 31) ==
+      eth2digest(address_change.from_bls_pubkey.blob).data.toOpenArray(1, 31)):
+    return err("process_bls_to_execution_change: invalid withdrawal credentials")
+
+  doAssert flags + {skipBlsValidation} == {skipBlsValidation}
+  if  skipBlsValidation notin flags and
+      not verify_bls_to_execution_change_signature(
+        genesisFork, state.genesis_validators_root, signed_address_change,
+        address_change.from_bls_pubkey, signed_address_change.signature):
+    return err("process_bls_to_execution_change: invalid signature")
+
+  ok()
+
 func get_proposer_reward*(state: ForkyBeaconState,
                           attestation: SomeAttestation,
                           base_reward_per_increment: Gwei,
