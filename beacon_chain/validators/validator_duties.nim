@@ -605,7 +605,7 @@ func constructSignableBlindedBlock[T](
 
   var blindedBlock: T
 
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#block-proposal
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
   copyFields(blindedBlock.message, forkedBlock.bellatrixData, blckFields)
   copyFields(
     blindedBlock.message.body, forkedBlock.bellatrixData.body, blckBodyFields)
@@ -622,7 +622,7 @@ func constructPlainBlindedBlock[T](
 
   var blindedBlock: T
 
-  # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#block-proposal
+  # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
   copyFields(blindedBlock, forkedBlock.bellatrixData, blckFields)
   copyFields(blindedBlock.body, forkedBlock.bellatrixData.body, blckBodyFields)
   blindedBlock.body.execution_payload_header = executionPayloadHeader
@@ -1356,7 +1356,7 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
       toSeq(node.attachedValidators[].validators.keys)
 
     const emptyNestedSeq = @[newSeq[SignedValidatorRegistrationV1](0)]
-    # https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/validator.md#validator-registration
+    # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#validator-registration
     # Seed with single empty inner list to avoid special cases
     var validatorRegistrations = emptyNestedSeq
 
@@ -1406,7 +1406,7 @@ proc registerValidators*(node: BeaconNode, epoch: Epoch) {.async.} =
       if validator.index.isNone:
         continue
 
-      # https://ethereum.github.io/builder-specs/#/Builder/registerValidator
+      # https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/validators.yaml
       # Builders should verify that `pubkey` corresponds to an active or
       # pending validator
       withState(node.dag.headState):

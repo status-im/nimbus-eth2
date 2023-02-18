@@ -618,7 +618,7 @@ proc getSlotSignature*(v: AttachedValidator, fork: Fork,
   v.slotSignature = Opt.some((slot, signature.get))
   return signature
 
-# https://github.com/ethereum/builder-specs/blob/v0.2.0/specs/builder.md#signing
+# https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signing
 proc getBuilderSignature*(v: AttachedValidator, fork: Fork,
     validatorRegistration: ValidatorRegistrationV1):
     Future[SignatureResult] {.async.} =
