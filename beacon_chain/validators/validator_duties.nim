@@ -86,7 +86,6 @@ logScope: topics = "beacval"
 
 type
   ForkedBlockResult* = Result[ForkedBeaconBlock, string]
-  BlindedBlockResult* = Result[bellatrix_mev.BlindedBeaconBlock, string]
 
   SyncStatus* {.pure.} = enum
     synced
@@ -588,17 +587,27 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
     transactions_root = Opt.none(Eth2Digest),
     execution_payload_root = Opt.none(Eth2Digest))
 
-proc getBlindedExecutionPayload(
+proc getBlindedExecutionPayload[
+    EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader](
     node: BeaconNode, slot: Slot, executionBlockRoot: Eth2Digest,
-    pubkey: ValidatorPubKey):
-    Future[Result[bellatrix.ExecutionPayloadHeader, string]] {.async.} =
+    pubkey: ValidatorPubKey): Future[Result[EPH, string]] {.async.} =
   if node.payloadBuilderRestClient.isNil:
     return err "getBlindedExecutionPayload: nil REST client"
 
-  let blindedHeader = awaitWithTimeout(
-    node.payloadBuilderRestClient.getHeader(slot, executionBlockRoot, pubkey),
-    BUILDER_PROPOSAL_DELAY_TOLERANCE):
-      return err "Timeout when obtaining blinded header from builder"
+  when EPH is capella.ExecutionPayloadHeader:
+    let blindedHeader = awaitWithTimeout(
+      node.payloadBuilderRestClient.getHeaderCapella(
+        slot, executionBlockRoot, pubkey),
+      BUILDER_PROPOSAL_DELAY_TOLERANCE):
+        return err "Timeout when obtaining Capella blinded header from builder"
+  elif EPH is bellatrix.ExecutionPayloadHeader:
+    let blindedHeader = awaitWithTimeout(
+      node.payloadBuilderRestClient.getHeaderBellatrix(
+        slot, executionBlockRoot, pubkey),
+      BUILDER_PROPOSAL_DELAY_TOLERANCE):
+        return err "Timeout when obtaining Bellatrix blinded header from builder"
+  else:
+    static: doAssert false
 
   const httpOk = 200
   if blindedHeader.status != httpOk:
@@ -616,34 +625,35 @@ from ./message_router_mev import
   copyFields, getFieldNames, unblindAndRouteBlockMEV
 
 func constructSignableBlindedBlock[T](
-    forkedBlock: ForkedBeaconBlock,
-    executionPayloadHeader: bellatrix.ExecutionPayloadHeader): T =
+    blck: bellatrix.BeaconBlock | capella.BeaconBlock,
+    executionPayloadHeader: bellatrix.ExecutionPayloadHeader |
+                            capella.ExecutionPayloadHeader): T =
   const
-    blckFields = getFieldNames(typeof(forkedBlock.bellatrixData))
-    blckBodyFields = getFieldNames(typeof(forkedBlock.bellatrixData.body))
+    blckFields = getFieldNames(typeof(blck))
+    blckBodyFields = getFieldNames(typeof(blck.body))
 
   var blindedBlock: T
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
-  copyFields(blindedBlock.message, forkedBlock.bellatrixData, blckFields)
-  copyFields(
-    blindedBlock.message.body, forkedBlock.bellatrixData.body, blckBodyFields)
+  copyFields(blindedBlock.message, blck, blckFields)
+  copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
   blindedBlock.message.body.execution_payload_header = executionPayloadHeader
 
   blindedBlock
 
-func constructPlainBlindedBlock[T](
-    forkedBlock: ForkedBeaconBlock,
-    executionPayloadHeader: bellatrix.ExecutionPayloadHeader): T =
+func constructPlainBlindedBlock[
+    T: bellatrix_mev.BlindedBeaconBlock | capella_mev.BlindedBeaconBlock,
+    EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader](
+    blck: ForkyBeaconBlock, executionPayloadHeader: EPH): T =
   const
-    blckFields = getFieldNames(typeof(forkedBlock.bellatrixData))
-    blckBodyFields = getFieldNames(typeof(forkedBlock.bellatrixData.body))
+    blckFields = getFieldNames(typeof(blck))
+    blckBodyFields = getFieldNames(typeof(blck.body))
 
   var blindedBlock: T
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
-  copyFields(blindedBlock, forkedBlock.bellatrixData, blckFields)
-  copyFields(blindedBlock.body, forkedBlock.bellatrixData.body, blckBodyFields)
+  copyFields(blindedBlock, blck, blckFields)
+  copyFields(blindedBlock.body, blck.body, blckBodyFields)
   blindedBlock.body.execution_payload_header = executionPayloadHeader
 
   blindedBlock
@@ -683,40 +693,55 @@ proc blindedBlockCheckSlashingAndSign[T](
 
   return ok blindedBlock
 
-proc getBlindedBeaconBlock[T](
+proc getBlindedBeaconBlock[
+    T: bellatrix_mev.SignedBlindedBeaconBlock |
+       capella_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
-    executionPayloadHeader: bellatrix.ExecutionPayloadHeader):
+    executionPayloadHeader: bellatrix.ExecutionPayloadHeader |
+                            capella.ExecutionPayloadHeader):
     Future[Result[T, string]] {.async.} =
-  return await blindedBlockCheckSlashingAndSign(
-    node, slot, validator, validator_index, constructSignableBlindedBlock[T](
-      forkedBlock, executionPayloadHeader))
+  withBlck(forkedBlock):
+    when stateFork >= ConsensusFork.EIP4844:
+      debugRaiseAssert $eip4844ImplementationMissing & ": getBlindedBeaconBlock"
+      return err("getBlindedBeaconBlock: Deneb blinded block creation not implemented")
+    elif stateFork >= ConsensusFork.Bellatrix:
+      when not (
+          (T is bellatrix_mev.SignedBlindedBeaconBlock and
+           stateFork == ConsensusFork.Bellatrix) or
+          (T is capella_mev.SignedBlindedBeaconBlock and
+           stateFork == ConsensusFork.Capella)):
+        return err("getBlindedBeaconBlock: mismatched block/payload types")
+      else:
+        return await blindedBlockCheckSlashingAndSign(
+          node, slot, validator, validator_index,
+          constructSignableBlindedBlock[T](blck, executionPayloadHeader))
+    else:
+      return err("getBlindedBeaconBlock: attempt to construct pre-Bellatrix blinded block")
 
-proc getBlindedBlockParts(
+proc getBlindedBlockParts[
+    EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader](
     node: BeaconNode, head: BlockRef, pubkey: ValidatorPubKey,
     slot: Slot, randao: ValidatorSig, validator_index: ValidatorIndex,
-    graffiti: GraffitiBytes):
-    Future[Result[(bellatrix.ExecutionPayloadHeader, ForkedBeaconBlock), string]]
+    graffiti: GraffitiBytes): Future[Result[(EPH, ForkedBeaconBlock), string]]
     {.async.} =
   let
     executionBlockRoot = node.dag.loadExecutionBlockRoot(head)
     executionPayloadHeader =
       try:
         awaitWithTimeout(
-            node.getBlindedExecutionPayload(
-              slot, executionBlockRoot, pubkey),
+            getBlindedExecutionPayload[EPH](
+              node, slot, executionBlockRoot, pubkey),
             BUILDER_PROPOSAL_DELAY_TOLERANCE):
-          Result[bellatrix.ExecutionPayloadHeader, string].err(
-            "getBlindedExecutionPayload timed out")
+          Result[EPH, string].err("getBlindedExecutionPayload timed out")
       except RestDecodingError as exc:
-        Result[bellatrix.ExecutionPayloadHeader, string].err(
+        Result[EPH, string].err(
           "getBlindedExecutionPayload REST decoding error")
       except CatchableError as exc:
-        Result[bellatrix.ExecutionPayloadHeader, string].err(
-          "getBlindedExecutionPayload error")
+        Result[EPH, string].err("getBlindedExecutionPayload error")
 
   if executionPayloadHeader.isErr:
-    debug "proposeBlockMEV: getBlindedExecutionPayload failed",
+    debug "getBlindedBlockParts: getBlindedExecutionPayload failed",
       error = executionPayloadHeader.error, slot, validator_index,
       head = shortLog(head)
     # Haven't committed to the MEV block, so allow EL fallback.
@@ -748,11 +773,20 @@ proc getBlindedBlockParts(
 
   return ok((executionPayloadHeader.get, forkedBlck))
 
-proc proposeBlockMEV(
+proc proposeBlockMEV[
+    SBBB: bellatrix_mev.SignedBlindedBeaconBlock |
+          capella_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, head: BlockRef, validator: AttachedValidator, slot: Slot,
     randao: ValidatorSig, validator_index: ValidatorIndex):
     Future[Opt[BlockRef]] {.async.} =
-  let blindedBlockParts = await getBlindedBlockParts(
+  when SBBB is bellatrix_mev.SignedBlindedBeaconBlock:
+    type EPH = bellatrix.ExecutionPayloadHeader
+  elif SBBB is capella_mev.SignedBlindedBeaconBlock:
+    type EPH = capella.ExecutionPayloadHeader
+  else:
+    static: doAssert false
+
+  let blindedBlockParts = await getBlindedBlockParts[EPH](
     node, head, validator.pubkey, slot, randao, validator_index,
     node.graffitiBytes)
   if blindedBlockParts.isErr:
@@ -766,12 +800,11 @@ proc proposeBlockMEV(
 
   # This is only substantively asynchronous with a remote key signer
   let blindedBlock = awaitWithTimeout(
-      getBlindedBeaconBlock[bellatrix_mev.SignedBlindedBeaconBlock](
+      getBlindedBeaconBlock[SBBB](
         node, slot, validator, validator_index, forkedBlck,
         executionPayloadHeader),
       500.milliseconds):
-    Result[bellatrix_mev.SignedBlindedBeaconBlock, string].err(
-      "getBlindedBlock timed out")
+    Result[SBBB, string].err("getBlindedBlock timed out")
 
   if blindedBlock.isErr:
     info "proposeBlockMEV: getBlindedBeaconBlock failed",
@@ -800,19 +833,27 @@ proc proposeBlockMEV(
         unblindedBlockRef.error
       else:
         "Unblinded block failed either to validate or integrate into validated store"
-    warn "proposeBlockMEV: blinded block not successfully unblinded and proposed",
+    warn "proposeBlockMEV: blinded block either not successfully unblinded or not successfully proposed",
       head = shortLog(head), slot, validator_index,
       validator = shortLog(validator),
       err = errMsg, blindedBlck = shortLog(blindedBlock.get)
     Opt.some head
 
-proc makeBlindedBeaconBlockForHeadAndSlot*(
+proc makeBlindedBeaconBlockForHeadAndSlot*[
+    BBB: bellatrix_mev.BlindedBeaconBlock | capella_mev.BlindedBeaconBlock](
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
-    slot: Slot): Future[BlindedBlockResult] {.async.} =
+    slot: Slot): Future[Result[BBB, string]] {.async.} =
   ## Requests a beacon node to produce a valid blinded block, which can then be
   ## signed by a validator. A blinded block is a block with only a transactions
   ## root, rather than a full transactions list.
+  when BBB is bellatrix_mev.BlindedBeaconBlock:
+    type EPH = bellatrix.ExecutionPayloadHeader
+  elif BBB is capella_mev.BlindedBeaconBlock:
+    type EPH = capella.ExecutionPayloadHeader
+  else:
+    static: doAssert false
+
   let
     pubkey =
       # Relevant state for knowledge of validators
@@ -826,15 +867,27 @@ proc makeBlindedBeaconBlockForHeadAndSlot*(
 
         forkyState.data.validators.item(validator_index).pubkey
 
-    blindedBlockParts = await getBlindedBlockParts(
+    blindedBlockParts = await getBlindedBlockParts[EPH](
       node, head, pubkey, slot, randao_reveal, validator_index, graffiti)
   if blindedBlockParts.isErr:
     # Don't try EL fallback -- VC specifically requested a blinded block
     return err("Unable to create blinded block")
 
   let (executionPayloadHeader, forkedBlck) = blindedBlockParts.get
-  return ok constructPlainBlindedBlock[bellatrix_mev.BlindedBeaconBlock](
-    forkedBlck, executionPayloadHeader)
+  withBlck(forkedBlck):
+    when stateFork >= ConsensusFork.EIP4844:
+      debugRaiseAssert $eip4844ImplementationMissing & ": makeBlindedBeaconBlockForHeadAndSlot"
+    elif stateFork >= ConsensusFork.Bellatrix:
+      when ((stateFork == ConsensusFork.Bellatrix and
+             EPH is bellatrix.ExecutionPayloadHeader) or
+            (stateFork == ConsensusFork.Capella and
+             EPH is capella.ExecutionPayloadHeader)):
+        return ok constructPlainBlindedBlock[BBB, EPH](
+          blck, executionPayloadHeader)
+      else:
+        return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
+    else:
+      return err("Attempt to create pre-Bellatrix blinded block")
 
 from ../spec/datatypes/eip4844 import shortLog
 
@@ -866,8 +919,20 @@ proc proposeBlock(node: BeaconNode,
         res.get()
 
   if node.config.payloadBuilderEnable:
-    let newBlockMEV = await node.proposeBlockMEV(
-      head, validator, slot, randao, validator_index)
+    let newBlockMEV =
+      if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
+        debugRaiseAssert $eip4844ImplementationMissing & ": proposeBlock"
+        await proposeBlockMEV[
+            capella_mev.SignedBlindedBeaconBlock](
+          node, head, validator, slot, randao, validator_index)
+      elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
+        await proposeBlockMEV[
+            capella_mev.SignedBlindedBeaconBlock](
+          node, head, validator, slot, randao, validator_index)
+      else:
+        await proposeBlockMEV[
+            bellatrix_mev.SignedBlindedBeaconBlock](
+          node, head, validator, slot, randao, validator_index)
 
     if newBlockMEV.isSome:
       # This might be equivalent to the `head` passed in, but it signals that

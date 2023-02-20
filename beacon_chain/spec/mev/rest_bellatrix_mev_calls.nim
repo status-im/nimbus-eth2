@@ -19,10 +19,10 @@ proc registerValidator*(body: seq[SignedValidatorRegistrationV1]
   ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/validators.yaml
   ## https://github.com/ethereum/beacon-APIs/blob/v2.3.0/apis/validator/register_validator.yaml
 
-proc getHeader*(slot: Slot,
-                parent_hash: Eth2Digest,
-                pubkey: ValidatorPubKey
-               ): RestResponse[GetHeaderResponse] {.
+proc getHeaderBellatrix*(slot: Slot,
+                         parent_hash: Eth2Digest,
+                         pubkey: ValidatorPubKey
+                        ): RestResponse[GetHeaderResponseBellatrix] {.
      rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
      meth: MethodGet, connection: {Dedicated, Close}.}
   ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/header.yaml

@@ -12,17 +12,16 @@ import
 
 export chronos, client, rest_types, eth2_rest_serialization
 
-# TODO
-#proc getHeader*(slot: Slot,
-#                parent_hash: Eth2Digest,
-#                pubkey: ValidatorPubKey
-#               ): RestResponse[GetHeaderResponse] {.
-#     rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
-#     meth: MethodGet, connection: {Dedicated, Close}.}
-#  ## https://github.com/jimmygchen/builder-specs/blob/0e15394bc239d3fee1ba9e42f4ce67ff6565537b/apis/builder/header.yaml
+proc getHeaderCapella*(slot: Slot,
+                       parent_hash: Eth2Digest,
+                       pubkey: ValidatorPubKey
+                      ): RestResponse[GetHeaderResponseCapella] {.
+     rest, endpoint: "/eth/v1/builder/header/{slot}/{parent_hash}/{pubkey}",
+     meth: MethodGet, connection: {Dedicated, Close}.}
+  ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/header.yaml
 
 proc submitBlindedBlock*(body: capella_mev.SignedBlindedBeaconBlock
                         ): RestResponse[SubmitBlindedBlockResponseCapella] {.
      rest, endpoint: "/eth/v1/builder/blinded_blocks",
      meth: MethodPost, connection: {Dedicated, Close}.}
-  ## https://github.com/jimmygchen/builder-specs/blob/0e15394bc239d3fee1ba9e42f4ce67ff6565537b/apis/builder/blinded_blocks.yaml
+  ## https://github.com/ethereum/builder-specs/blob/v0.3.0/apis/builder/blinded_blocks.yaml
