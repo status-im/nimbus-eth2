@@ -16,7 +16,7 @@ import
   std/[os, tables, sequtils],
 
   # Nimble packages
-  stew/byteutils,
+  stew/[assign2, byteutils],
   chronos, metrics,
   chronicles, chronicles/timings,
   json_serialization/std/[options, sets, net],
@@ -336,7 +336,8 @@ proc getGasLimit(node: BeaconNode,
 
 from web3/engine_api_types import PayloadExecutionStatus
 from ../spec/datatypes/capella import BeaconBlock, ExecutionPayload
-from ../spec/datatypes/eip4844 import BeaconBlock, ExecutionPayload
+from ../spec/datatypes/eip4844 import
+  BeaconBlock, ExecutionPayload, shortLog
 
 proc getExecutionPayload[T](
     node: BeaconNode, proposalState: ref ForkedHashedBeaconState,
@@ -637,7 +638,8 @@ func constructSignableBlindedBlock[T](
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
   copyFields(blindedBlock.message, blck, blckFields)
   copyFields(blindedBlock.message.body, blck.body, blckBodyFields)
-  blindedBlock.message.body.execution_payload_header = executionPayloadHeader
+  assign(
+    blindedBlock.message.body.execution_payload_header, executionPayloadHeader)
 
   blindedBlock
 
@@ -654,7 +656,7 @@ func constructPlainBlindedBlock[
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/validator.md#block-proposal
   copyFields(blindedBlock, blck, blckFields)
   copyFields(blindedBlock.body, blck.body, blckBodyFields)
-  blindedBlock.body.execution_payload_header = executionPayloadHeader
+  assign(blindedBlock.body.execution_payload_header, executionPayloadHeader)
 
   blindedBlock
 
@@ -753,12 +755,18 @@ proc getBlindedBlockParts[
   # processing does not work directly using blinded blocks, fix up transactions
   # root after running the state transition function on an otherwise equivalent
   # non-blinded block without transactions.
-  var shimExecutionPayload: bellatrix.ExecutionPayload
-  copyFields(
-    shimExecutionPayload, executionPayloadHeader.get,
-    getFieldNames(bellatrix.ExecutionPayloadHeader))
+  when EPH is bellatrix.ExecutionPayloadHeader:
+    type EP = bellatrix.ExecutionPayload
+  elif EPH is capella.ExecutionPayloadHeader:
+    type EP = capella.ExecutionPayload
+  else:
+    static: doAssert false
 
-  let newBlock = await makeBeaconBlockForHeadAndSlot[bellatrix.ExecutionPayload](
+  var shimExecutionPayload: EP
+  copyFields(
+    shimExecutionPayload, executionPayloadHeader.get, getFieldNames(EPH))
+
+  let newBlock = await makeBeaconBlockForHeadAndSlot[EP](
     node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,
     transactions_root = Opt.some executionPayloadHeader.get.transactions_root,
@@ -811,6 +819,18 @@ proc proposeBlockMEV[
       slot, head = shortLog(head), validator_index, blindedBlock,
       error = blindedBlock.error
     return Opt.none BlockRef
+
+  # TODO
+  # Sanity-check withdrawals_root while can still fall back to local EL
+  #when SBBB isnot bellatrix_mev.SignedBlindedBeaconBlock:
+  #  let
+  #    expected_withdrawals = FOOBAR
+  #    expected_withdrawals_root = hash_tree_root(expected_withdrawals)
+  #  if blindedBlock.get.body.withdrawals_root != expected_withdrawals_root:
+  #    info "getBlindedBeaconBlock returned block with incorrect withdrawals root",
+  #      blinded_block_withdrawals_root = $blindedBlock.get.body.withdrawals_root,
+  #      expected_withdrawals_root = $expected_withdrawals_root
+  #    return Opt.none BlockRef
 
   # Before unblindAndRouteBlockMEV, can fall back to EL; after, cannot
   let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
@@ -888,8 +908,6 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
         return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
     else:
       return err("Attempt to create pre-Bellatrix blinded block")
-
-from ../spec/datatypes/eip4844 import shortLog
 
 proc proposeBlock(node: BeaconNode,
                   validator: AttachedValidator,
