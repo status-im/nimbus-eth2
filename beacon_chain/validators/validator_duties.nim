@@ -487,9 +487,12 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
     slot: Slot,
+
+    # Thse parameters are for the builder API
     execution_payload: Opt[EP],
     transactions_root: Opt[Eth2Digest],
-    execution_payload_root: Opt[Eth2Digest]):
+    execution_payload_root: Opt[Eth2Digest],
+    withdrawals_root: Opt[Eth2Digest]):
     Future[ForkedBlockResult] {.async.} =
   # Advance state to the slot that we're proposing for
   var cache = StateCache()
@@ -510,14 +513,31 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
     state = maybeState.get
     payloadFut =
       if execution_payload.isSome:
+        # Builder API
+
+        # In Capella, only get withdrawals root from relay.
+        # The execution payload will be small enough to be safe to copy because
+        # it won't have transactions (it's blinded)
+        var modified_execution_payload = execution_payload
+        withState(state[]):
+          when  stateFork >= ConsensusFork.Capella and
+                EP isnot bellatrix.ExecutionPayload:
+            let withdrawals = List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
+              get_expected_withdrawals(forkyState.data))
+            if  withdrawals_root.isNone or
+                hash_tree_root(withdrawals) != withdrawals_root.get:
+              return err("Builder relay provided incorrect withdrawals root")
+            # Otherwise, the state transition function notices that there are
+            # too few withdrawals.
+            assign(modified_execution_payload.get.withdrawals, withdrawals)
+
         let fut = newFuture[Opt[EP]]("given-payload")
-        fut.complete(execution_payload)
+        fut.complete(modified_execution_payload)
         fut
       elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or not (
           state[].is_merge_transition_complete or
           slot.epoch >= node.mergeAtEpoch):
         let fut = newFuture[Opt[EP]]("empty-payload")
-        # https://github.com/nim-lang/Nim/issues/19802
         fut.complete(Opt.some(default(EP)))
         fut
       else:
@@ -586,7 +606,8 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
     node, randao_reveal, validator_index, graffiti, head, slot,
     execution_payload = Opt.none(EP),
     transactions_root = Opt.none(Eth2Digest),
-    execution_payload_root = Opt.none(Eth2Digest))
+    execution_payload_root = Opt.none(Eth2Digest),
+    withdrawals_root = Opt.none(Eth2Digest))
 
 proc getBlindedExecutionPayload[
     EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader](
@@ -757,21 +778,27 @@ proc getBlindedBlockParts[
   # non-blinded block without transactions.
   when EPH is bellatrix.ExecutionPayloadHeader:
     type EP = bellatrix.ExecutionPayload
+    let withdrawals_root = Opt.none Eth2Digest
   elif EPH is capella.ExecutionPayloadHeader:
     type EP = capella.ExecutionPayload
+    let withdrawals_root = Opt.some executionPayloadHeader.get.withdrawals_root
   else:
     static: doAssert false
 
   var shimExecutionPayload: EP
   copyFields(
     shimExecutionPayload, executionPayloadHeader.get, getFieldNames(EPH))
+  # In Capella and later, this doesn't have withdrawals, which each node knows
+  # regardless of EL or builder API. makeBeaconBlockForHeadAndSlot fills it in
+  # when it detects builder API usage.
 
   let newBlock = await makeBeaconBlockForHeadAndSlot[EP](
     node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,
     transactions_root = Opt.some executionPayloadHeader.get.transactions_root,
     execution_payload_root =
-      Opt.some hash_tree_root(executionPayloadHeader.get))
+      Opt.some hash_tree_root(executionPayloadHeader.get),
+    withdrawals_root = withdrawals_root)
 
   if newBlock.isErr():
     # Haven't committed to the MEV block, so allow EL fallback.
@@ -819,18 +846,6 @@ proc proposeBlockMEV[
       slot, head = shortLog(head), validator_index, blindedBlock,
       error = blindedBlock.error
     return Opt.none BlockRef
-
-  # TODO
-  # Sanity-check withdrawals_root while can still fall back to local EL
-  #when SBBB isnot bellatrix_mev.SignedBlindedBeaconBlock:
-  #  let
-  #    expected_withdrawals = FOOBAR
-  #    expected_withdrawals_root = hash_tree_root(expected_withdrawals)
-  #  if blindedBlock.get.body.withdrawals_root != expected_withdrawals_root:
-  #    info "getBlindedBeaconBlock returned block with incorrect withdrawals root",
-  #      blinded_block_withdrawals_root = $blindedBlock.get.body.withdrawals_root,
-  #      expected_withdrawals_root = $expected_withdrawals_root
-  #    return Opt.none BlockRef
 
   # Before unblindAndRouteBlockMEV, can fall back to EL; after, cannot
   let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
