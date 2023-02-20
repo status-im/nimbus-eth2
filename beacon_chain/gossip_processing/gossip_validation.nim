@@ -550,8 +550,6 @@ proc validateAttestation*(
 
   let
     fork = pool.dag.forkAtEpoch(attestation.data.slot.epoch)
-    genesis_validators_root =
-      getStateField(pool.dag.headState, genesis_validators_root)
     attesting_index = get_attesting_indices_one(
       shufflingRef, slot, committee_index, attestation.aggregation_bits)
 
@@ -581,8 +579,8 @@ proc validateAttestation*(
       # Attestation signatures are batch-verified
       let deferredCrypto = batchCrypto
                              .scheduleAttestationCheck(
-                              fork, genesis_validators_root, attestation.data,
-                              pubkey, attestation.signature)
+                              fork, attestation.data, pubkey,
+                              attestation.signature)
       if deferredCrypto.isErr():
         return checkedReject(deferredCrypto.error)
 
@@ -736,8 +734,6 @@ proc validateAggregate*(
 
   let
     fork = pool.dag.forkAtEpoch(aggregate.data.slot.epoch)
-    genesis_validators_root =
-      getStateField(pool.dag.headState, genesis_validators_root)
     attesting_indices = get_attesting_indices(
       shufflingRef, slot, committee_index, aggregate.aggregation_bits)
 
@@ -745,8 +741,8 @@ proc validateAggregate*(
     sig = if checkSignature:
       let deferredCrypto = batchCrypto
                     .scheduleAggregateChecks(
-                      fork, genesis_validators_root,
-                      signedAggregateAndProof, pool.dag, attesting_indices
+                      fork, signedAggregateAndProof, pool.dag,
+                      attesting_indices
                     )
       if deferredCrypto.isErr():
         return checkedReject(deferredCrypto.error)
@@ -842,8 +838,7 @@ proc validateBlsToExecutionChange*(
 
     # BLS to execution change signatures are batch-verified
     let deferredCrypto = batchCrypto.scheduleBlsToExecutionChangeCheck(
-      pool.dag.cfg.genesisFork, pool.dag.genesis_validators_root,
-      signed_address_change)
+      pool.dag.cfg.genesisFork, signed_address_change)
     if deferredCrypto.isErr():
       return checkedReject(deferredCrypto.error)
 
@@ -980,7 +975,6 @@ proc validateSyncCommitteeMessage*(
   let
     epoch = msg.slot.epoch
     fork = dag.forkAtEpoch(epoch)
-    genesis_validators_root = dag.genesis_validators_root
     senderPubKey = dag.validatorKey(msg.validator_index).valueOr:
       return errReject("SyncCommitteeMessage: invalid validator index")
 
@@ -989,8 +983,7 @@ proc validateSyncCommitteeMessage*(
       # Attestation signatures are batch-verified
       let deferredCrypto = batchCrypto
                             .scheduleSyncCommitteeMessageCheck(
-                              fork, genesis_validators_root,
-                              msg.slot, msg.beacon_block_root,
+                              fork, msg.slot, msg.beacon_block_root,
                               senderPubKey, msg.signature)
       if deferredCrypto.isErr():
         return errReject(deferredCrypto.error)
@@ -1060,7 +1053,6 @@ proc validateContribution*(
   let
     epoch = msg.message.contribution.slot.epoch
     fork = dag.forkAtEpoch(epoch)
-    genesis_validators_root = dag.genesis_validators_root
 
   if msg.message.contribution.aggregation_bits.countOnes() == 0:
     # [REJECT] The contribution has participants
@@ -1081,7 +1073,7 @@ proc validateContribution*(
 
   let sig = if checkSignature:
     let deferredCrypto = batchCrypto.scheduleContributionChecks(
-      fork, genesis_validators_root, msg, subcommitteeIdx, dag)
+      fork, msg, subcommitteeIdx, dag)
     if deferredCrypto.isErr():
       return errReject(deferredCrypto.error)
 

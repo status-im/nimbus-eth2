@@ -98,6 +98,10 @@ type
     # we accumulate here instead
     counts: tuple[signatures, batches, aggregates: int64]
 
+    # Most scheduled checks require this immutable value, so don't require it
+    # to be provided separately each time
+    genesis_validators_root: Eth2Digest
+
 const
   # We cap waiting for an idle slot in case there's a lot of network traffic
   # taking up all CPU - we don't want to _completely_ stop processing
@@ -122,10 +126,12 @@ const
 
 proc new*(
     T: type BatchCrypto, rng: ref HmacDrbgContext,
-    eager: Eager, taskpool: TaskPoolPtr): ref BatchCrypto =
+    eager: Eager, genesis_validators_root: Eth2Digest, taskpool: TaskPoolPtr):
+    ref BatchCrypto =
   (ref BatchCrypto)(
     verifier: BatchVerifier(rng: rng, taskpool: taskpool),
     eager: eager,
+    genesis_validators_root: genesis_validators_root,
     pruneTime: Moment.now())
 
 func len(batch: Batch): int =
@@ -161,12 +167,12 @@ proc pruneBatchQueue(batchCrypto: ref BatchCrypto) =
 
     batchCrypto.batches.popFirst()[].skip()
 
-proc combine(a: var Signature, b: Signature) =
+func combine(a: var Signature, b: Signature) =
   var tmp = AggregateSignature.init(CookedSig(a))
   tmp.aggregate(b)
   a = Signature(tmp.finish())
 
-proc combine(a: var PublicKey, b: PublicKey) =
+func combine(a: var PublicKey, b: PublicKey) =
   var tmp = AggregatePublicKey.init(CookedPubKey(a))
   tmp.aggregate(b)
   a = PublicKey(tmp.finish())
@@ -303,10 +309,9 @@ template withBatch(
 
 # See also verify_attestation_signature
 proc scheduleAttestationCheck*(
-      batchCrypto: ref BatchCrypto,
-      fork: Fork, genesis_validators_root: Eth2Digest,
-      attestationData: AttestationData,
-      pubkey: CookedPubKey, signature: ValidatorSig
+      batchCrypto: ref BatchCrypto, fork: Fork,
+      attestationData: AttestationData, pubkey: CookedPubKey,
+      signature: ValidatorSig
      ): Result[tuple[fut: Future[BatchResult], sig: CookedSig], cstring] =
   ## Schedule crypto verification of an attestation
   ##
@@ -322,15 +327,14 @@ proc scheduleAttestationCheck*(
       return err("attestation: cannot load signature")
     fut = batchCrypto.withBatch("batch_validation.scheduleAttestationCheck"):
       attestation_signature_set(
-        fork, genesis_validators_root, attestationData, pubkey, sig)
+        fork, batchCrypto[].genesis_validators_root, attestationData, pubkey,
+        sig)
 
   ok((fut, sig))
 
 proc scheduleAggregateChecks*(
-      batchCrypto: ref BatchCrypto,
-      fork: Fork, genesis_validators_root: Eth2Digest,
-      signedAggregateAndProof: SignedAggregateAndProof,
-      dag: ChainDAGRef,
+      batchCrypto: ref BatchCrypto, fork: Fork,
+      signedAggregateAndProof: SignedAggregateAndProof, dag: ChainDAGRef,
       attesting_indices: openArray[ValidatorIndex]
      ): Result[tuple[
         aggregatorFut, slotFut, aggregateFut: Future[BatchResult],
@@ -368,24 +372,23 @@ proc scheduleAggregateChecks*(
   let
     aggregatorFut = batchCrypto.withBatch("scheduleAggregateChecks.aggregator"):
       aggregate_and_proof_signature_set(
-        fork, genesis_validators_root, aggregate_and_proof, aggregatorKey,
-        aggregatorSig)
+        fork, batchCrypto[].genesis_validators_root, aggregate_and_proof,
+        aggregatorKey, aggregatorSig)
     slotFut = batchCrypto.withBatch("scheduleAggregateChecks.selection_proof"):
       slot_signature_set(
-        fork, genesis_validators_root, aggregate.data.slot, aggregatorKey,
-        slotSig)
+        fork, batchCrypto[].genesis_validators_root, aggregate.data.slot,
+        aggregatorKey, slotSig)
     aggregateFut = batchCrypto.withBatch("scheduleAggregateChecks.aggregate"):
       attestation_signature_set(
-        fork, genesis_validators_root, aggregate.data, aggregateKey,
-        aggregateSig)
+        fork, batchCrypto[].genesis_validators_root, aggregate.data,
+        aggregateKey, aggregateSig)
 
   ok((aggregatorFut, slotFut, aggregateFut, aggregateSig))
 
 proc scheduleSyncCommitteeMessageCheck*(
-      batchCrypto: ref BatchCrypto,
-      fork: Fork, genesis_validators_root: Eth2Digest,
-      slot: Slot, beacon_block_root: Eth2Digest,
-      pubkey: CookedPubKey, signature: ValidatorSig
+      batchCrypto: ref BatchCrypto, fork: Fork, slot: Slot,
+      beacon_block_root: Eth2Digest, pubkey: CookedPubKey,
+      signature: ValidatorSig
      ): Result[tuple[fut: Future[BatchResult], sig: CookedSig], cstring] =
   ## Schedule crypto verification of an attestation
   ##
@@ -401,16 +404,15 @@ proc scheduleSyncCommitteeMessageCheck*(
       return err("SyncCommitteMessage: cannot load signature")
     fut = batchCrypto.withBatch("scheduleSyncCommitteeMessageCheck"):
       sync_committee_message_signature_set(
-        fork, genesis_validators_root, slot, beacon_block_root, pubkey, sig)
+        fork, batchCrypto[].genesis_validators_root, slot, beacon_block_root,
+        pubkey, sig)
 
   ok((fut, sig))
 
 proc scheduleContributionChecks*(
       batchCrypto: ref BatchCrypto,
-      fork: Fork, genesis_validators_root: Eth2Digest,
-      signedContributionAndProof: SignedContributionAndProof,
-      subcommitteeIdx: SyncSubcommitteeIndex,
-      dag: ChainDAGRef): Result[tuple[
+      fork: Fork, signedContributionAndProof: SignedContributionAndProof,
+      subcommitteeIdx: SyncSubcommitteeIndex, dag: ChainDAGRef): Result[tuple[
        aggregatorFut, proofFut, contributionFut: Future[BatchResult],
        sig: CookedSig], cstring] =
   ## Schedule crypto verification of all signatures in a
@@ -444,22 +446,22 @@ proc scheduleContributionChecks*(
   let
     aggregatorFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.aggregator"):
       contribution_and_proof_signature_set(
-        fork, genesis_validators_root, contribution_and_proof, aggregatorKey,
-        aggregatorSig)
+        fork, batchCrypto[].genesis_validators_root, contribution_and_proof,
+        aggregatorKey, aggregatorSig)
     proofFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.selection_proof"):
       sync_committee_selection_proof_set(
-        fork, genesis_validators_root, contribution.slot,
+        fork, batchCrypto[].genesis_validators_root, contribution.slot,
         subcommitteeIdx, aggregatorKey, proofSig)
     contributionFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.contribution"):
       sync_committee_message_signature_set(
-        fork, genesis_validators_root, contribution.slot,
+        fork, batchCrypto[].genesis_validators_root, contribution.slot,
         contribution.beacon_block_root, contributionKey, contributionSig)
 
   ok((aggregatorFut, proofFut, contributionFut, contributionSig))
 
 proc scheduleBlsToExecutionChangeCheck*(
       batchCrypto: ref BatchCrypto,
-      genesisFork: Fork, genesis_validators_root: Eth2Digest,
+      genesisFork: Fork,
       signedBLSToExecutionChange: SignedBLSToExecutionChange): Result[tuple[
        blsToExecutionFut: Future[BatchResult],
        sig: CookedSig], cstring] =
@@ -487,7 +489,7 @@ proc scheduleBlsToExecutionChangeCheck*(
       return err("scheduleBlsToExecutionChangeCheck: invalid validator change signature")
     validatorChangeFut = batchCrypto.withBatch("scheduleContributionAndProofChecks.contribution"):
       bls_to_execution_change_signature_set(
-        genesis_fork, genesis_validators_root,
+        genesis_fork, batchCrypto[].genesis_validators_root,
         signedBLSToExecutionChange.message,
         validatorChangePubkey, validatorChangeSig)
 

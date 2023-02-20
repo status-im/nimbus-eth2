@@ -181,7 +181,7 @@ proc new*(T: type Eth2Processor,
       # Only run eager attestation signature verification if we're not
       # processing blocks in order to give priority to block processing
       eager = proc(): bool = not blockProcessor[].hasBlocks(),
-      taskpool)
+      genesis_validators_root = dag.genesis_validators_root, taskpool)
   )
 
 # Each validator logs, validates then passes valid data to its destination
