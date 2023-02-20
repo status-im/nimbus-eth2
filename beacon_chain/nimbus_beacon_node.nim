@@ -980,7 +980,7 @@ proc updateSyncCommitteeTopics(node: BeaconNode, slot: Slot) =
 
   node.network.updateSyncnetsMetadata(syncnets)
 
-proc updateDoppelganger(node: BeaconNode, epoch: Epoch) =
+proc doppelgangerChecked(node: BeaconNode, epoch: Epoch) =
   if not node.processor[].doppelgangerDetectionEnabled:
     return
 
@@ -989,7 +989,7 @@ proc updateDoppelganger(node: BeaconNode, epoch: Epoch) =
   # active
   if epoch > node.processor[].doppelgangerDetection.broadcastStartEpoch:
     for validator in node.attachedValidators[]:
-      validator.updateDoppelganger(epoch - 1)
+      validator.doppelgangerChecked(epoch - 1)
 
 proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
   ## Subscribe to subnets that we are providing stability for or aggregating
@@ -1104,7 +1104,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addMessageHandlers[gossipFork](node, forkDigests[gossipFork], slot)
 
   node.gossipState = targetGossipState
-  node.updateDoppelganger(slot.epoch)
+  node.doppelgangerChecked(slot.epoch)
   node.updateAttestationSubnetHandlers(slot)
   node.updateBlocksGossipStatus(slot, isBehind)
   node.updateLightClientGossipStatus(slot, isBehind)

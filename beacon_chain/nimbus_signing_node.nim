@@ -222,8 +222,7 @@ proc installApiHandlers*(node: SigningNode) =
         if validator_key.isErr():
           return errorResponse(Http400, InvalidValidatorPublicKey)
         let key = validator_key.get()
-        let validator = node.attachedValidators.getValidator(key)
-        if isNil(validator):
+        let validator = node.attachedValidators.getValidator(key).valueOr:
           return errorResponse(Http404, ValidatorNotFoundError)
         validator
 
