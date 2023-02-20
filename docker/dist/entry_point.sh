@@ -17,7 +17,7 @@ if [[ -z "${1}" ]]; then
   exit 1
 fi
 PLATFORM="${1}"
-BINARIES="nimbus_beacon_node nimbus_validator_client"
+BINARIES="${BINARIES:-nimbus_beacon_node nimbus_validator_client}"
 
 echo "==================STARTING BUILD=================="
 echo "Build Tools = ${BUILD_TOOLS}"
