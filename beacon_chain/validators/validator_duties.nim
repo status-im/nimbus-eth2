@@ -415,9 +415,14 @@ proc getExecutionPayload[T](
 
           let random = withState(proposalState[]): get_randao_mix(
             forkyState.data, get_current_epoch(forkyState.data))
-          (await forkchoice_updated(
+          let fcu_payload_id = (await forkchoice_updated(
            latestHead, latestSafe, latestFinalized, timestamp, random,
            feeRecipient, withdrawals, node.consensusManager.eth1Monitor))
+          await sleepAsync(500.milliseconds)
+
+          fcu_payload_id
+
+    let
       payload = try:
         awaitWithTimeout(
           get_execution_payload[T](payload_id, node.consensusManager.eth1Monitor),
@@ -430,6 +435,14 @@ proc getExecutionPayload[T](
         warn "Getting execution payload from Engine API failed",
               payload_id, err = err.msg
         empty_execution_payload
+
+    when T is capella.ExecutionPayload:
+      if  payload.isSome and withdrawals.isSome and
+          withdrawals.get() != payload.get.withdrawals.asSeq:
+        warn "Execution client did not return correct withdrawals",
+          payload = shortLog(payload.get()),
+          withdrawals_from_cl = withdrawals.get(),
+          withdrawals_from_el = payload.get.withdrawals
 
     return payload
   except CatchableError as err:
