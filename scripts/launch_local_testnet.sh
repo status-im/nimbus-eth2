@@ -460,8 +460,11 @@ if [[ "${RUN_GETH}" == "1" ]]; then
     download_geth_capella
     GETH_BINARY="$GETH_CAPELLA_BINARY"
   else
-    download_geth_stable
-    GETH_BINARY="$STABLE_GETH_BINARY"
+    # TODO We should run Geth stable here, but it lacks an ARM build for macOS,
+    # so we will run our own Geth capella build until we add some Geth stable
+    # binaries to our nimbus-simulation-binaries project:
+    download_geth_capella
+    GETH_BINARY="$GETH_CAPELLA_BINARY"
   fi
 
   source ./scripts/geth_vars.sh
@@ -731,6 +734,9 @@ fi
 # "pkill" command.
 cleanup() {
   echo "Cleaning up"
+
+  # Avoid the trap enterring an infinite loop
+  trap - SIGINT SIGTERM EXIT
 
   for proc in "${PROCS_TO_KILL[@]}"
   do
