@@ -1,5 +1,5 @@
 # Minimal preset - Phase0
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/presets/minimal/phase0.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/presets/minimal/phase0.yaml
 
 const
   #
