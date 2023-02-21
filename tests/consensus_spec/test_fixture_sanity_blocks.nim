@@ -110,7 +110,7 @@ from ../../../beacon_chain/spec/datatypes/capella import
 runForkBlockTests(
   "capella", "Capella", capella.BeaconState, capella.SignedBeaconBlock)
 
-from ../../../beacon_chain/spec/datatypes/eip4844 import
+from ../../../beacon_chain/spec/datatypes/deneb import
   BeaconState, SignedBeaconBlock
 runForkBlockTests(
-  "eip4844", "Deneb", eip4844.BeaconState, eip4844.SignedBeaconBlock)
+  "deneb", "Deneb", deneb.BeaconState, deneb.SignedBeaconBlock)

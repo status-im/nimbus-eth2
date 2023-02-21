@@ -241,13 +241,13 @@ ConsensusSpecPreset-minimal
 + EF - Capella - Transition - transition_with_random_three_quarters_participation [Preset: m OK
 + EF - Capella - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minim OK
 + EF - Capella - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
-+ EF - Deneb - Fork - eip4844_fork_random_0 [Preset: minimal]                                OK
-+ EF - Deneb - Fork - eip4844_fork_random_1 [Preset: minimal]                                OK
-+ EF - Deneb - Fork - eip4844_fork_random_2 [Preset: minimal]                                OK
-+ EF - Deneb - Fork - eip4844_fork_random_3 [Preset: minimal]                                OK
-+ EF - Deneb - Fork - eip4844_fork_random_large_validator_set [Preset: minimal]              OK
-+ EF - Deneb - Fork - eip4844_fork_random_low_balances [Preset: minimal]                     OK
-+ EF - Deneb - Fork - eip4844_fork_random_misc_balances [Preset: minimal]                    OK
++ EF - Deneb - Fork - deneb_fork_random_0 [Preset: minimal]                                  OK
++ EF - Deneb - Fork - deneb_fork_random_1 [Preset: minimal]                                  OK
++ EF - Deneb - Fork - deneb_fork_random_2 [Preset: minimal]                                  OK
++ EF - Deneb - Fork - deneb_fork_random_3 [Preset: minimal]                                  OK
++ EF - Deneb - Fork - deneb_fork_random_large_validator_set [Preset: minimal]                OK
++ EF - Deneb - Fork - deneb_fork_random_low_balances [Preset: minimal]                       OK
++ EF - Deneb - Fork - deneb_fork_random_misc_balances [Preset: minimal]                      OK
 + EF - Deneb - Fork - fork_base_state [Preset: minimal]                                      OK
 + EF - Deneb - Fork - fork_many_next_epoch [Preset: minimal]                                 OK
 + EF - Deneb - Fork - fork_next_epoch [Preset: minimal]                                      OK
@@ -453,30 +453,30 @@ ConsensusSpecPreset-minimal
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/on_block_update_justified_c OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
 + ForkChoice - minimal/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
-+ ForkChoice - minimal/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
-+ ForkChoice - minimal/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att OK
-+ ForkChoice - minimal/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              OK
-+ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/chain_no_attestations       OK
-+ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/discard_equivocations       OK
-+ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/filtered_block_tree         OK
-+ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/genesis                     OK
-+ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
-+ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
-+ ForkChoice - minimal/eip4844/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/basic                       OK
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justi OK
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_j OK
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/new_justified_is_later_than OK
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_before_finalized   OK
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_checkpoints        OK
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo OK
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slo OK
-  ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots OK
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/on_block_update_justified_c OK
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/proposer_boost              OK
-+ ForkChoice - minimal/eip4844/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
++ ForkChoice - minimal/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_a OK
++ ForkChoice - minimal/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attes OK
++ ForkChoice - minimal/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                OK
++ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/chain_no_attestations         OK
++ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/discard_equivocations         OK
++ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/filtered_block_tree           OK
++ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/genesis                       OK
++ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head   OK
++ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
++ ForkChoice - minimal/deneb/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/basic                         OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_justifi OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/new_finalized_slot_is_not_jus OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/new_justified_is_later_than_s OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_before_finalized     OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_checkpoints          OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_finalized_skip_slots OK
+  ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_outside_safe_slots_b OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/on_block_update_justified_che OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/proposer_boost                OK
++ ForkChoice - minimal/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
 + ForkChoice - minimal/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
@@ -511,37 +511,37 @@ ConsensusSpecPreset-minimal
 + Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - minimal/capella/light_client/single_merkle_proof/Beac OK
-+ Light client - Single merkle proof - minimal/eip4844/light_client/single_merkle_proof/Beac OK
-+ Light client - Single merkle proof - minimal/eip4844/light_client/single_merkle_proof/Beac OK
-+ Light client - Single merkle proof - minimal/eip4844/light_client/single_merkle_proof/Beac OK
-+ Light client - Single merkle proof - minimal/eip4844/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - minimal/deneb/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - minimal/deneb/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - minimal/deneb/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - minimal/deneb/light_client/single_merkle_proof/Beacon OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/advance_finality_witho OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/capella_store_with_leg OK
-+ Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/eip4844_store_with_leg OK
++ Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/deneb_store_with_legac OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/light_client_sync      OK
 + Light client - Sync - minimal/altair/light_client/sync/pyspec_tests/supply_sync_committee_ OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/advance_finality_wi OK
-+ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_eip4844_for OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_deneb_fork  OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_fork        OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/capella_store_with_ OK
-+ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/eip4844_store_with_ OK
++ Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/deneb_store_with_le OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/light_client_sync   OK
 + Light client - Sync - minimal/bellatrix/light_client/sync/pyspec_tests/supply_sync_committ OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/advance_finality_with OK
-+ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/eip4844_fork          OK
-+ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/eip4844_store_with_le OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_fork            OK
++ Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/deneb_store_with_lega OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/light_client_sync     OK
 + Light client - Sync - minimal/capella/light_client/sync/pyspec_tests/supply_sync_committee OK
-+ Light client - Sync - minimal/eip4844/light_client/sync/pyspec_tests/advance_finality_with OK
-+ Light client - Sync - minimal/eip4844/light_client/sync/pyspec_tests/light_client_sync     OK
-+ Light client - Sync - minimal/eip4844/light_client/sync/pyspec_tests/supply_sync_committee OK
++ Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/advance_finality_withou OK
++ Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/light_client_sync       OK
++ Light client - Sync - minimal/deneb/light_client/sync/pyspec_tests/supply_sync_committee_f OK
 + Light client - Update ranking - minimal/altair/light_client/update_ranking/pyspec_tests/up OK
 + Light client - Update ranking - minimal/bellatrix/light_client/update_ranking/pyspec_tests OK
 + Light client - Update ranking - minimal/capella/light_client/update_ranking/pyspec_tests/u OK
-+ Light client - Update ranking - minimal/eip4844/light_client/update_ranking/pyspec_tests/u OK
++ Light client - Update ranking - minimal/deneb/light_client/update_ranking/pyspec_tests/upd OK
 + Sync - minimal/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
 + Sync - minimal/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
-+ Sync - minimal/eip4844/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
++ Sync - minimal/deneb/sync/optimistic/pyspec_tests/from_syncing_to_invalid                  OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_all_zeroed_sig [Preset: minimal]         OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: mi OK
@@ -769,6 +769,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Sanity - Blocks - attestation [Preset: minimal]                   OK
 + [Valid]   EF - Capella - Sanity - Blocks - attester_slashing [Preset: minimal]             OK
 + [Valid]   EF - Capella - Sanity - Blocks - balance_driven_status_transitions [Preset: mini OK
++ [Valid]   EF - Capella - Sanity - Blocks - bls_change [Preset: minimal]                    OK
++ [Valid]   EF - Capella - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]        OK
 + [Valid]   EF - Capella - Sanity - Blocks - deposit_in_block [Preset: minimal]              OK
 + [Valid]   EF - Capella - Sanity - Blocks - deposit_top_up [Preset: minimal]                OK
 + [Valid]   EF - Capella - Sanity - Blocks - duplicate_attestation_same_block [Preset: minim OK
@@ -781,6 +783,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset:  OK
 + [Valid]   EF - Capella - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]     OK
 + [Valid]   EF - Capella - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]  OK
++ [Valid]   EF - Capella - Sanity - Blocks - exit_and_bls_change [Preset: minimal]           OK
 + [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_0 [Preset: minimal]      OK
 + [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_1 [Preset: minimal]      OK
 + [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_2 [Preset: minimal]      OK
@@ -802,8 +805,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Capella - Sanity - Blocks - proposer_slashing [Preset: minimal]             OK
 + [Valid]   EF - Capella - Sanity - Blocks - skipped_slots [Preset: minimal]                 OK
 + [Valid]   EF - Capella - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
-+ [Valid]   EF - Capella - Sanity - Blocks - success_bls_change [Preset: minimal]            OK
-+ [Valid]   EF - Capella - Sanity - Blocks - success_exit_and_bls_change [Preset: minimal]   OK
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee__empty [Preset: minima OK
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee__full [Preset: minimal OK
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee__half [Preset: minimal OK
@@ -840,6 +841,8 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Sanity - Blocks - attestation [Preset: minimal]                     OK
 + [Valid]   EF - Deneb - Sanity - Blocks - attester_slashing [Preset: minimal]               OK
 + [Valid]   EF - Deneb - Sanity - Blocks - balance_driven_status_transitions [Preset: minima OK
++ [Valid]   EF - Deneb - Sanity - Blocks - bls_change [Preset: minimal]                      OK
++ [Valid]   EF - Deneb - Sanity - Blocks - deposit_and_bls_change [Preset: minimal]          OK
 + [Valid]   EF - Deneb - Sanity - Blocks - deposit_in_block [Preset: minimal]                OK
 + [Valid]   EF - Deneb - Sanity - Blocks - deposit_top_up [Preset: minimal]                  OK
 + [Valid]   EF - Deneb - Sanity - Blocks - duplicate_attestation_same_block [Preset: minimal OK
@@ -852,6 +855,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Sanity - Blocks - empty_epoch_transition_not_finalizing [Preset: mi OK
 + [Valid]   EF - Deneb - Sanity - Blocks - eth1_data_votes_consensus [Preset: minimal]       OK
 + [Valid]   EF - Deneb - Sanity - Blocks - eth1_data_votes_no_consensus [Preset: minimal]    OK
++ [Valid]   EF - Deneb - Sanity - Blocks - exit_and_bls_change [Preset: minimal]             OK
 + [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_0 [Preset: minimal]        OK
 + [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_1 [Preset: minimal]        OK
 + [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_2 [Preset: minimal]        OK
@@ -875,8 +879,6 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Deneb - Sanity - Blocks - proposer_slashing [Preset: minimal]               OK
 + [Valid]   EF - Deneb - Sanity - Blocks - skipped_slots [Preset: minimal]                   OK
 + [Valid]   EF - Deneb - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - success_bls_change [Preset: minimal]              OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - success_exit_and_bls_change [Preset: minimal]     OK
 + [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee__empty [Preset: minimal] OK
 + [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee__full [Preset: minimal]  OK
 + [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee__half [Preset: minimal]  OK
@@ -938,7 +940,7 @@ ConsensusSpecPreset-minimal
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: minimal]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: minimal]                OK
 ```
-OK: 926/935 Fail: 0/935 Skip: 9/935
+OK: 928/937 Fail: 0/937 Skip: 9/937
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2166,7 +2168,8 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    BeaconBlockBody                                                               OK
 +   Testing    BeaconBlockHeader                                                             OK
 +   Testing    BeaconState                                                                   OK
-+   Testing    BlobsSidecar                                                                  OK
++   Testing    BlobIdentifier                                                                OK
++   Testing    BlobSidecar                                                                   OK
 +   Testing    Checkpoint                                                                    OK
 +   Testing    ContributionAndProof                                                          OK
 +   Testing    Deposit                                                                       OK
@@ -2192,8 +2195,8 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    SignedAggregateAndProof                                                       OK
 +   Testing    SignedBLSToExecutionChange                                                    OK
 +   Testing    SignedBeaconBlock                                                             OK
-+   Testing    SignedBeaconBlockAndBlobsSidecar                                              OK
 +   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedBlobSidecar                                                             OK
 +   Testing    SignedContributionAndProof                                                    OK
 +   Testing    SignedVoluntaryExit                                                           OK
 +   Testing    SigningData                                                                   OK
@@ -2206,7 +2209,7 @@ OK: 5/5 Fail: 0/5 Skip: 0/5
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 ```
-OK: 48/48 Fail: 0/48 Skip: 0/48
+OK: 49/49 Fail: 0/49 Skip: 0/49
 ## EF - EIP4844 - Unittests - Light client - Sync protocol [Preset: minimal]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -2783,4 +2786,4 @@ OK: 68/68 Fail: 0/68 Skip: 0/68
 OK: 102/102 Fail: 0/102 Skip: 0/102
 
 ---TOTAL---
-OK: 2464/2473 Fail: 0/2473 Skip: 9/2473
+OK: 2467/2476 Fail: 0/2476 Skip: 9/2476

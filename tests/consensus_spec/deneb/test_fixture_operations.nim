@@ -16,14 +16,14 @@ import
   stew/results,
   # Beacon chain internals
   ../../../beacon_chain/spec/[beaconstate, state_transition_block],
-  ../../../beacon_chain/spec/datatypes/eip4844,
+  ../../../beacon_chain/spec/datatypes/deneb,
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops,
   ../../helpers/debug_state
 
 const
-  OpDir                     = SszTestsDir/const_preset/"eip4844"/"operations"
+  OpDir                     = SszTestsDir/const_preset/"deneb"/"operations"
   OpAttestationsDir         = OpDir/"attestation"
   OpAttSlashingDir          = OpDir/"attester_slashing"
   OpBlockHeaderDir          = OpDir/"block_header"
@@ -58,14 +58,14 @@ proc runTest[T, U](
 
     test prefix & baseDescription & testSuiteName & " - " & identifier:
       let preState = newClone(
-        parseTest(testDir/"pre.ssz_snappy", SSZ, eip4844.BeaconState))
+        parseTest(testDir/"pre.ssz_snappy", SSZ, deneb.BeaconState))
       let done = applyProc(
         preState[], parseTest(testDir/(applyFile & ".ssz_snappy"), SSZ, T))
 
       if fileExists(testDir/"post.ssz_snappy"):
         let postState =
           newClone(parseTest(
-            testDir/"post.ssz_snappy", SSZ, eip4844.BeaconState))
+            testDir/"post.ssz_snappy", SSZ, deneb.BeaconState))
 
         reportDiff(preState, postState)
         check:
@@ -78,7 +78,7 @@ proc runTest[T, U](
 
 suite baseDescription & "Attestation " & preset():
   proc applyAttestation(
-      preState: var eip4844.BeaconState, attestation: Attestation):
+      preState: var deneb.BeaconState, attestation: Attestation):
       Result[void, cstring] =
     var cache = StateCache()
     let
@@ -95,7 +95,7 @@ suite baseDescription & "Attestation " & preset():
 
 suite baseDescription & "Attester Slashing " & preset():
   proc applyAttesterSlashing(
-      preState: var eip4844.BeaconState, attesterSlashing: AttesterSlashing):
+      preState: var deneb.BeaconState, attesterSlashing: AttesterSlashing):
       Result[void, cstring] =
     var cache = StateCache()
     process_attester_slashing(
@@ -108,13 +108,13 @@ suite baseDescription & "Attester Slashing " & preset():
 
 suite baseDescription & "Block Header " & preset():
   func applyBlockHeader(
-      preState: var eip4844.BeaconState, blck: eip4844.BeaconBlock):
+      preState: var deneb.BeaconState, blck: deneb.BeaconBlock):
       Result[void, cstring] =
     var cache = StateCache()
     process_block_header(preState, blck, {}, cache)
 
   for path in walkTests(OpBlockHeaderDir):
-    runTest[eip4844.BeaconBlock, typeof applyBlockHeader](
+    runTest[deneb.BeaconBlock, typeof applyBlockHeader](
       OpBlockHeaderDir, "Block Header", "block", applyBlockHeader, path)
 
 from ../../../beacon_chain/spec/datatypes/capella import
@@ -122,7 +122,7 @@ from ../../../beacon_chain/spec/datatypes/capella import
 
 suite baseDescription & "BLS to execution change " & preset():
   proc applyBlsToExecutionChange(
-      preState: var eip4844.BeaconState,
+      preState: var deneb.BeaconState,
       signed_address_change: SignedBLSToExecutionChange):
       Result[void, cstring] =
     process_bls_to_execution_change(
@@ -135,7 +135,7 @@ suite baseDescription & "BLS to execution change " & preset():
 
 suite baseDescription & "Deposit " & preset():
   proc applyDeposit(
-      preState: var eip4844.BeaconState, deposit: Deposit):
+      preState: var deneb.BeaconState, deposit: Deposit):
       Result[void, cstring] =
     process_deposit(defaultRuntimeConfig, preState, deposit, {})
 
@@ -146,23 +146,23 @@ suite baseDescription & "Deposit " & preset():
 suite baseDescription & "Execution Payload " & preset():
   for path in walkTests(OpExecutionPayloadDir):
     proc applyExecutionPayload(
-        preState: var eip4844.BeaconState,
-        executionPayload: eip4844.ExecutionPayload):
+        preState: var deneb.BeaconState,
+        executionPayload: deneb.ExecutionPayload):
         Result[void, cstring] =
       let payloadValid =
         os_ops.readFile(OpExecutionPayloadDir/"pyspec_tests"/path/"execution.yaml").
           contains("execution_valid: true")
-      func executePayload(_: eip4844.ExecutionPayload): bool = payloadValid
+      func executePayload(_: deneb.ExecutionPayload): bool = payloadValid
       process_execution_payload(
             preState, executionPayload, executePayload)
 
-    runTest[eip4844.ExecutionPayload, typeof applyExecutionPayload](
+    runTest[deneb.ExecutionPayload, typeof applyExecutionPayload](
       OpExecutionPayloadDir, "Execution Payload", "execution_payload",
       applyExecutionPayload, path)
 
 suite baseDescription & "Proposer Slashing " & preset():
   proc applyProposerSlashing(
-      preState: var eip4844.BeaconState, proposerSlashing: ProposerSlashing):
+      preState: var deneb.BeaconState, proposerSlashing: ProposerSlashing):
       Result[void, cstring] =
     var cache = StateCache()
     process_proposer_slashing(
@@ -175,7 +175,7 @@ suite baseDescription & "Proposer Slashing " & preset():
 
 suite baseDescription & "Sync Aggregate " & preset():
   proc applySyncAggregate(
-      preState: var eip4844.BeaconState, syncAggregate: SyncAggregate):
+      preState: var deneb.BeaconState, syncAggregate: SyncAggregate):
       Result[void, cstring] =
     var cache = StateCache()
     process_sync_aggregate(
@@ -188,7 +188,7 @@ suite baseDescription & "Sync Aggregate " & preset():
 
 suite baseDescription & "Voluntary Exit " & preset():
   proc applyVoluntaryExit(
-      preState: var eip4844.BeaconState, voluntaryExit: SignedVoluntaryExit):
+      preState: var deneb.BeaconState, voluntaryExit: SignedVoluntaryExit):
       Result[void, cstring] =
     var cache = StateCache()
     process_voluntary_exit(
@@ -201,11 +201,11 @@ suite baseDescription & "Voluntary Exit " & preset():
 
 suite baseDescription & "Withdrawals " & preset():
   proc applyWithdrawals(
-      preState: var eip4844.BeaconState,
-      executionPayload: eip4844.ExecutionPayload): Result[void, cstring] =
+      preState: var deneb.BeaconState,
+      executionPayload: deneb.ExecutionPayload): Result[void, cstring] =
     process_withdrawals(preState, executionPayload)
 
   for path in walkTests(OpWithdrawalsDir):
-    runTest[eip4844.ExecutionPayload, typeof applyWithdrawals](
+    runTest[deneb.ExecutionPayload, typeof applyWithdrawals](
       OpWithdrawalsDir, "Withdrawals", "execution_payload",
       applyWithdrawals, path)
