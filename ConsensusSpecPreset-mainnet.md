@@ -223,12 +223,12 @@ ConsensusSpecPreset-mainnet
 + EF - Capella - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
 + EF - Capella - Transition - transition_with_random_half_participation [Preset: mainnet]    OK
 + EF - Capella - Transition - transition_with_random_three_quarters_participation [Preset: m OK
-+ EF - Deneb - Fork - eip4844_fork_random_0 [Preset: mainnet]                                OK
-+ EF - Deneb - Fork - eip4844_fork_random_1 [Preset: mainnet]                                OK
-+ EF - Deneb - Fork - eip4844_fork_random_2 [Preset: mainnet]                                OK
-+ EF - Deneb - Fork - eip4844_fork_random_3 [Preset: mainnet]                                OK
-+ EF - Deneb - Fork - eip4844_fork_random_low_balances [Preset: mainnet]                     OK
-+ EF - Deneb - Fork - eip4844_fork_random_misc_balances [Preset: mainnet]                    OK
++ EF - Deneb - Fork - deneb_fork_random_0 [Preset: mainnet]                                  OK
++ EF - Deneb - Fork - deneb_fork_random_1 [Preset: mainnet]                                  OK
++ EF - Deneb - Fork - deneb_fork_random_2 [Preset: mainnet]                                  OK
++ EF - Deneb - Fork - deneb_fork_random_3 [Preset: mainnet]                                  OK
++ EF - Deneb - Fork - deneb_fork_random_low_balances [Preset: mainnet]                       OK
++ EF - Deneb - Fork - deneb_fork_random_misc_balances [Preset: mainnet]                      OK
 + EF - Deneb - Fork - fork_base_state [Preset: mainnet]                                      OK
 + EF - Deneb - Fork - fork_many_next_epoch [Preset: mainnet]                                 OK
 + EF - Deneb - Fork - fork_next_epoch [Preset: mainnet]                                      OK
@@ -405,22 +405,22 @@ ConsensusSpecPreset-mainnet
   ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost              OK
 + ForkChoice - mainnet/capella/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
-+ ForkChoice - mainnet/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_grea OK
-+ ForkChoice - mainnet/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_ OK
-+ ForkChoice - mainnet/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest OK
-+ ForkChoice - mainnet/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att OK
-+ ForkChoice - mainnet/eip4844/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              OK
-+ ForkChoice - mainnet/eip4844/fork_choice/get_head/pyspec_tests/chain_no_attestations       OK
-+ ForkChoice - mainnet/eip4844/fork_choice/get_head/pyspec_tests/discard_equivocations       OK
-+ ForkChoice - mainnet/eip4844/fork_choice/get_head/pyspec_tests/genesis                     OK
-+ ForkChoice - mainnet/eip4844/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
-+ ForkChoice - mainnet/eip4844/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
-+ ForkChoice - mainnet/eip4844/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attest OK
-+ ForkChoice - mainnet/eip4844/fork_choice/on_block/pyspec_tests/basic                       OK
-+ ForkChoice - mainnet/eip4844/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root    OK
-  ForkChoice - mainnet/eip4844/fork_choice/on_block/pyspec_tests/on_block_future_block       Skip
-+ ForkChoice - mainnet/eip4844/fork_choice/on_block/pyspec_tests/proposer_boost              OK
-+ ForkChoice - mainnet/eip4844/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_sl OK
++ ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_greate OK
++ ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_no OK
++ ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_a OK
++ ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attes OK
++ ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                OK
++ ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/chain_no_attestations         OK
++ ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/discard_equivocations         OK
++ ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/genesis                       OK
++ ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head   OK
++ ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
++ ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attestat OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/basic                         OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root      OK
+  ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost                OK
++ ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
 + ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_great OK
 + ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_n OK
 + ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
@@ -447,13 +447,13 @@ ConsensusSpecPreset-mainnet
 + Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/Beac OK
 + Light client - Single merkle proof - mainnet/capella/light_client/single_merkle_proof/Beac OK
-+ Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
-+ Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
-+ Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
-+ Light client - Single merkle proof - mainnet/eip4844/light_client/single_merkle_proof/Beac OK
++ Light client - Single merkle proof - mainnet/deneb/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - mainnet/deneb/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - mainnet/deneb/light_client/single_merkle_proof/Beacon OK
++ Light client - Single merkle proof - mainnet/deneb/light_client/single_merkle_proof/Beacon OK
 + Sync - mainnet/bellatrix/sync/optimistic/pyspec_tests/from_syncing_to_invalid              OK
 + Sync - mainnet/capella/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
-+ Sync - mainnet/eip4844/sync/optimistic/pyspec_tests/from_syncing_to_invalid                OK
++ Sync - mainnet/deneb/sync/optimistic/pyspec_tests/from_syncing_to_invalid                  OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_all_zeroed_sig [Preset: mainnet]         OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_attester_slashing_same_block [ OK
 + [Invalid] EF - Altair - Sanity - Blocks - invalid_duplicate_deposit_same_block [Preset: ma OK
@@ -669,6 +669,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Capella - Sanity - Blocks - attestation [Preset: mainnet]                   OK
 + [Valid]   EF - Capella - Sanity - Blocks - attester_slashing [Preset: mainnet]             OK
 + [Valid]   EF - Capella - Sanity - Blocks - balance_driven_status_transitions [Preset: main OK
++ [Valid]   EF - Capella - Sanity - Blocks - bls_change [Preset: mainnet]                    OK
++ [Valid]   EF - Capella - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]        OK
 + [Valid]   EF - Capella - Sanity - Blocks - deposit_in_block [Preset: mainnet]              OK
 + [Valid]   EF - Capella - Sanity - Blocks - deposit_top_up [Preset: mainnet]                OK
 + [Valid]   EF - Capella - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainn OK
@@ -676,6 +678,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_no_tx [Preset: mainnet]  OK
 + [Valid]   EF - Capella - Sanity - Blocks - empty_block_transition_randomized_payload [Pres OK
 + [Valid]   EF - Capella - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]        OK
++ [Valid]   EF - Capella - Sanity - Blocks - exit_and_bls_change [Preset: mainnet]           OK
 + [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]      OK
 + [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]      OK
 + [Valid]   EF - Capella - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]      OK
@@ -697,8 +700,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Capella - Sanity - Blocks - proposer_slashing [Preset: mainnet]             OK
 + [Valid]   EF - Capella - Sanity - Blocks - skipped_slots [Preset: mainnet]                 OK
 + [Valid]   EF - Capella - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
-+ [Valid]   EF - Capella - Sanity - Blocks - success_bls_change [Preset: mainnet]            OK
-+ [Valid]   EF - Capella - Sanity - Blocks - success_exit_and_bls_change [Preset: mainnet]   OK
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee__empty [Preset: mainne OK
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee__full [Preset: mainnet OK
 + [Valid]   EF - Capella - Sanity - Blocks - sync_committee_committee__half [Preset: mainnet OK
@@ -733,6 +734,8 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Deneb - Sanity - Blocks - attestation [Preset: mainnet]                     OK
 + [Valid]   EF - Deneb - Sanity - Blocks - attester_slashing [Preset: mainnet]               OK
 + [Valid]   EF - Deneb - Sanity - Blocks - balance_driven_status_transitions [Preset: mainne OK
++ [Valid]   EF - Deneb - Sanity - Blocks - bls_change [Preset: mainnet]                      OK
++ [Valid]   EF - Deneb - Sanity - Blocks - deposit_and_bls_change [Preset: mainnet]          OK
 + [Valid]   EF - Deneb - Sanity - Blocks - deposit_in_block [Preset: mainnet]                OK
 + [Valid]   EF - Deneb - Sanity - Blocks - deposit_top_up [Preset: mainnet]                  OK
 + [Valid]   EF - Deneb - Sanity - Blocks - duplicate_attestation_same_block [Preset: mainnet OK
@@ -740,6 +743,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Deneb - Sanity - Blocks - empty_block_transition_no_tx [Preset: mainnet]    OK
 + [Valid]   EF - Deneb - Sanity - Blocks - empty_block_transition_randomized_payload [Preset OK
 + [Valid]   EF - Deneb - Sanity - Blocks - empty_epoch_transition [Preset: mainnet]          OK
++ [Valid]   EF - Deneb - Sanity - Blocks - exit_and_bls_change [Preset: mainnet]             OK
 + [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_0 [Preset: mainnet]        OK
 + [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_1 [Preset: mainnet]        OK
 + [Valid]   EF - Deneb - Sanity - Blocks - full_random_operations_2 [Preset: mainnet]        OK
@@ -763,8 +767,6 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Deneb - Sanity - Blocks - proposer_slashing [Preset: mainnet]               OK
 + [Valid]   EF - Deneb - Sanity - Blocks - skipped_slots [Preset: mainnet]                   OK
 + [Valid]   EF - Deneb - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]       OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - success_bls_change [Preset: mainnet]              OK
-+ [Valid]   EF - Deneb - Sanity - Blocks - success_exit_and_bls_change [Preset: mainnet]     OK
 + [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee__empty [Preset: mainnet] OK
 + [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee__full [Preset: mainnet]  OK
 + [Valid]   EF - Deneb - Sanity - Blocks - sync_committee_committee__half [Preset: mainnet]  OK
@@ -821,7 +823,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 ```
-OK: 809/818 Fail: 0/818 Skip: 9/818
+OK: 811/820 Fail: 0/820 Skip: 9/820
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -1990,7 +1992,8 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    BeaconBlockBody                                                               OK
 +   Testing    BeaconBlockHeader                                                             OK
 +   Testing    BeaconState                                                                   OK
-+   Testing    BlobsSidecar                                                                  OK
++   Testing    BlobIdentifier                                                                OK
++   Testing    BlobSidecar                                                                   OK
 +   Testing    Checkpoint                                                                    OK
 +   Testing    ContributionAndProof                                                          OK
 +   Testing    Deposit                                                                       OK
@@ -2016,8 +2019,8 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    SignedAggregateAndProof                                                       OK
 +   Testing    SignedBLSToExecutionChange                                                    OK
 +   Testing    SignedBeaconBlock                                                             OK
-+   Testing    SignedBeaconBlockAndBlobsSidecar                                              OK
 +   Testing    SignedBeaconBlockHeader                                                       OK
++   Testing    SignedBlobSidecar                                                             OK
 +   Testing    SignedContributionAndProof                                                    OK
 +   Testing    SignedVoluntaryExit                                                           OK
 +   Testing    SigningData                                                                   OK
@@ -2030,7 +2033,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    VoluntaryExit                                                                 OK
 +   Testing    Withdrawal                                                                    OK
 ```
-OK: 48/48 Fail: 0/48 Skip: 0/48
+OK: 49/49 Fail: 0/49 Skip: 0/49
 ## EF - EIP4844 - Unittests - Light client - Sync protocol [Preset: mainnet]
 ```diff
 + process_light_client_update_finality_updated                                               OK
@@ -2604,4 +2607,4 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 OK: 100/100 Fail: 0/100 Skip: 0/100
 
 ---TOTAL---
-OK: 2301/2310 Fail: 0/2310 Skip: 9/2310
+OK: 2304/2313 Fail: 0/2313 Skip: 9/2313

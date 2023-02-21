@@ -16,7 +16,7 @@ import
   ../fixtures_utils, ../os_ops
 
 const
-  RewardsDirBase = SszTestsDir/const_preset/"eip4844"/"rewards"
+  RewardsDirBase = SszTestsDir/const_preset/"deneb"/"rewards"
   RewardsDirBasic = RewardsDirBase/"basic"/"pyspec_tests"
   RewardsDirLeak = RewardsDirBase/"leak"/"pyspec_tests"
   RewardsDirRandom = RewardsDirBase/"random"/"pyspec_tests"
@@ -36,7 +36,7 @@ proc runTest(rewardsDir, identifier: string) =
 
       let
         state = newClone(
-          parseTest(testDir/"pre.ssz_snappy", SSZ, eip4844.BeaconState))
+          parseTest(testDir/"pre.ssz_snappy", SSZ, deneb.BeaconState))
         flagDeltas = [
           parseTest(testDir/"source_deltas.ssz_snappy", SSZ, Deltas),
           parseTest(testDir/"target_deltas.ssz_snappy", SSZ, Deltas),

@@ -50,8 +50,13 @@ type
   # current spec doesn't ever SSZ-serialize it or hash_tree_root it
   VersionedHash* = array[32, byte]
 
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#custom-types
+  BlobIndex* = uint64
+
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
+  # TODO remove BlobsSidecar and SignedBeaconBlockAndBlobsSidecar; they'e not
+  # in rc.3 anymore
   BlobsSidecar* = object
     beacon_block_root*: Eth2Digest
     beacon_block_slot*: Slot
@@ -61,6 +66,27 @@ type
   SignedBeaconBlockAndBlobsSidecar* = object
     beacon_block*: SignedBeaconBlock
     blobs_sidecar*: BlobsSidecar
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/p2p-interface.md#blobsidecar
+  BlobSidecar* = object
+    block_root*: Eth2Digest
+    index*: BlobIndex  # Index of blob in block
+    slot*: Slot
+    block_parent_root*: Eth2Digest  # Proposer shuffling determinant
+    proposer_index*: uint64
+    blob*: Blob
+    kzg_commitment*: KZGCommitment
+    kzg_proof*: KZGProof  # Allows for quick verification of kzg_commitment
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/p2p-interface.md#signedblobsidecar
+  SignedBlobSidecar* = object
+    message*: BlobSidecar
+    signature*: ValidatorSig
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/p2p-interface.md#blobidentifier
+  BlobIdentifier* = object
+    block_root*: Eth2Digest
+    index*: BlobIndex
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#executionpayload
   ExecutionPayload* = object
@@ -76,12 +102,12 @@ type
     timestamp*: uint64
     extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
     base_fee_per_gas*: UInt256
-    excess_data_gas*: UInt256  # [New in EIP-4844]
 
     # Extra payload fields
     block_hash*: Eth2Digest # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
+    excess_data_gas*: UInt256  # [New in EIP-4844]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
@@ -97,12 +123,12 @@ type
     timestamp*: uint64
     extra_data*: List[byte, MAX_EXTRA_DATA_BYTES]
     base_fee_per_gas*: UInt256
-    excess_data_gas*: UInt256  # [New in EIP-4844]
 
     # Extra payload fields
     block_hash*: Eth2Digest  # Hash of execution block
     transactions_root*: Eth2Digest
     withdrawals_root*: Eth2Digest
+    excess_data_gas*: UInt256  # [New in EIP-4844]
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}

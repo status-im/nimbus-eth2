@@ -27,6 +27,10 @@ export
 # Path parsing
 
 func forkForPathComponent*(forkPath: string): Opt[ConsensusFork] =
+  # TODO remove after EIP4844 gets renamed to Deneb in ConsensusFork
+  if forkPath == "deneb":
+    return ok ConsensusFork.EIP4844
+
   for fork in ConsensusFork:
     if ($fork).toLowerAscii() == forkPath:
       return ok fork
