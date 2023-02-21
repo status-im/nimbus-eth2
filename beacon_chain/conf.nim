@@ -603,7 +603,7 @@ type
         name: "payload-builder-url" .}: string
 
       historyMode* {.
-        desc: "Retention strategy for historical data (archive/pruned)"
+        desc: "Retention strategy for historical data (archive/prune)"
         defaultValue: HistoryMode.Archive
         name: "history".}: HistoryMode
 
