@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# Types specific to eip4844 (i.e. known to have changed across hard forks) - see
+# Types specific to Deneb (i.e. known to have changed across hard forks) - see
 # `base` for types and guidelines common across forks
 
 # TODO Careful, not nil analysis is broken / incomplete and the semantics will
@@ -55,7 +55,7 @@ type
 
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
-  # TODO remove BlobsSidecar and SignedBeaconBlockAndBlobsSidecar; they'e not
+  # TODO remove BlobsSidecar and SignedBeaconBlockAndBlobsSidecar; they're not
   # in rc.3 anymore
   BlobsSidecar* = object
     beacon_block_root*: Eth2Digest
@@ -88,7 +88,7 @@ type
     block_root*: Eth2Digest
     index*: BlobIndex
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
@@ -107,9 +107,10 @@ type
     block_hash*: Eth2Digest # Hash of execution block
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
-    excess_data_gas*: UInt256  # [New in EIP-4844]
+    excess_data_gas*: UInt256  # [New in Deneb]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -128,7 +129,7 @@ type
     block_hash*: Eth2Digest  # Hash of execution block
     transactions_root*: Eth2Digest
     withdrawals_root*: Eth2Digest
-    excess_data_gas*: UInt256  # [New in EIP-4844]
+    excess_data_gas*: UInt256  # [New in Deneb]
 
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
