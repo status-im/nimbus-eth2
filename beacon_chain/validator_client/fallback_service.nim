@@ -12,15 +12,6 @@ const
 
 logScope: service = ServiceName
 
-type
-  BeaconNodesCounters* = object
-    online*: int
-    offline*: int
-    uninitalized*: int
-    incompatible*: int
-    optsync*: int
-    notsync*: int
-
 proc nodesCount*(vc: ValidatorClientRef,
                  statuses: set[RestBeaconNodeStatus],
                  roles: set[BeaconNodeRole] = {}): int =
@@ -38,28 +29,10 @@ proc filterNodes*(vc: ValidatorClientRef, statuses: set[RestBeaconNodeStatus],
                             (it.status in statuses))
 
 proc otherNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
-  vc.beaconNodes.filterIt(it.status != RestBeaconNodeStatus.Online)
+  vc.beaconNodes.filterIt(it.status != RestBeaconNodeStatus.Synced)
 
 proc otherNodesCount*(vc: ValidatorClientRef): int =
-  vc.beaconNodes.countIt(it.status != RestBeaconNodeStatus.Online)
-
-proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
-  var res = BeaconNodesCounters()
-  for node in vc.beaconNodes:
-    case node.status
-    of RestBeaconNodeStatus.Uninitalized:
-      inc(res.uninitalized)
-    of RestBeaconNodeStatus.Offline:
-      inc(res.offline)
-    of RestBeaconNodeStatus.Incompatible:
-      inc(res.incompatible)
-    of RestBeaconNodeStatus.NotSynced:
-      inc(res.notsync)
-    of RestBeaconNodeStatus.OptSynced:
-      inc(res.optsync)
-    of RestBeaconNodeStatus.Online:
-      inc(res.online)
-  res
+  vc.beaconNodes.countIt(it.status != RestBeaconNodeStatus.Synced)
 
 proc waitNodes*(vc: ValidatorClientRef, timeoutFut: Future[void],
                 statuses: set[RestBeaconNodeStatus],
@@ -97,8 +70,10 @@ proc waitNodes*(vc: ValidatorClientRef, timeoutFut: Future[void],
 
     inc(iterations)
 
-proc checkCompatible(vc: ValidatorClientRef,
-                     node: BeaconNodeServerRef) {.async.} =
+proc checkCompatible(
+       vc: ValidatorClientRef,
+       node: BeaconNodeServerRef
+     ): Future[RestBeaconNodeStatus] {.async.} =
   logScope: endpoint = node
   let info =
     try:
@@ -107,18 +82,17 @@ proc checkCompatible(vc: ValidatorClientRef,
       res.data.data
     except CancelledError as exc:
       debug "Configuration request was interrupted"
-      node.status = RestBeaconNodeStatus.Offline
       raise exc
     except RestError as exc:
-      debug "Unable to obtain beacon node's configuration",
-            error_name = exc.name, error_message = exc.msg
-      node.status = RestBeaconNodeStatus.Offline
-      return
+      if node.status != RestBeaconNodeStatus.Offline:
+        debug "Unable to obtain beacon node's configuration",
+              error_name = exc.name, error_message = exc.msg
+      return RestBeaconNodeStatus.Offline
     except CatchableError as exc:
-      error "Unexpected exception", error_name = exc.name,
-            error_message = exc.msg
-      node.status = RestBeaconNodeStatus.Offline
-      return
+      if node.status != RestBeaconNodeStatus.Offline:
+        error "Unexpected exception", error_name = exc.name,
+              error_message = exc.msg
+      return RestBeaconNodeStatus.Offline
 
   let genesis =
     try:
@@ -127,18 +101,17 @@ proc checkCompatible(vc: ValidatorClientRef,
       res.data.data
     except CancelledError as exc:
       debug "Genesis request was interrupted"
-      node.status = RestBeaconNodeStatus.Offline
       raise exc
     except RestError as exc:
-      debug "Unable to obtain beacon node's genesis",
-            error_name = exc.name, error_message = exc.msg
-      node.status = RestBeaconNodeStatus.Offline
-      return
+      if node.status != RestBeaconNodeStatus.Offline:
+        debug "Unable to obtain beacon node's genesis",
+              error_name = exc.name, error_message = exc.msg
+      return RestBeaconNodeStatus.Offline
     except CatchableError as exc:
-      error "Unexpected exception", error_name = exc.name,
-            error_message = exc.msg
-      node.status = RestBeaconNodeStatus.Offline
-      return
+      if node.status != RestBeaconNodeStatus.Offline:
+        error "Unexpected exception", error_name = exc.name,
+              error_message = exc.msg
+      return RestBeaconNodeStatus.Offline
 
   let genesisFlag = (genesis != vc.beaconGenesis)
   let configFlag =
@@ -165,18 +138,24 @@ proc checkCompatible(vc: ValidatorClientRef,
     info.DOMAIN_SELECTION_PROOF != DOMAIN_SELECTION_PROOF or
     info.DOMAIN_AGGREGATE_AND_PROOF != DOMAIN_AGGREGATE_AND_PROOF
 
-  if configFlag or genesisFlag:
-    node.status = RestBeaconNodeStatus.Incompatible
-    warn "Beacon node has incompatible configuration",
-          genesis_flag = genesisFlag, config_flag = configFlag
-  else:
-    info "Beacon node has compatible configuration"
-    node.config = some(info)
-    node.genesis = some(genesis)
-    node.status = RestBeaconNodeStatus.Online
+  let res =
+    if configFlag or genesisFlag:
+      if node.status != RestBeaconNodeStatus.Incompatible:
+        warn "Beacon node has incompatible configuration",
+              genesis_flag = genesisFlag, config_flag = configFlag
+      RestBeaconNodeStatus.Incompatible
+    else:
+      if node.status != RestBeaconNodeStatus.Compatible:
+        debug "Beacon node has compatible configuration"
+      node.config = some(info)
+      node.genesis = some(genesis)
+      RestBeaconNodeStatus.Compatible
+  return res
 
-proc checkSync(vc: ValidatorClientRef,
-               node: BeaconNodeServerRef) {.async.} =
+proc checkSync(
+       vc: ValidatorClientRef,
+       node: BeaconNodeServerRef
+     ): Future[RestBeaconNodeStatus] {.async.} =
   logScope: endpoint = node
   let syncInfo =
     try:
@@ -185,20 +164,19 @@ proc checkSync(vc: ValidatorClientRef,
       res.data.data
     except CancelledError as exc:
       debug "Sync status request was interrupted"
-      node.status = RestBeaconNodeStatus.Offline
       raise exc
     except RestError as exc:
-      debug "Unable to obtain beacon node's sync status",
-            error_name = exc.name, error_message = exc.msg
-      node.status = RestBeaconNodeStatus.Offline
-      return
+      if node.status != RestBeaconNodeStatus.Offline:
+        debug "Unable to obtain beacon node's sync status",
+              error_name = exc.name, error_message = exc.msg
+      return RestBeaconNodeStatus.Offline
     except CatchableError as exc:
-      error "Unexpected exception", error_name = exc.name,
-            error_message = exc.msg
-      node.status = RestBeaconNodeStatus.Offline
-      return
+      if node.status != RestBeaconNodeStatus.Offline:
+        error "Unexpected exception", error_name = exc.name,
+              error_message = exc.msg
+      return RestBeaconNodeStatus.Offline
   node.syncInfo = some(syncInfo)
-  node.status =
+  let res =
     block:
       let optimistic =
         if syncInfo.is_optimistic.isNone():
@@ -208,21 +186,29 @@ proc checkSync(vc: ValidatorClientRef,
 
       if not(syncInfo.is_syncing) or (syncInfo.sync_distance < SYNC_TOLERANCE):
         if not(syncInfo.is_optimistic.get(false)):
-          info "Beacon node is in sync", sync_distance = syncInfo.sync_distance,
-               head_slot = syncInfo.head_slot, is_optimistic = optimistic
-          RestBeaconNodeStatus.Online
+          if node.status != RestBeaconNodeStatus.Synced:
+            info "Beacon node is in sync",
+                 sync_distance = syncInfo.sync_distance,
+                 head_slot = syncInfo.head_slot, is_optimistic = optimistic
+          RestBeaconNodeStatus.Synced
         else:
-          warn "Execution client not in sync " &
-               "(beacon node optimistically synced)",
-               sync_distance = syncInfo.sync_distance,
-               head_slot = syncInfo.head_slot, is_optimistic = optimistic
+          if node.status != RestBeaconNodeStatus.OptSynced:
+            info "Execution client not in sync " &
+                 "(beacon node optimistically synced)",
+                 sync_distance = syncInfo.sync_distance,
+                 head_slot = syncInfo.head_slot, is_optimistic = optimistic
           RestBeaconNodeStatus.OptSynced
       else:
-        warn "Beacon node not in sync", sync_distance = syncInfo.sync_distance,
-             head_slot = syncInfo.head_slot, is_optimistic = optimistic
+        if node.status != RestBeaconNodeStatus.NotSynced:
+          warn "Beacon node not in sync",
+               sync_distance = syncInfo.sync_distance,
+               head_slot = syncInfo.head_slot, is_optimistic = optimistic
         RestBeaconNodeStatus.NotSynced
+  return res
 
-proc checkOnline(node: BeaconNodeServerRef) {.async.} =
+proc checkOnline(
+       node: BeaconNodeServerRef
+     ): Future[RestBeaconNodeStatus] {.async.} =
   logScope: endpoint = node
   debug "Checking beacon node status"
   let agent =
@@ -231,47 +217,49 @@ proc checkOnline(node: BeaconNodeServerRef) {.async.} =
       res.data.data
     except CancelledError as exc:
       debug "Status request was interrupted"
-      node.status = RestBeaconNodeStatus.Offline
       raise exc
     except RestError as exc:
-      debug "Unable to check beacon node's status",
-            error_name = exc.name, error_message = exc.msg
-      node.status = RestBeaconNodeStatus.Offline
-      return
+      if node.status != RestBeaconNodeStatus.Offline:
+        debug "Unable to check beacon node's status",
+              error_name = exc.name, error_message = exc.msg
+      return RestBeaconNodeStatus.Offline
     except CatchableError as exc:
-      error "Unexpected exception", error_name = exc.name,
-            error_message = exc.msg
-      node.status = RestBeaconNodeStatus.Offline
-      return
-  debug "Beacon node has been identified", agent = agent.version
-  node.ident = some(agent.version)
-  node.status = RestBeaconNodeStatus.Online
+      if node.status != RestBeaconNodeStatus.Offline:
+        error "Unexpected exception", error_name = exc.name,
+              error_message = exc.msg
+      return RestBeaconNodeStatus.Offline
+  if node.status != RestBeaconNodeStatus.Online:
+    debug "Beacon node has been identified", agent = agent.version
+  return RestBeaconNodeStatus.Online
 
 proc checkNode(vc: ValidatorClientRef,
                node: BeaconNodeServerRef): Future[bool] {.async.} =
-  let status = node.status
-  debug "Checking beacon node", endpoint = node, status = status
+  let nstatus = node.status
+  debug "Checking beacon node", endpoint = node, status = node.status
 
-  if status in {RestBeaconNodeStatus.Uninitalized,
-                RestBeaconNodeStatus.Offline}:
-    await node.checkOnline()
-    if node.status != RestBeaconNodeStatus.Online:
-      return (status != node.status)
+  if nstatus in {RestBeaconNodeStatus.Offline}:
+    let status = await node.checkOnline()
+    node.status = status
+    if status != RestBeaconNodeStatus.Online:
+      return nstatus != status
 
-  if status in {RestBeaconNodeStatus.Uninitalized,
-                RestBeaconNodeStatus.Offline,
-                RestBeaconNodeStatus.Incompatible}:
-    await vc.checkCompatible(node)
-    if node.status != RestBeaconNodeStatus.Online:
-      return (status != node.status)
+  if nstatus in {RestBeaconNodeStatus.Offline,
+                 RestBeaconNodeStatus.Online,
+                 RestBeaconNodeStatus.Incompatible}:
+    let status = await vc.checkCompatible(node)
+    node.status = status
+    if status != RestBeaconNodeStatus.Compatible:
+      return nstatus != status
 
-  if status in {RestBeaconNodeStatus.Uninitalized,
-                RestBeaconNodeStatus.Offline,
-                RestBeaconNodeStatus.Incompatible,
-                RestBeaconNodeStatus.OptSynced,
-                RestBeaconNodeStatus.NotSynced}:
-    await vc.checkSync(node)
-    return (status != node.status)
+  if nstatus in {RestBeaconNodeStatus.Offline,
+                 RestBeaconNodeStatus.Online,
+                 RestBeaconNodeStatus.Incompatible,
+                 RestBeaconNodeStatus.Compatible,
+                 RestBeaconNodeStatus.OptSynced,
+                 RestBeaconNodeStatus.NotSynced}:
+    let status = await vc.checkSync(node)
+    node.status = status
+    return nstatus != status
 
 proc checkNodes*(service: FallbackServiceRef): Future[bool] {.async.} =
   let

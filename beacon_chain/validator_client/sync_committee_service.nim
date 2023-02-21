@@ -357,8 +357,8 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
           res.data.root
         else:
           if res.execution_optimistic.get():
-            error "Could not obtain head block's root because beacon node " &
-                  "only optimistically synced", slot = slot
+            notice "Execution client not in sync; skipping validator duties " &
+                   "for now", slot = slot
             return
           res.data.root
       except ValidatorApiError as exc:

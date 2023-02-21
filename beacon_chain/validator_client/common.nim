@@ -127,7 +127,16 @@ type
     duties*: Table[Epoch, SyncCommitteeDuty]
 
   RestBeaconNodeStatus* {.pure.} = enum
-    Uninitalized, Offline, Incompatible, NotSynced, OptSynced, Online
+    Offline,      ## BN is offline.
+    Online,       ## BN is online, passed checkOnline() check.
+    Incompatible, ## BN configuration is NOT compatible with VC configuration.
+    Compatible,   ## BN configuration is compatible with VC configuration.
+    NotSynced,    ## BN is not in sync.
+    OptSynced,    ## BN is optimistically synced (EL is not in sync).
+    Synced        ## BN and EL are synced.
+
+  BeaconNodesCounters* = object
+    data*: array[int(high(RestBeaconNodeStatus)) + 1, int]
 
   BeaconNodeServerRef* = ref BeaconNodeServer
 
@@ -224,6 +233,21 @@ proc `$`*(roles: set[BeaconNodeRole]): string =
       "{all}"
   else:
     "{}"
+
+proc `$`*(status: RestBeaconNodeStatus): string =
+  case status
+  of RestBeaconNodeStatus.Offline: "offline"
+  of RestBeaconNodeStatus.Online: "online"
+  of RestBeaconNodeStatus.Incompatible: "incompatible"
+  of RestBeaconNodeStatus.Compatible: "compatible"
+  of RestBeaconNodeStatus.NotSynced: "bn-unsynced"
+  of RestBeaconNodeStatus.OptSynced: "el-unsynced"
+  of RestBeaconNodeStatus.Synced: "synced"
+
+proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
+  var res = BeaconNodesCounters()
+  for node in vc.beaconNodes: inc(res.data[int(node.status)])
+  res
 
 proc shortLog*(roles: set[BeaconNodeRole]): string =
   var r = "AGBSD"
@@ -362,7 +386,8 @@ proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
   let server = BeaconNodeServerRef(
     client: client, endpoint: $remote, index: index, roles: roles,
     logIdent: client.address.hostname & ":" &
-              Base10.toString(client.address.port)
+              Base10.toString(client.address.port),
+    status: RestBeaconNodeStatus.Offline
   )
   ok(server)
 

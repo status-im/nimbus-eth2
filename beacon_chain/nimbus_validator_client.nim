@@ -161,12 +161,34 @@ proc onSlotStart(vc: ValidatorClientRef, wallTime: BeaconTime,
   if checkIfShouldStopAtEpoch(wallSlot.slot, vc.config.stopAtEpoch):
     return true
 
-  info "Slot start",
-    slot = shortLog(wallSlot.slot),
-    attestationIn = vc.getDurationToNextAttestation(wallSlot.slot),
-    blockIn = vc.getDurationToNextBlock(wallSlot.slot),
-    validators = vc.attachedValidators[].count(),
-    delay = shortLog(delay)
+  if len(vc.beaconNodes) > 1:
+    let
+      counts = vc.getNodeCounts()
+      # Good nodes are nodes which can be used for ALL the requests.
+      goodNodes = counts.data[int(RestBeaconNodeStatus.Synced)]
+      # Viable nodes are nodes which can be used only SOME of the requests.
+      viableNodes = counts.data[int(RestBeaconNodeStatus.OptSynced)] +
+                    counts.data[int(RestBeaconNodeStatus.NotSynced)] +
+                    counts.data[int(RestBeaconNodeStatus.Compatible)]
+      # Bad nodes are nodes which can't be used at all.
+      badNodes = counts.data[int(RestBeaconNodeStatus.Offline)] +
+                 counts.data[int(RestBeaconNodeStatus.Online)] +
+                 counts.data[int(RestBeaconNodeStatus.Incompatible)]
+    info "Slot start",
+      slot = shortLog(wallSlot.slot),
+      attestationIn = vc.getDurationToNextAttestation(wallSlot.slot),
+      blockIn = vc.getDurationToNextBlock(wallSlot.slot),
+      validators = vc.attachedValidators[].count(),
+      good_nodes = goodNodes, viable_nodes = viableNodes, bad_nodes = badNodes,
+      delay = shortLog(delay)
+  else:
+    info "Slot start",
+      slot = shortLog(wallSlot.slot),
+      attestationIn = vc.getDurationToNextAttestation(wallSlot.slot),
+      blockIn = vc.getDurationToNextBlock(wallSlot.slot),
+      validators = vc.attachedValidators[].count(),
+      node_status = $vc.beaconNodes[0].status,
+      delay = shortLog(delay)
 
   return false
 
