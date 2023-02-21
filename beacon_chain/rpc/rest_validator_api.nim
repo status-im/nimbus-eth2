@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -470,8 +470,22 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-    if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-      let res = await makeBlindedBeaconBlockForHeadAndSlot(
+    static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
+    let currentEpoch = node.currentSlot().epoch()
+    if currentEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
+      debugRaiseAssert $eip4844ImplementationMissing & ": GET /eth/v1/validator/blinded_blocks/{slot}"
+    elif currentEpoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
+      let res = await makeBlindedBeaconBlockForHeadAndSlot[
+          capella_mev.BlindedBeaconBlock](
+        node, qrandao, proposer, qgraffiti, qhead, qslot)
+      if res.isErr():
+        return RestApiResponse.jsonError(Http400, res.error())
+      return responsePlain(ForkedBlindedBeaconBlock(
+        kind: ConsensusFork.Capella,
+        capellaData: res.get()))
+    elif currentEpoch >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
+      let res = await makeBlindedBeaconBlockForHeadAndSlot[
+          bellatrix_mev.BlindedBeaconBlock](
         node, qrandao, proposer, qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())

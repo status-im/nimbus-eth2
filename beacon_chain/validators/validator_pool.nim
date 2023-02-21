@@ -418,7 +418,8 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
                         block_root: Eth2Digest,
                         blck: ForkedBeaconBlock | ForkedBlindedBeaconBlock |
-                              bellatrix_mev.BlindedBeaconBlock
+                              bellatrix_mev.BlindedBeaconBlock |
+                              capella_mev.BlindedBeaconBlock
                        ): Future[SignatureResult] {.async.} =
   return
     case v.kind
@@ -456,12 +457,19 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           request = Web3SignerRequest.init(
             fork, genesis_validators_root, web3SignerBlock)
         await v.signData(request)
-      elif blck is BlindedBeaconBlock:
+      elif blck is bellatrix_mev.BlindedBeaconBlock:
         let request = Web3SignerRequest.init(
           fork, genesis_validators_root,
           Web3SignerForkedBeaconBlock(
             kind: ConsensusFork.Bellatrix,
             bellatrixData: blck.toBeaconBlockHeader))
+        await v.signData(request)
+      elif blck is capella_mev.BlindedBeaconBlock:
+        let request = Web3SignerRequest.init(
+          fork, genesis_validators_root,
+          Web3SignerForkedBeaconBlock(
+            kind: ConsensusFork.Capella,
+            capellaData: blck.toBeaconBlockHeader))
         await v.signData(request)
       else:
         let

@@ -17,12 +17,12 @@ import
     block_id, eth2_merkleization, eth2_ssz_serialization,
     forks_light_client, presets],
   ./datatypes/[phase0, altair, bellatrix, capella, deneb],
-  ./mev/bellatrix_mev
+  ./mev/bellatrix_mev, ./mev/capella_mev
 
 export
   extras, block_id, phase0, altair, bellatrix, capella, deneb,
   eth2_merkleization, eth2_ssz_serialization, forks_light_client,
-  presets, bellatrix_mev
+  presets, bellatrix_mev, capella_mev
 
 # This file contains helpers for dealing with forks - we have two ways we can
 # deal with forks:
@@ -152,9 +152,9 @@ type
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
     of ConsensusFork.Altair:    altairData*:    altair.BeaconBlock
-    of ConsensusFork.Bellatrix: bellatrixData*: BlindedBeaconBlock
-    of ConsensusFork.Capella:   capellaData*:   BlindedBeaconBlock
-    of ConsensusFork.EIP4844:   eip4844Data*:   BlindedBeaconBlock
+    of ConsensusFork.Bellatrix: bellatrixData*: bellatrix_mev.BlindedBeaconBlock
+    of ConsensusFork.Capella:   capellaData*:   capella_mev.BlindedBeaconBlock
+    of ConsensusFork.EIP4844:   eip4844Data*:   capella_mev.BlindedBeaconBlock
 
   ForkedTrustedBeaconBlock* = object
     case kind*: ConsensusFork
@@ -182,15 +182,16 @@ type
   ForkySignedBlindedBeaconBlock* =
     phase0.SignedBeaconBlock |
     altair.SignedBeaconBlock |
-    SignedBlindedBeaconBlock
+    bellatrix_mev.SignedBlindedBeaconBlock |
+    capella_mev.SignedBlindedBeaconBlock
 
   ForkedSignedBlindedBeaconBlock* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.SignedBeaconBlock
     of ConsensusFork.Altair:    altairData*:    altair.SignedBeaconBlock
-    of ConsensusFork.Bellatrix: bellatrixData*: SignedBlindedBeaconBlock
-    of ConsensusFork.Capella:   capellaData*:   SignedBlindedBeaconBlock
-    of ConsensusFork.EIP4844:   eip4844Data*:   SignedBlindedBeaconBlock
+    of ConsensusFork.Bellatrix: bellatrixData*: bellatrix_mev.SignedBlindedBeaconBlock
+    of ConsensusFork.Capella:   capellaData*:   capella_mev.SignedBlindedBeaconBlock
+    of ConsensusFork.EIP4844:   eip4844Data*:   capella_mev.SignedBlindedBeaconBlock
 
   ForkySigVerifiedSignedBeaconBlock* =
     phase0.SigVerifiedSignedBeaconBlock |
@@ -417,16 +418,17 @@ func init*(T: type ForkedSignedBlindedBeaconBlock,
                                            signature: signature))
   of ConsensusFork.Bellatrix:
     T(kind: ConsensusFork.Bellatrix,
-      bellatrixData: SignedBlindedBeaconBlock(message: forked.bellatrixData,
-                                              signature: signature))
+      bellatrixData: bellatrix_mev.SignedBlindedBeaconBlock(message: forked.bellatrixData,
+                                                            signature: signature))
   of ConsensusFork.Capella:
     T(kind: ConsensusFork.Capella,
-      capellaData: SignedBlindedBeaconBlock(message: forked.capellaData,
-                                            signature: signature))
+      capellaData: capella_mev.SignedBlindedBeaconBlock(message: forked.capellaData,
+                                                        signature: signature))
   of ConsensusFork.EIP4844:
+    discard $eip4844ImplementationMissing & "forks.nim:init(T: type ForkedSignedBlindedBeaconBlock)"
     T(kind: ConsensusFork.EIP4844,
-      eip4844Data: SignedBlindedBeaconBlock(message: forked.eip4844Data,
-                                            signature: signature))
+      eip4844Data: capella_mev.SignedBlindedBeaconBlock(message: forked.eip4844Data,
+                                                        signature: signature))
 
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: phase0.MsgTrustedSignedBeaconBlock): T =
   T(kind: ConsensusFork.Phase0,    phase0Data: blck)
@@ -838,7 +840,8 @@ template withStateAndBlck*(
     body
 
 func toBeaconBlockHeader*(
-    blck: SomeForkyBeaconBlock | BlindedBeaconBlock): BeaconBlockHeader =
+    blck: SomeForkyBeaconBlock | bellatrix_mev.BlindedBeaconBlock |
+          capella_mev.BlindedBeaconBlock): BeaconBlockHeader =
   ## Reduce a given `BeaconBlock` to its `BeaconBlockHeader`.
   BeaconBlockHeader(
     slot: blck.slot,

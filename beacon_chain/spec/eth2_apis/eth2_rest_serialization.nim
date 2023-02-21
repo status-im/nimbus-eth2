@@ -1044,7 +1044,7 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     let res =
       try:
         RestJson.decode(string(data.get()),
-                        BlindedBeaconBlock,
+                        bellatrix_mev.BlindedBeaconBlock,
                         requireAllFields = true,
                         allowUnknownFields = true)
       except SerializationError as exc:
@@ -1056,7 +1056,7 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     let res =
       try:
         RestJson.decode(string(data.get()),
-                        BlindedBeaconBlock,
+                        capella_mev.BlindedBeaconBlock,
                         requireAllFields = true,
                         allowUnknownFields = true)
       except SerializationError as exc:
