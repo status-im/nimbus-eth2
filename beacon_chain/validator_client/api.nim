@@ -41,6 +41,8 @@ const
                       RestBeaconNodeStatus.NotSynced,
                       RestBeaconNodeStatus.OptSynced,
                       RestBeaconNodeStatus.Synced}
+  NotSyncedStatus = {RestBeaconNodeStatus.NotSynced,
+                     RestBeaconNodeStatus.OptSynced}
 
 proc `$`*(strategy: ApiStrategyKind): string =
   case strategy
@@ -674,7 +676,8 @@ proc getProposerDuties*(
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -715,7 +718,8 @@ proc getProposerDuties*(
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -767,7 +771,8 @@ proc getAttesterDuties*(
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -808,7 +813,8 @@ proc getAttesterDuties*(
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -861,7 +867,8 @@ proc getSyncCommitteeDuties*(
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -902,7 +909,8 @@ proc getSyncCommitteeDuties*(
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -1212,7 +1220,8 @@ proc produceAttestationData*(
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -1255,7 +1264,8 @@ proc produceAttestationData*(
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -1849,7 +1859,8 @@ proc produceBlockV2*(
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -1891,7 +1902,8 @@ proc produceBlockV2*(
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -1968,7 +1980,8 @@ proc publishBlock*(
             debug ResponseNoSyncError, response_code = response.status,
                   endpoint = node,
                   response_error = response.getErrorMessage()
-            node.status = RestBeaconNodeStatus.NotSynced
+            if node.status notin NotSyncedStatus:
+              node.status = RestBeaconNodeStatus.NotSynced
             false
           else:
             debug ResponseUnexpectedError, response_code = response.status,
@@ -2031,7 +2044,8 @@ proc publishBlock*(
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node,
                 response_error = response.getErrorMessage()
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -2086,7 +2100,8 @@ proc produceBlindedBlock*(
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -2128,7 +2143,8 @@ proc produceBlindedBlock*(
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -2204,7 +2220,8 @@ proc publishBlindedBlock*(
             debug ResponseNoSyncError, response_code = response.status,
                   endpoint = node,
                   response_error = response.getErrorMessage()
-            node.status = RestBeaconNodeStatus.NotSynced
+            if node.status notin NotSyncedStatus:
+              node.status = RestBeaconNodeStatus.NotSynced
             false
           else:
             debug ResponseUnexpectedError, response_code = response.status,
@@ -2267,7 +2284,8 @@ proc publishBlindedBlock*(
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node,
                 response_error = response.getErrorMessage()
-          node.status = RestBeaconNodeStatus.NotSynced
+          if node.status notin NotSyncedStatus:
+            node.status = RestBeaconNodeStatus.NotSynced
           false
         else:
           debug ResponseUnexpectedError, response_code = response.status,
@@ -2636,7 +2654,8 @@ proc getValidatorsLiveness*(
                 response_code = response.status,
                 endpoint = apiResponse.node,
                 response_error = response.getErrorMessage()
-          apiResponse.node.status = RestBeaconNodeStatus.NotSynced
+          if apiResponse.node.status notin NotSyncedStatus:
+            apiResponse.node.status = RestBeaconNodeStatus.NotSynced
           continue
         else:
           debug "Server reports unexpected error code",
