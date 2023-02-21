@@ -816,7 +816,7 @@ func migratingToDataFork*[
   upgradedObject.migrateToDataFork(newKind)
   upgradedObject
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/altair/light-client/full-node.md#block_to_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/full-node.md#block_to_light_client_header
 func toAltairLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
