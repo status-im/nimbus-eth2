@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[tables, os, sets, sequtils, strutils, uri],
+  std/[tables, os, sets, sequtils, strutils, uri, algorithm],
   stew/[base10, results, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils, json_serialization/std/[options, net],
@@ -240,14 +240,34 @@ proc `$`*(status: RestBeaconNodeStatus): string =
   of RestBeaconNodeStatus.Online: "online"
   of RestBeaconNodeStatus.Incompatible: "incompatible"
   of RestBeaconNodeStatus.Compatible: "compatible"
-  of RestBeaconNodeStatus.NotSynced: "bn-unsynced"
-  of RestBeaconNodeStatus.OptSynced: "el-unsynced"
+  of RestBeaconNodeStatus.NotSynced: "BN-unsynced"
+  of RestBeaconNodeStatus.OptSynced: "EL-unsynced"
   of RestBeaconNodeStatus.Synced: "synced"
 
 proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
   var res = BeaconNodesCounters()
   for node in vc.beaconNodes: inc(res.data[int(node.status)])
   res
+
+proc getFailureReason*(vc: ValidatorClientRef): string =
+  proc tupCmp(a, b: tuple[status: RestBeaconNodeStatus, count: int]): int =
+    cmp(uint64(a.count * 1000 + int(a.status)),
+        uint64(b.count * 1000 + int(b.status)))
+
+  if len(vc.beaconNodes) > 1:
+    let ordered =
+      block:
+        var res: seq[tuple[status: RestBeaconNodeStatus, count: int]]
+        let counts = vc.getNodeCounts()
+        for status in RestBeaconNodeStatus:
+          if int(status) < len(counts.data):
+            if counts.data[int(status)] != 0:
+              res.add((status, counts.data[int(status)]))
+        res.sort(tupCmp, SortOrder.Descending)
+        res
+    "mostly " & $ordered[0].status
+  else:
+    $vc.beaconNodes[0].status
 
 proc shortLog*(roles: set[BeaconNodeRole]): string =
   var r = "AGBSD"

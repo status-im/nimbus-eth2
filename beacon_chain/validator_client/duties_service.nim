@@ -139,7 +139,8 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
       try:
         await vc.getAttesterDuties(epoch, indices, ApiStrategyKind.First)
       except ValidatorApiError:
-        notice "Unable to get attester duties", epoch = epoch
+        notice "Unable to get attester duties", epoch = epoch,
+               reason = vc.getFailureReason()
         return 0
       except CancelledError as exc:
         debug "Attester duties processing was interrupted"
@@ -272,7 +273,8 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
         try:
           await vc.getSyncCommitteeDuties(epoch, indices, ApiStrategyKind.First)
         except ValidatorApiError:
-          notice "Unable to get sync committee duties", epoch = epoch
+          notice "Unable to get sync committee duties", epoch = epoch,
+                 reason = vc.getFailureReason()
           return 0
         except CancelledError as exc:
           debug "Sync committee duties processing was interrupted"
@@ -504,7 +506,7 @@ proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
                 duties_count = len(duties)
       except ValidatorApiError:
         notice "Unable to get proposer duties", slot = currentSlot,
-               epoch = currentEpoch
+               epoch = currentEpoch, reason = vc.getFailureReason()
       except CancelledError as exc:
         debug "Proposer duties processing was interrupted"
         raise exc
