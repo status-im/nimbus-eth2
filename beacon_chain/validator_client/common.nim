@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[tables, os, sets, sequtils, strutils, uri, algorithm],
+  std/[tables, os, sets, sequtils, strutils, uri],
   stew/[base10, results, byteutils],
   bearssl/rand, chronos, presto, presto/client as presto_client,
   chronicles, confutils, json_serialization/std/[options, net],
@@ -185,10 +185,18 @@ type
     validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
     rng*: ref HmacDrbgContext
 
+  ApiFailure* {.pure.} = enum
+    Communication, Invalid, NotFound, NotSynced, Internal, Unexpected
+
+  ApiNodeFailure* = object
+    node*: BeaconNodeServerRef
+    failure*: ApiFailure
+
   ValidatorClientRef* = ref ValidatorClient
 
   ValidatorClientError* = object of CatchableError
   ValidatorApiError* = object of ValidatorClientError
+    data*: seq[ApiNodeFailure]
 
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
@@ -240,34 +248,43 @@ proc `$`*(status: RestBeaconNodeStatus): string =
   of RestBeaconNodeStatus.Online: "online"
   of RestBeaconNodeStatus.Incompatible: "incompatible"
   of RestBeaconNodeStatus.Compatible: "compatible"
-  of RestBeaconNodeStatus.NotSynced: "BN-unsynced"
-  of RestBeaconNodeStatus.OptSynced: "EL-unsynced"
+  of RestBeaconNodeStatus.NotSynced: "bn-unsynced"
+  of RestBeaconNodeStatus.OptSynced: "el-unsynced"
   of RestBeaconNodeStatus.Synced: "synced"
+
+proc `$`*(failure: ApiFailure): string =
+  case failure
+  of ApiFailure.Communication: "Connection with beacon node has been lost"
+  of ApiFailure.Invalid: "Invalid response received from beacon node"
+  of ApiFailure.NotFound: "Beacon node did not found requested entity"
+  of ApiFailure.NotSynced: "Beacon node not in sync with network"
+  of ApiFailure.Internal: "Beacon node reports internal failure"
+  of ApiFailure.Unexpected: "Beacon node reports unexpected status"
 
 proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
   var res = BeaconNodesCounters()
   for node in vc.beaconNodes: inc(res.data[int(node.status)])
   res
 
-proc getFailureReason*(vc: ValidatorClientRef): string =
-  proc tupCmp(a, b: tuple[status: RestBeaconNodeStatus, count: int]): int =
-    cmp(uint64(a.count * 1000 + int(a.status)),
-        uint64(b.count * 1000 + int(b.status)))
+proc getFailureReason*(vc: ValidatorClientRef,
+                       exc: ref ValidatorApiError): string =
+  var counts: array[int(high(ApiFailure)) + 1, int]
+  let errors = exc[].data
 
-  if len(vc.beaconNodes) > 1:
-    let ordered =
+  if len(errors) > 1:
+    var maxFailure =
       block:
-        var res: seq[tuple[status: RestBeaconNodeStatus, count: int]]
-        let counts = vc.getNodeCounts()
-        for status in RestBeaconNodeStatus:
-          if int(status) < len(counts.data):
-            if counts.data[int(status)] != 0:
-              res.add((status, counts.data[int(status)]))
-        res.sort(tupCmp, SortOrder.Descending)
+        var maxCount = -1
+        var res = ApiFailure.Unexpected
+        for item in errors:
+          inc(counts[int(item.failure)])
+          if counts[int(item.failure)] > maxCount:
+            maxCount = counts[int(item.failure)]
+            res = item.failure
         res
-    "mostly " & $ordered[0].status
+    $maxFailure
   else:
-    $vc.beaconNodes[0].status
+    $errors[0].failure
 
 proc shortLog*(roles: set[BeaconNodeRole]): string =
   var r = "AGBSD"
@@ -776,3 +793,7 @@ proc prepareRegistrationList*(
         incorrect_time = timed
 
   return registrations
+
+proc init*(t: typedesc[ApiNodeFailure], node: BeaconNodeServerRef,
+           failure: ApiFailure): ApiNodeFailure =
+  ApiNodeFailure(node: node, failure: failure)

@@ -65,9 +65,9 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
     let res =
       try:
         await vc.getValidators(idents, ApiStrategyKind.First)
-      except ValidatorApiError:
+      except ValidatorApiError as exc:
         error "Unable to get head state's validator information",
-              reason = vc.getFailureReason()
+              reason = vc.getFailureReason(exc)
         return
       except CancelledError as exc:
         debug "Validator's indices processing was interrupted"
@@ -139,9 +139,9 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
     let res =
       try:
         await vc.getAttesterDuties(epoch, indices, ApiStrategyKind.First)
-      except ValidatorApiError:
+      except ValidatorApiError as exc:
         notice "Unable to get attester duties", epoch = epoch,
-               reason = vc.getFailureReason()
+               reason = vc.getFailureReason(exc)
         return 0
       except CancelledError as exc:
         debug "Attester duties processing was interrupted"
@@ -273,9 +273,9 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
       res =
         try:
           await vc.getSyncCommitteeDuties(epoch, indices, ApiStrategyKind.First)
-        except ValidatorApiError:
+        except ValidatorApiError as exc:
           notice "Unable to get sync committee duties", epoch = epoch,
-                 reason = vc.getFailureReason()
+                 reason = vc.getFailureReason(exc)
           return 0
         except CancelledError as exc:
           debug "Sync committee duties processing was interrupted"
@@ -505,9 +505,9 @@ proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
         else:
           debug "No relevant proposer duties received", slot = currentSlot,
                 duties_count = len(duties)
-      except ValidatorApiError:
+      except ValidatorApiError as exc:
         notice "Unable to get proposer duties", slot = currentSlot,
-               epoch = currentEpoch, reason = vc.getFailureReason()
+               epoch = currentEpoch, reason = vc.getFailureReason(exc)
       except CancelledError as exc:
         debug "Proposer duties processing was interrupted"
         raise exc
@@ -534,7 +534,7 @@ proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
         except ValidatorApiError as exc:
           warn "Unable to prepare beacon proposers", slot = currentSlot,
                 epoch = currentEpoch, err_name = exc.name,
-                err_msg = exc.msg, reason = vc.getFailureReason()
+                err_msg = exc.msg, reason = vc.getFailureReason(exc)
           0
         except CancelledError as exc:
           debug "Beacon proposer preparation processing was interrupted"
@@ -578,7 +578,7 @@ proc registerValidators*(service: DutiesServiceRef) {.async.} =
         except ValidatorApiError as exc:
           warn "Unable to register validators", slot = currentSlot,
                 fork = genesisFork, err_name = exc.name,
-                err_msg = exc.msg, reason = vc.getFailureReason()
+                err_msg = exc.msg, reason = vc.getFailureReason(exc)
           0
         except CancelledError as exc:
           debug "Validator registration was interrupted", slot = currentSlot,
