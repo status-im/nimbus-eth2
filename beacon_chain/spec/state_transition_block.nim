@@ -775,7 +775,7 @@ proc validate_blobs_sidecar*(slot: Slot, root: Eth2Digest,
 func is_data_available(
     slot: Slot, beacon_block_root: Eth2Digest,
     blob_kzg_commitments: seq[deneb.KZGCommitment]): bool =
-  discard $eip4844ImplementationMissing & ": state_transition_block.nim:is_data_available"
+  discard $denebImplementationMissing & ": state_transition_block.nim:is_data_available"
 
   true
 

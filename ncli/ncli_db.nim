@@ -264,7 +264,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
         blocks[3].add dag.db.getBlock(
           blck.root, capella.TrustedSignedBeaconBlock).get()
       of ConsensusFork.EIP4844:
-        raiseAssert $eip4844ImplementationMissing
+        raiseAssert $denebImplementationMissing
 
   let stateData = newClone(dag.headState)
 
@@ -334,7 +334,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[3][].data, noRollback)
               of ConsensusFork.EIP4844:
-                raiseAssert $eip4844ImplementationMissing & ": ncli_db.nim: cmdBench (1)"
+                raiseAssert $denebImplementationMissing & ": ncli_db.nim: cmdBench (1)"
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case stateFork
@@ -342,7 +342,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of ConsensusFork.Altair:    hash_tree_root(loadedState[1][].data)
                 of ConsensusFork.Bellatrix: hash_tree_root(loadedState[2][].data)
                 of ConsensusFork.Capella:   hash_tree_root(loadedState[3][].data)
-                of ConsensusFork.EIP4844:   raiseAssert $eip4844ImplementationMissing & ": ncli_db.nim: cmdBench (2)"
+                of ConsensusFork.EIP4844:   raiseAssert $denebImplementationMissing & ": ncli_db.nim: cmdBench (2)"
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])

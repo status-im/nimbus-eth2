@@ -1002,7 +1002,7 @@ proc readValue*[BlockType: ForkedBeaconBlock](
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
   of ConsensusFork.EIP4844:
-    reader.raiseUnexpectedValue($eip4844ImplementationMissing)
+    reader.raiseUnexpectedValue($denebImplementationMissing)
 
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        reader: var JsonReader[RestJson],
@@ -1065,7 +1065,7 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Capella,
                                      capellaData: res)
   of ConsensusFork.EIP4844:
-    reader.raiseUnexpectedValue($eip4844ImplementationMissing)
+    reader.raiseUnexpectedValue($denebImplementationMissing)
 
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
@@ -1135,7 +1135,7 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
       kind: ConsensusFork.Capella,
       capellaData: res.get())
   of ConsensusFork.EIP4844:
-    reader.raiseUnexpectedValue($eip4844ImplementationMissing)
+    reader.raiseUnexpectedValue($denebImplementationMissing)
 
 proc writeValue*[
     BlockType: Web3SignerForkedBeaconBlock](
@@ -1394,7 +1394,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       value.capellaBody.execution_payload.withdrawals,
       ep_src.withdrawals.get())
   of ConsensusFork.EIP4844:
-    reader.raiseUnexpectedValue($eip4844ImplementationMissing)
+    reader.raiseUnexpectedValue($denebImplementationMissing)
 
 ## RestPublishedBeaconBlock
 proc readValue*(reader: var JsonReader[RestJson],
@@ -1492,7 +1492,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         )
       )
     of ConsensusFork.EIP4844:
-      reader.raiseUnexpectedValue($eip4844ImplementationMissing)
+      reader.raiseUnexpectedValue($denebImplementationMissing)
   )
 
 ## RestPublishedSignedBeaconBlock
@@ -1553,7 +1553,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         )
       )
     of ConsensusFork.EIP4844:
-      reader.raiseUnexpectedValue($eip4844ImplementationMissing)
+      reader.raiseUnexpectedValue($denebImplementationMissing)
   )
 
 ## ForkedSignedBeaconBlock
@@ -1647,7 +1647,7 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = ForkedSignedBeaconBlock.init(res.get())
   of ConsensusFork.EIP4844:
-    reader.raiseUnexpectedValue($eip4844ImplementationMissing)
+    reader.raiseUnexpectedValue($denebImplementationMissing)
   withBlck(value):
     blck.root = hash_tree_root(blck.message)
 
@@ -2730,7 +2730,7 @@ proc decodeBody*(
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
     of ConsensusFork.EIP4844:
-      return err($eip4844ImplementationMissing)
+      return err($denebImplementationMissing)
   else:
     return err("Unsupported or invalid content media type")
 

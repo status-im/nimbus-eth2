@@ -724,7 +724,7 @@ proc getBlindedBeaconBlock[
     Future[Result[T, string]] {.async.} =
   withBlck(forkedBlock):
     when stateFork >= ConsensusFork.EIP4844:
-      debugRaiseAssert $eip4844ImplementationMissing & ": getBlindedBeaconBlock"
+      debugRaiseAssert $denebImplementationMissing & ": getBlindedBeaconBlock"
       return err("getBlindedBeaconBlock: Deneb blinded block creation not implemented")
     elif stateFork >= ConsensusFork.Bellatrix:
       when not (
@@ -909,7 +909,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
   let (executionPayloadHeader, forkedBlck) = blindedBlockParts.get
   withBlck(forkedBlck):
     when stateFork >= ConsensusFork.EIP4844:
-      debugRaiseAssert $eip4844ImplementationMissing & ": makeBlindedBeaconBlockForHeadAndSlot"
+      debugRaiseAssert $denebImplementationMissing & ": makeBlindedBeaconBlockForHeadAndSlot"
     elif stateFork >= ConsensusFork.Bellatrix:
       when ((stateFork == ConsensusFork.Bellatrix and
              EPH is bellatrix.ExecutionPayloadHeader) or
@@ -952,7 +952,7 @@ proc proposeBlock(node: BeaconNode,
   if node.config.payloadBuilderEnable:
     let newBlockMEV =
       if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-        debugRaiseAssert $eip4844ImplementationMissing & ": proposeBlock"
+        debugRaiseAssert $denebImplementationMissing & ": proposeBlock"
         await proposeBlockMEV[
             capella_mev.SignedBlindedBeaconBlock](
           node, head, validator, slot, randao, validator_index)
