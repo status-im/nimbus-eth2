@@ -132,7 +132,7 @@ func initiate_validator_exit*(
 
   ok()
 
-from ./datatypes/eip4844 import BeaconState
+from ./datatypes/deneb import BeaconState
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#modified-slash_validator
@@ -146,7 +146,7 @@ func get_slashing_penalty*(state: ForkyBeaconState,
   elif state is altair.BeaconState:
       validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR
   elif state is bellatrix.BeaconState or state is capella.BeaconState or
-       state is eip4844.BeaconState:
+       state is deneb.BeaconState:
       validator_effective_balance div MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX
   else:
     {.fatal: "invalid BeaconState type".}
@@ -164,7 +164,7 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
   when state is phase0.BeaconState:
     whistleblower_reward div PROPOSER_REWARD_QUOTIENT
   elif state is altair.BeaconState or state is bellatrix.BeaconState or
-       state is capella.BeaconState or state is eip4844.BeaconState:
+       state is capella.BeaconState or state is deneb.BeaconState:
     whistleblower_reward * PROPOSER_WEIGHT div WEIGHT_DENOMINATOR
   else:
     {.fatal: "invalid BeaconState type".}
@@ -361,15 +361,15 @@ func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
   bellatrix.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-func get_initial_beacon_block*(state: eip4844.HashedBeaconState):
-    eip4844.TrustedSignedBeaconBlock =
+func get_initial_beacon_block*(state: deneb.HashedBeaconState):
+    deneb.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
-  let message = eip4844.TrustedBeaconBlock(
+  let message = deneb.TrustedBeaconBlock(
     slot: state.data.slot,
     state_root: state.root)
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
-  eip4844.TrustedSignedBeaconBlock(
+  deneb.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#testing
@@ -593,7 +593,7 @@ func check_attestation_index*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#get_attestation_participation_flag_indices
 func get_attestation_participation_flag_indices(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           eip4844.BeaconState,
+           deneb.BeaconState,
     data: AttestationData, inclusion_delay: uint64): seq[int] =
   ## Return the flag indices that are satisfied by an attestation.
   let justified_checkpoint =
@@ -653,7 +653,7 @@ func get_base_reward_per_increment*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#get_base_reward
 func get_base_reward(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           eip4844.BeaconState,
+           deneb.BeaconState,
     index: ValidatorIndex, base_reward_per_increment: Gwei): Gwei =
   ## Return the base reward for the validator defined by ``index`` with respect
   ## to the current ``state``.
@@ -698,7 +698,7 @@ proc check_attestation*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#new-process_bls_to_execution_change
 proc check_bls_to_execution_change*(
-    genesisFork: Fork, state: capella.BeaconState | eip4844.BeaconState,
+    genesisFork: Fork, state: capella.BeaconState | deneb.BeaconState,
     signed_address_change: SignedBLSToExecutionChange, flags: UpdateFlags):
     Result[void, cstring] =
   let address_change = signed_address_change.message
@@ -793,7 +793,7 @@ proc process_attestation*(
     else:
       addPendingAttestation(state.previous_epoch_attestations)
   elif state is altair.BeaconState or state is bellatrix.BeaconState or
-       state is capella.BeaconState or state is eip4844.BeaconState:
+       state is capella.BeaconState or state is deneb.BeaconState:
     doAssert base_reward_per_increment > 0.Gwei
     if attestation.data.target.epoch == get_current_epoch(state):
       updateParticipationFlags(state.current_epoch_participation)
@@ -807,7 +807,7 @@ proc process_attestation*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#get_next_sync_committee_indices
 func get_next_sync_committee_keys(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           eip4844.BeaconState):
+           deneb.BeaconState):
     array[SYNC_COMMITTEE_SIZE, ValidatorPubKey] =
   ## Return the sequence of sync committee indices, with possible duplicates,
   ## for the next sync committee.
@@ -867,7 +867,7 @@ func is_partially_withdrawable_validator(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#new-get_expected_withdrawals
 func get_expected_withdrawals*(
-    state: capella.BeaconState | eip4844.BeaconState): seq[Withdrawal] =
+    state: capella.BeaconState | deneb.BeaconState): seq[Withdrawal] =
   let
     epoch = get_current_epoch(state)
     num_validators = lenu64(state.validators)
@@ -904,7 +904,7 @@ func get_expected_withdrawals*(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#get_next_sync_committee
 func get_next_sync_committee*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           eip4844.BeaconState):
+           deneb.BeaconState):
     SyncCommittee =
   ## Return the *next* sync committee for a given ``state``.
   var res: SyncCommittee
@@ -1145,10 +1145,10 @@ func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/fork.md#upgrading-the-state
 func upgrade_to_eip4844*(cfg: RuntimeConfig, pre: capella.BeaconState):
-    ref eip4844.BeaconState =
+    ref deneb.BeaconState =
   let
     epoch = get_current_epoch(pre)
-    latest_execution_payload_header = eip4844.ExecutionPayloadHeader(
+    latest_execution_payload_header = deneb.ExecutionPayloadHeader(
       parent_hash: pre.latest_execution_payload_header.parent_hash,
       fee_recipient: pre.latest_execution_payload_header.fee_recipient,
       state_root: pre.latest_execution_payload_header.state_root,
@@ -1167,7 +1167,7 @@ func upgrade_to_eip4844*(cfg: RuntimeConfig, pre: capella.BeaconState):
       withdrawals_root: pre.latest_execution_payload_header.withdrawals_root
     )
 
-  (ref eip4844.BeaconState)(
+  (ref deneb.BeaconState)(
     # Versioning
     genesis_time: pre.genesis_time,
     genesis_validators_root: pre.genesis_validators_root,
@@ -1259,7 +1259,7 @@ func latest_block_root*(state: ForkedHashedBeaconState): Eth2Digest =
 
 func get_sync_committee_cache*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
-           eip4844.BeaconState,
+           deneb.BeaconState,
     cache: var StateCache): SyncCommitteeCache =
   let period = state.slot.sync_committee_period()
 
