@@ -106,7 +106,7 @@ NETWORK_BOOTSTRAP_FILE="${TEST_DIR}/bootstrap_nodes.txt"
 RESTTEST_RULES="${GIT_ROOT}/ncli/resttest-rules.json"
 RESTTEST_BIN="${GIT_ROOT}/build/resttest"
 NIMBUS_BEACON_NODE_BIN="${GIT_ROOT}/build/nimbus_beacon_node"
-LOCAL_TESTNET_SIMULATION_BIN="${GIT_ROOT}/build/local_testnet_simulation"
+LOCAL_TESTNET_SIMULATION_BIN="${GIT_ROOT}/build/ncli_testnet"
 BOOTSTRAP_ENR_FILE="${TEST_DIR}/beacon_node.enr"
 RUNTIME_CONFIG_FILE="${TEST_DIR}/config.yaml"
 DEPOSITS_FILE="${TEST_DIR}/deposits.json"
@@ -165,7 +165,7 @@ if [[ -f "${DEPOSITS_FILE}" ]]; then
 fi
 
 build_if_missing nimbus_beacon_node
-build_if_missing local_testnet_simulation
+build_if_missing ncli_testnet
 build_if_missing resttest
 
 if [[ ${EXISTING_VALIDATORS} -ne ${NUM_VALIDATORS} ]]; then

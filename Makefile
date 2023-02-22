@@ -68,7 +68,7 @@ TOOLS_CORE := \
 	nimbus_validator_client \
 	nimbus_signing_node \
 	validator_db_aggregator \
-	local_testnet_simulation
+	ncli_testnet
 
 # This TOOLS/TOOLS_CORE decomposition is a workaroud so nimbus_beacon_node can
 # build on its own, and if/when that becomes a non-issue, it can be recombined

@@ -23,7 +23,7 @@ import
                    nimbus_beacon_node, beacon_node_status,
                    nimbus_validator_client],
   ../beacon_chain/validator_client/common,
-  ../ncli/local_testnet_simulation,
+  ../ncli/ncli_testnet,
   ./testutil
 
 type
@@ -169,7 +169,7 @@ BELLATRIX_FORK_EPOCH: 0
     fatal "Failed to write run-time config", filename = runtimeConfigFile
     quit 1
 
-  let createTestnetConf = try: local_testnet_simulation.CliConfig.load(cmdLine = mapIt([
+  let createTestnetConf = try: ncli_testnet.CliConfig.load(cmdLine = mapIt([
     "createTestnet",
     "--data-dir=" & dataDir,
     "--total-validators=" & $simulationDepositsCount,

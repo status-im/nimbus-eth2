@@ -666,7 +666,7 @@ fi
 # Don't build binaries if we are downloading them
 if [[ "${DL_NIMBUS_ETH2}" != "1" ]]; then
   # Build the binaries
-  BINARIES="local_testnet_simulation"
+  BINARIES="ncli_testnet"
 
   if [[ "$NIMBUS_SIGNER_NODES" -gt "0" ]]; then
     BINARIES="${BINARIES} nimbus_signing_node"
@@ -812,7 +812,7 @@ CONTAINER_DEPOSITS_FILE="${CONTAINER_DATA_DIR}/deposits.json"
 CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE="${CONTAINER_DATA_DIR}/deposit_tree_snapshot.ssz"
 
 if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
-  ./build/local_testnet_simulation generateDeposits \
+  ./build/ncli_testnet generateDeposits \
     --count=${TOTAL_VALIDATORS} \
     --out-validators-dir="${VALIDATORS_DIR}" \
     --out-secrets-dir="${SECRETS_DIR}" \
@@ -887,7 +887,7 @@ fi
 
 jq -r '.hash' "$EXECUTION_GENESIS_BLOCK_JSON" > "${DATA_DIR}/deposit_contract_block_hash.txt"
 
-./build/local_testnet_simulation createTestnet \
+./build/ncli_testnet createTestnet \
   --data-dir="$CONTAINER_DATA_DIR" \
   --deposits-file="$CONTAINER_DEPOSITS_FILE" \
   --total-validators=$TOTAL_VALIDATORS \
@@ -945,7 +945,7 @@ dump_logs() {
 
 dump_logtrace() {
   if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/local_testnet_simulation analyzeLogs --log-dir="${DATA_DIR}" --const-preset=${CONST_PRESET} || true
+    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/ncli_testnet analyzeLogs --log-dir="${DATA_DIR}" --const-preset=${CONST_PRESET} || true
   fi
 }
 
@@ -989,7 +989,7 @@ CONTAINER_NETWORK_KEYFILE="network_key.json"
 #      of deposits (genesis + submitted ones). Then we can enable the sending of
 #      deposits here.
 #
-#./build/local_testnet_simulation sendDeposits \
+#./build/ncli_testnet sendDeposits \
 #  --deposits-file="$DEPOSITS_FILE" \
 #  --min-delay=$MIN_DEPOSIT_SENDING_DELAY --max-delay=$MAX_DEPOSIT_SENDING_DELAY \
 #  --web3-url="$MAIN_WEB3_URL" \
