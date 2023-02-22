@@ -104,7 +104,6 @@ SNAPSHOT_FILE="${TEST_DIR}/genesis.ssz"
 DEPOSIT_TREE_SNAPSHOT_FILE="${TEST_DIR}/deposit_tree_snapshot.ssz"
 NETWORK_BOOTSTRAP_FILE="${TEST_DIR}/bootstrap_nodes.txt"
 RESTTEST_RULES="${GIT_ROOT}/ncli/resttest-rules.json"
-DEPOSIT_CONTRACT_BIN="${GIT_ROOT}/build/deposit_contract"
 RESTTEST_BIN="${GIT_ROOT}/build/resttest"
 NIMBUS_BEACON_NODE_BIN="${GIT_ROOT}/build/nimbus_beacon_node"
 LOCAL_TESTNET_SIMULATION_BIN="${GIT_ROOT}/build/local_testnet_simulation"
@@ -165,20 +164,19 @@ if [[ -f "${DEPOSITS_FILE}" ]]; then
   EXISTING_VALIDATORS=$(grep -o -i deposit_data_root "${DEPOSITS_FILE}" | wc -l)
 fi
 
+build_if_missing nimbus_beacon_node
+build_if_missing local_testnet_simulation
+build_if_missing resttest
+
 if [[ ${EXISTING_VALIDATORS} -ne ${NUM_VALIDATORS} ]]; then
-  build_if_missing deposit_contract
   rm -rf "${VALIDATORS_DIR}" "${SECRETS_DIR}"
-  ${DEPOSIT_CONTRACT_BIN} generateSimulationDeposits \
+  ${LOCAL_TESTNET_SIMULATION_BIN} generateDeposits \
     --count="${NUM_VALIDATORS}" \
     --out-validators-dir="${VALIDATORS_DIR}" \
     --out-secrets-dir="${SECRETS_DIR}" \
     --out-deposits-file="${DEPOSITS_FILE}"
   echo "All deposits prepared"
 fi
-
-build_if_missing nimbus_beacon_node
-build_if_missing local_testnet_simulation
-build_if_missing resttest
 
 # Kill child processes on Ctrl-C/SIGTERM/exit, passing the PID of this shell
 # instance as the parent and the target process name as a pattern to the
@@ -191,22 +189,6 @@ cleanup() {
   pkill -f -9 -P $$ resttest &>/dev/null || true
 }
 trap 'cleanup' SIGINT SIGTERM EXIT
-
-echo "Creating testnet genesis..."
-${LOCAL_TESTNET_SIMULATION_BIN} \
-  createTestnet \
-  --data-dir="${TEST_DIR}" \
-  --deposits-file="${DEPOSITS_FILE}" \
-  --total-validators="${NUM_VALIDATORS}" \
-  --output-genesis="${SNAPSHOT_FILE}" \
-  --output-deposit-tree-snapshot="${DEPOSIT_TREE_SNAPSHOT_FILE}" \
-  --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
-  --netkey-file=network_key.json \
-  --insecure-netkey-password=true \
-  --genesis-offset=-12 # Chain that has already started allows testing empty slots
-# Make sure we use the newly generated genesis
-echo "Removing existing database..."
-rm -rf "${TEST_DIR}/db"
 
 DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
 DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -224,6 +206,22 @@ ETH1_FOLLOW_DISTANCE: 1
 ALTAIR_FORK_EPOCH: 0
 BELLATRIX_FORK_EPOCH: 0
 EOF
+
+echo "Creating testnet genesis..."
+${LOCAL_TESTNET_SIMULATION_BIN} \
+  createTestnet \
+  --data-dir="${TEST_DIR}" \
+  --deposits-file="${DEPOSITS_FILE}" \
+  --total-validators="${NUM_VALIDATORS}" \
+  --output-genesis="${SNAPSHOT_FILE}" \
+  --output-deposit-tree-snapshot="${DEPOSIT_TREE_SNAPSHOT_FILE}" \
+  --output-bootstrap-file="${NETWORK_BOOTSTRAP_FILE}" \
+  --netkey-file=network_key.json \
+  --insecure-netkey-password=true \
+  --genesis-offset=-60 # Chain that has already started allows testing empty slots
+# Make sure we use the newly generated genesis
+echo "Removing existing database..."
+rm -rf "${TEST_DIR}/db" "${TEST_DIR}/validators/slashing_protection.sqlite3"
 
 ${NIMBUS_BEACON_NODE_BIN} \
   --tcp-port=${BASE_PORT} \
