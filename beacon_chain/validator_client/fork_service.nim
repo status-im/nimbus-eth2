@@ -53,7 +53,8 @@ proc pollForFork(vc: ValidatorClientRef) {.async.} =
       try:
         await vc.getForkSchedule(ApiStrategyKind.Best)
       except ValidatorApiError as exc:
-        error "Unable to retrieve fork schedule", reason = exc.msg
+        error "Unable to retrieve fork schedule",
+              reason = vc.getFailureReason(), err_msg = exc.msg
         return
       except CancelledError as exc:
         debug "Fork retrieval process was interrupted"

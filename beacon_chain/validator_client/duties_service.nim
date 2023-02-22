@@ -66,7 +66,8 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
       try:
         await vc.getValidators(idents, ApiStrategyKind.First)
       except ValidatorApiError:
-        error "Unable to get head state's validator information"
+        error "Unable to get head state's validator information",
+              reason = vc.getFailureReason()
         return
       except CancelledError as exc:
         debug "Validator's indices processing was interrupted"
@@ -533,7 +534,7 @@ proc prepareBeaconProposers*(service: DutiesServiceRef) {.async.} =
         except ValidatorApiError as exc:
           warn "Unable to prepare beacon proposers", slot = currentSlot,
                 epoch = currentEpoch, err_name = exc.name,
-                err_msg = exc.msg
+                err_msg = exc.msg, reason = vc.getFailureReason()
           0
         except CancelledError as exc:
           debug "Beacon proposer preparation processing was interrupted"
@@ -577,7 +578,7 @@ proc registerValidators*(service: DutiesServiceRef) {.async.} =
         except ValidatorApiError as exc:
           warn "Unable to register validators", slot = currentSlot,
                 fork = genesisFork, err_name = exc.name,
-                err_msg = exc.msg
+                err_msg = exc.msg, reason = vc.getFailureReason()
           0
         except CancelledError as exc:
           debug "Validator registration was interrupted", slot = currentSlot,

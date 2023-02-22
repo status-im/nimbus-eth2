@@ -61,7 +61,8 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
       error "Unable to publish sync committee message",
             message = shortLog(message),
             validator = shortLog(validator),
-            validator_index = vindex
+            validator_index = vindex,
+            reason = vc.getFailureReason()
       return false
     except CancelledError:
       debug "Publish sync committee message request was interrupted"
@@ -176,7 +177,8 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
             contribution = shortLog(proof.contribution),
             validator = shortLog(validator),
             validator_index = validatorIdx,
-            err_msg = err.msg
+            err_msg = err.msg,
+            reason = vc.getFailureReason()
       false
     except CancelledError:
       debug "Publish sync contribution request was interrupted"
@@ -280,7 +282,8 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
               await contributionsFuts[item.subcommitteeIdx]
             except ValidatorApiError:
               error "Unable to get sync message contribution data", slot = slot,
-                    beaconBlockRoot = shortLog(beaconBlockRoot)
+                    beaconBlockRoot = shortLog(beaconBlockRoot),
+                    reason = vc.getFailureReason()
               return
             except CancelledError:
               debug "Request for sync message contribution was interrupted"
@@ -362,7 +365,8 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
             return
           res.data.root
       except ValidatorApiError as exc:
-        error "Unable to retrieve head block's root to sign", reason = exc.msg
+        error "Unable to retrieve head block's root to sign", reason = exc.msg,
+              reason = vc.getFailureReason()
         return
       except CancelledError:
         debug "Block root request was interrupted"
@@ -378,7 +382,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
                                                          duties)
   except ValidatorApiError:
     error "Unable to proceed sync committee messages", slot = slot,
-           duties_count = len(duties)
+           duties_count = len(duties), reason = vc.getFailureReason()
     return
   except CancelledError:
     debug "Sync committee producing process was interrupted"

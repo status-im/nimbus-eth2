@@ -39,7 +39,7 @@ proc produceBlock(
         await vc.produceBlockV2(slot, randao_reveal, graffiti,
                                 ApiStrategyKind.Best)
       except ValidatorApiError:
-        error "Unable to retrieve block data"
+        error "Unable to retrieve block data", reason = vc.getFailureReason()
         return Opt.none(PreparedBeaconBlock)
       except CancelledError as exc:
         error "Block data production has been interrupted"
@@ -69,7 +69,8 @@ proc produceBlindedBlock(
         await vc.produceBlindedBlock(slot, randao_reveal, graffiti,
                                      ApiStrategyKind.Best)
       except ValidatorApiError as exc:
-        error "Unable to retrieve blinded block data", error_msg = exc.msg
+        error "Unable to retrieve blinded block data", error_msg = exc.msg,
+              reason = vc.getFailureReason()
         return Opt.none(PreparedBlindedBeaconBlock)
       except CancelledError as exc:
         error "Blinded block data production has been interrupted"
@@ -215,7 +216,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
             debug "Sending blinded block"
             await vc.publishBlindedBlock(signedBlock, ApiStrategyKind.First)
           except ValidatorApiError:
-            error "Unable to publish blinded block"
+            error "Unable to publish blinded block",
+                  reason = vc.getFailureReason()
             return
           except CancelledError as exc:
             debug "Blinded block publication has been interrupted"
@@ -276,7 +278,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
             debug "Sending block"
             await vc.publishBlock(signedBlock, ApiStrategyKind.First)
           except ValidatorApiError:
-            error "Unable to publish block"
+            error "Unable to publish block", reason = vc.getFailureReason()
             return
           except CancelledError as exc:
             debug "Block publication has been interrupted"
