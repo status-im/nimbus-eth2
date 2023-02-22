@@ -266,8 +266,7 @@ proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
   for node in vc.beaconNodes: inc(res.data[int(node.status)])
   res
 
-proc getFailureReason*(vc: ValidatorClientRef,
-                       exc: ref ValidatorApiError): string =
+proc getFailureReason*(exc: ref ValidatorApiError): string =
   var counts: array[int(high(ApiFailure)) + 1, int]
   let errors = exc[].data
 

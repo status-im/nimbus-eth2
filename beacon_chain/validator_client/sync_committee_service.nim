@@ -62,7 +62,7 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
             message = shortLog(message),
             validator = shortLog(validator),
             validator_index = vindex,
-            reason = vc.getFailureReason(exc)
+            reason = exc.getFailureReason()
       return false
     except CancelledError:
       debug "Publish sync committee message request was interrupted"
@@ -178,7 +178,7 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
             validator = shortLog(validator),
             validator_index = validatorIdx,
             err_msg = exc.msg,
-            reason = vc.getFailureReason(exc)
+            reason = exc.getFailureReason()
       false
     except CancelledError:
       debug "Publish sync contribution request was interrupted"
@@ -283,7 +283,7 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
             except ValidatorApiError as exc:
               error "Unable to get sync message contribution data", slot = slot,
                     beaconBlockRoot = shortLog(beaconBlockRoot),
-                    reason = vc.getFailureReason(exc)
+                    reason = exc.getFailureReason()
               return
             except CancelledError:
               debug "Request for sync message contribution was interrupted"
@@ -366,7 +366,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
           res.data.root
       except ValidatorApiError as exc:
         error "Unable to retrieve head block's root to sign", reason = exc.msg,
-              reason = vc.getFailureReason(exc)
+              reason = exc.getFailureReason()
         return
       except CancelledError:
         debug "Block root request was interrupted"
@@ -382,7 +382,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
                                                          duties)
   except ValidatorApiError as exc:
     error "Unable to proceed sync committee messages", slot = slot,
-           duties_count = len(duties), reason = vc.getFailureReason(exc)
+           duties_count = len(duties), reason = exc.getFailureReason()
     return
   except CancelledError:
     debug "Sync committee producing process was interrupted"

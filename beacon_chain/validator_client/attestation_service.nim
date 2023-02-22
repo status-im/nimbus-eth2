@@ -86,7 +86,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
             attestation = shortLog(attestation),
             validator = shortLog(validator),
             validator_index = vindex,
-            reason = vc.getFailureReason(exc)
+            reason = exc.getFailureReason()
       return false
     except CancelledError as exc:
       debug "Attestation publishing process was interrupted"
@@ -166,7 +166,7 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
             attestation = shortLog(signedProof.message.aggregate),
             validator = shortLog(validator),
             validator_index = vindex,
-            reason = vc.getFailureReason(exc)
+            reason = exc.getFailureReason()
       return false
     except CancelledError as exc:
       debug "Publish aggregate and proofs request was interrupted"
@@ -292,7 +292,7 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
       except ValidatorApiError as exc:
         error "Unable to get aggregated attestation data", slot = slot,
               attestation_root = shortLog(attestationRoot),
-              reason = vc.getFailureReason(exc)
+              reason = exc.getFailureReason()
         return
       except CancelledError as exc:
         debug "Aggregated attestation request was interrupted"
@@ -366,7 +366,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
     except ValidatorApiError as exc:
       error "Unable to proceed attestations", slot = slot,
             committee_index = committee_index, duties_count = len(duties),
-            reason = vc.getFailureReason(exc)
+            reason = exc.getFailureReason()
       return
     except CancelledError as exc:
       debug "Publish attestation request was interrupted"
