@@ -30,23 +30,12 @@ func match(data: openArray[char], charset: set[char]): int =
       return 1
   0
 
-proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
+proc getSyncedHead*(node: BeaconNode, slot: Slot,
+                    optimistic = false): Result[BlockRef, cstring] =
   let head = node.dag.head
 
-  if node.isSynced(head) != SyncStatus.synced:
-    return err("Beacon node not fully and non-optimistically synced")
-
-  # Enough ahead not to know the shuffling
-  if slot > head.slot + SLOTS_PER_EPOCH * 2:
-    return err("Requesting far ahead of the current head")
-
-  ok(head)
-
-proc getOptimisticSyncedHead*(node: BeaconNode,
-                              slot: Slot): Result[BlockRef, cstring] =
-  let head = node.dag.head
-
-  if node.isSynced(head) == SyncStatus.unsynced:
+  if (optimistic and (node.isSynced(head) == SyncStatus.unsynced)) or
+     (not(optimistic) and (node.isSynced(head) != SyncStatus.synced)):
     return err("Beacon node not fully and non-optimistically synced")
 
   # Enough ahead not to know the shuffling
@@ -62,17 +51,11 @@ func getCurrentSlot*(node: BeaconNode, slot: Slot):
   else:
     err("Requesting slot too far ahead of the current head")
 
-proc getSyncedHead*(node: BeaconNode,
-                    epoch: Epoch): Result[BlockRef, cstring] =
+proc getSyncedHead*(node: BeaconNode, epoch: Epoch,
+                    optimistic = false): Result[BlockRef, cstring] =
   if epoch > MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
-  node.getSyncedHead(epoch.start_slot())
-
-proc getOptimisticSyncedHead*(node: BeaconNode,
-                              epoch: Epoch): Result[BlockRef, cstring] =
-  if epoch > MaxEpoch:
-    return err("Requesting epoch for which slot would overflow")
-  node.getOptimisticSyncedHead(epoch.start_slot())
+  node.getSyncedHead(epoch.start_slot(), optimistic)
 
 func getBlockSlotId*(node: BeaconNode,
                      stateIdent: StateIdent): Result[BlockSlotId, cstring] =
