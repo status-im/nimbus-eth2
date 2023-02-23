@@ -126,14 +126,14 @@ proc parseTest*(path: string, Format: typedesc[SSZ], T: typedesc): T =
     quit 1
 
 from ../../beacon_chain/spec/datatypes/capella import BeaconState
-from ../../beacon_chain/spec/datatypes/eip4844 import BeaconState
+from ../../beacon_chain/spec/datatypes/deneb import BeaconState
 
 proc loadForkedState*(
     path: string, fork: ConsensusFork): ref ForkedHashedBeaconState =
   var forkedState: ref ForkedHashedBeaconState
   case fork
   of ConsensusFork.EIP4844:
-    let state = newClone(parseTest(path, SSZ, eip4844.BeaconState))
+    let state = newClone(parseTest(path, SSZ, deneb.BeaconState))
     forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.EIP4844)
     forkedState.eip4844Data.data = state[]
     forkedState.eip4844Data.root = hash_tree_root(state[])
