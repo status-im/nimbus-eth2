@@ -162,9 +162,9 @@ from ./datatypes/capella import
 func noRollback*(state: var capella.HashedBeaconState) =
   trace "Skipping rollback of broken Capella state"
 
-from ./datatypes/eip4844 import HashedBeaconState
+from ./datatypes/deneb import HashedBeaconState
 
-func noRollback*(state: var eip4844.HashedBeaconState) =
+func noRollback*(state: var deneb.HashedBeaconState) =
   trace "Skipping rollback of broken EIP4844 state"
 
 func maybeUpgradeStateToAltair(
@@ -212,7 +212,7 @@ func maybeUpgradeStateToEIP4844(
     let newState = upgrade_to_eip4844(cfg, state.capellaData.data)
     state = (ref ForkedHashedBeaconState)(
       kind: ConsensusFork.EIP4844,
-      eip4844Data: eip4844.HashedBeaconState(
+      eip4844Data: deneb.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
 func maybeUpgradeState*(
@@ -458,7 +458,7 @@ template partialBeaconBlock*(
 # https://github.com/ethereum/consensus-specs/blob/v1.1.3/specs/merge/validator.md#block-proposal
 template partialBeaconBlock*(
     cfg: RuntimeConfig,
-    state: var eip4844.HashedBeaconState,
+    state: var deneb.HashedBeaconState,
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
@@ -467,10 +467,10 @@ template partialBeaconBlock*(
     deposits: seq[Deposit],
     validator_changes: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    kzg_commitments: eip4844.KZGCommitmentList,
-    execution_payload: eip4844.ExecutionPayload,
+    kzg_commitments: deneb.KZGCommitmentList,
+    execution_payload: deneb.ExecutionPayload,
     ):
-    eip4844.BeaconBlock =
+    deneb.BeaconBlock =
   eip4844.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
@@ -491,7 +491,7 @@ template partialBeaconBlock*(
       ))
 
 proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
-                      eip4844.ExecutionPayload](
+                      deneb.ExecutionPayload](
     cfg: RuntimeConfig,
     state: var ForkedHashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -602,7 +602,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
         ConsensusFork.Bellatrix, ConsensusFork.EIP4844:
       raiseAssert "Attempt to use Capella payload with non-Capella state"
     of ConsensusFork.Capella:   makeBeaconBlock(capella)
-  elif T is eip4844.ExecutionPayload:
+  elif T is deneb.ExecutionPayload:
     case state.kind
     of  ConsensusFork.Phase0, ConsensusFork.Altair,
         ConsensusFork.Bellatrix, ConsensusFork.Capella:
