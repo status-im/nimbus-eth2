@@ -425,7 +425,7 @@ func init*(T: type ForkedSignedBlindedBeaconBlock,
       capellaData: capella_mev.SignedBlindedBeaconBlock(message: forked.capellaData,
                                                         signature: signature))
   of ConsensusFork.EIP4844:
-    discard $eip4844ImplementationMissing & "forks.nim:init(T: type ForkedSignedBlindedBeaconBlock)"
+    discard $denebImplementationMissing & "forks.nim:init(T: type ForkedSignedBlindedBeaconBlock)"
     T(kind: ConsensusFork.EIP4844,
       eip4844Data: capella_mev.SignedBlindedBeaconBlock(message: forked.eip4844Data,
                                                         signature: signature))

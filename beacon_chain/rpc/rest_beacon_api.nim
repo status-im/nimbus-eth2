@@ -850,7 +850,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     case currentEpochFork
     of ConsensusFork.EIP4844:
-      return RestApiResponse.jsonError(Http500, $eip4844ImplementationMissing)
+      return RestApiResponse.jsonError(Http500, $denebImplementationMissing)
     of ConsensusFork.Capella:
       let res =
         block:

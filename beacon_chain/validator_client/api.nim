@@ -2084,7 +2084,7 @@ proc publishBlock*(
         of ConsensusFork.Capella:
           publishBlock(it, data.capellaData)
         of ConsensusFork.EIP4844:
-          debugRaiseAssert $eip4844ImplementationMissing &
+          debugRaiseAssert $denebImplementationMissing &
                            ": validator_client/api.nim:publishBlock (1)"
           let f = newFuture[RestPlainResponse]("")
           f.fail(new RestError)
@@ -2154,7 +2154,7 @@ proc publishBlock*(
       of ConsensusFork.Capella:
         publishBlock(it, data.capellaData)
       of ConsensusFork.EIP4844:
-        debugRaiseAssert $eip4844ImplementationMissing &
+        debugRaiseAssert $denebImplementationMissing &
                          ": validator_client/api.nim:publishBlock (2)"
         let f = newFuture[RestPlainResponse]("")
         f.fail(new RestError)
@@ -2347,7 +2347,7 @@ proc publishBlindedBlock*(
         of ConsensusFork.Capella:
           publishBlindedBlock(it, data.capellaData)
         of ConsensusFork.EIP4844:
-          debugRaiseAssert $eip4844ImplementationMissing &
+          debugRaiseAssert $denebImplementationMissing &
                            ": validator_client/api.nim:publishBlindedBlock (1)"
           let f = newFuture[RestPlainResponse]("")
           f.fail(new RestError)
@@ -2416,7 +2416,7 @@ proc publishBlindedBlock*(
       of ConsensusFork.Capella:
         publishBlindedBlock(it, data.capellaData)
       of ConsensusFork.EIP4844:
-        debugRaiseAssert $eip4844ImplementationMissing &
+        debugRaiseAssert $denebImplementationMissing &
                          ": validator_client/api.nim:publishBlindedBlock (2)"
         let f = newFuture[RestPlainResponse]("")
         f.fail(new RestError)

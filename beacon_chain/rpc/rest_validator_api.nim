@@ -473,7 +473,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
     let currentEpoch = node.currentSlot().epoch()
     if currentEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-      debugRaiseAssert $eip4844ImplementationMissing & ": GET /eth/v1/validator/blinded_blocks/{slot}"
+      debugRaiseAssert $denebImplementationMissing & ": GET /eth/v1/validator/blinded_blocks/{slot}"
     elif currentEpoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
       let res = await makeBlindedBeaconBlockForHeadAndSlot[
           capella_mev.BlindedBeaconBlock](

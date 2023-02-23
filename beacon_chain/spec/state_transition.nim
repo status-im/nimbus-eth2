@@ -582,7 +582,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
              execution_payload_root.get,
              hash_tree_root(validator_changes.bls_to_execution_changes)])
         elif stateFork > ConsensusFork.Capella:
-          discard eip4844ImplementationMissing
+          discard denebImplementationMissing
 
     state.`kind Data`.root = hash_tree_root(state.`kind Data`.data)
     blck.`kind Data`.state_root = state.`kind Data`.root
