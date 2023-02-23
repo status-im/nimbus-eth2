@@ -387,10 +387,9 @@ proc getExecutionPayload[T](
 
     let
       beaconHead = node.attestationPool[].getBeaconHead(node.dag.head)
-      executionBlockRoot = node.dag.loadExecutionBlockRoot(beaconHead.blck)
-      latestHead =
-        if not executionBlockRoot.isZero:
-          executionBlockRoot
+      executionHead = withState(proposalState[]):
+        when stateFork >= ConsensusFork.Bellatrix:
+          forkyState.data.latest_execution_payload_header.block_hash
         else:
           (static(default(Eth2Digest)))
       latestSafe = beaconHead.safeExecutionPayloadHash
@@ -405,7 +404,7 @@ proc getExecutionPayload[T](
           Opt.none(seq[Withdrawal])
       payload_id =
         if  lastFcU.isSome and
-            lastFcU.get.headBlockRoot == latestHead and
+            lastFcU.get.headBlockRoot == executionHead and
             lastFcU.get.safeBlockRoot == latestSafe and
             lastFcU.get.finalizedBlockRoot == latestFinalized and
             lastFcU.get.timestamp == timestamp and
@@ -414,7 +413,7 @@ proc getExecutionPayload[T](
           some bellatrix.PayloadID(lastFcU.get.payloadId)
         else:
           debug "getExecutionPayload: didn't find payloadId, re-querying",
-            latestHead, latestSafe, latestFinalized,
+            executionHead, latestSafe, latestFinalized,
             timestamp,
             feeRecipient,
             cachedForkchoiceUpdateInformation = lastFcU
@@ -422,7 +421,7 @@ proc getExecutionPayload[T](
           let random = withState(proposalState[]): get_randao_mix(
             forkyState.data, get_current_epoch(forkyState.data))
           let fcu_payload_id = (await forkchoice_updated(
-           latestHead, latestSafe, latestFinalized, timestamp, random,
+           executionHead, latestSafe, latestFinalized, timestamp, random,
            feeRecipient, withdrawals, node.consensusManager.eth1Monitor))
           await sleepAsync(500.milliseconds)
 
@@ -534,9 +533,8 @@ proc makeBeaconBlockForHeadAndSlot*[EP](
         let fut = newFuture[Opt[EP]]("given-payload")
         fut.complete(modified_execution_payload)
         fut
-      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or not (
-          state[].is_merge_transition_complete or
-          slot.epoch >= node.mergeAtEpoch):
+      elif slot.epoch < node.dag.cfg.BELLATRIX_FORK_EPOCH or
+           not state[].is_merge_transition_complete:
         let fut = newFuture[Opt[EP]]("empty-payload")
         fut.complete(Opt.some(default(EP)))
         fut

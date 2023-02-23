@@ -1073,7 +1073,13 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.EIP4844: denebFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
-  if stateFork != configFork:
+  # Here, we check only the `current_version` field because the spec
+  # mandates that testnets starting directly from a particular fork
+  # should have `previous_version` set to `current_version` while
+  # this doesn't happen to be the case in network that go through
+  # regular hard-fork upgrades. See for example:
+  # https://github.com/ethereum/consensus-specs/blob/dev/specs/bellatrix/beacon-chain.md#testing
+  if stateFork.current_version != configFork.current_version:
     error "State from database does not match network, check --network parameter",
       tail = dag.tail, headRef, stateFork, configFork
     quit 1

@@ -1192,14 +1192,15 @@ proc process_epoch*(
   process_justification_and_finalization(state, info.balances, flags)
 
   # state.slot hasn't been incremented yet.
-  if strictVerification in flags and currentEpoch >= 2:
-    doAssert state.current_justified_checkpoint.epoch + 2 >= currentEpoch
-
-  if strictVerification in flags and currentEpoch >= 3:
+  if strictVerification in flags:
     # Rule 2/3/4 finalization results in the most pessimal case. The other
     # three finalization rules finalize more quickly as long as the any of
     # the finalization rules triggered.
-    doAssert state.finalized_checkpoint.epoch + 3 >= currentEpoch
+    if (currentEpoch >= 2 and state.current_justified_checkpoint.epoch + 2 < currentEpoch) or
+       (currentEpoch >= 3 and state.finalized_checkpoint.epoch + 3 < currentEpoch):
+      fatal "The network did not finalize",
+             currentEpoch, finalizedEpoch = state.finalized_checkpoint.epoch
+      quit 1
 
   process_inactivity_updates(cfg, state, info)
 

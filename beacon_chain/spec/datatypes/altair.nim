@@ -249,6 +249,8 @@ type
       ## safety threshold)
     current_max_active_participants*: uint64
 
+  InactivityScores* = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#beaconstate
   BeaconState* = object
     # Versioning
@@ -298,7 +300,7 @@ type
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]  # [New in Altair]
+    inactivity_scores*: InactivityScores  # [New in Altair]
 
     # Light client sync committees
     current_sync_committee*: SyncCommittee     # [New in Altair]

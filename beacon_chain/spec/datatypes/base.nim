@@ -1015,3 +1015,9 @@ const eip4844ImplementationMissing* = false
 
 #template debugRaiseAssert*(x: string) = raiseAssert x
 template debugRaiseAssert*(x: string) = discard
+
+func ofLen*[T, N](ListType: type List[T, N], n: int): ListType =
+  if n < N:
+    distinctBase(result).setLen(n)
+  else:
+    raise newException(SszSizeMismatchError)

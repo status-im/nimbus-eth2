@@ -269,9 +269,7 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV1):
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
     timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data:
-      List[byte, MAX_EXTRA_DATA_BYTES].init(
-        rpcExecutionPayload.extraData.distinctBase),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.bytes),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
@@ -294,9 +292,7 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV2):
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
     timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data:
-      List[byte, MAX_EXTRA_DATA_BYTES].init(
-        rpcExecutionPayload.extraData.distinctBase),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.bytes),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
@@ -321,9 +317,7 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV3):
     gas_limit: rpcExecutionPayload.gasLimit.uint64,
     gas_used: rpcExecutionPayload.gasUsed.uint64,
     timestamp: rpcExecutionPayload.timestamp.uint64,
-    extra_data:
-      List[byte, MAX_EXTRA_DATA_BYTES].init(
-        rpcExecutionPayload.extraData.distinctBase),
+    extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.bytes),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
     excess_data_gas: rpcExecutionPayload.excessDataGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
@@ -349,8 +343,7 @@ func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
     timestamp: Quantity(executionPayload.timestamp),
-    extraData:
-      DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
     baseFeePerGas: executionPayload.base_fee_per_gas,
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction))
@@ -372,8 +365,7 @@ func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
     timestamp: Quantity(executionPayload.timestamp),
-    extraData:
-      DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
     baseFeePerGas: executionPayload.base_fee_per_gas,
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
@@ -396,8 +388,7 @@ func asEngineExecutionPayload*(executionPayload: eip4844.ExecutionPayload):
     gasLimit: Quantity(executionPayload.gas_limit),
     gasUsed: Quantity(executionPayload.gas_used),
     timestamp: Quantity(executionPayload.timestamp),
-    extraData:
-      DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
+    extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
     baseFeePerGas: executionPayload.base_fee_per_gas,
     excessDataGas: executionPayload.excess_data_gas,
     blockHash: executionPayload.block_hash.asBlockHash,
@@ -591,7 +582,7 @@ proc forkchoiceUpdated*(
     Future[engine_api.ForkchoiceUpdatedResponse] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
-  if p.isNil or p.dataProvider.isNil:
+  if p.isNil or p.dataProvider.isNil or headBlock.isZeroMemory:
     let fcuR =
       newFuture[engine_api.ForkchoiceUpdatedResponse]("forkchoiceUpdated")
     fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
@@ -613,7 +604,7 @@ proc forkchoiceUpdated*(
     Future[engine_api.ForkchoiceUpdatedResponse] =
   # Eth1 monitor can recycle connections without (external) warning; at least,
   # don't crash.
-  if p.isNil or p.dataProvider.isNil:
+  if p.isNil or p.dataProvider.isNil or headBlock.isZeroMemory:
     let fcuR =
       newFuture[engine_api.ForkchoiceUpdatedResponse]("forkchoiceUpdated")
     fcuR.complete(engine_api.ForkchoiceUpdatedResponse(
@@ -849,8 +840,7 @@ proc pruneOldBlocks(chain: var Eth1Chain, depositIndex: uint64) =
     chain.db.putDepositTreeSnapshot DepositTreeSnapshot(
       eth1Block: lastBlock.hash,
       depositContractState: chain.finalizedDepositsMerkleizer.toDepositContractState,
-      blockHeight: lastBlock.number,
-    )
+      blockHeight: lastBlock.number)
 
     eth1_finalized_head.set lastBlock.number.toGaugeValue
     eth1_finalized_deposits.set lastBlock.depositCount.toGaugeValue
@@ -1143,6 +1133,10 @@ proc init*(T: type Eth1Monitor,
   var web3Urls = web3Urls
   for url in mitems(web3Urls):
     fixupWeb3Urls url
+
+  debug "Initializing Eth1Monitor",
+         depositContractBlockNumber,
+         depositContractBlockHash
 
   let eth1Chain = Eth1Chain.init(
     cfg, db, depositContractBlockNumber, depositContractBlockHash)

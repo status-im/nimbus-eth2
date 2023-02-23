@@ -53,14 +53,13 @@ proc run() {.async.} =
     echo "args are: web3url jwtsecretfilename"
 
   let
-    eth1Monitor = Eth1Monitor.init(
+    elManager = newClone ELManager.init(
       defaultRuntimeConfig, db = nil, nil, @[paramStr(1)],
       none(DepositTreeSnapshot), none(Eth1Network), false,
       some readJwtSecret(paramStr(2)).get)
 
-  await eth1Monitor.ensureDataProvider()
   try:
-    await eth1Monitor.exchangeTransitionConfiguration()
+    await elManager.exchangeTransitionConfiguration()
   except ValueError as exc:
     # Expected, since nothing here sets up the Nimbus TTD correctly
     echo "exchangeTransitionConfiguration ValueError: " & exc.msg
