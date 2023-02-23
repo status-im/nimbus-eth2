@@ -186,8 +186,7 @@ type
     rng*: ref HmacDrbgContext
 
   ApiFailure* {.pure.} = enum
-    Communication, Invalid, NotFound, NotSynced, Internal, Unexpected,
-    Timeout
+    Communication, Invalid, NotFound, NotSynced, Internal, Unexpected
 
   ApiNodeFailure* = object
     node*: BeaconNodeServerRef
@@ -261,7 +260,6 @@ proc `$`*(failure: ApiFailure): string =
   of ApiFailure.NotSynced: "Beacon node not in sync with network"
   of ApiFailure.Internal: "Beacon node reports internal failure"
   of ApiFailure.Unexpected: "Beacon node reports unexpected status"
-  of ApiFailure.Timeout: "Request to beacon node has timed out"
 
 proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
   var res = BeaconNodesCounters()
@@ -289,7 +287,7 @@ proc getFailureReason*(exc: ref ValidatorApiError): string =
   elif errorsCount == 1:
     $errors[0].failure
   else:
-    $ApiFailure.Timeout
+    exc.msg
 
 proc shortLog*(roles: set[BeaconNodeRole]): string =
   var r = "AGBSD"
