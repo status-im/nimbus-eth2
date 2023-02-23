@@ -67,7 +67,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     let qhead =
       block:
-        let res = node.getSyncedHead(qepoch)
+        let res = node.getOptimisticSyncedHead(qepoch)
         if res.isErr():
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
@@ -105,7 +105,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     # getSyncedHead() implies non-optimistic node.
     let optimistic =
       if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-        some(false)
+        some(node.dag.is_optimistic(qhead.root))
       else:
         none[bool]()
 
@@ -130,7 +130,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         res
     let qhead =
       block:
-        let res = node.getSyncedHead(qepoch)
+        let res = node.getOptimisticSyncedHead(qepoch)
         if res.isErr():
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
         res.get()
@@ -159,7 +159,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     # getSyncedHead() implies non-optimistic node.
     let optimistic =
       if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-        some(false)
+        some(node.dag.is_optimistic(qhead.root))
       else:
         none[bool]()
 

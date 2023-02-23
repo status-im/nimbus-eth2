@@ -42,6 +42,19 @@ proc getSyncedHead*(node: BeaconNode, slot: Slot): Result[BlockRef, cstring] =
 
   ok(head)
 
+proc getOptimisticSyncedHead*(node: BeaconNode,
+                              slot: Slot): Result[BlockRef, cstring] =
+  let head = node.dag.head
+
+  if node.isSynced(head) == SyncStatus.unsynced:
+    return err("Beacon node not fully and non-optimistically synced")
+
+  # Enough ahead not to know the shuffling
+  if slot > head.slot + SLOTS_PER_EPOCH * 2:
+    return err("Requesting far ahead of the current head")
+
+  ok(head)
+
 func getCurrentSlot*(node: BeaconNode, slot: Slot):
     Result[Slot, cstring] =
   if slot <= (node.dag.head.slot + (SLOTS_PER_EPOCH * 2)):
@@ -54,6 +67,12 @@ proc getSyncedHead*(node: BeaconNode,
   if epoch > MaxEpoch:
     return err("Requesting epoch for which slot would overflow")
   node.getSyncedHead(epoch.start_slot())
+
+proc getOptimisticSyncedHead*(node: BeaconNode,
+                              epoch: Epoch): Result[BlockRef, cstring] =
+  if epoch > MaxEpoch:
+    return err("Requesting epoch for which slot would overflow")
+  node.getOptimisticSyncedHead(epoch.start_slot())
 
 func getBlockSlotId*(node: BeaconNode,
                      stateIdent: StateIdent): Result[BlockSlotId, cstring] =
