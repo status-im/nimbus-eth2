@@ -719,6 +719,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#optimised-import-for-a-large-number-of-validators" class="md-nav__link">
+    Optimised import for a large number of validators
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#troubleshooting" class="md-nav__link">
     Troubleshooting
   </a>
@@ -1673,6 +1680,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#optimised-import-for-a-large-number-of-validators" class="md-nav__link">
+    Optimised import for a large number of validators
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#troubleshooting" class="md-nav__link">
     Troubleshooting
   </a>
@@ -1749,6 +1763,8 @@
 </div>
 </div>
 <p>Replacing <code>/path/to/keys</code> with the full pathname of where the <code>validator_keys</code> directory is found.</p>
+<h2 id="optimised-import-for-a-large-number-of-validators">Optimised import for a large number of validators</h2>
+<p>If you plan to use a large number of validators (e.g. more than 100) on a single beacon node or a validator client, you might benefit from running the <code>deposits import</code> command with the option <code>--method=single-salt</code>. This will force Nimbus to use the same password and random salt value when encrypting all of the imported keystores which will later enable it to load the large number of validator keys almost instantly. The theoretical downside of using this approach is that it makes the brute-force cracking of all imported keystores computationally equivalent to cracking just one of them. Nevertheless, the security parameters used by Ethereum are such that cracking even a single keystore is considered computationally infeasible with current hardware.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <p>If you come across an error, make sure that:</p>
 <ul>
