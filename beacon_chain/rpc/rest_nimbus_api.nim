@@ -241,8 +241,12 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
       block:
         let res = node.getSyncedHead(wallSlot)
         if res.isErr():
+          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                           $res.error())
+        let tres = res.get()
+        if tres.optimistic:
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-        res.get()
+        tres.head
     let proposalState = assignClone(node.dag.headState)
     node.dag.withUpdatedState(
         proposalState[],

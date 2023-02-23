@@ -63,9 +63,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           wallEpoch = wallTime.slotOrZero().epoch
         if res > wallEpoch + 1:
           return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
-                                           "Cannot request duties past next epoch")
+                                        "Cannot request duties past next epoch")
         res
-    let qhead =
+    let (qhead, qoptimistic) =
       block:
         let res = node.getSyncedHead(qepoch)
         if res.isErr():
@@ -102,10 +102,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                   )
         res
 
-    # getSyncedHead() implies non-optimistic node.
     let optimistic =
       if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-        some(false)
+        some(qoptimistic)
       else:
         none[bool]()
 
@@ -126,9 +125,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           wallEpoch = wallTime.slotOrZero().epoch
         if res > wallEpoch + 1:
           return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
-                                           "Cannot request duties past next epoch")
+                                        "Cannot request duties past next epoch")
         res
-    let qhead =
+    let (qhead, qoptimistic) =
       block:
         let res = node.getSyncedHead(qepoch)
         if res.isErr():
@@ -156,10 +155,9 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             )
         res
 
-    # getSyncedHead() implies non-optimistic node.
     let optimistic =
       if node.currentSlot().epoch() >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-        some(false)
+        some(qoptimistic)
       else:
         none[bool]()
 
@@ -364,7 +362,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             if res.isErr():
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                                $res.error())
-            res.get()
+            let tres = res.get()
+            if tres.optimistic:
+              return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+            tres.head
         let
           proposer = node.dag.getProposer(qhead, qslot).valueOr:
             return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
@@ -454,7 +455,10 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         if res.isErr():
           return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
                                            $res.error())
-        res.get()
+        let tres = res.get()
+        if tres.optimistic:
+          return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
+        tres.head
     let proposer = node.dag.getProposer(qhead, qslot).valueOr:
       return RestApiResponse.jsonError(Http400, ProposerNotFoundError)
 
@@ -544,8 +548,12 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
           block:
             let res = node.getSyncedHead(qslot)
             if res.isErr():
+              return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError,
+                                               $res.error())
+            let tres = res.get()
+            if tres.optimistic:
               return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
-            res.get()
+            tres.head
         let epochRef = node.dag.getEpochRef(qhead, qslot.epoch, true).valueOr:
           return RestApiResponse.jsonError(Http400, PrunedStateError, $error)
         makeAttestationData(epochRef, qhead.atSlot(qslot), qindex)
@@ -784,7 +792,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     # Check if node is fully synced.
     let sres = node.getSyncedHead(qslot)
-    if sres.isErr():
+    if sres.isErr() or sres.get().optimistic:
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     var contribution = SyncCommitteeContribution()
