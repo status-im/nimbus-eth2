@@ -675,6 +675,10 @@ proc init*(T: type BeaconNode,
     else:
       nil
 
+  if config.payloadBuilderEnable and payloadBuilderRestClient != nil:
+    info "Using external payload builder",
+      payloadBuilderUrl = config.payloadBuilderUrl
+
   let node = BeaconNode(
     nickname: nickname,
     graffitiBytes: if config.graffiti.isSome: config.graffiti.get
