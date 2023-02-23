@@ -81,11 +81,12 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
   let res =
     try:
       await vc.submitPoolAttestations(@[attestation], ApiStrategyKind.First)
-    except ValidatorApiError:
+    except ValidatorApiError as exc:
       error "Unable to publish attestation",
             attestation = shortLog(attestation),
             validator = shortLog(validator),
-            validator_index = vindex
+            validator_index = vindex,
+            reason = exc.getFailureReason()
       return false
     except CancelledError as exc:
       debug "Attestation publishing process was interrupted"
@@ -160,11 +161,12 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
   let res =
     try:
       await vc.publishAggregateAndProofs(@[signedProof], ApiStrategyKind.First)
-    except ValidatorApiError:
+    except ValidatorApiError as exc:
       error "Unable to publish aggregated attestation",
             attestation = shortLog(signedProof.message.aggregate),
             validator = shortLog(validator),
-            validator_index = vindex
+            validator_index = vindex,
+            reason = exc.getFailureReason()
       return false
     except CancelledError as exc:
       debug "Publish aggregate and proofs request was interrupted"
@@ -287,9 +289,10 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
       try:
         await vc.getAggregatedAttestation(slot, attestationRoot,
                                           ApiStrategyKind.Best)
-      except ValidatorApiError:
+      except ValidatorApiError as exc:
         error "Unable to get aggregated attestation data", slot = slot,
-              attestation_root = shortLog(attestationRoot)
+              attestation_root = shortLog(attestationRoot),
+              reason = exc.getFailureReason()
         return
       except CancelledError as exc:
         debug "Aggregated attestation request was interrupted"
@@ -360,9 +363,10 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
   let ad =
     try:
       await service.produceAndPublishAttestations(slot, committee_index, duties)
-    except ValidatorApiError:
+    except ValidatorApiError as exc:
       error "Unable to proceed attestations", slot = slot,
-            committee_index = committee_index, duties_count = len(duties)
+            committee_index = committee_index, duties_count = len(duties),
+            reason = exc.getFailureReason()
       return
     except CancelledError as exc:
       debug "Publish attestation request was interrupted"

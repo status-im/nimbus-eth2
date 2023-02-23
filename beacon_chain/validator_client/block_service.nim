@@ -38,8 +38,8 @@ proc produceBlock(
       try:
         await vc.produceBlockV2(slot, randao_reveal, graffiti,
                                 ApiStrategyKind.Best)
-      except ValidatorApiError:
-        error "Unable to retrieve block data"
+      except ValidatorApiError as exc:
+        error "Unable to retrieve block data", reason = exc.getFailureReason()
         return Opt.none(PreparedBeaconBlock)
       except CancelledError as exc:
         error "Block data production has been interrupted"
@@ -69,7 +69,8 @@ proc produceBlindedBlock(
         await vc.produceBlindedBlock(slot, randao_reveal, graffiti,
                                      ApiStrategyKind.Best)
       except ValidatorApiError as exc:
-        error "Unable to retrieve blinded block data", error_msg = exc.msg
+        error "Unable to retrieve blinded block data", error_msg = exc.msg,
+              reason = exc.getFailureReason()
         return Opt.none(PreparedBlindedBeaconBlock)
       except CancelledError as exc:
         error "Blinded block data production has been interrupted"
@@ -214,8 +215,9 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
           try:
             debug "Sending blinded block"
             await vc.publishBlindedBlock(signedBlock, ApiStrategyKind.First)
-          except ValidatorApiError:
-            error "Unable to publish blinded block"
+          except ValidatorApiError as exc:
+            error "Unable to publish blinded block",
+                  reason = exc.getFailureReason()
             return
           except CancelledError as exc:
             debug "Blinded block publication has been interrupted"
@@ -275,8 +277,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
           try:
             debug "Sending block"
             await vc.publishBlock(signedBlock, ApiStrategyKind.First)
-          except ValidatorApiError:
-            error "Unable to publish block"
+          except ValidatorApiError as exc:
+            error "Unable to publish block", reason = exc.getFailureReason()
             return
           except CancelledError as exc:
             debug "Block publication has been interrupted"

@@ -64,7 +64,7 @@ type
   DutiesServiceRef* = ref object of ClientServiceRef
 
   FallbackServiceRef* = ref object of ClientServiceRef
-    onlineEvent*: AsyncEvent
+    changesEvent*: AsyncEvent
 
   ForkServiceRef* = ref object of ClientServiceRef
 
@@ -127,7 +127,16 @@ type
     duties*: Table[Epoch, SyncCommitteeDuty]
 
   RestBeaconNodeStatus* {.pure.} = enum
-    Uninitalized, Offline, Incompatible, NotSynced, Online
+    Offline,      ## BN is offline.
+    Online,       ## BN is online, passed checkOnline() check.
+    Incompatible, ## BN configuration is NOT compatible with VC configuration.
+    Compatible,   ## BN configuration is compatible with VC configuration.
+    NotSynced,    ## BN is not in sync.
+    OptSynced,    ## BN is optimistically synced (EL is not in sync).
+    Synced        ## BN and EL are synced.
+
+  BeaconNodesCounters* = object
+    data*: array[int(high(RestBeaconNodeStatus)) + 1, int]
 
   BeaconNodeServerRef* = ref BeaconNodeServer
 
@@ -176,10 +185,18 @@ type
     validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
     rng*: ref HmacDrbgContext
 
+  ApiFailure* {.pure.} = enum
+    Communication, Invalid, NotFound, NotSynced, Internal, Unexpected
+
+  ApiNodeFailure* = object
+    node*: BeaconNodeServerRef
+    failure*: ApiFailure
+
   ValidatorClientRef* = ref ValidatorClient
 
   ValidatorClientError* = object of CatchableError
   ValidatorApiError* = object of ValidatorClientError
+    data*: seq[ApiNodeFailure]
 
 const
   DefaultDutyAndProof* = DutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
@@ -224,6 +241,49 @@ proc `$`*(roles: set[BeaconNodeRole]): string =
       "{all}"
   else:
     "{}"
+
+proc `$`*(status: RestBeaconNodeStatus): string =
+  case status
+  of RestBeaconNodeStatus.Offline: "offline"
+  of RestBeaconNodeStatus.Online: "online"
+  of RestBeaconNodeStatus.Incompatible: "incompatible"
+  of RestBeaconNodeStatus.Compatible: "compatible"
+  of RestBeaconNodeStatus.NotSynced: "bn-unsynced"
+  of RestBeaconNodeStatus.OptSynced: "el-unsynced"
+  of RestBeaconNodeStatus.Synced: "synced"
+
+proc `$`*(failure: ApiFailure): string =
+  case failure
+  of ApiFailure.Communication: "Connection with beacon node has been lost"
+  of ApiFailure.Invalid: "Invalid response received from beacon node"
+  of ApiFailure.NotFound: "Beacon node did not found requested entity"
+  of ApiFailure.NotSynced: "Beacon node not in sync with network"
+  of ApiFailure.Internal: "Beacon node reports internal failure"
+  of ApiFailure.Unexpected: "Beacon node reports unexpected status"
+
+proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
+  var res = BeaconNodesCounters()
+  for node in vc.beaconNodes: inc(res.data[int(node.status)])
+  res
+
+proc getFailureReason*(exc: ref ValidatorApiError): string =
+  var counts: array[int(high(ApiFailure)) + 1, int]
+  let errors = exc[].data
+
+  if len(errors) > 1:
+    var maxFailure =
+      block:
+        var maxCount = -1
+        var res = ApiFailure.Unexpected
+        for item in errors:
+          inc(counts[int(item.failure)])
+          if counts[int(item.failure)] > maxCount:
+            maxCount = counts[int(item.failure)]
+            res = item.failure
+        res
+    $maxFailure
+  else:
+    $errors[0].failure
 
 proc shortLog*(roles: set[BeaconNodeRole]): string =
   var r = "AGBSD"
@@ -362,7 +422,8 @@ proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
   let server = BeaconNodeServerRef(
     client: client, endpoint: $remote, index: index, roles: roles,
     logIdent: client.address.hostname & ":" &
-              Base10.toString(client.address.port)
+              Base10.toString(client.address.port),
+    status: RestBeaconNodeStatus.Offline
   )
   ok(server)
 
@@ -731,3 +792,7 @@ proc prepareRegistrationList*(
         incorrect_time = timed
 
   return registrations
+
+proc init*(t: typedesc[ApiNodeFailure], node: BeaconNodeServerRef,
+           failure: ApiFailure): ApiNodeFailure =
+  ApiNodeFailure(node: node, failure: failure)

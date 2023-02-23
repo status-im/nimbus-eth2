@@ -57,11 +57,12 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
   let res =
     try:
       await vc.submitPoolSyncCommitteeSignature(message, ApiStrategyKind.First)
-    except ValidatorApiError:
+    except ValidatorApiError as exc:
       error "Unable to publish sync committee message",
             message = shortLog(message),
             validator = shortLog(validator),
-            validator_index = vindex
+            validator_index = vindex,
+            reason = exc.getFailureReason()
       return false
     except CancelledError:
       debug "Publish sync committee message request was interrupted"
@@ -171,12 +172,13 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
     try:
       await vc.publishContributionAndProofs(@[restSignedProof],
                                             ApiStrategyKind.First)
-    except ValidatorApiError as err:
+    except ValidatorApiError as exc:
       error "Unable to publish sync contribution",
             contribution = shortLog(proof.contribution),
             validator = shortLog(validator),
             validator_index = validatorIdx,
-            err_msg = err.msg
+            err_msg = exc.msg,
+            reason = exc.getFailureReason()
       false
     except CancelledError:
       debug "Publish sync contribution request was interrupted"
@@ -278,9 +280,10 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
           let aggContribution =
             try:
               await contributionsFuts[item.subcommitteeIdx]
-            except ValidatorApiError:
+            except ValidatorApiError as exc:
               error "Unable to get sync message contribution data", slot = slot,
-                    beaconBlockRoot = shortLog(beaconBlockRoot)
+                    beaconBlockRoot = shortLog(beaconBlockRoot),
+                    reason = exc.getFailureReason()
               return
             except CancelledError:
               debug "Request for sync message contribution was interrupted"
@@ -357,12 +360,13 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
           res.data.root
         else:
           if res.execution_optimistic.get():
-            error "Could not obtain head block's root because beacon node " &
-                  "only optimistically synced", slot = slot
+            notice "Execution client not in sync; skipping validator duties " &
+                   "for now", slot = slot
             return
           res.data.root
       except ValidatorApiError as exc:
-        error "Unable to retrieve head block's root to sign", reason = exc.msg
+        error "Unable to retrieve head block's root to sign", reason = exc.msg,
+              reason = exc.getFailureReason()
         return
       except CancelledError:
         debug "Block root request was interrupted"
@@ -376,9 +380,9 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     await service.produceAndPublishSyncCommitteeMessages(slot,
                                                          beaconBlockRoot,
                                                          duties)
-  except ValidatorApiError:
+  except ValidatorApiError as exc:
     error "Unable to proceed sync committee messages", slot = slot,
-           duties_count = len(duties)
+           duties_count = len(duties), reason = exc.getFailureReason()
     return
   except CancelledError:
     debug "Sync committee producing process was interrupted"
