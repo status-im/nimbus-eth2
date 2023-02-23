@@ -268,9 +268,11 @@ proc getNodeCounts*(vc: ValidatorClientRef): BeaconNodesCounters =
 
 proc getFailureReason*(exc: ref ValidatorApiError): string =
   var counts: array[int(high(ApiFailure)) + 1, int]
-  let errors = exc[].data
+  let
+    errors = exc[].data
+    errorsCount = len(errors)
 
-  if len(errors) > 1:
+  if errorsCount > 1:
     var maxFailure =
       block:
         var maxCount = -1
@@ -282,8 +284,10 @@ proc getFailureReason*(exc: ref ValidatorApiError): string =
             res = item.failure
         res
     $maxFailure
-  else:
+  elif errorsCount == 1:
     $errors[0].failure
+  else:
+    exc.msg
 
 proc shortLog*(roles: set[BeaconNodeRole]): string =
   var r = "AGBSD"
