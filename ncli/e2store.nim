@@ -50,7 +50,7 @@ func start_slot*(e: Era): Slot =
 
 proc toString(v: IoErrorCode): string =
   try: ioErrorMsg(v)
-  except Exception as e: raiseAssert e.msg
+  except CatchableError as e: raiseAssert e.msg
 
 func eraRoot*(
     genesis_validators_root: Eth2Digest,

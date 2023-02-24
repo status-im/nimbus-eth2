@@ -85,7 +85,7 @@ template decodeAndProcess(typ, process: untyped): bool =
       raise newException(
         FuzzCrashError,
         "Unexpected  (logging?) IOError in state transition", e)
-    except Exception as e:
+    except CatchableError as e:
       # TODO why an Exception?
       # Lots of vendor code looks like it might raise a bare exception type
       raise newException(FuzzCrashError, "Unexpected Exception in state transition", e)

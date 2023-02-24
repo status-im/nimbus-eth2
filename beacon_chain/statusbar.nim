@@ -89,7 +89,7 @@ var complained = false
 template ignoreException(body: untyped) =
   try:
     body
-  except Exception as exc:
+  except CatchableError as exc:
     if not complained:
       # TODO terminal.nim exception leak
       echo "Unable to update status bar: ", exc.msg
