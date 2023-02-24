@@ -184,7 +184,8 @@ switch("warning", "LockLevel:off")
 
 # Too many right now to read compiler output. Warnings are legitimate, but
 # should be fixed out-of-band of `unstable` branch.
-switch("warning", "BareExcept:off")
+if (NimMajor, NimMinor, NimPatch) >= (1, 6, 11):
+  switch("warning", "BareExcept:off")
 
 # Too many of these because of Defect compat in 1.2
 switch("hint", "XCannotRaiseY:off")
