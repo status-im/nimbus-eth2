@@ -182,6 +182,10 @@ switch("warning", "ObservableStores:off")
 # Too many false positives for "Warning: method has lock level <unknown>, but another method has 0 [LockLevel]"
 switch("warning", "LockLevel:off")
 
+# Too many right now to read compiler output. Warnings are legitimate, but
+# should be fixed out-of-band of `unstable` branch.
+switch("warning", "BareExcept:off")
+
 # Too many of these because of Defect compat in 1.2
 switch("hint", "XCannotRaiseY:off")
 
