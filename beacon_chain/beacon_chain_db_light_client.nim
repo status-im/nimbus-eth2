@@ -499,8 +499,7 @@ proc getBestUpdate*(
   doAssert period.isSupportedBySQLite
 
   var update: (int64, seq[byte])
-  template body: untyped =
-    res.expect("SQL query OK")
+  proc processUpdate(): ForkedLightClientUpdate =
     try:
       withAll(LightClientDataFork):
         when lcDataFork > LightClientDataFork.None:
@@ -519,12 +518,13 @@ proc getBestUpdate*(
 
   if distinctBase(db.bestUpdates.getStmt) != nil:
     for res in db.bestUpdates.getStmt.exec(period.int64, update):
-      body
-  elif distinctBase(db.legacyBestUpdates.getStmt) != nil:
+      res.expect("SQL query OK")
+      return processUpdate()
+  if distinctBase(db.legacyBestUpdates.getStmt) != nil:
     for res in db.legacyBestUpdates.getStmt.exec(period.int64, update):
-      body
-  else:
-    return default(ForkedLightClientUpdate)
+      res.expect("SQL query OK")
+      return processUpdate()
+  default(ForkedLightClientUpdate)
 
 func putBestUpdate*(
     db: LightClientDataDB, period: SyncCommitteePeriod,
