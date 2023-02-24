@@ -23,7 +23,7 @@ To update to the latest version, either download the binary or compile the beaco
     rm nimbus-eth2_Linux_arm64v8*.tar.gz
     ```
 
-=== "Debain / Ubuntu"
+=== "Debian / Ubuntu"
 
     Update Nimbus via the package manager as usual
     ```sh
