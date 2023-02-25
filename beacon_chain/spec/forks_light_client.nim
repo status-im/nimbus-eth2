@@ -190,7 +190,7 @@ template kind*(
 
 template LightClientHeader*(kind: static LightClientDataFork): auto =
   when kind == LightClientDataFork.EIP4844:
-    typedesc[eip4844.LightClientHeader]
+    typedesc[deneb.LightClientHeader]
   elif kind == LightClientDataFork.Capella:
     typedesc[capella.LightClientHeader]
   elif kind == LightClientDataFork.Altair:
@@ -210,7 +210,7 @@ template LightClientBootstrap*(kind: static LightClientDataFork): auto =
 
 template LightClientUpdate*(kind: static LightClientDataFork): auto =
   when kind == LightClientDataFork.EIP4844:
-    typedesc[eip4844.LightClientUpdate]
+    typedesc[deneb.LightClientUpdate]
   elif kind == LightClientDataFork.Capella:
     typedesc[capella.LightClientUpdate]
   elif kind == LightClientDataFork.Altair:
@@ -240,7 +240,7 @@ template LightClientOptimisticUpdate*(kind: static LightClientDataFork): auto =
 
 template LightClientStore*(kind: static LightClientDataFork): auto =
   when kind == LightClientDataFork.EIP4844:
-    typedesc[eip4844.LightClientStore]
+    typedesc[deneb.LightClientStore]
   elif kind == LightClientDataFork.Capella:
     typedesc[capella.LightClientStore]
   elif kind == LightClientDataFork.Altair:

@@ -17,7 +17,7 @@ import
   eth/async_utils, stew/[byteutils, objects, results, shims/hashes],
   # Local modules:
   ../spec/[deposit_snapshots, eth2_merkleization, forks, helpers],
-  ../spec/datatypes/[base, phase0, bellatrix, eip4844],
+  ../spec/datatypes/[base, phase0, bellatrix, deneb],
   ../networking/network_metadata,
   ../consensus_object_pools/block_pools_types,
   ".."/[beacon_chain_db, beacon_node_status, beacon_clock],
@@ -301,11 +301,11 @@ func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV2):
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
 
 func asConsensusExecutionPayload*(rpcExecutionPayload: ExecutionPayloadV3):
-    eip4844.ExecutionPayload =
+    deneb.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
 
-  eip4844.ExecutionPayload(
+  deneb.ExecutionPayload(
     parent_hash: rpcExecutionPayload.parentHash.asEth2Digest,
     feeRecipient:
       ExecutionAddress(data: rpcExecutionPayload.feeRecipient.distinctBase),
@@ -371,7 +371,7 @@ func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
     withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal))
 
-func asEngineExecutionPayload*(executionPayload: eip4844.ExecutionPayload):
+func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     ExecutionPayloadV3 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
