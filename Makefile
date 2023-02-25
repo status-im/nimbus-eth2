@@ -215,8 +215,6 @@ local-testnet-minimal:
 		--disable-htop \
 		--remote-validators-count 512 \
 		--enable-payload-builder \
-		--nimbus-signer-nodes 1 \
-		--threshold 1 \
 		--enable-logtrace \
 		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 6031 + EXECUTOR_NUMBER * 500 )) \
@@ -244,8 +242,6 @@ local-testnet-mainnet:
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
-		--nimbus-signer-nodes 3 \
-		--threshold 2 \
 		--remote-validators-count 512 \
 		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 7031 + EXECUTOR_NUMBER * 500 )) \
