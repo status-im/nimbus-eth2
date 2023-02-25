@@ -213,7 +213,6 @@ local-testnet-minimal:
 		--deneb-fork-epoch 20 \
 		--stop-at-epoch 6 \
 		--disable-htop \
-		--remote-validators-count 512 \
 		--enable-payload-builder \
 		--enable-logtrace \
 		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
@@ -242,7 +241,6 @@ local-testnet-mainnet:
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
-		--remote-validators-count 512 \
 		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 7031 + EXECUTOR_NUMBER * 500 )) \
 		--base-metrics-port $$(( 7061 + EXECUTOR_NUMBER * 500 )) \
