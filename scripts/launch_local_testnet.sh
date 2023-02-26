@@ -494,9 +494,9 @@ if [[ "${OS}" != "windows" ]]; then
   # Stop Nimbus EL nodes
   if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
     for NIMBUS_ETH1_NODE_IDX in $(seq 0 $NIMBUS_ETH1_LAST_NODE_IDX); do
-      for PORT in ${NIMBUS_ETH1_NET_PORTS[GETH_NODE_IDX]} \
-                  ${NIMBUS_ETH1_RPC_PORTS[GETH_NODE_IDX]} \
-                  ${NIMBUS_ETH1_AUTH_RPC_PORTS[GETH_NODE_IDX]};
+      for PORT in ${NIMBUS_ETH1_NET_PORTS[NIMBUS_ETH1_NODE_IDX]} \
+                  ${NIMBUS_ETH1_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]} \
+                  ${NIMBUS_ETH1_AUTH_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]};
       do
         PORTS_TO_KILL+=("${PORT}")
       done
