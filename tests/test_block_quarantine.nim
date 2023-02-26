@@ -35,13 +35,13 @@ suite "Block quarantine":
     check:
       FetchRecord(root: b1.root) in quarantine.checkMissing()
 
-      quarantine.addOrphan(Slot 0, b1, Opt.none(BlobsSidecar))
+      quarantine.addOrphan(Slot 0, b1)
 
       FetchRecord(root: b1.root) notin quarantine.checkMissing()
 
-      quarantine.addOrphan(Slot 0, b2, Opt.none(BlobsSidecar))
-      quarantine.addOrphan(Slot 0, b3, Opt.none(BlobsSidecar))
-      quarantine.addOrphan(Slot 0, b4, Opt.none(BlobsSidecar))
+      quarantine.addOrphan(Slot 0, b2)
+      quarantine.addOrphan(Slot 0, b3)
+      quarantine.addOrphan(Slot 0, b4)
 
       (b4.root, ValidatorSig()) in quarantine.orphans
 
