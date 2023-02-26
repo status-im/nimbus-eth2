@@ -394,7 +394,7 @@ proc initFullNode(
   node.requestManager = RequestManager.init(node.network,
                                             dag.cfg.DENEB_FORK_EPOCH,
                                             getBeaconTime,
-                                            blockVerifier, blockBlobsVerifier)
+                                            blockVerifier)
   node.syncManager = syncManager
   node.backfiller = backfiller
   node.router = router
