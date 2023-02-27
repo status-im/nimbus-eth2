@@ -380,7 +380,7 @@ proc validateBeaconBlock*(
     # in the quarantine for later processing
     if not quarantine[].addOrphan(
         dag.finalizedHead.slot,
-        ForkedSignedBeaconBlock.init(signed_beacon_block), blobs):
+        ForkedSignedBeaconBlock.init(signed_beacon_block)):
       debug "Block quarantine full"
 
     return errIgnore("BeaconBlock: Parent not found")

@@ -470,7 +470,7 @@ proc storeBlock*(
         return err((VerifierError.UnviableFork, ProcessingStatus.completed))
 
       if not self.consensusManager.quarantine[].addOrphan(
-          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock), blobs):
+          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock)):
         debug "Block quarantine full",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
@@ -591,7 +591,7 @@ proc storeBlock*(
 
   for quarantined in self.consensusManager.quarantine[].pop(blck.get().root):
     # Process the blocks that had the newly accepted block as parent
-    self[].addBlock(MsgSource.gossip, quarantined[0], quarantined[1])
+    self[].addBlock(MsgSource.gossip, quarantined, Opt.none(deneb.BlobsSidecar))
 
   return Result[BlockRef, (VerifierError, ProcessingStatus)].ok blck.get
 
