@@ -743,6 +743,12 @@ cleanup() {
     PKILL_ECHO_FLAG='-l'
   fi
 
+  echo "Existing processes:"
+  for proc in "${PROCS_TO_KILL[@]}"; do
+    PROC_NAME=$(basename "$proc")
+    pgrep -alf "${PROC_NAME}" || true
+  done
+
   echo "Terminating:"
   for proc in "${PROCS_TO_KILL[@]}"; do
     # FIXME We should be using '-P $$' here but it doesn't always work.
