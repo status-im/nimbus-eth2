@@ -113,7 +113,7 @@ type
     keyValues: KvStoreRef # Random stuff using DbKeyKind - suitable for small values mainly!
     blocks: array[ConsensusFork, KvStoreRef] # BlockRoot -> TrustedSignedBeaconBlock
 
-    blobs: KvStoreRef # (BlockRoot -> BlobsSidecar)
+    blobs: KvStoreRef # (BlockRoot -> BlobSidecar)
 
     stateRoots: KvStoreRef # (Slot, BlockRoot) -> StateRoot
 
@@ -244,6 +244,11 @@ func subkey(root: Eth2Digest, slot: Slot): array[40, byte] =
   ret[8..<40] = root.data
 
   ret
+
+func blobkey(root: Eth2Digest, index: BlobIndex) : array[40, byte] =
+  var ret: array[40, byte]
+  ret[0..<8] = toBytes(index)
+  ret[8..<40] = root.data
 
 template expectDb(x: auto): untyped =
   # There's no meaningful error handling implemented for a corrupt database or
@@ -791,6 +796,11 @@ proc putBlock*(
     db.blocks[type(value).toFork].putSZSSZ(value.root.data, value)
     db.putBeaconBlockSummary(value.root, value.message.toBeaconBlockSummary())
 
+proc putBlobSidecar*(
+    db: BeaconChainDB,
+    value: BlobSidecar) =
+  db.blobs.putSZSSZ(blobkey(value.block_root, value.index), value)
+
 proc putBlobsSidecar*(
     db: BeaconChainDB,
     value: BlobsSidecar) =
@@ -991,6 +1001,14 @@ proc getBlobsSidecar*(db: BeaconChainDB, key: Eth2Digest): Opt[BlobsSidecar] =
   if db.blobs.getSZSSZ(key.data, result.get) != GetResult.found:
     result.err()
 
+proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex):
+                    Opt[BlobSidecar] =
+  var blobs: BlobSidecar
+  result.ok(blobs)
+  if db.blobs.getSZSSZ(blobkey(root, index), result.get) != GetResult.found:
+    result.err()
+
+
 proc getPhase0BlockSSZ(
     db: BeaconChainDBV0, key: Eth2Digest, data: var seq[byte]): bool =
   let dataPtr = addr data # Short-lived
@@ -1066,6 +1084,14 @@ proc getBlobsSidecarSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte])
   func decode(data: openArray[byte]) =
     assign(dataPtr[], data)
   db.blobs.get(key.data, decode).expectDb()
+
+proc getBlobSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
+                       data: var seq[byte]):
+    bool =
+  let dataPtr = addr data # Short-lived
+  func decode(data: openArray[byte]) =
+    assign(dataPtr[], data)
+  db.blobs.get(blobkey(root, index), decode).expectDb()
 
 proc getBlockSZ*(
     db: BeaconChainDB, key: Eth2Digest, data: var seq[byte],
