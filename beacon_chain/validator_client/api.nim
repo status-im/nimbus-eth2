@@ -1356,26 +1356,28 @@ proc produceAttestationData*(
                 endpoint = node, reason = response.getErrorMessage()
           node.status = RestBeaconNodeStatus.Incompatible
           failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
-          ApiResponse[ProduceAttestationDataResponse].err(apiResponse.error)
+          ApiResponse[ProduceAttestationDataResponse].err(ResponseInvalidError)
         of 500:
           debug ResponseInternalError, response_code = response.status,
                 endpoint = node, reason = response.getErrorMessage()
           node.status = RestBeaconNodeStatus.Offline
           failures.add(ApiNodeFailure.init(node, ApiFailure.Internal))
-          ApiResponse[ProduceAttestationDataResponse].err(apiResponse.error)
+          ApiResponse[ProduceAttestationDataResponse].err(ResponseInternalError)
         of 503:
           debug ResponseNoSyncError, response_code = response.status,
                 endpoint = node, reason = response.getErrorMessage()
           if node.status notin NotSyncedStatus:
             node.status = RestBeaconNodeStatus.NotSynced
           failures.add(ApiNodeFailure.init(node, ApiFailure.NotSynced))
-          ApiResponse[ProduceAttestationDataResponse].err(apiResponse.error)
+          ApiResponse[ProduceAttestationDataResponse].err(
+            ResponseNoSyncError)
         else:
           debug ResponseUnexpectedError, response_code = response.status,
                 endpoint = node, reason = response.getErrorMessage()
           node.status = RestBeaconNodeStatus.Offline
           failures.add(ApiNodeFailure.init(node, ApiFailure.Unexpected))
-          ApiResponse[ProduceAttestationDataResponse].err(apiResponse.error)
+          ApiResponse[ProduceAttestationDataResponse].err(
+            ResponseUnexpectedError)
 
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
