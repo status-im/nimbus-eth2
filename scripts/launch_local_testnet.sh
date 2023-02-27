@@ -738,26 +738,27 @@ cleanup() {
   # Avoid the trap enterring an infinite loop
   trap - SIGINT SIGTERM EXIT
 
-  for proc in "${PROCS_TO_KILL[@]}"
-  do
-    # TODO Previously, the code here used the '-P $$' option to limit
-    #      the kill command only to children of this shell process.
-    #      Unfortunately, this doesn't seem to work at the moment.
-    #      Perhaps the child processes are not direct children of
-    #      the current shell process?
-    pkill -f "$(basename "$proc")" || true
+  PKILL_ECHO_FLAG='-e'
+  if [[ "${OS}" == "macos" ]]; then
+    PKILL_ECHO_FLAG='-l'
+  fi
+
+  echo "Terminating:"
+  for proc in "${PROCS_TO_KILL[@]}"; do
+    # FIXME We should be using '-P $$' here but it doesn't always work.
+    PROC_NAME=$(basename "$proc")
+    pkill -SIGTERM "${PKILL_ECHO_FLAG}" -f "${PROC_NAME}" \
+        || echo "Nothing to terminate: ${PROC_NAME}"
   done
 
   sleep 2
 
-  for proc in "${PROCS_TO_KILL[@]}"
-  do
-    # TODO Previously, the code here used the '-P $$' option to limit
-    #      the kill command only to children of this shell process.
-    #      Unfortunately, this doesn't seem to work at the moment.
-    #      Perhaps the child processes are not direct children of
-    #      the current shell process?
-    pkill -SIGKILL -f "$(basename "$proc")" || true
+  echo "Killing:"
+  for proc in "${PROCS_TO_KILL[@]}"; do
+    # FIXME We should be using '-P $$' here but it doesn't always work.
+    PROC_NAME=$(basename "$proc")
+    pkill -SIGKILL "${PKILL_ECHO_FLAG}" -f "${PROC_NAME}" \
+        || echo "Nothing to kill: ${PROC_NAME}"
   done
 
   # Delete all binaries we just built, because these are unusable outside this
