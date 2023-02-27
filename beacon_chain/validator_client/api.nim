@@ -1489,7 +1489,7 @@ proc submitPoolAttestations*(
 
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
-    return false
+    return res.get()
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(RestPlainResponse,
@@ -1589,7 +1589,7 @@ proc submitPoolSyncCommitteeSignature*(
 
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
-    return true
+    return res.get()
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(
@@ -1901,7 +1901,7 @@ proc publishAggregateAndProofs*(
 
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
-    return false
+    return res.get()
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(RestPlainResponse,
@@ -1993,7 +1993,7 @@ proc publishContributionAndProofs*(
 
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
-    return false
+    return res.get()
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(RestPlainResponse,
@@ -2234,7 +2234,7 @@ proc publishBlock*(
 
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
-    return true
+    return res.get()
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(RestPlainResponse,
@@ -2498,7 +2498,7 @@ proc publishBlindedBlock*(
 
     if res.isErr():
       raise (ref ValidatorApiError)(msg: res.error, data: failures)
-    return true
+    return res.get()
 
   of ApiStrategyKind.Priority:
     vc.firstSuccessSequential(RestPlainResponse,
