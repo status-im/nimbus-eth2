@@ -26,9 +26,9 @@ To update to the latest version, either download the binary or compile the beaco
 === "Debian / Ubuntu"
 
     Update Nimbus via the package manager as usual
+
     ```sh
-    sudo apt-get update
-    sudo apt-get upgrade
+    sudo apt-get update && sudo apt-get upgrade
     ```
 
 === "Build from source"
@@ -65,7 +65,7 @@ As of `v1.4.0`, releases are marked with the following tags:
 
 *Occassionally you may need to either upgrade or downgrade to a specific version of Nimbus.*
 
-Nimbus can safely be downgraded to any version targeting the current hard fork of the chain, unless otherwise noted in the release notes between the version you're currently running and the version you're installing.
+Nimbus can safely be downgraded to any version targeting the current hard fork of the chain, unless otherwise noted among the release notes.
 
 === "Manual installation"
 
@@ -82,33 +82,23 @@ Nimbus can safely be downgraded to any version targeting the current hard fork o
 === "Build from source"
 
     To pull a specific version of Nimbus (e.g. `v22.9.1`), run:
+
     ```sh
+    # Switch source code to the desired version
     git checkout v22.9.1 && make update
+
+    # Run the build command as usual
+    make -j4 nimbus_beacon_node
     ```
 
-    Followed by:
+    When later you want to go back to the stable release:
 
     ```sh
-    make nimbus_beacon_node
+    # Switch source code to the stable version
+    git checkout stable && make update
+
+    # Run the build command as usual
+    make -j4 nimbus_beacon_node
     ```
 
 Now, restart your node.
-
-!!! note
-    Alternatively, you can grab the appropriate binary release - create a backup of your `build` folder, then download the appropriate binary from here: [https://github.com/status-im/nimbus-eth2/releases/tag/v22.9.1](https://github.com/status-im/nimbus-eth2/releases/tag/v22.9.1)
-
-### Go back to stable
-
-If you need to go back to the latest (stable) version, run:
-```sh
-git checkout stable &&  make update
-```
-
-Followed by
-
-```sh
-make nimbus_beacon_node
-```
-
-Don't forget to restart your node.
-

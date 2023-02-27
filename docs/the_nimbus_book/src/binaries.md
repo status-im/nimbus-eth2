@@ -34,8 +34,11 @@ We currently have binaries available for Linux `AMD64`, `ARM` and `ARM64`, Windo
     sudo apt-get install nimbus-beacon-node nimbus-validator-client
     ```
 
-    !!! note
+    !!! note "Helper scripts"
         When installing via package manager, replace `run-mainnet-beacon-node.sh` and similar helper scripts used in this guide with `nimbus_beacon_node` - blockchain data will be written to the default [data directory](./data-dir.md) unless changed with `--data-dir`.
+
+    !!! tip "`systemd`"
+        Packages include `systemd` service unit files - see the [systemd guide](./beacon-node-systemd.md) for usage instructions - the `nimbus` user is created as part of the installation process!
 
 ## Reproducible builds
 
