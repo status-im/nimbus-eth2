@@ -26,6 +26,10 @@ type
     # in case of chain reorgs around the upgrade.
     onUpgradeToCapella*: LogProc
 
+    # Gets displayed on when a BLS to execution change message for a validator
+    # known by this node appears in a head block
+    onKnownBlsToExecutionChange*: LogProc
+
 # Created by http://beatscribe.com/ (beatscribe#1008 on Discord)
 # These need to be the main body of the log not to be reformatted or escaped.
 

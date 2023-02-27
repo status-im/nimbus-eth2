@@ -1983,10 +1983,43 @@ proc loadExecutionBlockRoot*(dag: ChainDAGRef, blck: BlockRef): Eth2Digest =
     blck.executionBlockRoot = Opt.some dag.loadExecutionBlockRoot(blck.bid)
   blck.executionBlockRoot.unsafeGet
 
+from std/packedsets import PackedSet, incl, items
+
+func getValidatorChangeStatuses(
+    state: ForkedHashedBeaconState, vis: openArray[ValidatorIndex]):
+    PackedSet[ValidatorIndex] =
+  var res: PackedSet[ValidatorIndex]
+  withState(state):
+    for vi in vis:
+      if  forkyState.data.validators[vi].withdrawal_credentials.data[0] ==
+          BLS_WITHDRAWAL_PREFIX:
+        res.incl vi
+  res
+
+func checkBlsToExecutionChanges(
+    state: ForkedHashedBeaconState, vis: PackedSet[ValidatorIndex]): bool =
+  # Within each fork, BLS_WITHDRAWAL_PREFIX to ETH1_ADDRESS_WITHDRAWAL_PREFIX
+  # and never ETH1_ADDRESS_WITHDRAWAL_PREFIX to BLS_WITHDRAWAL_PREFIX. Latter
+  # can still happen via reorgs.
+  # Cases:
+  # 1) unchanged (BLS_WITHDRAWAL_PREFIX or ETH1_ADDRESS_WITHDRAWAL_PREFIX) from
+  #    old to new head.
+  # 2) ETH1_ADDRESS_WITHDRAWAL_PREFIX to BLS_WITHDRAWAL_PREFIX
+  # 3) BLS_WITHDRAWAL_PREFIX to ETH1_ADDRESS_WITHDRAWAL_PREFIX
+  #
+  # Only report (3), i.e. whether there were validator indices with withdrawal
+  # credentials previously using BLS_WITHDRAWAL_PREFIX now using, instead, the
+  # ETH1_ADDRESS_WITHDRAWAL_PREFIX prefix indicating a BLS to execution change
+  # went through.
+  #
+  # Since it tracks head, it's possible reorgs trigger reporting the same
+  # validator indices multiple times; this is fine.
+  withState(state):
+    anyIt( vis, forkyState.data.validators[it].has_eth1_withdrawal_credential)
+
 proc updateHead*(
-    dag: ChainDAGRef,
-    newHead: BlockRef,
-    quarantine: var Quarantine) =
+    dag: ChainDAGRef, newHead: BlockRef, quarantine: var Quarantine,
+    knownValidators: openArray[ValidatorIndex]) =
   ## Update what we consider to be the current head, as given by the fork
   ## choice.
   ##
@@ -2001,8 +2034,7 @@ proc updateHead*(
   doAssert newHead.slot >= dag.finalizedHead.slot or
     newHead == dag.finalizedHead.blck
 
-  let
-    lastHead = dag.head
+  let lastHead = dag.head
 
   logScope:
     newHead = shortLog(newHead)
@@ -2024,6 +2056,8 @@ proc updateHead*(
     lastHeadStateRoot = getStateRoot(dag.headState)
     lastHeadMergeComplete = dag.headState.is_merge_transition_complete()
     lastHeadKind = dag.headState.kind
+    lastKnownValidatorsChangeStatuses = getValidatorChangeStatuses(
+      dag.headState, knownValidators)
 
   # Start off by making sure we have the right state - updateState will try
   # to use existing in-memory states to make this smooth
@@ -2054,6 +2088,11 @@ proc updateHead*(
         dag.vanityLogs.onUpgradeToCapella()
     of ConsensusFork.EIP4844:
       discard
+
+  if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
+      checkBlsToExecutionChanges(
+        dag.headState, lastKnownValidatorsChangeStatuses):
+    dag.vanityLogs.onKnownBlsToExecutionChange()
 
   dag.db.putHeadBlock(newHead.root)
 

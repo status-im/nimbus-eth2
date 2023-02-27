@@ -121,12 +121,14 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
     VanityLogs(
       onMergeTransitionBlock:          color🐼,
       onFinalizedMergeTransitionBlock: blink🐼,
-      onUpgradeToCapella:              color🦉)
+      onUpgradeToCapella:              color🦉,
+      onKnownBlsToExecutionChange:     blink🦉)
   of StdoutLogKind.NoColors:
     VanityLogs(
       onMergeTransitionBlock:          mono🐼,
       onFinalizedMergeTransitionBlock: mono🐼,
-      onUpgradeToCapella:              mono🦉)
+      onUpgradeToCapella:              mono🦉,
+      onKnownBlsToExecutionChange:     mono🦉)
   of StdoutLogKind.Json, StdoutLogKind.None:
     VanityLogs(
       onMergeTransitionBlock:
@@ -134,7 +136,9 @@ func getVanityLogs(stdoutKind: StdoutLogKind): VanityLogs =
       onFinalizedMergeTransitionBlock:
         (proc() = notice "🐼 Proof of Stake Finalized 🐼"),
       onUpgradeToCapella:
-        (proc() = notice "🦉 Withdrowls now available 🦉"))
+        (proc() = notice "🦉 Withdrowls now available 🦉"),
+      onKnownBlsToExecutionChange:
+        (proc() = notice "🦉 BLS to execution changed 🦉"))
 
 proc loadChainDag(
     config: BeaconNodeConf,

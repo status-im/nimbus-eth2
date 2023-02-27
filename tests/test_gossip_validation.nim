@@ -87,7 +87,7 @@ suite "Gossip validation " & preset():
           blckRef.slot.start_beacon_time)
 
       check: added.isOk()
-      dag.updateHead(added[], quarantine[])
+      dag.updateHead(added[], quarantine[], [])
       pruneAtFinalization(dag, pool[])
 
     var
@@ -215,7 +215,7 @@ suite "Gossip validation - Extra": # Not based on preset config
               const nilCallback = OnEIP4844BlockAdded(nil)
               dag.addHeadBlock(verifier, blck.eip4844Data, nilCallback)
           check: added.isOk()
-          dag.updateHead(added[], quarantine[])
+          dag.updateHead(added[], quarantine[], [])
         dag
 
     let batchCrypto = BatchCrypto.new(

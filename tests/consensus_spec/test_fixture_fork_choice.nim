@@ -279,7 +279,7 @@ proc stepOnBlock(
     # 4. Update DAG with new head
     var quarantine = Quarantine.init()
     let newHead = fkChoice[].get_head(dag, time).get()
-    dag.updateHead(dag.getBlockRef(newHead).get(), quarantine)
+    dag.updateHead(dag.getBlockRef(newHead).get(), quarantine, [])
     if dag.needStateCachesAndForkChoicePruning():
       dag.pruneStateCachesDAG()
       let pruneRes = fkChoice[].prune()
