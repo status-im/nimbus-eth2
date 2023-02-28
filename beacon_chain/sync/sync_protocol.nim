@@ -121,24 +121,6 @@ proc readChunkPayload*(
     return neterr InvalidContextBytes
 
 proc readChunkPayload*(
-    conn: Connection, peer: Peer, MsgType: type (ref SignedBeaconBlockAndBlobsSidecar)):
-    Future[NetRes[MsgType]] {.async.} =
-  var contextBytes: ForkDigest
-  try:
-    await conn.readExactly(addr contextBytes, sizeof contextBytes)
-  except CatchableError:
-    return neterr UnexpectedEOF
-
-  if contextBytes == peer.network.forkDigests.eip4844:
-    let res = await readChunkPayload(conn, peer, SignedBeaconBlockAndBlobsSidecar)
-    if res.isOk:
-      return ok newClone(res.get)
-    else:
-      return err(res.error)
-  else:
-    return neterr InvalidContextBytes
-
-proc readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type (ref BlobsSidecar)):
     Future[NetRes[MsgType]] {.async.} =
   var contextBytes: ForkDigest

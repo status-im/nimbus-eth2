@@ -23,7 +23,7 @@ import
 
 from ../spec/datatypes/capella import SignedBeaconBlock
 from ../spec/datatypes/eip4844 import
-  SignedBeaconBlock, SignedBeaconBlockAndBlobsSidecar, BLS_MODULUS
+  SignedBeaconBlock, BLS_MODULUS
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
 

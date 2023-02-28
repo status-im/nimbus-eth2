@@ -55,17 +55,12 @@ type
 
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
 
-  # TODO remove BlobsSidecar and SignedBeaconBlockAndBlobsSidecar; they're not
-  # in rc.3 anymore
+  # TODO remove BlobsSidecar; it's not in rc.3 anymore
   BlobsSidecar* = object
     beacon_block_root*: Eth2Digest
     beacon_block_slot*: Slot
     blobs*: List[Blob, Limit MAX_BLOBS_PER_BLOCK]
     kzg_aggregated_proof*: KZGProof
-
-  SignedBeaconBlockAndBlobsSidecar* = object
-    beacon_block*: SignedBeaconBlock
-    blobs_sidecar*: BlobsSidecar
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/p2p-interface.md#blobsidecar
   BlobSidecar* = object
