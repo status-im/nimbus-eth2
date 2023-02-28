@@ -185,19 +185,16 @@ proc new*(T: type Eth2Processor,
 
 proc processSignedBeaconBlock*(
     self: var Eth2Processor, src: MsgSource,
-    signedBlockAndBlobs: ForkySignedBeaconBlockMaybeBlobs,
+    signedBlock: ForkySignedBeaconBlock,
     maybeFinalized: bool = false): ValidationRes =
   let
     wallTime = self.getCurrentBeaconTime()
     (afterGenesis, wallSlot) = wallTime.toSlot()
-    signedBlock = toSignedBeaconBlock(signedBlockAndBlobs)
-    blobs = optBlobs(signedBlockAndBlobs)
 
   logScope:
     blockRoot = shortLog(signedBlock.root)
     blck = shortLog(signedBlock.message)
     signature = shortLog(signedBlock.signature)
-    hasBlobs = blobs.isSome
     wallSlot
 
   if not afterGenesis:
@@ -212,7 +209,7 @@ proc processSignedBeaconBlock*(
   debug "Block received", delay
 
   let v =
-    self.dag.validateBeaconBlock(self.quarantine, signedBlockAndBlobs, wallTime, {})
+    self.dag.validateBeaconBlock(self.quarantine, signedBlock, wallTime, {})
 
   if v.isOk():
     # Block passed validation - enqueue it for processing. The block processing
@@ -224,7 +221,7 @@ proc processSignedBeaconBlock*(
 
     self.blockProcessor[].addBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
-      blobs,
+      BlobSidecars @[],
       maybeFinalized = maybeFinalized,
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))

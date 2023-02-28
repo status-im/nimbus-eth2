@@ -803,17 +803,8 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         withBlck(forked):
           blck.root = hash_tree_root(blck.message)
-          let signedBlockAndBlobs =
-            when blck is eip4844.SignedBeaconBlock:
-              # TODO: Fetch blobs from EE
-              eip4844.SignedBeaconBlockAndBlobsSidecar(
-                beacon_block: blck,
-                blobs_sidecar: eip4844.BlobsSidecar()
-              )
-            else:
-              blck
-
-          await node.router.routeSignedBeaconBlock(signedBlockAndBlobs)
+          # TODO: Fetch blobs from EE when blck is eip4844.SignedBeaconBlock
+          await node.router.routeSignedBeaconBlock(blck)
 
     if res.isErr():
       return RestApiResponse.jsonError(
@@ -901,16 +892,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
       let res = withBlck(forked):
         blck.root = hash_tree_root(blck.message)
-        let signedBlockAndBlobs =
-          when blck is eip4844.SignedBeaconBlock:
-            eip4844.SignedBeaconBlockAndBlobsSidecar(
-              beacon_block: blck,
-              blobs_sidecar: eip4844.BlobsSidecar()
-            )
-          else:
-            blck
-
-        await node.router.routeSignedBeaconBlock(signedBlockAndBlobs)
+        await node.router.routeSignedBeaconBlock(blck)
 
       if res.isErr():
         return RestApiResponse.jsonError(

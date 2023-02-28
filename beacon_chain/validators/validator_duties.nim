@@ -1060,11 +1060,9 @@ proc proposeBlock(node: BeaconNode,
           capella.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
         elif blck is eip4844.BeaconBlock:
-          eip4844.SignedBeaconBlockAndBlobsSidecar(
-            beacon_block:eip4844.SignedBeaconBlock(message: blck, signature: signature, root: blockRoot),
-            blobs_sidecar: blobs_sidecar
-          )
-        else:
+          # TODO: also route blobs
+          eip4844.SignedBeaconBlock(message: blck, signature: signature, root: blockRoot)
+       else:
           static: doAssert "Unknown SignedBeaconBlock type"
       newBlockRef =
         (await node.router.routeSignedBeaconBlock(signedBlock)).valueOr:

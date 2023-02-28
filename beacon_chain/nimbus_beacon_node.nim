@@ -328,7 +328,7 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       let resfut = newFuture[Result[void, VerifierError]]("blockVerifier")
       blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                Opt.none(eip4844.BlobsSidecar),
+                                BlobSidecars @[],
                                 resfut,
                                 maybeFinalized = maybeFinalized)
       resfut
@@ -342,7 +342,7 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       let resfut = newFuture[Result[void, VerifierError]]("blockVerifier")
       blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                Opt.some(blobs), resfut, maybeFinalized = maybeFinalized)
+                                BlobSidecars @[], resfut, maybeFinalized = maybeFinalized)
       resfut
     processor = Eth2Processor.new(
       config.doppelgangerDetection,
@@ -1532,7 +1532,7 @@ proc installMessageValidators(node: BeaconNode) =
               signedBlock.beacon_block))
         else:
           toValidationResult(node.processor[].processSignedBeaconBlock(
-            MsgSource.gossip, signedBlock)))
+            MsgSource.gossip, signedBlock.beacon_block)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:
