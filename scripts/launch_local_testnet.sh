@@ -751,9 +751,9 @@ cleanup() {
 
   echo "Terminating:"
   for proc in "${PROCS_TO_KILL[@]}"; do
-    # FIXME We should be using '-P $$' here but it doesn't always work.
     PROC_NAME=$(basename "$proc")
-    pkill -SIGTERM "${PKILL_ECHO_FLAG}" -f "${PROC_NAME}" \
+    # WARNING: The '-P $$' avoids killing unrelated processes.
+    pkill -SIGTERM "${PKILL_ECHO_FLAG}" -P $$ "${PROC_NAME}" \
         || echo "Nothing to terminate: ${PROC_NAME}"
   done
 
@@ -761,9 +761,9 @@ cleanup() {
 
   echo "Killing:"
   for proc in "${PROCS_TO_KILL[@]}"; do
-    # FIXME We should be using '-P $$' here but it doesn't always work.
     PROC_NAME=$(basename "$proc")
-    pkill -SIGKILL "${PKILL_ECHO_FLAG}" -f "${PROC_NAME}" \
+    # WARNING: The '-P $$' avoids killing unrelated processes.
+    pkill -SIGKILL "${PKILL_ECHO_FLAG}" -P $$ "${PROC_NAME}" \
         || echo "Nothing to kill: ${PROC_NAME}"
   done
 
