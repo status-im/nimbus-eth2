@@ -2626,9 +2626,9 @@ proc broadcastBeaconBlock*(
   let topic = getBeaconBlocksTopic(node.forkDigests.capella)
   node.broadcast(topic, blck)
 
-proc broadcastBeaconBlockAndBlobsSidecar*(
-    node: Eth2Node, blck: eip4844.SignedBeaconBlockAndBlobsSidecar): Future[SendResult] =
-  let topic = getBeaconBlockAndBlobsSidecarTopic(node.forkDigests.eip4844)
+proc broadcastBeaconBlock*(
+    node: Eth2Node, blck: eip4844.SignedBeaconBlock): Future[SendResult] =
+  let topic = getBeaconBlocksTopic(node.forkDigests.eip4844)
   node.broadcast(topic, blck)
 
 from ../spec/datatypes/eip4844 import SignedBeaconBlock

@@ -60,7 +60,7 @@ suite "Block processor" & preset():
 
   asyncTest "Reverse order block add & get" & preset():
     let missing = await processor.storeBlock(
-      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2, Opt.none(BlobsSidecar))
+      MsgSource.gossip, b2.message.slot.start_beacon_time(), b2, BlobSidecars @[])
     check: missing.error[0] == VerifierError.MissingParent
 
     check:
@@ -70,7 +70,7 @@ suite "Block processor" & preset():
 
     let
       status = await processor.storeBlock(
-        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1, Opt.none(BlobsSidecar))
+        MsgSource.gossip, b2.message.slot.start_beacon_time(), b1, BlobSidecars @[])
       b1Get = dag.getBlockRef(b1.root)
 
     check:

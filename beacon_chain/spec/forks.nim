@@ -254,33 +254,6 @@ type
     capella*:   ForkDigest
     eip4844*:   ForkDigest
 
-# The purpose of this type is to unify the pre- and post-EIP4844
-# block gossip structures. It is for used only for
-# gossip-originating blocks, which are eventually separated into the
-# constituent parts before passing along into core functions.
-type ForkySignedBeaconBlockMaybeBlobs* =
-  phase0.SignedBeaconBlock |
-  altair.SignedBeaconBlock |
-  bellatrix.SignedBeaconBlock |
-  capella.SignedBeaconBlock |
-  deneb.SignedBeaconBlockAndBlobsSidecar
-# ForkySignedBeaconBlockMaybeBlobs should only contain types that are gossiped.
-static: doAssert not (default(deneb.SignedBeaconBlock) is ForkySignedBeaconBlockMaybeBlobs)
-
-template toSignedBeaconBlock*(b: ForkySignedBeaconBlockMaybeBlobs): ForkySignedBeaconBlock =
-  when b is eip4844.SignedBeaconBlockAndBlobsSidecar:
-    b.beacon_block
-  else:
-    b
-
-func optBlobs*(b: ForkySignedBeaconBlockMaybeBlobs):
-         Opt[deneb.BlobsSidecar] =
-  when b is phase0.SignedBeaconBlock or b is altair.SignedBeaconBlock or
-     b is bellatrix.SignedBeaconBlock or b is capella.SignedBeaconBlock:
-    Opt.none(eip4844.BlobsSidecar)
-  elif b is deneb.SignedBeaconBlockAndBlobsSidecar:
-    Opt.some(b.blobs_sidecar)
-
 macro getSymbolFromForkModule(fork: static ConsensusFork,
                               symbolName: static string): untyped =
   let moduleName = case fork
@@ -998,7 +971,7 @@ func readSszForkedSignedBeaconBlock*(
   withBlck(result):
     readSszBytes(data, blck)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/beacon-chain.md#compute_fork_data_root
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#compute_fork_data_root
 func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: Eth2Digest): Eth2Digest =
   ## Return the 32-byte fork data root for the ``current_version`` and
@@ -1010,7 +983,7 @@ func compute_fork_data_root*(current_version: Version,
     genesis_validators_root: genesis_validators_root
   ))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/beacon-chain.md#compute_fork_digest
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#compute_fork_digest
 func compute_fork_digest*(current_version: Version,
                           genesis_validators_root: Eth2Digest): ForkDigest =
   ## Return the 4-byte fork digest for the ``current_version`` and
