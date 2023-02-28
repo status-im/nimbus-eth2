@@ -20,7 +20,7 @@ import
   ./block_dag, block_pools_types_light_client
 
 from ../spec/datatypes/capella import TrustedSignedBeaconBlock
-from ../spec/datatypes/eip4844 import TrustedSignedBeaconBlock
+from ../spec/datatypes/deneb import TrustedSignedBeaconBlock
 
 from "."/vanity_logs/vanity_logs import VanityLogs
 
@@ -310,7 +310,7 @@ type
 
   OnEIP4844BlockAdded* = proc(
     blckRef: BlockRef,
-    blck: eip4844.TrustedSignedBeaconBlock,
+    blck: deneb.TrustedSignedBeaconBlock,
     epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 

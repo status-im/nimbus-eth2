@@ -71,6 +71,7 @@ type
     slot: Slot
 
   BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS]
+  BlobIdentifierList* = List[BlobIdentifier, Limit (MAX_REQUEST_BLOBS_SIDECARS * MAX_BLOBS_PER_BLOCK)]
 
 template readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type ForkySignedBeaconBlock):
@@ -148,6 +149,24 @@ proc readChunkPayload*(
 
   if contextBytes == peer.network.forkDigests.eip4844:
     let res = await readChunkPayload(conn, peer, BlobsSidecar)
+    if res.isOk:
+      return ok newClone(res.get)
+    else:
+      return err(res.error)
+  else:
+    return neterr InvalidContextBytes
+
+proc readChunkPayload*(
+    conn: Connection, peer: Peer, MsgType: type (ref BlobSidecar)):
+    Future[NetRes[MsgType]] {.async.} =
+  var contextBytes: ForkDigest
+  try:
+    await conn.readExactly(addr contextBytes, sizeof contextBytes)
+  except CatchableError:
+    return neterr UnexpectedEOF
+
+  if contextBytes == peer.network.forkDigests.eip4844:
+    let res = await readChunkPayload(conn, peer, BlobSidecar)
     if res.isOk:
       return ok newClone(res.get)
     else:
@@ -445,88 +464,6 @@ p2pProtocol BeaconSync(version = 1,
     debug "Block root request done",
       peer, roots = blockRoots.len, count, found
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
-  proc beaconBlockAndBlobsSidecarByRoot_v1(
-      peer: Peer,
-      # Please note that the SSZ list here ensures that the
-      # spec constant MAX_REQUEST_BLOCKS is enforced:
-      blockRoots: BlockRootsList,
-      response: MultipleChunksResponse[
-        ref SignedBeaconBlockAndBlobsSidecar, MAX_REQUEST_BLOCKS])
-      {.async, libp2pProtocol("beacon_block_and_blobs_sidecar_by_root", 1).} =
-        # unlike for beaconBlocksByRoot_v2, we don't need to
-        # dynamically decode the correct fork here. so returning a ref
-        # is solely for performance sake
-
-    if blockRoots.len == 0:
-      raise newException(InvalidInputsError, "No blocks requested")
-
-    let
-      dag = peer.networkState.dag
-      count = blockRoots.len
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/p2p-interface.md#beaconblockandblobssidecarbyroot-v1
-      min_epochs =
-        if MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS > dag.head.slot.epoch:
-           dag.head.slot.epoch
-        else:
-          Epoch(MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS)
-
-      epochBoundary =
-        if dag.head.slot.epoch - min_epochs < dag.cfg.DENEB_FORK_EPOCH:
-          dag.cfg.DENEB_FORK_EPOCH
-        else:
-          dag.head.slot.epoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS
-      minimum_request_epoch = max(dag.finalizedHead.slot.epoch, epochBoundary)
-
-    var
-      found = 0
-      bytes: seq[byte]
-      blck: Opt[eip4844.TrustedSignedBeaconBlock]
-      blobsSidecar: Opt[BlobsSidecar]
-
-    for i in 0..<count:
-      let
-        blockRef = dag.getBlockRef(blockRoots[i]).valueOr:
-          continue
-
-      blck = dag.getBlock(blockRef.bid, eip4844.TrustedSignedBeaconBlock)
-      if blck.isNone():
-        continue
-
-      if blockRef.bid.slot.epoch < minimum_request_epoch:
-        raise newException(ResourceUnavailableError, BlobsOutOfRange)
-
-      # In general, there is not much intermediate time between post-merge
-      # blocks all being optimistic and none of them being optimistic. The
-      # EL catches up, tells the CL the head is verified, and that's it.
-      if blockRef.slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
-          dag.is_optimistic(dag.head.root):
-        continue
-
-      blobsSidecar = dag.db.getBlobsSidecar(blockRef.bid.root)
-      if blobsSidecar.isNone():
-        continue
-
-      peer.awaitQuota(blockResponseCost, "beacon_block_and_blobs_sidecar_by_root/1")
-      peer.network.awaitQuota(blockResponseCost, "beacon_block_and_blobs_sidecar_by_root/1")
-
-      let sbbabs = SignedBeaconBlockAndBlobsSidecar(
-        beacon_block: asSigned(blck.get()),
-        blobs_sidecar: blobsSidecar.get())
-      bytes = snappy.encodeFramed(SSZ.encode(sbbabs))
-
-      let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
-        warn "Cannot read block and blobs size", length = bytes.len()
-        continue
-
-      await response.writeBytesSZ(
-        uncompressedLen, bytes,
-        peer.networkState.forkDigestAtEpoch(blockRef.slot.epoch).data)
-
-      inc found
-
-    debug "Block and blobs sidecar root request done",
-      peer, roots = blockRoots.len, count, found
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#blobssidecarsbyrange-v1
   proc blobsSidecarsByRange(
@@ -598,6 +535,129 @@ p2pProtocol BeaconSync(version = 1,
 
     debug "BlobsSidecar range request done",
       peer, startSlot, count
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/p2p-interface.md#blobsidecarsbyroot-v1
+  proc blobSidecarsByRoot(
+      peer: Peer,
+      blobIds: BlobIdentifierList,
+      response: MultipleChunksResponse[
+        ref BlobSidecar, Limit(MAX_REQUEST_BLOBS_SIDECARS * MAX_BLOBS_PER_BLOCK)])
+      {.async, libp2pProtocol("blob_sidecars_by_root", 1).} =
+    # TODO Semantically, this request should return a non-ref, but doing so
+    #      runs into extreme inefficiency due to the compiler introducing
+    #      hidden copies - in future nim versions with move support, this should
+    #      be revisited
+    # TODO This code is more complicated than it needs to be, since the type
+    #      of the multiple chunks response is not actually used in this server
+    #      implementation (it's used to derive the signature of the client
+    #      function, not in the code below!)
+    # TODO although you can't tell from this function definition, a magic
+    #      client call that returns `seq[ref BlobSidecar]` will
+    #      will be generated by the libp2p macro - we guarantee that seq items
+    #      are `not-nil` in the implementation
+    trace "got blobs range request", peer, len = blobIds.len
+    if blobIds.len == 0:
+      raise newException(InvalidInputsError, "No blobs requested")
+
+    let
+      dag = peer.networkState.dag
+      count = blobIds.len
+
+    var
+      found = 0
+      bytes: seq[byte]
+
+    for i in 0..<count:
+      let blockRef = dag.getBlockRef(blobIds[i].block_root).valueOr:
+        continue
+      let index = blobIds[i].index
+      if dag.db.getBlobSidecarSZ(blockRef.bid.root, index, bytes):
+        let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+          warn "Cannot read blob size, database corrupt?",
+            bytes = bytes.len(), blck = shortLog(blockRef), blobindex = index
+          continue
+
+        peer.awaitQuota(blockResponseCost, "blob_sidecars_by_root/1")
+        peer.network.awaitQuota(blockResponseCost, "blob_sidecars_by_root/1")
+
+        await response.writeBytesSZ(
+          uncompressedLen, bytes,
+          peer.networkState.forkDigestAtEpoch(blockRef.slot.epoch).data)
+        inc found
+
+    debug "Blob root request done",
+      peer, roots = blobIds.len, count, found
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/p2p-interface.md#blobsidecarsbyrange-v1
+  proc blobSidecarsByRange(
+      peer: Peer,
+      startSlot: Slot,
+      reqCount: uint64,
+      response: MultipleChunksResponse[ref BlobSidecar, Limit(MAX_REQUEST_BLOBS_SIDECARS * MAX_BLOBS_PER_BLOCK)])
+      {.async, libp2pProtocol("blob_sidecars_by_range", 1).} =
+    # TODO This code is more complicated than it needs to be, since the type
+    #      of the multiple chunks response is not actually used in this server
+    #      implementation (it's used to derive the signature of the client
+    #      function, not in the code below!)
+    # TODO although you can't tell from this function definition, a magic
+    #      client call that returns `seq[ref BlobSidecar]` will
+    #      will be generated by the libp2p macro - we guarantee that seq items
+    #      are `not-nil` in the implementation
+
+    trace "got blobs range request", peer, startSlot, count = reqCount
+    if reqCount == 0:
+      raise newException(InvalidInputsError, "Empty range requested")
+
+    let
+      dag = peer.networkState.dag
+      epochBoundary =
+        if MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS >= dag.head.slot.epoch:
+          GENESIS_EPOCH
+        else:
+          dag.head.slot.epoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS
+
+    if startSlot.epoch < epochBoundary:
+      raise newException(ResourceUnavailableError, BlobsOutOfRange)
+
+    var blockIds: array[MAX_REQUEST_BLOBS_SIDECARS, BlockId]
+    let
+      count = int min(reqCount, blockIds.lenu64)
+      endIndex = count - 1
+      startIndex =
+        dag.getBlockRange(startSlot, 1, blockIds.toOpenArray(0, endIndex))
+
+    var
+      found = 0
+      bytes: seq[byte]
+
+    for i in startIndex..endIndex:
+      for j in 0..<MAX_BLOBS_PER_BLOCK:
+        if dag.db.getBlobSidecarSZ(blockIds[i].root, BlobIndex(j), bytes):
+          # In general, there is not much intermediate time between post-merge
+          # blocks all being optimistic and none of them being optimistic. The
+          # EL catches up, tells the CL the head is verified, and that's it.
+          if  blockIds[i].slot.epoch >= dag.cfg.BELLATRIX_FORK_EPOCH and
+              dag.is_optimistic(dag.head.root):
+            continue
+
+          let uncompressedLen = uncompressedLenFramed(bytes).valueOr:
+            warn "Cannot read blobs sidecar size, database corrupt?",
+              bytes = bytes.len(), blck = shortLog(blockIds[i])
+            continue
+
+          # TODO extract from libp2pProtocol
+          peer.awaitQuota(blockResponseCost, "blobs_sidecars_by_range/1")
+          peer.network.awaitQuota(blockResponseCost, "blobs_sidecars_by_range/1")
+
+          await response.writeBytesSZ(
+            uncompressedLen, bytes,
+            peer.networkState.forkDigestAtEpoch(blockIds[i].slot.epoch).data)
+          inc found
+        else:
+          break
+
+    debug "BlobSidecar range request done",
+      peer, startSlot, found
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
   proc lightClientBootstrap(

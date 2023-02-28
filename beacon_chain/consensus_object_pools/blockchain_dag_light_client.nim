@@ -989,16 +989,12 @@ proc getLightClientBootstrap*(
     return default(ForkedLightClientBootstrap)
 
   # Try to load from cache
-  template tryFromCache(lcDataFork: static LightClientDataFork): untyped =
-    block:
+  withAll(LightClientDataFork):
+    when lcDataFork > LightClientDataFork.None:
       let header = getHeader[lcDataFork.LightClientHeader](
         dag.lcDataStore.db, blockRoot)
       if header.isOk:
         return dag.getLightClientBootstrap(header.get)
-  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
-  tryFromCache(LightClientDataFork.EIP4844)
-  tryFromCache(LightClientDataFork.Capella)
-  tryFromCache(LightClientDataFork.Altair)
 
   # Fallback to DAG
   let bdata = dag.getForkedBlock(blockRoot).valueOr:

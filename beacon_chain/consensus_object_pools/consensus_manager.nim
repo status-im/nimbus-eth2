@@ -354,11 +354,14 @@ proc runProposalForkchoiceUpdated*(
     nextWallSlot, validatorIndex, nextProposer
 
   withState(self.dag.headState):
-    let nextSlotFork = self.dag.cfg.forkAtEpoch(nextWallSlot.epoch)
-    if forkyState.data.fork != nextSlotFork:
-      debug "runProposalForkchoiceUpdated: about to do fork transition; don't have appropriate state to fcU ahead",
+    let
+      nextSlotFork = self.dag.cfg.forkAtEpoch(nextWallSlot.epoch)
+      nextSlotForkVersion = self.dag.cfg.forkVersionAtEpoch(nextWallSlot.epoch)
+    if  nextSlotForkVersion == self.dag.cfg.CAPELLA_FORK_VERSION and
+        forkyState.data.fork.current_version != nextSlotFork.current_version:
+      debug "runProposalForkchoiceUpdated: about to do Capella transition; don't have appropriate state to fcU ahead",
         nextWallSlot, validatorIndex, nextProposer, nextSlotFork,
-        stateFork = forkyState.data.fork
+        nextSlotForkVersion, stateFork = forkyState.data.fork
 
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.

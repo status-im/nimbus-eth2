@@ -10,8 +10,7 @@
 import
   std/[tables],
   stew/bitops2,
-  ../spec/forks,
-  ../spec/datatypes/eip4844
+  ../spec/forks
 
 export tables, forks
 
@@ -39,8 +38,7 @@ type
     ##
     ## Trivially invalid blocks may be dropped before reaching this stage.
 
-    orphans*: Table[(Eth2Digest, ValidatorSig),
-                    (ForkedSignedBeaconBlock, Opt[eip4844.BlobsSidecar])]
+    orphans*: Table[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
       ## Blocks that we don't have a parent for - when we resolve the parent, we
       ## can proceed to resolving the block as well - we index this by root and
       ## signature such that a block with invalid signature won't cause a block
@@ -149,7 +147,7 @@ func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
   while toCheck.len > 0:
     let root = toCheck.pop()
     for k, v in quarantine.orphans.mpairs():
-      if getForkedBlockField(v[0], parent_root) == root:
+      if getForkedBlockField(v, parent_root) == root:
         toCheck.add(k[0])
         toRemove.add(k)
       elif k[0] == root:
@@ -167,7 +165,7 @@ func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[(Eth2Digest, ValidatorSig)]
 
   for k, v in quarantine.orphans:
-    if not isViableOrphan(finalizedSlot, v[0]):
+    if not isViableOrphan(finalizedSlot, v):
       toDel.add k
 
   for k in toDel:
@@ -192,8 +190,7 @@ func clearAfterReorg*(quarantine: var Quarantine) =
 # likely imminent arrival.
 func addOrphan*(
     quarantine: var Quarantine, finalizedSlot: Slot,
-    signedBlock: ForkedSignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar]): bool =
+    signedBlock: ForkedSignedBeaconBlock): bool =
   ## Adds block to quarantine's `orphans` and `missing` lists.
   if not isViableOrphan(finalizedSlot, signedBlock):
     quarantine.addUnviable(signedBlock.root)
@@ -214,14 +211,13 @@ func addOrphan*(
   if quarantine.orphans.lenu64 >= MaxOrphans:
     return false
 
-  quarantine.orphans[(signedBlock.root, signedBlock.signature)] =
-    (signedBlock, blobs)
+  quarantine.orphans[(signedBlock.root, signedBlock.signature)] = signedBlock
   quarantine.missing.del(signedBlock.root)
 
   true
 
 iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
-    (ForkedSignedBeaconBlock, Opt[eip4844.BlobsSidecar]) =
+         ForkedSignedBeaconBlock =
   # Pop orphans whose parent is the block identified by `root`
 
   var toRemove: seq[(Eth2Digest, ValidatorSig)]
@@ -230,6 +226,6 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
       quarantine.orphans.del k
 
   for k, v in quarantine.orphans.mpairs():
-    if getForkedBlockField(v[0], parent_root) == root:
+    if getForkedBlockField(v, parent_root) == root:
       toRemove.add(k)
       yield v

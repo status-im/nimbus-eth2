@@ -19,7 +19,7 @@ import ".."/[eth2_ssz_serialization, forks, keystore],
 import nimcrypto/utils as ncrutils
 
 from ".."/datatypes/capella import SignedBeaconBlock
-from ".."/datatypes/eip4844 import BeaconState
+from ".."/datatypes/deneb import BeaconState
 
 export
   eth2_ssz_serialization, results, peerid, common, serialization, chronicles,
@@ -1768,7 +1768,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     try:
       tmp[].eip4844Data.data = RestJson.decode(
         string(data.get()),
-        eip4844.BeaconState,
+        deneb.BeaconState,
         requireAllFields = true,
         allowUnknownFields = true)
     except SerializationError:

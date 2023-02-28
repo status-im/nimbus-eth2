@@ -46,9 +46,10 @@ const
     ## Number of slots from wall time that we start processing every payload
 
 type
-  BlockEntry* = object
+  BlobSidecars* = List[Blob, Limit MAX_BLOBS_PER_BLOCK]
+  BlockEntry = object
     blck*: ForkedSignedBeaconBlock
-    blobs*: Opt[eip4844.BlobsSidecar]
+    blobs*: BlobSidecars
     maybeFinalized*: bool
       ## The block source claims the block has been finalized already
     resfut*: Future[Result[void, VerifierError]]
@@ -110,7 +111,7 @@ type
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar],
+    blobs: BlobSidecars,
     resfut: Future[Result[void, VerifierError]] = nil,
     maybeFinalized = false,
     validationDur = Duration())
@@ -170,7 +171,7 @@ from ../beacon_chain_db import putBlobsSidecar
 proc storeBackfillBlock(
     self: var BlockProcessor,
     signedBlock: ForkySignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar]): Result[void, VerifierError] =
+    blobs: BlobSidecars): Result[void, VerifierError] =
 
   # The block is certainly not missing any more
   self.consensusManager.quarantine[].missing.del(signedBlock.root)
@@ -179,12 +180,8 @@ proc storeBackfillBlock(
   # writing the block in case of blob error.
   let blobsOk =
       when typeof(signedBlock).toFork() >= ConsensusFork.EIP4844:
-          blobs.isNone or
-          validate_blobs_sidecar(signedBlock.message.slot,
-                                 signedBlock.root,
-                                 signedBlock.message
-                                 .body.blob_kzg_commitments.asSeq,
-                                 blobs.get()).isOk()
+          blobs.len > 0 or true
+        # TODO: validate blobs
       else:
         true
   if not blobsOk:
@@ -208,9 +205,9 @@ proc storeBackfillBlock(
     else: discard
     return res
 
-  if blobs.isSome():
-    # Only store blobs after successfully establishing block viability.
-    self.consensusManager.dag.db.putBlobsSidecar(blobs.get())
+  # Only store blobs after successfully establishing block viability.
+  # TODO: store blobs in db
+
   res
 
 
@@ -354,7 +351,7 @@ proc getExecutionValidity(
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar],
+    blobs: BlobSidecars,
     maybeFinalized = false,
     queueTick: Moment = Moment.now(), validationDur = Duration()):
     Future[Result[BlockRef, (VerifierError, ProcessingStatus)]] {.async.} =
@@ -419,15 +416,9 @@ proc storeBlock*(
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
   when typeof(signedBlock).toFork() >= ConsensusFork.EIP4844:
-    if blobs.isSome():
-      let res = validate_blobs_sidecar(signedBlock.message.slot,
-                                       signedBlock.root,
-                                       signedBlock.message
-                                       .body.blob_kzg_commitments.asSeq,
-                                       blobs.get())
-      if res.isErr():
-        debug "blobs sidecar validation failed", err = res.error()
-        return err((VerifierError.Invalid, ProcessingStatus.completed))
+    if blobs.len > 0:
+      discard
+      # TODO: validate blobs
 
   type Trusted = typeof signedBlock.asTrusted()
   let blck = dag.addHeadBlock(self.verifier, signedBlock, payloadValid) do (
@@ -470,7 +461,7 @@ proc storeBlock*(
         return err((VerifierError.UnviableFork, ProcessingStatus.completed))
 
       if not self.consensusManager.quarantine[].addOrphan(
-          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock), blobs):
+          dag.finalizedHead.slot, ForkedSignedBeaconBlock.init(signedBlock)):
         debug "Block quarantine full",
           blockRoot = shortLog(signedBlock.root),
           blck = shortLog(signedBlock.message),
@@ -486,9 +477,7 @@ proc storeBlock*(
     # If the EL responded at all, we don't need to try again for a while
     self[].lastPayload = signedBlock.message.slot
 
-  # write blobs now that block has been written.
-  if blobs.isSome():
-    self.consensusManager.dag.db.putBlobsSidecar(blobs.get())
+  # TODO: store blobs in db
 
   let storeBlockTick = Moment.now()
 
@@ -591,7 +580,7 @@ proc storeBlock*(
 
   for quarantined in self.consensusManager.quarantine[].pop(blck.get().root):
     # Process the blocks that had the newly accepted block as parent
-    self[].addBlock(MsgSource.gossip, quarantined[0], quarantined[1])
+    self[].addBlock(MsgSource.gossip, quarantined, BlobSidecars @[])
 
   return Result[BlockRef, (VerifierError, ProcessingStatus)].ok blck.get
 
@@ -600,7 +589,7 @@ proc storeBlock*(
 
 proc addBlock*(
     self: var BlockProcessor, src: MsgSource, blck: ForkedSignedBeaconBlock,
-    blobs: Opt[eip4844.BlobsSidecar],
+    blobs: BlobSidecars,
     resfut: Future[Result[void, VerifierError]] = nil,
     maybeFinalized = false,
     validationDur = Duration()) =

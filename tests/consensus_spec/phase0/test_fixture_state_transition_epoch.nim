@@ -53,7 +53,7 @@ template runSuite(suiteDir, testName: string, transitionProc: untyped): untyped 
         type T = phase0.BeaconState
         let preState {.inject.} = newClone(parseTest(testDir/"pre.ssz_snappy", SSZ, T))
         var cache {.inject, used.} = StateCache()
-        var info {.inject.}: EpochInfo
+        var info {.inject.}: phase0.EpochInfo
         template state: untyped {.inject, used.} = preState[]
         template cfg: untyped {.inject, used.} = defaultRuntimeConfig
         init(info, preState[])

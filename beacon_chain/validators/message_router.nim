@@ -80,20 +80,18 @@ template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
 
 type RouteBlockResult* = Result[Opt[BlockRef], cstring]
 proc routeSignedBeaconBlock*(
-    router: ref MessageRouter, blckAndBlobs: ForkySignedBeaconBlockMaybeBlobs):
+    router: ref MessageRouter, blck: ForkySignedBeaconBlock):
     Future[RouteBlockResult] {.async.} =
   ## Validate and broadcast beacon block, then add it to the block database
   ## Returns the new Head when block is added successfully to dag, none when
   ## block passes validation but is not added, and error otherwise
-  let
-    wallTime = router[].getCurrentBeaconTime()
-    blck = toSignedBeaconBlock(blckAndBlobs)
+  let wallTime = router[].getCurrentBeaconTime()
 
   # Start with a quick gossip validation check such that broadcasting the
   # block doesn't get the node into trouble
   block:
     let res = validateBeaconBlock(
-      router[].dag, router[].quarantine, blckAndBlobs, wallTime, {})
+      router[].dag, router[].quarantine, blck, wallTime, {})
 
     if not res.isGoodForSending():
       warn "Block failed validation",
@@ -108,11 +106,7 @@ proc routeSignedBeaconBlock*(
     # now. In fact, per the spec, we should broadcast it even if it later fails
     # to apply to our state.
 
-  let res =
-    when blckAndBlobs is eip4844.SignedBeaconBlockAndBlobsSidecar:
-      await router[].network.broadcastBeaconBlockAndBlobsSidecar(blckAndBlobs)
-    else:
-      await router[].network.broadcastBeaconBlock(blck)
+  let res = await router[].network.broadcastBeaconBlock(blck)
 
   if res.isOk():
     beacon_blocks_sent.inc()
@@ -127,7 +121,7 @@ proc routeSignedBeaconBlock*(
       signature = shortLog(blck.signature), error = res.error()
 
   let newBlockRef = await router[].blockProcessor.storeBlock(
-    MsgSource.api, sendTime, blck, optBlobs(blckAndBlobs))
+    MsgSource.api, sendTime, blck, BlobSidecars @[])
 
   # The boolean we return tells the caller whether the block was integrated
   # into the chain

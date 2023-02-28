@@ -494,9 +494,9 @@ if [[ "${OS}" != "windows" ]]; then
   # Stop Nimbus EL nodes
   if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
     for NIMBUS_ETH1_NODE_IDX in $(seq 0 $NIMBUS_ETH1_LAST_NODE_IDX); do
-      for PORT in ${NIMBUS_ETH1_NET_PORTS[GETH_NODE_IDX]} \
-                  ${NIMBUS_ETH1_RPC_PORTS[GETH_NODE_IDX]} \
-                  ${NIMBUS_ETH1_AUTH_RPC_PORTS[GETH_NODE_IDX]};
+      for PORT in ${NIMBUS_ETH1_NET_PORTS[NIMBUS_ETH1_NODE_IDX]} \
+                  ${NIMBUS_ETH1_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]} \
+                  ${NIMBUS_ETH1_AUTH_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]};
       do
         PORTS_TO_KILL+=("${PORT}")
       done
@@ -738,26 +738,33 @@ cleanup() {
   # Avoid the trap enterring an infinite loop
   trap - SIGINT SIGTERM EXIT
 
-  for proc in "${PROCS_TO_KILL[@]}"
-  do
-    # TODO Previously, the code here used the '-P $$' option to limit
-    #      the kill command only to children of this shell process.
-    #      Unfortunately, this doesn't seem to work at the moment.
-    #      Perhaps the child processes are not direct children of
-    #      the current shell process?
-    pkill -f "$(basename "$proc")" || true
+  PKILL_ECHO_FLAG='-e'
+  if [[ "${OS}" == "macos" ]]; then
+    PKILL_ECHO_FLAG='-l'
+  fi
+
+  echo "Existing processes:"
+  for proc in "${PROCS_TO_KILL[@]}"; do
+    PROC_NAME=$(basename "$proc")
+    pgrep -alf "${PROC_NAME}" || true
+  done
+
+  echo "Terminating:"
+  for proc in "${PROCS_TO_KILL[@]}"; do
+    PROC_NAME=$(basename "$proc")
+    # WARNING: The '-P $$' avoids killing unrelated processes.
+    pkill -SIGTERM "${PKILL_ECHO_FLAG}" -P $$ "${PROC_NAME}" \
+        || echo "Nothing to terminate: ${PROC_NAME}"
   done
 
   sleep 2
 
-  for proc in "${PROCS_TO_KILL[@]}"
-  do
-    # TODO Previously, the code here used the '-P $$' option to limit
-    #      the kill command only to children of this shell process.
-    #      Unfortunately, this doesn't seem to work at the moment.
-    #      Perhaps the child processes are not direct children of
-    #      the current shell process?
-    pkill -SIGKILL -f "$(basename "$proc")" || true
+  echo "Killing:"
+  for proc in "${PROCS_TO_KILL[@]}"; do
+    PROC_NAME=$(basename "$proc")
+    # WARNING: The '-P $$' avoids killing unrelated processes.
+    pkill -SIGKILL "${PKILL_ECHO_FLAG}" -P $$ "${PROC_NAME}" \
+        || echo "Nothing to kill: ${PROC_NAME}"
   done
 
   # Delete all binaries we just built, because these are unusable outside this

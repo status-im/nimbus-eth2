@@ -297,10 +297,10 @@ proc updateEpoch(self: var ValidatorMonitor, epoch: Epoch) =
       var agg: int64
       for monitor {.inject.} in self.monitors.mvalues:
         agg += monitor.summaries[summaryIdx].name
-      metric.set(agg, [total])
+      metrics.set(metric, agg, [total])
     else:
       for monitor {.inject.} in self.monitors.mvalues:
-        metric.set(monitor.summaries[summaryIdx].name, [monitor.id])
+        metrics.set(metric, monitor.summaries[summaryIdx].name, [monitor.id])
 
   template observeAll(metric, name: untyped) =
     for monitor {.inject.} in self.monitors.mvalues:
@@ -726,7 +726,7 @@ proc registerAttestationInBlock*(
       update_if_lt(
         epochSummary.attestation_min_block_inclusion_distance, inclusion_lag)
 
-from ../spec/datatypes/eip4844 import shortLog
+from ../spec/datatypes/deneb import shortLog
 
 proc registerBeaconBlock*(
     self: var ValidatorMonitor,

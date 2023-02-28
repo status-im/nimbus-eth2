@@ -8,6 +8,11 @@ pipeline {
       description: 'Label for targetted CI slave host: linux/macos',
       defaultValue: params.AGENT_LABEL ?: getAgentLabel(),
     )
+    choice(
+      name: 'VERBOSITY',
+      description: 'Value for the V make flag to increase log verbosity',
+      choices: [0, 1, 2]
+    )
   }
 
   options {
@@ -37,7 +42,7 @@ pipeline {
 
   environment {
     NPROC = Runtime.getRuntime().availableProcessors()
-    MAKEFLAGS = "-j${env.NPROC}"
+    MAKEFLAGS = "V=${params.VERBOSITY} -j${env.NPROC}"
   }
 
   stages {

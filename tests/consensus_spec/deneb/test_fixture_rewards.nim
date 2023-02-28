@@ -10,7 +10,7 @@
 import
   # Beacon chain internals
   ../../beacon_chain/spec/[beaconstate, validator, helpers, state_transition_epoch],
-  ../../beacon_chain/spec/datatypes/[altair, eip4844],
+  ../../beacon_chain/spec/datatypes/[altair, deneb],
   # Test utilities
   ../../testutil,
   ../fixtures_utils, ../os_ops

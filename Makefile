@@ -144,7 +144,7 @@ DEPOSITS_DELAY := 0
 #- "--define:release" cannot be added to "config.nims"
 #- disable Nim's default parallelisation because it starts too many processes for too little gain
 #- https://github.com/status-im/nim-libp2p#use-identify-metrics
-NIM_PARAMS += -d:release --parallelBuild:1 -d:libp2p_agents_metrics -d:KnownLibP2PAgents=nimbus,lighthouse,lodestar,prysm,teku
+NIM_PARAMS := -d:release --parallelBuild:1 -d:libp2p_agents_metrics -d:KnownLibP2PAgents=nimbus,lighthouse,lodestar,prysm,teku $(NIM_PARAMS)
 
 ifeq ($(USE_LIBBACKTRACE), 0)
 NIM_PARAMS += -d:disable_libbacktrace
@@ -213,10 +213,7 @@ local-testnet-minimal:
 		--deneb-fork-epoch 20 \
 		--stop-at-epoch 6 \
 		--disable-htop \
-		--remote-validators-count 512 \
 		--enable-payload-builder \
-		--nimbus-signer-nodes 1 \
-		--threshold 1 \
 		--enable-logtrace \
 		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 6031 + EXECUTOR_NUMBER * 500 )) \
@@ -244,9 +241,6 @@ local-testnet-mainnet:
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
-		--nimbus-signer-nodes 3 \
-		--threshold 2 \
-		--remote-validators-count 512 \
 		--base-port $$(( 7001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 7031 + EXECUTOR_NUMBER * 500 )) \
 		--base-metrics-port $$(( 7061 + EXECUTOR_NUMBER * 500 )) \

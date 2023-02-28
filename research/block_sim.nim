@@ -19,7 +19,7 @@ import
   chronos/timer, eth/keys, taskpools,
   ../tests/testblockutil,
   ../beacon_chain/spec/[forks, state_transition],
-  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, eip4844],
+  ../beacon_chain/spec/datatypes/[phase0, altair, bellatrix, deneb],
   ../beacon_chain/[beacon_chain_db, beacon_clock],
   ../beacon_chain/eth1/eth1_monitor,
   ../beacon_chain/validators/validator_pool,
@@ -34,8 +34,6 @@ from std/random import Rand, initRand, rand
 from std/stats import RunningStat
 from std/strformat import `&`
 from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
-from ../beacon_chain/spec/datatypes/eip4844 import
-  HashedBeaconState, asSigVerified
 from ../beacon_chain/spec/beaconstate import
   get_beacon_committee, get_beacon_proposer_index,
   get_committee_count_per_slot, get_committee_indices
