@@ -254,33 +254,6 @@ type
     capella*:   ForkDigest
     eip4844*:   ForkDigest
 
-# The purpose of this type is to unify the pre- and post-EIP4844
-# block gossip structures. It is for used only for
-# gossip-originating blocks, which are eventually separated into the
-# constituent parts before passing along into core functions.
-type ForkySignedBeaconBlockMaybeBlobs* =
-  phase0.SignedBeaconBlock |
-  altair.SignedBeaconBlock |
-  bellatrix.SignedBeaconBlock |
-  capella.SignedBeaconBlock |
-  deneb.SignedBeaconBlockAndBlobsSidecar
-# ForkySignedBeaconBlockMaybeBlobs should only contain types that are gossiped.
-static: doAssert not (default(deneb.SignedBeaconBlock) is ForkySignedBeaconBlockMaybeBlobs)
-
-template toSignedBeaconBlock*(b: ForkySignedBeaconBlockMaybeBlobs): ForkySignedBeaconBlock =
-  when b is eip4844.SignedBeaconBlockAndBlobsSidecar:
-    b.beacon_block
-  else:
-    b
-
-func optBlobs*(b: ForkySignedBeaconBlockMaybeBlobs):
-         Opt[deneb.BlobsSidecar] =
-  when b is phase0.SignedBeaconBlock or b is altair.SignedBeaconBlock or
-     b is bellatrix.SignedBeaconBlock or b is capella.SignedBeaconBlock:
-    Opt.none(eip4844.BlobsSidecar)
-  elif b is deneb.SignedBeaconBlockAndBlobsSidecar:
-    Opt.some(b.blobs_sidecar)
-
 macro getSymbolFromForkModule(fork: static ConsensusFork,
                               symbolName: static string): untyped =
   let moduleName = case fork
