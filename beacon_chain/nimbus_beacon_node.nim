@@ -822,27 +822,18 @@ proc updateBlocksGossipStatus*(
     # Individual forks added / removed
     discard
 
-  template blocksTopic(fork: ConsensusFork, forkDigest: ForkDigest): auto =
-    case fork
-    of ConsensusFork.Phase0 .. ConsensusFork.Capella:
-      getBeaconBlocksTopic(forkDigest)
-    of ConsensusFork.EIP4844:
-      getBeaconBlockAndBlobsSidecarTopic(forkDigest)
-
   let
     newGossipForks = targetGossipState - currentGossipState
     oldGossipForks = currentGossipState - targetGossipState
 
   for gossipFork in oldGossipForks:
     let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
-    let topic = blocksTopic(gossipFork, forkDigest)
-    node.network.unsubscribe(topic)
+    node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
 
   for gossipFork in newGossipForks:
     let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
-    let topic = blocksTopic(gossipFork, forkDigest)
     node.network.subscribe(
-      topic, blocksTopicParams,
+      getBeaconBlocksTopic(forkDigest), blocksTopicParams,
       enableTopicMetrics = true)
 
   node.blocksGossipState = targetGossipState
@@ -1496,43 +1487,15 @@ proc installMessageValidators(node: BeaconNode) =
         toValidationResult(node.processor[].processSignedBeaconBlock(
           MsgSource.gossip, signedBlock)))
 
-  if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    node.network.addValidator(
-      getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
-      proc (
-          signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar
-      ): ValidationResult =
-        if node.shouldSyncOptimistically(node.currentSlot):
-          # `shouldSyncOptimistically` is true if all conditions are met:
-          # - `--sync-light-client` is turned on (`conf.nim`)
-          # - Beacon node is out of sync
-          # - Light client sync is close to wall slot
-          #
-          # In that case, the goal is to let the EL know about the latest
-          # light client block header based on sync committees to allow it
-          # to trigger a correct fast sync more quickly.
-          # Due to EL implementation constraints, `engine_forkchoiceUpdated`
-          # is not sufficient for that (as of Capella); it is also required to
-          # provide the full `ExecutionPayload` via `engine_newPayload`.
-          #
-          # Because sync committees sign the parent beacon block, observed
-          # blocks need to be cached in `node.optimisticProcessor` until a
-          # matching `sync_aggregate` is obtained from a followup block.
-          # A valid `sync_aggregate` is considered good enough to optimistically
-          # trigger EL sync. Note that only new heads are provided to the EL
-          # optimistically; finality is always sourced from the DAG.
-          #
-          # With EIP4844, blobs are paired with beacon blocks.
-          # The blob is not relevant for triggering sync on the EL; therefore,
-          # it is discarded here. The blob is re-obtained once the main DAG
-          # sufficiently catches up, and then passed into `node.processor[]`
-          # when `shouldSyncOptimistically` flips to `false`.
-          toValidationResult(
-            node.optimisticProcessor.processSignedBeaconBlock(
-              signedBlock.beacon_block))
-        else:
-          toValidationResult(node.processor[].processSignedBeaconBlock(
-            MsgSource.gossip, signedBlock.beacon_block)))
+  node.network.addValidator(
+    getBeaconBlocksTopic(forkDigests.eip4844),
+    proc (signedBlock: eip4844.SignedBeaconBlock): ValidationResult =
+      if node.shouldSyncOptimistically(node.currentSlot):
+        toValidationResult(
+          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
+      else:
+        toValidationResult(node.processor[].processSignedBeaconBlock(
+          MsgSource.gossip, signedBlock)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:
