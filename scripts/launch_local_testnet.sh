@@ -12,9 +12,8 @@
 
 set -euo pipefail
 
-SCRIPTS_DIR="$(dirname "${BASH_SOURCE[0]}")"
-cd "$SCRIPTS_DIR/.."
-BUILD_DIR="$(pwd)/build"
+BASEDIR="$(dirname "${BASH_SOURCE[0]}")"
+cd "$BASEDIR/.."
 
 VERBOSE="0"
 
@@ -34,9 +33,6 @@ fi
 
 # architecture detection
 ARCH="$(uname -m)"
-
-# Created processed that will be cleaned up when the script exits
-PIDS=""
 
 ####################
 # argument parsing #
@@ -59,71 +55,60 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,nimbus-signer-nodes:,web3signer-nodes:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-payload-builder,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,altair-fork-epoch:,bellatrix-fork-epoch:,capella-fork-epoch:,deneb-fork-epoch:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,remote-signers:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-keymanager-port:,base-vc-metrics-port:,base-remote-signer-port:,base-el-net-port:,base-el-http-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-eth2,light-clients:,run-nimbus-el,verbose"
 
 # default values
 BINARIES=""
+NIMFLAGS="${NIMFLAGS:-""}"
 NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
 USE_VC="1"
-USE_PAYLOAD_BUILDER="false"
-: ${PAYLOAD_BUILDER_HOST:=127.0.0.1}
-: ${PAYLOAD_BUILDER_PORT:=4888}
 LIGHTHOUSE_VC_NODES="0"
+USE_GANACHE="0"
 LOG_LEVEL="DEBUG; TRACE:networking"
 BASE_PORT="9000"
 BASE_REMOTE_SIGNER_PORT="6000"
-BASE_REMOTE_SIGNER_METRICS_PORT="6100"
 BASE_METRICS_PORT="8008"
 BASE_REST_PORT="7500"
 BASE_VC_KEYMANAGER_PORT="8500"
 BASE_VC_METRICS_PORT="9008"
 BASE_EL_NET_PORT="30303"
-BASE_EL_RPC_PORT="8545"
+BASE_EL_HTTP_PORT="8545"
 BASE_EL_WS_PORT="8546"
 BASE_EL_AUTH_RPC_PORT="8551"
 EL_PORT_OFFSET="10"
-: ${REUSE_EXISTING_DATA_DIR:=0}
-: ${REUSE_BINARIES:=0}
-: ${NIMFLAGS:=""}
-: ${MIN_DEPOSIT_SENDING_DELAY:=1}
-: ${MAX_DEPOSIT_SENDING_DELAY:=25}
+REUSE_EXISTING_DATA_DIR="0"
+REUSE_BINARIES="0"
+NIMFLAGS=""
 ENABLE_LOGTRACE="0"
-STOP_AT_EPOCH=9999999
 STOP_AT_EPOCH_FLAG=""
 TIMEOUT_DURATION="0"
 CONST_PRESET="mainnet"
 KILL_OLD_PROCESSES="0"
 ETH2_DOCKER_IMAGE=""
-NIMBUS_SIGNER_NODES=0
+REMOTE_SIGNER_NODES=0
 REMOTE_SIGNER_THRESHOLD=1
 REMOTE_VALIDATORS_COUNT=0
 LC_NODES=1
 ACCOUNT_PASSWORD="nimbus"
 RUN_GETH="0"
 DL_GETH="0"
-: ${DL_NIMBUS_ETH1:="0"}
-: ${DL_NIMBUS_ETH2:="0"}
-
-# TODO: Add command-line flags for these
-: ${NIMBUS_ETH2_VERSION:=22.12.0}
-: ${NIMBUS_ETH2_REVISION:=f6a5a5b1}
-
-: ${BEACON_NODE_COMMAND:="./build/nimbus_beacon_node"}
-: ${CAPELLA_FORK_EPOCH:=40}
-: ${DENEB_FORK_EPOCH:=50}
-#NIMBUS EL VARS
-RUN_NIMBUS_ETH1="0"
-: ${NIMBUS_ETH1_BINARY:="./build/downloads/nimbus"}
-: ${WEB3SIGNER_VERSION:=22.11.0}
-: ${WEB3SIGNER_DIR:="${BUILD_DIR}/downloads/web3signer-${WEB3SIGNER_VERSION}"}
-: ${WEB3SIGNER_BINARY:="${WEB3SIGNER_DIR}/bin/web3signer"}
-WEB3SIGNER_NODES=0
-PROCS_TO_KILL=("nimbus_beacon_node" "nimbus_validator_client" "nimbus_signing_node" "nimbus_light_client")
-PORTS_TO_KILL=()
+DL_ETH2="0"
+BEACON_NODE_COMMAND="./build/nimbus_beacon_node"
 WEB3_ARG=()
 CLEANUP_DIRS=()
+
+#NIMBUS EL VARS
+RUN_NIMBUS="0"
+NIMBUSEL_BINARY="${NIMBUSEL_BINARY:-../nimbus-eth1/build/nimbus}"
+echo "${NIMBUSEL_BINARY}"
+
+EL_HTTP_PORTS=()
+EL_RPC_PORTS=()
+EL_DATA_DIRS=()
+PROCS_TO_KILL=("nimbus_beacon_node" "nimbus_validator_client" "nimbus_signing_node" "nimbus_light_client")
+PORTS_TO_KILL=()
 
 print_help() {
   cat <<EOF
@@ -143,10 +128,9 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --base-metrics-port         bootstrap node's metrics port (default: ${BASE_METRICS_PORT})
   --base-vc-keymanager-port   The first validator client keymanager port (default: ${BASE_VC_KEYMANAGER_PORT})
   --base-vc-metrics-port      The first validator client metrics port (default: ${BASE_VC_METRICS_PORT})
-  --base-remote-signer-port   first remote signer's port (default: ${BASE_REMOTE_SIGNER_PORT})
-  --base-remote-signer-metrics-port first remote signer's metrics port (default: ${BASE_REMOTE_SIGNER_METRICS_PORT})
+  --base-remote-signer-port   first remote signing node's port (default: ${BASE_REMOTE_SIGNER_PORT})
   --base-el-net-port          first EL's network traffic port (default: ${BASE_EL_NET_PORT})
-  --base-el-rpc-port          first EL's HTTP JSON-RPC port (default: ${BASE_EL_RPC_PORT})
+  --base-el-http-port         first EL's HTTP web3 port (default: ${BASE_EL_HTTP_PORT})
   --base-el-ws-port           first EL's WebSocket web3 port (default: ${BASE_EL_WS_PORT})
   --base-el-auth-rpc-port     first EL's authenticated engine API port (default: ${BASE_EL_AUTH_RPC_PORT})
   --el-port-offset            offset to apply between ports of multiple ELs (default: ${EL_PORT_OFFSET})
@@ -166,13 +150,12 @@ CI run: $(basename "$0") --disable-htop -- --verify-finalization
   --remote-validators-count   number of remote validators which will be generated
   --threshold                 used by a threshold secret sharing mechanism and determine how many shares are need to
                               restore signature of the original secret key
-  --web3signer-nodes          number of remote web3signer nodes
-  --nimbus-signer-nodes       number of remote nimbus signing nodes
+  --remote-signers            number of remote signing nodes
   --light-clients             number of light clients
-  --run-nimbus-eth1           Run nimbush-eth1 as EL
+  --run-nimbus-el             Run nimbush-eth1 as EL
   --run-geth                  Run geth EL clients
   --dl-geth                   Download geth binary if not found
-  --dl-nimbus-eth2            Download Nimbus CL binary
+  --dl-eth2                   Download Nimbus CL binary
   --verbose                   Verbose output
 EOF
 }
@@ -195,12 +178,8 @@ while true; do
       NUM_NODES="$2"
       shift 2
       ;;
-    --web3signer-nodes)
-      WEB3SIGNER_NODES=$2
-      shift 2
-      ;;
-    --nimbus-signer-nodes)
-      NIMBUS_SIGNER_NODES=$2
+    --remote-signers)
+      REMOTE_SIGNER_NODES=$2
       shift 2
       ;;
     --remote-validators-count)
@@ -215,20 +194,15 @@ while true; do
       DATA_DIR="$2"
       shift 2
       ;;
+    -g|--with-ganache)
+      USE_GANACHE="1"
+      shift
+      ;;
     --preset)
       CONST_PRESET="$2"
       shift 2
       ;;
-    --capella-fork-epoch)
-      CAPELLA_FORK_EPOCH="$2"
-      shift 2
-      ;;
-    --deneb-fork-epoch)
-      DENEB_FORK_EPOCH="$2"
-      shift 2
-      ;;
     --stop-at-epoch)
-      STOP_AT_EPOCH=$2
       STOP_AT_EPOCH_FLAG="--stop-at-epoch=$2"
       shift 2
       ;;
@@ -238,10 +212,6 @@ while true; do
       ;;
     --disable-vc)
       USE_VC="0"
-      shift
-      ;;
-    --enable-payload-builder)
-      USE_PAYLOAD_BUILDER="true"
       shift
       ;;
     --enable-logtrace)
@@ -276,16 +246,12 @@ while true; do
       BASE_REMOTE_SIGNER_PORT="$2"
       shift 2
       ;;
-    --base-remote-signer-metrics-port)
-      BASE_REMOTE_SIGNER_METRICS_PORT="$2"
-      shift 2
-      ;;
     --base-el-net-port)
       BASE_EL_NET_PORT="$2"
       shift 2
       ;;
-    --base-el-rpc-port)
-      BASE_EL_RPC_PORT="$2"
+    --base-el-http-port)
+      BASE_EL_HTTP_PORT="$2"
       shift 2
       ;;
     --base-el-ws-port)
@@ -341,16 +307,12 @@ while true; do
       DL_GETH="1"
       shift
       ;;
-    --dl-nimbus-eth2)
-      DL_NIMBUS_ETH2="1"
+    --dl-eth2)
+      DL_ETH2="1"
       shift
       ;;
-    --run-nimbus-eth1)
-      RUN_NIMBUS_ETH1="1"
-      shift
-      ;;
-    --dl-nimbus-eth1)
-      DL_NIMBUS_ETH1="1"
+    --run-nimbus-el)
+      RUN_NIMBUS="1"
       shift
       ;;
     --verbose)
@@ -393,18 +355,6 @@ fi
 scripts/makedir.sh "${DATA_DIR}"
 echo x > "${DATA_DIR}/keymanager-token"
 
-JWT_FILE="${DATA_DIR}/jwtsecret"
-echo "Generating JWT file '$JWT_FILE'..."
-openssl rand -hex 32 | tr -d "\n" > "${JWT_FILE}"
-
-if [[ "$CONST_PRESET" == "minimal" ]]; then
-  SECONDS_PER_SLOT=6
-  SLOTS_PER_EPOCH=8
-else
-  SECONDS_PER_SLOT=12
-  SLOTS_PER_EPOCH=32
-fi
-
 VALIDATORS_DIR="${DATA_DIR}/validators"
 scripts/makedir.sh "${VALIDATORS_DIR}"
 
@@ -428,6 +378,21 @@ else
   NPROC="$(nproc)"
 fi
 
+if [[ "${RUN_NIMBUS}" == "1" && "${RUN_GETH}" == "1" ]]; then
+  echo "Use only one EL - geth or nimbus"
+  exit 1
+fi
+
+
+if [[ "${RUN_GETH}" == "1" ]]; then
+  . ./scripts/geth_vars.sh
+fi
+
+if [[ "${RUN_NIMBUS}" == "1" ]]; then
+  . ./scripts/nimbus_el_vars.sh
+fi
+
+
 # Kill all processes which have open ports in the array passed as parameter
 kill_by_port() {
   local ports=("$@")
@@ -446,84 +411,41 @@ kill_by_port() {
 }
 
 GETH_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
-NIMBUS_ETH1_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
-REMOTE_SIGNER_NODES=$(( NIMBUS_SIGNER_NODES + WEB3SIGNER_NODES ))
-LAST_REMOTE_SIGNER_NODE_IDX=$(( REMOTE_SIGNER_NODES - 1 ))
-
-if [[ "${RUN_GETH}" == "1" ]]; then
-  source "${SCRIPTS_DIR}/geth_binaries.sh"
-
-  if [[ $DENEB_FORK_EPOCH -lt $STOP_AT_EPOCH ]]; then
-    download_geth_eip_4844
-    GETH_BINARY="$GETH_EIP_4844_BINARY"
-  elif [[ $CAPELLA_FORK_EPOCH -lt $STOP_AT_EPOCH ]]; then
-    download_geth_capella
-    GETH_BINARY="$GETH_CAPELLA_BINARY"
-  else
-    # TODO We should run Geth stable here, but it lacks an ARM build for macOS,
-    # so we will run our own Geth capella build until we add some Geth stable
-    # binaries to our nimbus-simulation-binaries project:
-    download_geth_capella
-    GETH_BINARY="$GETH_CAPELLA_BINARY"
-  fi
-
-  source ./scripts/geth_vars.sh
-fi
-
-if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
-  . ./scripts/nimbus_el_vars.sh
-fi
+NIMBUSEL_NUM_NODES="$(( NUM_NODES + LC_NODES ))"
 
 # kill lingering processes from a previous run
 if [[ "${OS}" != "windows" ]]; then
   which lsof &>/dev/null || \
     { echo "'lsof' not installed and we need it to check for ports already in use. Aborting."; exit 1; }
 
-  # Stop geth nodes
+  #Stop geth nodes
   if [[ "${RUN_GETH}" == "1" ]]; then
-    for GETH_NODE_IDX in $(seq 0 $GETH_LAST_NODE_IDX); do
-      for PORT in ${GETH_NET_PORTS[GETH_NODE_IDX]} \
-                  ${GETH_RPC_PORTS[GETH_NODE_IDX]} \
-                  ${GETH_AUTH_RPC_PORTS[GETH_NODE_IDX]};
+    for NUM_NODE in $(seq 0 $(( GETH_NUM_NODES - 1 ))); do
+      for PORT in $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_NET_PORT )) \
+                    $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_HTTP_PORT )) \
+                    $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_WS_PORT )) \
+                    $(( NUM_NODE * GETH_PORT_OFFSET + GETH_BASE_AUTH_RPC_PORT ));
       do
         PORTS_TO_KILL+=("${PORT}")
       done
     done
   fi
 
-  # Stop Nimbus EL nodes
-  if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
-    for NIMBUS_ETH1_NODE_IDX in $(seq 0 $NIMBUS_ETH1_LAST_NODE_IDX); do
-      for PORT in ${NIMBUS_ETH1_NET_PORTS[NIMBUS_ETH1_NODE_IDX]} \
-                  ${NIMBUS_ETH1_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]} \
-                  ${NIMBUS_ETH1_AUTH_RPC_PORTS[NIMBUS_ETH1_NODE_IDX]};
+  #Stop Nimbus EL nodes
+  if [[ "${RUN_NIMBUS}" == "1" ]]; then
+    for NUM_NODE in $(seq 0 $(( NIMBUSEL_NUM_NODES - 1 ))); do
+      for PORT in $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_NET_PORT )) \
+                    $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_HTTP_PORT )) \
+                    $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_WS_PORT )) \
+                    $(( NUM_NODE * NIMBUSEL_PORT_OFFSET + NIMBUSEL_BASE_AUTH_RPC_PORT ));
       do
         PORTS_TO_KILL+=("${PORT}")
       done
     done
   fi
 
-  # Stop Remote Signers
-  for NUM_REMOTE in $(seq 0 $LAST_REMOTE_SIGNER_NODE_IDX); do
-    for PORT in $(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) \
-                $(( BASE_REMOTE_SIGNER_METRICS_PORT + NUM_REMOTE )) ; do
-      PORTS_TO_KILL+=("${PORT}")
-    done
-  done
-
-  # Stop Nimbus validator clients
-  if [[ "${USE_VC}" == "1" ]]; then
-    for NUM_NODE in $(seq 1 $NUM_NODES); do
-      for PORT in $(( BASE_VC_METRICS_PORT + NUM_NODE - 1 )) \
-                  $(( BASE_VC_KEYMANAGER_PORT + NUM_NODE - 1 )); do
-        PORTS_TO_KILL+=("${PORT}")
-      done
-    done
-  fi
-
-  # Stop Nimbus CL nodes
-  for NUM_NODE in $(seq 1 $NUM_NODES); do
-    for PORT in $(( BASE_PORT + NUM_NODE - 1 )) $(( BASE_METRICS_PORT + NUM_NODE - 1)) $(( BASE_REST_PORT + NUM_NODE - 1)); do
+  for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
+    for PORT in $(( BASE_PORT + NUM_NODE )) $(( BASE_METRICS_PORT + NUM_NODE )) $(( BASE_REST_PORT + NUM_NODE )); do
       PORTS_TO_KILL+=("${PORT}")
     done
   done
@@ -531,105 +453,104 @@ if [[ "${OS}" != "windows" ]]; then
   kill_by_port "${PORTS_TO_KILL[@]}"
 fi
 
-download_web3signer() {
-  if [[ ! -d "${WEB3SIGNER_DIR}" ]]; then
-    log "Downloading Web3Signer binary"
 
-    WEB3SIGNER_TARBALL="web3signer-${WEB3SIGNER_VERSION}.tar.gz"
-    WEB3SIGNER_URL="https://artifacts.consensys.net/public/web3signer/raw/names/web3signer.tar.gz/versions/${WEB3SIGNER_VERSION}/${WEB3SIGNER_TARBALL}"
+download_geth() {
+  GETH_VERSION="1.10.26-e5eb32ac"
 
-    mkdir -p "${WEB3SIGNER_DIR}"
-    "${CURL_BINARY}" -sSL "${WEB3SIGNER_URL}" \
-      | tar -xzf - --directory "${WEB3SIGNER_DIR}" --strip-components=1
-  fi
-}
+# https://geth.ethereum.org/downloads/
+#  "https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.10.26-e5eb32ac.tar.gz"
+#  "https://gethstore.blob.core.windows.net/builds/geth-darwin-amd64-1.10.26-e5eb32ac.tar.gz"
+#  "https://gethstore.blob.core.windows.net/builds/geth-windows-amd64-1.10.26-e5eb32ac.zip"
 
-download_nimbus_eth1() {
-  if [[ ! -e "${NIMBUS_ETH1_BINARY}" ]]; then
-    case "${OS}-${ARCH}" in
-      linux-amd64|linux-x86_64)
-        NIMBUS_ETH1_PLATFORM=Linux_amd64
-        ;;
-      linux-arm|linux-arm32|linux-aarch32)
-        NIMBUS_PLATFORM=Linux_arm32v7
-        ;;
-      linux-arm64|linux-aarch64)
-        NIMBUS_ETH1_PLATFORM=Linux_arm64v8
-        ;;
-      macos-amd64|macos-x86_64)
-        NIMBUS_ETH1_PLATFORM=macOS_arm64
-        ;;
-      macos-arm64|macos-aarch64)
-        NIMBUS_ETH1_PLATFORM=macOS_amd64
-        ;;
-      windows-amd64|windows-x86_64)
-        NIMBUS_ETH1_PLATFORM=Windows_amd64
-        ;;
-      *)
-        echo "No nimbus-eth1 binaries available for ${OS}-${ARCH}"
-        exit 1
-        ;;
-    esac
+  GETH_URL="https://gethstore.blob.core.windows.net/builds/"
 
-    NIMBUS_ETH1_FULL_BINARY_VERSION=20221205_f4cacdfc
-    NIMBUS_ETH1_TARBALL_NAME="nimbus-eth1_${NIMBUS_ETH1_PLATFORM}_${NIMBUS_ETH1_FULL_BINARY_VERSION}.tar.gz"
+  case "${OS}" in
+    linux)
+      GETH_TARBALL="geth-linux-amd64-${GETH_VERSION}.tar.gz"
+      ;;
+    macos)
+      GETH_TARBALL="geth-darwin-amd64-${GETH_VERSION}.tar.gz"
+      ;;
+    windows)
+      GETH_TARBALL="geth-windows-amd64-${GETH_VERSION}.zip"
+      ;;
+  esac
 
-    NIMBUS_ETH1_TARBALL_URL="https://github.com/status-im/nimbus-simulation-binaries/raw/master/nimbus-eth1/nightly-20221205/${NIMBUS_ETH1_TARBALL_NAME}"
-
-    log "Downloading Nimbus ETH1 binary"
-
-    "${CURL_BINARY}" -o "$NIMBUS_ETH1_TARBALL_NAME" -sSLO "$NIMBUS_ETH1_TARBALL_URL"
+  if [[ ! -e "build/${GETH_BINARY}" ]]; then
+    log "Downloading Geth binary"
+    mkdir -p "build"
+    pushd "build" >/dev/null
+    "${CURL_BINARY}" -sSLO "${GETH_URL}/${GETH_TARBALL}"
     local tmp_extract_dir
-    tmp_extract_dir=$(mktemp -d nimbus-eth1-tarball-XXX)
-    CLEANUP_DIRS+=("$tmp_extract_dir")
-    tar -xzf "${NIMBUS_ETH1_TARBALL_NAME}" -C "$tmp_extract_dir" --strip-components=1
-    mkdir -p "$(dirname "$NIMBUS_ETH1_BINARY")"
-    mv "$tmp_extract_dir/build/nimbus" "$NIMBUS_ETH1_BINARY"
-    chmod +x "$NIMBUS_ETH1_BINARY"
+    tmp_extract_dir=$(mktemp -d geth-extract-XXX)
+    CLEANUP_DIRS+=("${tmp_extract_dir}")
+    tar -xzf "${GETH_TARBALL}" --directory "${tmp_extract_dir}" --strip-components=1
+    mv "${tmp_extract_dir}/geth" .
+    GETH_BINARY="${PWD}/geth"
+    popd >/dev/null
   fi
 }
 
-download_nimbus_eth2() {
+download_eth2() {
+
+  # https://github.com/status-im/nimbus-eth2/releases/download/nightly/nimbus-eth2_Linux_amd64_nightly_latest.tar.gz
+
+  ETH2_URL="https://github.com/status-im/nimbus-eth2/releases/download/nightly/"
+  ETH2_VERSION="nightly_latest"
+  case "${OS}" in
+    linux)
+      ETH2_TARBALL="nimbus-eth2_Linux_amd64_${ETH2_VERSION}.tar.gz"
+      ;;
+    macos)
+      ETH2_TARBALL="nimbus-eth2_macOS_amd64_${ETH2_VERSION}.tar.gz"
+      ;;
+    windows)
+      ETH2_TARBALL="nimbus-eth2_Windows_amd64_${ETH2_VERSION}.tar.gz"
+      ;;
+  esac
+
   if [[ ! -e "${BEACON_NODE_COMMAND}" ]]; then
-    case "${OS}-${ARCH}" in
-      linux-amd64|linux-x86_64)
-        NIMBUS_PLATFORM=Linux_amd64
-        ;;
-      linux-arm|linux-arm32|linux-aarch32)
-        NIMBUS_PLATFORM=Linux_arm32v7
-        ;;
-      linux-arm64|linux-aarch64)
-        NIMBUS_PLATFORM=Linux_arm64v8
-        ;;
-      macos-amd64|macos-x86_64)
-        NIMBUS_PLATFORM=macOS_amd64
-        ;;
-      macos-arm64|macos-aarch64)
-        NIMBUS_PLATFORM=macOS_arm64
-        ;;
-      windows-amd64|windows-x86_64)
-        NIMBUS_PLATFORM=Windows_amd64
-        ;;
-    esac
-
-    NIMBUS_ETH2_FULL_BINARY_VERSION="${NIMBUS_ETH2_VERSION}_${NIMBUS_ETH2_REVISION}"
-    NIMBUS_ETH2_TARBALL_NAME="nimbus-eth2_${NIMBUS_PLATFORM}_${NIMBUS_ETH2_FULL_BINARY_VERSION}.tar.gz"
-    NIMBUS_ETH2_TARBALL_URL="https://github.com/status-im/nimbus-eth2/releases/download/v${NIMBUS_ETH2_VERSION}/${NIMBUS_ETH2_TARBALL_NAME}"
-
     log "Downloading Nimbus ETH2 binary"
-
-    "${CURL_BINARY}" -o "$NIMBUS_ETH2_TARBALL_NAME" -sSL "$NIMBUS_ETH2_TARBALL_URL"
-    local tmp_extract_dir
-    tmp_extract_dir=$(mktemp -d nimbus-eth2-tarball-XXX)
-    CLEANUP_DIRS+=("$tmp_extract_dir")
-    tar -xzf "${NIMBUS_ETH2_TARBALL_NAME}" -C "$tmp_extract_dir" --strip-components=1
-    mkdir -p "$(dirname "$BEACON_NODE_COMMAND")"
-    mv "$tmp_extract_dir/build/nimbus_beacon_node" "$BEACON_NODE_COMMAND"
-    chmod +x "$BEACON_NODE_COMMAND"
-
+    "${CURL_BINARY}" -sSLO "${ETH2_URL}/${ETH2_TARBALL}"
+    # will extract it in build/ directory
+    tar -xzf "${ETH2_TARBALL}" --strip-components=1
     REUSE_BINARIES=1
   fi
 }
+
+if [[ "${RUN_GETH}" == "1" ]]; then
+  if [[ ! -e "${GETH_BINARY}" ]]; then
+    if [[ "${DL_GETH}" == "1" ]]; then
+      log "Downloading geth ..."
+      download_geth
+    else
+      echo "Missing geth executable"
+      exit 1
+    fi
+  fi
+
+  log "Starting ${GETH_NUM_NODES} Geth Nodes ..."
+  . "./scripts/start_geth_nodes.sh"
+  EL_HTTP_PORTS+=("${GETH_HTTP_PORTS[@]}")
+  EL_RPC_PORTS+=("${GETH_RPC_PORTS[@]}")
+  EL_DATA_DIRS+=("${GETH_DATA_DIRS[@]}")
+  PROCS_TO_KILL+=("${GETH_BINARY}")
+  CLEANUP_DIRS+=("${GETH_DATA_DIRS[@]}")
+fi
+
+if [[ "${RUN_NIMBUS}" == "1" ]]; then
+  if [[ ! -e "${NIMBUSEL_BINARY}" ]]; then
+    echo "Missing nimbus EL executable"
+    exit 1
+  fi
+
+  . "./scripts/start_nimbus_el_nodes.sh"
+  EL_HTTP_PORTS+=("${NIMBUSEL_HTTP_PORTS[@]}")
+  EL_RPC_PORTS+=("${NIMBUSEL_RPC_PORTS[@]}")
+  EL_DATA_DIRS+=("${NIMBUSEL_DATA_DIRS[@]}")
+  PROCS_TO_KILL+=("${NIMBUSEL_BINARY}")
+  CLEANUP_DIRS+=("${NIMBUSEL_DATA_DIRS[@]}")
+fi
 
 # Download the Lighthouse binary.
 LH_VERSION="2.1.3"
@@ -664,11 +585,11 @@ fi
 
 
 # Don't build binaries if we are downloading them
-if [[ "${DL_NIMBUS_ETH2}" != "1" ]]; then
+if [[ "${DL_ETH2}" != "1" ]]; then
   # Build the binaries
-  BINARIES="ncli_testnet"
+  BINARIES="deposit_contract"
 
-  if [[ "$NIMBUS_SIGNER_NODES" -gt "0" ]]; then
+  if [ "$REMOTE_SIGNER_NODES" -ge "0" ]; then
     BINARIES="${BINARIES} nimbus_signing_node"
   fi
 
@@ -676,20 +597,15 @@ if [[ "${DL_NIMBUS_ETH2}" != "1" ]]; then
     BINARIES="${BINARIES} nimbus_validator_client"
   fi
 
-  if [[ "$LC_NODES" -ge "1" ]]; then
+  if [ "$LC_NODES" -ge "1" ]; then
     BINARIES="${BINARIES} nimbus_light_client"
   fi
 
+  if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
+    BINARIES="${BINARIES} logtrace"
+  fi
+
   BINARIES="${BINARIES} nimbus_beacon_node"
-fi
-
-if [[ "$WEB3SIGNER_NODES" -gt "0" ]]; then
-  download_web3signer
-fi
-
-if [[ "$WEB3SIGNER_NODES" -gt "0" && "$NIMBUS_SIGNER_NODES" -gt "0" ]]; then
-  echo "You can use either --web3signer-nodes or --nimbus-signer-nodes, but not together"
-  exit 1
 fi
 
 if [[ -n "${ETH2_DOCKER_IMAGE}" ]]; then
@@ -701,8 +617,9 @@ if [[ -n "${ETH2_DOCKER_IMAGE}" ]]; then
 else
   # When docker is not used CONTAINER_DATA_DIR is just an alias for DATA_DIR
   CONTAINER_DATA_DIR="${DATA_DIR}"
-  if [[ "${DL_NIMBUS_ETH2}" == "1" ]]; then
-    download_nimbus_eth2
+  if [[ "${DL_ETH2}" == "1" ]]; then
+    log "Downloading nimbus_eth2"
+    download_eth2
     BINARIES=""
   fi
 fi
@@ -717,15 +634,9 @@ for BINARY in ${BINARIES}; do
 done
 
 if [[ "${REUSE_BINARIES}" == "0" || "${BINARIES_MISSING}" == "1" ]]; then
-  if [[ "${DL_NIMBUS_ETH2}" == "0" ]]; then
+  if [[ "${DL_ETH2}" == "0" ]]; then
     log "Rebuilding binaries ${BINARIES}"
     ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET}" ${BINARIES}
-  fi
-fi
-
-if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
-  if [[ "${DL_NIMBUS_ETH1}" == "1" ]]; then
-    download_nimbus_eth1
   fi
 fi
 
@@ -733,38 +644,18 @@ fi
 # instance as the parent and the target process name as a pattern to the
 # "pkill" command.
 cleanup() {
-  echo "Cleaning up"
+  log "Cleaning up"
 
-  # Avoid the trap enterring an infinite loop
-  trap - SIGINT SIGTERM EXIT
-
-  PKILL_ECHO_FLAG='-e'
-  if [[ "${OS}" == "macos" ]]; then
-    PKILL_ECHO_FLAG='-l'
-  fi
-
-  echo "Existing processes:"
-  for proc in "${PROCS_TO_KILL[@]}"; do
-    PROC_NAME=$(basename "$proc")
-    pgrep -alf "${PROC_NAME}" || true
-  done
-
-  echo "Terminating:"
-  for proc in "${PROCS_TO_KILL[@]}"; do
-    PROC_NAME=$(basename "$proc")
-    # WARNING: The '-P $$' avoids killing unrelated processes.
-    pkill -SIGTERM "${PKILL_ECHO_FLAG}" -P $$ "${PROC_NAME}" \
-        || echo "Nothing to terminate: ${PROC_NAME}"
+  for proc in "${PROCS_TO_KILL[@]}"
+  do
+    pkill -f -P $$ "${proc}" || true
   done
 
   sleep 2
 
-  echo "Killing:"
-  for proc in "${PROCS_TO_KILL[@]}"; do
-    PROC_NAME=$(basename "$proc")
-    # WARNING: The '-P $$' avoids killing unrelated processes.
-    pkill -SIGKILL "${PKILL_ECHO_FLAG}" -P $$ "${PROC_NAME}" \
-        || echo "Nothing to kill: ${PROC_NAME}"
+  for proc in "${PROCS_TO_KILL[@]}"
+  do
+    pkill -SIGKILL -f -P $$ "${proc}" || true
   done
 
   # Delete all binaries we just built, because these are unusable outside this
@@ -804,22 +695,24 @@ fi
 
 REMOTE_URLS=""
 
-for NUM_REMOTE in $(seq 0 $LAST_REMOTE_SIGNER_NODE_IDX); do
+for NUM_REMOTE in $(seq 0 $(( REMOTE_SIGNER_NODES - 1 ))); do
   REMOTE_PORT=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE ))
   REMOTE_URLS="${REMOTE_URLS} --remote-signer=http://127.0.0.1:${REMOTE_PORT}"
 done
 
 # deposit and testnet creation
+PIDS=""
 BOOTSTRAP_TIMEOUT=30 # in seconds
+DEPOSIT_CONTRACT_ADDRESS="0x0000000000000000000000000000000000000000"
+DEPOSIT_CONTRACT_BLOCK="0x0000000000000000000000000000000000000000000000000000000000000000"
 RUNTIME_CONFIG_FILE="${DATA_DIR}/config.yaml"
 NUM_JOBS=${NUM_NODES}
 
 DEPOSITS_FILE="${DATA_DIR}/deposits.json"
 CONTAINER_DEPOSITS_FILE="${CONTAINER_DATA_DIR}/deposits.json"
-CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE="${CONTAINER_DATA_DIR}/deposit_tree_snapshot.ssz"
 
 if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
-  ./build/ncli_testnet generateDeposits \
+  ./build/deposit_contract generateSimulationDeposits \
     --count=${TOTAL_VALIDATORS} \
     --out-validators-dir="${VALIDATORS_DIR}" \
     --out-secrets-dir="${SECRETS_DIR}" \
@@ -829,116 +722,95 @@ if [[ "$REUSE_EXISTING_DATA_DIR" == "0" ]]; then
     ${REMOTE_URLS}
 fi
 
-GENESIS_OFFSET=40
-NOW_UNIX_TIMESTAMP=$(date +%s)
-GENESIS_TIME=$((NOW_UNIX_TIMESTAMP + GENESIS_OFFSET))
-SHANGHAI_FORK_TIME=$((GENESIS_TIME + SECONDS_PER_SLOT * SLOTS_PER_EPOCH * CAPELLA_FORK_EPOCH))
-SHARDING_FORK_TIME=$((GENESIS_TIME + SECONDS_PER_SLOT * SLOTS_PER_EPOCH * DENEB_FORK_EPOCH))
+if [[ $USE_GANACHE == "0" ]]; then
+  GENESIS_OFFSET=30
+  BOOTSTRAP_IP="127.0.0.1"
 
-EXECUTION_GENESIS_JSON="${DATA_DIR}/execution_genesis.json"
-EXECUTION_GENESIS_BLOCK_JSON="${DATA_DIR}/execution_genesis_block.json"
+  $BEACON_NODE_COMMAND createTestnet \
+    --data-dir="${CONTAINER_DATA_DIR}" \
+    --deposits-file="${CONTAINER_DEPOSITS_FILE}" \
+    --total-validators=${TOTAL_VALIDATORS} \
+    --output-genesis="${CONTAINER_DATA_DIR}/genesis.ssz" \
+    --output-bootstrap-file="${CONTAINER_DATA_DIR}/bootstrap_nodes.txt" \
+    --bootstrap-address=${BOOTSTRAP_IP} \
+    --bootstrap-port=${BASE_PORT} \
+    --netkey-file=network_key.json \
+    --insecure-netkey-password=true \
+    --genesis-offset=${GENESIS_OFFSET} # Delay in seconds
 
-# TODO The storage state of the deposit contract that is baked into the execution genesis state
-#      currently hard-codes some merkle branches that won't match the random deposits generated
-#      by this simulation. This doesn't happen to produce problems only by accident. If we enable
-#      the `deposit_root` safety-checks in the deposit downloader, it will detect the discrepancy.
-sed "s/SHANGHAI_FORK_TIME/${SHANGHAI_FORK_TIME}/g; s/SHARDING_FORK_TIME/${SHARDING_FORK_TIME}/g" \
-  "${SCRIPTS_DIR}/execution_genesis.json.template" > "$EXECUTION_GENESIS_JSON"
+else
+  echo "Launching ganache"
+  ganache-cli --blockTime 17 --gasLimit 100000000 -e 100000 --verbose > "${DATA_DIR}/log_ganache.txt" 2>&1 &
+  PIDS="${PIDS},$!"
 
-DEPOSIT_CONTRACT_ADDRESS="0x4242424242424242424242424242424242424242"
-DEPOSIT_CONTRACT_BLOCK=0
+  WEB3_ARG=("--web3-url=ws://localhost:8545")
 
-get_execution_genesis_block() {
-  ${CURL_BINARY} -s -X POST \
-      -H 'Content-Type: application/json' \
-      --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest", true],"id":1}' \
-      $1 | jq '.result'
-}
+  echo "Deploying deposit contract"
+  DEPLOY_CMD_OUTPUT=$(./build/deposit_contract deploy $WEB3_ARG)
+  # https://stackoverflow.com/questions/918886/how-do-i-split-a-string-on-a-delimiter-in-bash
+  OUTPUT_PIECES=(${DEPLOY_CMD_OUTPUT//;/ })
+  DEPOSIT_CONTRACT_ADDRESS=${OUTPUT_PIECES[0]}
+  DEPOSIT_CONTRACT_BLOCK=${OUTPUT_PIECES[1]}
 
-if [[ "${RUN_GETH}" == "1" ]]; then
-  if [[ ! -e "${GETH_BINARY}" ]]; then
-    echo "Missing geth executable"
-    exit 1
-  fi
+  echo Contract deployed at "$DEPOSIT_CONTRACT_ADDRESS":"$DEPOSIT_CONTRACT_BLOCK"
 
-  source "./scripts/start_geth_nodes.sh"
+  MIN_DELAY=1
+  MAX_DELAY=5
 
-  PROCS_TO_KILL+=("${GETH_BINARY}")
-  CLEANUP_DIRS+=("${GETH_DATA_DIRS[@]}")
-  MAIN_WEB3_URL="http://127.0.0.1:${GETH_RPC_PORTS[0]}"
-  get_execution_genesis_block "${MAIN_WEB3_URL}" >  "$EXECUTION_GENESIS_BLOCK_JSON"
+  BOOTSTRAP_TIMEOUT=$(( MAX_DELAY * TOTAL_VALIDATORS ))
+
+  ./build/deposit_contract sendDeposits \
+    --deposits-file="${DEPOSITS_FILE}" \
+    --min-delay=$MIN_DELAY --max-delay=$MAX_DELAY \
+    "${WEB3_ARG[@]}" \
+    --deposit-contract=${DEPOSIT_CONTRACT_ADDRESS} > "${DATA_DIR}/log_deposit_maker.txt" 2>&1 &
+
+  PIDS="${PIDS},$!"
 fi
-
-if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
-  if [[ ! -e "${NIMBUS_ETH1_BINARY}" ]]; then
-    echo "Missing nimbus EL executable"
-    exit 1
-  fi
-
-  source "./scripts/start_nimbus_el_nodes.sh"
-
-  PROCS_TO_KILL+=("${NIMBUS_ETH1_BINARY}")
-  CLEANUP_DIRS+=("${NIMBUS_ETH1_DATA_DIRS[@]}")
-
-  MAIN_WEB3_URL="http://127.0.0.1:${NIMBUS_ETH1_RPC_PORTS[0]}"
-  get_execution_genesis_block "$MAIN_WEB3_URL" > "$EXECUTION_GENESIS_BLOCK_JSON.nimbus"
-  if [ -f "$EXECUTION_GENESIS_BLOCK_JSON" ]; then
-    if ! cmp <(jq --compact-output --sort-keys . "$EXECUTION_GENESIS_BLOCK_JSON") <(jq --compact-output --sort-keys . "$EXECUTION_GENESIS_BLOCK_JSON.nimbus"); then
-      echo "Nimbus and Geth disagree regarding the genesis execution block"
-      exit 1
-    fi
-  else
-    mv "$EXECUTION_GENESIS_BLOCK_JSON.nimbus" "$EXECUTION_GENESIS_BLOCK_JSON"
-  fi
-fi
-
-jq -r '.hash' "$EXECUTION_GENESIS_BLOCK_JSON" > "${DATA_DIR}/deposit_contract_block_hash.txt"
-
-./build/ncli_testnet createTestnet \
-  --data-dir="$CONTAINER_DATA_DIR" \
-  --deposits-file="$CONTAINER_DEPOSITS_FILE" \
-  --total-validators=$TOTAL_VALIDATORS \
-  --output-genesis="$CONTAINER_DATA_DIR/genesis.ssz" \
-  --output-bootstrap-file="$CONTAINER_DATA_DIR/bootstrap_nodes.txt" \
-  --output-deposit-tree-snapshot="$CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE" \
-  --bootstrap-address=127.0.0.1 \
-  --bootstrap-port=$BASE_PORT \
-  --netkey-file=network_key.json \
-  --insecure-netkey-password=true \
-  --genesis-time=$GENESIS_TIME \
-  --capella-fork-epoch=$CAPELLA_FORK_EPOCH \
-  --deneb-fork-epoch=$DENEB_FORK_EPOCH \
-  --execution-genesis-block="$EXECUTION_GENESIS_BLOCK_JSON"
 
 ./scripts/make_prometheus_config.sh \
     --nodes ${NUM_NODES} \
     --base-metrics-port ${BASE_METRICS_PORT} \
     --config-file "${DATA_DIR}/prometheus.yml" || true # TODO: this currently fails on macOS,
                                                        # but it can be considered non-critical
-
-cp "$SCRIPTS_DIR/$CONST_PRESET-non-overriden-config.yaml" "$RUNTIME_CONFIG_FILE"
-# TODO the runtime config file should be used during deposit generation as well!
 echo Wrote $RUNTIME_CONFIG_FILE:
-tee -a "$RUNTIME_CONFIG_FILE" <<EOF
+
+# TODO the runtime config file should be used during deposit generation as well!
+tee "$RUNTIME_CONFIG_FILE" <<EOF
 PRESET_BASE: ${CONST_PRESET}
 MIN_GENESIS_ACTIVE_VALIDATOR_COUNT: ${TOTAL_VALIDATORS}
 MIN_GENESIS_TIME: 0
 GENESIS_DELAY: 10
 DEPOSIT_CONTRACT_ADDRESS: ${DEPOSIT_CONTRACT_ADDRESS}
 ETH1_FOLLOW_DISTANCE: 1
-ALTAIR_FORK_EPOCH: 0
-BELLATRIX_FORK_EPOCH: 0
-CAPELLA_FORK_EPOCH: ${CAPELLA_FORK_EPOCH}
-DENEB_FORK_EPOCH: ${DENEB_FORK_EPOCH}
+ALTAIR_FORK_EPOCH: 1
+BELLATRIX_FORK_EPOCH: 2
+CAPELLA_FORK_EPOCH: 3
 TERMINAL_TOTAL_DIFFICULTY: 0
 EOF
-
-echo $DEPOSIT_CONTRACT_BLOCK > "${DATA_DIR}/deposit_contract_block.txt"
 
 if [[ "${LIGHTHOUSE_VC_NODES}" != "0" ]]; then
   # I don't know what this is, but Lighthouse wants it, so we recreate it from
   # Lighthouse's own local testnet.
-  echo $DEPOSIT_CONTRACT_BLOCK > "${DATA_DIR}/deploy_block.txt"
+  echo 0 > "${DATA_DIR}/deploy_block.txt"
+
+  # Lighthouse wants all these variables here. Copying them from "beacon_chain/spec/presets.nim".
+  # Note: our parser can't handle quotes around numerical values.
+  cat >> "$RUNTIME_CONFIG_FILE" <<EOF
+GENESIS_FORK_VERSION: 0x00000000
+ALTAIR_FORK_VERSION: 0x01000000
+SECONDS_PER_SLOT: 12
+SECONDS_PER_ETH1_BLOCK: 14
+MIN_VALIDATOR_WITHDRAWABILITY_DELAY: 256
+SHARD_COMMITTEE_PERIOD: 256
+INACTIVITY_SCORE_BIAS: 4
+INACTIVITY_SCORE_RECOVERY_RATE: 16
+EJECTION_BALANCE: 16000000000
+MIN_PER_EPOCH_CHURN_LIMIT: 4
+CHURN_LIMIT_QUOTIENT: 65536
+DEPOSIT_CHAIN_ID: 1
+DEPOSIT_NETWORK_ID: 1
+EOF
 fi
 
 dump_logs() {
@@ -952,12 +824,12 @@ dump_logs() {
 
 dump_logtrace() {
   if [[ "$ENABLE_LOGTRACE" == "1" ]]; then
-    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/ncli_testnet analyzeLogs --log-dir="${DATA_DIR}" --const-preset=${CONST_PRESET} || true
+    find "${DATA_DIR}" -maxdepth 1 -type f -regex '.*/log[0-9]+.txt' | sed -e"s/${DATA_DIR}\//--nodes=/" | sort | xargs ./build/logtrace localSimChecks --log-dir="${DATA_DIR}" --const-preset=${CONST_PRESET} || true
   fi
 }
 
-NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-$NUM_NODES}
-BOOTSTRAP_NODE=1
+NODES_WITH_VALIDATORS=${NODES_WITH_VALIDATORS:-4}
+BOOTSTRAP_NODE=0
 SYSTEM_VALIDATORS=$(( TOTAL_VALIDATORS - USER_VALIDATORS ))
 VALIDATORS_PER_NODE=$(( SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS ))
 if [[ "${USE_VC}" == "1" ]]; then
@@ -968,41 +840,31 @@ if [[ "${USE_VC}" == "1" ]]; then
   NUM_JOBS=$(( NUM_JOBS * 2 ))
 fi
 
-if [[ "$REMOTE_SIGNER_NODES" -ge "0" ]]; then
+if [ "$REMOTE_SIGNER_NODES" -ge "0" ]; then
   NUM_JOBS=$(( NUM_JOBS + REMOTE_SIGNER_NODES ))
 fi
 
-if [[ "$LC_NODES" -ge "1" ]]; then
+if [ "$LC_NODES" -ge "1" ]; then
   NUM_JOBS=$(( NUM_JOBS + LC_NODES ))
 fi
 
-if [[ "${RUN_GETH}" == "1" ]]; then
+if [ "${RUN_GETH}" == "1" ]; then
   NUM_JOBS=$(( NUM_JOBS + GETH_NUM_NODES ))
 fi
 
-if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
-  NUM_JOBS=$(( NUM_JOBS + NIMBUS_ETH1_NUM_NODES ))
+if [ "${RUN_NIMBUS}" == "1" ]; then
+  NUM_JOBS=$(( NUM_JOBS + NIMBUSEL_NUM_NODES ))
 fi
 
 VALIDATORS_PER_VALIDATOR=$(( (SYSTEM_VALIDATORS / NODES_WITH_VALIDATORS) / 2 ))
-VALIDATOR_OFFSET=$(( SYSTEM_VALIDATORS / 2 ))
+VALIDATOR_OFFSET=$((SYSTEM_VALIDATORS / 2))
 
 BOOTSTRAP_ENR="${DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node.enr"
 CONTAINER_BOOTSTRAP_ENR="${CONTAINER_DATA_DIR}/node${BOOTSTRAP_NODE}/beacon_node.enr"
 
 CONTAINER_NETWORK_KEYFILE="network_key.json"
 
-# TODO The deposit generator tool needs to gain support for generating two sets
-#      of deposits (genesis + submitted ones). Then we can enable the sending of
-#      deposits here.
-#
-#./build/ncli_testnet sendDeposits \
-#  --deposits-file="$DEPOSITS_FILE" \
-#  --min-delay=$MIN_DEPOSIT_SENDING_DELAY --max-delay=$MAX_DEPOSIT_SENDING_DELAY \
-#  --web3-url="$MAIN_WEB3_URL" \
-#  --deposit-contract=$DEPOSIT_CONTRACT_ADDRESS > "$DATA_DIR/log_deposit_maker.txt" 2>&1 &
-
-for NUM_NODE in $(seq 1 $NUM_NODES); do
+for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   # Copy validators to individual nodes.
   # The first $NODES_WITH_VALIDATORS nodes split them equally between them,
   # after skipping the first $USER_VALIDATORS.
@@ -1012,25 +874,27 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
   scripts/makedir.sh "${NODE_DATA_DIR}/validators" 2>&1
   scripts/makedir.sh "${NODE_DATA_DIR}/secrets" 2>&1
 
-  if [[ $NUM_NODE -le $NODES_WITH_VALIDATORS ]]; then
+  if [[ $NUM_NODE -lt $NODES_WITH_VALIDATORS ]]; then
     if [[ "${USE_VC}" == "1" ]]; then
       VALIDATOR_DATA_DIR="${DATA_DIR}/validator${NUM_NODE}"
       rm -rf "${VALIDATOR_DATA_DIR}"
       scripts/makedir.sh "${VALIDATOR_DATA_DIR}" 2>&1
       scripts/makedir.sh "${VALIDATOR_DATA_DIR}/validators" 2>&1
       scripts/makedir.sh "${VALIDATOR_DATA_DIR}/secrets" 2>&1
-      for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( USER_VALIDATORS + (VALIDATORS_PER_VALIDATOR * (NUM_NODE - 1)) + 1 + VALIDATOR_OFFSET )) | head -n $VALIDATORS_PER_VALIDATOR); do
-        cp -a "${VALIDATORS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/validators/" 2>&1
-        # Remote validators won't have a secret file
-        if [ -f "${SECRETS_DIR}/${VALIDATOR}" ]; then
+      for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_VALIDATOR * $NUM_NODE) + 1 + $VALIDATOR_OFFSET )) | head -n $VALIDATORS_PER_VALIDATOR); do
+        if [[ -f "${VALIDATORS_DIR}/${VALIDATOR}/keystore.json" ]]; then
+          cp -a "${VALIDATORS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/validators/" 2>&1
           cp -a "${SECRETS_DIR}/${VALIDATOR}" "${VALIDATOR_DATA_DIR}/secrets/" 2>&1
+        else
+          # TODO: validators support remote signers
+          cp -a "${VALIDATORS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/validators/" 2>&1
         fi
       done
       if [[ "${OS}" == "Windows_NT" ]]; then
         find "${VALIDATOR_DATA_DIR}" -type f \( -iname "*.json" -o ! -iname "*.*" \) -exec icacls "{}" /inheritance:r /grant:r ${USERDOMAIN}\\${USERNAME}:\(F\) \;
       fi
     fi
-    for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( USER_VALIDATORS + (VALIDATORS_PER_NODE * (NUM_NODE - 1)) + 1 )) | head -n $VALIDATORS_PER_NODE); do
+    for VALIDATOR in $(ls "${VALIDATORS_DIR}" | tail -n +$(( $USER_VALIDATORS + ($VALIDATORS_PER_NODE * $NUM_NODE) + 1 )) | head -n $VALIDATORS_PER_NODE); do
       cp -a "${VALIDATORS_DIR}/${VALIDATOR}" "${NODE_DATA_DIR}/validators/" 2>&1
       if [[ -f "${VALIDATORS_DIR}/${VALIDATOR}/keystore.json" ]]; then
         # Only remote key stores doesn't have a secret
@@ -1042,8 +906,7 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
     fi
   fi
 done
-
-for NUM_LC in $(seq 1 $LC_NODES); do
+for NUM_LC in $(seq 0 $(( LC_NODES - 1 ))); do
   LC_DATA_DIR="${DATA_DIR}/lc${NUM_LC}"
   rm -rf "${LC_DATA_DIR}"
   scripts/makedir.sh "${LC_DATA_DIR}" 2>&1
@@ -1065,79 +928,22 @@ END_CLI_CONFIG
 
 # https://ss64.com/osx/seq.html documents that at macOS seq(1) counts backwards
 # as probably do some others
-if ((NIMBUS_SIGNER_NODES > 0)); then
-  launch_nimbus_signing_node() {
-    SIGNING_NODE_IDX=$1
+if ((REMOTE_SIGNER_NODES > 0)); then
+  for NUM_REMOTE in $(seq 0 $(( REMOTE_SIGNER_NODES - 1 ))); do
+    # TODO find some way for this and other background-launched processes to
+    # still participate in set -e, ideally
     ./build/nimbus_signing_node \
-      --validators-dir="${DATA_DIR}/validators_shares/${SIGNING_NODE_IDX}" \
-      --secrets-dir="${DATA_DIR}/secrets_shares/${SIGNING_NODE_IDX}" \
-      --bind-port=$(( BASE_REMOTE_SIGNER_PORT + SIGNING_NODE_IDX - 1 ))
-    echo "Signing not exited with code $?"
-  }
-
-  for NUM_REMOTE in $(seq 1 $NIMBUS_SIGNER_NODES); do
-    # TODO find some way for this and other background-launched processes to
-    # still participate in set -e, ideally
-    launch_nimbus_signing_node $NUM_REMOTE > "${DATA_DIR}/log_nimbus_signing_node_${NUM_REMOTE}.txt" &
-  done
-
-  PROCS_TO_KILL+=("nimbus_signing_node")
-fi
-
-if ((WEB3SIGNER_NODES > 0)); then
-  if ! command javac > /dev/null || ! javac -version > /dev/null; then
-    # On macOS, homebrew doesn't make java available in your PATH by default.
-    # Instead, macOS ships with a stub executable that displays a message that
-    # Java is not installed (javac -version exits with an error code 1).
-    # If the user is running under these default settings, but a homebrew
-    # installation is disovered, we are happy to use it just in this script:
-    if [[ -d /opt/homebrew/opt/openjdk/bin ]]; then
-      export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
-    fi
-  fi
-
-  launch_web3signer() {
-    WEB3SIGNER_NODE_IDX=$1
-
-    local secrets_dir="${DATA_DIR}/secrets_shares/${WEB3SIGNER_NODE_IDX}"
-    local keystores_dir="${DATA_DIR}/validators_shares/${WEB3SIGNER_NODE_IDX}"
-
-    # We re-arrange the keystore files to match the layout expected by the Web3Signer
-    # TODO generateSimulationDeposits can be refactored to produce the right layout from the start
-    for validator_pubkey in $(ls "$secrets_dir")
-    do
-      mv "$secrets_dir/$validator_pubkey" "$secrets_dir/$validator_pubkey.txt"
-      mv "$keystores_dir/$validator_pubkey/keystore.json" "$keystores_dir/$validator_pubkey.json"
-    done
-
-    # still participate in set -e, ideally
-    # TODO find some way for this and other background-launched processes to
-    "${WEB3SIGNER_BINARY}" \
-      --http-listen-port=$(( BASE_REMOTE_SIGNER_PORT + WEB3SIGNER_NODE_IDX - 1 )) \
-      --logging=DEBUG \
-      --metrics-enabled=true \
-      --metrics-port=$(( BASE_REMOTE_SIGNER_METRICS_PORT + WEB3SIGNER_NODE_IDX - 1 )) \
-      eth2 \
-      --slashing-protection-enabled=false \
-      --keystores-passwords-path="${secrets_dir}" \
-      --keystores-path="${keystores_dir}" \
-      --network="${RUNTIME_CONFIG_FILE}"
-
-    echo "Web3Signer exited with code $?"
-  }
-
-  PROCS_TO_KILL+=("${WEB3SIGNER_BINARY}")
-  PROCS_TO_KILL+=("java")
-
-  for NUM_REMOTE in $(seq 1 $WEB3SIGNER_NODES); do
-    launch_web3signer $NUM_REMOTE > "${DATA_DIR}/log_web3signer_${NUM_REMOTE}.txt" &
+      --validators-dir="${DATA_DIR}/validators_shares/${NUM_REMOTE}" \
+      --secrets-dir="${DATA_DIR}/secrets_shares/${NUM_REMOTE}" \
+      --bind-port=$(( BASE_REMOTE_SIGNER_PORT + NUM_REMOTE )) \
+      > "${DATA_DIR}/log_remote_signer_${NUM_REMOTE}.txt" &
   done
 fi
 
 # give each node time to load keys
 sleep 10
 
-for NUM_NODE in $(seq 1 $NUM_NODES); do
+for NUM_NODE in $(seq 0 $(( NUM_NODES - 1 ))); do
   NODE_DATA_DIR="${DATA_DIR}/node${NUM_NODE}"
   CONTAINER_NODE_DATA_DIR="${CONTAINER_DATA_DIR}/node${NUM_NODE}"
   VALIDATOR_DATA_DIR="${DATA_DIR}/validator${NUM_NODE}"
@@ -1169,21 +975,18 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
     done
   fi
 
-  WEB3_ARG=()
-  if [ "${RUN_NIMBUS_ETH1}" == "1" ]; then
-    WEB3_ARG+=("--web3-url=http://127.0.0.1:${NIMBUS_ETH1_RPC_PORTS[$(( NUM_NODE - 1 ))]}")
+  if [ ${#EL_RPC_PORTS[@]} -eq 0 ]; then # check if the array is empty
+    WEB3_ARG=(
+      "--require-engine-api-in-bellatrix=no"
+    )
+  else
+    WEB3_ARG=(
+      "--web3-url=http://127.0.0.1:${EL_RPC_PORTS[${NUM_NODE}]}"
+      "--jwt-secret=${EL_DATA_DIRS[${NUM_NODE}]}/jwtsecret"
+    )
   fi
 
-  if [ "${RUN_GETH}" == "1" ]; then
-    WEB3_ARG+=("--web3-url=http://127.0.0.1:${GETH_AUTH_RPC_PORTS[$((NUM_NODE - 1))]}")
-  fi
-
-  if [ ${#WEB3_ARG[@]} -eq 0 ]; then # check if the array is empty
-    WEB3_ARG=("--require-engine-api-in-bellatrix=no")
-  fi
-
-  # We enabled the keymanager on half of the nodes in order
-  # to make sure that the client can work without it.
+  # We enabled the keymanager on half of the nodes
   KEYMANAGER_FLAG=""
   if [ $((NUM_NODE % 2)) -eq 0 ]; then
     KEYMANAGER_FLAG="--keymanager"
@@ -1191,33 +994,25 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
 
   ${BEACON_NODE_COMMAND} \
     --config-file="${CLI_CONF_FILE}" \
-    --tcp-port=$(( BASE_PORT + NUM_NODE - 1 )) \
-    --udp-port=$(( BASE_PORT + NUM_NODE - 1 )) \
+    --tcp-port=$(( BASE_PORT + NUM_NODE )) \
+    --udp-port=$(( BASE_PORT + NUM_NODE )) \
     --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
     --data-dir="${CONTAINER_NODE_DATA_DIR}" \
     ${BOOTSTRAP_ARG} \
-    --jwt-secret=${JWT_FILE} \
     "${WEB3_ARG[@]}" \
-    --payload-builder=${USE_PAYLOAD_BUILDER} \
-    --payload-builder-url="http://${PAYLOAD_BUILDER_HOST}:${PAYLOAD_BUILDER_PORT}" \
-    --light-client-data-serve=on \
-    --light-client-data-import-mode=full \
-    --light-client-data-max-periods=999999 \
     ${STOP_AT_EPOCH_FLAG} \
     ${KEYMANAGER_FLAG} \
     --keymanager-token-file="${DATA_DIR}/keymanager-token" \
-    --finalized-deposit-tree-snapshot="$CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE" \
-    --rest-port="$(( BASE_REST_PORT + NUM_NODE - 1 ))" \
-    --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE - 1 ))" \
+    --rest-port="$(( BASE_REST_PORT + NUM_NODE ))" \
+    --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE ))" \
     --sync-light-client=on \
-    --doppelganger-detection=off \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &
 
   PIDS="${PIDS},$!"
 
   if [[ "${USE_VC}" == "1" ]]; then
-    if [[ "${LIGHTHOUSE_VC_NODES}" -ge "${NUM_NODE}" ]]; then
+    if [[ "${LIGHTHOUSE_VC_NODES}" -gt "${NUM_NODE}" ]]; then
       # Lighthouse needs a different keystore filename for its auto-discovery process.
       for D in "${VALIDATOR_DATA_DIR}/validators"/0x*; do
         if [[ -e "${D}/keystore.json" ]]; then
@@ -1243,12 +1038,11 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
         ${STOP_AT_EPOCH_FLAG} \
         --data-dir="${VALIDATOR_DATA_DIR}" \
         --metrics \
-        --metrics-port=$(( BASE_VC_METRICS_PORT + NUM_NODE - 1 )) \
-        --payload-builder=${USE_PAYLOAD_BUILDER} \
+        --metrics-port:$((BASE_VC_METRICS_PORT + NUM_NODE)) \
         ${KEYMANAGER_FLAG} \
-        --keymanager-port=$(( BASE_VC_KEYMANAGER_PORT + NUM_NODE - 1 )) \
+        --keymanager-port=$((BASE_VC_KEYMANAGER_PORT + NUM_NODE)) \
         --keymanager-token-file="${DATA_DIR}/keymanager-token" \
-        --beacon-node="http://127.0.0.1:$(( BASE_REST_PORT + NUM_NODE - 1 ))" \
+        --beacon-node="http://127.0.0.1:$((BASE_REST_PORT + NUM_NODE))" \
         &> "${DATA_DIR}/log_val${NUM_NODE}.txt" &
       PIDS="${PIDS},$!"
     fi
@@ -1259,20 +1053,20 @@ done
 if [ "$LC_NODES" -ge "1" ]; then
   echo "Waiting for Altair finalization"
   while :; do
-    BN_ALTAIR_FORK_EPOCH="$(
+    ALTAIR_FORK_EPOCH="$(
       "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/config/spec" | \
         "${JQ_BINARY}" -r '.data.ALTAIR_FORK_EPOCH')"
-    if [ "${BN_ALTAIR_FORK_EPOCH}" -eq "${BN_ALTAIR_FORK_EPOCH}" ]; then # check for number
+    if [ "${ALTAIR_FORK_EPOCH}" -eq "${ALTAIR_FORK_EPOCH}" ]; then # check for number
       break
     fi
-    echo "ALTAIR_FORK_EPOCH: ${BN_ALTAIR_FORK_EPOCH}"
+    echo "ALTAIR_FORK_EPOCH: ${ALTAIR_FORK_EPOCH}"
     sleep 1
   done
   while :; do
     CURRENT_FORK_EPOCH="$(
       "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/states/finalized/fork" | \
       "${JQ_BINARY}" -r '.data.epoch')"
-    if [ "${CURRENT_FORK_EPOCH}" -ge "${BN_ALTAIR_FORK_EPOCH}" ]; then
+    if [ "${CURRENT_FORK_EPOCH}" -ge "${ALTAIR_FORK_EPOCH}" ]; then
       break
     fi
     sleep 1
@@ -1287,16 +1081,16 @@ if [ "$LC_NODES" -ge "1" ]; then
   LC_TRUSTED_BLOCK_ROOT="$(
     "${CURL_BINARY}" -s "http://localhost:${BASE_REST_PORT}/eth/v1/beacon/headers/finalized" | \
       "${JQ_BINARY}" -r '.data.root')"
-  for NUM_LC in $(seq 1 $LC_NODES); do
+  for NUM_LC in $(seq 0 $(( LC_NODES - 1 ))); do
     LC_DATA_DIR="${DATA_DIR}/lc${NUM_LC}"
 
-    WEB3_ARG=()
-    if [ "${RUN_NIMBUS_ETH1}" == "1" ]; then
-      WEB3_ARG+=("--web3-url=http://127.0.0.1:${NIMBUS_ETH1_RPC_PORTS[$(( NUM_NODES + NUM_LC - 1 ))]}")
-    fi
-
-    if [ "${RUN_GETH}" == "1" ]; then
-      WEB3_ARG+=("--web3-url=http://127.0.0.1:${GETH_AUTH_RPC_PORTS[$(( NUM_NODES + NUM_LC - 1 ))]}")
+    if [ ${#EL_RPC_PORTS[@]} -eq 0 ]; then # check if the array is empty
+      WEB3_ARG=()
+    else
+      WEB3_ARG=(
+        "--web3-url=http://127.0.0.1:${EL_RPC_PORTS[$(( NUM_NODES + NUM_LC ))]}"
+        "--jwt-secret=${EL_DATA_DIRS[$(( NUM_NODES + NUM_LC ))]}/jwtsecret"
+      )
     fi
 
     ./build/nimbus_light_client \
@@ -1305,12 +1099,11 @@ if [ "$LC_NODES" -ge "1" ]; then
       --data-dir="${LC_DATA_DIR}" \
       --network="${CONTAINER_DATA_DIR}" \
       --bootstrap-node="${LC_BOOTSTRAP_NODE}" \
-      --tcp-port=$(( BASE_PORT + NUM_NODES + NUM_LC - 1 )) \
-      --udp-port=$(( BASE_PORT + NUM_NODES + NUM_LC - 1 )) \
+      --tcp-port=$(( BASE_PORT + NUM_NODES + NUM_LC )) \
+      --udp-port=$(( BASE_PORT + NUM_NODES + NUM_LC )) \
       --max-peers=$(( NUM_NODES + LC_NODES - 1 )) \
       --nat="extip:127.0.0.1" \
       --trusted-block-root="${LC_TRUSTED_BLOCK_ROOT}" \
-      --jwt-secret="${JWT_FILE}" \
       "${WEB3_ARG[@]}" \
       ${STOP_AT_EPOCH_FLAG} \
       &> "${DATA_DIR}/log_lc${NUM_LC}.txt" &
@@ -1331,8 +1124,6 @@ if [[ "$BG_JOBS" != "$NUM_JOBS" ]]; then
   exit 1
 fi
 
-echo "About to wait for the following sub-processes: " $PIDS
-
 # launch "htop" or wait for background jobs
 if [[ "$USE_HTOP" == "1" ]]; then
   htop -p "$PIDS"
@@ -1341,7 +1132,6 @@ else
   FAILED=0
   for PID in $(echo "$PIDS" | tr ',' ' '); do
     wait "$PID" || FAILED="$(( FAILED += 1 ))"
-    echo $PID has completed
   done
   if [[ "$FAILED" != "0" ]]; then
     echo "${FAILED} child processes had non-zero exit codes (or exited early)."
@@ -1367,6 +1157,3 @@ if [[ "${TIMEOUT_DURATION}" != "0" ]]; then
     pkill -HUP -P ${WATCHER_PID}
   fi
 fi
-
-echo The simulation completed successfully
-exit 0

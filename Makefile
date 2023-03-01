@@ -209,11 +209,8 @@ local-testnet-minimal:
 		--data-dir $@ \
 		--preset minimal \
 		--nodes 2 \
-		--capella-fork-epoch 3 \
-		--deneb-fork-epoch 20 \
 		--stop-at-epoch 6 \
 		--disable-htop \
-		--enable-payload-builder \
 		--enable-logtrace \
 		--base-port $$(( 6001 + EXECUTOR_NUMBER * 500 )) \
 		--base-rest-port $$(( 6031 + EXECUTOR_NUMBER * 500 )) \
@@ -221,9 +218,8 @@ local-testnet-minimal:
 		--base-vc-keymanager-port $$(( 6131 + EXECUTOR_NUMBER * 500 )) \
 		--base-vc-metrics-port $$(( 6161 + EXECUTOR_NUMBER * 500 )) \
 		--base-remote-signer-port $$(( 6201 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-metrics-port $$(( 6251 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-net-port $$(( 6301 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-rpc-port $$(( 6302 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 6302 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-ws-port $$(( 6303 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-auth-rpc-port $$(( 6304 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
@@ -247,9 +243,8 @@ local-testnet-mainnet:
 		--base-vc-keymanager-port $$(( 7131 + EXECUTOR_NUMBER * 500 )) \
 		--base-vc-metrics-port $$(( 7161 + EXECUTOR_NUMBER * 500 )) \
 		--base-remote-signer-port $$(( 7201 + EXECUTOR_NUMBER * 500 )) \
-		--base-remote-signer-metrics-port $$(( 7251 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-net-port $$(( 7301 + EXECUTOR_NUMBER * 500 )) \
-		--base-el-rpc-port $$(( 7302 + EXECUTOR_NUMBER * 500 )) \
+		--base-el-http-port $$(( 7302 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-ws-port $$(( 7303 + EXECUTOR_NUMBER * 500 )) \
 		--base-el-auth-rpc-port $$(( 7304 + EXECUTOR_NUMBER * 500 )) \
 		--el-port-offset 5 \
