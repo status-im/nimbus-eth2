@@ -229,7 +229,6 @@ local-testnet-minimal:
 		--el-port-offset 5 \
 		--timeout 648 \
 		--kill-old-processes \
-		--run-geth --dl-geth \
 		-- \
 		--verify-finalization \
 		--discv5:no
@@ -255,7 +254,6 @@ local-testnet-mainnet:
 		--el-port-offset 5 \
 		--timeout 2784 \
 		--kill-old-processes \
-		--run-geth --dl-geth \
 		-- \
 		--verify-finalization \
 		--discv5:no
