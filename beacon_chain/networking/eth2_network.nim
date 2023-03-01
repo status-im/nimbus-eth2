@@ -808,7 +808,7 @@ template gossipMaxSize(T: untyped): uint32 =
     when isFixedSize(T):
       fixedPortionSize(T)
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
-         T is eip4844.SignedBeaconBlockAndBlobsSidecar:
+         T is eip4844.SignedBeaconBlock:
       GOSSIP_MAX_SIZE_BELLATRIX
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
