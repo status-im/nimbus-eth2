@@ -746,15 +746,15 @@ cleanup() {
   echo "Existing processes:"
   for proc in "${PROCS_TO_KILL[@]}"; do
     PROC_NAME=$(basename "$proc")
-    pgrep -alf "${PROC_NAME}" || true
+    pgrep -al "${PROC_NAME}" || true
   done
 
   echo "Terminating:"
   for proc in "${PROCS_TO_KILL[@]}"; do
     PROC_NAME=$(basename "$proc")
+    echo -n "Terminating ${PROC_NAME}: " >&2
     # WARNING: The '-P $$' avoids killing unrelated processes.
-    pkill -SIGTERM "${PKILL_ECHO_FLAG}" -P $$ "${PROC_NAME}" \
-        || echo "Nothing to terminate: ${PROC_NAME}"
+    pkill -SIGTERM "${PKILL_ECHO_FLAG}" -P $$ "${PROC_NAME}" || true
   done
 
   sleep 2
@@ -762,9 +762,9 @@ cleanup() {
   echo "Killing:"
   for proc in "${PROCS_TO_KILL[@]}"; do
     PROC_NAME=$(basename "$proc")
+    echo -n "Killing ${PROC_NAME}: " >&2
     # WARNING: The '-P $$' avoids killing unrelated processes.
-    pkill -SIGKILL "${PKILL_ECHO_FLAG}" -P $$ "${PROC_NAME}" \
-        || echo "Nothing to kill: ${PROC_NAME}"
+    pkill -SIGKILL "${PKILL_ECHO_FLAG}" -P $$ "${PROC_NAME}" || true
   done
 
   # Delete all binaries we just built, because these are unusable outside this
@@ -786,6 +786,9 @@ cleanup() {
       rm -rf "${dir}"
     done
   fi
+
+  echo "Jobs status after cleanup:"
+  jobs
 }
 
 trap 'cleanup' SIGINT SIGTERM EXIT
