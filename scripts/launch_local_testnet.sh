@@ -892,7 +892,7 @@ if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
   fi
 fi
 
-jq -r '.hash' "$EXECUTION_GENESIS_BLOCK_JSON" > "${DATA_DIR}/deposit_contract_block_hash.txt"
+#jq -r '.hash' "$EXECUTION_GENESIS_BLOCK_JSON" > "${DATA_DIR}/deposit_contract_block_hash.txt"
 
 ./build/ncli_testnet createTestnet \
   --data-dir="$CONTAINER_DATA_DIR" \
@@ -907,8 +907,8 @@ jq -r '.hash' "$EXECUTION_GENESIS_BLOCK_JSON" > "${DATA_DIR}/deposit_contract_bl
   --insecure-netkey-password=true \
   --genesis-time=$GENESIS_TIME \
   --capella-fork-epoch=$CAPELLA_FORK_EPOCH \
-  --deneb-fork-epoch=$DENEB_FORK_EPOCH \
-  --execution-genesis-block="$EXECUTION_GENESIS_BLOCK_JSON"
+  --deneb-fork-epoch=$DENEB_FORK_EPOCH
+  #--execution-genesis-block="$EXECUTION_GENESIS_BLOCK_JSON"
 
 ./scripts/make_prometheus_config.sh \
     --nodes ${NUM_NODES} \
