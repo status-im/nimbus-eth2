@@ -12,11 +12,9 @@ GETH_ENODES=()
 
 log "Using ${GETH_BINARY}"
 
-start_geth_node() {
-  GETH_NODE_IDX=$1
+for GETH_NODE_IDX in $(seq 0 $GETH_LAST_NODE_IDX); do
   mkdir -p "${GETH_DATA_DIRS[GETH_NODE_IDX]}"
   set -x
-
   ${GETH_BINARY} version
   ${GETH_BINARY} --datadir "${GETH_DATA_DIRS[GETH_NODE_IDX]}" init "${EXECUTION_GENESIS_JSON}"
   ${GETH_BINARY} \
@@ -27,12 +25,9 @@ start_geth_node() {
     --http.port ${GETH_RPC_PORTS[GETH_NODE_IDX]} \
     --port ${GETH_NET_PORTS[GETH_NODE_IDX]} \
     --authrpc.port ${GETH_AUTH_RPC_PORTS[GETH_NODE_IDX]} \
-    --authrpc.jwtsecret "${JWT_FILE}"
-}
-
-for GETH_NODE_IDX in $(seq 0 $GETH_LAST_NODE_IDX); do
-  start_geth_node $GETH_NODE_IDX \
-    &> "${DATA_DIR}/geth-log${GETH_NODE_IDX}.txt" &
+    --authrpc.jwtsecret "${JWT_FILE}" \
+        &> "${DATA_DIR}/geth-log${GETH_NODE_IDX}.txt" &
+  set +x
 done
 
 for GETH_NODE_IDX in $(seq 0 $GETH_LAST_NODE_IDX); do
