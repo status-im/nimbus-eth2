@@ -510,7 +510,6 @@ template toFork*[T:
     deneb.ExecutionPayloadHeader |
     deneb.BeaconBlock |
     deneb.SignedBeaconBlock |
-    deneb.SignedBeaconBlockAndBlobsSidecar |
     deneb.TrustedBeaconBlock |
     deneb.SigVerifiedSignedBeaconBlock |
     deneb.MsgTrustedSignedBeaconBlock |

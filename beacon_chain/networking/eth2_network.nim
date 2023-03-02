@@ -801,7 +801,7 @@ func chunkMaxSize[T](): uint32 =
     MAX_CHUNK_SIZE_BELLATRIX
 
 from ../spec/datatypes/capella import SignedBeaconBlock
-from ../spec/datatypes/eip4844 import SignedBeaconBlockAndBlobsSidecar
+from ../spec/datatypes/eip4844 import SignedBeaconBlock
 
 template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
