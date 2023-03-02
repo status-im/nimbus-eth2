@@ -326,7 +326,7 @@ proc doppelgangerReady*(validator: AttachedValidator, slot: Slot): bool =
 
 proc getValidatorForDuties*(
     pool: ValidatorPool, key: ValidatorPubKey, slot: Slot,
-    doppelActivity: bool, slashingSafe: bool):
+    slashingSafe: bool):
     Opt[AttachedValidator] =
   ## Return validator only if it is ready for duties (has index and has passed
   ## doppelganger check where applicable)
@@ -347,11 +347,6 @@ proc getValidatorForDuties*(
             activationEpoch = shortLog(validator.activationEpoch)
 
     return Opt.none(AttachedValidator)
-
-  if doppelActivity:
-    # Record the activity
-    # TODO consider moving to the the "registration point"
-    validator.doppelgangerActivity(slot.epoch)
 
   return Opt.some(validator)
 

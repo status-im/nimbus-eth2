@@ -332,7 +332,7 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
     vc.keymanagerServer.router.installKeymanagerHandlers(vc.keymanagerHost[])
     vc.keymanagerServer.start()
 
-  var doppelEventFut = vc.doppelExit.wait()
+  let doppelEventFut = vc.doppelExit.wait()
   try:
     vc.runSlotLoopFut = runSlotLoop(vc, vc.beaconClock.now(), onSlotStart)
     vc.runKeystoreCachePruningLoopFut =
@@ -349,7 +349,7 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   await vc.shutdownMetrics()
   vc.shutdownSlashingProtection()
 
-  if doppelEventFut.finished:
+  if doppelEventFut.completed():
     # Critically, database has been shut down - the rest doesn't matter, we need
     # to stop as soon as possible
     # TODO we need to actually quit _before_ any other async tasks have had the
