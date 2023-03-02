@@ -394,20 +394,22 @@ proc updateStatus*(node: BeaconNodeServerRef, status: RestBeaconNodeStatus) =
       notice "Beacon node is compatible"
       node.status = status
   of RestBeaconNodeStatus.NotSynced:
-    if node.status notin {RestBeaconNodeStatus.NotSynced,
-                          RestBeaconNodeStatus.OptSynced}:
-      # When BN returns 503 it doesn't clarify if its opt-synced or not-synced,
-      # so why we should not change status if its already in some unsynced
-      # state.
-      warn "Beacon node not in sync"
+    if node.status != status:
+      doAssert(node.syncInfo.isSome())
+      let si = node.syncInfo.get()
+      warn "Beacon node not in sync",
+           last_head_slot = si.head_slot,
+           last_sync_distance = si.sync_distance,
+           last_optimistic = si.is_optimistic.get(false)
       node.status = status
   of RestBeaconNodeStatus.OptSynced:
     if node.status != status:
       doAssert(node.syncInfo.isSome())
       let si = node.syncInfo.get()
       notice "Execution client not in sync (beacon node optimistically synced)",
-             head_slot = si.head_slot, sync_distance = si.sync_distance,
-             is_optimistic = si.is_optimistic.get(false)
+             last_head_slot = si.head_slot,
+             last_sync_distance = si.sync_distance,
+             last_optimistic = si.is_optimistic.get(false)
       node.status = status
   of RestBeaconNodeStatus.Synced:
     if node.status != status:

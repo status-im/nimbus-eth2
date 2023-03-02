@@ -670,7 +670,10 @@ proc getProposerDuties*(
             node.updateStatus(RestBeaconNodeStatus.Unexpected)
             ApiResponse[GetProposerDutiesResponse].err($res.error)
           else:
-            ApiResponse[GetProposerDutiesResponse].ok(res.get())
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+            ApiResponse[GetProposerDutiesResponse].ok(data)
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node, reason = response.getErrorMessage()
@@ -717,7 +720,11 @@ proc getProposerDuties*(
         of 200:
           let res = decodeBytes(GetProposerDutiesResponse, response.data,
                                 response.contentType)
-          if res.isOk(): return res.get()
+          if res.isOk():
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+            return data
 
           debug ResponseDecodeError, response_code = response.status,
                 endpoint = node, reason = res.error
@@ -788,7 +795,10 @@ proc getAttesterDuties*(
             node.updateStatus(RestBeaconNodeStatus.Unexpected)
             ApiResponse[GetAttesterDutiesResponse].err($res.error)
           else:
-            ApiResponse[GetAttesterDutiesResponse].ok(res.get())
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+            ApiResponse[GetAttesterDutiesResponse].ok(data)
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node, reason = response.getErrorMessage()
@@ -906,7 +916,10 @@ proc getSyncCommitteeDuties*(
             node.updateStatus(RestBeaconNodeStatus.Unexpected)
             ApiResponse[GetSyncCommitteeDutiesResponse].err($res.error)
           else:
-            ApiResponse[GetSyncCommitteeDutiesResponse].ok(res.get())
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+            ApiResponse[GetSyncCommitteeDutiesResponse].ok(data)
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node
@@ -955,7 +968,11 @@ proc getSyncCommitteeDuties*(
         of 200:
           let res = decodeBytes(GetSyncCommitteeDutiesResponse, response.data,
                                 response.contentType)
-          if res.isOk(): return res.get()
+          if res.isOk():
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+            return data
 
           debug ResponseDecodeError, response_code = response.status,
                 endpoint = node, reason = res.error
@@ -1085,7 +1102,7 @@ proc getForkSchedule*(
 proc getHeadBlockRoot*(
        vc: ValidatorClientRef,
        strategy: ApiStrategyKind
-     ): Future[DataRestRoot] {.async.} =
+     ): Future[DataOptimisticObject[RestRoot]] {.async.} =
   logScope:
     request = "getHeadBlockRoot"
     strategy = $strategy
@@ -1118,7 +1135,10 @@ proc getHeadBlockRoot*(
             node.updateStatus(RestBeaconNodeStatus.Unexpected)
             ApiResponse[GetBlockRootResponse].err($res.error)
           else:
-            ApiResponse[GetBlockRootResponse].ok(res.get())
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+            ApiResponse[GetBlockRootResponse].ok(data)
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node, reason = response.getErrorMessage()
@@ -1165,7 +1185,11 @@ proc getHeadBlockRoot*(
         of 200:
           let res = decodeBytes(GetBlockRootResponse, response.data,
                                 response.contentType)
-          if res.isOk(): return res.get()
+          if res.isOk():
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+            return data
 
           debug ResponseDecodeError, response_code = response.status,
                 endpoint = node, reason = res.error
@@ -1237,7 +1261,10 @@ proc getValidators*(
             node.updateStatus(RestBeaconNodeStatus.Unexpected)
             ApiResponse[GetStateValidatorsResponse].err($res.error)
           else:
-            ApiResponse[GetStateValidatorsResponse].ok(res.get())
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+            ApiResponse[GetStateValidatorsResponse].ok(data)
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node, reason = response.getErrorMessage()
@@ -1284,7 +1311,11 @@ proc getValidators*(
         of 200:
           let res = decodeBytes(GetStateValidatorsResponse, response.data,
                                 response.contentType)
-          if res.isOk(): return res.get().data
+          if res.isOk():
+            let data = res.get()
+            if data.execution_optimistic.get(false):
+              node.updateStatus(RestBeaconNodeStatus.OptSynced)
+            return data.data
 
           debug ResponseDecodeError, response_code = response.status,
                 endpoint = node, reason = res.error

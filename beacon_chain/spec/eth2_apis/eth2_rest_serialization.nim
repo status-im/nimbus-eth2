@@ -114,6 +114,7 @@ type
     DataEnclosedObject |
     DataMetaEnclosedObject |
     DataRootEnclosedObject |
+    DataOptimisticObject |
     DataVersionEnclosedObject |
     GetBlockV2Response |
     GetDistributedKeystoresResponse |
