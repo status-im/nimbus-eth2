@@ -1347,7 +1347,7 @@ proc signAndSendAggregate(
         return
       res.get()
 
-    validator.doppelgangerActivity(msg.message.aggregate.data.slot)
+    validator.doppelgangerActivity(msg.message.aggregate.data.slot.epoch)
 
     # Logged in the router
     discard await node.router.routeSignedAggregateAndProof(
