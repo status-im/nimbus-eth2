@@ -46,6 +46,8 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
             vc.doppelExit.fire()
             return
 
+          break
+
 proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
@@ -58,8 +60,11 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
 
   # On (re)start, we skip the remainder of the epoch before we start monitoring
   # for doppelgangers so we don't trigger on the attestations we produced before
-  # the epoch
-  await service.waitForNextEpoch()
+  # the epoch - there's no activity in the genesis slot, so if we start at or
+  # before that, we can safely perform the check for epoch 0 and thus keep
+  # validating in epoch 1
+  if vc.beaconClock.now().slotOrZero() > GENESIS_SLOT:
+    await service.waitForNextEpoch()
 
   while try:
     # Wait for the epoch to end - at the end (or really, the beginning of the

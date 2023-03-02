@@ -129,13 +129,12 @@ proc getValidator*(node: BeaconNode, idx: ValidatorIndex): Opt[AttachedValidator
   node.attachedValidators[].getValidator(key.toPubKey())
 
 proc getValidatorForDuties*(
-    node: BeaconNode,
-    idx: ValidatorIndex, slot: Slot,
-    doppelActivity = false, slashingSafe = false): Opt[AttachedValidator] =
+    node: BeaconNode, idx: ValidatorIndex, slot: Slot,
+    slashingSafe = false): Opt[AttachedValidator] =
   let key = ? node.dag.validatorKey(idx)
 
   node.attachedValidators[].getValidatorForDuties(
-    key.toPubKey(), slot, doppelActivity, slashingSafe)
+    key.toPubKey(), slot, slashingSafe)
 
 proc isSynced*(node: BeaconNode, head: BlockRef): SyncStatus =
   ## TODO This function is here as a placeholder for some better heurestics to
@@ -241,6 +240,8 @@ proc createAndSendAttestation(node: BeaconNode,
         Attestation.init(
           [uint64 indexInCommittee], committeeLen, data, signature).expect(
             "valid data")
+
+    validator.doppelgangerActivity(attestation.data.slot.epoch)
 
     # Logged in the router
     let res = await node.router.routeAttestation(
@@ -1136,8 +1137,7 @@ proc handleAttestations(node: BeaconNode, head: BlockRef, slot: Slot) =
       epochRef.shufflingRef, slot, committee_index)
 
     for index_in_committee, validator_index in committee:
-      let validator = node.getValidatorForDuties(
-          validator_index, slot, true).valueOr:
+      let validator = node.getValidatorForDuties(validator_index, slot).valueOr:
         continue
 
       let
@@ -1346,6 +1346,8 @@ proc signAndSendAggregate(
               validator = shortLog(validator), error_msg = res.error()
         return
       res.get()
+
+    validator.doppelgangerActivity(msg.message.aggregate.data.slot)
 
     # Logged in the router
     discard await node.router.routeSignedAggregateAndProof(
