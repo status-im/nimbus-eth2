@@ -402,7 +402,7 @@ func covers*(
 
   false
 
-from ../spec/datatypes/eip4844 import HashedBeaconState, shortLog
+from ../spec/datatypes/deneb import HashedBeaconState, shortLog
 
 proc addForkChoice*(pool: var AttestationPool,
                     epochRef: EpochRef,
@@ -483,7 +483,7 @@ func init(T: type AttestationCache, state: phase0.HashedBeaconState): T =
 func init(
     T: type AttestationCache,
     state: altair.HashedBeaconState | bellatrix.HashedBeaconState |
-           capella.HashedBeaconState | eip4844.HashedBeaconState,
+           capella.HashedBeaconState | deneb.HashedBeaconState,
     cache: var StateCache): T =
   # Load attestations that are scheduled for being given rewards for
   let
@@ -581,7 +581,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       when state is phase0.HashedBeaconState:
         AttestationCache.init(state)
       elif state is altair.HashedBeaconState or state is bellatrix.HashedBeaconState or
-           state is capella.HashedBeaconState or state is eip4844.HashedBeaconState:
+           state is capella.HashedBeaconState or state is deneb.HashedBeaconState:
         AttestationCache.init(state, cache)
       else:
         static: doAssert false
@@ -645,7 +645,7 @@ proc getAttestationsForBlock*(pool: var AttestationPool,
       when state is altair.HashedBeaconState or
            state is bellatrix.HashedBeaconState or
            state is capella.HashedBeaconState or
-           state is eip4844.HashedBeaconState:
+           state is deneb.HashedBeaconState:
         MAX_ATTESTATIONS
       elif state is phase0.HashedBeaconState:
         state.data.previous_epoch_attestations.maxLen -

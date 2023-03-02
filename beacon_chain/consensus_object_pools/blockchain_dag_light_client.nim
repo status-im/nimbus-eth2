@@ -11,7 +11,7 @@ import
   # Status libraries
   stew/bitops2,
   # Beacon chain internals
-  ../spec/datatypes/[phase0, altair, bellatrix, capella, eip4844],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
   ../beacon_chain_db_light_client,
   "."/[block_pools_types, blockchain_dag]
 
@@ -19,13 +19,13 @@ logScope: topics = "chaindag_lc"
 
 type
   HashedBeaconStateWithSyncCommittee =
-    eip4844.HashedBeaconState |
+    deneb.HashedBeaconState |
     capella.HashedBeaconState |
     bellatrix.HashedBeaconState |
     altair.HashedBeaconState
 
   TrustedSignedBeaconBlockWithSyncAggregate =
-    eip4844.TrustedSignedBeaconBlock |
+    deneb.TrustedSignedBeaconBlock |
     capella.TrustedSignedBeaconBlock |
     bellatrix.TrustedSignedBeaconBlock |
     altair.TrustedSignedBeaconBlock
@@ -780,7 +780,7 @@ proc processNewBlockForLightClient*(
   if signedBlock.message.slot < dag.lcDataStore.cache.tailSlot:
     return
 
-  when signedBlock is eip4844.TrustedSignedBeaconBlock:
+  when signedBlock is deneb.TrustedSignedBeaconBlock:
     dag.cacheLightClientData(state.eip4844Data, signedBlock.toBlockId())
     dag.createLightClientUpdates(state.eip4844Data, signedBlock, parentBid)
   elif signedBlock is capella.TrustedSignedBeaconBlock:

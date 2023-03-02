@@ -909,7 +909,7 @@ proc process_block*(
     ? process_withdrawals(state, blck.body.execution_payload)
     ? process_execution_payload(
         state, blck.body.execution_payload,
-        func(_: eip4844.ExecutionPayload): bool = true)  # [Modified in EIP-4844]
+        func(_: deneb.ExecutionPayload): bool = true)  # [Modified in Deneb]
   ? process_randao(state, blck.body, flags, cache)
   ? process_eth1_data(state, blck.body)
 
