@@ -261,7 +261,7 @@ macro getSymbolFromForkModule(fork: static ConsensusFork,
     of ConsensusFork.Altair: "altair"
     of ConsensusFork.Bellatrix: "bellatrix"
     of ConsensusFork.Capella: "capella"
-    of ConsensusFork.EIP4844: "eip4844"
+    of ConsensusFork.EIP4844: "deneb"
   newDotExpr(ident moduleName, ident symbolName)
 
 template BeaconStateType*(fork: static ConsensusFork): auto =
