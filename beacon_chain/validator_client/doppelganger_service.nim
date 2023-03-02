@@ -40,6 +40,9 @@ proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
           validator.doppelgangerChecked(epoch)
 
           if item.is_live and validator.triggersDoppelganger(epoch):
+            warn "Doppelganger detection triggered",
+              validator = shortLog(validator), epoch
+
             vc.doppelExit.fire()
             return
 
