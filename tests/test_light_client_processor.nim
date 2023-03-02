@@ -67,7 +67,7 @@ suite "Light client processor" & preset():
           const nilCallback = OnEIP4844BlockAdded(nil)
           dag.addHeadBlock(verifier, blck.eip4844Data, nilCallback)
       doAssert added.isOk()
-      dag.updateHead(added[], quarantine[])
+      dag.updateHead(added[], quarantine[], [])
 
   addBlocks(SLOTS_PER_EPOCH, 0.82)
   let

@@ -91,7 +91,7 @@ suite "Block processor" & preset():
 
       b2Get.get().parent == b1Get.get()
 
-    dag.updateHead(b2Get.get(), quarantine[])
+    dag.updateHead(b2Get.get(), quarantine[], [])
     dag.pruneAtFinalization()
 
     # The heads structure should have been updated to contain only the new

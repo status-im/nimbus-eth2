@@ -249,6 +249,26 @@ proc updateExecutionClientHead(
 
   return Opt[void].ok()
 
+func getKnownValidatorsForBlsChangeTracking(
+    self: ConsensusManager, newHead: BlockRef): seq[ValidatorIndex] =
+  # Ensure that large nodes won't be overloaded by a nice-to-have, but
+  # inessential cosmetic feature.
+  const MAX_CHECKED_INDICES = 64
+
+  if newHead.bid.slot.epoch >= self.dag.cfg.CAPELLA_FORK_EPOCH:
+    var res = newSeqOfCap[ValidatorIndex](min(
+      len(self.actionTracker.knownValidators), MAX_CHECKED_INDICES))
+    for vi in self.actionTracker.knownValidators.keys():
+      res.add vi
+      if res.len >= MAX_CHECKED_INDICES:
+        break
+    res
+  else:
+    # It is not possible for any BLS to execution changes, for any validator,
+    # to have been yet processed.
+    # https://github.com/nim-lang/Nim/issues/19802
+    (static(@[]))
+
 proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
   ## Trigger fork choice and update the DAG with the new head block
   ## This does not automatically prune the DAG after finalization
@@ -256,7 +276,9 @@ proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =
 
   # Store the new head in the chain DAG - this may cause epochs to be
   # justified and finalized
-  self.dag.updateHead(newHead, self.quarantine[])
+  self.dag.updateHead(
+    newHead, self.quarantine[],
+    self.getKnownValidatorsForBlsChangeTracking(newHead))
 
   self.checkExpectedBlock()
 
@@ -444,7 +466,9 @@ proc updateHeadWithExecution*(
 
     # Store the new head in the chain DAG - this may cause epochs to be
     # justified and finalized
-    self.dag.updateHead(newHead.blck, self.quarantine[])
+    self.dag.updateHead(
+      newHead.blck, self.quarantine[],
+      self[].getKnownValidatorsForBlsChangeTracking(newHead.blck))
 
     # If this node should propose next slot, start preparing payload. Both
     # fcUs are useful: the updateExecutionClientHead(newHead) call updates

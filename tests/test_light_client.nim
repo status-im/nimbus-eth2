@@ -81,7 +81,7 @@ suite "Light client" & preset():
             dag.addHeadBlock(verifier, blck.eip4844Data, nilCallback)
 
         check: added.isOk()
-        dag.updateHead(added[], quarantine)
+        dag.updateHead(added[], quarantine, [])
 
   setup:
     const num_validators = SLOTS_PER_EPOCH

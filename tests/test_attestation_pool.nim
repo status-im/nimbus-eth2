@@ -684,7 +684,7 @@ suite "Attestation pool processing" & preset():
           pool[].selectOptimisticHead(
             blockRef[].slot.start_beacon_time).get().blck
         doAssert: head == blockRef[]
-        dag.updateHead(head, quarantine[])
+        dag.updateHead(head, quarantine[], [])
         pruneAtFinalization(dag, pool[])
 
         attestations.setLen(0)
