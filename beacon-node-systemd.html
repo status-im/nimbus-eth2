@@ -1798,11 +1798,14 @@
 <h1 id="set-up-a-systemd-service">Set up a systemd service</h1>
 <p>This page will take you through how to set up a <code>systemd</code> service for your beacon node.</p>
 <p><code>systemd</code> is used in order to have a command or program run when your device boots (i.e. add it as a service). Once this is done, you can start/stop enable/disable from the linux prompt.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p><a href="https://systemd.io/"><code>systemd</code></a> is a service manager designed specifically for Linux - it cannot be used on Windows / Mac. You can get more information about systemd <a href="https://fedoramagazine.org/what-is-an-init-system/">here</a></p>
+<div class="admonition abstract">
+<p class="admonition-title"><code>systemd</code></p>
+<p><a href="https://systemd.io/"><code>systemd</code></a> is a service manager designed specifically for Linux - it cannot be used on Windows / Mac. You can find out more about <code>systemd</code> <a href="https://fedoramagazine.org/what-is-an-init-system/">here</a></p>
 </div>
-<p>When installing Nimbus via your package manager, a user and service will already have been created for you and you can skip straight to the configuration section.</p>
+<div class="admonition note">
+<p class="admonition-title">Package manager installations</p>
+<p>When installing Nimbus via your <a href="binaries.html">package manager</a>, a user and service will already have been created for you and you can skip straight to the configuration section.</p>
+</div>
 <h3 id="1-create-a-dedicated-user">1. Create a dedicated user</h3>
 <p>We will start by creating a dedicated user and <a href="data-dir.html">data directory</a> for Nimbus. The same user can also be used for the execution client.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Create the `nimbus` group</span>
