@@ -220,7 +220,7 @@ proc verify*(f: EraFile, cfg: RuntimeConfig): Result[Eth2Digest, string] =
 
           # Batch-verification more than doubles total verification speed
           sigs.add block_signature_set(
-              getStateField(state[], fork),
+              cfg.forkAtEpoch(slot.epoch),
               getStateField(state[], genesis_validators_root), slot,
               blck[].root, cooked.get(), sig.get())
 
