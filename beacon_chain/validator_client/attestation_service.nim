@@ -26,7 +26,7 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
                       duty: DutyAndProof): Future[bool] {.async.} =
   let vc = service.client
   let validator = vc.getValidatorForDuties(
-      duty.data.pubkey, adata.slot, true).valueOr:
+      duty.data.pubkey, adata.slot).valueOr:
     return false
   let fork = vc.forkAtEpoch(adata.slot.epoch)
 
@@ -77,6 +77,8 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
   debug "Sending attestation", attestation = shortLog(attestation),
         validator = shortLog(validator), validator_index = vindex,
         delay = vc.getDelay(adata.slot.attestation_deadline())
+
+  validator.doppelgangerActivity(attestation.data.slot.epoch)
 
   let res =
     try:
@@ -157,6 +159,8 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
         attestation = shortLog(signedProof.message.aggregate),
         validator = shortLog(validator), validator_index = vindex,
         delay = vc.getDelay(slot.aggregate_deadline())
+
+  validator.doppelgangerActivity(proof.aggregate.data.slot.epoch)
 
   let res =
     try:
