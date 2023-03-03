@@ -44,9 +44,9 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
                                                 genesisValidatorsRoot,
                                                 slot, beaconBlockRoot)
         if res.isErr():
-          error "Unable to sign committee message using remote signer",
-                validator = shortLog(validator), slot = slot,
-                block_root = shortLog(beaconBlockRoot)
+          warn "Unable to sign committee message using remote signer",
+               validator = shortLog(validator), slot = slot,
+               block_root = shortLog(beaconBlockRoot)
           return
         res.get()
 
@@ -58,11 +58,11 @@ proc serveSyncCommitteeMessage*(service: SyncCommitteeServiceRef,
     try:
       await vc.submitPoolSyncCommitteeSignature(message, ApiStrategyKind.First)
     except ValidatorApiError as exc:
-      error "Unable to publish sync committee message",
-            message = shortLog(message),
-            validator = shortLog(validator),
-            validator_index = vindex,
-            reason = exc.getFailureReason()
+      warn "Unable to publish sync committee message",
+           message = shortLog(message),
+           validator = shortLog(validator),
+           validator_index = vindex,
+           reason = exc.getFailureReason()
       return false
     except CancelledError:
       debug "Publish sync committee message request was interrupted"
@@ -154,10 +154,10 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
       let res = await validator.getContributionAndProofSignature(
         fork, genesisRoot, proof)
       if res.isErr():
-        error "Unable to sign sync committee contribution using remote signer",
-              validator = shortLog(validator),
-              contribution = shortLog(proof.contribution),
-              error_msg = res.error()
+        warn "Unable to sign sync committee contribution using remote signer",
+             validator = shortLog(validator),
+             contribution = shortLog(proof.contribution),
+             error_msg = res.error()
         return false
       res.get()
   debug "Sending sync contribution",
@@ -173,12 +173,12 @@ proc serveContributionAndProof*(service: SyncCommitteeServiceRef,
       await vc.publishContributionAndProofs(@[restSignedProof],
                                             ApiStrategyKind.First)
     except ValidatorApiError as exc:
-      error "Unable to publish sync contribution",
-            contribution = shortLog(proof.contribution),
-            validator = shortLog(validator),
-            validator_index = validatorIdx,
-            err_msg = exc.msg,
-            reason = exc.getFailureReason()
+      warn "Unable to publish sync contribution",
+           contribution = shortLog(proof.contribution),
+           validator = shortLog(validator),
+           validator_index = validatorIdx,
+           err_msg = exc.msg,
+           reason = exc.getFailureReason()
       false
     except CancelledError:
       debug "Publish sync contribution request was interrupted"
@@ -251,10 +251,10 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
           sigRes = fut.read
           validator = validators[idx][0]
           subCommitteeIdx = validators[idx][1]
-        if sigRes.isErr:
-          error "Unable to create slot signature using remote signer",
-                validator = shortLog(validator),
-                error_msg = sigRes.error()
+        if sigRes.isErr():
+          warn "Unable to create slot signature using remote signer",
+               validator = shortLog(validator),
+               error_msg = sigRes.error()
         elif validator.index.isSome and
              is_sync_committee_aggregator(sigRes.get):
           res.add ContributionItem(
@@ -281,9 +281,9 @@ proc produceAndPublishContributions(service: SyncCommitteeServiceRef,
             try:
               await contributionsFuts[item.subcommitteeIdx]
             except ValidatorApiError as exc:
-              error "Unable to get sync message contribution data", slot = slot,
-                    beaconBlockRoot = shortLog(beaconBlockRoot),
-                    reason = exc.getFailureReason()
+              warn "Unable to get sync message contribution data", slot = slot,
+                   beaconBlockRoot = shortLog(beaconBlockRoot),
+                   reason = exc.getFailureReason()
               return
             except CancelledError:
               debug "Request for sync message contribution was interrupted"
@@ -365,8 +365,8 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
             return
           res.data.root
       except ValidatorApiError as exc:
-        error "Unable to retrieve head block's root to sign", reason = exc.msg,
-              reason = exc.getFailureReason()
+        warn "Unable to retrieve head block's root to sign", reason = exc.msg,
+             reason = exc.getFailureReason()
         return
       except CancelledError:
         debug "Block root request was interrupted"
@@ -381,8 +381,8 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
                                                          beaconBlockRoot,
                                                          duties)
   except ValidatorApiError as exc:
-    error "Unable to proceed sync committee messages", slot = slot,
-           duties_count = len(duties), reason = exc.getFailureReason()
+    warn "Unable to proceed sync committee messages", slot = slot,
+         duties_count = len(duties), reason = exc.getFailureReason()
     return
   except CancelledError:
     debug "Sync committee producing process was interrupted"

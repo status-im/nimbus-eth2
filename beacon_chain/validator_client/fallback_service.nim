@@ -265,8 +265,8 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
         debug "Service interrupted"
         true
       except CatchableError as exc:
-        warn "Service crashed with unexpected error", err_name = exc.name,
-             err_msg = exc.msg
+        error "Service crashed with unexpected error", err_name = exc.name,
+              err_msg = exc.msg
         true
 
     if breakLoop:

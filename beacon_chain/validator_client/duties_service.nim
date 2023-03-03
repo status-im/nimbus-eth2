@@ -66,7 +66,7 @@ proc pollForValidatorIndices*(vc: ValidatorClientRef) {.async.} =
       try:
         await vc.getValidators(idents, ApiStrategyKind.First)
       except ValidatorApiError as exc:
-        error "Unable to get head state's validator information",
+        warn "Unable to get head state's validator information",
               reason = exc.getFailureReason()
         return
       except CancelledError as exc:
@@ -140,8 +140,8 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
       try:
         await vc.getAttesterDuties(epoch, indices, ApiStrategyKind.First)
       except ValidatorApiError as exc:
-        notice "Unable to get attester duties", epoch = epoch,
-               reason = exc.getFailureReason()
+        warn "Unable to get attester duties", epoch = epoch,
+             reason = exc.getFailureReason()
         return 0
       except CancelledError as exc:
         debug "Attester duties processing was interrupted"
@@ -225,7 +225,7 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef,
         if fut.done():
           let sigRes = fut.read()
           if sigRes.isErr():
-            error "Unable to create slot signature using remote signer",
+            warn "Unable to create slot signature using remote signer",
                   validator = shortLog(validators[index]),
                   error_msg = sigRes.error()
             DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
@@ -274,8 +274,8 @@ proc pollForSyncCommitteeDuties*(vc: ValidatorClientRef,
         try:
           await vc.getSyncCommitteeDuties(epoch, indices, ApiStrategyKind.First)
         except ValidatorApiError as exc:
-          notice "Unable to get sync committee duties", epoch = epoch,
-                 reason = exc.getFailureReason()
+          warn "Unable to get sync committee duties", epoch = epoch,
+               reason = exc.getFailureReason()
           return 0
         except CancelledError as exc:
           debug "Sync committee duties processing was interrupted"
@@ -397,9 +397,9 @@ proc pollForAttesterDuties*(vc: ValidatorClientRef) {.async.} =
       if len(subscriptions) > 0:
         let res = await vc.prepareBeaconCommitteeSubnet(subscriptions)
         if res == 0:
-          error "Failed to subscribe validators to beacon committee subnets",
-                slot = currentSlot, epoch = currentEpoch,
-                subscriptions_count = len(subscriptions)
+          warn "Failed to subscribe validators to beacon committee subnets",
+               slot = currentSlot, epoch = currentEpoch,
+               subscriptions_count = len(subscriptions)
 
     vc.pruneAttesterDuties(currentEpoch)
 
@@ -468,9 +468,9 @@ proc pollForSyncCommitteeDuties* (vc: ValidatorClientRef) {.async.} =
       if len(subscriptions) > 0:
         let res = await vc.prepareSyncCommitteeSubnets(subscriptions)
         if res != 0:
-          error "Failed to subscribe validators to sync committee subnets",
-                slot = currentSlot, epoch = currentEpoch,
-                subscriptions_count = len(subscriptions)
+          warn "Failed to subscribe validators to sync committee subnets",
+               slot = currentSlot, epoch = currentEpoch,
+               subscriptions_count = len(subscriptions)
 
       vc.pruneSyncCommitteeDuties(currentSlot)
 
@@ -506,8 +506,8 @@ proc pollForBeaconProposers*(vc: ValidatorClientRef) {.async.} =
           debug "No relevant proposer duties received", slot = currentSlot,
                 duties_count = len(duties)
       except ValidatorApiError as exc:
-        notice "Unable to get proposer duties", slot = currentSlot,
-               epoch = currentEpoch, reason = exc.getFailureReason()
+        warn "Unable to get proposer duties", slot = currentSlot,
+             epoch = currentEpoch, reason = exc.getFailureReason()
       except CancelledError as exc:
         debug "Proposer duties processing was interrupted"
         raise exc

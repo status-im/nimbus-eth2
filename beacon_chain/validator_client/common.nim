@@ -397,10 +397,10 @@ proc updateStatus*(node: BeaconNodeServerRef, status: RestBeaconNodeStatus) =
     if node.status != status:
       doAssert(node.syncInfo.isSome())
       let si = node.syncInfo.get()
-      warn "Beacon node not in sync",
-           last_head_slot = si.head_slot,
-           last_sync_distance = si.sync_distance,
-           last_optimistic = si.is_optimistic.get(false)
+      notice "Beacon node not in sync",
+             last_head_slot = si.head_slot,
+             last_sync_distance = si.sync_distance,
+             last_optimistic = si.is_optimistic.get(false)
       node.status = status
   of RestBeaconNodeStatus.OptSynced:
     if node.status != status:
@@ -421,7 +421,7 @@ proc updateStatus*(node: BeaconNodeServerRef, status: RestBeaconNodeStatus) =
       node.status = status
   of RestBeaconNodeStatus.Unexpected:
     if node.status != status:
-      warn "Beacon node provides unexpected response"
+      error "Beacon node provides unexpected response"
       node.status = status
   of RestBeaconNodeStatus.InternalError:
     if node.status != status:

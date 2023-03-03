@@ -57,8 +57,8 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
         let res = await validator.getAttestationSignature(
           fork, vc.beaconGenesis.genesis_validators_root, adata)
         if res.isErr():
-          error "Unable to sign attestation", validator = shortLog(validator),
-                error_msg = res.error()
+          warn "Unable to sign attestation", validator = shortLog(validator),
+               error_msg = res.error()
           return false
         res.get()
       except CancelledError as exc:
@@ -82,11 +82,11 @@ proc serveAttestation(service: AttestationServiceRef, adata: AttestationData,
     try:
       await vc.submitPoolAttestations(@[attestation], ApiStrategyKind.First)
     except ValidatorApiError as exc:
-      error "Unable to publish attestation",
-            attestation = shortLog(attestation),
-            validator = shortLog(validator),
-            validator_index = vindex,
-            reason = exc.getFailureReason()
+      warn "Unable to publish attestation",
+           attestation = shortLog(attestation),
+           validator = shortLog(validator),
+           validator_index = vindex,
+           reason = exc.getFailureReason()
       return false
     except CancelledError as exc:
       debug "Attestation publishing process was interrupted"
@@ -133,10 +133,10 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
       let res = await validator.getAggregateAndProofSignature(
         fork, genesisRoot, proof)
       if res.isErr():
-        error "Unable to sign aggregate and proof using remote signer",
-              validator = shortLog(validator),
-              attestation = shortLog(proof.aggregate),
-              error_msg = res.error()
+        warn "Unable to sign aggregate and proof using remote signer",
+             validator = shortLog(validator),
+             attestation = shortLog(proof.aggregate),
+             error_msg = res.error()
         return false
       res.get()
     except CancelledError as exc:
@@ -162,11 +162,11 @@ proc serveAggregateAndProof*(service: AttestationServiceRef,
     try:
       await vc.publishAggregateAndProofs(@[signedProof], ApiStrategyKind.First)
     except ValidatorApiError as exc:
-      error "Unable to publish aggregated attestation",
-            attestation = shortLog(signedProof.message.aggregate),
-            validator = shortLog(validator),
-            validator_index = vindex,
-            reason = exc.getFailureReason()
+      warn "Unable to publish aggregated attestation",
+           attestation = shortLog(signedProof.message.aggregate),
+           validator = shortLog(validator),
+           validator_index = vindex,
+           reason = exc.getFailureReason()
       return false
     except CancelledError as exc:
       debug "Publish aggregate and proofs request was interrupted"
@@ -211,11 +211,11 @@ proc produceAndPublishAttestations*(service: AttestationServiceRef,
         debug "Serving attestation duty", duty = duty.data, epoch = slot.epoch()
         if (duty.data.slot != ad.slot) or
            (uint64(duty.data.committee_index) != ad.index):
-          error "Inconsistent validator duties during attestation signing",
-                validator = shortLog(duty.data.pubkey),
-                duty_slot = duty.data.slot,
-                duty_index = duty.data.committee_index,
-                attestation_slot = ad.slot, attestation_index = ad.index
+          warn "Inconsistent validator duties during attestation signing",
+               validator = shortLog(duty.data.pubkey),
+               duty_slot = duty.data.slot,
+               duty_index = duty.data.committee_index,
+               attestation_slot = ad.slot, attestation_index = ad.index
           continue
         res.add(service.serveAttestation(ad, duty))
       res
@@ -269,10 +269,10 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
 
         if (duty.data.slot != slot) or
             (duty.data.committee_index != committeeIndex):
-          error "Inconsistent validator duties during aggregate signing",
-                duty_slot = duty.data.slot, slot = slot,
-                duty_committee_index = duty.data.committee_index,
-                committee_index = committeeIndex
+          warn "Inconsistent validator duties during aggregate signing",
+               duty_slot = duty.data.slot, slot = slot,
+               duty_committee_index = duty.data.committee_index,
+               committee_index = committeeIndex
           continue
         if duty.slotSig.isSome():
           let slotSignature = duty.slotSig.get()
@@ -290,9 +290,9 @@ proc produceAndPublishAggregates(service: AttestationServiceRef,
         await vc.getAggregatedAttestation(slot, attestationRoot,
                                           ApiStrategyKind.Best)
       except ValidatorApiError as exc:
-        error "Unable to get aggregated attestation data", slot = slot,
-              attestation_root = shortLog(attestationRoot),
-              reason = exc.getFailureReason()
+        warn "Unable to get aggregated attestation data", slot = slot,
+             attestation_root = shortLog(attestationRoot),
+             reason = exc.getFailureReason()
         return
       except CancelledError as exc:
         debug "Aggregated attestation request was interrupted"
@@ -364,9 +364,9 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
     try:
       await service.produceAndPublishAttestations(slot, committee_index, duties)
     except ValidatorApiError as exc:
-      error "Unable to proceed attestations", slot = slot,
-            committee_index = committee_index, duties_count = len(duties),
-            reason = exc.getFailureReason()
+      warn "Unable to proceed attestations", slot = slot,
+           committee_index = committee_index, duties_count = len(duties),
+           reason = exc.getFailureReason()
       return
     except CancelledError as exc:
       debug "Publish attestation request was interrupted"
