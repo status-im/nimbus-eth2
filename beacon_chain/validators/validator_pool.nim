@@ -278,10 +278,18 @@ proc doppelgangerChecked*(validator: AttachedValidator, epoch: Epoch) =
   if validator.doppelCheck.isNone():
     debug "Doppelganger first check",
       validator = shortLog(validator), epoch
-  elif validator.doppelCheck.get() + 1 notin [epoch, epoch + 1]:
-    debug "Doppelganger stale check",
-      validator = shortLog(validator),
-      checked = validator.doppelCheck.get(), epoch
+  else:
+    let check = validator.doppelCheck.get()
+    if check > epoch:
+      # Shouldn't happen but due to `await`, it may - consider turning into
+      # assert
+      debug "Doppelganger reordered check",
+        validator = shortLog(validator), check, epoch
+      return
+
+    if check - epoch > 1:
+      debug "Doppelganger stale check",
+        validator = shortLog(validator), check, epoch
 
   validator.doppelCheck = Opt.some epoch
 
@@ -290,10 +298,19 @@ proc doppelgangerActivity*(validator: AttachedValidator, epoch: Epoch) =
   if validator.doppelActivity.isNone():
     debug "Doppelganger first activity",
       validator = shortLog(validator), epoch
-  elif validator.doppelActivity.get() + 1 notin [epoch, epoch + 1]:
-    debug "Doppelganger stale activity",
-      validator = shortLog(validator),
-      checked = validator.doppelActivity.get(), epoch
+  else:
+    let activity = validator.doppelActivity.get()
+    if activity > epoch:
+      # Shouldn't happen but due to `await`, it may - consider turning into
+      # assert
+      debug "Doppelganger reordered activity",
+        validator = shortLog(validator), activity, epoch
+      return
+
+    if activity - epoch > 1:
+      # We missed work in some epoch
+      debug "Doppelganger stale activity",
+        validator = shortLog(validator), activity, epoch
 
   validator.doppelActivity = Opt.some epoch
 
