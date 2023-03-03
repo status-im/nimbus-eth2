@@ -394,13 +394,14 @@ proc updateStatus*(node: BeaconNodeServerRef, status: RestBeaconNodeStatus) =
       notice "Beacon node is compatible"
       node.status = status
   of RestBeaconNodeStatus.NotSynced:
-    if node.status != status:
+    if node.status notin {RestBeaconNodeStatus.NotSynced,
+                          RestBeaconNodeStatus.OptSynced}:
       doAssert(node.syncInfo.isSome())
       let si = node.syncInfo.get()
-      notice "Beacon node not in sync",
-             last_head_slot = si.head_slot,
-             last_sync_distance = si.sync_distance,
-             last_optimistic = si.is_optimistic.get(false)
+      warn "Beacon node not in sync",
+           last_head_slot = si.head_slot,
+           last_sync_distance = si.sync_distance,
+           last_optimistic = si.is_optimistic.get(false)
       node.status = status
   of RestBeaconNodeStatus.OptSynced:
     if node.status != status:
