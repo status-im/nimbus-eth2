@@ -20,7 +20,7 @@ For example, Nethermind on Goerli can run via:
 cd nethermind/src/Nethermind/Nethermind.Runner
 dotnet run -c Release -- --config goerli \
 --JsonRpc.Host=0.0.0.0 \
---JsonRpc.JwtSecretFile=/opt/jwtsecre
+--JsonRpc.JwtSecretFile=/opt/jwtsecret
 ```
 
 Erigon can be run using:

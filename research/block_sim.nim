@@ -565,7 +565,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             epochRef, blckRef, unrealized, signedBlock.message,
             blckRef.slot.start_beacon_time)
 
-      dag.updateHead(added[], quarantine[])
+      dag.updateHead(added[], quarantine[], [])
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
         attPool.prune()
@@ -587,7 +587,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             epochRef, blckRef, unrealized, signedBlock.message,
             blckRef.slot.start_beacon_time)
 
-      dag.updateHead(added[], quarantine[])
+      dag.updateHead(added[], quarantine[], [])
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
         attPool.prune()
@@ -609,7 +609,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             epochRef, blckRef, unrealized, signedBlock.message,
             blckRef.slot.start_beacon_time)
 
-      dag.updateHead(added[], quarantine[])
+      dag.updateHead(added[], quarantine[], [])
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
         attPool.prune()
@@ -631,7 +631,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             epochRef, blckRef, unrealized, signedBlock.message,
             blckRef.slot.start_beacon_time)
 
-      dag.updateHead(added[], quarantine[])
+      dag.updateHead(added[], quarantine[], [])
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
         attPool.prune()
@@ -653,7 +653,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
             epochRef, blckRef, unrealized, signedBlock.message,
             blckRef.slot.start_beacon_time)
 
-      dag.updateHead(added[], quarantine[])
+      dag.updateHead(added[], quarantine[], [])
       if dag.needStateCachesAndForkChoicePruning():
         dag.pruneStateCachesDAG()
         attPool.prune()

@@ -141,8 +141,6 @@ suite "EF - Deneb - SSZ consensus objects " & preset():
             checkSSZ(SignedAggregateAndProof, path, hash)
           of "SignedBeaconBlock":
             checkSSZ(deneb.SignedBeaconBlock, path, hash)
-          of "SignedBeaconBlockAndBlobsSidecar":
-            checkSSZ(deneb.SignedBeaconBlockAndBlobsSidecar, path, hash)
           of "SignedBeaconBlockHeader":
             checkSSZ(SignedBeaconBlockHeader, path, hash)
           of "SignedBlobSidecar": checkSSZ(SignedBlobSidecar, path, hash)

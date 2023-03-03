@@ -4,10 +4,11 @@ This page will take you through how to set up a `systemd` service for your beaco
 
 `systemd` is used in order to have a command or program run when your device boots (i.e. add it as a service). Once this is done, you can start/stop enable/disable from the linux prompt.
 
-!!! note
-    [`systemd`](https://systemd.io/) is a service manager designed specifically for Linux - it cannot be used on Windows / Mac. You can get more information about systemd [here](https://fedoramagazine.org/what-is-an-init-system/)
+!!! abstract "`systemd`"
+    [`systemd`](https://systemd.io/) is a service manager designed specifically for Linux - it cannot be used on Windows / Mac. You can find out more about `systemd` [here](https://fedoramagazine.org/what-is-an-init-system/)
 
-When installing Nimbus via your package manager, a user and service will already have been created for you and you can skip straight to the configuration section.
+!!! note "Package manager installations"
+    When installing Nimbus via your [package manager](./binaries.md), a user and service will already have been created for you and you can skip straight to the configuration section.
 
 ### 1. Create a dedicated user
 

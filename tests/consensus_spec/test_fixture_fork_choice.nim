@@ -65,7 +65,7 @@ type
 from ../../beacon_chain/spec/datatypes/capella import
   BeaconBlock, BeaconState, SignedBeaconBlock
 
-from ../../beacon_chain/spec/datatypes/eip4844 import
+from ../../beacon_chain/spec/datatypes/deneb import
   BeaconBlock, BeaconState, SignedBeaconBlock
 
 proc initialLoad(
@@ -81,8 +81,8 @@ proc initialLoad(
       path/"anchor_block.ssz_snappy",
       SSZ, BlockType)
 
-  when BlockType is eip4844.BeaconBlock:
-    let signedBlock = ForkedSignedBeaconBlock.init(eip4844.SignedBeaconBlock(
+  when BlockType is deneb.BeaconBlock:
+    let signedBlock = ForkedSignedBeaconBlock.init(deneb.SignedBeaconBlock(
       message: blck,
       # signature: - unused as it's trusted
       root: hash_tree_root(blck)
@@ -177,7 +177,7 @@ proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
       of ConsensusFork.EIP4844:
         let blck = parseTest(
           path/filename & ".ssz_snappy",
-          SSZ, eip4844.SignedBeaconBlock
+          SSZ, deneb.SignedBeaconBlock
         )
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
@@ -237,8 +237,8 @@ proc stepOnBlock(
     type TrustedBlock = bellatrix.TrustedSignedBeaconBlock
   elif signedBlock is capella.SignedBeaconBlock:
     type TrustedBlock = capella.TrustedSignedBeaconBlock
-  elif signedBlock is eip4844.SignedBeaconBlock:
-    type TrustedBlock = eip4844.TrustedSignedBeaconBlock
+  elif signedBlock is deneb.SignedBeaconBlock:
+    type TrustedBlock = deneb.TrustedSignedBeaconBlock
   else:
     doAssert false, "Unknown TrustedSignedBeaconBlock fork"
 
@@ -279,7 +279,7 @@ proc stepOnBlock(
     # 4. Update DAG with new head
     var quarantine = Quarantine.init()
     let newHead = fkChoice[].get_head(dag, time).get()
-    dag.updateHead(dag.getBlockRef(newHead).get(), quarantine)
+    dag.updateHead(dag.getBlockRef(newHead).get(), quarantine, [])
     if dag.needStateCachesAndForkChoicePruning():
       dag.pruneStateCachesDAG()
       let pruneRes = fkChoice[].prune()
@@ -338,7 +338,7 @@ proc doRunTest(path: string, fork: ConsensusFork) =
   let stores =
     case fork
     of ConsensusFork.EIP4844:
-      initialLoad(path, db, eip4844.BeaconState, eip4844.BeaconBlock)
+      initialLoad(path, db, deneb.BeaconState, deneb.BeaconBlock)
     of ConsensusFork.Capella:
       initialLoad(path, db, capella.BeaconState, capella.BeaconBlock)
     of ConsensusFork.Bellatrix:

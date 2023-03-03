@@ -126,7 +126,7 @@ suite "Block pool processing" & preset():
     check:
       b4Add[].parent == b2Add[]
 
-    dag.updateHead(b4Add[], quarantine)
+    dag.updateHead(b4Add[], quarantine, [])
     dag.pruneAtFinalization()
 
     check: # getBlockIdAtSlot operates on the head chain!
@@ -219,7 +219,7 @@ suite "Block pool processing" & preset():
     let
       b1Add = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
 
-    dag.updateHead(b1Add[], quarantine)
+    dag.updateHead(b1Add[], quarantine, [])
     dag.pruneAtFinalization()
 
     check:
@@ -404,7 +404,7 @@ suite "chain DAG finalization tests" & preset():
           tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
       check: added.isOk()
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
     check:
@@ -509,7 +509,7 @@ suite "chain DAG finalization tests" & preset():
 
     # Roll back head block (e.g., because it was declared INVALID)
     let parentRoot = dag.head.parent.root
-    dag.updateHead(dag.head.parent, quarantine)
+    dag.updateHead(dag.head.parent, quarantine, [])
     check: dag.head.root == parentRoot
 
     let
@@ -543,7 +543,7 @@ suite "chain DAG finalization tests" & preset():
       let blck = makeTestBlock(dag.headState, cache).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
       check: added.isOk()
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
     check:
@@ -577,7 +577,7 @@ suite "chain DAG finalization tests" & preset():
         true):
       let added = dag.addHeadBlock(verifier, blck.phase0Data, nilPhase0Callback)
       check: added.isOk()
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
     # Advance past epoch so that the epoch transition is gapped
@@ -594,7 +594,7 @@ suite "chain DAG finalization tests" & preset():
 
     let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
     check: added.isOk()
-    dag.updateHead(added[], quarantine)
+    dag.updateHead(added[], quarantine, [])
     dag.pruneAtFinalization()
 
     block:
@@ -699,7 +699,7 @@ suite "Diverging hardforks":
       b1Add = dag.addHeadBlock(verifier, b1, nilPhase0Callback)
 
     check b1Add.isOk()
-    dag.updateHead(b1Add[], quarantine[])
+    dag.updateHead(b1Add[], quarantine[], [])
 
     let validatorMonitorAltair = newClone(ValidatorMonitor.init())
 
@@ -731,7 +731,7 @@ suite "Diverging hardforks":
       b2Add = dag.addHeadBlock(verifier, b2, nilPhase0Callback)
 
     check b2Add.isOk()
-    dag.updateHead(b2Add[], quarantine[])
+    dag.updateHead(b2Add[], quarantine[], [])
 
     let validatorMonitor = newClone(ValidatorMonitor.init())
 
@@ -924,7 +924,7 @@ suite "Backfill":
     let
       next = addTestBlock(tailState[], cache).phase0Data
       nextAdd = dag.addHeadBlock(verifier, next, nilPhase0Callback).get()
-    dag.updateHead(nextAdd, quarantine[])
+    dag.updateHead(nextAdd, quarantine[], [])
 
     let
       validatorMonitor2 = newClone(ValidatorMonitor.init())
@@ -970,7 +970,7 @@ suite "Starting states":
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
 
     # check that we can update head to itself
-    dag.updateHead(dag.head, quarantine[])
+    dag.updateHead(dag.head, quarantine[], [])
 
     check:
       dag.finalizedHead.toBlockSlotId()[] == BlockSlotId(
@@ -1078,14 +1078,14 @@ suite "Latest valid hash" & preset():
       b3 = addTestBlock(state[], cache, cfg = runtimeConfig).bellatrixData
       b3Add = dag.addHeadBlock(verifier, b3, nilBellatrixCallback)
 
-    dag.updateHead(b3Add[], quarantine[])
+    dag.updateHead(b3Add[], quarantine[], [])
     check: dag.head.root == b3.root
 
     # Ensure that head can go backwards in case of head being marked invalid
-    dag.updateHead(b2Add[], quarantine[])
+    dag.updateHead(b2Add[], quarantine[], [])
     check: dag.head.root == b2.root
 
-    dag.updateHead(b1Add[], quarantine[])
+    dag.updateHead(b1Add[], quarantine[], [])
     check: dag.head.root == b1.root
 
     const fallbackEarliestInvalid =
@@ -1138,7 +1138,7 @@ suite "Pruning":
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
       check: added.isOk()
       blocks.add(added[])
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
   test "prune states":
@@ -1157,7 +1157,7 @@ suite "Pruning":
           tmpState[], dag.head.root, getStateField(tmpState[], slot), cache, {})).phase0Data
       let added = dag.addHeadBlock(verifier, blck, nilPhase0Callback)
       check: added.isOk()
-      dag.updateHead(added[], quarantine)
+      dag.updateHead(added[], quarantine, [])
       dag.pruneAtFinalization()
 
     dag.pruneHistory()

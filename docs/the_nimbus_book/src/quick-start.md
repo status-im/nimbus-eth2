@@ -43,7 +43,9 @@ wget https://github.com/status-im/nimbus-eth2/releases/download/v22.10.1/nimbus-
 tar xvf nimbus-eth2_Linux_amd64_22.10.1_97a1cdc4.tar.gz --strip-components 1 -C nimbus-eth2
 ```
 
-!!! tip
+!!! tip "Other installation methods"
+    Debian / Ubuntu users may wish to use our [APT repository](./binaries.md).
+
     Advanced users looking to take advantage of hardware-specific features and optimization may wish to [build from source](./build.md) instead!
 
 ### 4. Start the node

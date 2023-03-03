@@ -23,7 +23,7 @@ import
 
 from ../spec/datatypes/capella import SignedBeaconBlock
 from ../spec/datatypes/eip4844 import
-  SignedBeaconBlock, SignedBeaconBlockAndBlobsSidecar, BLS_MODULUS
+  SignedBeaconBlock, BLS_MODULUS
 
 from libp2p/protocols/pubsub/pubsub import ValidationResult
 
@@ -800,8 +800,6 @@ proc validateAttesterSlashing*(
   # each attestation has not yet been seen in any prior attester_slashing (i.e.
   # attester_slashed_indices = set(attestation_1.attesting_indices).intersection(attestation_2.attesting_indices),
   # verify if any(attester_slashed_indices.difference(prior_seen_attester_slashed_indices))).
-  # TODO sequtils2 should be able to make this more reasonable, from asSeq on
-  # down, and can sort and just find intersection that way
   if pool.isSeen(attester_slashing):
     return errIgnore(
       "AttesterSlashing: attester-slashed index already attester-slashed")

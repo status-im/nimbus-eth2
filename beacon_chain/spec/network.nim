@@ -23,7 +23,6 @@ const
   topicAttesterSlashingsSuffix* = "attester_slashing/ssz_snappy"
   topicAggregateAndProofsSuffix* = "beacon_aggregate_and_proof/ssz_snappy"
   topicBlsToExecutionChangeSuffix* = "bls_to_execution_change/ssz_snappy"
-  topicBeaconBlockAndBlobsSidecarTopicSuffix* = "beacon_block_and_blobs_sidecar/ssz_snappy"
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/p2p-interface.md#configuration
   RESP_TIMEOUT* = 10.seconds
@@ -64,10 +63,6 @@ func getAggregateAndProofsTopic*(forkDigest: ForkDigest): string =
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/p2p-interface.md#topics-and-messages
 func getBlsToExecutionChangeTopic*(forkDigest: ForkDigest): string =
   eth2Prefix(forkDigest) & topicBlsToExecutionChangeSuffix
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/p2p-interface.md#topics-and-messages
-func getBeaconBlockAndBlobsSidecarTopic*(forkDigest: ForkDigest): string =
-  eth2Prefix(forkDigest) & topicBeaconBlockAndBlobsSidecarTopicSuffix
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#broadcast-attestation
 func compute_subnet_for_attestation*(

@@ -157,13 +157,10 @@ programMain:
       toValidationResult(
         optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   network.addValidator(
-    getBeaconBlockAndBlobsSidecarTopic(forkDigests.eip4844),
-    proc (
-        signedBlock: eip4844.SignedBeaconBlockAndBlobsSidecar
-    ): ValidationResult =
+    getBeaconBlocksTopic(forkDigests.eip4844),
+    proc (signedBlock: eip4844.SignedBeaconBlock): ValidationResult =
       toValidationResult(
-        optimisticProcessor.processSignedBeaconBlock(
-          signedBlock.beacon_block)))
+        optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   lightClient.installMessageValidators()
   waitFor network.startListening()
   waitFor network.start()

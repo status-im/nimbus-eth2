@@ -399,7 +399,8 @@ proc storeBlock*(
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#specification
     when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
-      if payload.block_hash != payload.compute_execution_block_hash():
+      if  signedBlock.message.is_execution_block and
+          payload.block_hash != payload.compute_execution_block_hash():
         debug "Execution block hash validation failed",
           execution_payload = shortLog(payload)
         doAssert strictVerification notin dag.updateFlags
