@@ -39,10 +39,10 @@ proc produceBlock(
         await vc.produceBlockV2(slot, randao_reveal, graffiti,
                                 ApiStrategyKind.Best)
       except ValidatorApiError as exc:
-        error "Unable to retrieve block data", reason = exc.getFailureReason()
+        warn "Unable to retrieve block data", reason = exc.getFailureReason()
         return Opt.none(PreparedBeaconBlock)
       except CancelledError as exc:
-        error "Block data production has been interrupted"
+        debug "Block data production has been interrupted"
         raise exc
       except CatchableError as exc:
         error "An unexpected error occurred while getting block data",
@@ -69,11 +69,11 @@ proc produceBlindedBlock(
         await vc.produceBlindedBlock(slot, randao_reveal, graffiti,
                                      ApiStrategyKind.Best)
       except ValidatorApiError as exc:
-        error "Unable to retrieve blinded block data", error_msg = exc.msg,
-              reason = exc.getFailureReason()
+        warn "Unable to retrieve blinded block data", error_msg = exc.msg,
+             reason = exc.getFailureReason()
         return Opt.none(PreparedBlindedBeaconBlock)
       except CancelledError as exc:
-        error "Blinded block data production has been interrupted"
+        debug "Blinded block data production has been interrupted"
         raise exc
       except CatchableError as exc:
         error "An unexpected error occurred while getting blinded block data",
@@ -115,12 +115,12 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
     try:
       let res = await validator.getEpochSignature(fork, genesisRoot, slot.epoch)
       if res.isErr():
-        error "Unable to generate randao reveal using remote signer",
-              error_msg = res.error()
+        warn "Unable to generate randao reveal using remote signer",
+             reason = res.error()
         return
       res.get()
     except CancelledError as exc:
-      error "Randao reveal production has been interrupted"
+      debug "Randao reveal production has been interrupted"
       raise exc
     except CatchableError as exc:
       error "An unexpected error occurred while receiving randao data",
@@ -193,8 +193,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                                                         preparedBlock.blockRoot,
                                                         preparedBlock.data)
             if res.isErr():
-              error "Unable to sign blinded block proposal using remote signer",
-                    error_msg = res.error()
+              warn "Unable to sign blinded block proposal using remote signer",
+                   reason = res.error()
               return
             res.get()
           except CancelledError as exc:
@@ -216,8 +216,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
             debug "Sending blinded block"
             await vc.publishBlindedBlock(signedBlock, ApiStrategyKind.First)
           except ValidatorApiError as exc:
-            error "Unable to publish blinded block",
-                  reason = exc.getFailureReason()
+            warn "Unable to publish blinded block",
+                 reason = exc.getFailureReason()
             return
           except CancelledError as exc:
             debug "Blinded block publication has been interrupted"
@@ -259,8 +259,8 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
                                                         preparedBlock.blockRoot,
                                                         preparedBlock.data)
             if res.isErr():
-              error "Unable to sign block proposal using remote signer",
-                    error_msg = res.error()
+              warn "Unable to sign block proposal using remote signer",
+                   reason = res.error()
               return
             res.get()
           except CancelledError as exc:
@@ -278,7 +278,7 @@ proc publishBlock(vc: ValidatorClientRef, currentSlot, slot: Slot,
             debug "Sending block"
             await vc.publishBlock(signedBlock, ApiStrategyKind.First)
           except ValidatorApiError as exc:
-            error "Unable to publish block", reason = exc.getFailureReason()
+            warn "Unable to publish block", reason = exc.getFailureReason()
             return
           except CancelledError as exc:
             debug "Block publication has been interrupted"
@@ -394,8 +394,8 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
                 if checkDuty(duty, epoch, currentSlot):
                   let task = vc.spawnProposalTask(duty)
                   if duty.slot in hashset:
-                    error "Multiple block proposers for this slot, " &
-                          "producing blocks for all proposers", slot = duty.slot
+                    warn "Multiple block proposers for this slot, " &
+                         "producing blocks for all proposers", slot = duty.slot
                   else:
                     hashset.incl(duty.slot)
                   res.add(task)
@@ -416,8 +416,8 @@ proc addOrReplaceProposers*(vc: ValidatorClientRef, epoch: Epoch,
             if checkDuty(duty, epoch, currentSlot):
               let task = vc.spawnProposalTask(duty)
               if duty.slot in hashset:
-                error "Multiple block proposers for this slot, " &
-                      "producing blocks for all proposers", slot = duty.slot
+                warn "Multiple block proposers for this slot, " &
+                     "producing blocks for all proposers", slot = duty.slot
               else:
                 hashset.incl(duty.slot)
               res.add(task)

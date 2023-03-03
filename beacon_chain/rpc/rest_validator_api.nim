@@ -641,7 +641,8 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                            InvalidSubscriptionRequestValueError,
                                            $dres.error())
         dres.get()
-    if node.isSynced(node.dag.head) != SyncStatus.synced:
+
+    if node.isSynced(node.dag.head) == SyncStatus.unsynced:
       return RestApiResponse.jsonError(Http503, BeaconNodeInSyncError)
 
     let

@@ -509,6 +509,11 @@ type
   DataRootEnclosedObject*[T] = object
     dependent_root*: Eth2Digest
     data*: T
+    execution_optimistic*: Option[bool]
+
+  DataOptimisticObject*[T] = object
+    data*: T
+    execution_optimistic*: Option[bool]
 
   ForkedSignedBlockHeader* = object
     message*: uint32 # message offset
@@ -613,10 +618,6 @@ type
   RestRoot* = object
     root*: Eth2Digest
 
-  DataRestRoot* = object
-    execution_optimistic*: Option[bool]
-    data*: RestRoot
-
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[Attestation]
@@ -624,7 +625,7 @@ type
   GetBlockAttestationsResponse* = DataEnclosedObject[seq[Attestation]]
   GetBlockHeaderResponse* = DataEnclosedObject[RestBlockHeaderInfo]
   GetBlockHeadersResponse* = DataEnclosedObject[seq[RestBlockHeaderInfo]]
-  GetBlockRootResponse* = DataRestRoot
+  GetBlockRootResponse* = DataOptimisticObject[RestRoot]
   GetDebugChainHeadsResponse* = DataEnclosedObject[seq[RestChainHead]]
   GetDepositContractResponse* = DataEnclosedObject[RestDepositContract]
   GetDepositSnapshotResponse* = DataEnclosedObject[RestDepositSnapshot]
@@ -646,11 +647,11 @@ type
   GetSpecVCResponse* = DataEnclosedObject[RestSpecVC]
   GetStateFinalityCheckpointsResponse* = DataEnclosedObject[RestBeaconStatesFinalityCheckpoints]
   GetStateForkResponse* = DataEnclosedObject[Fork]
-  GetStateRootResponse* = DataRestRoot
+  GetStateRootResponse* = DataOptimisticObject[RestRoot]
   GetStateValidatorBalancesResponse* = DataEnclosedObject[seq[RestValidatorBalance]]
   GetStateValidatorResponse* = DataEnclosedObject[RestValidator]
-  GetStateValidatorsResponse* = DataEnclosedObject[seq[RestValidator]]
-  GetSyncCommitteeDutiesResponse* = DataEnclosedObject[seq[RestSyncCommitteeDuty]]
+  GetStateValidatorsResponse* = DataOptimisticObject[seq[RestValidator]]
+  GetSyncCommitteeDutiesResponse* = DataOptimisticObject[seq[RestSyncCommitteeDuty]]
   GetSyncingStatusResponse* = DataEnclosedObject[RestSyncInfo]
   GetVersionResponse* = DataEnclosedObject[RestNodeVersion]
   GetEpochSyncCommitteesResponse* = DataEnclosedObject[RestEpochSyncCommittee]

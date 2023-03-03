@@ -133,7 +133,9 @@ type
     Compatible,   ## BN configuration is compatible with VC configuration.
     NotSynced,    ## BN is not in sync.
     OptSynced,    ## BN is optimistically synced (EL is not in sync).
-    Synced        ## BN and EL are synced.
+    Synced,       ## BN and EL are synced.
+    Unexpected,   ## BN sends unexpected/incorrect response.
+    InternalError ## BN reports internal error.
 
   BeaconNodesCounters* = object
     data*: array[int(high(RestBeaconNodeStatus)) + 1, int]
@@ -251,6 +253,8 @@ proc `$`*(status: RestBeaconNodeStatus): string =
   of RestBeaconNodeStatus.NotSynced: "bn-unsynced"
   of RestBeaconNodeStatus.OptSynced: "el-unsynced"
   of RestBeaconNodeStatus.Synced: "synced"
+  of RestBeaconNodeStatus.Unexpected: "unexpected data"
+  of RestBeaconNodeStatus.InternalError: "internal error"
 
 proc `$`*(failure: ApiFailure): string =
   case failure
@@ -343,6 +347,87 @@ chronicles.expandIt(SyncCommitteeDuty):
   pubkey = shortLog(it.pubkey)
   validator_index = it.validator_index
   validator_sync_committee_index = it.validator_sync_committee_index
+
+proc checkConfig*(info: RestSpecVC): bool =
+  # /!\ Keep in sync with `spec/eth2_apis/rest_types.nim` > `RestSpecVC`.
+  info.MAX_VALIDATORS_PER_COMMITTEE == MAX_VALIDATORS_PER_COMMITTEE and
+  info.SLOTS_PER_EPOCH == SLOTS_PER_EPOCH and
+  info.SECONDS_PER_SLOT == SECONDS_PER_SLOT and
+  info.EPOCHS_PER_ETH1_VOTING_PERIOD == EPOCHS_PER_ETH1_VOTING_PERIOD and
+  info.SLOTS_PER_HISTORICAL_ROOT == SLOTS_PER_HISTORICAL_ROOT and
+  info.EPOCHS_PER_HISTORICAL_VECTOR == EPOCHS_PER_HISTORICAL_VECTOR and
+  info.EPOCHS_PER_SLASHINGS_VECTOR == EPOCHS_PER_SLASHINGS_VECTOR and
+  info.HISTORICAL_ROOTS_LIMIT == HISTORICAL_ROOTS_LIMIT and
+  info.VALIDATOR_REGISTRY_LIMIT == VALIDATOR_REGISTRY_LIMIT and
+  info.MAX_PROPOSER_SLASHINGS == MAX_PROPOSER_SLASHINGS and
+  info.MAX_ATTESTER_SLASHINGS == MAX_ATTESTER_SLASHINGS and
+  info.MAX_ATTESTATIONS == MAX_ATTESTATIONS and
+  info.MAX_DEPOSITS == MAX_DEPOSITS and
+  info.MAX_VOLUNTARY_EXITS == MAX_VOLUNTARY_EXITS and
+  info.DOMAIN_BEACON_PROPOSER == DOMAIN_BEACON_PROPOSER and
+  info.DOMAIN_BEACON_ATTESTER == DOMAIN_BEACON_ATTESTER and
+  info.DOMAIN_RANDAO == DOMAIN_RANDAO and
+  info.DOMAIN_DEPOSIT == DOMAIN_DEPOSIT and
+  info.DOMAIN_VOLUNTARY_EXIT == DOMAIN_VOLUNTARY_EXIT and
+  info.DOMAIN_SELECTION_PROOF == DOMAIN_SELECTION_PROOF and
+  info.DOMAIN_AGGREGATE_AND_PROOF == DOMAIN_AGGREGATE_AND_PROOF
+
+proc updateStatus*(node: BeaconNodeServerRef, status: RestBeaconNodeStatus) =
+  logScope:
+    endpoint = node
+  case status
+  of RestBeaconNodeStatus.Offline:
+    if node.status != status:
+      warn "Beacon node down"
+      node.status = status
+  of RestBeaconNodeStatus.Online:
+    if node.status != status:
+      let version = if node.ident.isSome(): node.ident.get() else: "<missing>"
+      notice "Beacon node is online", agent_version = version
+      node.status = status
+  of RestBeaconNodeStatus.Incompatible:
+    if node.status != status:
+      warn "Beacon node has incompatible configuration"
+      node.status = status
+  of RestBeaconNodeStatus.Compatible:
+    if node.status != status:
+      notice "Beacon node is compatible"
+      node.status = status
+  of RestBeaconNodeStatus.NotSynced:
+    if node.status notin {RestBeaconNodeStatus.NotSynced,
+                          RestBeaconNodeStatus.OptSynced}:
+      doAssert(node.syncInfo.isSome())
+      let si = node.syncInfo.get()
+      warn "Beacon node not in sync",
+           last_head_slot = si.head_slot,
+           last_sync_distance = si.sync_distance,
+           last_optimistic = si.is_optimistic.get(false)
+      node.status = status
+  of RestBeaconNodeStatus.OptSynced:
+    if node.status != status:
+      doAssert(node.syncInfo.isSome())
+      let si = node.syncInfo.get()
+      notice "Execution client not in sync (beacon node optimistically synced)",
+             last_head_slot = si.head_slot,
+             last_sync_distance = si.sync_distance,
+             last_optimistic = si.is_optimistic.get(false)
+      node.status = status
+  of RestBeaconNodeStatus.Synced:
+    if node.status != status:
+      doAssert(node.syncInfo.isSome())
+      let si = node.syncInfo.get()
+      notice "Beacon node is in sync",
+             head_slot = si.head_slot, sync_distance = si.sync_distance,
+             is_optimistic = si.is_optimistic.get(false)
+      node.status = status
+  of RestBeaconNodeStatus.Unexpected:
+    if node.status != status:
+      error "Beacon node provides unexpected response"
+      node.status = status
+  of RestBeaconNodeStatus.InternalError:
+    if node.status != status:
+      warn "Beacon node reports internal error"
+      node.status = status
 
 proc stop*(csr: ClientServiceRef) {.async.} =
   debug "Stopping service", service = csr.name
