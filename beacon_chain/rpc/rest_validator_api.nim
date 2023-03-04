@@ -377,13 +377,14 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         let res =
           case node.dag.cfg.consensusForkAtEpoch(qslot.epoch)
           of ConsensusFork.Deneb:
-            # TODO denebImplementationMissing
+            # TODO
             # We should return a block with sidecars here
             # https://github.com/ethereum/beacon-APIs/pull/302/files
             # The code paths leading to makeBeaconBlockForHeadAndSlot are already
             # partially refactored to make it possible to return the blobs from
             # the call, but the signature of the call needs to be changed furhter
             # to access the blobs here.
+            discard $denebImplementationMissing
             await makeBeaconBlockForHeadAndSlot(
               deneb.ExecutionPayloadForSigning,
               node, qrandao, proposer, qgraffiti, qhead, qslot)
@@ -493,7 +494,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
     case node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
     of ConsensusFork.Deneb:
-      # TODO denebImplementationMissing
+      # TODO
       # We should return a block with sidecars here
       # https://github.com/ethereum/beacon-APIs/pull/302/files
       debugRaiseAssert $denebImplementationMissing & ": GET /eth/v1/validator/blinded_blocks/{slot}"
