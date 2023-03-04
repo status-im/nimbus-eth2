@@ -222,7 +222,7 @@ elif const_preset == "mainnet":
   const
     mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
     praterMetadata* = eth2Network("shared/prater", goerli)
-    sepoliaMetadata* = sepoliaTestnet("sepolia", sepolia)
+    sepoliaMetadata* = sepoliaTestnet("bepolia", sepolia)
   static:
     for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
       checkForkConsistency(network.cfg)
