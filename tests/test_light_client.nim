@@ -78,7 +78,7 @@ suite "Light client" & preset():
             dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
           of ConsensusFork.Deneb:
             const nilCallback = OnEIP4844BlockAdded(nil)
-            dag.addHeadBlock(verifier, blck.eip4844Data, nilCallback)
+            dag.addHeadBlock(verifier, blck.denebData, nilCallback)
 
         check: added.isOk()
         dag.updateHead(added[], quarantine, [])

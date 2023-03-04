@@ -501,7 +501,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         elif T is capella.SignedBeaconBlock:
           addr state.capellaData
         elif T is eip4844.SignedBeaconBlock:
-          addr state.eip4844Data
+          addr state.denebData
         else:
           static: doAssert false
       message = makeBeaconBlock(

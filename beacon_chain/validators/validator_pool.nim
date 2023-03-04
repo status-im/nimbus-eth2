@@ -464,7 +464,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
             of ConsensusFork.Deneb:
               Web3SignerForkedBeaconBlock(
                 kind: ConsensusFork.Deneb,
-                eip4844Data: blck.eip4844Data.toBeaconBlockHeader)
+                denebData: blck.denebData.toBeaconBlockHeader)
 
           request = Web3SignerRequest.init(
             fork, genesis_validators_root, web3SignerBlock)
@@ -506,7 +506,7 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
             of ConsensusFork.Deneb:
               Web3SignerForkedBeaconBlock(
                 kind: ConsensusFork.Deneb,
-                eip4844Data: blck.eip4844Data.toBeaconBlockHeader)
+                denebData: blck.denebData.toBeaconBlockHeader)
 
           request = Web3SignerRequest.init(
             fork, genesis_validators_root, web3SignerBlock)
