@@ -1295,7 +1295,7 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
       debug "Failed to obtain eth_chainId",
              error = exc.msg
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#engine_exchangetransitionconfigurationv1
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/specification.md#engine_exchangetransitionconfigurationv1
   let
     ourConf = TransitionConfigurationV1(
       terminalTotalDifficulty: m.eth1Chain.cfg.TERMINAL_TOTAL_DIFFICULTY,
@@ -1909,7 +1909,7 @@ proc startExchangeTransitionConfigurationLoop(m: ELManager) {.async.} =
       quit 1
 
   while true:
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.1/src/engine/specification.md#engine_exchangetransitionconfigurationv1
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/specification.md#engine_exchangetransitionconfigurationv1
     await sleepAsync(60.seconds)
     debug "Exchange transition configuration tick"
     traceAsyncErrors m.exchangeTransitionConfiguration()
