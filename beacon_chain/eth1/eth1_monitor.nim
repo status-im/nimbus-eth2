@@ -515,7 +515,7 @@ template toEngineWithdrawal(w: capella.Withdrawal): WithdrawalV1 =
     address: Address(w.address.data),
     amount: Quantity(w.amount))
 
-func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload | deneb.ExecutionPayload):
+func asEngineExecutionPayload*(executionPayload: capella.ExecutionPayload):
     ExecutionPayloadV2 =
   template getTypedTransaction(tt: bellatrix.Transaction): TypedTransaction =
     TypedTransaction(tt.distinctBase)
