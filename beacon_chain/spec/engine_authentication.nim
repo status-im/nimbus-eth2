@@ -6,7 +6,6 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[base64, json, options, os, strutils],
   chronicles, confutils/defs,
   bearssl/rand,
   nimcrypto/[hmac, utils],
