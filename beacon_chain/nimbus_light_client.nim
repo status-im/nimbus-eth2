@@ -112,9 +112,9 @@ programMain:
             if elManager != nil and not payload.block_hash.isZero:
               discard await elManager.newExecutionPayload(payload)
               discard await elManager.forkchoiceUpdated(
-                headBlock = payload.block_hash,
-                safeBlock = payload.block_hash,  # stub value
-                finalizedBlock = ZERO_HASH)
+                headBlockHash = payload.block_hash,
+                safeBlockHash = payload.block_hash,  # stub value
+                finalizedBlockHash = ZERO_HASH)
         else: discard
     optimisticProcessor = initOptimisticProcessor(
       getBeaconTime, optimisticHandler)

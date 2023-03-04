@@ -335,9 +335,9 @@ proc runProposalForkchoiceUpdated*(
       else:
         Opt.none(seq[Withdrawal])
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
-    headBlockRoot = self.dag.loadExecutionBlockRoot(beaconHead.blck)
+    headBlockHash = self.dag.loadExecutionBlockRoot(beaconHead.blck)
 
-  if headBlockRoot.isZero:
+  if headBlockHash.isZero:
     return
 
   let
@@ -359,10 +359,10 @@ proc runProposalForkchoiceUpdated*(
             suggestedFeeRecipient: feeRecipient))
   try:
     let
-      safeBlockRoot = beaconHead.safeExecutionPayloadHash
+      safeBlockHash = beaconHead.safeExecutionPayloadHash
       (status, _) = await self.elManager.forkchoiceUpdated(
-        headBlockRoot,
-        safeBlockRoot,
+        headBlockHash,
+        safeBlockHash,
         beaconHead.finalizedExecutionPayloadHash,
         payloadAttributes = payloadAttributes)
     debug "Fork-choice updated for proposal", status

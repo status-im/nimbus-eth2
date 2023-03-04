@@ -65,9 +65,9 @@ proc initLightClient*(
               # engine_forkchoiceUpdatedV1
               let beaconHead = node.attestationPool[].getBeaconHead(nil)
               discard await node.elManager.forkchoiceUpdated(
-                headBlock = payload.block_hash,
-                safeBlock = beaconHead.safeExecutionPayloadHash,
-                finalizedBlock = beaconHead.finalizedExecutionPayloadHash)
+                headBlockHash = payload.block_hash,
+                safeBlockHash = beaconHead.safeExecutionPayloadHash,
+                finalizedBlockHash = beaconHead.finalizedExecutionPayloadHash)
           else: discard
 
     optimisticProcessor = initOptimisticProcessor(

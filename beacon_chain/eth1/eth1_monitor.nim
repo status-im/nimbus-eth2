@@ -124,9 +124,9 @@ type
       v2*: PayloadAttributesV2
 
   NextExpectedPayloadParams* = object
-    headBlockRoot*: Eth2Digest
-    safeBlockRoot*: Eth2Digest
-    finalizedBlockRoot*: Eth2Digest
+    headBlockHash*: Eth2Digest
+    safeBlockHash*: Eth2Digest
+    finalizedBlockHash*: Eth2Digest
     payloadAttributes: ForkedPayloadAttributes
 
   ELManager* = ref object
@@ -695,9 +695,9 @@ func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
                feeRecipient: Eth1Address,
                withdrawals: seq[WithdrawalV1]): bool =
   if not(expectedParams.isSome and
-         expectedParams.get.headBlockRoot == latestHead and
-         expectedParams.get.safeBlockRoot == latestSafe and
-         expectedParams.get.finalizedBlockRoot == latestFinalized):
+         expectedParams.get.headBlockHash == latestHead and
+         expectedParams.get.safeBlockHash == latestSafe and
+         expectedParams.get.finalizedBlockHash == latestFinalized):
     return false
 
   if expectedParams.get.payloadAttributes == nil:
@@ -1186,12 +1186,12 @@ proc forkchoiceUpdatedForSingleEL(
   return response.payloadStatus
 
 proc forkchoiceUpdated*(m: ELManager,
-                        headBlock, safeBlock, finalizedBlock: Eth2Digest,
+                        headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
                         payloadAttributes: ForkedPayloadAttributes = nil):
                         Future[(PayloadExecutionStatus, Option[BlockHash])] {.async.} =
-  doAssert not headBlock.isZero
+  doAssert not headBlockHash.isZero
 
-  # Allow finalizedBlockRoot to be 0 to avoid sync deadlocks.
+  # Allow finalizedBlockHash to be 0 to avoid sync deadlocks.
   #
   # https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3675.md#pos-events
   # has "Before the first finalized block occurs in the system the finalized
@@ -1206,16 +1206,16 @@ proc forkchoiceUpdated*(m: ELManager,
     return (PayloadExecutionStatus.syncing, none BlockHash)
 
   m.nextExpectedPayloadParams = some NextExpectedPayloadParams(
-    headBlockRoot: headBlock,
-    safeBlockRoot: safeBlock,
-    finalizedBlockRoot: finalizedBlock,
+    headBlockHash: headBlockHash,
+    safeBlockHash: safeBlockHash,
+    finalizedBlockHash: finalizedBlockHash,
     payloadAttributes: payloadAttributes)
 
   let
     state = newClone ForkchoiceStateV1(
-      headBlockHash: headBlock.asBlockHash,
-      safeBlockHash: safeBlock.asBlockHash,
-      finalizedBlockHash: finalizedBlock.asBlockHash)
+      headBlockHash: headBlockHash.asBlockHash,
+      safeBlockHash: safeBlockHash.asBlockHash,
+      finalizedBlockHash: finalizedBlockHash.asBlockHash)
     earlyDeadline = sleepAsync(chronos.seconds 1)
     deadline = sleepAsync(FORKCHOICEUPDATED_TIMEOUT)
     requests = m.elConnections.mapIt:
@@ -1257,10 +1257,10 @@ proc forkchoiceUpdated*(m: ELManager,
     (PayloadExecutionStatus.syncing, none BlockHash)
 
 proc forkchoiceUpdatedNoResult*(m: ELManager,
-                                headBlock, safeBlock, finalizedBlock: Eth2Digest,
+                                headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
                                 payloadAttributes: ForkedPayloadAttributes = nil) {.async.} =
   discard await m.forkchoiceUpdated(
-    headBlock, safeBlock, finalizedBlock, payloadAttributes)
+    headBlockHash, safeBlockHash, finalizedBlockHash, payloadAttributes)
 
 # TODO can't be defined within exchangeConfigWithSingleEL
 proc `==`(x, y: Quantity): bool {.borrow, noSideEffect.}
