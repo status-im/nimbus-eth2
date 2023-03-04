@@ -212,7 +212,7 @@ proc getForkedBlock*(db: BeaconChainDB, root: Eth2Digest):
     Opt[ForkedTrustedSignedBeaconBlock] =
   # When we only have a digest, we don't know which fork it's from so we try
   # them one by one - this should be used sparingly
-  static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
+  static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
   if (let blck = db.getBlock(root, deneb.TrustedSignedBeaconBlock);
       blck.isSome()):
     ok(ForkedTrustedSignedBeaconBlock.init(blck.get()))
@@ -908,7 +908,7 @@ proc applyBlock(
     state_transition(
       dag.cfg, state, data, cache, info,
       dag.updateFlags + {slotProcessed}, noRollback)
-  of ConsensusFork.EIP4844:
+  of ConsensusFork.Deneb:
     let data = getBlock(dag, bid, deneb.TrustedSignedBeaconBlock).valueOr:
       return err("Block load failed")
     state_transition(
@@ -1070,7 +1070,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       of ConsensusFork.Altair: altairFork(cfg)
       of ConsensusFork.Bellatrix: bellatrixFork(cfg)
       of ConsensusFork.Capella: capellaFork(cfg)
-      of ConsensusFork.EIP4844: denebFork(cfg)
+      of ConsensusFork.Deneb:   denebFork(cfg)
     stateFork = getStateField(dag.headState, fork)
 
   # Here, we check only the `current_version` field because the spec
@@ -2086,7 +2086,7 @@ proc updateHead*(
     of ConsensusFork.Capella:
       if dag.vanityLogs.onUpgradeToCapella != nil:
         dag.vanityLogs.onUpgradeToCapella()
-    of ConsensusFork.EIP4844:
+    of ConsensusFork.Deneb:
       discard
 
   if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and

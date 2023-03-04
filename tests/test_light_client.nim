@@ -22,7 +22,7 @@ suite "Light client" & preset():
     headPeriod = 3.SyncCommitteePeriod
   let
     cfg = block:  # Fork schedule so that each `LightClientDataFork` is covered
-      static: doAssert ConsensusFork.high == ConsensusFork.EIP4844
+      static: doAssert ConsensusFork.high == ConsensusFork.Deneb
       var res = defaultRuntimeConfig
       res.ALTAIR_FORK_EPOCH = 1.Epoch
       res.BELLATRIX_FORK_EPOCH = 2.Epoch
@@ -76,7 +76,7 @@ suite "Light client" & preset():
           of ConsensusFork.Capella:
             const nilCallback = OnCapellaBlockAdded(nil)
             dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
-          of ConsensusFork.EIP4844:
+          of ConsensusFork.Deneb:
             const nilCallback = OnEIP4844BlockAdded(nil)
             dag.addHeadBlock(verifier, blck.eip4844Data, nilCallback)
 

@@ -27,10 +27,6 @@ export
 # Path parsing
 
 func forkForPathComponent*(forkPath: string): Opt[ConsensusFork] =
-  # TODO remove after EIP4844 gets renamed to Deneb in ConsensusFork
-  if forkPath == "deneb":
-    return ok ConsensusFork.EIP4844
-
   for fork in ConsensusFork:
     if ($fork).toLowerAscii() == forkPath:
       return ok fork
@@ -49,7 +45,7 @@ func readValue*(r: var JsonReader, a: var seq[byte]) =
 func genesisTestRuntimeConfig*(stateFork: ConsensusFork): RuntimeConfig =
   var res = defaultRuntimeConfig
   case stateFork
-  of ConsensusFork.EIP4844:
+  of ConsensusFork.Deneb:
     res.DENEB_FORK_EPOCH = GENESIS_EPOCH
     res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH
     res.BELLATRIX_FORK_EPOCH = GENESIS_EPOCH
@@ -132,9 +128,9 @@ proc loadForkedState*(
     path: string, fork: ConsensusFork): ref ForkedHashedBeaconState =
   var forkedState: ref ForkedHashedBeaconState
   case fork
-  of ConsensusFork.EIP4844:
+  of ConsensusFork.Deneb:
     let state = newClone(parseTest(path, SSZ, deneb.BeaconState))
-    forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.EIP4844)
+    forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Deneb)
     forkedState.eip4844Data.data = state[]
     forkedState.eip4844Data.root = hash_tree_root(state[])
   of ConsensusFork.Capella:

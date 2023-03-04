@@ -118,7 +118,7 @@ let
   testStatesAltair    = getTestStates(ConsensusFork.Altair)
   testStatesBellatrix = getTestStates(ConsensusFork.Bellatrix)
   testStatesCapella   = getTestStates(ConsensusFork.Capella)
-  testStatesEIP4844   = getTestStates(ConsensusFork.EIP4844)
+  testStatesEIP4844   = getTestStates(ConsensusFork.Deneb)
 doAssert len(testStatesPhase0) > 8
 doAssert len(testStatesAltair) > 8
 doAssert len(testStatesBellatrix) > 8
@@ -346,7 +346,7 @@ suite "Beacon chain DB" & preset():
       uncompressedLenFramed(tmp2).isSome
 
     check:
-      db.delBlock(ConsensusFork.EIP4844, root)
+      db.delBlock(ConsensusFork.Deneb, root)
       not db.containsBlock(root)
       not db.containsBlock(root, phase0.TrustedSignedBeaconBlock)
       not db.containsBlock(root, altair.TrustedSignedBeaconBlock)
@@ -451,7 +451,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(db.getEIP4844StateRef(root)[]) == root
 
-      db.delState(ConsensusFork.EIP4844, root)
+      db.delState(ConsensusFork.Deneb, root)
       check:
         not db.containsState(root)
         db.getEIP4844StateRef(root).isNil
@@ -551,7 +551,7 @@ suite "Beacon chain DB" & preset():
         db.containsState(root)
         hash_tree_root(stateBuffer[]) == root
 
-      db.delState(ConsensusFork.EIP4844, root)
+      db.delState(ConsensusFork.Deneb, root)
       check:
         not db.containsState(root)
         not db.getState(root, stateBuffer[], noRollback)
@@ -665,12 +665,12 @@ suite "Beacon chain DB" & preset():
       validatorMonitor = newClone(ValidatorMonitor.init())
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
-        kind: ConsensusFork.EIP4844,
+        kind: ConsensusFork.Deneb,
         eip4844Data: eip4844.HashedBeaconState(data: eip4844.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
-    db.putCorruptState(ConsensusFork.EIP4844, root)
+    db.putCorruptState(ConsensusFork.Deneb, root)
 
     let restoreAddr = addr dag.headState
 

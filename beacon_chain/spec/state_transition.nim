@@ -211,7 +211,7 @@ func maybeUpgradeStateToEIP4844(
       state.kind == ConsensusFork.Capella:
     let newState = upgrade_to_eip4844(cfg, state.capellaData.data)
     state = (ref ForkedHashedBeaconState)(
-      kind: ConsensusFork.EIP4844,
+      kind: ConsensusFork.Deneb,
       eip4844Data: deneb.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
@@ -594,12 +594,12 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
     of ConsensusFork.Phase0:    makeBeaconBlock(phase0)
     of ConsensusFork.Altair:    makeBeaconBlock(altair)
     of ConsensusFork.Bellatrix: makeBeaconBlock(bellatrix)
-    of ConsensusFork.Capella, ConsensusFork.EIP4844:
+    of ConsensusFork.Capella, ConsensusFork.Deneb:
       raiseAssert "Attempt to use Bellatrix payload with post-Bellatrix state"
   elif T is capella.ExecutionPayload:
     case state.kind
     of  ConsensusFork.Phase0, ConsensusFork.Altair,
-        ConsensusFork.Bellatrix, ConsensusFork.EIP4844:
+        ConsensusFork.Bellatrix, ConsensusFork.Deneb:
       raiseAssert "Attempt to use Capella payload with non-Capella state"
     of ConsensusFork.Capella:   makeBeaconBlock(capella)
   elif T is deneb.ExecutionPayload:
@@ -607,8 +607,7 @@ proc makeBeaconBlock*[T: bellatrix.ExecutionPayload | capella.ExecutionPayload |
     of  ConsensusFork.Phase0, ConsensusFork.Altair,
         ConsensusFork.Bellatrix, ConsensusFork.Capella:
       raiseAssert "Attempt to use EIP4844 payload with non-EIP4844 state"
-    of ConsensusFork.EIP4844: makeBeaconBlock(eip4844)
-
+    of ConsensusFork.Deneb: makeBeaconBlock(eip4844)
 
 # workaround for https://github.com/nim-lang/Nim/issues/20900 rather than have
 # these be default arguments

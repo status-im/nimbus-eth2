@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -174,7 +174,7 @@ proc loadOps(path: string, fork: ConsensusFork): seq[Operation] =
         )
         result.add Operation(kind: opOnBlock,
           blck: ForkedSignedBeaconBlock.init(blck))
-      of ConsensusFork.EIP4844:
+      of ConsensusFork.Deneb:
         let blck = parseTest(
           path/filename & ".ssz_snappy",
           SSZ, deneb.SignedBeaconBlock
@@ -228,7 +228,6 @@ proc stepOnBlock(
   )
 
   # 2. Add block to DAG
-  static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
   when signedBlock is phase0.SignedBeaconBlock:
     type TrustedBlock = phase0.TrustedSignedBeaconBlock
   elif signedBlock is altair.SignedBeaconBlock:
@@ -337,7 +336,7 @@ proc doRunTest(path: string, fork: ConsensusFork) =
 
   let stores =
     case fork
-    of ConsensusFork.EIP4844:
+    of ConsensusFork.Deneb:
       initialLoad(path, db, deneb.BeaconState, deneb.BeaconBlock)
     of ConsensusFork.Capella:
       initialLoad(path, db, capella.BeaconState, capella.BeaconBlock)

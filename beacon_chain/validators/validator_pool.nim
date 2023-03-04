@@ -461,9 +461,9 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
               Web3SignerForkedBeaconBlock(
                 kind: ConsensusFork.Capella,
                 capellaData: blck.capellaData.toBeaconBlockHeader)
-            of ConsensusFork.EIP4844:
+            of ConsensusFork.Deneb:
               Web3SignerForkedBeaconBlock(
-                kind: ConsensusFork.EIP4844,
+                kind: ConsensusFork.Deneb,
                 eip4844Data: blck.eip4844Data.toBeaconBlockHeader)
 
           request = Web3SignerRequest.init(
@@ -503,9 +503,9 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
               Web3SignerForkedBeaconBlock(
                 kind: ConsensusFork.Capella,
                 capellaData: blck.capellaData.toBeaconBlockHeader)
-            of ConsensusFork.EIP4844:
+            of ConsensusFork.Deneb:
               Web3SignerForkedBeaconBlock(
-                kind: ConsensusFork.EIP4844,
+                kind: ConsensusFork.Deneb,
                 eip4844Data: blck.eip4844Data.toBeaconBlockHeader)
 
           request = Web3SignerRequest.init(

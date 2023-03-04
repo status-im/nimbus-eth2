@@ -474,7 +474,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-    static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
+    static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
     let currentEpoch = node.currentSlot().epoch()
     if currentEpoch >= node.dag.cfg.DENEB_FORK_EPOCH:
       debugRaiseAssert $denebImplementationMissing & ": GET /eth/v1/validator/blinded_blocks/{slot}"

@@ -700,7 +700,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.consensusForkAtEpoch(slot.epoch)
-        of ConsensusFork.EIP4844:   proposeEIP4844Block(slot)
+        of ConsensusFork.Deneb:     proposeEIP4844Block(slot)
         of ConsensusFork.Capella:   proposeCapellaBlock(slot)
         of ConsensusFork.Bellatrix: proposeBellatrixBlock(slot)
         of ConsensusFork.Altair:    proposeAltairBlock(slot)
