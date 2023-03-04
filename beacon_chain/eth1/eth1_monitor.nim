@@ -413,8 +413,8 @@ func asConsensusType*(payloadWithValue: BellatrixExecutionPayloadWithValue):
     executionPayload: payloadWithValue.executionPayload.asConsensusType,
     blockValue: payloadWithValue.blockValue)
 
-template deref[T](o: Option[T]): T = o.get
-template deref[V](v: V): V = v
+template maybeDeref[T](o: Option[T]): T = o.get
+template maybeDeref[V](v: V): V = v
 
 func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPayloadV2):
     capella.ExecutionPayload =
@@ -439,7 +439,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPaylo
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
-      mapIt(deref rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
+      mapIt(maybeDeref rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
 
 func asConsensusType*(payloadWithValue: engine_api.GetPayloadV2Response):
     capella.ExecutionPayloadForSigning =
@@ -907,7 +907,7 @@ proc getPayload*(m: ELManager,
                   url = m.elConnections[idx].engineUrl.url
             continue
 
-        if engineApiWithdrawals != req.read.executionPayload.withdrawals.deref:
+        if engineApiWithdrawals != req.read.executionPayload.withdrawals.maybeDeref:
           warn "Execution client did not return correct withdrawals",
             withdrawals_from_cl = engineApiWithdrawals,
             withdrawals_from_el = req.read.executionPayload.withdrawals
