@@ -77,7 +77,7 @@ type
 
 const
   eth2NetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-networks"
-  mergeTestnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/merge-testnets"
+  sepoliaDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/sepolia"
 
 proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError, Defect].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
@@ -205,9 +205,8 @@ template eth2Network(path: string, eth1Network: Eth1Network): Eth2NetworkMetadat
   loadCompileTimeNetworkMetadata(eth2NetworksDir & "/" & path,
                                  some eth1Network)
 
-template mergeTestnet(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
-  loadCompileTimeNetworkMetadata(mergeTestnetsDir & "/" & path,
-                                 some eth1Network)
+template sepoliaTestnet(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
+  loadCompileTimeNetworkMetadata(sepoliaDir & "/" & path, some eth1Network)
 
 when const_preset == "gnosis":
   const
@@ -223,14 +222,16 @@ elif const_preset == "mainnet":
   const
     mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
     praterMetadata* = eth2Network("shared/prater", goerli)
-    sepoliaMetadata* = mergeTestnet("sepolia", sepolia)
+    sepoliaMetadata* = sepoliaTestnet("sepolia", sepolia)
   static:
     for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
       checkForkConsistency(network.cfg)
 
     for network in [mainnetMetadata, praterMetadata]:
-      doAssert network.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
       doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
+
+    for network in [mainnetMetadata]:
+      doAssert network.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 proc getMetadataForNetwork*(
     networkName: string): Eth2NetworkMetadata {.raises: [Defect, IOError].} =
