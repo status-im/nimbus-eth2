@@ -724,7 +724,7 @@ proc getBlindedBeaconBlock[
                             capella.ExecutionPayloadHeader):
     Future[Result[T, string]] {.async.} =
   withBlck(forkedBlock):
-    when stateFork >= ConsensusFork.EIP4844:
+    when stateFork >= ConsensusFork.Deneb:
       debugRaiseAssert $denebImplementationMissing & ": getBlindedBeaconBlock"
       return err("getBlindedBeaconBlock: Deneb blinded block creation not implemented")
     elif stateFork >= ConsensusFork.Bellatrix:
@@ -909,7 +909,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
 
   let (executionPayloadHeader, forkedBlck) = blindedBlockParts.get
   withBlck(forkedBlck):
-    when stateFork >= ConsensusFork.EIP4844:
+    when stateFork >= ConsensusFork.Deneb:
       debugRaiseAssert $denebImplementationMissing & ": makeBlindedBeaconBlockForHeadAndSlot"
     elif stateFork >= ConsensusFork.Bellatrix:
       when ((stateFork == ConsensusFork.Bellatrix and

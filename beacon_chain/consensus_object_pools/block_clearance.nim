@@ -104,7 +104,7 @@ proc addResolvedHeadBlock(
     var unrealized: FinalityCheckpoints
     if enableTestFeatures in dag.updateFlags:
       unrealized = withState(state):
-        static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
+        static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
         when stateFork >= ConsensusFork.Altair:
           forkyState.data.compute_unrealized_finality()
         else:

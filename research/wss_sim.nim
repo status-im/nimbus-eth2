@@ -204,7 +204,7 @@ cli do(validatorsDir: string, secretsDir: string,
             fork, genesis_validators_root, slot, blockRoot,
             validators[proposer]).toValidatorSig())
         dump(".", signedBlock)
-      of ConsensusFork.EIP4844:
+      of ConsensusFork.Deneb:
         blockRoot = hash_tree_root(message.eip4844Data)
         let signedBlock = eip4844.SignedBeaconBlock(
           message: message.eip4844Data,

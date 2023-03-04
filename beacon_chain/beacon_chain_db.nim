@@ -1075,7 +1075,7 @@ proc getBlockSSZ*(
     getBlockSSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
   of ConsensusFork.Capella:
     getBlockSSZ(db, key, data, capella.TrustedSignedBeaconBlock)
-  of ConsensusFork.EIP4844:
+  of ConsensusFork.Deneb:
     getBlockSSZ(db, key, data, deneb.TrustedSignedBeaconBlock)
 
 proc getBlobsSidecarSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte]):
@@ -1137,7 +1137,7 @@ proc getBlockSZ*(
     getBlockSZ(db, key, data, bellatrix.TrustedSignedBeaconBlock)
   of ConsensusFork.Capella:
     getBlockSZ(db, key, data, capella.TrustedSignedBeaconBlock)
-  of ConsensusFork.EIP4844:
+  of ConsensusFork.Deneb:
     getBlockSZ(db, key, data, deneb.TrustedSignedBeaconBlock)
 
 proc getStateOnlyMutableValidators(
@@ -1520,7 +1520,7 @@ iterator getAncestorSummaries*(db: BeaconChainDB, root: Eth2Digest):
 
   # Backwards compat for reading old databases, or those that for whatever
   # reason lost a summary along the way..
-  static: doAssert ConsensusFork.high == ConsensusFork.EIP4844
+  static: doAssert ConsensusFork.high == ConsensusFork.Deneb
   while true:
     if db.v0.backend.getSnappySSZ(
         subkey(BeaconBlockSummary, res.root), res.summary) == GetResult.found:

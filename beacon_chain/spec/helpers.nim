@@ -426,7 +426,7 @@ proc payloadToBlockHeader*(
       else:
         none(Hash256)
     excessDataGas =
-      when typeof(payload).toFork >= ConsensusFork.EIP4844:
+      when typeof(payload).toFork >= ConsensusFork.Deneb:
         some payload.excess_data_gas
       else:
         none(UInt256)

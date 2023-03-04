@@ -175,7 +175,7 @@ func getTargetGossipState*(
   maybeIncludeFork(
     ConsensusFork.Capella,   CAPELLA_FORK_EPOCH,   DENEB_FORK_EPOCH)
   maybeIncludeFork(
-    ConsensusFork.EIP4844,   DENEB_FORK_EPOCH,     FAR_FUTURE_EPOCH)
+    ConsensusFork.Deneb,     DENEB_FORK_EPOCH,     FAR_FUTURE_EPOCH)
 
   doAssert len(targetForks) <= 2
   targetForks

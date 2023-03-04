@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Copyright (c) 2020-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -263,7 +263,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       of ConsensusFork.Capella:
         blocks[3].add dag.db.getBlock(
           blck.root, capella.TrustedSignedBeaconBlock).get()
-      of ConsensusFork.EIP4844:
+      of ConsensusFork.Deneb:
         raiseAssert $denebImplementationMissing
 
   let stateData = newClone(dag.headState)
@@ -333,7 +333,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               of ConsensusFork.Capella:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[3][].data, noRollback)
-              of ConsensusFork.EIP4844:
+              of ConsensusFork.Deneb:
                 raiseAssert $denebImplementationMissing & ": ncli_db.nim: cmdBench (1)"
 
             if forkyState.data.slot.epoch mod 16 == 0:
@@ -342,7 +342,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of ConsensusFork.Altair:    hash_tree_root(loadedState[1][].data)
                 of ConsensusFork.Bellatrix: hash_tree_root(loadedState[2][].data)
                 of ConsensusFork.Capella:   hash_tree_root(loadedState[3][].data)
-                of ConsensusFork.EIP4844:   raiseAssert $denebImplementationMissing & ": ncli_db.nim: cmdBench (2)"
+                of ConsensusFork.Deneb:     raiseAssert $denebImplementationMissing & ": ncli_db.nim: cmdBench (2)"
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])

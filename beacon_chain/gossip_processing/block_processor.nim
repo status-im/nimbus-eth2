@@ -179,7 +179,7 @@ proc storeBackfillBlock(
   # Establish blob viability before calling addbackfillBlock to avoid
   # writing the block in case of blob error.
   let blobsOk =
-      when typeof(signedBlock).toFork() >= ConsensusFork.EIP4844:
+      when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
           blobs.len > 0 or true
         # TODO: validate blobs
       else:
@@ -416,7 +416,7 @@ proc storeBlock*(
 
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
-  when typeof(signedBlock).toFork() >= ConsensusFork.EIP4844:
+  when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
     if blobs.len > 0:
       discard
       # TODO: validate blobs

@@ -65,14 +65,14 @@ proc getTestStates*(
     info = ForkedEpochInfo()
     cfg = defaultRuntimeConfig
 
-  static: doAssert high(ConsensusFork) == ConsensusFork.EIP4844
+  static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
   if stateFork >= ConsensusFork.Altair:
     cfg.ALTAIR_FORK_EPOCH = 1.Epoch
   if stateFork >= ConsensusFork.Bellatrix:
     cfg.BELLATRIX_FORK_EPOCH = 2.Epoch
   if stateFork >= ConsensusFork.Capella:
     cfg.CAPELLA_FORK_EPOCH = 3.Epoch
-  if stateFork >= ConsensusFork.EIP4844:
+  if stateFork >= ConsensusFork.Deneb:
     cfg.DENEB_FORK_EPOCH = 4.Epoch
 
   for i, epoch in stateEpochs:
