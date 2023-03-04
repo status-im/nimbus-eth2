@@ -781,8 +781,8 @@ proc processNewBlockForLightClient*(
     return
 
   when signedBlock is deneb.TrustedSignedBeaconBlock:
-    dag.cacheLightClientData(state.eip4844Data, signedBlock.toBlockId())
-    dag.createLightClientUpdates(state.eip4844Data, signedBlock, parentBid)
+    dag.cacheLightClientData(state.denebData, signedBlock.toBlockId())
+    dag.createLightClientUpdates(state.denebData, signedBlock, parentBid)
   elif signedBlock is capella.TrustedSignedBeaconBlock:
     dag.cacheLightClientData(state.capellaData, signedBlock.toBlockId())
     dag.createLightClientUpdates(state.capellaData, signedBlock, parentBid)

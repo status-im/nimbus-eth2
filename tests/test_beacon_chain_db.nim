@@ -444,8 +444,8 @@ suite "Beacon chain DB" & preset():
     let db = makeTestDB(SLOTS_PER_EPOCH)
 
     for state in testStatesEIP4844:
-      let root = state[].eip4844Data.root
-      db.putState(root, state[].eip4844Data.data)
+      let root = state[].denebData.root
+      db.putState(root, state[].denebData.data)
 
       check:
         db.containsState(root)
@@ -543,8 +543,8 @@ suite "Beacon chain DB" & preset():
     let stateBuffer = (eip4844.BeaconStateRef)()
 
     for state in testStatesEIP4844:
-      let root = state[].eip4844Data.root
-      db.putState(root, state[].eip4844Data.data)
+      let root = state[].denebData.root
+      db.putState(root, state[].denebData.data)
 
       check:
         db.getState(root, stateBuffer[], noRollback)
@@ -666,7 +666,7 @@ suite "Beacon chain DB" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
       state = (ref ForkedHashedBeaconState)(
         kind: ConsensusFork.Deneb,
-        eip4844Data: eip4844.HashedBeaconState(data: eip4844.BeaconState(
+        denebData: eip4844.HashedBeaconState(data: eip4844.BeaconState(
           slot: 10.Slot)))
       root = Eth2Digest()
 
@@ -678,8 +678,8 @@ suite "Beacon chain DB" & preset():
       assign(state[], restoreAddr[])
 
     check:
-      state[].eip4844Data.data.slot == 10.Slot
-      not db.getState(root, state[].eip4844Data.data, restore)
+      state[].denebData.data.slot == 10.Slot
+      not db.getState(root, state[].denebData.data, restore)
 
       # assign() has switched the case object fork
       state[].kind == ConsensusFork.Phase0

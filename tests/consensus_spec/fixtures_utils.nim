@@ -131,8 +131,8 @@ proc loadForkedState*(
   of ConsensusFork.Deneb:
     let state = newClone(parseTest(path, SSZ, deneb.BeaconState))
     forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Deneb)
-    forkedState.eip4844Data.data = state[]
-    forkedState.eip4844Data.root = hash_tree_root(state[])
+    forkedState.denebData.data = state[]
+    forkedState.denebData.root = hash_tree_root(state[])
   of ConsensusFork.Capella:
     let state = newClone(parseTest(path, SSZ, capella.BeaconState))
     forkedState = (ref ForkedHashedBeaconState)(kind: ConsensusFork.Capella)

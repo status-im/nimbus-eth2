@@ -1162,7 +1162,7 @@ proc writeValue*[
     writer.writeField("block_header", value.capellaData)
   of ConsensusFork.Deneb:
     writer.writeField("version", forkIdentifier "deneb")
-    writer.writeField("block_header", value.eip4844Data)
+    writer.writeField("block_header", value.denebData)
   writer.endRecord()
 
 proc writeValue*[
@@ -1192,7 +1192,7 @@ proc writeValue*[
     writer.writeField("data", value.capellaData)
   of ConsensusFork.Deneb:
     writer.writeField("version", forkIdentifier "deneb")
-    writer.writeField("data", value.eip4844Data)
+    writer.writeField("data", value.denebData)
   writer.endRecord()
 
 ## RestPublishedBeaconBlockBody
@@ -1671,7 +1671,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("data", value.capellaData)
   of ConsensusFork.Deneb:
     writer.writeField("version", "deneb")
-    writer.writeField("data", value.eip4844Data)
+    writer.writeField("data", value.denebData)
   writer.endRecord()
 
 # ForkedHashedBeaconState is used where a `ForkedBeaconState` normally would
@@ -1767,14 +1767,14 @@ proc readValue*(reader: var JsonReader[RestJson],
     toValue(capellaData)
   of ConsensusFork.Deneb:
     try:
-      tmp[].eip4844Data.data = RestJson.decode(
+      tmp[].denebData.data = RestJson.decode(
         string(data.get()),
         deneb.BeaconState,
         requireAllFields = true,
         allowUnknownFields = true)
     except SerializationError:
       reader.raiseUnexpectedValue("Incorrect EIP4844 beacon state format")
-    toValue(eip4844Data)
+    toValue(denebData)
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState)
                 {.raises: [IOError, Defect].} =
@@ -1794,7 +1794,7 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
     writer.writeField("data", value.capellaData.data)
   of ConsensusFork.Deneb:
     writer.writeField("version", "deneb")
-    writer.writeField("data", value.eip4844Data.data)
+    writer.writeField("data", value.denebData.data)
   writer.endRecord()
 
 ## Web3SignerRequest
