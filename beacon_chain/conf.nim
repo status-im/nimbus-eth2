@@ -1335,7 +1335,4 @@ proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
   else:
     config.elUrls
 
-  if config.web3Urls.len > 0:
-    warn "Config option is deprecated", option = "web3-url"
-
   (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecret)

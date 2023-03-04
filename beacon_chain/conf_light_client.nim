@@ -8,7 +8,6 @@
 {.push raises: [].}
 
 import
-  chronicles,
   json_serialization/std/net,
   ./conf
 
@@ -163,8 +162,5 @@ proc engineApiUrls*(config: LightClientConf): seq[EngineApiUrl] =
     @[defaultEngineApiUrl]
   else:
     config.elUrls
-
-  if config.web3Urls.len > 0:
-    warn "Config option is deprecated", option = "web3-url"
 
   (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecret)
