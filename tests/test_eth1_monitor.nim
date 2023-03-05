@@ -9,7 +9,7 @@
 
 import
   unittest2,
-  ../beacon_chain/eth1/eth1_monitor,
+  ../beacon_chain/eth1/[el_conf, eth1_monitor],
   ./testutil
 
 from ssz_serialization/types import Limit, List, init
@@ -500,7 +500,7 @@ suite "Eth1 monitor":
 
     for executionPayload in executionPayloads:
       check:
-        executionPayload == asConsensusExecutionPayload(
+        executionPayload == asConsensusType(
           asEngineExecutionPayload(executionPayload))
 
   test "Roundtrip engine RPC V2 and capella ExecutionPayload representations":
@@ -1020,7 +1020,7 @@ suite "Eth1 monitor":
 
     for executionPayload in executionPayloads:
       check:
-        executionPayload == asConsensusExecutionPayload(
+        executionPayload == asConsensusType(
           asEngineExecutionPayload(executionPayload))
 
   test "Roundtrip engine RPC V3 and eip4844 ExecutionPayload representations":
@@ -1564,5 +1564,5 @@ suite "Eth1 monitor":
 
     for executionPayload in executionPayloads:
       check:
-        executionPayload == asConsensusExecutionPayload(
+        executionPayload == asConsensusType(
           asEngineExecutionPayload(executionPayload))

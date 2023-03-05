@@ -132,6 +132,11 @@ type
     ForkySigVerifiedBeaconBlock |
     ForkyTrustedBeaconBlock
 
+  ForkyExecutionPayloadForSigning* =
+    bellatrix.ExecutionPayloadForSigning |
+    capella.ExecutionPayloadForSigning |
+    deneb.ExecutionPayloadForSigning
+
   ForkedBeaconBlock* = object
     case kind*: ConsensusFork
     of ConsensusFork.Phase0:    phase0Data*:    phase0.BeaconBlock
@@ -479,6 +484,7 @@ template toFork*[T:
     bellatrix.BeaconState |
     bellatrix.HashedBeaconState |
     bellatrix.ExecutionPayload |
+    bellatrix.ExecutionPayloadForSigning |
     bellatrix.ExecutionPayloadHeader |
     bellatrix.BeaconBlock |
     bellatrix.SignedBeaconBlock |
@@ -493,6 +499,7 @@ template toFork*[T:
     capella.BeaconState |
     capella.HashedBeaconState |
     capella.ExecutionPayload |
+    capella.ExecutionPayloadForSigning |
     capella.ExecutionPayloadHeader |
     capella.BeaconBlock |
     capella.SignedBeaconBlock |
@@ -507,6 +514,7 @@ template toFork*[T:
     deneb.BeaconState |
     deneb.HashedBeaconState |
     deneb.ExecutionPayload |
+    deneb.ExecutionPayloadForSigning |
     deneb.ExecutionPayloadHeader |
     deneb.BeaconBlock |
     deneb.SignedBeaconBlock |

@@ -1300,9 +1300,11 @@ proc generateDistributedStore*(rng: var HmacDrbgContext,
     ? saveKeystore(rng,
                    shareValidatorDir / $share.id,
                    shareSecretsDir / $share.id,
-                   share.key, share.key.toPubKey,
+                   share.key,
+                   share.key.toPubKey,
                    makeKeyPath(validatorIdx, signingKeyKind),
-                   password.str, @[],
+                   password.str,
+                   @[],
                    mode)
 
     signers.add RemoteSignerInfo(

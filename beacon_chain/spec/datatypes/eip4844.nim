@@ -44,7 +44,8 @@ type
   KZGProof* = array[48, byte]
   BLSFieldElement* = array[32, byte]
 
-  KZGCommitmentList* = List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]
+  KZGCommitments* = List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]
+  Blobs* = List[Blob, Limit MAX_BLOBS_PER_BLOCK]
 
   # TODO this apparently is suppposed to be SSZ-equivalent to Bytes32, but
   # current spec doesn't ever SSZ-serialize it or hash_tree_root it
@@ -59,7 +60,7 @@ type
   BlobsSidecar* = object
     beacon_block_root*: Eth2Digest
     beacon_block_slot*: Slot
-    blobs*: List[Blob, Limit MAX_BLOBS_PER_BLOCK]
+    blobs*: Blobs
     kzg_aggregated_proof*: KZGProof
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/p2p-interface.md#blobsidecar
@@ -103,6 +104,12 @@ type
     transactions*: List[Transaction, MAX_TRANSACTIONS_PER_PAYLOAD]
     withdrawals*: List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
     excess_data_gas*: UInt256  # [New in Deneb]
+
+  ExecutionPayloadForSigning* = object
+    executionPayload*: ExecutionPayload
+    blockValue*: Wei
+    kzgs*: KZGCommitments
+    blobs*: Blobs
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#executionpayloadheader
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#executionpayloadheader
@@ -381,7 +388,7 @@ type
     # Execution
     execution_payload*: ExecutionPayload
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KZGCommitmentList  # [New in EIP-4844]
+    blob_kzg_commitments*: KZGCommitments  # [New in EIP-4844]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified

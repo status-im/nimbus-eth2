@@ -26,6 +26,7 @@ import
   ./spec/datatypes/base,
   ./networking/network_metadata,
   ./validators/slashing_protection_common,
+  ./eth1/el_conf,
   ./filepath
 
 from consensus_object_pools/block_pools_types_light_client
@@ -35,7 +36,7 @@ export
   uri, nat, enr,
   defaultEth2TcpPort, enabledLogLevel, ValidIpAddress,
   defs, parseCmdArg, completeCmdArg, network_metadata,
-  network, BlockHashOrNumber,
+  el_conf, network, BlockHashOrNumber,
   confTomlDefs, confTomlNet, confTomlUri
 
 declareGauge network_name, "network name", ["name"]
@@ -176,14 +177,17 @@ type
       name: "era-dir" .}: Option[InputDir]
 
     web3Urls* {.
-      desc: "One or more execution layer Web3 provider URLs"
-      name: "web3-url" .}: seq[string]
+      desc: "One or more execution layer Engine API URLs"
+      name: "web3-url" .}: seq[EngineApiUrlConfigValue]
 
-    web3ForcePolling* {.
-      hidden
+    elUrls* {.
+      desc: "One or more execution layer Engine API URLs"
+      name: "el" .}: seq[EngineApiUrlConfigValue]
+
+    noEl* {.
       defaultValue: false
-      desc: "Force the use of polling when determining the head block of Eth1"
-      name: "web3-force-polling" .}: bool
+      desc: "Don't use an EL. The node will remain optimistically synced and won't be able to perform validator duties"
+      name: "no-el" .}: bool
 
     optimistic* {.
       hidden # deprecated > 22.12
@@ -234,7 +238,7 @@ type
     # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/authentication.md#key-distribution
     jwtSecret* {.
       desc: "A file containing the hex-encoded 256 bit secret key to be used for verifying/generating JWT tokens"
-      name: "jwt-secret" .}: Option[string]
+      name: "jwt-secret" .}: Option[InputFile]
 
     case cmd* {.
       command
@@ -1302,7 +1306,7 @@ func defaultFeeRecipient*(conf: AnyConf): Eth1Address =
 proc loadJwtSecret*(
     rng: var HmacDrbgContext,
     dataDir: string,
-    jwtSecret: Option[string],
+    jwtSecret: Option[InputFile],
     allowCreate: bool): Option[seq[byte]] =
   # Some Web3 endpoints aren't compatible with JWT, but if explicitly chosen,
   # use it regardless.
@@ -1317,8 +1321,18 @@ proc loadJwtSecret*(
   else:
     none(seq[byte])
 
-template loadJwtSecret*(
+proc loadJwtSecret*(
     rng: var HmacDrbgContext,
     config: BeaconNodeConf,
     allowCreate: bool): Option[seq[byte]] =
   rng.loadJwtSecret(string(config.dataDir), config.jwtSecret, allowCreate)
+
+proc engineApiUrls*(config: BeaconNodeConf): seq[EngineApiUrl] =
+  let elUrls = if config.noEl:
+    return newSeq[EngineApiUrl]()
+  elif config.elUrls.len == 0 and config.web3Urls.len == 0:
+    @[defaultEngineApiUrl]
+  else:
+    config.elUrls
+
+  (elUrls & config.web3Urls).toFinalEngineApiUrls(config.jwtSecret)

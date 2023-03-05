@@ -209,6 +209,13 @@ proc main() {.async.} =
       mnemonic = generateMnemonic(rng[])
       seed = getSeed(mnemonic, KeystorePass.init "")
       cfg = getRuntimeConfig(conf.eth2Network)
+      threshold = if conf.remoteSignersUrls.len > 0: conf.threshold
+                  else: 0
+
+    if conf.remoteValidatorsCount > 0 and
+       conf.remoteSignersUrls.len == 0:
+      fatal "Please specify at least one remote signer URL"
+      quit 1
 
     if (let res = secureCreatePath(string conf.outValidatorsDir); res.isErr):
       warn "Could not create validators folder",
@@ -226,7 +233,7 @@ proc main() {.async.} =
       string conf.outValidatorsDir,
       string conf.outSecretsDir,
       conf.remoteSignersUrls,
-      conf.threshold,
+      threshold,
       conf.remoteValidatorsCount,
       KeystoreMode.Fast)
 

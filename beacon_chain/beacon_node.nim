@@ -68,7 +68,7 @@ type
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool
     validatorChangePool*: ref ValidatorChangePool
-    eth1Monitor*: Eth1Monitor
+    elManager*: ELManager
     payloadBuilderRestClient*: RestClientRef
     restServer*: RestServerRef
     keymanagerHost*: ref KeymanagerHost
@@ -90,7 +90,6 @@ type
     restKeysCache*: Table[ValidatorPubKey, ValidatorIndex]
     validatorMonitor*: ref ValidatorMonitor
     stateTtlCache*: StateTtlCache
-    nextExchangeTransitionConfTime*: Moment
     router*: ref MessageRouter
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     externalBuilderRegistrations*:

@@ -9,7 +9,7 @@
 
 import
   std/[os, random, sequtils, terminal, times],
-  chronos, chronicles, chronicles/chronos_tools,
+  chronos, chronicles,
   metrics, metrics/chronos_httpserver,
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
@@ -271,12 +271,12 @@ proc initFullNode(
       # This `nimcall` functions helps for keeping track of what
       # needs to be captured by the onFinalization closure.
       eventBus: EventBus,
-      eth1Monitor: Eth1Monitor): OnFinalizedCallback {.nimcall.} =
-    static: doAssert (eth1Monitor is ref)
+      elManager: ELManager): OnFinalizedCallback {.nimcall.} =
+    static: doAssert (elManager is ref)
     return proc(dag: ChainDAGRef, data: FinalizationInfoObject) =
-      if eth1Monitor != nil:
+      if elManager != nil:
         let finalizedEpochRef = dag.getFinalizedEpochRef()
-        discard trackFinalizedState(eth1Monitor,
+        discard trackFinalizedState(elManager,
                                     finalizedEpochRef.eth1_data,
                                     finalizedEpochRef.eth1_deposit_index)
       node.updateLightClientFromDag()
@@ -316,7 +316,7 @@ proc initFullNode(
     validatorChangePool = newClone(
       ValidatorChangePool.init(dag, attestationPool, onVoluntaryExitAdded))
     consensusManager = ConsensusManager.new(
-      dag, attestationPool, quarantine, node.eth1Monitor,
+      dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(rng, config.subscribeAllSubnets),
       node.dynamicFeeRecipientsStore, config.validatorsDir,
       config.defaultFeeRecipient, config.suggestedGasLimit)
@@ -381,7 +381,7 @@ proc initFullNode(
 
     router.onSyncCommitteeMessage = scheduleSendingLightClientUpdates
 
-  dag.setFinalizationCb makeOnFinalizationCb(node.eventBus, node.eth1Monitor)
+  dag.setFinalizationCb makeOnFinalizationCb(node.eventBus, node.elManager)
   dag.setBlockCb(onBlockAdded)
   dag.setHeadCb(onHeadChanged)
   dag.setReorgCb(onChainReorg)
@@ -505,12 +505,10 @@ proc init*(T: type BeaconNode,
         quit 1
     db.putDepositTreeSnapshot(depositTreeSnapshot)
 
-  let optJwtSecret = rng[].loadJwtSecret(config, allowCreate = false)
+  let engineApiUrls = config.engineApiUrls
 
-  if config.web3Urls.len() == 0:
+  if engineApiUrls.len == 0:
     notice "Running without execution client - validator features disabled (see https://nimbus.guide/eth1.html)"
-
-  var eth1Monitor: Eth1Monitor
 
   var genesisState =
     if metadata.genesisData.len > 0:
@@ -593,17 +591,13 @@ proc init*(T: type BeaconNode,
     dag.checkWeakSubjectivityCheckpoint(
       config.weakSubjectivityCheckpoint.get, beaconClock)
 
-  if eth1Monitor.isNil and config.web3Urls.len > 0:
-    eth1Monitor = Eth1Monitor.init(
-      cfg,
-      metadata.depositContractBlock,
-      metadata.depositContractBlockHash,
-      db,
-      getBeaconTime,
-      config.web3Urls,
-      eth1Network,
-      config.web3ForcePolling,
-      optJwtSecret)
+  let elManager = ELManager.new(
+    cfg,
+    metadata.depositContractBlock,
+    metadata.depositContractBlockHash,
+    db,
+    engineApiUrls,
+    eth1Network)
 
   if config.rpcEnabled.isSome:
     warn "Nimbus's JSON-RPC server has been removed. This includes the --rpc, --rpc-port, and --rpc-address configuration options. https://nimbus.guide/rest-api.html shows how to enable and configure the REST Beacon API server which replaces it."
@@ -692,7 +686,7 @@ proc init*(T: type BeaconNode,
     db: db,
     config: config,
     attachedValidators: validatorPool,
-    eth1Monitor: eth1Monitor,
+    elManager: elManager,
     payloadBuilderRestClient: payloadBuilderRestClient,
     restServer: restServer,
     keymanagerHost: keymanagerHost,
@@ -704,13 +698,6 @@ proc init*(T: type BeaconNode,
     beaconClock: beaconClock,
     validatorMonitor: validatorMonitor,
     stateTtlCache: stateTtlCache,
-    nextExchangeTransitionConfTime:
-      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#specification-3
-      # Consensus Layer client software **SHOULD** poll this endpoint every
-      # 60 seconds.
-      # Delay first call by that time to allow for EL syncing to begin; it can
-      # otherwise generate an EL warning by claiming a zero merge block.
-      Moment.now + chronos.seconds(60),
     dynamicFeeRecipientsStore: newClone(DynamicFeeRecipientsStore.init()))
 
   node.initLightClient(
@@ -1347,17 +1334,6 @@ proc onSecond(node: BeaconNode, time: Moment) =
   # Nim GC metrics (for the main thread)
   updateThreadMetrics()
 
-  if time >= node.nextExchangeTransitionConfTime and not node.eth1Monitor.isNil:
-    # Execution Layer client software **SHOULD** surface an error to the user
-    # if it does not receive a request on this endpoint at least once every 120
-    # seconds.
-    # To accommodate for that, exchange slightly more frequently.
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#specification-3
-    node.nextExchangeTransitionConfTime = time + chronos.seconds(45)
-
-    if node.currentSlot.epoch >= node.dag.cfg.BELLATRIX_FORK_EPOCH:
-      traceAsyncErrors node.eth1Monitor.exchangeTransitionConfiguration()
-
   if node.config.stopAtSyncedEpoch != 0 and
       node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
     notice "Shutting down after having reached the target synced epoch"
@@ -1676,9 +1652,7 @@ proc start*(node: BeaconNode) {.raises: [Defect, CatchableError].} =
 
   waitFor node.initializeNetworking()
 
-  if node.eth1Monitor != nil:
-    node.eth1Monitor.start()
-
+  node.elManager.start()
   node.run()
 
 func formatGwei(amount: uint64): string =

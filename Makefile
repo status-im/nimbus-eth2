@@ -673,13 +673,13 @@ sepolia-dev-deposit: | sepolia-build deposit_contract
 clean-sepolia:
 	$(call CLEAN_NETWORK,sepolia)
 
-### Capella devnets
+### Withdrawals testnets
 
-capella-devnet-3:
-	tmuxinator start -p scripts/tmuxinator-el-cl-pair-in-devnet.yml network="vendor/capella-testnets/withdrawal-devnet-3/custom_config_data"
+zhejiang:
+	tmuxinator start -p scripts/tmuxinator-el-cl-pair-in-devnet.yml network="vendor/withdrawals-testnets/zhejiang-testnet/custom_config_data"
 
-clean-capella-devnet-3:
-	scripts/clean-devnet-dir.sh vendor/capella-testnets/withdrawal-devnet-3/custom_config_data
+clean-zhejiang:
+	scripts/clean-devnet-dir.sh vendor/withdrawals-testnets/zhejiang-testnet/custom_config_data
 
 ###
 ### Gnosis chain binary

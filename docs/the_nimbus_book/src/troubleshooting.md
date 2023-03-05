@@ -112,7 +112,7 @@ If you're being flooded with `Catching up on validator duties` messages, your CP
 If you see an error that looks like the following:
 
 ```
-{"lvl":"ERR","ts":"2021-05-11 09:05:53.547+00:00","msg":"Eth1 chain monitoring failure, restarting","topics":"eth1","tid":1,"file":"eth1_monitor.nim:1158","err":"Trying to access value with err: Failed to setup web3 connection"}
+{"lvl":"ERR","ts":"2021-05-11 09:05:53.547+00:00","msg":"Eth1 chain monitoring failure, restarting","topics":"eth1","tid":1,"err":"Trying to access value with err: Failed to setup web3 connection"}
 ```
 
 It's because your node can't connect to the web3 provider you have specified. Please double check that you've correctly specified your provider. If you haven't done so already, we recommend [adding a backup](web3-backup.md).

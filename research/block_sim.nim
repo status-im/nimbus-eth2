@@ -70,7 +70,7 @@ from ../beacon_chain/spec/state_transition_block import process_block
 # when possible, to also use the forked version. It'll be worth keeping some
 # example of the non-forked version because it enables fork bootstrapping.
 
-proc makeBeaconBlock(
+proc makeSimulationBlock(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -81,7 +81,7 @@ proc makeBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayload,
+    execution_payload: bellatrix.ExecutionPayloadForSigning,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
     rollback: RollbackHashedProc[phase0.HashedBeaconState],
     cache: var StateCache,
@@ -99,8 +99,7 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate,
-    static(default(eip4844.KZGCommitmentList)), execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -114,7 +113,7 @@ proc makeBeaconBlock(
 
   ok(blck)
 
-proc makeBeaconBlock(
+proc makeSimulationBlock(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -125,7 +124,7 @@ proc makeBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayload,
+    execution_payload: bellatrix.ExecutionPayloadForSigning,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
     rollback: RollbackHashedProc[altair.HashedBeaconState],
     cache: var StateCache,
@@ -143,8 +142,7 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate,
-    static(default(eip4844.KZGCommitmentList)), execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload)
 
   # Signatures are verified elsewhere, so don't duplicate inefficiently here
   let res = process_block(
@@ -159,7 +157,7 @@ proc makeBeaconBlock(
 
   ok(blck)
 
-proc makeBeaconBlock(
+proc makeSimulationBlock(
     cfg: RuntimeConfig,
     state: var bellatrix.HashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -170,7 +168,7 @@ proc makeBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: bellatrix.ExecutionPayload,
+    execution_payload: bellatrix.ExecutionPayloadForSigning,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
     rollback: RollbackHashedProc[bellatrix.HashedBeaconState],
     cache: var StateCache,
@@ -188,8 +186,7 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate,
-    static(default(eip4844.KZGCommitmentList)), execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -203,7 +200,7 @@ proc makeBeaconBlock(
 
   ok(blck)
 
-proc makeBeaconBlock(
+proc makeSimulationBlock(
     cfg: RuntimeConfig,
     state: var capella.HashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -214,7 +211,7 @@ proc makeBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: capella.ExecutionPayload,
+    execution_payload: capella.ExecutionPayloadForSigning,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
     rollback: RollbackHashedProc[capella.HashedBeaconState],
     cache: var StateCache,
@@ -232,8 +229,7 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate,
-    static(default(eip4844.KZGCommitmentList)), execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -247,7 +243,7 @@ proc makeBeaconBlock(
 
   ok(blck)
 
-proc makeBeaconBlock(
+proc makeSimulationBlock(
     cfg: RuntimeConfig,
     state: var eip4844.HashedBeaconState,
     proposer_index: ValidatorIndex,
@@ -258,7 +254,7 @@ proc makeBeaconBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: eip4844.ExecutionPayload,
+    execution_payload: eip4844.ExecutionPayloadForSigning,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
     rollback: RollbackHashedProc[eip4844.HashedBeaconState],
     cache: var StateCache,
@@ -276,8 +272,7 @@ proc makeBeaconBlock(
 
   var blck = partialBeaconBlock(
     cfg, state, proposer_index, randao_reveal, eth1_data, graffiti,
-    attestations, deposits, exits, sync_aggregate,
-    default(eip4844.KZGCommitmentList), execution_payload)
+    attestations, deposits, exits, sync_aggregate, execution_payload)
 
   let res = process_block(
     cfg, state.data, blck.asSigVerified(), verificationFlags, cache)
@@ -504,7 +499,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           addr state.denebData
         else:
           static: doAssert false
-      message = makeBeaconBlock(
+      message = makeSimulationBlock(
         cfg,
         hashedState[],
         proposerIdx,
@@ -519,11 +514,11 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         BeaconBlockValidatorChanges(),
         sync_aggregate,
         when T is eip4844.SignedBeaconBlock:
-          default(eip4844.ExecutionPayload)
+          default(eip4844.ExecutionPayloadForSigning)
         elif T is capella.SignedBeaconBlock:
-          default(capella.ExecutionPayload)
+          default(capella.ExecutionPayloadForSigning)
         else:
-          default(bellatrix.ExecutionPayload),
+          default(bellatrix.ExecutionPayloadForSigning),
         static(default(SignedBLSToExecutionChangeList)),
         noRollback,
         cache)

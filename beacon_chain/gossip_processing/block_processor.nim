@@ -15,8 +15,8 @@ import
 
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, checkNextProposer, optimisticExecutionPayloadHash,
-  runForkchoiceUpdated, runProposalForkchoiceUpdated, shouldSyncOptimistically,
-  updateHead, updateHeadWithExecution
+  runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
+  updateHeadWithExecution
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
@@ -26,7 +26,7 @@ from ../consensus_object_pools/block_quarantine import
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
-from ../spec/datatypes/eip4844 import BlobsSidecar
+from ../spec/datatypes/deneb import BlobsSidecar
 from ../spec/state_transition_block import validate_blobs_sidecar
 
 export sszdump, signatures_batch
@@ -89,7 +89,7 @@ type
     # ----------------------------------------------------------------
     consensusManager: ref ConsensusManager
       ## Blockchain DAG, AttestationPool and Quarantine
-      ## Blockchain DAG, AttestationPool, Quarantine, and Eth1Manager
+      ## Blockchain DAG, AttestationPool, Quarantine, and ELManager
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
 
@@ -213,14 +213,15 @@ proc storeBackfillBlock(
 
 from web3/engine_api_types import PayloadExecutionStatus, PayloadStatusV1
 from ../eth1/eth1_monitor import
-  Eth1Monitor, asEngineExecutionPayload, ensureDataProvider, newPayload
+  ELManager, asEngineExecutionPayload, sendNewPayload,
+  forkchoiceUpdated, forkchoiceUpdatedNoResult
 
 proc expectValidForkchoiceUpdated(
-    eth1Monitor: Eth1Monitor,
+    elManager: ELManager,
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
     receivedBlock: ForkySignedBeaconBlock): Future[void] {.async.} =
   let
-    (payloadExecutionStatus, _) = await eth1Monitor.runForkchoiceUpdated(
+    (payloadExecutionStatus, _) = await elManager.forkchoiceUpdated(
       headBlockHash, safeBlockHash, finalizedBlockHash)
     receivedExecutionBlockHash =
       when typeof(receivedBlock).toFork >= ConsensusFork.Bellatrix:
@@ -264,35 +265,27 @@ from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
 from ../spec/datatypes/capella import
   ExecutionPayload, SignedBeaconBlock, asTrusted, shortLog
 
+# TODO investigate why this seems to allow compilation even though it doesn't
+# directly address deneb.ExecutionPayload when complaint was that it didn't
+# know about "deneb"
+from ../spec/datatypes/deneb import SignedBeaconBlock, asTrusted, shortLog
+from ../eth1/eth1_monitor import hasProperlyConfiguredConnection
+
 proc newExecutionPayload*(
-    eth1Monitor: Eth1Monitor,
-    executionPayload: bellatrix.ExecutionPayload | capella.ExecutionPayload |
-    eip4844.ExecutionPayload):
+    elManager: ELManager,
+    executionPayload: ForkyExecutionPayload):
     Future[Opt[PayloadExecutionStatus]] {.async.} =
-  if eth1Monitor.isNil:
+
+  if not elManager.hasProperlyConfiguredConnection:
+    debug "No EL connection for newPayload"
     return Opt.none PayloadExecutionStatus
 
   debug "newPayload: inserting block into execution engine",
     executionPayload = shortLog(executionPayload)
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#request
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/shanghai.md#request
-  const NEWPAYLOAD_TIMEOUT = 8.seconds
-
   try:
-    let
-      payloadResponse =
-        awaitWithTimeout(
-            eth1Monitor.newPayload(
-              executionPayload.asEngineExecutionPayload),
-            NEWPAYLOAD_TIMEOUT):
-          info "newPayload: newPayload timed out"
-          return Opt.none PayloadExecutionStatus
-
-          # Placeholder for type system
-          PayloadStatusV1(status: PayloadExecutionStatus.syncing)
-
-      payloadStatus = payloadResponse.status
+    let payloadStatus = await elManager.sendNewPayload(
+      executionPayload.asEngineExecutionPayload)
 
     debug "newPayload: succeeded",
       parentHash = executionPayload.parent_hash,
@@ -309,28 +302,17 @@ proc newExecutionPayload*(
       blockNumber = executionPayload.block_number
     return Opt.none PayloadExecutionStatus
 
-# TODO investigate why this seems to allow compilation even though it doesn't
-# directly address eip4844.ExecutionPayload when complaint was that it didn't
-# know about "eip4844"
-from ../spec/datatypes/eip4844 import SignedBeaconBlock, asTrusted, shortLog
-
 proc getExecutionValidity(
-    eth1Monitor: Eth1Monitor,
+    elManager: ELManager,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
     eip4844.SignedBeaconBlock):
     Future[NewPayloadStatus] {.async.} =
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously
 
-  if eth1Monitor.isNil:
-    return NewPayloadStatus.noResponse
-
   try:
-    # Minimize window for Eth1 monitor to shut down connection
-    await eth1Monitor.ensureDataProvider()
-
-    let executionPayloadStatus = await newExecutionPayload(
-      eth1Monitor, blck.message.body.execution_payload)
+    let executionPayloadStatus = await elManager.newExecutionPayload(
+      blck.message.body.execution_payload)
     if executionPayloadStatus.isNone:
       return NewPayloadStatus.noResponse
 
@@ -378,7 +360,7 @@ proc storeBlock*(
         NewPayloadStatus.noResponse
       else:
         when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
-          await self.consensusManager.eth1Monitor.getExecutionValidity(signedBlock)
+          await self.consensusManager.elManager.getExecutionValidity(signedBlock)
         else:
           NewPayloadStatus.valid # vacuously
     payloadValid = payloadStatus == NewPayloadStatus.valid
@@ -508,7 +490,7 @@ proc storeBlock*(
     wallSlot.start_beacon_time)
 
   if newHead.isOk:
-    template eth1Monitor(): auto = self.consensusManager.eth1Monitor
+    template elManager(): auto = self.consensusManager.elManager
     if self.consensusManager[].shouldSyncOptimistically(wallSlot):
       # Optimistic head is far in the future; report it as head block to EL.
 
@@ -526,7 +508,7 @@ proc storeBlock*(
       # - "Beacon chain gapped" from DAG head to optimistic head,
       # - followed by "Beacon chain reorged" from optimistic head back to DAG.
       self.consensusManager[].updateHead(newHead.get.blck)
-      discard await eth1Monitor.runForkchoiceUpdated(
+      discard await elManager.forkchoiceUpdated(
         headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
         safeBlockHash = newHead.get.safeExecutionPayloadHash,
         finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash)
@@ -548,7 +530,7 @@ proc storeBlock*(
 
         if self.consensusManager.checkNextProposer(wallSlot).isNone:
           # No attached validator is next proposer, so use non-proposal fcU
-          await eth1Monitor.expectValidForkchoiceUpdated(
+          await elManager.expectValidForkchoiceUpdated(
             headBlockHash = headExecutionPayloadHash,
             safeBlockHash = newHead.get.safeExecutionPayloadHash,
             finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,

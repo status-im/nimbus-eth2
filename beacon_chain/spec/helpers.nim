@@ -457,7 +457,7 @@ proc compute_execution_block_hash*(
 
 proc build_empty_execution_payload*(
     state: bellatrix.BeaconState,
-    feeRecipient: Eth1Address): bellatrix.ExecutionPayload =
+    feeRecipient: Eth1Address): bellatrix.ExecutionPayloadForSigning =
   ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
   ## without any transactions.
   let
@@ -468,18 +468,21 @@ proc build_empty_execution_payload*(
                                   GasInt.saturate latest.gas_used,
                                   latest.base_fee_per_gas)
 
-  var payload = bellatrix.ExecutionPayload(
-    parent_hash: latest.block_hash,
-    fee_recipient: bellatrix.ExecutionAddress(data: distinctBase(feeRecipient)),
-    state_root: latest.state_root, # no changes to the state
-    receipts_root: EMPTY_ROOT_HASH,
-    block_number: latest.block_number + 1,
-    prev_randao: randao_mix,
-    gas_limit: latest.gas_limit, # retain same limit
-    gas_used: 0, # empty block, 0 gas
-    timestamp: timestamp,
-    base_fee_per_gas: base_fee)
+  var payload = bellatrix.ExecutionPayloadForSigning(
+    executionPayload: bellatrix.ExecutionPayload(
+      parent_hash: latest.block_hash,
+      fee_recipient: bellatrix.ExecutionAddress(data: distinctBase(feeRecipient)),
+      state_root: latest.state_root, # no changes to the state
+      receipts_root: EMPTY_ROOT_HASH,
+      block_number: latest.block_number + 1,
+      prev_randao: randao_mix,
+      gas_limit: latest.gas_limit, # retain same limit
+      gas_used: 0, # empty block, 0 gas
+      timestamp: timestamp,
+      base_fee_per_gas: base_fee),
+    blockValue: Wei.zero)
 
-  payload.block_hash = payload.compute_execution_block_hash()
+  payload.executionPayload.block_hash =
+    payload.executionPayload.compute_execution_block_hash()
 
   payload
