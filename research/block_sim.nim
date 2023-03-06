@@ -245,7 +245,7 @@ proc makeSimulationBlock(
 
 proc makeSimulationBlock(
     cfg: RuntimeConfig,
-    state: var eip4844.HashedBeaconState,
+    state: var deneb.HashedBeaconState,
     proposer_index: ValidatorIndex,
     randao_reveal: ValidatorSig,
     eth1_data: Eth1Data,
@@ -254,14 +254,14 @@ proc makeSimulationBlock(
     deposits: seq[Deposit],
     exits: BeaconBlockValidatorChanges,
     sync_aggregate: SyncAggregate,
-    execution_payload: eip4844.ExecutionPayloadForSigning,
+    execution_payload: deneb.ExecutionPayloadForSigning,
     bls_to_execution_changes: SignedBLSToExecutionChangeList,
-    rollback: RollbackHashedProc[eip4844.HashedBeaconState],
+    rollback: RollbackHashedProc[deneb.HashedBeaconState],
     cache: var StateCache,
     # TODO:
     # `verificationFlags` is needed only in tests and can be
     # removed if we don't use invalid signatures there
-    verificationFlags: UpdateFlags = {}): Result[eip4844.BeaconBlock, cstring] =
+    verificationFlags: UpdateFlags = {}): Result[deneb.BeaconBlock, cstring] =
   ## Create a block for the given state. The latest block applied to it will
   ## be used for the parent_root value, and the slot will be take from
   ## state.slot meaning process_slots must be called up to the slot for which
@@ -482,7 +482,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         when T is phase0.SignedBeaconBlock:
           SyncAggregate.init()
         elif T is altair.SignedBeaconBlock or T is bellatrix.SignedBeaconBlock or
-             T is capella.SignedBeaconBlock or T is eip4844.SignedBeaconBlock:
+             T is capella.SignedBeaconBlock or T is deneb.SignedBeaconBlock:
           syncCommitteePool[].produceSyncAggregate(dag.head.root)
         else:
           static: doAssert false
@@ -495,7 +495,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
           addr state.bellatrixData
         elif T is capella.SignedBeaconBlock:
           addr state.capellaData
-        elif T is eip4844.SignedBeaconBlock:
+        elif T is deneb.SignedBeaconBlock:
           addr state.denebData
         else:
           static: doAssert false
@@ -513,8 +513,8 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
         eth1ProposalData.deposits,
         BeaconBlockValidatorChanges(),
         sync_aggregate,
-        when T is eip4844.SignedBeaconBlock:
-          default(eip4844.ExecutionPayloadForSigning)
+        when T is deneb.SignedBeaconBlock:
+          default(deneb.ExecutionPayloadForSigning)
         elif T is capella.SignedBeaconBlock:
           default(capella.ExecutionPayloadForSigning)
         else:
@@ -639,9 +639,9 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
 
     dag.withUpdatedState(tmpState[], dag.getBlockIdAtSlot(slot).expect("block")) do:
       let
-        newBlock = getNewBlock[eip4844.SignedBeaconBlock](updatedState, slot, cache)
+        newBlock = getNewBlock[deneb.SignedBeaconBlock](updatedState, slot, cache)
         added = dag.addHeadBlock(verifier, newBlock) do (
-            blckRef: BlockRef, signedBlock: eip4844.TrustedSignedBeaconBlock,
+            blckRef: BlockRef, signedBlock: deneb.TrustedSignedBeaconBlock,
             epochRef: EpochRef, unrealized: FinalityCheckpoints):
           # Callback add to fork choice if valid
           attPool.addForkChoice(

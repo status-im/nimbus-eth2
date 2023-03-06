@@ -464,11 +464,11 @@ template partialBeaconBlock*(
     sync_aggregate: SyncAggregate,
     execution_payload: deneb.ExecutionPayloadForSigning):
     deneb.BeaconBlock =
-  eip4844.BeaconBlock(
+  deneb.BeaconBlock(
     slot: state.data.slot,
     proposer_index: proposer_index.uint64,
     parent_root: state.latest_block_root,
-    body: eip4844.BeaconBlockBody(
+    body: deneb.BeaconBlockBody(
       randao_reveal: randao_reveal,
       eth1_data: eth1data,
       graffiti: graffiti,
