@@ -213,7 +213,7 @@ proc storeBackfillBlock(
 
 from web3/engine_api_types import PayloadExecutionStatus, PayloadStatusV1
 from ../eth1/eth1_monitor import
-  ELManager, asEngineExecutionPayload, sendNewPayload,
+  ELManager, NoPayloadAttributes, asEngineExecutionPayload, sendNewPayload,
   forkchoiceUpdated, forkchoiceUpdatedNoResult
 
 proc expectValidForkchoiceUpdated(
@@ -222,7 +222,10 @@ proc expectValidForkchoiceUpdated(
     receivedBlock: ForkySignedBeaconBlock): Future[void] {.async.} =
   let
     (payloadExecutionStatus, _) = await elManager.forkchoiceUpdated(
-      headBlockHash, safeBlockHash, finalizedBlockHash)
+      headBlockHash = headBlockHash,
+      safeBlockHash = safeBlockHash,
+      finalizedBlockHash = finalizedBlockHash,
+      payloadAttributes = NoPayloadAttributes)
     receivedExecutionBlockHash =
       when typeof(receivedBlock).toFork >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
@@ -260,7 +263,6 @@ from ../consensus_object_pools/spec_cache import get_attesting_indices
 from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
 from ../spec/datatypes/altair import SignedBeaconBlock
 
-from eth/async_utils import awaitWithTimeout
 from ../spec/datatypes/bellatrix import ExecutionPayload, SignedBeaconBlock
 from ../spec/datatypes/capella import
   ExecutionPayload, SignedBeaconBlock, asTrusted, shortLog
@@ -511,7 +513,8 @@ proc storeBlock*(
       discard await elManager.forkchoiceUpdated(
         headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
         safeBlockHash = newHead.get.safeExecutionPayloadHash,
-        finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash)
+        finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+        payloadAttributes = NoPayloadAttributes)
     else:
       let
         headExecutionPayloadHash =

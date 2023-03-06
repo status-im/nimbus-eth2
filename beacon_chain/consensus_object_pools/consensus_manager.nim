@@ -112,10 +112,9 @@ proc expectBlock*(self: var ConsensusManager, expectedSlot: Slot): Future[bool] 
 
   return fut
 
-from eth/async_utils import awaitWithTimeout
 from web3/engine_api_types import
-  ForkchoiceUpdatedResponse,
-  PayloadExecutionStatus, PayloadStatusV1, PayloadAttributesV1
+  ForkchoiceUpdatedResponse, PayloadExecutionStatus, PayloadStatusV1,
+  PayloadAttributesV1
 
 func `$`(h: BlockHash): string = $h.asEth2Digest
 
@@ -168,9 +167,10 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
   # Can't use dag.head here because it hasn't been updated yet
   let (payloadExecutionStatus, latestValidHash) =
     await self.elManager.forkchoiceUpdated(
-      headExecutionPayloadHash,
-      newHead.safeExecutionPayloadHash,
-      newHead.finalizedExecutionPayloadHash)
+      headBlockHash = headExecutionPayloadHash,
+      safeBlockHash = newHead.safeExecutionPayloadHash,
+      finalizedBlockHash = newHead.finalizedExecutionPayloadHash,
+      payloadAttributes = NoPayloadAttributes)
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
@@ -340,32 +340,29 @@ proc runProposalForkchoiceUpdated*(
   if headBlockHash.isZero:
     return
 
-  let
-    payloadAttributes = withState(self.dag.headState):
-      when stateFork >= ConsensusFork.Capella:
-        ForkedPayloadAttributes(
-          kind: ForkedPayloadAttributesKind.v2,
-          v2: PayloadAttributesV2(
-            timestamp: Quantity timestamp,
-            prevRandao: FixedBytes[32] randomData,
-            suggestedFeeRecipient: feeRecipient,
-            withdrawals: toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
-      else:
-        ForkedPayloadAttributes(
-          kind: ForkedPayloadAttributesKind.v1,
-          v1: PayloadAttributesV1(
-            timestamp: Quantity timestamp,
-            prevRandao: FixedBytes[32] randomData,
-            suggestedFeeRecipient: feeRecipient))
   try:
-    let
-      safeBlockHash = beaconHead.safeExecutionPayloadHash
-      (status, _) = await self.elManager.forkchoiceUpdated(
-        headBlockHash,
-        safeBlockHash,
-        beaconHead.finalizedExecutionPayloadHash,
-        payloadAttributes = payloadAttributes)
-    debug "Fork-choice updated for proposal", status
+    let safeBlockHash = beaconHead.safeExecutionPayloadHash
+
+    withState(self.dag.headState):
+      template callForkchoiceUpdated(fcPayloadAttributes: auto) =
+        let (status, _) = await self.elManager.forkchoiceUpdated(
+          headBlockHash, safeBlockHash,
+          beaconHead.finalizedExecutionPayloadHash,
+          payloadAttributes = fcPayloadAttributes)
+        debug "Fork-choice updated for proposal", status
+
+      static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
+      when stateFork >= ConsensusFork.Capella:
+        callForkchoiceUpdated(PayloadAttributesV2(
+          timestamp: Quantity timestamp,
+          prevRandao: FixedBytes[32] randomData,
+          suggestedFeeRecipient: feeRecipient,
+          withdrawals: toEngineWithdrawals get_expected_withdrawals(forkyState.data)))
+      else:
+        callForkchoiceUpdated(PayloadAttributesV1(
+          timestamp: Quantity timestamp,
+          prevRandao: FixedBytes[32] randomData,
+          suggestedFeeRecipient: feeRecipient))
   except CatchableError as err:
     error "Engine API fork-choice update failed", err = err.msg
 
