@@ -7,7 +7,7 @@
 
 import
   std/os,
-  chronicles, chronicles/chronos_tools, chronos, stew/io2,
+  chronicles, chronos, stew/io2,
   eth/db/kvstore_sqlite3, eth/keys,
   ./eth1/eth1_monitor,
   ./gossip_processing/optimistic_processor,
@@ -114,7 +114,8 @@ programMain:
               discard await elManager.forkchoiceUpdated(
                 headBlockHash = payload.block_hash,
                 safeBlockHash = payload.block_hash,  # stub value
-                finalizedBlockHash = ZERO_HASH)
+                finalizedBlockHash = ZERO_HASH,
+                payloadAttributes = NoPayloadAttributes)
         else: discard
     optimisticProcessor = initOptimisticProcessor(
       getBeaconTime, optimisticHandler)

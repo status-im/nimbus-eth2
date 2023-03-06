@@ -67,7 +67,8 @@ proc initLightClient*(
               discard await node.elManager.forkchoiceUpdated(
                 headBlockHash = payload.block_hash,
                 safeBlockHash = beaconHead.safeExecutionPayloadHash,
-                finalizedBlockHash = beaconHead.finalizedExecutionPayloadHash)
+                finalizedBlockHash = beaconHead.finalizedExecutionPayloadHash,
+                payloadAttributes = NoPayloadAttributes)
           else: discard
 
     optimisticProcessor = initOptimisticProcessor(

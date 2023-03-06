@@ -112,22 +112,15 @@ type
     hasConsensusViolation: bool
       ## The local chain contradicts the observed consensus on the network
 
-  ForkedPayloadAttributesKind* {.pure.} = enum
-    v1
-    v2
-
-  ForkedPayloadAttributes* = ref object
-    case kind*: ForkedPayloadAttributesKind
-    of ForkedPayloadAttributesKind.v1:
-      v1*: PayloadAttributesV1
-    of ForkedPayloadAttributesKind.v2:
-      v2*: PayloadAttributesV2
+  NoPayloadAttributesType = object
+    ## A type with exactly one value, and which is not constructed via a `nil`
+    ## value for a ref object, which which Nim 1.6 crashes with an ICE.
 
   NextExpectedPayloadParams* = object
     headBlockHash*: Eth2Digest
     safeBlockHash*: Eth2Digest
     finalizedBlockHash*: Eth2Digest
-    payloadAttributes: ForkedPayloadAttributes
+    payloadAttributes*: PayloadAttributesV2
 
   ELManager* = ref object
     eth1Network: Option[Eth1Network]
@@ -240,6 +233,9 @@ type
     BellatrixExecutionPayloadWithValue |
     GetPayloadV2Response |
     CancunExecutionPayloadAndBlobs
+
+const
+  NoPayloadAttributes* = default(NoPayloadAttributesType)
 
 declareCounter failed_web3_requests,
   "Failed web3 requests"
@@ -616,10 +612,10 @@ proc close(connection: ELConnection): Future[void] {.async.} =
     awaitWithTimeout(connection.web3.get.close(), 30.seconds):
       debug "Failed to close data provider in time"
 
-proc isConnected(connection: ELConnection): bool =
+func isConnected(connection: ELConnection): bool =
   connection.web3.isSome
 
-proc getJsonRpcRequestHeaders(jwtSecret: Option[seq[byte]]):
+func getJsonRpcRequestHeaders(jwtSecret: Option[seq[byte]]):
     auto =
   if jwtSecret.isSome:
     let secret = jwtSecret.get
@@ -694,65 +690,29 @@ func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
                randomData: Eth2Digest,
                feeRecipient: Eth1Address,
                withdrawals: seq[WithdrawalV1]): bool =
-  if not(expectedParams.isSome and
-         expectedParams.get.headBlockHash == latestHead and
-         expectedParams.get.safeBlockHash == latestSafe and
-         expectedParams.get.finalizedBlockHash == latestFinalized):
-    return false
-
-  if expectedParams.get.payloadAttributes == nil:
-    return false
-
-  case expectedParams.get.payloadAttributes.kind
-  of ForkedPayloadAttributesKind.v1:
-    expectedParams.get.payloadAttributes.v1.timestamp.uint64 == timestamp and
-    expectedParams.get.payloadAttributes.v1.prevRandao.bytes == randomData.data and
-    expectedParams.get.payloadAttributes.v1.suggestedFeeRecipient == feeRecipient and
-    withdrawals.len == 0
-  of ForkedPayloadAttributesKind.v2:
-    expectedParams.get.payloadAttributes.v2.timestamp.uint64 == timestamp and
-    expectedParams.get.payloadAttributes.v2.prevRandao.bytes == randomData.data and
-    expectedParams.get.payloadAttributes.v2.suggestedFeeRecipient == feeRecipient and
-    expectedParams.get.payloadAttributes.v2.withdrawals == withdrawals
-
-template makeForkedPayloadAttributes(
-    GetPayloadResponseType: type BellatrixExecutionPayloadWithValue,
-    timestamp: uint64,
-    randomData: Eth2Digest,
-    suggestedFeeRecipient: Eth1Address,
-    withdrawals: seq[WithdrawalV1]): ForkedPayloadAttributes =
-  ForkedPayloadAttributes(
-    kind: ForkedPayloadAttributesKind.v1,
-    v1: engine_api.PayloadAttributesV1(
-      timestamp: Quantity timestamp,
-      prevRandao: FixedBytes[32] randomData.data,
-      suggestedFeeRecipient: suggestedFeeRecipient))
-
-template makeForkedPayloadAttributes(
-    GetPayloadResponseType: typedesc[engine_api.GetPayloadV2Response|CancunExecutionPayloadAndBlobs],
-    timestamp: uint64,
-    randomData: Eth2Digest,
-    suggestedFeeRecipient: Eth1Address,
-    withdrawals: seq[WithdrawalV1]): ForkedPayloadAttributes =
-  ForkedPayloadAttributes(
-    kind: ForkedPayloadAttributesKind.v2,
-    v2: engine_api.PayloadAttributesV2(
-      timestamp: Quantity timestamp,
-      prevRandao: FixedBytes[32] randomData.data,
-      suggestedFeeRecipient: suggestedFeeRecipient,
-      withdrawals: withdrawals))
+  expectedParams.isSome and
+    expectedParams.get.headBlockHash == latestHead and
+    expectedParams.get.safeBlockHash == latestSafe and
+    expectedParams.get.finalizedBlockHash == latestFinalized and
+    expectedParams.get.payloadAttributes.timestamp.uint64 == timestamp and
+    expectedParams.get.payloadAttributes.prevRandao.bytes == randomData.data and
+    expectedParams.get.payloadAttributes.suggestedFeeRecipient == feeRecipient and
+    expectedParams.get.payloadAttributes.withdrawals == withdrawals
 
 proc forkchoiceUpdated(rpcClient: RpcClient,
                        state: ForkchoiceStateV1,
-                       payloadAttributes: ForkedPayloadAttributes): Future[ForkchoiceUpdatedResponse] =
-  if payloadAttributes == nil:
+                       payloadAttributes: PayloadAttributesV1 |
+                                          PayloadAttributesV2 |
+                                          NoPayloadAttributesType):
+                       Future[ForkchoiceUpdatedResponse] =
+  when payloadAttributes is NoPayloadAttributesType:
     rpcClient.engine_forkchoiceUpdatedV1(state, none PayloadAttributesV1)
+  elif payloadAttributes is PayloadAttributesV1:
+    rpcClient.engine_forkchoiceUpdatedV1(state, some payloadAttributes)
+  elif payloadAttributes is PayloadAttributesV2:
+    rpcClient.engine_forkchoiceUpdatedV2(state, some payloadAttributes)
   else:
-    case payloadAttributes.kind
-    of ForkedPayloadAttributesKind.v1:
-      rpcClient.engine_forkchoiceUpdatedV1(state, some payloadAttributes.v1)
-    of ForkedPayloadAttributesKind.v2:
-      rpcClient.engine_forkchoiceUpdatedV2(state, some payloadAttributes.v2)
+    static: doAssert false
 
 func computeBlockValue(blk: ExecutionPayloadV1): UInt256 {.raises: [RlpError, Defect].} =
   for transactionBytes in blk.transactions:
@@ -777,17 +737,29 @@ proc getPayloadFromSingleEL(
     elif not headBlock.isZero:
       engine_api_last_minute_forkchoice_updates_sent.inc(1, [connection.engineUrl.url])
 
-      let response = await rpcClient.forkchoiceUpdated(
-        ForkchoiceStateV1(
-          headBlockHash: headBlock.asBlockHash,
-          safeBlockHash: safeBlock.asBlockHash,
-          finalizedBlockHash: finalizedBlock.asBlockHash),
-        makeForkedPayloadAttributes(
-          GetPayloadResponseType,
-          timestamp,
-          randomData,
-          suggestedFeeRecipient,
-          withdrawals))
+      when GetPayloadResponseType is BellatrixExecutionPayloadWithValue:
+        let response = await rpcClient.forkchoiceUpdated(
+          ForkchoiceStateV1(
+            headBlockHash: headBlock.asBlockHash,
+            safeBlockHash: safeBlock.asBlockHash,
+            finalizedBlockHash: finalizedBlock.asBlockHash),
+          PayloadAttributesV1(
+            timestamp: Quantity timestamp,
+            prevRandao: FixedBytes[32] randomData.data,
+            suggestedFeeRecipient: suggestedFeeRecipient))
+      elif GetPayloadResponseType is engine_api.GetPayloadV2Response or GetPayloadResponseType is CancunExecutionPayloadAndBlobs:
+        let response = await rpcClient.forkchoiceUpdated(
+          ForkchoiceStateV1(
+            headBlockHash: headBlock.asBlockHash,
+            safeBlockHash: safeBlock.asBlockHash,
+            finalizedBlockHash: finalizedBlock.asBlockHash),
+          PayloadAttributesV2(
+            timestamp: Quantity timestamp,
+            prevRandao: FixedBytes[32] randomData.data,
+            suggestedFeeRecipient: suggestedFeeRecipient,
+            withdrawals: withdrawals))
+      else:
+        static: doAssert false
 
       if response.payloadStatus.status != PayloadExecutionStatus.valid or
          response.payloadId.isNone:
@@ -820,7 +792,7 @@ proc getPayloadFromSingleEL(
   else:
     return await engine_api.getPayload(rpcClient, GetPayloadResponseType, payloadId)
 
-proc cmpGetPayloadResponses(lhs, rhs: SomeEnginePayloadWithValue): int =
+func cmpGetPayloadResponses(lhs, rhs: SomeEnginePayloadWithValue): int =
   cmp(distinctBase lhs.blockValue, distinctBase rhs.blockValue)
 
 template EngineApiResponseType*(T: type bellatrix.ExecutionPayloadForSigning): type =
@@ -960,7 +932,7 @@ proc waitELToSyncDeposits(connection: ELConnection,
       await sleepAsync(seconds(30))
       rpcClient = await connection.connectedRpcClient()
 
-proc networkHasDepositContract(m: ELManager): bool =
+func networkHasDepositContract(m: ELManager): bool =
   not m.cfg.DEPOSIT_CONTRACT_ADDRESS.isDefaultValue
 
 func mostRecentKnownBlock(m: ELManager): BlockHash =
@@ -1039,7 +1011,7 @@ type
     oldStatusIsOk
     disagreement
 
-proc compareStatuses(prevStatus, newStatus: PayloadExecutionStatus): StatusRelation =
+func compareStatuses(prevStatus, newStatus: PayloadExecutionStatus): StatusRelation =
   case prevStatus
   of PayloadExecutionStatus.syncing:
     if newStatus == PayloadExecutionStatus.syncing:
@@ -1089,7 +1061,7 @@ type
     selectedResponse: Option[int]
     disagreementAlreadyDetected: bool
 
-proc init(T: type ELConsensusViolationDetector): T =
+func init(T: type ELConsensusViolationDetector): T =
   ELConsensusViolationDetector(selectedResponse: none int,
                                disagreementAlreadyDetected: false)
 
@@ -1168,7 +1140,8 @@ proc sendNewPayload*(m: ELManager,
 proc forkchoiceUpdatedForSingleEL(
     connection: ELConnection,
     state: ref ForkchoiceStateV1,
-    payloadAttributes: ForkedPayloadAttributes):
+    payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2 |
+                       NoPayloadAttributesType):
     Future[PayloadStatusV1] {.async.} =
   let
     rpcClient = await connection.connectedRpcClient()
@@ -1187,7 +1160,8 @@ proc forkchoiceUpdatedForSingleEL(
 
 proc forkchoiceUpdated*(m: ELManager,
                         headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
-                        payloadAttributes: ForkedPayloadAttributes = nil):
+                        payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2 |
+                                           NoPayloadAttributesType):
                         Future[(PayloadExecutionStatus, Option[BlockHash])] {.async.} =
   doAssert not headBlockHash.isZero
 
@@ -1205,11 +1179,26 @@ proc forkchoiceUpdated*(m: ELManager,
   if m.elConnections.len == 0:
     return (PayloadExecutionStatus.syncing, none BlockHash)
 
+  when payloadAttributes is PayloadAttributesV2:
+    template payloadAttributesV2(): auto = payloadAttributes
+  elif payloadAttributes is PayloadAttributesV1:
+    template payloadAttributesV2(): auto = PayloadAttributesV2(
+      timestamp: payloadAttributes.timestamp,
+      prevRandao: payloadAttributes.prevRandao,
+      suggestedFeeRecipient: payloadAttributes.suggestedFeeRecipient,
+      withdrawals: @[])
+  elif payloadAttributes is NoPayloadAttributesType:
+    template payloadAttributesV2(): auto =
+      # Because timestamp and prevRandao are both 0, won't false-positive match
+      (static(default(PayloadAttributesV2)))
+  else:
+    static: doAssert false
+
   m.nextExpectedPayloadParams = some NextExpectedPayloadParams(
     headBlockHash: headBlockHash,
     safeBlockHash: safeBlockHash,
     finalizedBlockHash: finalizedBlockHash,
-    payloadAttributes: payloadAttributes)
+    payloadAttributes: payloadAttributesV2)
 
   let
     state = newClone ForkchoiceStateV1(
@@ -1258,12 +1247,12 @@ proc forkchoiceUpdated*(m: ELManager,
 
 proc forkchoiceUpdatedNoResult*(m: ELManager,
                                 headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
-                                payloadAttributes: ForkedPayloadAttributes = nil) {.async.} =
+                                payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2) {.async.} =
   discard await m.forkchoiceUpdated(
     headBlockHash, safeBlockHash, finalizedBlockHash, payloadAttributes)
 
 # TODO can't be defined within exchangeConfigWithSingleEL
-proc `==`(x, y: Quantity): bool {.borrow, noSideEffect.}
+func `==`(x, y: Quantity): bool {.borrow.}
 
 proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.} =
   let rpcClient = await connection.connectedRpcClient()
@@ -1686,7 +1675,7 @@ template getBlockProposalData*(m: ELManager,
   getBlockProposalData(
     m.eth1Chain, state, finalizedEth1Data, finalizedStateDepositIndex)
 
-proc new*(T: type ELConnection,
+func new*(T: type ELConnection,
           engineUrl: EngineApiUrl): T =
   ELConnection(
     engineUrl: engineUrl,
