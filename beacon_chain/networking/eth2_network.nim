@@ -1089,19 +1089,6 @@ proc handleIncomingStream(network: Eth2Node,
 
     nbc_reqresp_messages_received.inc(1, [shortProtocolId(protocolId)])
 
-    # The request quota is shared between all requests - it represents the
-    # cost to perform a service on behalf of a client and is incurred
-    # regardless if the request succeeds or fails - we don't count waiting
-    # for this quota against timeouts so as not to prematurely disconnect
-    # clients that are on the edge - nonetheless, the client will count it.
-    #
-    # When a client exceeds their quota, they will be slowed down without
-    # notification - as long as they don't make parallel requests (which is
-    # limited by libp2p), this will naturally adapt them to the available
-    # quota.
-
-    awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
-
     # TODO(zah) The TTFB timeout is not implemented in LibP2P streams back-end
     let deadline = sleepAsync RESP_TIMEOUT
 
@@ -1136,6 +1123,19 @@ proc handleIncomingStream(network: Eth2Node,
       except SnappyError as err:
         nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
         returnInvalidRequest err.msg
+
+    # The request quota is shared between all requests - it represents the
+    # cost to perform a service on behalf of a client and is incurred
+    # regardless if the request succeeds or fails - we don't count waiting
+    # for this quota against timeouts so as not to prematurely disconnect
+    # clients that are on the edge - nonetheless, the client will count it.
+    #
+    # When a client exceeds their quota, they will be slowed down without
+    # notification - as long as they don't make parallel requests (which is
+    # limited by libp2p), this will naturally adapt them to the available
+    # quota.
+
+    awaitQuota(peer, libp2pRequestCost, shortProtocolId(protocolId))
 
     if msg.isErr:
       nbc_reqresp_messages_failed.inc(1, [shortProtocolId(protocolId)])
