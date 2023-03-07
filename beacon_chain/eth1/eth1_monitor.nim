@@ -884,6 +884,11 @@ proc getPayload*(m: ELManager,
             withdrawals_from_cl = engineApiWithdrawals,
             withdrawals_from_el = req.read.executionPayload.withdrawals
 
+      if req.read.executionPayload.extraData.len > MAX_EXTRA_DATA_BYTES:
+        warn "Execution client provided a block with invalid extraData (size exceeds limit)",
+             size = req.read.executionPayload.extraData.len, limit = MAX_EXTRA_DATA_BYTES
+        continue
+
       if bestPayloadIdx.isNone:
         bestPayloadIdx = some idx
       else:
