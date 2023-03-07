@@ -337,7 +337,7 @@ proc initFullNode(
                                 maybeFinalized = maybeFinalized)
       resfut
     blockBlobsVerifier = proc(signedBlock: ForkedSignedBeaconBlock,
-                              blobs: eip4844.BlobsSidecar,
+                              blobs: BlobSidecars,
                               maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
       # The design with a callback for block verification is unusual compared
@@ -346,7 +346,7 @@ proc initFullNode(
       # that should probably be reimagined more holistically in the future.
       let resfut = newFuture[Result[void, VerifierError]]("blockVerifier")
       blockProcessor[].addBlock(MsgSource.gossip, signedBlock,
-                                BlobSidecars @[], resfut, maybeFinalized = maybeFinalized)
+                                blobs, resfut, maybeFinalized = maybeFinalized)
       resfut
     processor = Eth2Processor.new(
       config.doppelgangerDetection,

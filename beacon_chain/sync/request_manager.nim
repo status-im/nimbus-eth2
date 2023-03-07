@@ -14,7 +14,9 @@ import
   ../spec/forks,
   ../networking/eth2_network,
   ../consensus_object_pools/block_quarantine,
-  "."/sync_protocol, "."/sync_manager
+  "."/sync_protocol, "."/sync_manager,
+  ../gossip_processing/block_processor
+
 from ../beacon_clock import GetBeaconTimeFn
 export block_quarantine, sync_manager
 
@@ -33,7 +35,7 @@ type
     proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   BlockBlobsVerifier* =
-    proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar,
+    proc(signedBlock: ForkedSignedBeaconBlock, blobs: BlobSidecars,
          maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 

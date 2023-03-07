@@ -486,6 +486,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ## SyncManager test suite
 ```diff
 + Process all unviable blocks                                                                OK
++ [SyncManager] groupBlobs() test                                                            OK
 + [SyncQueue#Backward] Async unordered push test                                             OK
 + [SyncQueue#Backward] Async unordered push with rewind test                                 OK
 + [SyncQueue#Backward] Good response with missing values towards end                         OK
@@ -509,7 +510,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + [SyncQueue] getLastNonEmptySlot() test                                                     OK
 + [SyncQueue] hasEndGap() test                                                               OK
 ```
-OK: 23/23 Fail: 0/23 Skip: 0/23
+OK: 24/24 Fail: 0/24 Skip: 0/24
 ## Type helpers
 ```diff
 + BeaconBlockType                                                                            OK
@@ -625,4 +626,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 346/351 Fail: 0/351 Skip: 5/351
+OK: 347/352 Fail: 0/352 Skip: 5/352

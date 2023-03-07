@@ -46,7 +46,7 @@ const
     ## Number of slots from wall time that we start processing every payload
 
 type
-  BlobSidecars* = List[Blob, Limit MAX_BLOBS_PER_BLOCK]
+  BlobSidecars* = seq[ref BlobSidecar]
   BlockEntry = object
     blck*: ForkedSignedBeaconBlock
     blobs*: BlobSidecars
