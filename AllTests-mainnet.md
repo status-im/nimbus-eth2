@@ -486,6 +486,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 ## SyncManager test suite
 ```diff
 + Process all unviable blocks                                                                OK
++ [SyncManager] groupBlobs() test                                                            OK
 + [SyncQueue#Backward] Async unordered push test                                             OK
 + [SyncQueue#Backward] Async unordered push with rewind test                                 OK
 + [SyncQueue#Backward] Good response with missing values towards end                         OK

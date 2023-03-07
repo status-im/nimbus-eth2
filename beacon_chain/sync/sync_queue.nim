@@ -29,7 +29,7 @@ type
     proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   BlockBlobsVerifier* =
-    proc(signedBlock: ForkedSignedBeaconBlock, blobs: eip4844.BlobsSidecar,
+    proc(signedBlock: ForkedSignedBeaconBlock, blobs: BlobSidecars,
          maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 
@@ -46,7 +46,7 @@ type
   SyncResult*[T] = object
     request*: SyncRequest[T]
     data*: seq[ref ForkedSignedBeaconBlock]
-    blobs*: Opt[seq[ref BlobsSidecar]]
+    blobs*: Opt[seq[BlobSidecars]]
 
   GapItem*[T] = object
     start*: Slot
@@ -116,24 +116,21 @@ proc getShortMap*[T](req: SyncRequest[T],
   res
 
 proc getShortMap*[T](req: SyncRequest[T],
-                     data: openArray[ref BlobsSidecar]): string =
+                     data: openArray[ref BlobSidecar]): string =
   ## Returns all slot numbers in ``data`` as placement map.
-  var res = newStringOfCap(req.count)
-  var slider = req.slot
-  var last = 0
-  for i in 0 ..< req.count:
-    if last < len(data):
-      for k in last ..< len(data):
-        if slider == data[k].beacon_block_slot:
+  var res = newStringOfCap(req.count * MAX_BLOBS_PER_BLOCK)
+  var cur : uint64 = 0
+  for slot in req.slot..<req.slot+req.count:
+    if slot == data[cur].slot:
+      for k in cur..<cur+MAX_BLOBS_PER_BLOCK:
+        inc(cur)
+        if slot == data[k].slot:
           res.add('x')
-          last = k + 1
-          break
-        elif slider < data[k].beacon_block_slot:
-          res.add('.')
+        else:
+          res.add('|')
           break
     else:
-      res.add('.')
-    slider = slider + 1
+      res.add('|')
   res
 
 proc contains*[T](req: SyncRequest[T], slot: Slot): bool {.inline.} =
@@ -607,7 +604,7 @@ func numAlreadyKnownSlots[T](sq: SyncQueue[T], sr: SyncRequest[T]): uint64 =
 
 proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
               data: seq[ref ForkedSignedBeaconBlock],
-              blobs: Opt[seq[ref BlobsSidecar]],
+              blobs: Opt[seq[BlobSidecars]],
               maybeFinalized: bool = false,
               processingCb: ProcessingCallback = nil) {.async.} =
   logScope:
@@ -689,7 +686,7 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
       if reqres.get().blobs.isNone():
         res = await sq.blockVerifier(blk[], maybeFinalized)
       else:
-        res = await sq.blockBlobsVerifier(blk[], reqres.get().blobs.get()[i][], maybeFinalized)
+        res = await sq.blockBlobsVerifier(blk[], reqres.get().blobs.get()[i], maybeFinalized)
       inc(i)
 
       if res.isOk():
