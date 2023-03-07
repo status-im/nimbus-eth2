@@ -70,7 +70,7 @@ suite "SyncManager test suite":
       curslot = curslot + 1'u64
     res
 
-  proc createBlobs(slots: seq[Slot]): seq[ref BlobSidecar] =
+  func createBlobs(slots: seq[Slot]): seq[ref BlobSidecar] =
     var res = newSeq[ref BlobSidecar](len(slots))
     for (i, item) in res.mpairs():
       item = new BlobSidecar
