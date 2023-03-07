@@ -70,6 +70,13 @@ suite "SyncManager test suite":
       curslot = curslot + 1'u64
     res
 
+  proc createBlobs(slots: seq[Slot]): seq[ref BlobSidecar] =
+    var res = newSeq[ref BlobSidecar](len(slots))
+    for (i, item) in res.mpairs():
+      item = new BlobSidecar
+      item[].slot = slots[i]
+    res
+
   proc getSlice(chain: openArray[ref ForkedSignedBeaconBlock], startSlot: Slot,
                 request: SyncRequest[SomeTPeer]): seq[ref ForkedSignedBeaconBlock] =
     let
@@ -1054,6 +1061,35 @@ suite "SyncManager test suite":
       checkResponse(r21, @[slots[2], slots[1]]) == false
       checkResponse(r21, @[slots[2], slots[3]]) == false
       checkResponse(r21, @[slots[3]]) == false
+
+  test "[SyncManager] groupBlobs() test":
+    let blobs = createBlobs(@[Slot(11), Slot(11), Slot(12), Slot(14)])
+    let req = SyncRequest[SomeTPeer](slot: Slot(10), count: 6'u64)
+    let groupedRes = groupBlobs(req, blobs)
+
+    check:
+      groupedRes.isOk()
+
+    let grouped = groupedRes.get()
+
+    check:
+      len(grouped) == 6
+      # slot 10
+      len(grouped[0]) == 0
+      # slot 11
+      len(grouped[1]) == 2
+      grouped[1][0].slot == Slot(11)
+      grouped[1][1].slot == Slot(11)
+      # slot 12
+      len(grouped[2]) == 1
+      grouped[2][0].slot == Slot(12)
+      # slot 13
+      len(grouped[3]) == 0
+      # slot 14
+      len(grouped[4]) == 1
+      grouped[4][0].slot == Slot(14)
+      # slot 15
+      len(grouped[5]) == 0
 
   test "[SyncQueue#Forward] getRewindPoint() test":
     let aq = newAsyncQueue[BlockEntry]()
