@@ -27,7 +27,7 @@ import
 when defined(posix):
   import system/ansi_c
 
-from ./spec/datatypes/eip4844 import SignedBeaconBlock
+from ./spec/datatypes/deneb import SignedBeaconBlock
 
 from
   libp2p/protocols/pubsub/gossipsub
@@ -1469,7 +1469,7 @@ proc installMessageValidators(node: BeaconNode) =
 
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.eip4844),
-    proc (signedBlock: eip4844.SignedBeaconBlock): ValidationResult =
+    proc (signedBlock: deneb.SignedBeaconBlock): ValidationResult =
       if node.shouldSyncOptimistically(node.currentSlot):
         toValidationResult(
           node.optimisticProcessor.processSignedBeaconBlock(signedBlock))

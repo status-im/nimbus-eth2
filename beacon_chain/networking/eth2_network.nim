@@ -791,7 +791,7 @@ func chunkMaxSize[T](): uint32 =
   when T is ForkySignedBeaconBlock:
     when T is phase0.SignedBeaconBlock or T is altair.SignedBeaconBlock or
          T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
-         T is eip4844.SignedBeaconBlock:
+         T is deneb.SignedBeaconBlock:
       MAX_CHUNK_SIZE_BELLATRIX
     else:
       {.fatal: "what's the chunk size here?".}
@@ -801,14 +801,14 @@ func chunkMaxSize[T](): uint32 =
     MAX_CHUNK_SIZE_BELLATRIX
 
 from ../spec/datatypes/capella import SignedBeaconBlock
-from ../spec/datatypes/eip4844 import SignedBeaconBlock
+from ../spec/datatypes/deneb import SignedBeaconBlock
 
 template gossipMaxSize(T: untyped): uint32 =
   const maxSize = static:
     when isFixedSize(T):
       fixedPortionSize(T)
     elif T is bellatrix.SignedBeaconBlock or T is capella.SignedBeaconBlock or
-         T is eip4844.SignedBeaconBlock:
+         T is deneb.SignedBeaconBlock:
       GOSSIP_MAX_SIZE_BELLATRIX
     # TODO https://github.com/status-im/nim-ssz-serialization/issues/20 for
     # Attestation, AttesterSlashing, and SignedAggregateAndProof, which all
@@ -2627,11 +2627,11 @@ proc broadcastBeaconBlock*(
   node.broadcast(topic, blck)
 
 proc broadcastBeaconBlock*(
-    node: Eth2Node, blck: eip4844.SignedBeaconBlock): Future[SendResult] =
+    node: Eth2Node, blck: deneb.SignedBeaconBlock): Future[SendResult] =
   let topic = getBeaconBlocksTopic(node.forkDigests.eip4844)
   node.broadcast(topic, blck)
 
-from ../spec/datatypes/eip4844 import SignedBeaconBlock
+from ../spec/datatypes/deneb import SignedBeaconBlock
 
 proc broadcastSyncCommitteeMessage*(
     node: Eth2Node, msg: SyncCommitteeMessage,

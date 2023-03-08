@@ -14,7 +14,7 @@ import
   ../beacon_node,
   ../consensus_object_pools/[blockchain_dag, exit_pool, spec_cache],
   ../spec/[deposit_snapshots, eth2_merkleization, forks, network, validator],
-  ../spec/datatypes/[phase0, altair, eip4844],
+  ../spec/datatypes/[phase0, altair, deneb],
   ../validators/message_router_mev
 
 export rest_utils

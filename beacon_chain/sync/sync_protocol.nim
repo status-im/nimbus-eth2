@@ -11,7 +11,7 @@ import
   std/[options, tables, sets, macros],
   chronicles, chronos, snappy, snappy/codec,
   libp2p/switch,
-  ../spec/datatypes/[phase0, altair, bellatrix, capella, eip4844],
+  ../spec/datatypes/[phase0, altair, bellatrix, capella, deneb],
   ../spec/[helpers, forks, network],
   ".."/[beacon_clock],
   ../networking/eth2_network,
@@ -112,7 +112,7 @@ proc readChunkPayload*(
     else:
       return err(res.error)
   elif contextBytes == peer.network.forkDigests.eip4844:
-    let res = await readChunkPayload(conn, peer, eip4844.SignedBeaconBlock)
+    let res = await readChunkPayload(conn, peer, deneb.SignedBeaconBlock)
     if res.isOk:
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:

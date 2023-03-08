@@ -307,7 +307,7 @@ proc newExecutionPayload*(
 proc getExecutionValidity(
     elManager: ELManager,
     blck: bellatrix.SignedBeaconBlock | capella.SignedBeaconBlock |
-    eip4844.SignedBeaconBlock):
+          deneb.SignedBeaconBlock):
     Future[NewPayloadStatus] {.async.} =
   if not blck.message.is_execution_block:
     return NewPayloadStatus.valid  # vacuously

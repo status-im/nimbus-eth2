@@ -220,7 +220,7 @@ template LightClientUpdate*(kind: static LightClientDataFork): auto =
 
 template LightClientFinalityUpdate*(kind: static LightClientDataFork): auto =
   when kind == LightClientDataFork.EIP4844:
-    typedesc[eip4844.LightClientFinalityUpdate]
+    typedesc[deneb.LightClientFinalityUpdate]
   elif kind == LightClientDataFork.Capella:
     typedesc[capella.LightClientFinalityUpdate]
   elif kind == LightClientDataFork.Altair:
