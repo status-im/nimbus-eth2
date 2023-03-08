@@ -1023,7 +1023,7 @@ suite "Eth1 monitor":
         executionPayload == asConsensusType(
           asEngineExecutionPayload(executionPayload))
 
-  test "Roundtrip engine RPC V3 and eip4844.ExecutionPayload representations":
+  test "Roundtrip engine RPC V3 and eip4844 ExecutionPayload representations":
     # Each Eth2Digest field is chosen randomly. Each uint64 field is random,
     # with boosted probabilities for 0, 1, and high(uint64). There can be 0,
     # 1, 2, or 3 transactions uniformly. Each transaction is 0, 8, 13, or 16
