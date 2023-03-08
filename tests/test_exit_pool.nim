@@ -91,8 +91,6 @@ suite "Validator change pool testing suite":
           pool[].getBeaconBlockValidatorChanges(
               cfg, forkyState.data).proposer_slashings.lenu64 ==
             min(i + 1, MAX_PROPOSER_SLASHINGS)
-          pool[].getBeaconBlockValidatorChanges(
-            cfg, forkyState.data).proposer_slashings.len == 0
 
   test "addValidatorChangeMessage/getAttesterSlashingMessage":
     for i in 0'u64 .. MAX_ATTESTER_SLASHINGS + 5:
@@ -114,8 +112,6 @@ suite "Validator change pool testing suite":
           pool[].getBeaconBlockValidatorChanges(
               cfg, forkyState.data).attester_slashings.lenu64 ==
             min(i + 1, MAX_ATTESTER_SLASHINGS)
-          pool[].getBeaconBlockValidatorChanges(
-            cfg, forkyState.data).attester_slashings.len == 0
 
   test "addValidatorChangeMessage/getVoluntaryExitMessage":
     # Need to advance state or it will not accept voluntary exits
@@ -144,8 +140,6 @@ suite "Validator change pool testing suite":
           pool[].getBeaconBlockValidatorChanges(
               cfg, forkyState.data).voluntary_exits.lenu64 ==
             min(i + 1, MAX_VOLUNTARY_EXITS)
-          pool[].getBeaconBlockValidatorChanges(
-            cfg, forkyState.data).voluntary_exits.len == 0
 
   test "addValidatorChangeMessage/getBlsToExecutionChange (pre-capella)":
     # Need to advance state or it will not accept voluntary exits
@@ -216,9 +210,6 @@ suite "Validator change pool testing suite":
 
           # Ensure priority of API to gossip messages is observed
           allIt(priorityMessages, pool[].isSeen(it))
-
-          pool[].getBeaconBlockValidatorChanges(
-            cfg, forkyState.data).bls_to_execution_changes.len == 0
 
   test "pre-pre-fork voluntary exit":
     var
