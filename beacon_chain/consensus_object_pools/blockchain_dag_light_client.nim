@@ -150,7 +150,7 @@ func targetLightClientTailSlot(dag: ChainDAGRef): Slot =
   let
     maxPeriods = dag.lcDataStore.maxPeriods
     headPeriod = dag.head.slot.sync_committee_period
-    lowSlot = max(dag.tail.slot, dag.cfg.ALTAIR_FORK_EPOCH.start_slot)
+    lowSlot = dag.cfg.ALTAIR_FORK_EPOCH.start_slot
     tail = max(headPeriod + 1, maxPeriods.SyncCommitteePeriod) - maxPeriods
   max(tail.start_slot, lowSlot)
 
@@ -182,7 +182,8 @@ proc initLightClientBootstrapForPeriod(
   let
     periodStartSlot = period.start_slot
     periodEndSlot = periodStartSlot + SLOTS_PER_SYNC_COMMITTEE_PERIOD - 1
-    lowSlot = max(periodStartSlot, dag.targetLightClientTailSlot)
+    tailSlot = max(dag.targetLightClientTailSlot, dag.tail.slot)
+    lowSlot = max(periodStartSlot, tailSlot)
     highSlot = min(periodEndSlot, dag.finalizedHead.blck.slot)
     lowBoundarySlot = lowSlot.nextEpochBoundarySlot
     highBoundarySlot = highSlot.nextEpochBoundarySlot
@@ -286,7 +287,8 @@ proc initLightClientUpdateForPeriod(
   let
     periodStartSlot = period.start_slot
     periodEndSlot = periodStartSlot + SLOTS_PER_SYNC_COMMITTEE_PERIOD - 1
-    lowSlot = max(periodStartSlot, dag.targetLightClientTailSlot)
+    tailSlot = max(dag.targetLightClientTailSlot, dag.tail.slot)
+    lowSlot = max(periodStartSlot, tailSlot)
     highSlot = min(periodEndSlot, dag.finalizedHead.blck.slot)
     fullPeriodCovered = (dag.finalizedHead.slot > periodEndSlot)
     highBsi = dag.getExistingBlockIdAtSlot(highSlot).valueOr:
@@ -677,7 +679,7 @@ proc initLightClientDataCache*(dag: ChainDAGRef) =
   dag.lcDataStore.db.delNonFinalizedPeriodsFrom(dag.firstNonFinalizedPeriod)
 
   # Initialize tail slot
-  let targetTailSlot = dag.targetLightClientTailSlot
+  let targetTailSlot = max(dag.targetLightClientTailSlot, dag.tail.slot)
   dag.lcDataStore.cache.tailSlot = max(dag.head.slot, targetTailSlot)
 
   # Import head state
