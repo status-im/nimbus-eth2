@@ -301,7 +301,7 @@ proc trackEngineApiRequest(connection: ELConnection,
     # TODO `udata` is nil here. How come?
     # This forces us to create a GC cycle between the Future and the closure
     if request.completed:
-      engine_api_response_time.observe(
+      engine_api_request_duration_seconds.observe(
         float(milliseconds(Moment.now - startTime)) / 1000.0,
         [connection.engineUrl.url, requestName])
 
