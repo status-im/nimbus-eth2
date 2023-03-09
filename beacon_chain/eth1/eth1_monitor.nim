@@ -283,6 +283,8 @@ proc setDegradedState(connection: ELConnection,
       statusCode, err = errMsg
   of Degraded:
     discard
+
+  reset connection.web3
   connection.state = Degraded
 
 proc setWorkingState(connection: ELConnection) =
@@ -670,7 +672,7 @@ proc establishEngineApiConnection*(url: EngineApiUrl):
   let web3Fut = newWeb3(url)
   yield web3Fut or sleepAsync(engineApiConnectionTimeout)
 
-  if (not web3Fut.finished) or web3Fut.failed:
+  if not web3Fut.completed:
     await cancelAndWait(web3Fut)
     if web3Fut.failed:
       return err "Failed to setup Engine API connection: " & web3Fut.readError.msg
@@ -683,7 +685,8 @@ proc tryConnecting(connection: ELConnection): Future[bool] {.async.} =
   if connection.isConnected:
     return true
 
-  if connection.connectingFut == nil:
+  if connection.connectingFut == nil or
+     connection.connectingFut.finished: # The previous attempt was not successful
     connection.connectingFut = establishEngineApiConnection(connection.engineUrl)
 
   let web3Res = await connection.connectingFut
@@ -1342,16 +1345,16 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
         rpcClient.engine_exchangeTransitionConfigurationV1(ourConf),
         timeout = 1.seconds)
     except CatchableError as err:
-      error "Failed to exchange transition configuration",
+      warn "Failed to exchange transition configuration",
             url = connection.engineUrl, err = err.msg
       connection.etcStatus = EtcStatus.exchangeError
       return
 
   connection.etcStatus =
     if ourConf.terminalTotalDifficulty != elConf.terminalTotalDifficulty:
-      error "Engine API configured with different terminal total difficulty",
-          engineAPI_value = elConf.terminalTotalDifficulty,
-          localValue = ourConf.terminalTotalDifficulty
+      warn "Engine API configured with different terminal total difficulty",
+            engineAPI_value = elConf.terminalTotalDifficulty,
+            localValue = ourConf.terminalTotalDifficulty
       EtcStatus.mismatch
     elif ourConf.terminalBlockNumber != elConf.terminalBlockNumber:
       warn "Engine API reporting different terminal block number",
@@ -1381,10 +1384,15 @@ proc exchangeTransitionConfiguration*(m: ELManager) {.async.} =
 
   await requestsCompleted or deadline
 
+  var cancelled = 0
   for idx, req in requests:
     if not req.finished:
       m.elConnections[idx].etcStatus = EtcStatus.exchangeError
       req.cancel()
+      inc cancelled
+
+  if cancelled == requests.len:
+    warn "Failed to exchange configuration with the configured EL end-points"
 
 template readJsonField(j: JsonNode, fieldName: string, ValueType: type): untyped =
   var res: ValueType
@@ -1962,8 +1970,8 @@ proc startExchangeTransitionConfigurationLoop(m: ELManager) {.async.} =
     await sleepAsync(60.seconds)
 
 proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
-  let rpcClient = await connection.connectedRpcClient()
-
+  let rpcClient = awaitOrRaiseOnTimeout(connection.connectedRpcClient(),
+                                        1.seconds)
   let
     shouldProcessDeposits = not (
       m.depositContractAddress.isZeroMemory or
@@ -2090,7 +2098,8 @@ proc startChainSyncingLoop(m: ELManager) {.async.} =
     try:
       await syncEth1Chain(m, connection)
     except CatchableError as err:
-      # The error is already logged by trackEngineApiRequest
+      # A more detailed error is already logged by trackEngineApiRequest
+      debug "Restarting the deposit syncing loop"
       await sleepAsync(5.seconds)
 
 proc start*(m: ELManager) {.gcsafe.} =
@@ -2119,7 +2128,8 @@ proc testWeb3Provider*(web3Url: Uri,
   var web3: Web3
   try:
     web3 = awaitOrRaiseOnTimeout(
-      newWeb3($web3Url, getJsonRpcRequestHeaders(jwtSecret)), 5.seconds)
+      newWeb3($web3Url, getJsonRpcRequestHeaders(jwtSecret)),
+      5.seconds)
     stdout.write "\rEstablishing web3 connection: Connected\n"
   except CatchableError as err:
     stdout.write "\rEstablishing web3 connection: Failure(" & err.msg & ")\n"
