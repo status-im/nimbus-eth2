@@ -866,10 +866,10 @@ proc proposeBlock(node: BeaconNode,
   var forkedBlck = newBlock.get()
 
   withBlck(forkedBlck):
-    var blobs_sidecar = eip4844.BlobsSidecar(
+    var blobs_sidecar = deneb.BlobsSidecar(
       beacon_block_slot: slot,
     )
-    when blck is eip4844.BeaconBlock:
+    when blck is deneb.BeaconBlock:
       # TODO: The blobs_sidecar variable is not currently used.
       #       It could be initialized in makeBeaconBlockForHeadAndSlot
       #       where the required information is available.
@@ -919,7 +919,7 @@ proc proposeBlock(node: BeaconNode,
         elif blck is capella.BeaconBlock:
           capella.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
-        elif blck is eip4844.BeaconBlock:
+        elif blck is deneb.BeaconBlock:
           # TODO: also route blobs
           deneb.SignedBeaconBlock(message: blck, signature: signature, root: blockRoot)
        else:

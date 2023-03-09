@@ -40,7 +40,7 @@ proc findValidator(validators: seq[Validator], pubKey: ValidatorPubKey):
     Opt.some idx.ValidatorIndex
 
 from ../beacon_chain/spec/datatypes/capella import SignedBeaconBlock
-from ../beacon_chain/spec/datatypes/eip4844 import SignedBeaconBlock
+from ../beacon_chain/spec/datatypes/deneb import SignedBeaconBlock
 
 cli do(validatorsDir: string, secretsDir: string,
        startState: string, network: string):
@@ -205,7 +205,7 @@ cli do(validatorsDir: string, secretsDir: string,
         dump(".", signedBlock)
       of ConsensusFork.Deneb:
         blockRoot = hash_tree_root(message.denebData)
-        let signedBlock = eip4844.SignedBeaconBlock(
+        let signedBlock = deneb.SignedBeaconBlock(
           message: message.denebData,
           root: blockRoot,
           signature: get_block_signature(
