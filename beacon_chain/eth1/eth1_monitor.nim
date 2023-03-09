@@ -259,9 +259,9 @@ declareCounter engine_api_responses,
   "Number of successful requests to the newPayload Engine API end-point",
   labels = ["url", "request", "status"]
 
-declareHistogram engine_api_response_time,
+declareHistogram engine_api_request_duration_seconds,
   "Time(s) used to generate signature usign remote signer",
-   buckets = [0.1, 0.25, 0.5, 1.0, 2.0, 5.0],
+   buckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
    labels = ["url", "request"]
 
 declareCounter engine_api_timeouts,
