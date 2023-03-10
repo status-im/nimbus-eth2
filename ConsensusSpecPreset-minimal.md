@@ -295,33 +295,33 @@ ConsensusSpecPreset-minimal
 + EF - Deneb - Slots - over_epoch_boundary [Preset: minimal]                                 OK
 + EF - Deneb - Slots - slots_1 [Preset: minimal]                                             OK
 + EF - Deneb - Slots - slots_2 [Preset: minimal]                                             OK
-+ EF - EIP4844 - Transition - normal_transition [Preset: minimal]                            OK
-+ EF - EIP4844 - Transition - simple_transition [Preset: minimal]                            OK
-+ EF - EIP4844 - Transition - transition_missing_first_post_block [Preset: minimal]          OK
-+ EF - EIP4844 - Transition - transition_missing_last_pre_fork_block [Preset: minimal]       OK
-+ EF - EIP4844 - Transition - transition_only_blocks_post_fork [Preset: minimal]             OK
-+ EF - EIP4844 - Transition - transition_randomized_state [Preset: minimal]                  OK
-+ EF - EIP4844 - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]     OK
-+ EF - EIP4844 - Transition - transition_with_attester_slashing_right_after_fork [Preset: mi OK
-+ EF - EIP4844 - Transition - transition_with_attester_slashing_right_before_fork [Preset: m OK
-+ EF - EIP4844 - Transition - transition_with_btec_right_after_fork [Preset: minimal]        OK
-+ EF - EIP4844 - Transition - transition_with_btec_right_before_fork [Preset: minimal]       OK
-+ EF - EIP4844 - Transition - transition_with_deposit_right_after_fork [Preset: minimal]     OK
-+ EF - EIP4844 - Transition - transition_with_deposit_right_before_fork [Preset: minimal]    OK
-+ EF - EIP4844 - Transition - transition_with_finality [Preset: minimal]                     OK
-+ EF - EIP4844 - Transition - transition_with_leaking_at_fork [Preset: minimal]              OK
-+ EF - EIP4844 - Transition - transition_with_leaking_pre_fork [Preset: minimal]             OK
-+ EF - EIP4844 - Transition - transition_with_no_attestations_until_after_fork [Preset: mini OK
-+ EF - EIP4844 - Transition - transition_with_non_empty_activation_queue [Preset: minimal]   OK
-+ EF - EIP4844 - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pr OK
-+ EF - EIP4844 - Transition - transition_with_one_fourth_exiting_validators_exit_post_fork [ OK
-+ EF - EIP4844 - Transition - transition_with_one_fourth_slashed_active_validators_pre_fork  OK
-+ EF - EIP4844 - Transition - transition_with_proposer_slashing_right_after_fork [Preset: mi OK
-+ EF - EIP4844 - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
-+ EF - EIP4844 - Transition - transition_with_random_half_participation [Preset: minimal]    OK
-+ EF - EIP4844 - Transition - transition_with_random_three_quarters_participation [Preset: m OK
-+ EF - EIP4844 - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minim OK
-+ EF - EIP4844 - Transition - transition_with_voluntary_exit_right_before_fork [Preset: mini OK
++ EF - Deneb - Transition - normal_transition [Preset: minimal]                              OK
++ EF - Deneb - Transition - simple_transition [Preset: minimal]                              OK
++ EF - Deneb - Transition - transition_missing_first_post_block [Preset: minimal]            OK
++ EF - Deneb - Transition - transition_missing_last_pre_fork_block [Preset: minimal]         OK
++ EF - Deneb - Transition - transition_only_blocks_post_fork [Preset: minimal]               OK
++ EF - Deneb - Transition - transition_randomized_state [Preset: minimal]                    OK
++ EF - Deneb - Transition - transition_with_activation_at_fork_epoch [Preset: minimal]       OK
++ EF - Deneb - Transition - transition_with_attester_slashing_right_after_fork [Preset: mini OK
++ EF - Deneb - Transition - transition_with_attester_slashing_right_before_fork [Preset: min OK
++ EF - Deneb - Transition - transition_with_btec_right_after_fork [Preset: minimal]          OK
++ EF - Deneb - Transition - transition_with_btec_right_before_fork [Preset: minimal]         OK
++ EF - Deneb - Transition - transition_with_deposit_right_after_fork [Preset: minimal]       OK
++ EF - Deneb - Transition - transition_with_deposit_right_before_fork [Preset: minimal]      OK
++ EF - Deneb - Transition - transition_with_finality [Preset: minimal]                       OK
++ EF - Deneb - Transition - transition_with_leaking_at_fork [Preset: minimal]                OK
++ EF - Deneb - Transition - transition_with_leaking_pre_fork [Preset: minimal]               OK
++ EF - Deneb - Transition - transition_with_no_attestations_until_after_fork [Preset: minima OK
++ EF - Deneb - Transition - transition_with_non_empty_activation_queue [Preset: minimal]     OK
++ EF - Deneb - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pres OK
++ EF - Deneb - Transition - transition_with_one_fourth_exiting_validators_exit_post_fork [Pr OK
++ EF - Deneb - Transition - transition_with_one_fourth_slashed_active_validators_pre_fork [P OK
++ EF - Deneb - Transition - transition_with_proposer_slashing_right_after_fork [Preset: mini OK
++ EF - Deneb - Transition - transition_with_proposer_slashing_right_before_fork [Preset: min OK
++ EF - Deneb - Transition - transition_with_random_half_participation [Preset: minimal]      OK
++ EF - Deneb - Transition - transition_with_random_three_quarters_participation [Preset: min OK
++ EF - Deneb - Transition - transition_with_voluntary_exit_right_after_fork [Preset: minimal OK
++ EF - Deneb - Transition - transition_with_voluntary_exit_right_before_fork [Preset: minima OK
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: minimal]                 OK
 + EF - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: minimal]           OK
 + EF - Phase 0 - Rewards - empty [Preset: minimal]                                           OK
