@@ -64,7 +64,7 @@ suite "Light client processor" & preset():
           const nilCallback = OnCapellaBlockAdded(nil)
           dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
         of ConsensusFork.Deneb:
-          const nilCallback = OnEIP4844BlockAdded(nil)
+          const nilCallback = OnDenebBlockAdded(nil)
           dag.addHeadBlock(verifier, blck.denebData, nilCallback)
       doAssert added.isOk()
       dag.updateHead(added[], quarantine[], [])
