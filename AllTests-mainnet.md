@@ -39,10 +39,10 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + sanity check Capella blocks [Preset: mainnet]                                              OK
 + sanity check Capella states [Preset: mainnet]                                              OK
 + sanity check Capella states, reusing buffers [Preset: mainnet]                             OK
-+ sanity check EIP4844 and cross-fork getState rollback [Preset: mainnet]                    OK
-+ sanity check EIP4844 blocks [Preset: mainnet]                                              OK
-+ sanity check EIP4844 states [Preset: mainnet]                                              OK
-+ sanity check EIP4844 states, reusing buffers [Preset: mainnet]                             OK
++ sanity check Deneb and cross-fork getState rollback [Preset: mainnet]                      OK
++ sanity check Deneb blocks [Preset: mainnet]                                                OK
++ sanity check Deneb states [Preset: mainnet]                                                OK
++ sanity check Deneb states, reusing buffers [Preset: mainnet]                               OK
 + sanity check genesis roundtrip [Preset: mainnet]                                           OK
 + sanity check phase 0 blocks [Preset: mainnet]                                              OK
 + sanity check phase 0 getState rollback [Preset: mainnet]                                   OK
