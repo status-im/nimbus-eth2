@@ -1819,8 +1819,18 @@ proc stop(m: ELManager) {.async.} =
 const
   votedBlocksSafetyMargin = 50
 
-func earliestBlockOfInterest(m: ELManager, latestEth1BlockNumber: Eth1BlockNumber): Eth1BlockNumber =
-  latestEth1BlockNumber - (2 * m.cfg.ETH1_FOLLOW_DISTANCE) - votedBlocksSafetyMargin
+func earliestBlockOfInterest(
+    m: ELManager,
+    latestEth1BlockNumber: Eth1BlockNumber): Eth1BlockNumber =
+  let blocksOfInterestRange =
+    SLOTS_PER_ETH1_VOTING_PERIOD +
+    (2 * m.cfg.ETH1_FOLLOW_DISTANCE) +
+    votedBlocksSafetyMargin
+
+  if latestEth1BlockNumber > blocksOfInterestRange:
+    latestEth1BlockNumber - blocksOfInterestRange
+  else:
+    0
 
 proc syncBlockRange(m: ELManager,
                     connection: ELConnection,
