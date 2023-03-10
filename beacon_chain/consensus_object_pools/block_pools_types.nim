@@ -308,7 +308,7 @@ type
     epochRef: EpochRef,
     unrealized: FinalityCheckpoints) {.gcsafe, raises: [Defect].}
 
-  OnEIP4844BlockAdded* = proc(
+  OnDenebBlockAdded* = proc(
     blckRef: BlockRef,
     blck: deneb.TrustedSignedBeaconBlock,
     epochRef: EpochRef,
@@ -316,7 +316,7 @@ type
 
   OnForkyBlockAdded* =
     OnPhase0BlockAdded | OnAltairBlockAdded | OnBellatrixBlockAdded |
-    OnCapellaBlockAdded | OnEIP4844BlockAdded
+    OnCapellaBlockAdded | OnDenebBlockAdded
 
   HeadChangeInfoObject* = object
     slot*: Slot

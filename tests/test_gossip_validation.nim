@@ -212,7 +212,7 @@ suite "Gossip validation - Extra": # Not based on preset config
               const nilCallback = OnCapellaBlockAdded(nil)
               dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
             of ConsensusFork.Deneb:
-              const nilCallback = OnEIP4844BlockAdded(nil)
+              const nilCallback = OnDenebBlockAdded(nil)
               dag.addHeadBlock(verifier, blck.denebData, nilCallback)
           check: added.isOk()
           dag.updateHead(added[], quarantine[], [])
