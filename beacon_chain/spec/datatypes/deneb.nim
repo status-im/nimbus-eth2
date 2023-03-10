@@ -135,7 +135,7 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/sync-protocol.md#lightclientheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
       ## Beacon block header
@@ -159,7 +159,8 @@ type
       ## Header attested to by the sync committee
 
     next_sync_committee*: SyncCommittee
-      ## Next sync committee corresponding to `attested_header.beacon.state_root`
+      ## Next sync committee corresponding to
+      ## `attested_header.beacon.state_root`
     next_sync_committee_branch*: altair.NextSyncCommitteeBranch
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
@@ -221,14 +222,15 @@ type
     next_sync_committee*: SyncCommittee
 
     best_valid_update*: Opt[LightClientUpdate]
-      ## Best available header to switch finalized head to if we see nothing else
+      ## Best available header to switch finalized head to
+      ## if we see nothing else
 
     optimistic_header*: LightClientHeader
       ## Most recent available reasonably-safe header
 
     previous_max_active_participants*: uint64
-      ## Max number of active participants in a sync committee (used to compute
-      ## safety threshold)
+      ## Max number of active participants in a sync committee
+      ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#beaconstate

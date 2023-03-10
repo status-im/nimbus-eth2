@@ -157,7 +157,7 @@ type
   NextSyncCommitteeBranch* =
     array[log2trunc(NEXT_SYNC_COMMITTEE_INDEX), Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#lightclientheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
       ## Beacon block header
@@ -171,13 +171,14 @@ type
       ## Current sync committee corresponding to `header.beacon.state_root`
     current_sync_committee_branch*: CurrentSyncCommitteeBranch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#lightclientupdate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#lightclientupdate
   LightClientUpdate* = object
     attested_header*: LightClientHeader
       ## Header attested to by the sync committee
 
     next_sync_committee*: SyncCommittee
-      ## Next sync committee corresponding to `attested_header.beacon.state_root`
+      ## Next sync committee corresponding to
+      ## `attested_header.beacon.state_root`
     next_sync_committee_branch*: NextSyncCommitteeBranch
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
@@ -229,7 +230,7 @@ type
     LightClientBootstrap |
     SomeLightClientUpdate
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/altair/light-client/sync-protocol.md#lightclientstore
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#lightclientstore
   LightClientStore* = object
     finalized_header*: LightClientHeader
       ## Header that is finalized
@@ -239,14 +240,15 @@ type
     next_sync_committee*: SyncCommittee
 
     best_valid_update*: Opt[LightClientUpdate]
-      ## Best available header to switch finalized head to if we see nothing else
+      ## Best available header to switch finalized head to
+      ## if we see nothing else
 
     optimistic_header*: LightClientHeader
       ## Most recent available reasonably-safe header
 
     previous_max_active_participants*: uint64
-      ## Max number of active participants in a sync committee (used to compute
-      ## safety threshold)
+      ## Max number of active participants in a sync committee
+      ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
   InactivityScores* = HashList[uint64, Limit VALIDATOR_REGISTRY_LIMIT]

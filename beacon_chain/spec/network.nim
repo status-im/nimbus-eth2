@@ -102,7 +102,7 @@ func getLightClientFinalityUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientFinalityUpdate`.
   eth2Prefix(forkDigest) & "light_client_finality_update/ssz_snappy"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
 func getLightClientOptimisticUpdateTopic*(forkDigest: ForkDigest): string =
   ## For broadcasting or obtaining the latest `LightClientOptimisticUpdate`.
   eth2Prefix(forkDigest) & "light_client_optimistic_update/ssz_snappy"

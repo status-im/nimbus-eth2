@@ -826,7 +826,7 @@ func toAltairLightClientHeader(
   altair.LightClientHeader(
     beacon: blck.message.toBeaconBlockHeader())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/full-node.md#block_to_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/full-node.md#modified-block_to_light_client_header
 func toCapellaLightClientHeader(
     blck:  # `SomeSignedBeaconBlock` doesn't work here (Nim 1.6)
       phase0.SignedBeaconBlock | phase0.TrustedSignedBeaconBlock |
