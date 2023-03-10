@@ -38,7 +38,11 @@ if [[ -f "$NETWORK/el_bootnode.txt" ]]; then
 fi
 
 if [[ -f "$NETWORK/el_bootnodes.txt" ]]; then
-  EXECUTION_BOOTNODES+=$(awk '{print $1}' "$NETWORK/el_bootnodes.txt" "$NETWORK/el_bootnode.txt" | paste -s -d, -)
+  EXECUTION_BOOTNODES+=$(awk '{print $1}' "$NETWORK/el_bootnodes.txt" "$NETWORK/el_bootnodes.txt" | paste -s -d, -)
+fi
+
+if [[ -f "$NETWORK/bootnodes.txt" ]]; then
+  EXECUTION_BOOTNODES+=$(awk '{print $1}' "$NETWORK/bootnodes.txt" "$NETWORK/bootnodes.txt" | paste -s -d, -)
 fi
 
 GETH_DATA_DIR="$DATA_DIR/geth"
@@ -51,6 +55,8 @@ if [[ ! -d "$GETH_DATA_DIR/geth" ]]; then
   $GETH_CAPELLA_BINARY --http --ws -http.api "engine" --datadir "${GETH_DATA_DIR}" init "${EXECUTION_GENESIS_JSON}"
 fi
 
+echo "Logging to $DATA_DIR/geth_output.log"
+
 $GETH_CAPELLA_BINARY \
     --authrpc.port ${GETH_AUTH_RPC_PORT} \
     --authrpc.jwtsecret "$JWT_TOKEN" \
@@ -60,5 +66,5 @@ $GETH_CAPELLA_BINARY \
     --port 30308 \
     --password "" \
     --metrics \
-    --syncmode=full \
-    --networkid $NETWORK_ID
+    --syncmode snap \
+    --networkid $NETWORK_ID 2>&1 | tee "$DATA_DIR/geth_output.log"
