@@ -904,9 +904,9 @@ func forkVersion*(cfg: RuntimeConfig, consensusFork: ConsensusFork): Version =
   of ConsensusFork.Deneb:       cfg.DENEB_FORK_VERSION
 
 func lcDataForkAtStateFork*(stateFork: ConsensusFork): LightClientDataFork =
-  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
   if stateFork >= ConsensusFork.Deneb:
-    LightClientDataFork.EIP4844
+    LightClientDataFork.Deneb
   elif stateFork >= ConsensusFork.Capella:
     LightClientDataFork.Capella
   elif stateFork >= ConsensusFork.Altair:

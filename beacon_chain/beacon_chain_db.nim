@@ -531,10 +531,9 @@ proc new*(T: type BeaconChainDB,
           "lc_capella_headers"
         else:
           "",
-      eip4844Headers:
+      denebHeaders:
         if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-          # TODO: We should probably rename this to match the official fork name
-          "lc_eip4844_headers"
+          "lc_deneb_headers"
         else:
           "",
       altairCurrentBranches: "lc_altair_current_branches",
@@ -542,7 +541,7 @@ proc new*(T: type BeaconChainDB,
       legacyAltairBestUpdates: "lc_altair_best_updates",
       bestUpdates: "lc_best_updates",
       sealedPeriods: "lc_sealed_periods")).expectDb()
-  static: doAssert LightClientDataFork.high == LightClientDataFork.EIP4844
+  static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
 
   var blobs : KvStoreRef
   if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
