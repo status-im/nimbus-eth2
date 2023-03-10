@@ -417,7 +417,7 @@ template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: bellatrix.MsgTru
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: capella.MsgTrustedSignedBeaconBlock): T =
   T(kind: ConsensusFork.Capella,   capellaData: blck)
 template init*(T: type ForkedMsgTrustedSignedBeaconBlock, blck: deneb.MsgTrustedSignedBeaconBlock): T =
-  T(kind: ConsensusFork.Deneb,     deneb: blck)
+  T(kind: ConsensusFork.Deneb,     denebData: blck)
 
 template init*(T: type ForkedTrustedSignedBeaconBlock, blck: phase0.TrustedSignedBeaconBlock): T =
   T(kind: ConsensusFork.Phase0, phase0Data: blck)
