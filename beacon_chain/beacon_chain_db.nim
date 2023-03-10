@@ -509,7 +509,7 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("altair_blocks").expectDb(),
       kvStore db.openKvStore("bellatrix_blocks").expectDb(),
       kvStore db.openKvStore("capella_blocks").expectDb(),
-      kvStore db.openKvStore("eip4844_blocks").expectDb()]
+      kvStore db.openKvStore("deneb_blocks").expectDb()]
 
     stateRoots = kvStore db.openKvStore("state_roots", true).expectDb()
 
@@ -518,7 +518,7 @@ proc new*(T: type BeaconChainDB,
       kvStore db.openKvStore("altair_state_no_validators").expectDb(),
       kvStore db.openKvStore("bellatrix_state_no_validators").expectDb(),
       kvStore db.openKvStore("capella_state_no_validator_pubkeys").expectDb(),
-      kvStore db.openKvStore("eip4844_state_no_validator_pubkeys").expectDb()]
+      kvStore db.openKvStore("deneb_state_no_validator_pubkeys").expectDb()]
 
     stateDiffs = kvStore db.openKvStore("state_diffs").expectDb()
     summaries = kvStore db.openKvStore("beacon_block_summaries", true).expectDb()
@@ -545,7 +545,7 @@ proc new*(T: type BeaconChainDB,
 
   var blobs : KvStoreRef
   if cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    blobs = kvStore db.openKvStore("eip4844_blobs").expectDb()
+    blobs = kvStore db.openKvStore("deneb_blobs").expectDb()
 
   # Versions prior to 1.4.0 (altair) stored validators in `immutable_validators`
   # which stores validator keys in compressed format - this is
