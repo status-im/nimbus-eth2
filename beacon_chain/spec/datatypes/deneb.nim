@@ -111,7 +111,6 @@ type
     kzgs*: KZGCommitments
     blobs*: Blobs
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#executionpayloadheader
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
@@ -552,7 +551,7 @@ func shortLog*(v: ExecutionPayload): auto =
     num_withdrawals: len(v.withdrawals)
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/sync-protocol.md#get_lc_execution_root
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
@@ -581,7 +580,7 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/sync-protocol.md#is_valid_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
@@ -602,8 +601,8 @@ func is_valid_light_client_header*(
     get_subtree_index(EXECUTION_PAYLOAD_INDEX),
     header.beacon.body_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/fork.md#upgrade_lc_header_to_eip4844
-func upgrade_lc_header_to_eip4844*(
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_header_to_deneb*(
     pre: capella.LightClientHeader): LightClientHeader =
   LightClientHeader(
     beacon: pre.beacon,
@@ -625,41 +624,41 @@ func upgrade_lc_header_to_eip4844*(
         withdrawals_root: pre.execution.withdrawals_root),
     execution_branch: pre.execution_branch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/fork.md#upgrade_lc_bootstrap_to_eip4844
-func upgrade_lc_bootstrap_to_eip4844*(
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_bootstrap_to_deneb*(
     pre: capella.LightClientBootstrap): LightClientBootstrap =
   LightClientBootstrap(
-    header: upgrade_lc_header_to_eip4844(pre.header),
+    header: upgrade_lc_header_to_deneb(pre.header),
     current_sync_committee: pre.current_sync_committee,
     current_sync_committee_branch: pre.current_sync_committee_branch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/fork.md#upgrade_lc_update_to_eip4844
-func upgrade_lc_update_to_eip4844*(
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_update_to_deneb*(
     pre: capella.LightClientUpdate): LightClientUpdate =
   LightClientUpdate(
-    attested_header: upgrade_lc_header_to_eip4844(pre.attested_header),
+    attested_header: upgrade_lc_header_to_deneb(pre.attested_header),
     next_sync_committee: pre.next_sync_committee,
     next_sync_committee_branch: pre.next_sync_committee_branch,
-    finalized_header: upgrade_lc_header_to_eip4844(pre.finalized_header),
+    finalized_header: upgrade_lc_header_to_deneb(pre.finalized_header),
     finality_branch: pre.finality_branch,
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/fork.md#upgrade_lc_finality_update_to_eip4844
-func upgrade_lc_finality_update_to_eip4844*(
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_finality_update_to_deneb*(
     pre: capella.LightClientFinalityUpdate): LightClientFinalityUpdate =
   LightClientFinalityUpdate(
-    attested_header: upgrade_lc_header_to_eip4844(pre.attested_header),
-    finalized_header: upgrade_lc_header_to_eip4844(pre.finalized_header),
+    attested_header: upgrade_lc_header_to_deneb(pre.attested_header),
+    finalized_header: upgrade_lc_header_to_deneb(pre.finalized_header),
     finality_branch: pre.finality_branch,
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/fork.md#upgrade_lc_optimistic_update_to_eip4844
-func upgrade_lc_optimistic_update_to_eip4844*(
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
+func upgrade_lc_optimistic_update_to_deneb*(
     pre: capella.LightClientOptimisticUpdate): LightClientOptimisticUpdate =
   LightClientOptimisticUpdate(
-    attested_header: upgrade_lc_header_to_eip4844(pre.attested_header),
+    attested_header: upgrade_lc_header_to_deneb(pre.attested_header),
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
@@ -706,20 +705,20 @@ chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/eip4844/light-client/fork.md#upgrade_lc_store_to_eip4844
-func upgrade_lc_store_to_eip4844*(
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/fork.md#upgrading-the-store
+func upgrade_lc_store_to_deneb*(
     pre: capella.LightClientStore): LightClientStore =
   let best_valid_update =
     if pre.best_valid_update.isNone:
       Opt.none(LightClientUpdate)
     else:
-      Opt.some upgrade_lc_update_to_eip4844(pre.best_valid_update.get)
+      Opt.some upgrade_lc_update_to_deneb(pre.best_valid_update.get)
   LightClientStore(
-    finalized_header: upgrade_lc_header_to_eip4844(pre.finalized_header),
+    finalized_header: upgrade_lc_header_to_deneb(pre.finalized_header),
     current_sync_committee: pre.current_sync_committee,
     next_sync_committee: pre.next_sync_committee,
     best_valid_update: best_valid_update,
-    optimistic_header: upgrade_lc_header_to_eip4844(pre.optimistic_header),
+    optimistic_header: upgrade_lc_header_to_deneb(pre.optimistic_header),
     previous_max_active_participants: pre.previous_max_active_participants,
     current_max_active_participants: pre.current_max_active_participants)
 
