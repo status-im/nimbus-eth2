@@ -255,11 +255,11 @@ type
       HashList[HistoricalSummary,
         Limit HISTORICAL_ROOTS_LIMIT]  # [New in Capella]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/beacon-chain.md#beaconstate
   # with indirect changes via ExecutionPayloadHeader
-  # Memory-representation-equivalent to a Capella BeaconState for in-place SSZ
+  # Memory-representation-equivalent to a Deneb BeaconState for in-place SSZ
   # reading and writing
-  EIP4844BeaconStateNoImmutableValidators* = object
+  DenebBeaconStateNoImmutableValidators* = object
     # Versioning
     genesis_time*: uint64
     genesis_validators_root*: Eth2Digest
