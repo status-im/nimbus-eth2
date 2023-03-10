@@ -111,7 +111,7 @@ proc readChunkPayload*(
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
     else:
       return err(res.error)
-  elif contextBytes == peer.network.forkDigests.eip4844:
+  elif contextBytes == peer.network.forkDigests.deneb:
     let res = await readChunkPayload(conn, peer, deneb.SignedBeaconBlock)
     if res.isOk:
       return ok newClone(ForkedSignedBeaconBlock.init(res.get))
@@ -129,7 +129,7 @@ proc readChunkPayload*(
   except CatchableError:
     return neterr UnexpectedEOF
 
-  if contextBytes == peer.network.forkDigests.eip4844:
+  if contextBytes == peer.network.forkDigests.deneb:
     let res = await readChunkPayload(conn, peer, BlobSidecar)
     if res.isOk:
       return ok newClone(res.get)

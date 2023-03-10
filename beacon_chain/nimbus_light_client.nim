@@ -147,7 +147,7 @@ programMain:
       toValidationResult(
         optimisticProcessor.processSignedBeaconBlock(signedBlock)))
   network.addValidator(
-    getBeaconBlocksTopic(forkDigests.eip4844),
+    getBeaconBlocksTopic(forkDigests.deneb),
     proc (signedBlock: deneb.SignedBeaconBlock): ValidationResult =
       toValidationResult(
         optimisticProcessor.processSignedBeaconBlock(signedBlock)))
