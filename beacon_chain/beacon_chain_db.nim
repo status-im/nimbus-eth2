@@ -837,8 +837,8 @@ template toBeaconStateNoImmutableValidators(state: capella.BeaconState):
   isomorphicCast[CapellaBeaconStateNoImmutableValidators](state)
 
 template toBeaconStateNoImmutableValidators(state: deneb.BeaconState):
-    EIP4844BeaconStateNoImmutableValidators =
-  isomorphicCast[EIP4844BeaconStateNoImmutableValidators](state)
+    DenebBeaconStateNoImmutableValidators =
+  isomorphicCast[DenebBeaconStateNoImmutableValidators](state)
 
 proc putState*(
     db: BeaconChainDB, key: Eth2Digest,
