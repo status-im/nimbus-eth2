@@ -2034,7 +2034,7 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 +   Testing    Withdrawal                                                                    OK
 ```
 OK: 49/49 Fail: 0/49 Skip: 0/49
-## EF - EIP4844 - Unittests - Light client - Sync protocol [Preset: mainnet]
+## EF - Deneb - Unittests - Light client - Sync protocol [Preset: mainnet]
 ```diff
 + process_light_client_update_finality_updated                                               OK
 + process_light_client_update_timeout                                                        OK
