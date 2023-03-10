@@ -257,7 +257,7 @@ type
     altair*:    ForkDigest
     bellatrix*: ForkDigest
     capella*:   ForkDigest
-    eip4844*:   ForkDigest
+    deneb*:     ForkDigest
 
 macro getSymbolFromForkModule(fork: static ConsensusFork,
                               symbolName: static string): untyped =
@@ -638,7 +638,7 @@ func consensusForkAtEpoch*(cfg: RuntimeConfig, epoch: Epoch): ConsensusFork =
 func stateForkForDigest*(
     forkDigests: ForkDigests, forkDigest: ForkDigest): Opt[ConsensusFork] =
   static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
-  if   forkDigest == forkDigests.eip4844:
+  if   forkDigest == forkDigests.deneb:
     ok ConsensusFork.Deneb
   elif forkDigest == forkDigests.capella:
     ok ConsensusFork.Capella
@@ -655,7 +655,7 @@ func atStateFork*(
     forkDigests: ForkDigests, stateFork: ConsensusFork): ForkDigest =
   case stateFork
   of ConsensusFork.Deneb:
-    forkDigests.eip4844
+    forkDigests.deneb
   of ConsensusFork.Capella:
     forkDigests.capella
   of ConsensusFork.Bellatrix:
@@ -1014,7 +1014,7 @@ func init*(T: type ForkDigests,
       compute_fork_digest(cfg.BELLATRIX_FORK_VERSION, genesis_validators_root),
     capella:
       compute_fork_digest(cfg.CAPELLA_FORK_VERSION, genesis_validators_root),
-    eip4844:
+    deneb:
       compute_fork_digest(cfg.DENEB_FORK_VERSION, genesis_validators_root)
   )
 

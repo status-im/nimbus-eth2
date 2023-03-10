@@ -737,7 +737,7 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.altair,
     node.dag.forkDigests.bellatrix,
     node.dag.forkDigests.capella,
-    node.dag.forkDigests.eip4844]
+    node.dag.forkDigests.deneb]
   forkDigestsArray
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#phase-0-attestation-subnet-stability
@@ -1435,7 +1435,7 @@ proc installMessageValidators(node: BeaconNode) =
   installPhase0Validators(forkDigests.bellatrix)
   installPhase0Validators(forkDigests.capella)
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    installPhase0Validators(forkDigests.eip4844)
+    installPhase0Validators(forkDigests.deneb)
 
   node.network.addValidator(
     getBeaconBlocksTopic(forkDigests.altair),
@@ -1468,7 +1468,7 @@ proc installMessageValidators(node: BeaconNode) =
           MsgSource.gossip, signedBlock)))
 
   node.network.addValidator(
-    getBeaconBlocksTopic(forkDigests.eip4844),
+    getBeaconBlocksTopic(forkDigests.deneb),
     proc (signedBlock: deneb.SignedBeaconBlock): ValidationResult =
       if node.shouldSyncOptimistically(node.currentSlot):
         toValidationResult(
@@ -1500,7 +1500,7 @@ proc installMessageValidators(node: BeaconNode) =
   installSyncCommitteeeValidators(forkDigests.bellatrix)
   installSyncCommitteeeValidators(forkDigests.capella)
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    installSyncCommitteeeValidators(forkDigests.eip4844)
+    installSyncCommitteeeValidators(forkDigests.deneb)
 
   template installBlsToExecutionChangeValidators(digest: auto) =
     node.network.addAsyncValidator(
@@ -1513,7 +1513,7 @@ proc installMessageValidators(node: BeaconNode) =
 
   installBlsToExecutionChangeValidators(forkDigests.capella)
   if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
-    installBlsToExecutionChangeValidators(forkDigests.eip4844)
+    installBlsToExecutionChangeValidators(forkDigests.deneb)
 
   node.installLightClientMessageValidators()
 

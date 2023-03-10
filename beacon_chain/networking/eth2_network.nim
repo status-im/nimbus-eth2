@@ -2628,7 +2628,7 @@ proc broadcastBeaconBlock*(
 
 proc broadcastBeaconBlock*(
     node: Eth2Node, blck: deneb.SignedBeaconBlock): Future[SendResult] =
-  let topic = getBeaconBlocksTopic(node.forkDigests.eip4844)
+  let topic = getBeaconBlocksTopic(node.forkDigests.deneb)
   node.broadcast(topic, blck)
 
 from ../spec/datatypes/deneb import SignedBeaconBlock
