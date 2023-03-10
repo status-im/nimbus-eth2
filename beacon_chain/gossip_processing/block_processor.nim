@@ -26,7 +26,6 @@ from ../consensus_object_pools/block_quarantine import
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
-from ../spec/datatypes/deneb import BlobsSidecar
 from ../spec/state_transition_block import validate_blobs_sidecar
 
 export sszdump, signatures_batch
@@ -166,7 +165,6 @@ proc dumpBlock[T](
 
 from ../consensus_object_pools/block_clearance import
   addBackfillBlock, addHeadBlock
-from ../beacon_chain_db import putBlobsSidecar
 
 proc storeBackfillBlock(
     self: var BlockProcessor,

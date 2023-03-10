@@ -23,7 +23,7 @@ import
   "."/[beacon_chain_db_light_client, filepath]
 
 from ./spec/datatypes/capella import BeaconState
-from ./spec/datatypes/deneb import TrustedSignedBeaconBlock, BlobsSidecar
+from ./spec/datatypes/deneb import TrustedSignedBeaconBlock
 
 export
   phase0, altair, eth2_ssz_serialization, eth2_merkleization, kvstore,
@@ -801,11 +801,6 @@ proc putBlobSidecar*(
     value: BlobSidecar) =
   db.blobs.putSZSSZ(blobkey(value.block_root, value.index), value)
 
-proc putBlobsSidecar*(
-    db: BeaconChainDB,
-    value: BlobsSidecar) =
-  db.blobs.putSZSSZ(value.beacon_block_root.data, value)
-
 proc updateImmutableValidators*(
     db: BeaconChainDB, validators: openArray[Validator]) =
   # Must be called before storing a state that references the new validators
@@ -995,12 +990,6 @@ proc getBlock*[
   else:
     result.err()
 
-proc getBlobsSidecar*(db: BeaconChainDB, key: Eth2Digest): Opt[BlobsSidecar] =
-  var blobs: BlobsSidecar
-  result.ok(blobs)
-  if db.blobs.getSZSSZ(key.data, result.get) != GetResult.found:
-    result.err()
-
 proc getBlobSidecar*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex):
                     Opt[BlobSidecar] =
   var blobs: BlobSidecar
@@ -1077,13 +1066,6 @@ proc getBlockSSZ*(
     getBlockSSZ(db, key, data, capella.TrustedSignedBeaconBlock)
   of ConsensusFork.Deneb:
     getBlockSSZ(db, key, data, deneb.TrustedSignedBeaconBlock)
-
-proc getBlobsSidecarSZ*(db: BeaconChainDB, key: Eth2Digest, data: var seq[byte]):
-    bool =
-  let dataPtr = addr data # Short-lived
-  func decode(data: openArray[byte]) =
-    assign(dataPtr[], data)
-  db.blobs.get(key.data, decode).expectDb()
 
 proc getBlobSidecarSZ*(db: BeaconChainDB, root: Eth2Digest, index: BlobIndex,
                        data: var seq[byte]):
