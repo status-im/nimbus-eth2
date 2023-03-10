@@ -921,7 +921,7 @@ proc initialize_hashed_beacon_state_from_eth1*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/bellatrix/beacon-chain.md#testing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/beacon-chain.md#testing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/eip4844/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#testing
 proc initialize_beacon_state_from_eth1*(
     cfg: RuntimeConfig,
     eth1_block_hash: Eth2Digest,

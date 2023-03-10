@@ -633,7 +633,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     do:
       raiseAssert "withUpdatedState failed"
 
-  proc proposeEIP4844Block(slot: Slot) =
+  proc proposeDenebBlock(slot: Slot) =
     if rand(r, 1.0) > blockRatio:
       return
 
@@ -695,7 +695,7 @@ cli do(slots = SLOTS_PER_EPOCH * 6,
     if blockRatio > 0.0:
       withTimer(timers[t]):
         case dag.cfg.consensusForkAtEpoch(slot.epoch)
-        of ConsensusFork.Deneb:     proposeEIP4844Block(slot)
+        of ConsensusFork.Deneb:     proposeDenebBlock(slot)
         of ConsensusFork.Capella:   proposeCapellaBlock(slot)
         of ConsensusFork.Bellatrix: proposeBellatrixBlock(slot)
         of ConsensusFork.Altair:    proposeAltairBlock(slot)

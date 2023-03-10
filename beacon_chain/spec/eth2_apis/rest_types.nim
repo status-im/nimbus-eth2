@@ -311,7 +311,7 @@ type
     of ConsensusFork.Altair:    altairBody*:    altair.BeaconBlockBody
     of ConsensusFork.Bellatrix: bellatrixBody*: bellatrix.BeaconBlockBody
     of ConsensusFork.Capella:   capellaBody*:   capella.BeaconBlockBody
-    of ConsensusFork.Deneb:     eip4844Body*:   deneb.BeaconBlockBody
+    of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
 
   RestSpec* = object
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/presets/mainnet/phase0.yaml

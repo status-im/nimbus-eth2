@@ -504,10 +504,10 @@ p2pProtocol BeaconSync(version = 1,
     let
       dag = peer.networkState.dag
       epochBoundary =
-        if MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS >= dag.head.slot.epoch:
+        if MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS >= dag.head.slot.epoch:
           GENESIS_EPOCH
         else:
-          dag.head.slot.epoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS
+          dag.head.slot.epoch - MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
 
     if startSlot.epoch < epochBoundary:
       raise newException(ResourceUnavailableError, BlobsOutOfRange)

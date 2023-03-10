@@ -165,7 +165,7 @@ func noRollback*(state: var capella.HashedBeaconState) =
 from ./datatypes/deneb import HashedBeaconState
 
 func noRollback*(state: var deneb.HashedBeaconState) =
-  trace "Skipping rollback of broken EIP4844 state"
+  trace "Skipping rollback of broken Deneb state"
 
 func maybeUpgradeStateToAltair(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
@@ -598,7 +598,7 @@ proc makeBeaconBlock*(
     case state.kind
     of  ConsensusFork.Phase0, ConsensusFork.Altair,
         ConsensusFork.Bellatrix, ConsensusFork.Capella:
-      raiseAssert "Attempt to use EIP4844 payload with non-EIP4844 state"
+      raiseAssert "Attempt to use Deneb payload with non-Deneb state"
     of ConsensusFork.Deneb: makeBeaconBlock(deneb)
   else:
     {.error: "You need to add support for the next fork".}
