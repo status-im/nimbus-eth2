@@ -141,5 +141,5 @@ suite "EF - Deneb - Transition " & preset():
     cfg.DENEB_FORK_EPOCH = transitionInfo.fork_epoch.Epoch
     runTest(
       capella.BeaconState, deneb.BeaconState, capella.SignedBeaconBlock,
-      deneb.SignedBeaconBlock, cfg, "EF - EIP4844 - Transition",
+      deneb.SignedBeaconBlock, cfg, "EF - Deneb - Transition",
       TransitionDir, path, transitionInfo.fork_block)

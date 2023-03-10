@@ -275,29 +275,29 @@ ConsensusSpecPreset-mainnet
 + EF - Deneb - Slots - over_epoch_boundary [Preset: mainnet]                                 OK
 + EF - Deneb - Slots - slots_1 [Preset: mainnet]                                             OK
 + EF - Deneb - Slots - slots_2 [Preset: mainnet]                                             OK
-+ EF - EIP4844 - Transition - normal_transition [Preset: mainnet]                            OK
-+ EF - EIP4844 - Transition - simple_transition [Preset: mainnet]                            OK
-+ EF - EIP4844 - Transition - transition_missing_first_post_block [Preset: mainnet]          OK
-+ EF - EIP4844 - Transition - transition_missing_last_pre_fork_block [Preset: mainnet]       OK
-+ EF - EIP4844 - Transition - transition_only_blocks_post_fork [Preset: mainnet]             OK
-+ EF - EIP4844 - Transition - transition_randomized_state [Preset: mainnet]                  OK
-+ EF - EIP4844 - Transition - transition_with_activation_at_fork_epoch [Preset: mainnet]     OK
-+ EF - EIP4844 - Transition - transition_with_attester_slashing_right_after_fork [Preset: ma OK
-+ EF - EIP4844 - Transition - transition_with_attester_slashing_right_before_fork [Preset: m OK
-+ EF - EIP4844 - Transition - transition_with_btec_right_after_fork [Preset: mainnet]        OK
-+ EF - EIP4844 - Transition - transition_with_btec_right_before_fork [Preset: mainnet]       OK
-+ EF - EIP4844 - Transition - transition_with_deposit_right_after_fork [Preset: mainnet]     OK
-+ EF - EIP4844 - Transition - transition_with_deposit_right_before_fork [Preset: mainnet]    OK
-+ EF - EIP4844 - Transition - transition_with_finality [Preset: mainnet]                     OK
-+ EF - EIP4844 - Transition - transition_with_leaking_at_fork [Preset: mainnet]              OK
-+ EF - EIP4844 - Transition - transition_with_leaking_pre_fork [Preset: mainnet]             OK
-+ EF - EIP4844 - Transition - transition_with_no_attestations_until_after_fork [Preset: main OK
-+ EF - EIP4844 - Transition - transition_with_non_empty_activation_queue [Preset: mainnet]   OK
-+ EF - EIP4844 - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pr OK
-+ EF - EIP4844 - Transition - transition_with_proposer_slashing_right_after_fork [Preset: ma OK
-+ EF - EIP4844 - Transition - transition_with_proposer_slashing_right_before_fork [Preset: m OK
-+ EF - EIP4844 - Transition - transition_with_random_half_participation [Preset: mainnet]    OK
-+ EF - EIP4844 - Transition - transition_with_random_three_quarters_participation [Preset: m OK
++ EF - Deneb - Transition - normal_transition [Preset: mainnet]                              OK
++ EF - Deneb - Transition - simple_transition [Preset: mainnet]                              OK
++ EF - Deneb - Transition - transition_missing_first_post_block [Preset: mainnet]            OK
++ EF - Deneb - Transition - transition_missing_last_pre_fork_block [Preset: mainnet]         OK
++ EF - Deneb - Transition - transition_only_blocks_post_fork [Preset: mainnet]               OK
++ EF - Deneb - Transition - transition_randomized_state [Preset: mainnet]                    OK
++ EF - Deneb - Transition - transition_with_activation_at_fork_epoch [Preset: mainnet]       OK
++ EF - Deneb - Transition - transition_with_attester_slashing_right_after_fork [Preset: main OK
++ EF - Deneb - Transition - transition_with_attester_slashing_right_before_fork [Preset: mai OK
++ EF - Deneb - Transition - transition_with_btec_right_after_fork [Preset: mainnet]          OK
++ EF - Deneb - Transition - transition_with_btec_right_before_fork [Preset: mainnet]         OK
++ EF - Deneb - Transition - transition_with_deposit_right_after_fork [Preset: mainnet]       OK
++ EF - Deneb - Transition - transition_with_deposit_right_before_fork [Preset: mainnet]      OK
++ EF - Deneb - Transition - transition_with_finality [Preset: mainnet]                       OK
++ EF - Deneb - Transition - transition_with_leaking_at_fork [Preset: mainnet]                OK
++ EF - Deneb - Transition - transition_with_leaking_pre_fork [Preset: mainnet]               OK
++ EF - Deneb - Transition - transition_with_no_attestations_until_after_fork [Preset: mainne OK
++ EF - Deneb - Transition - transition_with_non_empty_activation_queue [Preset: mainnet]     OK
++ EF - Deneb - Transition - transition_with_one_fourth_exiting_validators_exit_at_fork [Pres OK
++ EF - Deneb - Transition - transition_with_proposer_slashing_right_after_fork [Preset: main OK
++ EF - Deneb - Transition - transition_with_proposer_slashing_right_before_fork [Preset: mai OK
++ EF - Deneb - Transition - transition_with_random_half_participation [Preset: mainnet]      OK
++ EF - Deneb - Transition - transition_with_random_three_quarters_participation [Preset: mai OK
 + EF - Phase 0 - Rewards - all_balances_too_low_for_reward [Preset: mainnet]                 OK
 + EF - Phase 0 - Rewards - duplicate_attestations_at_later_slots [Preset: mainnet]           OK
 + EF - Phase 0 - Rewards - empty [Preset: mainnet]                                           OK
