@@ -904,8 +904,8 @@ proc getPayload*(m: ELManager,
       req.cancel()
     elif req.failed:
       error "Failed to get execution payload from EL",
-            url = m.elConnections[idx].engineUrl.url,
-            err = req.error.msg
+             url = m.elConnections[idx].engineUrl.url,
+             err = req.error.msg
     else:
       const payloadFork = PayloadType.toFork
       when payloadFork >= ConsensusFork.Capella:
@@ -914,7 +914,7 @@ proc getPayload*(m: ELManager,
           #       to return the correct response type (i.e. the rule below will be enforced
           #       during deserialization).
           if req.read.executionPayload.withdrawals.isNone:
-            warn "Execution client did not return any withdrawals for a post-Shanghai block",
+            warn "Execution client returned a block without a 'withdrawals' field for a post-Shanghai block",
                   url = m.elConnections[idx].engineUrl.url
             continue
 
@@ -2053,7 +2053,7 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
         rpcClient.eth_getBlockByNumber(blockId("latest"), false),
         web3RequestsTimeout)
     except CatchableError as err:
-      error "Failed to obtain the latest block from the EL", err = err.msg
+      warn "Failed to obtain the latest block from the EL", err = err.msg
       raise err
 
     m.syncTargetBlock = some(
@@ -2091,7 +2091,7 @@ proc startChainSyncingLoop(m: ELManager) {.async.} =
     let connection = awaitWithTimeout(
       m.selectConnectionForChainSyncing(),
       chronos.seconds(60)):
-        error "No suitable EL connection for deposit syncing"
+        warn "No suitable EL connection for deposit syncing"
         await sleepAsync(chronos.seconds(30))
         continue
 
