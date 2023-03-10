@@ -83,10 +83,10 @@ proc doTrustedNodeSync*(
             genesisRoot = genesisRoot.get()
           quit 1
         genesisStateRoot = getForkedBlockField(genesisBlock, state_root)
-        stateFork = cfg.consensusForkAtEpoch(GENESIS_EPOCH)
+        consensusFork = cfg.consensusForkAtEpoch(GENESIS_EPOCH)
 
-        tmp = (ref ForkedHashedBeaconState)(kind: stateFork)
-      if not db.getState(stateFork, genesisStateRoot, tmp[], noRollback):
+        tmp = (ref ForkedHashedBeaconState)(kind: consensusFork)
+      if not db.getState(consensusFork, genesisStateRoot, tmp[], noRollback):
         error "Cannot load genesis state from database",
           genesisStateRoot
         quit 1

@@ -420,7 +420,7 @@ proc storeBlock*(
           trustedBlock.message.slot)
 
     withState(dag[].clearanceState):
-      when stateFork >= ConsensusFork.Altair and
+      when consensusFork >= ConsensusFork.Altair and
           Trusted isnot phase0.TrustedSignedBeaconBlock: # altair+
         for i in trustedBlock.message.body.sync_aggregate.sync_committee_bits.oneIndices():
           vm[].registerSyncAggregateInBlock(

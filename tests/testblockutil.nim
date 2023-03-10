@@ -144,7 +144,7 @@ proc addTestBlock*(
       default(bellatrix.ExecutionPayloadForSigning)
     else:
       withState(state):
-        when stateFork == ConsensusFork.Bellatrix:
+        when consensusFork == ConsensusFork.Bellatrix:
           # Merge shortly after Bellatrix
           if  forkyState.data.slot >
               cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH + 10:
@@ -363,7 +363,7 @@ proc makeSyncAggregate(
   let
     syncCommittee =
       withState(state):
-        when stateFork >= ConsensusFork.Altair:
+        when consensusFork >= ConsensusFork.Altair:
           if (forkyState.data.slot + 1).is_sync_committee_period():
             forkyState.data.next_sync_committee
           else:

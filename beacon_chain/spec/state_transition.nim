@@ -293,7 +293,7 @@ proc state_transition_block*(
   doAssert not rollback.isNil, "use noRollback if it's ok to mess up state"
 
   let res = withState(state):
-    when stateFork == type(signedBlock).toFork:
+    when consensusFork == type(signedBlock).toFork:
       state_transition_block_aux(cfg, forkyState, signedBlock, cache, flags)
     else:
       err("State/block fork mismatch")
@@ -530,10 +530,10 @@ proc makeBeaconBlock*(
     # Override for MEV
     if transactions_root.isSome and execution_payload_root.isSome:
       withState(state):
-        when stateFork < ConsensusFork.Bellatrix:
+        when consensusFork < ConsensusFork.Bellatrix:
           # Vacuously
           discard
-        elif stateFork == ConsensusFork.Bellatrix:
+        elif consensusFork == ConsensusFork.Bellatrix:
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
@@ -552,7 +552,7 @@ proc makeBeaconBlock*(
              hash_tree_root(validator_changes.voluntary_exits),
              hash_tree_root(sync_aggregate),
              execution_payload_root.get])
-        elif stateFork == ConsensusFork.Capella:
+        elif consensusFork == ConsensusFork.Capella:
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
@@ -572,7 +572,7 @@ proc makeBeaconBlock*(
              hash_tree_root(sync_aggregate),
              execution_payload_root.get,
              hash_tree_root(validator_changes.bls_to_execution_changes)])
-        elif stateFork > ConsensusFork.Capella:
+        elif consensusFork > ConsensusFork.Capella:
           discard denebImplementationMissing
 
     state.`kind Data`.root = hash_tree_root(state.`kind Data`.data)

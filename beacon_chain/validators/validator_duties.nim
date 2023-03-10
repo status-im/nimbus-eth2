@@ -298,16 +298,16 @@ proc getExecutionPayload(
     # transmit this information through the Forked types, so this has to
     # be re-proven here.
     withState(proposalState[]):
-      when stateFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Capella:
         # As of Capella, because EL state root changes in way more difficult to
         # compute way from CL due to incorporation of withdrawals into EL state
         # cannot use fake-EL fallback. Unlike transactions, withdrawals are not
         # optional, so one cannot avoid this by not including any withdrawals.
         Opt.none PayloadType
-      elif (stateFork == ConsensusFork.Bellatrix and
+      elif (consensusFork == ConsensusFork.Bellatrix and
             PayloadType is bellatrix.ExecutionPayloadForSigning):
         Opt.some build_empty_execution_payload(forkyState.data, feeRecipient)
-      elif stateFork == ConsensusFork.Bellatrix:
+      elif consensusFork == ConsensusFork.Bellatrix:
         raiseAssert "getExecutionPayload: mismatched proposalState and ExecutionPayload fork"
       else:
         # Vacuously -- these are pre-Bellatrix and not used.
@@ -317,7 +317,7 @@ proc getExecutionPayload(
     let
       beaconHead = node.attestationPool[].getBeaconHead(node.dag.head)
       executionHead = withState(proposalState[]):
-        when stateFork >= ConsensusFork.Bellatrix:
+        when consensusFork >= ConsensusFork.Bellatrix:
           forkyState.data.latest_execution_payload_header.block_hash
         else:
           (static(default(Eth2Digest)))
@@ -328,7 +328,7 @@ proc getExecutionPayload(
       random = withState(proposalState[]):
         get_randao_mix(forkyState.data, get_current_epoch(forkyState.data))
       withdrawals = withState(proposalState[]):
-        when stateFork >= ConsensusFork.Capella:
+        when consensusFork >= ConsensusFork.Capella:
           get_expected_withdrawals(forkyState.data)
         else:
           @[]
@@ -386,7 +386,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         # it won't have transactions (it's blinded)
         var modified_execution_payload = execution_payload
         withState(state[]):
-          when  stateFork >= ConsensusFork.Capella and
+          when  consensusFork >= ConsensusFork.Capella and
                 PayloadType.toFork >= ConsensusFork.Capella:
             let withdrawals = List[Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
               get_expected_withdrawals(forkyState.data))
@@ -590,15 +590,15 @@ proc getBlindedBeaconBlock[
                             capella.ExecutionPayloadHeader):
     Future[Result[T, string]] {.async.} =
   withBlck(forkedBlock):
-    when stateFork >= ConsensusFork.Deneb:
+    when consensusFork >= ConsensusFork.Deneb:
       debugRaiseAssert $denebImplementationMissing & ": getBlindedBeaconBlock"
       return err("getBlindedBeaconBlock: Deneb blinded block creation not implemented")
-    elif stateFork >= ConsensusFork.Bellatrix:
+    elif consensusFork >= ConsensusFork.Bellatrix:
       when not (
           (T is bellatrix_mev.SignedBlindedBeaconBlock and
-           stateFork == ConsensusFork.Bellatrix) or
+           consensusFork == ConsensusFork.Bellatrix) or
           (T is capella_mev.SignedBlindedBeaconBlock and
-           stateFork == ConsensusFork.Capella)):
+           consensusFork == ConsensusFork.Capella)):
         return err("getBlindedBeaconBlock: mismatched block/payload types")
       else:
         return await blindedBlockCheckSlashingAndSign(
@@ -777,12 +777,12 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
 
   let (executionPayloadHeader, forkedBlck) = blindedBlockParts.get
   withBlck(forkedBlck):
-    when stateFork >= ConsensusFork.Deneb:
+    when consensusFork >= ConsensusFork.Deneb:
       debugRaiseAssert $denebImplementationMissing & ": makeBlindedBeaconBlockForHeadAndSlot"
-    elif stateFork >= ConsensusFork.Bellatrix:
-      when ((stateFork == ConsensusFork.Bellatrix and
+    elif consensusFork >= ConsensusFork.Bellatrix:
+      when ((consensusFork == ConsensusFork.Bellatrix and
              EPH is bellatrix.ExecutionPayloadHeader) or
-            (stateFork == ConsensusFork.Capella and
+            (consensusFork == ConsensusFork.Capella and
              EPH is capella.ExecutionPayloadHeader)):
         return ok constructPlainBlindedBlock[BBB, EPH](
           blck, executionPayloadHeader)

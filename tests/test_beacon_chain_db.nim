@@ -99,12 +99,12 @@ func withDigest(blck: deneb.TrustedBeaconBlock):
     root: hash_tree_root(blck)
   )
 
-proc getTestStates(stateFork: ConsensusFork): auto =
+proc getTestStates(consensusFork: ConsensusFork): auto =
   let
     db = makeTestDB(SLOTS_PER_EPOCH)
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
-  var testStates = getTestStates(dag.headState, stateFork)
+  var testStates = getTestStates(dag.headState, consensusFork)
 
   # Ensure transitions beyond just adding validators and increasing slots
   sort(testStates) do (x, y: ref ForkedHashedBeaconState) -> int:

@@ -45,7 +45,7 @@ proc initLightClient*(
         dag = node.dag.head.bid,
         wallSlot = node.currentSlot
       withBlck(signedBlock):
-        when stateFork >= ConsensusFork.Bellatrix:
+        when consensusFork >= ConsensusFork.Bellatrix:
           if blck.message.is_execution_block:
             template payload(): auto = blck.message.body.execution_payload
 
@@ -151,7 +151,7 @@ proc updateLightClientFromDag*(node: BeaconNode) =
     return
   var header {.noinit.}: ForkedLightClientHeader
   withBlck(bdata):
-    const lcDataFork = lcDataForkAtStateFork(stateFork)
+    const lcDataFork = lcDataForkAtStateFork(consensusFork)
     when lcDataFork > LightClientDataFork.None:
       header = ForkedLightClientHeader(kind: lcDataFork)
       header.forky(lcDataFork) = blck.toLightClientHeader(lcDataFork)

@@ -254,7 +254,7 @@ cli do(validatorsDir: string, secretsDir: string,
 
           aggregates.add(attestation)
 
-      when stateFork >= ConsensusFork.Altair:
+      when consensusFork >= ConsensusFork.Altair:
         let
           nextSlot = slot + 1
           pubkeys =

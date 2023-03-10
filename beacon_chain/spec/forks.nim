@@ -282,19 +282,19 @@ template withStateFork*(
     x: ConsensusFork, body: untyped): untyped =
   case x
   of ConsensusFork.Deneb:
-    const stateFork {.inject, used.} = ConsensusFork.Deneb
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
     body
   of ConsensusFork.Capella:
-    const stateFork {.inject, used.} = ConsensusFork.Capella
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
     body
   of ConsensusFork.Bellatrix:
-    const stateFork {.inject, used.} = ConsensusFork.Bellatrix
+    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
     body
   of ConsensusFork.Altair:
-    const stateFork {.inject, used.} = ConsensusFork.Altair
+    const consensusFork {.inject, used.} = ConsensusFork.Altair
     body
   of ConsensusFork.Phase0:
-    const stateFork {.inject, used.} = ConsensusFork.Phase0
+    const consensusFork {.inject, used.} = ConsensusFork.Phase0
     body
 
 # TODO when https://github.com/nim-lang/Nim/issues/21086 fixed, use return type
@@ -533,23 +533,23 @@ template init*(T: type ForkedEpochInfo, info: altair.EpochInfo): T =
 template withState*(x: ForkedHashedBeaconState, body: untyped): untyped =
   case x.kind
   of ConsensusFork.Deneb:
-    const stateFork {.inject, used.} = ConsensusFork.Deneb
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template forkyState: untyped {.inject, used.} = x.denebData
     body
   of ConsensusFork.Capella:
-    const stateFork {.inject, used.} = ConsensusFork.Capella
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
     template forkyState: untyped {.inject, used.} = x.capellaData
     body
   of ConsensusFork.Bellatrix:
-    const stateFork {.inject, used.} = ConsensusFork.Bellatrix
+    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
     template forkyState: untyped {.inject, used.} = x.bellatrixData
     body
   of ConsensusFork.Altair:
-    const stateFork {.inject, used.} = ConsensusFork.Altair
+    const consensusFork {.inject, used.} = ConsensusFork.Altair
     template forkyState: untyped {.inject, used.} = x.altairData
     body
   of ConsensusFork.Phase0:
-    const stateFork {.inject, used.} = ConsensusFork.Phase0
+    const consensusFork {.inject, used.} = ConsensusFork.Phase0
     template forkyState: untyped {.inject, used.} = x.phase0Data
     body
 
@@ -652,8 +652,8 @@ func stateForkForDigest*(
     err()
 
 func atStateFork*(
-    forkDigests: ForkDigests, stateFork: ConsensusFork): ForkDigest =
-  case stateFork
+    forkDigests: ForkDigests, consensusFork: ConsensusFork): ForkDigest =
+  case consensusFork
   of ConsensusFork.Deneb:
     forkDigests.deneb
   of ConsensusFork.Capella:
@@ -713,23 +713,23 @@ template withBlck*(
     body: untyped): untyped =
   case x.kind
   of ConsensusFork.Phase0:
-    const stateFork {.inject, used.} = ConsensusFork.Phase0
+    const consensusFork {.inject, used.} = ConsensusFork.Phase0
     template blck: untyped {.inject.} = x.phase0Data
     body
   of ConsensusFork.Altair:
-    const stateFork {.inject, used.} = ConsensusFork.Altair
+    const consensusFork {.inject, used.} = ConsensusFork.Altair
     template blck: untyped {.inject.} = x.altairData
     body
   of ConsensusFork.Bellatrix:
-    const stateFork {.inject, used.} = ConsensusFork.Bellatrix
+    const consensusFork {.inject, used.} = ConsensusFork.Bellatrix
     template blck: untyped {.inject.} = x.bellatrixData
     body
   of ConsensusFork.Capella:
-    const stateFork {.inject, used.} = ConsensusFork.Capella
+    const consensusFork {.inject, used.} = ConsensusFork.Capella
     template blck: untyped {.inject.} = x.capellaData
     body
   of ConsensusFork.Deneb:
-    const stateFork {.inject, used.} = ConsensusFork.Deneb
+    const consensusFork {.inject, used.} = ConsensusFork.Deneb
     template blck: untyped {.inject.} = x.denebData
     body
 
@@ -793,27 +793,27 @@ template withStateAndBlck*(
     body: untyped): untyped =
   case s.kind
   of ConsensusFork.Deneb:
-    const stateFork {.inject.} = ConsensusFork.Deneb
+    const consensusFork {.inject.} = ConsensusFork.Deneb
     template forkyState: untyped {.inject.} = s.denebData
     template blck: untyped {.inject.} = b.denebData
     body
   of ConsensusFork.Capella:
-    const stateFork {.inject.} = ConsensusFork.Capella
+    const consensusFork {.inject.} = ConsensusFork.Capella
     template forkyState: untyped {.inject.} = s.capellaData
     template blck: untyped {.inject.} = b.capellaData
     body
   of ConsensusFork.Bellatrix:
-    const stateFork {.inject.} = ConsensusFork.Bellatrix
+    const consensusFork {.inject.} = ConsensusFork.Bellatrix
     template forkyState: untyped {.inject.} = s.bellatrixData
     template blck: untyped {.inject.} = b.bellatrixData
     body
   of ConsensusFork.Altair:
-    const stateFork {.inject.} = ConsensusFork.Altair
+    const consensusFork {.inject.} = ConsensusFork.Altair
     template forkyState: untyped {.inject.} = s.altairData
     template blck: untyped {.inject.} = b.altairData
     body
   of ConsensusFork.Phase0:
-    const stateFork {.inject.} = ConsensusFork.Phase0
+    const consensusFork {.inject.} = ConsensusFork.Phase0
     template forkyState: untyped {.inject.} = s.phase0Data
     template blck: untyped {.inject.} = b.phase0Data
     body
@@ -903,13 +903,13 @@ func forkVersion*(cfg: RuntimeConfig, consensusFork: ConsensusFork): Version =
   of ConsensusFork.Capella:     cfg.CAPELLA_FORK_VERSION
   of ConsensusFork.Deneb:       cfg.DENEB_FORK_VERSION
 
-func lcDataForkAtStateFork*(stateFork: ConsensusFork): LightClientDataFork =
+func lcDataForkAtStateFork*(consensusFork: ConsensusFork): LightClientDataFork =
   static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
-  if stateFork >= ConsensusFork.Deneb:
+  if consensusFork >= ConsensusFork.Deneb:
     LightClientDataFork.Deneb
-  elif stateFork >= ConsensusFork.Capella:
+  elif consensusFork >= ConsensusFork.Capella:
     LightClientDataFork.Capella
-  elif stateFork >= ConsensusFork.Altair:
+  elif consensusFork >= ConsensusFork.Altair:
     LightClientDataFork.Altair
   else:
     LightClientDataFork.None
