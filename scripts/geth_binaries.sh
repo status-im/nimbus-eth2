@@ -10,7 +10,7 @@ source "${SCRIPTS_DIR}/bash_utils.sh"
 : ${CURL_BINARY:="curl"}
 : ${STABLE_GETH_BINARY:="${BUILD_DIR}/downloads/geth"}
 : ${GETH_CAPELLA_BINARY:="${BUILD_DIR}/downloads/geth_capella"}
-: ${GETH_EIP_4844_BINARY:="${BUILD_DIR}/downloads/geth_eip4844"}
+: ${GETH_DENEB_BINARY:="${BUILD_DIR}/downloads/geth_deneb"}
 
 download_geth_stable() {
   if [[ ! -e "${STABLE_GETH_BINARY}" ]]; then
@@ -103,8 +103,8 @@ download_geth_capella() {
   download_status_geth_binary withdrawals-timestamp "$GETH_CAPELLA_BINARY"
 }
 
-download_geth_eip_4844() {
-  download_status_geth_binary eip-4844 "$GETH_EIP_4844_BINARY"
+download_geth_deneb() {
+  download_status_geth_binary eip-4844 "$GETH_DENEB_BINARY"
 }
 
 fi

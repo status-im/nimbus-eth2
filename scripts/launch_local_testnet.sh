@@ -454,8 +454,8 @@ if [[ "${RUN_GETH}" == "1" ]]; then
   source "${SCRIPTS_DIR}/geth_binaries.sh"
 
   if [[ $DENEB_FORK_EPOCH -lt $STOP_AT_EPOCH ]]; then
-    download_geth_eip_4844
-    GETH_BINARY="$GETH_EIP_4844_BINARY"
+    download_geth_deneb
+    GETH_BINARY="$GETH_DENEB_BINARY"
   elif [[ $CAPELLA_FORK_EPOCH -lt $STOP_AT_EPOCH ]]; then
     download_geth_capella
     GETH_BINARY="$GETH_CAPELLA_BINARY"
