@@ -803,7 +803,7 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
         withBlck(forked):
           blck.root = hash_tree_root(blck.message)
-          # TODO: Fetch blobs from EE when blck is eip4844.SignedBeaconBlock
+          # TODO: Fetch blobs from EE when blck is deneb.SignedBeaconBlock
           await node.router.routeSignedBeaconBlock(blck)
 
     if res.isErr():

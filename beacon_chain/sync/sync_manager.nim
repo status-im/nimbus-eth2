@@ -117,7 +117,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                                man.ident)
 
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
-                           eip4844Epoch: Epoch,
+                           denebEpoch: Epoch,
                            direction: SyncQueueKind,
                            getLocalHeadSlotCb: GetSlotCallback,
                            getLocalWallSlotCb: GetSlotCallback,
@@ -140,7 +140,7 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
 
   var res = SyncManager[A, B](
     pool: pool,
-    DENEB_FORK_EPOCH: eip4844Epoch,
+    DENEB_FORK_EPOCH: denebEpoch,
     getLocalHeadSlot: getLocalHeadSlotCb,
     getLocalWallSlot: getLocalWallSlotCb,
     getSafeSlot: getSafeSlot,
@@ -191,8 +191,8 @@ proc getBlocks*[A, B](man: SyncManager[A, B], peer: A,
 proc shouldGetBlobs[A, B](man: SyncManager[A, B], e: Epoch): bool =
   let wallEpoch = man.getLocalWallSlot().epoch
   e >= man.DENEB_FORK_EPOCH and
-  (wallEpoch < MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS or
-   e >=  wallEpoch - MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS)
+  (wallEpoch < MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS or
+   e >=  wallEpoch - MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS)
 
 proc getBlobSidecars*[A, B](man: SyncManager[A, B], peer: A,
                       req: SyncRequest): Future[BlobSidecarsRes] {.async.} =

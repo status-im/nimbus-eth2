@@ -27,16 +27,16 @@ import
 export json_serialization, base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/polynomial-commitments.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/polynomial-commitments.md#constants
   BYTES_PER_FIELD_ELEMENT = 32
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#blob
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#blob
   BLOB_TX_TYPE* = 0x05'u8
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/polynomial-commitments.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/polynomial-commitments.md#constants
   BLS_MODULUS* = "52435875175126190479447740508185965837690552500527637822603658699938581184513".u256
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/p2p-interface.md#configuration
-  MIN_EPOCHS_FOR_BLOBS_SIDECARS_REQUESTS* = 4096'u64
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/p2p-interface.md#configuration
+  MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS* = 4096'u64
 
 type
   # this block belongs elsewhere - will figure out after implementing c-kzg bindings
@@ -366,7 +366,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/eip4844/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -385,9 +385,9 @@ type
     sync_aggregate*: SyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload
+    execution_payload*: ExecutionPayload  # [Modified in Deneb]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: KZGCommitments  # [New in EIP-4844]
+    blob_kzg_commitments*: KZGCommitments  # [New in Deneb]
 
   SigVerifiedBeaconBlockBody* = object
     ## A BeaconBlock body with signatures verified
@@ -420,9 +420,9 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload
+    execution_payload*: ExecutionPayload  # [Modified in Deneb]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]  # [New in EIP-4844]
+    blob_kzg_commitments*: List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]  # [New in Deneb]
 
   TrustedBeaconBlockBody* = object
     ## A full verified block
@@ -443,9 +443,9 @@ type
     sync_aggregate*: TrustedSyncAggregate
 
     # Execution
-    execution_payload*: ExecutionPayload
+    execution_payload*: ExecutionPayload  # [Modified in Deneb]
     bls_to_execution_changes*: SignedBLSToExecutionChangeList
-    blob_kzg_commitments*: List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]  # [New in EIP-4844]
+    blob_kzg_commitments*: List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]  # [New in Deneb]
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#signedbeaconblock
   SignedBeaconBlock* = object

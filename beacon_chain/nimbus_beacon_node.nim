@@ -1085,7 +1085,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     removeAltairMessageHandlers,
     removeAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     removeCapellaMessageHandlers,
-    removeCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
+    removeCapellaMessageHandlers  # deneb (capella handlers, different forkDigest)
   ]
 
   for gossipFork in oldGossipForks:
@@ -1096,7 +1096,7 @@ proc updateGossipStatus(node: BeaconNode, slot: Slot) {.async.} =
     addAltairMessageHandlers,
     addAltairMessageHandlers,  # bellatrix (altair handlers, different forkDigest)
     addCapellaMessageHandlers,
-    addCapellaMessageHandlers  # eip4844 (capella handlers, different forkDigest)
+    addCapellaMessageHandlers  # deneb (capella handlers, different forkDigest)
   ]
 
   for gossipFork in newGossipForks:

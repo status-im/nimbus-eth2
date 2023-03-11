@@ -1773,7 +1773,7 @@ proc readValue*(reader: var JsonReader[RestJson],
         requireAllFields = true,
         allowUnknownFields = true)
     except SerializationError:
-      reader.raiseUnexpectedValue("Incorrect EIP4844 beacon state format")
+      reader.raiseUnexpectedValue("Incorrect deneb beacon state format")
     toValue(denebData)
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconState)

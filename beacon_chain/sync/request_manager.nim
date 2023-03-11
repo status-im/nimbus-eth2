@@ -53,7 +53,7 @@ func shortLog*(x: seq[FetchRecord]): string =
   "[" & x.mapIt(shortLog(it.root)).join(", ") & "]"
 
 proc init*(T: type RequestManager, network: Eth2Node,
-              eip4844Epoch: Epoch,
+              denebEpoch: Epoch,
               getBeaconTime: GetBeaconTimeFn,
               blockVerifier: BlockVerifier): RequestManager =
   RequestManager(

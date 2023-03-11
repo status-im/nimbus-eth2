@@ -167,7 +167,7 @@ OK: 10/12 Fail: 0/12 Skip: 2/12
 + Rewrite HTTPS Infura URLs                                                                  OK
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
-+ Roundtrip engine RPC V3 and eip4844 ExecutionPayload representations                       OK
++ Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
 ```
 OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Eth2 specific discovery tests
