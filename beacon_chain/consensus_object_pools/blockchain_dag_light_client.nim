@@ -214,7 +214,7 @@ proc initLightClientBootstrapForPeriod(
         continue
       withStateAndBlck(tmpState[], bdata):
         when consensusFork >= ConsensusFork.Altair:
-          const lcDataFork = lcDataForkAtStateFork(consensusFork)
+          const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
           if not dag.lcDataStore.db.hasSyncCommittee(period):
             dag.lcDataStore.db.putSyncCommittee(
               period, forkyState.data.current_sync_committee)
@@ -365,7 +365,7 @@ proc initLightClientUpdateForPeriod(
       return err()
     withStateAndBlck(updatedState, bdata):
       when consensusFork >= ConsensusFork.Altair:
-        const lcDataFork = lcDataForkAtStateFork(consensusFork)
+        const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
         update = ForkedLightClientUpdate(kind: lcDataFork)
         template forkyUpdate: untyped = update.forky(lcDataFork)
         forkyUpdate.attested_header = blck.toLightClientHeader(lcDataFork)
@@ -386,7 +386,7 @@ proc initLightClientUpdateForPeriod(
     withBlck(bdata):
       withForkyUpdate(update):
         when lcDataFork > LightClientDataFork.None:
-          when lcDataFork >= lcDataForkAtStateFork(consensusFork):
+          when lcDataFork >= lcDataForkAtConsensusFork(consensusFork):
             forkyUpdate.finalized_header = blck.toLightClientHeader(lcDataFork)
           else: raiseAssert "Unreachable"
   let bdata = dag.getExistingForkedBlock(signatureBid).valueOr:
@@ -477,7 +477,7 @@ template lazy_header(name: untyped): untyped {.dirty.} =
         `name _ ok` = false
       else:
         withBlck(bdata.get):
-          when data_fork >= lcDataForkAtStateFork(consensusFork):
+          when data_fork >= lcDataForkAtConsensusFork(consensusFork):
             obj.name = blck.toLightClientHeader(data_fork)
           else: raiseAssert "Unreachable"
         `name _ ptr` = addr obj.name
@@ -495,7 +495,7 @@ template lazy_header(name: untyped): untyped {.dirty.} =
       else:
         obj.migrateToDataFork(data_fork)
         withBlck(bdata.get):
-          when data_fork >= lcDataForkAtStateFork(consensusFork):
+          when data_fork >= lcDataForkAtConsensusFork(consensusFork):
             obj.forky(data_fork).name = blck.toLightClientHeader(data_fork)
           else: raiseAssert "Unreachable"
         `name _ ptr` = addr obj.forky(data_fork).name
@@ -881,7 +881,7 @@ proc processFinalizationForLightClient*(
           dag.lcDataStore.db.putSyncCommittee(period, syncCommittee)
       withBlck(bdata):
         when consensusFork >= ConsensusFork.Altair:
-          const lcDataFork = lcDataForkAtStateFork(consensusFork)
+          const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
           dag.lcDataStore.db.putHeader(blck.toLightClientHeader(lcDataFork))
         else: raiseAssert "Unreachable"
       dag.lcDataStore.db.putCurrentSyncCommitteeBranch(
@@ -1004,7 +1004,7 @@ proc getLightClientBootstrap*(
     return default(ForkedLightClientBootstrap)
   withBlck(bdata):
     when consensusFork >= ConsensusFork.Altair:
-      const lcDataFork = lcDataForkAtStateFork(consensusFork)
+      const lcDataFork = lcDataForkAtConsensusFork(consensusFork)
       let
         header = blck.toLightClientHeader(lcDataFork)
         bootstrap = dag.getLightClientBootstrap(header)

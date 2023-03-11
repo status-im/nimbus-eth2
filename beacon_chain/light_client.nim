@@ -344,7 +344,7 @@ proc installMessageValidators*(
 
   let forkDigests = lightClient.forkDigests
   for consensusFork in ConsensusFork:
-    withLcDataFork(lcDataForkAtStateFork(consensusFork)):
+    withLcDataFork(lcDataForkAtConsensusFork(consensusFork)):
       when lcDataFork > LightClientDataFork.None:
         let
           contextFork = consensusFork  # Avoid capturing `Deneb` (Nim 1.6)

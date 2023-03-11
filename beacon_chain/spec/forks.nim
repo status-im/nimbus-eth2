@@ -903,7 +903,8 @@ func forkVersion*(cfg: RuntimeConfig, consensusFork: ConsensusFork): Version =
   of ConsensusFork.Capella:     cfg.CAPELLA_FORK_VERSION
   of ConsensusFork.Deneb:       cfg.DENEB_FORK_VERSION
 
-func lcDataForkAtStateFork*(consensusFork: ConsensusFork): LightClientDataFork =
+func lcDataForkAtConsensusFork*(
+    consensusFork: ConsensusFork): LightClientDataFork =
   static: doAssert LightClientDataFork.high == LightClientDataFork.Deneb
   if consensusFork >= ConsensusFork.Deneb:
     LightClientDataFork.Deneb

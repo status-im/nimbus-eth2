@@ -150,7 +150,7 @@ proc readChunkPayload*(
     peer.network.forkDigests[].stateForkForDigest(contextBytes).valueOr:
       return neterr InvalidContextBytes
 
-  withLcDataFork(lcDataForkAtStateFork(contextFork)):
+  withLcDataFork(lcDataForkAtConsensusFork(contextFork)):
     when lcDataFork > LightClientDataFork.None:
       let res = await eth2_network.readChunkPayload(
         conn, peer, MsgType.Forky(lcDataFork))
