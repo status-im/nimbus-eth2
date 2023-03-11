@@ -203,13 +203,13 @@ func maybeUpgradeStateToCapella(
       capellaData: capella.HashedBeaconState(
         root: hash_tree_root(newState[]), data: newState[]))[]
 
-func maybeUpgradeStateToEIP4844(
+func maybeUpgradeStateToDeneb(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState) =
   # Both process_slots() and state_transition_block() call this, so only run it
   # once by checking for existing fork.
   if getStateField(state, slot).epoch == cfg.DENEB_FORK_EPOCH and
       state.kind == ConsensusFork.Capella:
-    let newState = upgrade_to_eip4844(cfg, state.capellaData.data)
+    let newState = upgrade_to_deneb(cfg, state.capellaData.data)
     state = (ref ForkedHashedBeaconState)(
       kind: ConsensusFork.Deneb,
       denebData: deneb.HashedBeaconState(
@@ -220,7 +220,7 @@ func maybeUpgradeState*(
   cfg.maybeUpgradeStateToAltair(state)
   cfg.maybeUpgradeStateToBellatrix(state)
   cfg.maybeUpgradeStateToCapella(state)
-  cfg.maybeUpgradeStateToEIP4844(state)
+  cfg.maybeUpgradeStateToDeneb(state)
 
 proc process_slots*(
     cfg: RuntimeConfig, state: var ForkedHashedBeaconState, slot: Slot,
