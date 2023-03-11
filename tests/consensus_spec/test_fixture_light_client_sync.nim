@@ -92,7 +92,7 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
         update_filename = s["update"].getStr()
 
       var update {.noinit.}: ForkedLightClientUpdate
-      withLcDataFork(lcDataForkAtStateFork(update_state_fork)):
+      withLcDataFork(lcDataForkAtConsensusFork(update_state_fork)):
         when lcDataFork > LightClientDataFork.None:
           update = ForkedLightClientUpdate(kind: lcDataFork)
           update.forky(lcDataFork) = parseTest(
@@ -117,7 +117,7 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
 
       result.add TestStep(
         kind: TestStepKind.UpgradeStore,
-        store_data_fork: lcDataForkAtStateFork(store_state_fork),
+        store_data_fork: lcDataForkAtConsensusFork(store_state_fork),
         checks: s["checks"].getChecks())
     else:
       doAssert false, "Unknown test step: " & $step
@@ -172,7 +172,7 @@ proc runTest(path: string) =
         meta.fork_digests.consensusForkForDigest(meta.bootstrap_fork_digest)
           .expect("Unknown bootstrap fork " & $meta.bootstrap_fork_digest)
       var bootstrap {.noinit.}: ForkedLightClientBootstrap
-      withLcDataFork(lcDataForkAtStateFork(bootstrap_state_fork)):
+      withLcDataFork(lcDataForkAtConsensusFork(bootstrap_state_fork)):
         when lcDataFork > LightClientDataFork.None:
           bootstrap = ForkedLightClientBootstrap(kind: lcDataFork)
           bootstrap.forky(lcDataFork) = parseTest(
@@ -189,7 +189,7 @@ proc runTest(path: string) =
         meta.fork_digests.consensusForkForDigest(meta.store_fork_digest)
           .expect("Unknown store fork " & $meta.store_fork_digest)
       var store {.noinit.}: ForkedLightClientStore
-      withLcDataFork(lcDataForkAtStateFork(store_state_fork)):
+      withLcDataFork(lcDataForkAtConsensusFork(store_state_fork)):
         when lcDataFork > LightClientDataFork.None:
           store = ForkedLightClientStore(kind: lcDataFork)
           bootstrap[].migrateToDataFork(lcDataFork)
