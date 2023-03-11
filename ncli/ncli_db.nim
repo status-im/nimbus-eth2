@@ -320,7 +320,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
               dbBenchmark.checkpoint()
 
             withTimer(timers[tDbLoad]):
-              case stateFork
+              case consensusFork
               of ConsensusFork.Phase0:
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[0][].data, noRollback)
@@ -337,7 +337,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 raiseAssert $denebImplementationMissing & ": ncli_db.nim: cmdBench (1)"
 
             if forkyState.data.slot.epoch mod 16 == 0:
-              let loadedRoot = case stateFork
+              let loadedRoot = case consensusFork
                 of ConsensusFork.Phase0:    hash_tree_root(loadedState[0][].data)
                 of ConsensusFork.Altair:    hash_tree_root(loadedState[1][].data)
                 of ConsensusFork.Bellatrix: hash_tree_root(loadedState[2][].data)

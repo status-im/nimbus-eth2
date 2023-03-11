@@ -247,7 +247,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     if qSyncPeriod == headSyncPeriod:
       let optimistic = node.getStateOptimistic(node.dag.headState)
       let res = withState(node.dag.headState):
-        when stateFork >= ConsensusFork.Altair:
+        when consensusFork >= ConsensusFork.Altair:
           produceResponse(indexList,
                           forkyState.data.current_sync_committee.pubkeys.data,
                           forkyState.data.validators.asSeq)
@@ -257,7 +257,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
     elif qSyncPeriod == (headSyncPeriod + 1):
       let optimistic = node.getStateOptimistic(node.dag.headState)
       let res = withState(node.dag.headState):
-        when stateFork >= ConsensusFork.Altair:
+        when consensusFork >= ConsensusFork.Altair:
           produceResponse(indexList,
                           forkyState.data.next_sync_committee.pubkeys.data,
                           forkyState.data.validators.asSeq)
@@ -288,7 +288,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       node.withStateForBlockSlotId(bsi):
         let optimistic = node.getStateOptimistic(state)
         let res = withState(state):
-          when stateFork >= ConsensusFork.Altair:
+          when consensusFork >= ConsensusFork.Altair:
             produceResponse(indexList,
                             forkyState.data.current_sync_committee.pubkeys.data,
                             forkyState.data.validators.asSeq)

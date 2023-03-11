@@ -233,7 +233,7 @@ func syncCommitteeParticipants*(forkedState: ForkedHashedBeaconState,
                                 epoch: Epoch
                                ): Result[seq[ValidatorPubKey], cstring] =
   withState(forkedState):
-    when stateFork >= ConsensusFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       let
         epochPeriod = sync_committee_period(epoch)
         curPeriod = sync_committee_period(forkyState.data.slot)

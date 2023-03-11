@@ -330,7 +330,7 @@ proc runProposalForkchoiceUpdated*(
     feeRecipient = self[].getFeeRecipient(
       nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
     withdrawals = withState(self.dag.headState):
-      when stateFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Capella:
         Opt.some get_expected_withdrawals(forkyState.data)
       else:
         Opt.none(seq[Withdrawal])
@@ -352,7 +352,7 @@ proc runProposalForkchoiceUpdated*(
         debug "Fork-choice updated for proposal", status
 
       static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
-      when stateFork >= ConsensusFork.Capella:
+      when consensusFork >= ConsensusFork.Capella:
         callForkchoiceUpdated(PayloadAttributesV2(
           timestamp: Quantity timestamp,
           prevRandao: FixedBytes[32] randomData,

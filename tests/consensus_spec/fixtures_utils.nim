@@ -42,9 +42,9 @@ func readValue*(r: var JsonReader, a: var seq[byte]) =
 # #######################
 # Mock RuntimeConfig
 
-func genesisTestRuntimeConfig*(stateFork: ConsensusFork): RuntimeConfig =
+func genesisTestRuntimeConfig*(consensusFork: ConsensusFork): RuntimeConfig =
   var res = defaultRuntimeConfig
-  case stateFork
+  case consensusFork
   of ConsensusFork.Deneb:
     res.DENEB_FORK_EPOCH = GENESIS_EPOCH
     res.CAPELLA_FORK_EPOCH = GENESIS_EPOCH

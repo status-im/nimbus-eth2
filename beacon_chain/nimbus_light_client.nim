@@ -105,7 +105,7 @@ programMain:
         opt = signedBlock.toBlockId(),
         wallSlot = getBeaconTime().slotOrZero
       withBlck(signedBlock):
-        when stateFork >= ConsensusFork.Bellatrix:
+        when consensusFork >= ConsensusFork.Bellatrix:
           if blck.message.is_execution_block:
             template payload(): auto = blck.message.body.execution_payload
 

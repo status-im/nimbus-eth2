@@ -145,7 +145,7 @@ func validatorKey*(
 template is_merge_transition_complete*(
     stateParam: ForkedHashedBeaconState): bool =
   withState(stateParam):
-    when stateFork >= ConsensusFork.Bellatrix:
+    when consensusFork >= ConsensusFork.Bellatrix:
       is_merge_transition_complete(forkyState.data)
     else:
       false
@@ -757,7 +757,7 @@ proc currentSyncCommitteeForPeriod*(
     bsi = ? dag.getBlockIdAtSlot(syncCommitteeSlot)
   dag.withUpdatedState(tmpState, bsi) do:
     withState(updatedState):
-      when stateFork >= ConsensusFork.Altair:
+      when consensusFork >= ConsensusFork.Altair:
         ok forkyState.data.current_sync_committee
       else: err()
   do: err()
@@ -1037,7 +1037,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
       quit 1
 
   withState(dag.headState):
-    when stateFork >= ConsensusFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
   block:
@@ -1218,7 +1218,7 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
   # If these aren't actually optimistic, the first fcU will resolve that
   withState(dag.headState):
-    when stateFork >= ConsensusFork.Bellatrix:
+    when consensusFork >= ConsensusFork.Bellatrix:
       template executionPayloadHeader(): auto =
         forkyState().data.latest_execution_payload_header
       const emptyExecutionPayloadHeader =
@@ -1735,7 +1735,7 @@ iterator syncSubcommitteePairs*(
 func syncCommitteeParticipants*(dag: ChainDAGRef,
                                 slot: Slot): seq[ValidatorIndex] =
   withState(dag.headState):
-    when stateFork >= ConsensusFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       let
         period = sync_committee_period(slot)
         curPeriod = sync_committee_period(forkyState.data.slot)
@@ -1765,7 +1765,7 @@ func getSubcommitteePositions*(
     subcommitteeIdx: SyncSubcommitteeIndex,
     validatorIdx: uint64): seq[uint64] =
   withState(dag.headState):
-    when stateFork >= ConsensusFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       let
         period = sync_committee_period(slot)
         curPeriod = sync_committee_period(forkyState.data.slot)
@@ -1954,9 +1954,9 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
       # so as to "mostly" clean up the phase0 tables as well (which cannot be
       # pruned easily by fork)
 
-      let stateFork = dag.cfg.consensusForkAtEpoch(tailSlot.epoch)
-      if stateFork > ConsensusFork.Phase0:
-        for fork in ConsensusFork.Phase0..<stateFork:
+      let consensusFork = dag.cfg.consensusForkAtEpoch(tailSlot.epoch)
+      if consensusFork > ConsensusFork.Phase0:
+        for fork in ConsensusFork.Phase0..<consensusFork:
           dag.db.clearStates(fork)
 
       let blockFork = dag.cfg.consensusForkAtEpoch(blockHorizon.epoch)
@@ -1973,7 +1973,7 @@ proc loadExecutionBlockRoot*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
     return ZERO_HASH
 
   withBlck(blockData):
-    when stateFork >= ConsensusFork.Bellatrix:
+    when consensusFork >= ConsensusFork.Bellatrix:
       blck.message.body.execution_payload.block_hash
     else:
       ZERO_HASH
@@ -2099,7 +2099,7 @@ proc updateHead*(
   updateBeaconMetrics(dag.headState, dag.head.bid, cache)
 
   withState(dag.headState):
-    when stateFork >= ConsensusFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       dag.headSyncCommittees = forkyState.data.get_sync_committee_cache(cache)
 
   let

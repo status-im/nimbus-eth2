@@ -862,7 +862,7 @@ func hasSyncPubKey(node: BeaconNode, epoch: Epoch): auto =
 
 func getCurrentSyncCommiteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   let syncCommittee = withState(node.dag.headState):
-    when stateFork >= ConsensusFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       forkyState.data.current_sync_committee
     else:
       return static(default(SyncnetBits))
@@ -871,7 +871,7 @@ func getCurrentSyncCommiteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits 
 
 func getNextSyncCommitteeSubnets(node: BeaconNode, epoch: Epoch): SyncnetBits =
   let syncCommittee = withState(node.dag.headState):
-    when stateFork >= ConsensusFork.Altair:
+    when consensusFork >= ConsensusFork.Altair:
       forkyState.data.next_sync_committee
     else:
       return static(default(SyncnetBits))
