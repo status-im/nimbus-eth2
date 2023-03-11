@@ -1870,7 +1870,7 @@
 <p class="admonition-title">Tip</p>
 <p>You can use a different secret for each connection by specifying <code>jwtSecret</code> or <code>jwtSecretFile</code> as a query parameter in the anchor section of the URL (e.g. <code>http://127.0.0.1:8551/#jwtSecret=0x12345...</code> or <code>http://127.0.0.1:8551/#jwtSecretFile=/tmp/jwtsecret</code>).</p>
 </div>
-<p>As long as only one of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties.</p>
+<p>As long as any of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>To carry out an upgrade procedure without any downtime, just restart the execution clients one by one, waiting for each instance to re-sync before moving to the next one.</p>
