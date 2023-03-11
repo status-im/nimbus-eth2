@@ -137,14 +137,16 @@ proc addTestBlock*(
       else:
         ValidatorSig()
 
-  let execution_payload =
-    if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
-      # Can't keep correctly doing this once Capella happens, but LVH search
-      # test relies on merging. So, merge only if no Capella transition.
-      default(bellatrix.ExecutionPayloadForSigning)
-    else:
-      withState(state):
-        when consensusFork == ConsensusFork.Bellatrix:
+  let message = withState(state):
+    let execution_payload =
+      when consensusFork > ConsensusFork.Bellatrix:
+        default(consensusFork.ExecutionPayloadForSigning)
+      elif consensusFork == ConsensusFork.Bellatrix:
+        if cfg.CAPELLA_FORK_EPOCH != FAR_FUTURE_EPOCH:
+          # Can't keep correctly doing this once Capella happens, but LVH search
+          # test relies on merging. So, merge only if no Capella transition.
+          default(bellatrix.ExecutionPayloadForSigning)
+        else:
           # Merge shortly after Bellatrix
           if  forkyState.data.slot >
               cfg.BELLATRIX_FORK_EPOCH * SLOTS_PER_EPOCH + 10:
@@ -155,11 +157,10 @@ proc addTestBlock*(
               build_empty_merge_execution_payload(forkyState.data)
           else:
             default(bellatrix.ExecutionPayloadForSigning)
-        else:
-          default(bellatrix.ExecutionPayloadForSigning)
+      else:
+        default(bellatrix.ExecutionPayloadForSigning)
 
-  let
-    message = makeBeaconBlock(
+    makeBeaconBlock(
       cfg,
       state,
       proposer_index,
@@ -167,7 +168,7 @@ proc addTestBlock*(
       # Keep deposit counts internally consistent.
       Eth1Data(
         deposit_root: eth1_data.deposit_root,
-        deposit_count: getStateField(state, eth1_deposit_index) + deposits.lenu64,
+        deposit_count: forkyState.data.eth1_deposit_index + deposits.lenu64,
         block_hash: eth1_data.block_hash),
       graffiti,
       attestations,
