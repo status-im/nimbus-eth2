@@ -106,7 +106,7 @@ You can increase the resilience of your setup and eliminate any downtime during 
 !!! tip
     You can use a different secret for each connection by specifying `jwtSecret` or `jwtSecretFile` as a query parameter in the anchor section of the URL (e.g. `http://127.0.0.1:8551/#jwtSecret=0x12345...` or `http://127.0.0.1:8551/#jwtSecretFile=/tmp/jwtsecret`).
 
-As long as only one of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties.
+As long as any of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties.
 
 !!! tip
     To carry out an upgrade procedure without any downtime, just restart the execution clients one by one, waiting for each instance to re-sync before moving to the next one.

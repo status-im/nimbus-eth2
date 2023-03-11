@@ -5,7 +5,7 @@ Nimbus `v23.3.0` is `low-urgency` upgrade bringing full support for the upcoming
 
 ### Improvements
 
-* You can now increase the resilience of your setup and eliminate any downtime during upgrade procedures of the execution client software by allowing your beacon node to manage multiple execution clients. To enable this mode, just specify multiple URLs through the `--el` option (alias of `--web3-url`) when starting your beacon node:
+* You can increase the resilience of your setup and eliminate any downtime during upgrade procedures of the execution client by allowing your beacon node to manage multiple execution clients. To enable this mode, just specify multiple URLs through the `--el` option (alias of `--web3-url`) when starting your beacon node:
 
   ```sh
   ./run-mainnet-beacon-node.sh \
@@ -14,7 +14,7 @@ Nimbus `v23.3.0` is `low-urgency` upgrade bringing full support for the upcoming
     --jwt-secret=/tmp/jwtsecret
   ```
 
-  As long as only one of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties.
+  As long as any of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties. To carry out an upgrade procedure without any downtime, just restart the execution clients one by one, waiting for each instance to re-sync before moving to the next one.
 
   If you use this mode with different execution client implementations, Nimbus will act as an execution layer consensus violation detector, preventing the publishing of blocks that may trigger a catastrophic partitioning in the network.
 
