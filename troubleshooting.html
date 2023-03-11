@@ -1969,7 +1969,7 @@
 <p>If you're being flooded with <code>Catching up on validator duties</code> messages, your CPU is probably too slow to run Nimbus. Please check that your setup matches our <a href="hardware.html">system requirements</a>.</p>
 <h3 id="eth1-chain-monitor-failure">Eth1 chain monitor failure</h3>
 <p>If you see an error that looks like the following:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>{&quot;lvl&quot;:&quot;ERR&quot;,&quot;ts&quot;:&quot;2021-05-11 09:05:53.547+00:00&quot;,&quot;msg&quot;:&quot;Eth1 chain monitoring failure, restarting&quot;,&quot;topics&quot;:&quot;eth1&quot;,&quot;tid&quot;:1,&quot;file&quot;:&quot;eth1_monitor.nim:1158&quot;,&quot;err&quot;:&quot;Trying to access value with err: Failed to setup web3 connection&quot;}
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>{&quot;lvl&quot;:&quot;ERR&quot;,&quot;ts&quot;:&quot;2021-05-11 09:05:53.547+00:00&quot;,&quot;msg&quot;:&quot;Eth1 chain monitoring failure, restarting&quot;,&quot;topics&quot;:&quot;eth1&quot;,&quot;tid&quot;:1,&quot;err&quot;:&quot;Trying to access value with err: Failed to setup web3 connection&quot;}
 </code></pre></div>
 <p>It's because your node can't connect to the web3 provider you have specified. Please double check that you've correctly specified your provider. If you haven't done so already, we recommend <a href="web3-backup.html">adding a backup</a>.</p>
 <h3 id="discovered-new-external-address-warning-log">Discovered new external address warning log</h3>
