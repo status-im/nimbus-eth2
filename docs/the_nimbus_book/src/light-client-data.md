@@ -1,6 +1,6 @@
 # Light client data
 
-Nimbus is configured by default to serve data that allows light clients to stay in sync with the Ethereum network. Light client data is imported incrementally and does not affect validator performance. Information about the light client sync protocol can be found in the [Ethereum consensus specs](https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md).
+Nimbus is configured by default to serve data that allows light clients to stay in sync with the Ethereum network. Light client data is imported incrementally and does not affect validator performance. Information about the light client sync protocol can be found in the [Ethereum consensus specs](https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md).
 
 !!! note
     Nimbus also implements a [standalone light client](./el-light-client.md) that may be used to sync an execution layer (EL) client.

@@ -565,7 +565,7 @@ proc processSignedContributionAndProof*(
 
     err(v.error())
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#process_light_client_finality_update
 proc processLightClientFinalityUpdate*(
     self: var Eth2Processor, src: MsgSource,
     finality_update: ForkedLightClientFinalityUpdate
@@ -576,7 +576,7 @@ proc processLightClientFinalityUpdate*(
       self.lightClientPool[], self.dag, finality_update, wallTime)
   v
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
 proc processLightClientOptimisticUpdate*(
     self: var Eth2Processor, src: MsgSource,
     optimistic_update: ForkedLightClientOptimisticUpdate

@@ -27,7 +27,7 @@ import
 export json_serialization, base
 
 const
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/sync-protocol.md#constants
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/sync-protocol.md#constants
   # This index is rooted in `BeaconBlockBody`.
   # The first member (`randao_reveal`) is 16, subsequent members +1 each.
   # If there are ever more than 16 members in `BeaconBlockBody`, indices change!
@@ -113,7 +113,7 @@ type
   ExecutionBranch* =
     array[log2trunc(EXECUTION_PAYLOAD_INDEX), Eth2Digest]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/sync-protocol.md#lightclientheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
       ## Beacon block header
@@ -137,7 +137,8 @@ type
       ## Header attested to by the sync committee
 
     next_sync_committee*: SyncCommittee
-      ## Next sync committee corresponding to `attested_header.beacon.state_root`
+      ## Next sync committee corresponding to
+      ## `attested_header.beacon.state_root`
     next_sync_committee_branch*: altair.NextSyncCommitteeBranch
 
     # Finalized header corresponding to `attested_header.beacon.state_root`
@@ -199,14 +200,15 @@ type
     next_sync_committee*: SyncCommittee
 
     best_valid_update*: Opt[LightClientUpdate]
-      ## Best available header to switch finalized head to if we see nothing else
+      ## Best available header to switch finalized head to
+      ## if we see nothing else
 
     optimistic_header*: LightClientHeader
       ## Most recent available reasonably-safe header
 
     previous_max_active_participants*: uint64
-      ## Max number of active participants in a sync committee (used to compute
-      ## safety threshold)
+      ## Max number of active participants in a sync committee
+      ## (used to compute safety threshold)
     current_max_active_participants*: uint64
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#beaconstate
@@ -553,7 +555,7 @@ func shortLog*(v: SignedBLSToExecutionChange): auto =
     signature: shortLog(v.signature)
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/sync-protocol.md#get_lc_execution_root
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/sync-protocol.md#get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
@@ -563,7 +565,7 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/sync-protocol.md#is_valid_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
@@ -580,13 +582,13 @@ func is_valid_light_client_header*(
     get_subtree_index(EXECUTION_PAYLOAD_INDEX),
     header.beacon.body_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_header_to_capella
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_capella*(
     pre: altair.LightClientHeader): LightClientHeader =
   LightClientHeader(
     beacon: pre.beacon)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_bootstrap_to_capella
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_bootstrap_to_capella*(
     pre: altair.LightClientBootstrap): LightClientBootstrap =
   LightClientBootstrap(
@@ -594,7 +596,7 @@ func upgrade_lc_bootstrap_to_capella*(
     current_sync_committee: pre.current_sync_committee,
     current_sync_committee_branch: pre.current_sync_committee_branch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_update_to_capella
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_update_to_capella*(
     pre: altair.LightClientUpdate): LightClientUpdate =
   LightClientUpdate(
@@ -606,7 +608,7 @@ func upgrade_lc_update_to_capella*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_finality_update_to_capella
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_finality_update_to_capella*(
     pre: altair.LightClientFinalityUpdate): LightClientFinalityUpdate =
   LightClientFinalityUpdate(
@@ -616,7 +618,7 @@ func upgrade_lc_finality_update_to_capella*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_optimistic_update_to_capella
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_optimistic_update_to_capella*(
     pre: altair.LightClientOptimisticUpdate): LightClientOptimisticUpdate =
   LightClientOptimisticUpdate(
@@ -667,7 +669,7 @@ chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/capella/light-client/fork.md#upgrade_lc_store_to_capella
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/fork.md#upgrading-the-store
 func upgrade_lc_store_to_capella*(
     pre: altair.LightClientStore): LightClientStore =
   let best_valid_update =
