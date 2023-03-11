@@ -57,7 +57,7 @@ proc getCapellaStateRef(db: BeaconChainDB, root: Eth2Digest):
 
 from ../beacon_chain/spec/datatypes/deneb import TrustedSignedBeaconBlock
 
-proc getEIP4844StateRef(db: BeaconChainDB, root: Eth2Digest):
+proc getDenebStateRef(db: BeaconChainDB, root: Eth2Digest):
     deneb.NilableBeaconStateRef =
   # load beaconstate the way the block pool does it - into an existing instance
   let res = (deneb.BeaconStateRef)()
@@ -118,12 +118,12 @@ let
   testStatesAltair    = getTestStates(ConsensusFork.Altair)
   testStatesBellatrix = getTestStates(ConsensusFork.Bellatrix)
   testStatesCapella   = getTestStates(ConsensusFork.Capella)
-  testStatesEIP4844   = getTestStates(ConsensusFork.Deneb)
+  testStatesDeneb     = getTestStates(ConsensusFork.Deneb)
 doAssert len(testStatesPhase0) > 8
 doAssert len(testStatesAltair) > 8
 doAssert len(testStatesBellatrix) > 8
 doAssert len(testStatesCapella) > 8
-doAssert len(testStatesEIP4844) > 8
+doAssert len(testStatesDeneb) > 8
 
 suite "Beacon chain DB" & preset():
   test "empty database" & preset():
@@ -321,7 +321,7 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check EIP4844 blocks" & preset():
+  test "sanity check Deneb blocks" & preset():
     let db = BeaconChainDB.new("", inMemory = true)
 
     let
@@ -440,21 +440,21 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check EIP4844 states" & preset():
+  test "sanity check Deneb states" & preset():
     let db = makeTestDB(SLOTS_PER_EPOCH)
 
-    for state in testStatesEIP4844:
+    for state in testStatesDeneb:
       let root = state[].denebData.root
       db.putState(root, state[].denebData.data)
 
       check:
         db.containsState(root)
-        hash_tree_root(db.getEIP4844StateRef(root)[]) == root
+        hash_tree_root(db.getDenebStateRef(root)[]) == root
 
       db.delState(ConsensusFork.Deneb, root)
       check:
         not db.containsState(root)
-        db.getEIP4844StateRef(root).isNil
+        db.getDenebStateRef(root).isNil
 
     db.close()
 
@@ -538,11 +538,11 @@ suite "Beacon chain DB" & preset():
 
     db.close()
 
-  test "sanity check EIP4844 states, reusing buffers" & preset():
+  test "sanity check Deneb states, reusing buffers" & preset():
     let db = makeTestDB(SLOTS_PER_EPOCH)
     let stateBuffer = (deneb.BeaconStateRef)()
 
-    for state in testStatesEIP4844:
+    for state in testStatesDeneb:
       let root = state[].denebData.root
       db.putState(root, state[].denebData.data)
 
@@ -659,7 +659,7 @@ suite "Beacon chain DB" & preset():
       state[].kind == ConsensusFork.Phase0
       state[].phase0Data.data.slot != 10.Slot
 
-  test "sanity check EIP4844 and cross-fork getState rollback" & preset():
+  test "sanity check Deneb and cross-fork getState rollback" & preset():
     var
       db = makeTestDB(SLOTS_PER_EPOCH)
       validatorMonitor = newClone(ValidatorMonitor.init())
