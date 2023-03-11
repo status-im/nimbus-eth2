@@ -34,9 +34,10 @@ The following options are available:
      --validators-dir          A directory containing validator keystores.
      --secrets-dir             A directory containing validator keystore passwords.
      --wallets-dir             A directory containing wallet files.
-     --web3-url                One or more execution layer Web3 provider URLs.
-     --optimistic              Run the node in optimistic mode, allowing it to optimistically sync without an
-                               execution client [=false].
+     --web3-url                One or more execution layer Engine API URLs.
+     --el                      One or more execution layer Engine API URLs.
+     --no-el                   Don't use an EL. The node will remain optimistically synced and won't be able to
+                               perform validator duties [=false].
      --non-interactive         Do not display interative prompts. Quit on missing configuration.
      --netkey-file             Source of network (secp256k1) private key file (random|<path>) [=random].
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key file [=false].
@@ -60,6 +61,7 @@ The following options are available:
                                this functionality [=false].
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format block_root:epoch_number.
      --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
+     --finalized-deposit-tree-snapshot  SSZ file specifying a recent finalized EIP-4881 deposit tree snapshot.
      --node-name               A name for this node that will appear in the logs. If you set this to 'auto', a
                                persistent automatically generated ID will be selected for each --data-dir
                                folder.
@@ -81,7 +83,7 @@ The following options are available:
      --rest-request-timeout    The number of seconds to wait until complete REST request will be received
                                [=infinite].
      --rest-max-body-size      Maximum size of REST request body (kilobytes) [=16384].
-     --rest-max-headers-size   Maximum size of REST request headers (kilobytes) [=64].
+     --rest-max-headers-size   Maximum size of REST request headers (kilobytes) [=128].
      --keymanager              Enable the REST keymanager API [=false].
      --keymanager-port         Listening port for the REST keymanager API [=5052].
      --keymanager-address      Listening port for the REST keymanager API [=127.0.0.1].
@@ -106,15 +108,17 @@ The following options are available:
                                a validator with the same index (a doppelganger), before sending an attestation
                                itself. This protects against slashing (due to double-voting) but means you will
                                miss two attestations when restarting. [=true].
-     --validator-monitor-auto  Automatically monitor locally active validators (BETA) [=false].
+     --validator-monitor-auto  Monitor validator activity automatically for validators active on this beacon
+                               node [=true].
      --validator-monitor-pubkey  One or more validators to monitor - works best when --subscribe-all-subnets is
-                               enabled (BETA).
-     --validator-monitor-totals  Publish metrics to single 'totals' label for better collection performance when
-                               monitoring many validators (BETA) [=false].
+                               enabled.
+     --validator-monitor-details  Publish detailed metrics for each validator individually - may incur significant
+                               overhead with large numbers of validators [=false].
      --suggested-fee-recipient  Suggested fee recipient.
-     --suggested-gas-limit     Suggested gas limit [=30000000].     
+     --suggested-gas-limit     Suggested gas limit [=defaultGasLimit].
      --payload-builder         Enable external payload builder [=false].
      --payload-builder-url     Payload builder URL.
+     --history                 Retention strategy for historical data (archive/prune) [=HistoryMode.Archive].
 
 ...
 ```

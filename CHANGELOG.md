@@ -1,3 +1,78 @@
+2023-03-11 v23.3.0
+==================
+
+Nimbus `v23.3.0` is `low-urgency` upgrade bringing full support for the upcoming Capella hard-fork on the Goerli testnet. Keep an eye out for future mainnet releases!
+
+### Improvements
+
+* You can now increase the resilience of your setup and eliminate any downtime during upgrade procedures of the execution client software by allowing your beacon node to manage multiple execution clients. To enable this mode, just specify multiple URLs through the `--el` option (alias of `--web3-url`) when starting your beacon node:
+
+  ```sh
+  ./run-mainnet-beacon-node.sh \
+    --el=http://127.0.0.1:8551 \
+    --el=ws://other:8551 \
+    --jwt-secret=/tmp/jwtsecret
+  ```
+
+  As long as only one of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties.
+
+  If you use this mode with different execution client implementations, Nimbus will act as an execution layer consensus violation detector, preventing the publishing of blocks that may trigger a catastrophic partitioning in the network.
+
+  https://github.com/status-im/nimbus-eth2/pull/4465
+  https://nimbus.guide/eth1.html
+
+* The metrics `engine_api_responses`, `engine_api_request_duration_seconds` and `engine_api_timeouts` provide statistics about latency and response status codes for all requests sent to each individual execution layer URL:
+
+  https://github.com/status-im/nimbus-eth2/pull/4465
+  https://github.com/status-im/nimbus-eth2/pull/4707
+
+* Nimbus will now attempt to connect to a locally running execution client even when the options `--el` and `--jwt-secret` are not specified. This is made possible by the following proposed standard:
+
+  https://github.com/ethereum/execution-apis/pull/302
+
+  Please note that the standard hasn't been implemented in any execution client yet.
+
+* Nimbus now support the latest version of the Builder API, adding support for the Capella hard-fork:
+
+  https://github.com/status-im/nimbus-eth2/pull/4643
+
+* Improved diagnostic messages and more spec-compliant behavior of the Nimbus validator client when being paired with a non-synced or optimistically synced beacon nodes:
+
+  https://github.com/status-im/nimbus-eth2/pull/4643
+  https://github.com/status-im/nimbus-eth2/pull/4657
+  https://github.com/status-im/nimbus-eth2/pull/4673
+
+* The Sqlite3 database engine has been upgraded to version 3.40.1:
+
+  https://github.com/status-im/nimbus-eth2/pull/4649
+
+### Fixes
+
+* The doppelganger detection now acts safer after a period of lost network connectivity
+
+  https://github.com/status-im/nimbus-eth2/pull/4616
+
+* The doppelganger detection now acts safer in the presence of out-of-order responses from the beacon node:
+
+  https://github.com/status-im/nimbus-eth2/pull/4691
+
+* Nimbus can now export ERA files for the Sepolia network:
+
+  https://github.com/status-im/nimbus-eth2/pull/4689
+
+* The `--history=prune` mode will no longer interfere with serving light client data for the full retention period as mandated by the spec:
+
+  https://github.com/status-im/nimbus-eth2/pull/4702
+
+* Nimbus now downloads a longer range of recent execution blocks in order to avoid potential situations where our `Eth1Data` votes fail to agree with the honest majority in the network:
+
+  https://github.com/status-im/nimbus-eth2/pull/4588
+
+* Nimbus has addressed a potential interruption of deposit syncing when connected to Geth over WebSocket:
+
+  https://github.com/status-im/nimbus-eth2/pull/4708
+
+
 2023-02-16 v23.2.0
 ==================
 
@@ -27,7 +102,7 @@ Capella hard-fork on the Sepolia testnet. Keep an eye out for future mainnet rel
   https://github.com/status-im/nimbus-eth2/pull/4591
 
 * The Keymanager API now supports all `gas_limit` end-points:
-  https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit  
+  https://ethereum.github.io/keymanager-APIs/#/Gas%20Limit
   https://github.com/status-im/nimbus-eth2/pull/4612
 
 * Nimbus serves light client updates up to the retention period mandated by
