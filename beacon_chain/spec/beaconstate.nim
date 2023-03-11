@@ -1281,8 +1281,8 @@ func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
     next_withdrawal_validator_index: 0
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/eip4844/fork.md#upgrading-the-state
-func upgrade_to_eip4844*(cfg: RuntimeConfig, pre: capella.BeaconState):
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/fork.md#upgrading-the-state
+func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
     ref deneb.BeaconState =
   let
     epoch = get_current_epoch(pre)
@@ -1299,7 +1299,7 @@ func upgrade_to_eip4844*(cfg: RuntimeConfig, pre: capella.BeaconState):
       timestamp: pre.latest_execution_payload_header.timestamp,
       extra_data: pre.latest_execution_payload_header.extra_data,
       base_fee_per_gas: pre.latest_execution_payload_header.base_fee_per_gas,
-      excess_data_gas: 0.u256,  # [New in EIP-4844]
+      excess_data_gas: 0.u256,  # [New in Deneb]
       block_hash: pre.latest_execution_payload_header.block_hash,
       transactions_root: pre.latest_execution_payload_header.transactions_root,
       withdrawals_root: pre.latest_execution_payload_header.withdrawals_root
@@ -1312,7 +1312,7 @@ func upgrade_to_eip4844*(cfg: RuntimeConfig, pre: capella.BeaconState):
     slot: pre.slot,
     fork: Fork(
       previous_version: pre.fork.current_version,
-      current_version: cfg.DENEB_FORK_VERSION, # [Modified in EIP4844]
+      current_version: cfg.DENEB_FORK_VERSION, # [Modified in Deneb]
       epoch: epoch
     ),
 
@@ -1349,12 +1349,13 @@ func upgrade_to_eip4844*(cfg: RuntimeConfig, pre: capella.BeaconState):
 
     # Inactivity
     inactivity_scores: pre.inactivity_scores,
+
     # Sync
     current_sync_committee: pre.current_sync_committee,
     next_sync_committee: pre.next_sync_committee,
 
     # Execution-layer
-    latest_execution_payload_header: latest_execution_payload_header,  # [Modified in EIP4844]
+    latest_execution_payload_header: latest_execution_payload_header,  # [Modified in Deneb]
 
     # Withdrawals
     next_withdrawal_index: pre.next_withdrawal_index,
