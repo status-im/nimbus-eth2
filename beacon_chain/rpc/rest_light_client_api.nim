@@ -105,7 +105,7 @@ proc installLightClientApiHandlers*(router: var RestRouter, node: BeaconNode) =
       updates.add RestVersioned[ForkedLightClientUpdate](
         data: update,
         jsonVersion: contextFork,
-        sszContext: node.dag.forkDigests[].atStateFork(contextFork))
+        sszContext: node.dag.forkDigests[].atConsensusFork(contextFork))
 
     return
       if contentType == sszMediaType:

@@ -160,7 +160,7 @@ proc loadChainDag(
           RestVersioned[ForkedLightClientFinalityUpdate](
             data: data,
             jsonVersion: contextFork,
-            sszContext: dag.forkDigests[].atStateFork(contextFork)))
+            sszContext: dag.forkDigests[].atConsensusFork(contextFork)))
   proc onLightClientOptimisticUpdate(data: ForkedLightClientOptimisticUpdate) =
     if dag == nil: return
     withForkyOptimisticUpdate(data):
@@ -171,7 +171,7 @@ proc loadChainDag(
           RestVersioned[ForkedLightClientOptimisticUpdate](
             data: data,
             jsonVersion: contextFork,
-            sszContext: dag.forkDigests[].atStateFork(contextFork)))
+            sszContext: dag.forkDigests[].atConsensusFork(contextFork)))
 
   var extraFlags = {enableTestFeatures}
   if config.deploymentPhase <= DeploymentPhase.Testnet:
@@ -818,11 +818,11 @@ proc updateBlocksGossipStatus*(
     oldGossipForks = currentGossipState - targetGossipState
 
   for gossipFork in oldGossipForks:
-    let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
+    let forkDigest = node.dag.forkDigests[].atConsensusFork(gossipFork)
     node.network.unsubscribe(getBeaconBlocksTopic(forkDigest))
 
   for gossipFork in newGossipForks:
-    let forkDigest = node.dag.forkDigests[].atStateFork(gossipFork)
+    let forkDigest = node.dag.forkDigests[].atConsensusFork(gossipFork)
     node.network.subscribe(
       getBeaconBlocksTopic(forkDigest), blocksTopicParams,
       enableTopicMetrics = true)

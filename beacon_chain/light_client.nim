@@ -348,7 +348,7 @@ proc installMessageValidators*(
       when lcDataFork > LightClientDataFork.None:
         let
           contextFork = consensusFork  # Avoid capturing `Deneb` (Nim 1.6)
-          digest = forkDigests[].atStateFork(contextFork)
+          digest = forkDigests[].atConsensusFork(contextFork)
 
         lightClient.network.addValidator(
           getLightClientFinalityUpdateTopic(digest),
@@ -413,7 +413,7 @@ proc updateGossipStatus*(
 
   for gossipFork in oldGossipForks:
     if gossipFork >= ConsensusFork.Altair:
-      let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
+      let forkDigest = lightClient.forkDigests[].atConsensusFork(gossipFork)
       lightClient.network.unsubscribe(
         getLightClientFinalityUpdateTopic(forkDigest))
       lightClient.network.unsubscribe(
@@ -421,7 +421,7 @@ proc updateGossipStatus*(
 
   for gossipFork in newGossipForks:
     if gossipFork >= ConsensusFork.Altair:
-      let forkDigest = lightClient.forkDigests[].atStateFork(gossipFork)
+      let forkDigest = lightClient.forkDigests[].atConsensusFork(gossipFork)
       lightClient.network.subscribe(
         getLightClientFinalityUpdateTopic(forkDigest),
         basicParams)

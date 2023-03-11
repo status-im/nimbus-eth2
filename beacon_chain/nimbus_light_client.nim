@@ -247,11 +247,11 @@ programMain:
       oldGossipForks = currentGossipState - targetGossipState
 
     for gossipFork in oldGossipForks:
-      let forkDigest = forkDigests[].atStateFork(gossipFork)
+      let forkDigest = forkDigests[].atConsensusFork(gossipFork)
       network.unsubscribe(getBeaconBlocksTopic(forkDigest))
 
     for gossipFork in newGossipForks:
-      let forkDigest = forkDigests[].atStateFork(gossipFork)
+      let forkDigest = forkDigests[].atConsensusFork(gossipFork)
       network.subscribe(
         getBeaconBlocksTopic(forkDigest), blocksTopicParams,
         enableTopicMetrics = true)

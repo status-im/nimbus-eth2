@@ -288,7 +288,7 @@ template ExecutionPayloadForSigning*(kind: static ConsensusFork): auto =
   else:
     static: raiseAssert "Unreachable"
 
-template withStateFork*(
+template withConsensusFork*(
     x: ConsensusFork, body: untyped): untyped =
   case x
   of ConsensusFork.Deneb:
@@ -661,7 +661,7 @@ func stateForkForDigest*(
   else:
     err()
 
-func atStateFork*(
+func atConsensusFork*(
     forkDigests: ForkDigests, consensusFork: ConsensusFork): ForkDigest =
   case consensusFork
   of ConsensusFork.Deneb:
@@ -677,7 +677,7 @@ func atStateFork*(
 
 template atEpoch*(
     forkDigests: ForkDigests, epoch: Epoch, cfg: RuntimeConfig): ForkDigest =
-  forkDigests.atStateFork(cfg.consensusForkAtEpoch(epoch))
+  forkDigests.atConsensusFork(cfg.consensusForkAtEpoch(epoch))
 
 template asSigned*(
     x: ForkedMsgTrustedSignedBeaconBlock |
