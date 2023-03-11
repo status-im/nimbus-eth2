@@ -1959,10 +1959,10 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
         for fork in ConsensusFork.Phase0..<consensusFork:
           dag.db.clearStates(fork)
 
-      let blockFork = dag.cfg.consensusForkAtEpoch(blockHorizon.epoch)
+      let consensusFork = dag.cfg.consensusForkAtEpoch(blockHorizon.epoch)
 
-      if blockFork > ConsensusFork.Phase0:
-        for fork in ConsensusFork.Phase0..<blockFork:
+      if consensusFork > ConsensusFork.Phase0:
+        for fork in ConsensusFork.Phase0..<consensusFork:
           dag.db.clearBlocks(fork)
 
 proc loadExecutionBlockRoot*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =

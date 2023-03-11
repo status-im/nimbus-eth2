@@ -2692,8 +2692,8 @@ proc decodeBody*(
         return err("Unexpected deserialization error")
     ok(data)
   elif body.contentType == OctetStreamMediaType:
-    let blockFork = ? ConsensusFork.decodeString(version)
-    case blockFork
+    let consensusFork = ? ConsensusFork.decodeString(version)
+    case consensusFork
     of ConsensusFork.Phase0:
       let blck =
         try:
