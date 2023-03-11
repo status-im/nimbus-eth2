@@ -278,6 +278,16 @@ template BeaconBlockType*(fork: static ConsensusFork): auto =
 template BeaconBlockBodyType*(fork: static ConsensusFork): auto =
   getSymbolFromForkModule(fork, "BeaconBlockBody")
 
+template ExecutionPayloadForSigning*(kind: static ConsensusFork): auto =
+  when kind == ConsensusFork.Deneb:
+    typedesc[deneb.ExecutionPayloadForSigning]
+  elif kind == ConsensusFork.Capella:
+    typedesc[capella.ExecutionPayloadForSigning]
+  elif kind == ConsensusFork.Bellatrix:
+    typedesc[bellatrix.ExecutionPayloadForSigning]
+  else:
+    static: raiseAssert "Unreachable"
+
 template withStateFork*(
     x: ConsensusFork, body: untyped): untyped =
   case x
