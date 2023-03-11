@@ -86,13 +86,13 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
         update_fork_digest =
           distinctBase(ForkDigest).fromHex(s{"update_fork_digest"}.getStr(
             distinctBase(fork_digests.altair).toHex())).ForkDigest
-        update_state_fork =
+        update_consensus_fork =
           fork_digests.consensusForkForDigest(update_fork_digest)
             .expect("Unknown update fork " & $update_fork_digest)
         update_filename = s["update"].getStr()
 
       var update {.noinit.}: ForkedLightClientUpdate
-      withLcDataFork(lcDataForkAtConsensusFork(update_state_fork)):
+      withLcDataFork(lcDataForkAtConsensusFork(update_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
           update = ForkedLightClientUpdate(kind: lcDataFork)
           update.forky(lcDataFork) = parseTest(
@@ -111,13 +111,13 @@ proc loadSteps(path: string, fork_digests: ForkDigests): seq[TestStep] =
         store_fork_digest =
           distinctBase(ForkDigest).fromHex(
             s["store_fork_digest"].getStr()).ForkDigest
-        store_state_fork =
+        store_consensus_fork =
           fork_digests.consensusForkForDigest(store_fork_digest)
             .expect("Unknown store fork " & $store_fork_digest)
 
       result.add TestStep(
         kind: TestStepKind.UpgradeStore,
-        store_data_fork: lcDataForkAtConsensusFork(store_state_fork),
+        store_data_fork: lcDataForkAtConsensusFork(store_consensus_fork),
         checks: s["checks"].getChecks())
     else:
       doAssert false, "Unknown test step: " & $step
@@ -168,11 +168,11 @@ proc runTest(path: string) =
 
     # Reduce stack size by making this a `proc`
     proc loadBootstrap(): ForkedLightClientBootstrap =
-      let bootstrap_state_fork =
+      let bootstrap_consensus_fork =
         meta.fork_digests.consensusForkForDigest(meta.bootstrap_fork_digest)
           .expect("Unknown bootstrap fork " & $meta.bootstrap_fork_digest)
       var bootstrap {.noinit.}: ForkedLightClientBootstrap
-      withLcDataFork(lcDataForkAtConsensusFork(bootstrap_state_fork)):
+      withLcDataFork(lcDataForkAtConsensusFork(bootstrap_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
           bootstrap = ForkedLightClientBootstrap(kind: lcDataFork)
           bootstrap.forky(lcDataFork) = parseTest(
@@ -185,11 +185,11 @@ proc runTest(path: string) =
     # Reduce stack size by making this a `proc`
     proc initializeStore(
         bootstrap: ref ForkedLightClientBootstrap): ForkedLightClientStore =
-      let store_state_fork =
+      let store_consensus_fork =
         meta.fork_digests.consensusForkForDigest(meta.store_fork_digest)
           .expect("Unknown store fork " & $meta.store_fork_digest)
       var store {.noinit.}: ForkedLightClientStore
-      withLcDataFork(lcDataForkAtConsensusFork(store_state_fork)):
+      withLcDataFork(lcDataForkAtConsensusFork(store_consensus_fork)):
         when lcDataFork > LightClientDataFork.None:
           store = ForkedLightClientStore(kind: lcDataFork)
           bootstrap[].migrateToDataFork(lcDataFork)
