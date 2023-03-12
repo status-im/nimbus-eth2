@@ -1954,15 +1954,14 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
       # so as to "mostly" clean up the phase0 tables as well (which cannot be
       # pruned easily by fork)
 
-      let consensusFork = dag.cfg.consensusForkAtEpoch(tailSlot.epoch)
-      if consensusFork > ConsensusFork.Phase0:
-        for fork in ConsensusFork.Phase0..<consensusFork:
+      let stateFork = dag.cfg.consensusForkAtEpoch(tailSlot.epoch)
+      if stateFork > ConsensusFork.Phase0:
+        for fork in ConsensusFork.Phase0..<stateFork:
           dag.db.clearStates(fork)
 
-      let consensusFork = dag.cfg.consensusForkAtEpoch(blockHorizon.epoch)
-
-      if consensusFork > ConsensusFork.Phase0:
-        for fork in ConsensusFork.Phase0..<consensusFork:
+      let blockFork = dag.cfg.consensusForkAtEpoch(blockHorizon.epoch)
+      if blockFork > ConsensusFork.Phase0:
+        for fork in ConsensusFork.Phase0..<blockFork:
           dag.db.clearBlocks(fork)
 
 proc loadExecutionBlockRoot*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
