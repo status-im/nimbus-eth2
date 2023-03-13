@@ -203,3 +203,6 @@
 [submodule "vendor/withdrawals-testnets"]
 	path = vendor/withdrawals-testnets
 	url = https://github.com/ethpandaops/withdrawals-testnet.git
+[submodule "vendor/nim-kzg4844"]
+	path = vendor/nim-kzg4844
+	url = https://github.com/status-im/nim-kzg4844/

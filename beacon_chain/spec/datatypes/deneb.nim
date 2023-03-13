@@ -24,7 +24,9 @@ import
   ../digest,
   "."/[base, phase0, altair, bellatrix, capella]
 
-export json_serialization, base
+from  ../../vendor/nim-kzg4844/kzg4844 import KZGCommitment, KZGProof
+
+export json_serialization, base, kzg4844
 
 const
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/polynomial-commitments.md#constants
@@ -39,11 +41,6 @@ const
   MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS* = 4096'u64
 
 type
-  # this block belongs elsewhere - will figure out after implementing c-kzg bindings
-  KZGCommitment* = array[48, byte]
-  KZGProof* = array[48, byte]
-  BLSFieldElement* = array[32, byte]
-
   KZGCommitments* = List[KZGCommitment, Limit MAX_BLOBS_PER_BLOCK]
   Blobs* = List[Blob, Limit MAX_BLOBS_PER_BLOCK]
 

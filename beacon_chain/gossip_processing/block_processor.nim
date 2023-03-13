@@ -26,7 +26,6 @@ from ../consensus_object_pools/block_quarantine import
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
-from ../spec/state_transition_block import validate_blobs_sidecar
 
 export sszdump, signatures_batch
 
