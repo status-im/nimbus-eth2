@@ -1961,6 +1961,23 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
     let
       network = loadEth2Network(config)
       cfg = network.cfg
+      syncTarget =
+        if config.stateId.isSome:
+          if config.lcTrustedBlockRoot.isSome:
+            warn "Ignoring `trustedBlockRoot`, `stateId` is set",
+              stateId = config.stateId,
+              trustedBlockRoot = config.lcTrustedBlockRoot
+          TrustedNodeSyncTarget(
+            kind: TrustedNodeSyncKind.StateId,
+            stateId: config.stateId.get)
+        elif config.lcTrustedBlockRoot.isSome:
+          TrustedNodeSyncTarget(
+            kind: TrustedNodeSyncKind.TrustedBlockRoot,
+            trustedBlockRoot: config.lcTrustedBlockRoot.get)
+        else:
+          TrustedNodeSyncTarget(
+            kind: TrustedNodeSyncKind.StateId,
+            stateId: "finalized")
       genesis =
         if network.genesisData.len > 0:
           newClone(readSszForkedHashedBeaconState(
@@ -1977,7 +1994,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
       config.databaseDir,
       config.eraDir,
       config.trustedNodeUrl,
-      config.stateId,
+      syncTarget,
       config.backfillBlocks,
       config.reindex,
       config.downloadDepositSnapshot,

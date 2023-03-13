@@ -770,14 +770,18 @@ type
 
       stateId* {.
         desc: "State id to sync to - this can be \"finalized\", a slot number or state hash or \"head\""
-        defaultValue: "finalized",
         name: "state-id"
-      .}: string
+      .}: Option[string]
 
       blockId* {.
         hidden
         desc: "Block id to sync to - this can be a block root, slot number, \"finalized\" or \"head\" (deprecated)"
       .}: Option[string]
+
+      lcTrustedBlockRoot* {.
+        hidden
+        desc: "Recent trusted finalized block root to initialize light client from"
+        name: "trusted-block-root" .}: Option[Eth2Digest]
 
       backfillBlocks* {.
         desc: "Backfill blocks directly from REST server instead of fetching via API"

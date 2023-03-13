@@ -28,6 +28,20 @@ export
 from web3/ethtypes import BlockHash
 export ethtypes.BlockHash
 
+func decodeMediaType*(
+    contentType: Opt[ContentTypeData]): Result[MediaType, cstring] =
+  if contentType.isNone or isWildCard(contentType.get.mediaType):
+    return err("Missing or incorrect Content-Type")
+  ok contentType.get.mediaType
+
+func decodeEthConsensusVersion*(
+    value: string): Result[ConsensusFork, cstring] =
+  let normalizedValue = value.toLowerAscii()
+  for consensusFork in ConsensusFork:
+    if normalizedValue == ($consensusFork).toLowerAscii():
+      return ok consensusFork
+  err(cstring("Unsupported Eth-Consensus-Version: " & value))
+
 Json.createFlavor RestJson
 
 ## The RestJson format implements JSON serialization in the way specified
@@ -136,7 +150,9 @@ type
     Web3SignerSignatureResponse |
     Web3SignerStatusResponse |
     GetStateRootResponse |
-    GetBlockRootResponse
+    GetBlockRootResponse |
+    SomeForkedLightClientObject |
+    seq[SomeForkedLightClientObject]
 
   RestVersioned*[T] = object
     data*: T
@@ -1797,6 +1813,49 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: ForkedHashedBeaconStat
     writer.writeField("data", value.denebData.data)
   writer.endRecord()
 
+## SomeForkedLightClientObject
+proc readValue*[T: SomeForkedLightClientObject](
+    reader: var JsonReader[RestJson], value: var T) {.
+    raises: [IOError, SerializationError, Defect].} =
+  var
+    version: Opt[ConsensusFork]
+    data: Opt[JsonString]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "version":
+      if version.isSome:
+        reader.raiseUnexpectedField("Multiple version fields found", T.name)
+      let consensusFork =
+        decodeEthConsensusVersion(reader.readValue(string)).valueOr:
+          reader.raiseUnexpectedValue("Incorrect version field value")
+      version.ok consensusFork
+    of "data":
+      if data.isSome:
+        reader.raiseUnexpectedField("Multiple data fields found", T.name)
+      data.ok reader.readValue(JsonString)
+    else:
+      unrecognizedFieldWarning()
+
+  if version.isNone:
+    reader.raiseUnexpectedValue("Field version is missing")
+  if data.isNone:
+    reader.raiseUnexpectedValue("Field data is missing")
+
+  withLcDataFork(lcDataForkAtConsensusFork(version.get)):
+    when lcDataFork > LightClientDataFork.None:
+      value = T(kind: lcDataFork)
+      try:
+        value.forky(lcDataFork) = RestJson.decode(
+          string(data.get()),
+          T.Forky(lcDataFork),
+          requireAllFields = true,
+          allowUnknownFields = true)
+      except SerializationError:
+        reader.raiseUnexpectedValue("Incorrect format (" & $lcDataFork & ")")
+    else:
+      reader.raiseUnexpectedValue("Unsupported fork " & $version.get)
+
 ## Web3SignerRequest
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: Web3SignerRequest) {.
@@ -2876,7 +2935,14 @@ proc decodeBytes*[T: DecodeTypes](
 proc encodeString*(value: string): RestResult[string] =
   ok(value)
 
-proc encodeString*(value: Epoch|Slot|CommitteeIndex|SyncSubcommitteeIndex): RestResult[string] =
+proc encodeString*(
+    value:
+      uint64 |
+      SyncCommitteePeriod |
+      Epoch |
+      Slot |
+      CommitteeIndex |
+      SyncSubcommitteeIndex): RestResult[string] =
   ok(Base10.toString(uint64(value)))
 
 proc encodeString*(value: ValidatorSig): RestResult[string] =
