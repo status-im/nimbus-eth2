@@ -547,8 +547,8 @@ type
       deploymentPhase* {.
         hidden
         desc: "Configures the deployment phase"
-        defaultValue: DeploymentPhase.Mainnet
-        defaultValueDesc: $DeploymentPhase.Mainnet
+        defaultValue: DeploymentPhase.CapellaReady
+        defaultValueDesc: $DeploymentPhase.CapellaReady
         name: "deployment-phase" .}: DeploymentPhase
 
       terminalTotalDifficultyOverride* {.
