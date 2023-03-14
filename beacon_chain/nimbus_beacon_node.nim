@@ -1467,15 +1467,16 @@ proc installMessageValidators(node: BeaconNode) =
         toValidationResult(node.processor[].processSignedBeaconBlock(
           MsgSource.gossip, signedBlock)))
 
-  node.network.addValidator(
-    getBeaconBlocksTopic(forkDigests.deneb),
-    proc (signedBlock: deneb.SignedBeaconBlock): ValidationResult =
-      if node.shouldSyncOptimistically(node.currentSlot):
-        toValidationResult(
-          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
-      else:
-        toValidationResult(node.processor[].processSignedBeaconBlock(
-          MsgSource.gossip, signedBlock)))
+  if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    node.network.addValidator(
+      getBeaconBlocksTopic(forkDigests.deneb),
+      proc (signedBlock: deneb.SignedBeaconBlock): ValidationResult =
+        if node.shouldSyncOptimistically(node.currentSlot):
+          toValidationResult(
+            node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
+        else:
+          toValidationResult(node.processor[].processSignedBeaconBlock(
+            MsgSource.gossip, signedBlock)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:
