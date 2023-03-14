@@ -453,19 +453,6 @@ template toString*(kind: ConsensusFork): string =
   of ConsensusFork.Deneb:
     "deneb"
 
-template toString*(kind: ConsensusFork): string =
-  case kind
-  of ConsensusFork.Phase0:
-    "phase0"
-  of ConsensusFork.Altair:
-    "altair"
-  of ConsensusFork.Bellatrix:
-    "bellatrix"
-  of ConsensusFork.Capella:
-    "capella"
-  of ConsensusFork.Deneb:
-    "deneb"
-
 template toFork*[T:
     phase0.BeaconState |
     phase0.HashedBeaconState |
