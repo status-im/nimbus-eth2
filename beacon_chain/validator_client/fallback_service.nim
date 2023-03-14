@@ -252,6 +252,16 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
   service.state = ServiceState.Running
   debug "Service started"
 
+  try:
+    await vc.preGenesisEvent.wait()
+  except CancelledError:
+    debug "Service interrupted"
+    return
+  except CatchableError as exc:
+    warn "Service crashed with unexpected error", err_name = exc.name,
+         err_msg = exc.msg
+    return
+
   while true:
     # This loop could look much more nicer/better, when
     # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
@@ -279,8 +289,6 @@ proc init*(t: typedesc[FallbackServiceRef],
                                state: ServiceState.Initialized,
                                changesEvent: newAsyncEvent())
   debug "Initializing service"
-  # Perform initial nodes check.
-  if await res.checkNodes(): res.changesEvent.fire()
   return res
 
 proc start*(service: FallbackServiceRef) =

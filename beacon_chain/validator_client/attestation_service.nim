@@ -394,7 +394,7 @@ proc publishAttestationsAndAggregates(service: AttestationServiceRef,
   await service.produceAndPublishAggregates(ad, duties)
 
 proc spawnAttestationTasks(service: AttestationServiceRef,
-                           slot: Slot) =
+                           slot: Slot) {.async.} =
   let vc = service.client
   let dutiesByCommittee =
     block:
@@ -405,34 +405,67 @@ proc spawnAttestationTasks(service: AttestationServiceRef,
         res.mgetOrPut(item.data.committee_index, default).add(item)
       res
 
-  var dutiesSkipped: seq[string]
-  for index, duties in dutiesByCommittee:
-    asyncSpawn service.publishAttestationsAndAggregates(slot, index, duties)
-  if len(dutiesSkipped) > 0:
-    info "Doppelganger protection disabled validator duties",
-         validators = len(dutiesSkipped)
-    trace "Doppelganger protection disabled validator duties dump",
-          validators = dutiesSkipped
+  var tasks: seq[Future[void]]
+  try:
+    for index, duties in dutiesByCommittee:
+      tasks.add(service.publishAttestationsAndAggregates(slot, index, duties))
+    let timeout = vc.beaconClock.durationToNextSlot()
+    await allFutures(tasks).wait(timeout)
+  except AsyncTimeoutError:
+    # Cancelling all the pending tasks.
+    let pending = tasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await allFutures(pending)
+  except CancelledError as exc:
+    # Cancelling all the pending tasks.
+    let pending = tasks.filterIt(not(it.finished())).mapIt(it.cancelAndWait())
+    await allFutures(pending)
+    raise exc
+  except CatchableError as exc:
+    error "Unexpected error while processing attestation duties",
+          error_name = exc.name, error_message = exc.msg
 
 proc mainLoop(service: AttestationServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
   debug "Service started"
 
+  debug "Attester loop is waiting for initialization"
+  try:
+    await allFutures(
+      vc.preGenesisEvent.wait(),
+      vc.genesisEvent.wait(),
+      vc.indicesAvailable.wait(),
+      vc.forksAvailable.wait()
+    )
+  except CancelledError:
+    debug "Service interrupted"
+    return
+  except CatchableError as exc:
+    warn "Service crashed with unexpected error", err_name = exc.name,
+         err_msg = exc.msg
+    return
+
+  doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
+
+  var currentSlot: Opt[Slot]
   while true:
     # This loop could look much more nicer/better, when
     # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
     # become safe to combine loops, breaks and exception handlers.
     let breakLoop =
       try:
-        let sleepTime =
-          attestationSlotOffset + vc.beaconClock.durationToNextSlot()
-        let sres = vc.getCurrentSlot()
-        if sres.isSome():
-          let currentSlot = sres.get()
-          service.spawnAttestationTasks(currentSlot)
-        await sleepAsync(sleepTime)
-        false
+        let
+          # We use zero offset here, because we do waiting in
+          # waitForBlockPublished(attestationSlotOffset).
+          slot = await vc.checkedWaitForNextSlot(currentSlot,
+                                                 ZeroTimeDiff, false)
+        if slot.isNone():
+          debug "System time adjusted backwards significantly, exiting"
+          true
+        else:
+          currentSlot = slot
+          await service.spawnAttestationTasks(currentSlot.get())
+          false
       except CancelledError:
         debug "Service interrupted"
         true

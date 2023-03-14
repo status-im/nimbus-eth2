@@ -43,39 +43,33 @@ proc sortForks(forks: openArray[Fork]): Result[seq[Fork], cstring] {.
   ok(sortedForks)
 
 proc pollForFork(vc: ValidatorClientRef) {.async.} =
-  let sres = vc.getCurrentSlot()
-  if sres.isSome():
-    let
-      currentSlot = sres.get()
-      currentEpoch = currentSlot.epoch()
+  let forks =
+    try:
+      await vc.getForkSchedule(ApiStrategyKind.Best)
+    except ValidatorApiError as exc:
+      warn "Unable to retrieve fork schedule",
+           reason = exc.getFailureReason(), err_msg = exc.msg
+      return
+    except CancelledError as exc:
+      debug "Fork retrieval process was interrupted"
+      raise exc
+    except CatchableError as exc:
+      error "Unexpected error occured while getting fork information",
+            err_name = exc.name, err_msg = exc.msg
+      return
 
-    let forks =
-      try:
-        await vc.getForkSchedule(ApiStrategyKind.Best)
-      except ValidatorApiError as exc:
-        warn "Unable to retrieve fork schedule",
-             reason = exc.getFailureReason(), err_msg = exc.msg
+  let sortedForks =
+    block:
+      let res = sortForks(forks)
+      if res.isErr():
+        warn "Invalid fork schedule received", reason = res.error()
         return
-      except CancelledError as exc:
-        debug "Fork retrieval process was interrupted"
-        raise exc
-      except CatchableError as exc:
-        error "Unexpected error occured while getting fork information",
-              err_name = exc.name, err_msg = exc.msg
-        return
+      res.get()
 
-    let sortedForks =
-      block:
-        let res = sortForks(forks)
-        if res.isErr():
-          warn "Invalid fork schedule received", reason = res.error()
-          return
-        res.get()
-
-    if (len(vc.forks) == 0) or (vc.forks != sortedForks):
-      vc.forks = sortedForks
-      notice "Fork schedule updated", fork_schedule = sortedForks
-      vc.forksAvailable.fire()
+  if (len(vc.forks) == 0) or (vc.forks != sortedForks):
+    vc.forks = sortedForks
+    notice "Fork schedule updated", fork_schedule = sortedForks
+    vc.forksAvailable.fire()
 
 proc waitForNextEpoch(service: ForkServiceRef) {.async.} =
   let vc = service.client
@@ -87,6 +81,16 @@ proc mainLoop(service: ForkServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
   debug "Service started"
+
+  try:
+    await vc.preGenesisEvent.wait()
+  except CancelledError:
+    debug "Service interrupted"
+    return
+  except CatchableError as exc:
+    warn "Service crashed with unexpected error", err_name = exc.name,
+         err_msg = exc.msg
+    return
 
   while true:
     # This loop could look much more nicer/better, when
@@ -114,7 +118,6 @@ proc init*(t: typedesc[ForkServiceRef],
   let res = ForkServiceRef(name: ServiceName,
                            client: vc, state: ServiceState.Initialized)
   debug "Initializing service"
-  await vc.pollForFork()
   return res
 
 proc start*(service: ForkServiceRef) =

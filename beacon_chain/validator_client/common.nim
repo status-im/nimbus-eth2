@@ -39,13 +39,11 @@ const
   DelayBuckets* = [-Inf, -4.0, -2.0, -1.0, -0.5, -0.1, -0.05,
                    0.05, 0.1, 0.5, 1.0, 2.0, 4.0, 8.0, Inf]
 
+  ZeroTimeDiff* = TimeDiff(nanoseconds: 0'i64)
+
 type
   ServiceState* {.pure.} = enum
     Initialized, Running, Error, Closing, Closed
-
-  BlockServiceEventRef* = ref object of RootObj
-    slot*: Slot
-    proposers*: seq[ValidatorPubKey]
 
   RegistrationKind* {.pure.} = enum
     Cached, IncorrectTime, MissingIndex, MissingFee, MissingGasLimit
@@ -174,6 +172,8 @@ type
     beaconClock*: BeaconClock
     attachedValidators*: ref ValidatorPool
     forks*: seq[Fork]
+    preGenesisEvent*: AsyncEvent
+    genesisEvent*: AsyncEvent
     forksAvailable*: AsyncEvent
     nodesAvailable*: AsyncEvent
     indicesAvailable*: AsyncEvent
@@ -201,7 +201,7 @@ type
     data*: seq[ApiNodeFailure]
 
 const
-  DefaultDutyAndProof* = DutyAndProof(epoch: Epoch(0xFFFF_FFFF_FFFF_FFFF'u64))
+  DefaultDutyAndProof* = DutyAndProof(epoch: FAR_FUTURE_EPOCH)
   SlotDuration* = int64(SECONDS_PER_SLOT).seconds
   OneThirdDuration* = int64(SECONDS_PER_SLOT).seconds div INTERVALS_PER_SLOT
   AllBeaconNodeRoles* = {
@@ -564,18 +564,12 @@ proc init*(t: typedesc[ProposedData], epoch: Epoch, dependentRoot: Eth2Digest,
            data: openArray[ProposerTask]): ProposedData =
   ProposedData(epoch: epoch, dependentRoot: dependentRoot, duties: @data)
 
-proc getCurrentSlot*(vc: ValidatorClientRef): Option[Slot] =
-  let
-    wallTime = vc.beaconClock.now()
-    wallSlot = wallTime.toSlot()
-
-  if not(wallSlot.afterGenesis):
-    let checkGenesisTime = vc.beaconClock.fromNow(start_beacon_time(Slot(0)))
-    warn "Jump in time detected, something wrong with wallclock",
-         wall_time = wallTime, genesisIn = checkGenesisTime.offset
-    none[Slot]()
+proc getCurrentSlot*(vc: ValidatorClientRef): Opt[Slot] =
+  let wallTime = vc.beaconClock.now()
+  if wallTime.ns_since_genesis >= 0:
+    Opt.some(wallTime.toSlot().slot)
   else:
-    some(wallSlot.slot)
+    Opt.none(Slot)
 
 proc getAttesterDutiesForSlot*(vc: ValidatorClientRef,
                                slot: Slot): seq[DutyAndProof] =
@@ -915,3 +909,76 @@ proc prepareRegistrationList*(
 proc init*(t: typedesc[ApiNodeFailure], node: BeaconNodeServerRef,
            failure: ApiFailure): ApiNodeFailure =
   ApiNodeFailure(node: node, failure: failure)
+
+proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
+                         offset: TimeDiff,
+                         showLogs: bool): Future[Opt[Slot]] {.async.} =
+  let
+    currentTime = vc.beaconClock.now()
+    currentSlot = currentTime.slotOrZero()
+    chronosOffset = chronos.nanoseconds(
+      if offset.nanoseconds < 0: 0'i64 else: offset.nanoseconds)
+
+  var timeToSlot = (destinationSlot.start_beacon_time() - currentTime) +
+                   chronosOffset
+
+  logScope:
+    start_time = shortLog(currentTime)
+    start_slot = shortLog(currentSlot)
+    dest_slot = shortLog(destinationSlot)
+    time_to_slot = shortLog(timeToSlot)
+    offset = shortLog(chronosOffset)
+
+  while true:
+    await sleepAsync(timeToSlot)
+
+    let
+      wallTime = vc.beaconClock.now()
+      wallSlot = wallTime.slotOrZero()
+
+    logScope:
+      wall_time = shortLog(wallTime)
+      wall_slot = shortLog(wallSlot)
+
+    if wallSlot < destinationSlot:
+      # While we were sleeping, the system clock changed and time moved
+      # backwards!
+      if wallSlot + 1 < destinationSlot:
+        # This is a critical condition where it's hard to reason about what
+        # to do next - we'll call the attention of the user here by shutting
+        # down.
+        if showLogs:
+          fatal "System time adjusted backwards significantly - " &
+                "clock may be inaccurate - shutting down"
+        return Opt.none(Slot)
+      else:
+        # Time moved back by a single slot - this could be a minor adjustment,
+        # for example when NTP does its thing after not working for a while
+        timeToSlot = destinationSlot.start_beacon_time() - wallTime +
+                     chronosOffset
+        if showLogs:
+          warn "System time adjusted backwards, rescheduling slot actions"
+        continue
+
+    elif wallSlot > destinationSlot + SLOTS_PER_EPOCH:
+      if showLogs:
+        warn "Time moved forwards by more than an epoch, skipping ahead"
+      return Opt.some(wallSlot - SLOTS_PER_EPOCH)
+
+    elif wallSlot > destinationSlot:
+      if showLogs:
+        notice "Missed expected slot start, catching up"
+      return Opt.some(wallSlot)
+
+    else:
+      return Opt.some(destinationSlot)
+
+proc checkedWaitForNextSlot*(vc: ValidatorClientRef, curSlot: Opt[Slot],
+                             offset: TimeDiff,
+                             showLogs: bool): Future[Opt[Slot]] =
+  let
+    currentTime = vc.beaconClock.now()
+    currentSlot = curSlot.valueOr: currentTime.slotOrZero()
+    nextSlot = currentSlot + 1
+
+  vc.checkedWaitForSlot(nextSlot, offset, showLogs)

@@ -16,6 +16,10 @@ from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
 
 export chronos.Duration, Moment, now
 
+const
+  NANOSECONDS_PER_SLOT* = SECONDS_PER_SLOT * 1_000_000_000'u64
+  NANOSECONDS_PER_EPOCH* = NANOSECONDS_PER_SLOT * SLOTS_PER_EPOCH
+
 type
   BeaconClock* = object
     ## The beacon clock represents time as it passes on a beacon chain. Beacon
@@ -69,19 +73,39 @@ proc fromNow*(c: BeaconClock, t: BeaconTime): tuple[inFuture: bool, offset: Dura
 proc fromNow*(c: BeaconClock, slot: Slot): tuple[inFuture: bool, offset: Duration] =
   c.fromNow(slot.start_beacon_time())
 
-proc durationToNextSlot*(c: BeaconClock): Duration =
-  let (afterGenesis, slot) = c.now().toSlot()
-  if afterGenesis:
-    c.fromNow(slot + 1'u64).offset
+proc toDuration*(c: BeaconTime): Duration =
+  if c.ns_since_genesis >= 0:
+    chronos.nanoseconds(int64(c.ns_since_genesis))
   else:
-    c.fromNow(Slot(0)).offset
+    chronos.nanoseconds(int64(-c.ns_since_genesis))
+
+proc durationToNextSlot*(c: BeaconClock): Duration =
+  let currentTime = c.now()
+  if currentTime.ns_since_genesis >= 0:
+    let (_, slot) = currentTime.toSlot()
+    chronos.nanoseconds(
+      ((slot + 1'u64).start_beacon_time() - currentTime).nanoseconds)
+  else:
+    let nanos = -currentTime.ns_since_genesis mod int64(NANOSECONDS_PER_SLOT)
+    if nanos == 0:
+      chronos.nanoseconds(int64(NANOSECONDS_PER_SLOT))
+    else:
+      chronos.nanoseconds(nanos)
 
 proc durationToNextEpoch*(c: BeaconClock): Duration =
-  let (afterGenesis, slot) = c.now().toSlot()
-  if afterGenesis:
-    c.fromNow((slot.epoch + 1).start_slot()).offset
+  let currentTime = c.now()
+  if currentTime.ns_since_genesis >= 0:
+    let
+      (_, slot) = currentTime.toSlot()
+      nextEpochSlot = (slot.epoch() + 1).start_slot()
+    chronos.nanoseconds(
+      (nextEpochSlot.start_beacon_time() - currentTime).nanoseconds)
   else:
-    c.fromNow(Epoch(0).start_slot()).offset
+    let nanos = -currentTime.ns_since_genesis mod int64(NANOSECONDS_PER_EPOCH)
+    if nanos == 0:
+      chronos.nanoseconds(int64(NANOSECONDS_PER_EPOCH))
+    else:
+      chronos.nanoseconds(nanos)
 
 func saturate*(d: tuple[inFuture: bool, offset: Duration]): Duration =
   if d.inFuture: d.offset else: seconds(0)

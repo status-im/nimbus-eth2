@@ -406,36 +406,69 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     debug "Producing contribution and proofs", delay = delay
   await service.produceAndPublishContributions(slot, beaconBlockRoot, duties)
 
-proc spawnSyncCommitteeTasks(service: SyncCommitteeServiceRef, slot: Slot) =
+proc spawnSyncCommitteeTasks(service: SyncCommitteeServiceRef,
+                             slot: Slot) {.async.} =
   let
     vc = service.client
     duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)
+    timeout = vc.beaconClock.durationToNextSlot()
 
-  asyncSpawn service.publishSyncMessagesAndContributions(slot, duties)
+  var future: Future[void]
+  try:
+    await service.publishSyncMessagesAndContributions(slot,
+                                                      duties).wait(timeout)
+  except AsyncTimeoutError:
+    warn "Unable to publish sync committee messages and contributions in time",
+         slot = slot, timeout = timeout
+  except CancelledError as exc:
+    debug "Sync committee publish task has been interrupted"
+    raise exc
+  except CatchableError as exc:
+    error "Unexpected error encountered while processing sync committee tasks",
+          error_name = exc.name, error_message = exc.msg
 
 proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
   debug "Service started"
 
-  debug "Sync committee duties loop waiting for fork schedule update"
-  await vc.forksAvailable.wait()
+  debug "Sync committee processing loop is waiting for initialization"
+  try:
+    await allFutures(
+      vc.preGenesisEvent.wait(),
+      vc.genesisEvent.wait(),
+      vc.indicesAvailable.wait(),
+      vc.forksAvailable.wait()
+    )
+  except CancelledError:
+    debug "Service interrupted"
+    return
+  except CatchableError as exc:
+    warn "Service crashed with unexpected error", err_name = exc.name,
+         err_msg = exc.msg
+    return
 
+  doAssert(len(vc.forks) > 0, "Fork schedule must not be empty at this point")
+
+  var currentSlot: Opt[Slot]
   while true:
     # This loop could look much more nicer/better, when
     # https://github.com/nim-lang/Nim/issues/19911 will be fixed, so it could
     # become safe to combine loops, breaks and exception handlers.
     let breakLoop =
       try:
-        let sleepTime =
-          syncCommitteeMessageSlotOffset + vc.beaconClock.durationToNextSlot()
-
-        let sres = vc.getCurrentSlot()
-        if sres.isSome():
-          let currentSlot = sres.get()
-          service.spawnSyncCommitteeTasks(currentSlot)
-        await sleepAsync(sleepTime)
-        false
+        let
+          # We use zero offset here, because we do waiting in
+          # waitForBlockPublished(syncCommitteeMessageSlotOffset).
+          slot = await vc.checkedWaitForNextSlot(currentSlot, ZeroTimeDiff,
+                                                 false)
+        if slot.isNone():
+          debug "System time adjusted backwards significantly, exiting"
+          true
+        else:
+          currentSlot = slot
+          await service.spawnSyncCommitteeTasks(currentSlot.get())
+          false
       except CancelledError:
         debug "Service interrupted"
         true
