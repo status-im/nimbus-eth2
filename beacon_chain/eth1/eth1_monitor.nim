@@ -1918,9 +1918,8 @@ proc syncBlockRange(m: ELManager,
 
     for i in 0 ..< blocksWithDeposits.len:
       let blk = blocksWithDeposits[i]
-      await fetchTimestamp(connection, rpcClient, blk)
-
       if blk.number > fullSyncFromBlock:
+        await fetchTimestamp(connection, rpcClient, blk)
         let lastBlock = m.eth1Chain.blocks.peekLast
         for n in max(lastBlock.number + 1, fullSyncFromBlock) ..< blk.number:
           debug "Obtaining block without deposits", blockNum = n
