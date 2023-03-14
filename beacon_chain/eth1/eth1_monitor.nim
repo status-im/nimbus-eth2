@@ -1060,7 +1060,7 @@ type
     oldStatusIsOk
     disagreement
 
-func compareStatuses(prevStatus, newStatus: PayloadExecutionStatus): StatusRelation =
+func compareStatuses(newStatus, prevStatus: PayloadExecutionStatus): StatusRelation =
   case prevStatus
   of PayloadExecutionStatus.syncing:
     if newStatus == PayloadExecutionStatus.syncing:
