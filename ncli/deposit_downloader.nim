@@ -10,15 +10,18 @@ import
 
 type
   CliFlags = object
-    network {.
+    network* {.
       defaultValue: "mainnet"
       name: "network".}: string
-    elUrls {.
+    elUrls* {.
       name: "el".}: seq[EngineApiUrlConfigValue]
-    jwtSecret {.
+    jwtSecret* {.
       name: "jwt-secret".}: Option[InputFile]
-    outDepositsFile {.
+    outDepositsFile* {.
       name: "out-deposits-file".}: Option[OutFile]
+    configFile* {.
+      desc: "Loads the configuration from a TOML file"
+      name: "config-file" .}: Option[InputFile]
 
 proc main(flags: CliFlags) {.async.} =
   let
@@ -70,4 +73,8 @@ proc main(flags: CliFlags) {.async.} =
 
   info "All deposits downloaded"
 
-waitFor main(load CliFlags)
+waitFor main(
+  load(CliFlags,
+       secondarySources = proc (config: CliFlags, sources: auto) =
+        if config.configFile.isSome:
+          sources.addConfigFile(Toml, config.configFile.get)))

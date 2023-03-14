@@ -1,9 +1,15 @@
 import
   std/[options, strutils, uri],
   stew/results, chronicles, confutils,
+  confutils/toml/defs as confTomlDefs,
+  confutils/toml/std/net as confTomlNet,
+  confutils/toml/std/uri as confTomlUri,
   json_serialization, # for logging
   toml_serialization, toml_serialization/lexer,
   ../spec/engine_authentication
+
+export
+  toml_serialization, confTomlDefs, confTomlNet, confTomlUri
 
 type
   EngineApiRole* = enum
@@ -20,8 +26,8 @@ type
 
   EngineApiUrlConfigValue* = object
     url*: string # TODO: Use the URI type here
-    jwtSecret*: Option[string]
-    jwtSecretFile*: Option[InputFile]
+    jwtSecret* {.serializedFieldName: "jwt-secret".}: Option[string]
+    jwtSecretFile* {.serializedFieldName: "jwt-secret-file".}: Option[InputFile]
     roles*: Option[EngineApiRoles]
 
 const
@@ -97,9 +103,9 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
   if uri.anchor != "":
     for key, value in decodeQuery(uri.anchor):
       case key
-      of "jwtSecret":
+      of "jwtSecret", "jwt-secret":
         jwtSecret = some value
-      of "jwtSecretFile":
+      of "jwtSecretFile", "jwt-secret-file":
         jwtSecretFile = some InputFile.parseCmdArg(value)
       of "roles":
         var uriRoles: EngineApiRoles = {}
@@ -125,6 +131,17 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
     jwtSecret: jwtSecret,
     jwtSecretFile: jwtSecretFile,
     roles: roles)
+
+proc readValue*(reader: var TomlReader, value: var EngineApiUrlConfigValue)
+               {.raises: [Defect, SerializationError, IOError].} =
+  if reader.lex.readable and reader.lex.peekChar in ['\'', '"']:
+    # If the input is a string, we'll reuse the command-line parsing logic
+    value = try: parseCmdArg(EngineApiUrlConfigValue, reader.readValue(string))
+            except ValueError as err:
+              reader.lex.raiseUnexpectedValue("Valid Engine API URL expected: " & err.msg)
+  else:
+    # Else, we'll use the standard object-serializer in TOML
+    toml_serialization.readValue(reader, value)
 
 proc fixupWeb3Urls*(web3Url: var string) =
   var normalizedUrl = toLowerAscii(web3Url)

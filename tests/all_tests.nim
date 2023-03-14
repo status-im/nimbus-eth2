@@ -24,6 +24,7 @@ import # Unit test
   ./test_discovery,
   ./test_engine_authentication,
   ./test_eth1_monitor,
+  ./test_el_conf,
   ./test_eth2_ssz_serialization,
   ./test_exit_pool,
   ./test_forks,

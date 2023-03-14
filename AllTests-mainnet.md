@@ -161,10 +161,19 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Testing uints        inputs - valid                                                        OK
 ```
 OK: 10/12 Fail: 0/12 Skip: 2/12
+## EL Configuration
+```diff
++ Empty config file                                                                          OK
++ Invalid URls                                                                               OK
++ New style config files                                                                     OK
++ Old style config files                                                                     OK
++ URL parsing                                                                                OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Eth1 monitor
 ```diff
 + Deposits chain                                                                             OK
-+ Rewrite HTTPS Infura URLs                                                                  OK
++ Rewrite URLs                                                                               OK
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
@@ -626,4 +635,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 347/352 Fail: 0/352 Skip: 5/352
+OK: 352/357 Fail: 0/357 Skip: 5/357
