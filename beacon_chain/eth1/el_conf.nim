@@ -126,6 +126,15 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
     jwtSecretFile: jwtSecretFile,
     roles: roles)
 
+proc fixupWeb3Urls*(web3Url: var string) =
+  var normalizedUrl = toLowerAscii(web3Url)
+  if not (normalizedUrl.startsWith("https://") or
+          normalizedUrl.startsWith("http://") or
+          normalizedUrl.startsWith("wss://") or
+          normalizedUrl.startsWith("ws://")):
+    warn "The Web3 URL does not specify a protocol. Assuming a WebSocket server", web3Url
+    web3Url = "ws://" & web3Url
+
 proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
                  confJwtSecret: Option[seq[byte]]): Result[EngineApiUrl, cstring] =
   if confValue.jwtSecret.isSome and confValue.jwtSecretFile.isSome:
@@ -138,8 +147,11 @@ proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
   else:
     confJwtSecret
 
+  var url = confValue.url
+  fixupWeb3Urls(url)
+
   ok EngineApiUrl.init(
-    url = confValue.url,
+    url = url,
     jwtSecret = jwtSecret,
     roles = confValue.roles.get(defaultEngineApiRoles))
 
@@ -163,12 +175,3 @@ proc toFinalEngineApiUrls*(elUrls: seq[EngineApiUrlConfigValue],
       fatal "Invalid EL configuration", err = error
       quit 1
     result.add engineApiUrl
-
-proc fixupWeb3Urls*(web3Url: var string) =
-  var normalizedUrl = toLowerAscii(web3Url)
-  if not (normalizedUrl.startsWith("https://") or
-          normalizedUrl.startsWith("http://") or
-          normalizedUrl.startsWith("wss://") or
-          normalizedUrl.startsWith("ws://")):
-    warn "The Web3 URL does not specify a protocol. Assuming a WebSocket server", web3Url
-    web3Url = "ws://" & web3Url
