@@ -176,6 +176,11 @@ type
       desc: "A directory containing era files"
       name: "era-dir" .}: Option[InputDir]
 
+    web3ForcePolling* {.
+      hidden
+      desc: "Force the use of polling when determining the head block of Eth1 (obsolete)"
+      name: "web3-force-polling" .}: Option[bool]
+
     web3Urls* {.
       desc: "One or more execution layer Engine API URLs"
       name: "web3-url" .}: seq[EngineApiUrlConfigValue]
