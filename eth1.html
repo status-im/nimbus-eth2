@@ -1868,9 +1868,21 @@
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>You can use a different secret for each connection by specifying <code>jwtSecret</code> or <code>jwtSecretFile</code> as a query parameter in the anchor section of the URL (e.g. <code>http://127.0.0.1:8551/#jwtSecret=0x12345...</code> or <code>http://127.0.0.1:8551/#jwtSecretFile=/tmp/jwtsecret</code>).</p>
+<p>You can use a different secret for each connection by specifying <code>jwt-secret</code> or <code>jwt-secret-file</code> as a query parameter in the anchor section of the URL (e.g. <code>http://127.0.0.1:8551/#jwt-secret=0x12345...</code> or <code>http://127.0.0.1:8551/#jwt-secret-file=/tmp/jwtsecret</code>). If you use a <a href="./options.html#configuration-files">TOML config file</a>, you can also use the following more natural syntax:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">data-dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;my-data-dir&quot;</span><span class="w"></span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">rest</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w"></span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p">...</span><span class="w"></span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">[[el]]</span><span class="w"></span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;http://127.0.0.1:8551&quot;</span><span class="w"></span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">jwt-secret-file</span><span class="o">=</span><span class="s">&quot;/path/to/jwt/file&quot;</span><span class="w"></span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="k">[[el]]</span><span class="w"></span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;http://192.168.1.2:8551&quot;</span><span class="w"></span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">jwt-secret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w"></span>
+</code></pre></div>
 </div>
-<p>As long as any of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties.</p>
+<p>As long as only one of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>To carry out an upgrade procedure without any downtime, just restart the execution clients one by one, waiting for each instance to re-sync before moving to the next one.</p>
