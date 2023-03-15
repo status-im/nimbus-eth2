@@ -936,7 +936,6 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
     start_slot = shortLog(currentSlot)
     dest_slot = shortLog(destinationSlot)
     time_to_slot = shortLog(timeToSlot)
-    offset = shortLog(chronosOffset)
 
   while true:
     await sleepAsync(timeToSlot)
