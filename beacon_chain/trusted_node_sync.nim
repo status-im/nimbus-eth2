@@ -350,7 +350,7 @@ proc doTrustedNodeSync*(
 
     if stateRoot.isSome:
       if state[].getStateRoot() != stateRoot.get:
-        error "Checkpoint state root has incorrect root!",
+        error "Checkpoint state has incorrect root!",
           expectedStateRoot = stateRoot.get,
           actualStateRoot = state[].getStateRoot()
         quit 1
