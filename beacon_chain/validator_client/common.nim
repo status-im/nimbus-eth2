@@ -323,10 +323,19 @@ proc `$`*(bn: BeaconNodeServerRef): string =
     bn.logIdent
 
 proc validatorLog*(key: ValidatorPubKey,
-                  index: ValidatorIndex): string =
+                   index: ValidatorIndex): string =
   var res = shortLog(key)
   res.add('@')
   res.add(Base10.toString(uint64(index)))
+  res
+
+proc validatorLog*(validator: AttachedValidator): string =
+  var res = shortLog(validator)
+  res.add('@')
+  if validator.index.isSome():
+    res.add(Base10.toString(uint64(validator.index.get())))
+  else:
+    res.add("<missing>")
   res
 
 chronicles.expandIt(BeaconNodeServerRef):
@@ -927,7 +936,6 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
     start_slot = shortLog(currentSlot)
     dest_slot = shortLog(destinationSlot)
     time_to_slot = shortLog(timeToSlot)
-    offset = shortLog(chronosOffset)
 
   while true:
     await sleepAsync(timeToSlot)
