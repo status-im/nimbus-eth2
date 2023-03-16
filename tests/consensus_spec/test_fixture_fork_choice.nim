@@ -118,10 +118,12 @@ proc initialLoad(
   let
     validatorMonitor = newClone(ValidatorMonitor.init())
     dag = ChainDAGRef.init(
-      forkedState[].kind.genesisTestRuntimeConfig, db, validatorMonitor, {})
+      forkedState[].kind.genesisTestRuntimeConfig, db, validatorMonitor,
+      {enableTestFeatures, experimental})
     fkChoice = newClone(ForkChoice.init(
       dag.getFinalizedEpochRef(),
       dag.finalizedHead.blck,
+      true,
     ))
 
   (dag, fkChoice)
