@@ -359,7 +359,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
 + ForkChoice - mainnet/altair/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
-+ ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/discard_equivocations        OK
++ ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/discard_equivocations_on_att OK
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/genesis                      OK
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
 + ForkChoice - mainnet/altair/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
@@ -375,7 +375,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_a OK
 + ForkChoice - mainnet/bellatrix/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla            OK
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/chain_no_attestations     OK
-+ ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/discard_equivocations     OK
++ ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/discard_equivocations_on_ OK
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/genesis                   OK
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/proposer_boost_correct_he OK
 + ForkChoice - mainnet/bellatrix/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier OK
@@ -395,7 +395,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_att OK
 + ForkChoice - mainnet/capella/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla              OK
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/chain_no_attestations       OK
-+ ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/discard_equivocations       OK
++ ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/discard_equivocations_on_at OK
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/genesis                     OK
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head OK
 + ForkChoice - mainnet/capella/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_w OK
@@ -411,7 +411,7 @@ ConsensusSpecPreset-mainnet
 + ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_attes OK
 + ForkChoice - mainnet/deneb/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla                OK
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/chain_no_attestations         OK
-+ ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/discard_equivocations         OK
++ ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/discard_equivocations_on_atte OK
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/genesis                       OK
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head   OK
 + ForkChoice - mainnet/deneb/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_wei OK
@@ -421,22 +421,6 @@ ConsensusSpecPreset-mainnet
   ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/on_block_future_block         Skip
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost                OK
 + ForkChoice - mainnet/deneb/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slot OK
-+ ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_attestations_is_great OK
-+ ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_boost_n OK
-+ ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_with_honest_ OK
-+ ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_sandwich_without_atte OK
-+ ForkChoice - mainnet/phase0/fork_choice/ex_ante/pyspec_tests/ex_ante_vanilla               OK
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/chain_no_attestations        OK
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/discard_equivocations        OK
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/genesis                      OK
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/proposer_boost_correct_head  OK
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/shorter_chain_but_heavier_we OK
-+ ForkChoice - mainnet/phase0/fork_choice/get_head/pyspec_tests/split_tie_breaker_no_attesta OK
-+ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/basic                        OK
-+ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_bad_parent_root     OK
-  ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/on_block_future_block        Skip
-+ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost               OK
-+ ForkChoice - mainnet/phase0/fork_choice/on_block/pyspec_tests/proposer_boost_root_same_slo OK
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
 + Light client - Single merkle proof - mainnet/altair/light_client/single_merkle_proof/Beaco OK
@@ -823,7 +807,7 @@ ConsensusSpecPreset-mainnet
 + [Valid]   EF - Phase 0 - Sanity - Blocks - slash_and_exit_diff_index [Preset: mainnet]     OK
 + [Valid]   EF - Phase 0 - Sanity - Blocks - voluntary_exit [Preset: mainnet]                OK
 ```
-OK: 811/820 Fail: 0/820 Skip: 9/820
+OK: 796/804 Fail: 0/804 Skip: 8/804
 ## Attestation
 ```diff
 + [Invalid] EF - Altair - Operations - Attestation - invalid_after_epoch_slots               OK
@@ -2607,4 +2591,4 @@ OK: 63/63 Fail: 0/63 Skip: 0/63
 OK: 100/100 Fail: 0/100 Skip: 0/100
 
 ---TOTAL---
-OK: 2304/2313 Fail: 0/2313 Skip: 9/2313
+OK: 2289/2297 Fail: 0/2297 Skip: 8/2297
