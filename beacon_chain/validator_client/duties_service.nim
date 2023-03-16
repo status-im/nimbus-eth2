@@ -399,9 +399,9 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
     if len(subscriptions) > 0:
       let res = await vc.prepareBeaconCommitteeSubnet(subscriptions)
       if res == 0:
-        error "Failed to subscribe validators to beacon committee subnets",
-              slot = currentSlot, epoch = currentEpoch,
-              subscriptions_count = len(subscriptions)
+        warn "Failed to subscribe validators to beacon committee subnets",
+             slot = currentSlot, epoch = currentEpoch,
+             subscriptions_count = len(subscriptions)
 
   service.pruneAttesterDuties(currentEpoch)
 
@@ -468,10 +468,10 @@ proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
 
     if len(subscriptions) > 0:
       let res = await vc.prepareSyncCommitteeSubnets(subscriptions)
-      if res != 0:
-        error "Failed to subscribe validators to sync committee subnets",
-              slot = currentSlot, epoch = currentEpoch,
-              subscriptions_count = len(subscriptions)
+      if res == 0:
+        warn "Failed to subscribe validators to sync committee subnets",
+             slot = currentSlot, epoch = currentEpoch,
+             subscriptions_count = len(subscriptions)
 
   service.pruneSyncCommitteeDuties(currentSlot)
 

@@ -34,6 +34,10 @@ proc otherNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
 proc otherNodesCount*(vc: ValidatorClientRef): int =
   vc.beaconNodes.countIt(it.status != RestBeaconNodeStatus.Synced)
 
+proc preGenesisNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
+  vc.beaconNodes.filterIt(it.status notin {RestBeaconNodeStatus.Synced,
+                                           RestBeaconNodeStatus.OptSynced})
+
 proc waitNodes*(vc: ValidatorClientRef, timeoutFut: Future[void],
                 statuses: set[RestBeaconNodeStatus],
                 roles: set[BeaconNodeRole], waitChanges: bool) {.async.} =
@@ -230,7 +234,12 @@ proc checkNode(vc: ValidatorClientRef,
 
 proc checkNodes*(service: FallbackServiceRef): Future[bool] {.async.} =
   let
-    nodesToCheck = service.client.otherNodes()
+    vc = service.client
+    nodesToCheck =
+      if vc.genesisEvent.isSet():
+        service.client.otherNodes()
+      else:
+        service.client.preGenesisNodes()
     pendingChecks = nodesToCheck.mapIt(service.client.checkNode(it))
   var res = false
   try:

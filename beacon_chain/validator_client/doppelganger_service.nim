@@ -58,6 +58,21 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
     debug "Service disabled because of configuration settings"
     return
 
+  debug "Doppelganger detection loop is waiting for initialization"
+  try:
+    await allFutures(
+      vc.preGenesisEvent.wait(),
+      vc.genesisEvent.wait(),
+      vc.indicesAvailable.wait()
+    )
+  except CancelledError:
+    debug "Service interrupted"
+    return
+  except CatchableError as exc:
+    warn "Service crashed with unexpected error", err_name = exc.name,
+         err_msg = exc.msg
+    return
+
   # On (re)start, we skip the remainder of the epoch before we start monitoring
   # for doppelgangers so we don't trigger on the attestations we produced before
   # the epoch - there's no activity in the genesis slot, so if we start at or
