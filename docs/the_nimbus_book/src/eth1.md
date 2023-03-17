@@ -104,7 +104,21 @@ You can increase the resilience of your setup and eliminate any downtime during 
 ```
 
 !!! tip
-    You can use a different secret for each connection by specifying `jwtSecret` or `jwtSecretFile` as a query parameter in the anchor section of the URL (e.g. `http://127.0.0.1:8551/#jwtSecret=0x12345...` or `http://127.0.0.1:8551/#jwtSecretFile=/tmp/jwtsecret`).
+    You can use a different secret for each connection by specifying `jwt-secret` or `jwt-secret-file` as a query parameter in the anchor section of the URL (e.g. `http://127.0.0.1:8551/#jwt-secret=0x12345...` or `http://127.0.0.1:8551/#jwt-secret-file=/tmp/jwtsecret`). If you use a [TOML config file](./options.html#configuration-files), you can also use the following more natural syntax:
+
+    ```toml
+    data-dir = "my-data-dir"
+    rest = true
+    ...
+
+    [[el]]
+    url = "http://127.0.0.1:8551"
+    jwt-secret-file="/path/to/jwt/file"
+
+    [[el]]
+    url = "http://192.168.1.2:8551"
+    jwt-secret = ""
+    ```
 
 As long as any of execution clients remains operational and fully synced, Nimbus will keep performing all validator duties.
 

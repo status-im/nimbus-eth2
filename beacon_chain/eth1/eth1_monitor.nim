@@ -57,7 +57,29 @@ contract(DepositContract):
 const
   hasDepositRootChecks = defined(has_deposit_root_checks)
 
-  targetBlocksPerLogsRequest = 5000'u64  # This is roughly a day of Eth1 blocks
+  targetBlocksPerLogsRequest = 1000'u64
+    # TODO
+    #
+    # This is currently set to 1000, because this was the default maximum
+    # value in Besu circa our 22.3.0 release. Previously, we've used 5000,
+    # but this was effectively forcing the fallback logic in `syncBlockRange`
+    # to always execute multiple requests before getting a successful response.
+    #
+    # Besu have raised this default to 5000 in https://github.com/hyperledger/besu/pull/5209
+    # which is expected to ship in their next release.
+    #
+    # Full deposits sync time with various values for this parameter:
+    #
+    # Blocks per request | Geth running on the same host | Geth running on a more distant host
+    # ----------------------------------------------------------------------------------------
+    # 1000               |                      11m 20s  |                                 22m
+    # 5000               |                       5m 20s  |                             15m 40s
+    # 100000             |                       4m 10s  |                          not tested
+    #
+    # The number of requests scales linearly with the parameter value as you would expect.
+    #
+    # These results suggest that it would be reasonable for us to get back to 5000 once the
+    # Besu release is well-spread within their userbase.
 
   # Engine API timeouts
   engineApiConnectionTimeout = 5.seconds  # How much we wait before giving up connecting to the Engine API
@@ -1038,7 +1060,7 @@ type
     oldStatusIsOk
     disagreement
 
-func compareStatuses(prevStatus, newStatus: PayloadExecutionStatus): StatusRelation =
+func compareStatuses(newStatus, prevStatus: PayloadExecutionStatus): StatusRelation =
   case prevStatus
   of PayloadExecutionStatus.syncing:
     if newStatus == PayloadExecutionStatus.syncing:
@@ -1896,9 +1918,8 @@ proc syncBlockRange(m: ELManager,
 
     for i in 0 ..< blocksWithDeposits.len:
       let blk = blocksWithDeposits[i]
-      await fetchTimestamp(connection, rpcClient, blk)
-
       if blk.number > fullSyncFromBlock:
+        await fetchTimestamp(connection, rpcClient, blk)
         let lastBlock = m.eth1Chain.blocks.peekLast
         for n in max(lastBlock.number + 1, fullSyncFromBlock) ..< blk.number:
           debug "Obtaining block without deposits", blockNum = n
@@ -1966,6 +1987,15 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
   let rpcClient = awaitOrRaiseOnTimeout(connection.connectedRpcClient(),
                                         1.seconds)
   let
+    # BEWARE
+    # `connectedRpcClient` guarantees that connection.web3 will not be
+    # `none` here, but it's not safe to initialize this later (e.g closer
+    # to where it's used) because `connection.web3` may be set to `none`
+    # at any time after a failed request. Luckily, the `contractSender`
+    # object is very cheap to create.
+    depositContract = connection.web3.get.contractSender(
+      DepositContract, m.depositContractAddress)
+
     shouldProcessDeposits = not (
       m.depositContractAddress.isZeroMemory or
       m.eth1Chain.finalizedBlockHash.data.isZeroMemory)
@@ -2064,8 +2094,6 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
 
     if shouldProcessDeposits and
        latestBlock.number.uint64 > m.cfg.ETH1_FOLLOW_DISTANCE:
-      let depositContract = connection.web3.get.contractSender(
-        DepositContract, m.depositContractAddress)
       await m.syncBlockRange(connection,
                              rpcClient,
                              depositContract,

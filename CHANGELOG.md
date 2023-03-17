@@ -1,7 +1,40 @@
+2023-03-14 v23.3.1
+==================
+
+Nimbus `v23.3.1` is a `medium-urgency` point release addressing a number of accidental configuration handling breaking changes that were shipped in the `v23.3.0` release. It also improves the stability of Nimbus when paired with a Besu execution client and improves the fault-tolerance when driving multiple execution clients.
+
+### Fixes
+
+* Nimbus was performing `eth_getLogs` request with parameters that were exceeding the default `--rpc-max-logs-range=1000` limit on Besu. This was a non-fatal issue that resulted in slower deposit syncing speed and the frequent warning message "Connection to EL node degraded". The limit will be increased in the next mainnet release of Besu, but Nimbus `v23.3.1` honours the existing limit at the cost of a slightly slower syncing speed with all other execution clients:
+
+  https://github.com/status-im/nimbus-eth2/commit/6fb48aca7dedc7ba3c6b2f2ae8a4926ddcf7a00e
+
+* `v23.3.0` did not support Engine API URLs which don't specify a protocol in the URL (e.g. `http`, `https`, `ws` or `wss`). `v23.3.1` is backwards-compatible with all previous Nimbus releases:
+
+  https://github.com/status-im/nimbus-eth2/commit/3a35809a02b4fbe23b2dc843806ec81f67521c6d
+
+* `v23.3.0` produced a parsing error on TOML configuration files that specify the `web3-url` parameter as an array of strings. `v23.3.1` is backwards-compatible with all previous Nimbus releases and introduces a new more convenient way for specifying the Engine API configuration in TOML:
+
+  https://nimbus.guide/eth1.html#running-multiple-execution-clients
+  https://github.com/status-im/nimbus-eth2/commit/46f48269ef899f19cd9932b27d30c68e2ccf035b
+
+* `v23.3.0` removed the hidden configuration option `--web3-force-polling` which remained in use by some users. `v23.3.1` restores the option as a deprecated one. Please note that all hidden configuration options are intended for use only by the Nimbus development team for testing purposes:
+
+  https://github.com/status-im/nimbus-eth2/commit/ee610cbf34cebea24576c25bf6702de4205a260a
+
+* The release addresses a potential crash triggered by Engine API connections experiencing frequent error responses:
+
+  https://github.com/status-im/nimbus-eth2/commit/d899a6a834c083a62e1246eade5027a7019ace82
+
+* The release addresses a potential issue where a single non-synced execution client may cause the Nimbus sync state to revert to `synced/opt`, even when all validator duties can be performed through the remaining execution clients that are still synced:
+
+  https://github.com/status-im/nimbus-eth2/commit/d899a6a834c083a62e1246eade5027a7019ace82
+
+
 2023-03-11 v23.3.0
 ==================
 
-Nimbus `v23.3.0` is `low-urgency` upgrade bringing full support for the upcoming Capella hard-fork on the Goerli testnet. Keep an eye out for future mainnet releases!
+Nimbus `v23.3.0` is a `low-urgency` upgrade bringing full support for the upcoming Capella hard-fork on the Goerli testnet. Keep an eye out for future mainnet releases!
 
 ### Improvements
 

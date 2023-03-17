@@ -1807,6 +1807,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   ignoreDeprecatedOption terminalTotalDifficultyOverride
   ignoreDeprecatedOption optimistic
   ignoreDeprecatedOption validatorMonitorTotals
+  ignoreDeprecatedOption web3ForcePolling
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 
