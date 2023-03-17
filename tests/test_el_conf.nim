@@ -53,12 +53,12 @@ suite "EL Configuration":
       url1Final2.get.roles == defaultEngineApiRoles
 
     let url2 = EngineApiUrlConfigValue.parseCmdArg(
-      "https://eth-node.io:2020#jwt-secret-file=jwt.hex")
+      "https://eth-node.io:2020#jwt-secret-file=tests/media/jwt.hex")
     check:
       url2.url == "https://eth-node.io:2020"
       url2.roles.isNone
       url2.jwtSecret.isNone
-      url2.jwtSecretFile.get.string == "jwt.hex"
+      url2.jwtSecretFile.get.string == "tests/media/jwt.hex"
 
     let url3 = EngineApiUrlConfigValue.parseCmdArg(
       "http://localhost/#roles=sync-deposits&jwt-secret=ee95565a2cc95553d4bf2185f58658939ba3074ce5695cbabfab4a1eaf7098ba")
@@ -125,7 +125,7 @@ suite "EL Configuration":
 
       [[el]]
       url = "http://localhost:8585"
-      jwt-secret-file = "jwt.hex"
+      jwt-secret-file = "tests/media/jwt.hex"
 
       [[el]]
       url = "eth-data.io"
@@ -143,7 +143,7 @@ suite "EL Configuration":
       cfg.el[0].url == "http://localhost:8585"
       cfg.el[0].roles.isNone
       cfg.el[0].jwtSecret.isNone
-      cfg.el[0].jwtSecretFile.get.string == "jwt.hex"
+      cfg.el[0].jwtSecretFile.get.string == "tests/media/jwt.hex"
 
       cfg.el[1].url == "eth-data.io"
       cfg.el[1].roles == some({DepositSyncing, BlockProduction})
