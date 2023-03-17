@@ -24,16 +24,7 @@ log() {
   fi
 }
 
-# OS detection
-OS="linux"
-if uname | grep -qi darwin; then
-  OS="macos"
-elif uname | grep -qiE "mingw|msys"; then
-  OS="windows"
-fi
-
-# architecture detection
-ARCH="$(uname -m)"
+source "$SCRIPTS_DIR/detect_platform.sh"
 
 # Created processed that will be cleaned up when the script exits
 PIDS=""
@@ -110,15 +101,15 @@ DL_GETH="0"
 : ${NIMBUS_ETH2_VERSION:=22.12.0}
 : ${NIMBUS_ETH2_REVISION:=f6a5a5b1}
 
-: ${BEACON_NODE_COMMAND:="./build/nimbus_beacon_node"}
+: ${BEACON_NODE_COMMAND:="./build/nimbus_beacon_node$EXE_EXTENSION"}
 : ${CAPELLA_FORK_EPOCH:=40}
 : ${DENEB_FORK_EPOCH:=50}
 #NIMBUS EL VARS
 RUN_NIMBUS_ETH1="0"
-: ${NIMBUS_ETH1_BINARY:="./build/downloads/nimbus"}
+: ${NIMBUS_ETH1_BINARY:="./build/downloads/nimbus$EXE_EXTENSION"}
 : ${WEB3SIGNER_VERSION:=22.11.0}
 : ${WEB3SIGNER_DIR:="${BUILD_DIR}/downloads/web3signer-${WEB3SIGNER_VERSION}"}
-: ${WEB3SIGNER_BINARY:="${WEB3SIGNER_DIR}/bin/web3signer"}
+: ${WEB3SIGNER_BINARY:="${WEB3SIGNER_DIR}/bin/web3signer$BAT_EXTENSION"}
 WEB3SIGNER_NODES=0
 PROCS_TO_KILL=("nimbus_beacon_node" "nimbus_validator_client" "nimbus_signing_node" "nimbus_light_client")
 PORTS_TO_KILL=()
@@ -584,7 +575,7 @@ download_nimbus_eth1() {
     CLEANUP_DIRS+=("$tmp_extract_dir")
     tar -xzf "${NIMBUS_ETH1_TARBALL_NAME}" -C "$tmp_extract_dir" --strip-components=1
     mkdir -p "$(dirname "$NIMBUS_ETH1_BINARY")"
-    mv "$tmp_extract_dir/build/nimbus" "$NIMBUS_ETH1_BINARY"
+    mv "$tmp_extract_dir/build/nimbus$EXE_EXTENSION" "$NIMBUS_ETH1_BINARY"
     chmod +x "$NIMBUS_ETH1_BINARY"
   fi
 }
@@ -624,7 +615,7 @@ download_nimbus_eth2() {
     CLEANUP_DIRS+=("$tmp_extract_dir")
     tar -xzf "${NIMBUS_ETH2_TARBALL_NAME}" -C "$tmp_extract_dir" --strip-components=1
     mkdir -p "$(dirname "$BEACON_NODE_COMMAND")"
-    mv "$tmp_extract_dir/build/nimbus_beacon_node" "$BEACON_NODE_COMMAND"
+    mv "$tmp_extract_dir/build/nimbus_beacon_node$EXE_EXTENSION" "$BEACON_NODE_COMMAND"
     chmod +x "$BEACON_NODE_COMMAND"
 
     REUSE_BINARIES=1
@@ -650,7 +641,7 @@ case "${OS}" in
     ;;
 esac
 LH_URL="https://github.com/sigp/lighthouse/releases/download/v${LH_VERSION}/${LH_TARBALL}"
-LH_BINARY="lighthouse-${LH_VERSION}"
+LH_BINARY="lighthouse-${LH_VERSION}${EXE_EXTENSION}"
 
 if [[ "${USE_VC}" == "1" && "${LIGHTHOUSE_VC_NODES}" != "0" && ! -e "build/${LH_BINARY}" ]]; then
   echo "Downloading Lighthouse binary"
@@ -658,7 +649,7 @@ if [[ "${USE_VC}" == "1" && "${LIGHTHOUSE_VC_NODES}" != "0" && ! -e "build/${LH_
   "${CURL_BINARY}" -sSLO "${LH_URL}"
   tar -xzf "${LH_TARBALL}" # contains just one file named "lighthouse"
   rm lighthouse-* # deletes both the tarball and old binary versions
-  mv lighthouse "${LH_BINARY}"
+  mv "lighthouse$EXE_EXTENSION" "${LH_BINARY}"
   popd >/dev/null
 fi
 
