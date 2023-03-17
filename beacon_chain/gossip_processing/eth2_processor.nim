@@ -65,6 +65,14 @@ declareCounter beacon_sync_committee_contributions_received,
   "Number of valid sync committee contributions processed by this node"
 declareCounter beacon_sync_committee_contributions_dropped,
   "Number of invalid sync committee contributions dropped by this node", labels = ["reason"]
+declareCounter beacon_light_client_finality_update_received,
+  "Number of valid light client finality update processed by this node"
+declareCounter beacon_light_client_finality_update_dropped,
+  "Number of invalid light client finality update dropped by this node", labels = ["reason"]
+declareCounter beacon_light_client_optimistic_update_received,
+  "Number of valid light client optimistic update processed by this node"
+declareCounter beacon_light_client_optimistic_update_dropped,
+  "Number of invalid light client optimistic update dropped by this node", labels = ["reason"]
 
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -574,6 +582,11 @@ proc processLightClientFinalityUpdate*(
     wallTime = self.getCurrentBeaconTime()
     v = validateLightClientFinalityUpdate(
       self.lightClientPool[], self.dag, finality_update, wallTime)
+
+  if v.isOk():
+    beacon_light_client_finality_update_received.inc()
+  else:
+    beacon_light_client_finality_update_dropped.inc(1, [$v.error[0]])
   v
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
@@ -585,4 +598,8 @@ proc processLightClientOptimisticUpdate*(
     wallTime = self.getCurrentBeaconTime()
     v = validateLightClientOptimisticUpdate(
       self.lightClientPool[], self.dag, optimistic_update, wallTime)
+  if v.isOk():
+    beacon_light_client_optimistic_update_received.inc()
+  else:
+    beacon_light_client_optimistic_update_dropped.inc(1, [$v.error[0]])
   v
