@@ -30,7 +30,7 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/polynomial-commitments.md#constants
   BYTES_PER_FIELD_ELEMENT = 32
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#blob
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/beacon-chain.md#blob
   BLOB_TX_TYPE* = 0x05'u8
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/polynomial-commitments.md#constants
@@ -51,7 +51,7 @@ type
   # current spec doesn't ever SSZ-serialize it or hash_tree_root it
   VersionedHash* = array[32, byte]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/beacon-chain.md#custom-types
   BlobIndex* = uint64
 
   Blob* = array[BYTES_PER_FIELD_ELEMENT * FIELD_ELEMENTS_PER_BLOB, byte]
@@ -84,7 +84,7 @@ type
     block_root*: Eth2Digest
     index*: BlobIndex
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#executionpayload
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/beacon-chain.md#executionpayload
   ExecutionPayload* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress  # 'beneficiary' in the yellow paper
@@ -111,7 +111,7 @@ type
     kzgs*: KZGCommitments
     blobs*: Blobs
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#executionpayloadheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/beacon-chain.md#executionpayloadheader
   ExecutionPayloadHeader* = object
     parent_hash*: Eth2Digest
     fee_recipient*: ExecutionAddress
@@ -135,7 +135,7 @@ type
   ExecutePayload* = proc(
     execution_payload: ExecutionPayload): bool {.gcsafe, raises: [Defect].}
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/capella/light-client/sync-protocol.md#modified-lightclientheader
   LightClientHeader* = object
     beacon*: BeaconBlockHeader
       ## Beacon block header
@@ -368,7 +368,7 @@ type
     state_root*: Eth2Digest
     body*: TrustedBeaconBlockBody
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/beacon-chain.md#beaconblockbody
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/beacon-chain.md#beaconblockbody
   BeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
@@ -553,7 +553,7 @@ func shortLog*(v: ExecutionPayload): auto =
     num_withdrawals: len(v.withdrawals)
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
     header: LightClientHeader, cfg: RuntimeConfig): Eth2Digest =
   let epoch = header.beacon.slot.epoch
@@ -582,7 +582,7 @@ func get_lc_execution_root*(
 
   ZERO_HASH
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/light-client/sync-protocol.md#modified-is_valid_light_client_header
 func is_valid_light_client_header*(
     header: LightClientHeader, cfg: RuntimeConfig): bool =
   let epoch = header.beacon.slot.epoch
@@ -603,7 +603,7 @@ func is_valid_light_client_header*(
     get_subtree_index(EXECUTION_PAYLOAD_INDEX),
     header.beacon.body_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_header_to_deneb*(
     pre: capella.LightClientHeader): LightClientHeader =
   LightClientHeader(
@@ -626,7 +626,7 @@ func upgrade_lc_header_to_deneb*(
         withdrawals_root: pre.execution.withdrawals_root),
     execution_branch: pre.execution_branch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_bootstrap_to_deneb*(
     pre: capella.LightClientBootstrap): LightClientBootstrap =
   LightClientBootstrap(
@@ -634,7 +634,7 @@ func upgrade_lc_bootstrap_to_deneb*(
     current_sync_committee: pre.current_sync_committee,
     current_sync_committee_branch: pre.current_sync_committee_branch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_update_to_deneb*(
     pre: capella.LightClientUpdate): LightClientUpdate =
   LightClientUpdate(
@@ -646,7 +646,7 @@ func upgrade_lc_update_to_deneb*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_finality_update_to_deneb*(
     pre: capella.LightClientFinalityUpdate): LightClientFinalityUpdate =
   LightClientFinalityUpdate(
@@ -656,7 +656,7 @@ func upgrade_lc_finality_update_to_deneb*(
     sync_aggregate: pre.sync_aggregate,
     signature_slot: pre.signature_slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/fork.md#upgrading-light-client-data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/light-client/fork.md#upgrading-light-client-data
 func upgrade_lc_optimistic_update_to_deneb*(
     pre: capella.LightClientOptimisticUpdate): LightClientOptimisticUpdate =
   LightClientOptimisticUpdate(
@@ -707,7 +707,7 @@ chronicles.formatIt LightClientUpdate: shortLog(it)
 chronicles.formatIt LightClientFinalityUpdate: shortLog(it)
 chronicles.formatIt LightClientOptimisticUpdate: shortLog(it)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/light-client/fork.md#upgrading-the-store
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/light-client/fork.md#upgrading-the-store
 func upgrade_lc_store_to_deneb*(
     pre: capella.LightClientStore): LightClientStore =
   let best_valid_update =
