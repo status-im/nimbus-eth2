@@ -681,6 +681,7 @@ proc proposeBlockMEV[
     node: BeaconNode, head: BlockRef, validator: AttachedValidator, slot: Slot,
     randao: ValidatorSig, validator_index: ValidatorIndex):
     Future[Opt[BlockRef]] {.async.} =
+  # Used by the BN's own validators, but not the REST server
   when SBBB is bellatrix_mev.SignedBlindedBeaconBlock:
     type EPH = bellatrix.ExecutionPayloadHeader
   elif SBBB is capella_mev.SignedBlindedBeaconBlock:
@@ -749,6 +750,9 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
   ## Requests a beacon node to produce a valid blinded block, which can then be
   ## signed by a validator. A blinded block is a block with only a transactions
   ## root, rather than a full transactions list.
+  ##
+  ## This function is used by the validator client, but not the beacon node for
+  ## its own validators.
   when BBB is bellatrix_mev.BlindedBeaconBlock:
     type EPH = bellatrix.ExecutionPayloadHeader
   elif BBB is capella_mev.BlindedBeaconBlock:
@@ -760,6 +764,10 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
     pubkey =
       # Relevant state for knowledge of validators
       withState(node.dag.headState):
+        if livenessFailsafeInEffect(forkyState.block_roots, forkyState.slot):
+          # It's head block's slot which matters here, not proposal slot
+          return err("Builder API liveness failsafe in effect")
+
         if distinctBase(validator_index) >= forkyState.data.validators.lenu64:
           debug "makeBlindedBeaconBlockForHeadAndSlot: invalid validator index",
             head = shortLog(head),
@@ -819,29 +827,35 @@ proc proposeBlock(node: BeaconNode,
         res.get()
 
   if node.config.payloadBuilderEnable:
-    let newBlockMEV =
-      if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
-        debugRaiseAssert $denebImplementationMissing & ": proposeBlock"
-        await proposeBlockMEV[
-            capella_mev.SignedBlindedBeaconBlock](
-          node, head, validator, slot, randao, validator_index)
-      elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
-        await proposeBlockMEV[
-            capella_mev.SignedBlindedBeaconBlock](
-          node, head, validator, slot, randao, validator_index)
-      else:
-        await proposeBlockMEV[
-            bellatrix_mev.SignedBlindedBeaconBlock](
-          node, head, validator, slot, randao, validator_index)
+    let failsafeInEffect =
+      withState(node.dag.headState):
+        # Head slot, not proposal slot, matters here
+        livenessFailsafeInEffect(
+          forkyState.data.block_roots.data, forkyState.data.slot)
+    if not failsafeInEffect:
+      let newBlockMEV =
+        if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
+          debugRaiseAssert $denebImplementationMissing & ": proposeBlock"
+          await proposeBlockMEV[
+              capella_mev.SignedBlindedBeaconBlock](
+            node, head, validator, slot, randao, validator_index)
+        elif slot.epoch >= node.dag.cfg.CAPELLA_FORK_EPOCH:
+          await proposeBlockMEV[
+              capella_mev.SignedBlindedBeaconBlock](
+            node, head, validator, slot, randao, validator_index)
+        else:
+          await proposeBlockMEV[
+              bellatrix_mev.SignedBlindedBeaconBlock](
+            node, head, validator, slot, randao, validator_index)
 
-    if newBlockMEV.isSome:
-      # This might be equivalent to the `head` passed in, but it signals that
-      # `submitBlindedBlock` ran, so don't do anything else. Otherwise, it is
-      # fine to try again with the local EL.
-      if newBlockMEV.get == head:
-        # Returning same block as head indicates failure to generate new block
-        beacon_block_builder_missed_without_fallback.inc()
-      return newBlockMEV.get
+      if newBlockMEV.isSome:
+        # This might be equivalent to the `head` passed in, but it signals that
+        # `submitBlindedBlock` ran, so don't do anything else. Otherwise, it is
+        # fine to try again with the local EL.
+        if newBlockMEV.get == head:
+          # Returning same block as head indicates failure to generate new block
+          beacon_block_builder_missed_without_fallback.inc()
+        return newBlockMEV.get
 
   # TODO Compare the value of the MEV block and the execution block
   #      obtained from the EL below:
