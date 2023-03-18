@@ -764,7 +764,8 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
     pubkey =
       # Relevant state for knowledge of validators
       withState(node.dag.headState):
-        if livenessFailsafeInEffect(forkyState.block_roots, forkyState.slot):
+        if livenessFailsafeInEffect(
+            forkyState.data.block_roots.data, forkyState.data.slot):
           # It's head block's slot which matters here, not proposal slot
           return err("Builder API liveness failsafe in effect")
 
