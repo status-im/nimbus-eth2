@@ -705,7 +705,7 @@ proc proposeBlockMEV[
       getBlindedBeaconBlock[SBBB](
         node, slot, validator, validator_index, forkedBlck,
         executionPayloadHeader),
-      500.milliseconds):
+      1.seconds):
     Result[SBBB, string].err("getBlindedBlock timed out")
 
   if blindedBlock.isErr:
