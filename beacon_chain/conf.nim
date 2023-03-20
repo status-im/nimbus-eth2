@@ -711,6 +711,11 @@ type
           defaultValueDesc: $defaultBeaconNodeDesc
           name: "rest-url" .}: string
 
+        printData* {.
+          desc: "Print signed exit message instead of publishing it"
+          defaultValue: false
+          name: "print" .}: bool
+
     of BNStartUpCmd.record:
       case recordCmd* {.command.}: RecordCmd
       of RecordCmd.create:

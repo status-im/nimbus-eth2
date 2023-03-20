@@ -1531,6 +1531,50 @@ proc resetAttributesNoError() =
     try: stdout.resetAttributes()
     except IOError: discard
 
+proc importKeystoreFromFile*(
+       fileName: string
+     ): Result[ValidatorPrivKey, string] =
+  var password: string  # TODO consider using a SecretString type
+  defer: burnMem(password)
+
+  let
+    data = readAllChars(fileName).valueOr:
+      return err("Unable to read keystore file [" & ioErrorMsg(error) & "]")
+    keystore =
+      try:
+        parseKeystore(data)
+      except SerializationError as e:
+        return err("Invalid keystore file format [" &
+                   e.formatMsg(fileName) & "]")
+
+  var firstDecryptionAttempt = true
+  while true:
+    var secret: seq[byte]
+    let status = decryptCryptoField(keystore.crypto,
+                                    KeystorePass.init(password),
+                                    secret)
+    case status
+    of DecryptionStatus.Success:
+      let privateKey = ValidatorPrivKey.fromRaw(secret).valueOr:
+        return err("Keystore holds invalid private key [" & $error & "]")
+      return ok(privateKey)
+    of DecryptionStatus.InvalidKeystore:
+      return err("Invalid keystore format")
+    of DecryptionStatus.InvalidPassword:
+      if firstDecryptionAttempt:
+        try:
+          const msg = "Please enter the password for decrypting '$1'"
+          echo msg % [fileName]
+        except ValueError:
+          raiseAssert "The format string above is correct"
+        firstDecryptionAttempt = false
+      else:
+        echo "The entered password was incorrect. Please try again."
+
+      if not(readPasswordInput("Password: ", password)):
+        echo "System error while entering password. Please try again."
+        if len(password) == 0: break
+
 proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
                              importedDir, validatorsDir, secretsDir: string) =
   var password: string  # TODO consider using a SecretString type
