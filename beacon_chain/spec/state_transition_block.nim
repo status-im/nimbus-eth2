@@ -108,7 +108,7 @@ proc process_randao(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#eth1-data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#eth1-data
 func process_eth1_data(state: var ForkyBeaconState, body: SomeForkyBeaconBlockBody): Result[void, cstring]=
   if not state.eth1_data_votes.add body.eth1_data:
     # Count is reset  in process_final_updates, so this should never happen
@@ -119,7 +119,7 @@ func process_eth1_data(state: var ForkyBeaconState, body: SomeForkyBeaconBlockBo
     state.eth1_data = body.eth1_data
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#is_slashable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#is_slashable_validator
 func is_slashable_validator(validator: Validator, epoch: Epoch): bool =
   # Check if ``validator`` is slashable.
   (not validator.slashed) and
@@ -510,7 +510,7 @@ proc process_sync_aggregate*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
     state: var bellatrix.BeaconState, payload: bellatrix.ExecutionPayload,
     notify_new_payload: bellatrix.ExecutePayload): Result[void, cstring] =
@@ -595,7 +595,7 @@ proc process_execution_payload*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
     state: var deneb.BeaconState, payload: deneb.ExecutionPayload,
     notify_new_payload: deneb.ExecutePayload): Result[void, cstring] =
@@ -681,7 +681,7 @@ func process_withdrawals*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/beacon-chain.md#tx_peek_blob_versioned_hashes
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#tx_peek_blob_versioned_hashes
 func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
     Result[seq[VersionedHash], cstring] =
   ## This function retrieves the hashes from the `SignedBlobTransaction` as
@@ -710,10 +710,10 @@ func tx_peek_blob_versioned_hashes(opaque_tx: Transaction):
     res.add versionedHash
   ok res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#kzg_commitment_to_versioned_hash
 func kzg_commitment_to_versioned_hash(
     kzg_commitment: deneb.KZGCommitment): VersionedHash =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/beacon-chain.md#blob
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#blob
   const VERSIONED_HASH_VERSION_KZG = 0x01'u8
 
   var res: VersionedHash
@@ -721,7 +721,7 @@ func kzg_commitment_to_versioned_hash(
   res[1 .. 31] = eth2digest(kzg_commitment).data.toOpenArray(1, 31)
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/beacon-chain.md#verify_kzg_commitments_against_transactions
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#verify_kzg_commitments_against_transactions
 func verify_kzg_commitments_against_transactions*(
     transactions: seq[Transaction],
     kzg_commitments: seq[deneb.KZGCommitment]): bool =
@@ -738,7 +738,7 @@ func verify_kzg_commitments_against_transactions*(
 
   all_versioned_hashes == mapIt(kzg_commitments, it.kzg_commitment_to_versioned_hash)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/beacon-chain.md#blob-kzg-commitments
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#blob-kzg-commitments
 func process_blob_kzg_commitments(
     state: var deneb.BeaconState,
     body: deneb.BeaconBlockBody | deneb.TrustedBeaconBlockBody |
@@ -828,7 +828,7 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock

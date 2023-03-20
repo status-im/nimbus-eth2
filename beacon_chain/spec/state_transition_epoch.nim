@@ -39,7 +39,7 @@ export extras, phase0, altair
 logScope: topics = "consens"
 
 # Accessors that implement the max condition in `get_total_balance`:
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_total_balance
 template current_epoch*(v: TotalBalances): Gwei =
   max(EFFECTIVE_BALANCE_INCREMENT, v.current_epoch_raw)
 template previous_epoch*(v: TotalBalances): Gwei =
@@ -174,7 +174,7 @@ func is_eligible_validator*(validator: ParticipationInfo): bool =
 from ./datatypes/deneb import BeaconState
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#get_unslashed_participating_indices
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_total_balance
 func get_unslashed_participating_balances*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState): UnslashedParticipatingBalances =
@@ -242,7 +242,7 @@ func is_unslashed_participating_index(
     has_flag(epoch_participation[].item(validator_index), flag_index) and
     not state.validators[validator_index].slashed
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#justification-and-finalization
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#justification-and-finalization
 type FinalityState = object
   slot: Slot
   current_epoch_ancestor_root: Eth2Digest
@@ -310,7 +310,7 @@ proc weigh_justification_and_finalization(
   ## state.justification_bits[1:] = state.justification_bits[:-1]
   ## state.justification_bits[0] = 0b0
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#misc
   const JUSTIFICATION_BITS_LENGTH = 4
 
   state.justification_bits = JustificationBits(
@@ -729,7 +729,7 @@ iterator get_inactivity_penalty_deltas*(
           state.inactivity_scores[vidx]
       yield (vidx, Gwei(penalty_numerator div penalty_denominator))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#modified-get_inactivity_penalty_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#modified-get_inactivity_penalty_deltas
 iterator get_inactivity_penalty_deltas*(
     cfg: RuntimeConfig,
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState,
@@ -868,7 +868,7 @@ func process_registry_updates*(
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#slashings
 func get_adjusted_total_slashing_balance*(
     state: ForkyBeaconState, total_balance: Gwei): Gwei =
   const multiplier =
@@ -885,16 +885,16 @@ func get_adjusted_total_slashing_balance*(
       {.fatal: "process_slashings: incorrect BeaconState type".}
   min(sum(state.slashings.data) * multiplier, total_balance)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#slashings
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#slashings
 func slashing_penalty_applies*(validator: Validator, epoch: Epoch): bool =
   validator.slashed and
   epoch + EPOCHS_PER_SLASHINGS_VECTOR div 2 == validator.withdrawable_epoch
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/altair/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#slashings
 func get_slashing_penalty*(validator: Validator,
                           adjusted_total_slashing_balance,
                           total_balance: Gwei): Gwei =
@@ -905,8 +905,8 @@ func get_slashing_penalty*(validator: Validator,
   penalty_numerator div total_balance * increment
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/altair/beacon-chain.md#slashings
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#slashings
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#slashings
 func process_slashings*(state: var ForkyBeaconState, total_balance: Gwei) =
   let
     epoch = get_current_epoch(state)
@@ -983,12 +983,12 @@ func process_historical_roots_update*(state: var ForkyBeaconState) =
   if next_epoch mod (SLOTS_PER_HISTORICAL_ROOT div SLOTS_PER_EPOCH) == 0:
     # Equivalent to hash_tree_root(foo: HistoricalBatch), but without using
     # significant additional stack or heap.
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#historicalbatch
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#historicalbatch
     # In response to https://github.com/status-im/nimbus-eth2/issues/921
     if not state.historical_roots.add state.compute_historical_root():
       raiseAssert "no more room for historical roots, so long and thanks for the fish!"
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#participation-records-rotation
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#participation-records-rotation
 func process_participation_record_updates*(state: var phase0.BeaconState) =
   # Rotate current/previous epoch attestations - using swap avoids copying all
   # elements using a slow genericSeqAssign
@@ -1210,7 +1210,7 @@ proc process_epoch*(
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#registry-updates
   ? process_registry_updates(cfg, state, cache)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#slashings
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#slashings
   process_slashings(state, info.balances.current_epoch)
 
   process_eth1_data_reset(state)

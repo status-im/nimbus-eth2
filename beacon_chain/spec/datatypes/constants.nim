@@ -10,7 +10,7 @@ type
   Epoch* = distinct uint64
   SyncCommitteePeriod* = distinct uint64
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/capella/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/beacon-chain.md#custom-types
   WithdrawalIndex* = uint64
 
   DomainType* = distinct array[4, byte]
@@ -21,7 +21,7 @@ const
   FAR_FUTURE_EPOCH* = Epoch(not 0'u64)
   FAR_FUTURE_PERIOD* = SyncCommitteePeriod(not 0'u64)
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#domain-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#domain-types
   DOMAIN_BEACON_PROPOSER* = DomainType([byte 0x00, 0x00, 0x00, 0x00])
   DOMAIN_BEACON_ATTESTER* = DomainType([byte 0x01, 0x00, 0x00, 0x00])
   DOMAIN_RANDAO* = DomainType([byte 0x02, 0x00, 0x00, 0x00])
@@ -39,11 +39,11 @@ const
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#domain-types
   DOMAIN_BLS_TO_EXECUTION_CHANGE* = DomainType([byte 0x0a, 0x00, 0x00, 0x00])
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#transition-settings
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#transition-settings
   TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH* = FAR_FUTURE_EPOCH
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/fork-choice.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/fork-choice.md#configuration
   PROPOSER_SCORE_BOOST*: uint64 = 40
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/validator.md#misc
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#misc
   ATTESTATION_SUBNET_COUNT*: uint64 = 64
