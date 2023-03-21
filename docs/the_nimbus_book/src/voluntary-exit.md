@@ -15,24 +15,24 @@ Exits are subject to a wait period that depends on the length of the exit queue.
 !!! note
     Voluntary exits won't be processed if the chain isn't finalising.
 
-To perform a voluntary exit, make sure your beacon node is running with the `--rest`option enabled (e.g. `./run-mainnet-beacon-node.sh --rest`), then run:
+To perform a voluntary exit, make sure your beacon node is running with the `--rest` option enabled (e.g. `./run-mainnet-beacon-node.sh --rest`), then run:
 
 === "Mainnet"
     ```
     build/nimbus_beacon_node deposits exit \
       --data-dir=build/data/shared_mainnet_0 \
-      --validator=<VALIDATOR_PUBLIC_KEY>
+      --validator=<VALIDATOR_KEYSTORE_PATH>
     ```
 
 === "Prater"
     ```
     build/nimbus_beacon_node deposits exit \
       --data-dir=build/data/shared_prater_0 \
-      --validator=<VALIDATOR_PUBLIC_KEY>
+      --validator=<VALIDATOR_KEYSTORE_PATH>
     ```
 
 !!! note
-    Make sure your `<VALIDATOR_PUBLIC_KEY>` is prefixed with `0x`. In other words the public key should look like `0x95e3...`
+    In the command above, you must replace `<VALIDATOR_KEYSTORE_PATH>` with the file-system path of an Ethereum [ERC-2335 Keystore](https://eips.ethereum.org/EIPS/eip-2335) created by a tool such as [staking-deposit-cli](https://github.com/ethereum/staking-deposit-cli) or [ethdo](https://github.com/wealdtech/ethdo).
 
 ## `rest-url` parameter
 

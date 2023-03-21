@@ -699,7 +699,7 @@ type
       of DepositsCmd.exit:
         exitedValidator* {.
           name: "validator"
-          desc: "Validator index or a public key of the exited validator" .}: string
+          desc: "Validator index, public key or a keystore path of the exited validator" .}: string
 
         exitAtEpoch* {.
           name: "epoch"
