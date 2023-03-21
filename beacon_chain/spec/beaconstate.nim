@@ -22,7 +22,7 @@ from ./datatypes/capella import BeaconState, ExecutionPayloadHeader, Withdrawal
 
 export extras, forks, validator, chronicles
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#increase_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#increase_balance
 func increase_balance*(balance: var Gwei, delta: Gwei) =
   balance += delta
 
@@ -135,7 +135,7 @@ from ./datatypes/deneb import BeaconState
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#modified-slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_slashing_penalty*(state: ForkyBeaconState,
                            validator_effective_balance: Gwei): Gwei =
   # TODO Consider whether this is better than splitting the functions apart; in
@@ -151,14 +151,14 @@ func get_slashing_penalty*(state: ForkyBeaconState,
     {.fatal: "invalid BeaconState type".}
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/altair/beacon-chain.md#modified-slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_whistleblower_reward*(validator_effective_balance: Gwei): Gwei =
   validator_effective_balance div WHISTLEBLOWER_REWARD_QUOTIENT
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#modified-slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#modified-slash_validator
 func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): Gwei =
   when state is phase0.BeaconState:
     whistleblower_reward div PROPOSER_REWARD_QUOTIENT
@@ -170,7 +170,7 @@ func get_proposer_reward(state: ForkyBeaconState, whistleblower_reward: Gwei): G
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#slash_validator
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#modified-slash_validator
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#modified-slash_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#modified-slash_validator
 proc slash_validator*(
     cfg: RuntimeConfig, state: var ForkyBeaconState,
     slashed_index: ValidatorIndex, cache: var StateCache):
@@ -304,7 +304,7 @@ func get_block_root_at_slot*(
   withState(state):
     get_block_root_at_slot(forkyState.data, slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#get_block_root
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_block_root
 func get_block_root*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Return the block root at the start of a recent ``epoch``.
   get_block_root_at_slot(state, epoch.start_slot())
@@ -314,7 +314,7 @@ func get_block_root*(state: ForkedHashedBeaconState, epoch: Epoch): Eth2Digest =
   withState(state):
     get_block_root(forkyState.data, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#get_total_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_total_balance
 template get_total_balance(
     state: ForkyBeaconState, validator_indices: untyped): Gwei =
   ## Return the combined effective balance of the ``indices``.
@@ -325,7 +325,7 @@ template get_total_balance(
     res += state.validators[validator_index].effective_balance
   max(EFFECTIVE_BALANCE_INCREMENT, res)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#is_eligible_for_activation_queue
 func is_eligible_for_activation_queue*(validator: Validator): bool =
   ## Check if ``validator`` is eligible to be placed into the activation queue.
   validator.activation_eligibility_epoch == FAR_FUTURE_EPOCH and
@@ -538,7 +538,7 @@ func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): 
     cache.total_active_balance[epoch] = tab
     return tab
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/altair/beacon-chain.md#get_base_reward_per_increment
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#get_base_reward_per_increment
 func get_base_reward_per_increment_sqrt*(
     total_active_balance_sqrt: uint64): Gwei =
   EFFECTIVE_BALANCE_INCREMENT * BASE_REWARD_FACTOR div total_active_balance_sqrt
@@ -701,7 +701,7 @@ proc process_attestation*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/altair/beacon-chain.md#get_next_sync_committee_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#get_next_sync_committee_indices
 func get_next_sync_committee_keys(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState):
@@ -739,19 +739,19 @@ func get_next_sync_committee_keys(
     i += 1'u64
   res
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/capella/beacon-chain.md#has_eth1_withdrawal_credential
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/beacon-chain.md#has_eth1_withdrawal_credential
 func has_eth1_withdrawal_credential*(validator: Validator): bool =
   ## Check if ``validator`` has an 0x01 prefixed "eth1" withdrawal credential.
   validator.withdrawal_credentials.data[0] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/beacon-chain.md#is_fully_withdrawable_validator
 func is_fully_withdrawable_validator(
     validator: Validator, balance: Gwei, epoch: Epoch): bool =
   ## Check if ``validator`` is fully withdrawable.
   has_eth1_withdrawal_credential(validator) and
     validator.withdrawable_epoch <= epoch and balance > 0
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/beacon-chain.md#is_partially_withdrawable_validator
 func is_partially_withdrawable_validator(
     validator: Validator, balance: Gwei): bool =
   ## Check if ``validator`` is partially withdrawable.
@@ -919,9 +919,9 @@ proc initialize_hashed_beacon_state_from_eth1*(
       cfg, eth1_block_hash, eth1_timestamp, deposits, flags))
   result.root = hash_tree_root(result.data)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/beacon-chain.md#testing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/capella/beacon-chain.md#testing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/deneb/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#testing
 proc initialize_beacon_state_from_eth1*(
     cfg: RuntimeConfig,
     eth1_block_hash: Eth2Digest,
@@ -1144,7 +1144,7 @@ func upgrade_to_altair*(cfg: RuntimeConfig, pre: phase0.BeaconState):
 
   post
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/bellatrix/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/fork.md#upgrading-the-state
 func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
     ref bellatrix.BeaconState =
   let epoch = get_current_epoch(pre)

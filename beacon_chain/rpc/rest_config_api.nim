@@ -90,7 +90,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           MAX_VOLUNTARY_EXITS:
             Base10.toString(MAX_VOLUNTARY_EXITS),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/presets/mainnet/altair.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/presets/mainnet/altair.yaml
           INACTIVITY_PENALTY_QUOTIENT_ALTAIR:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_ALTAIR),
           MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR:
@@ -106,7 +106,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           UPDATE_TIMEOUT:
             Base10.toString(UPDATE_TIMEOUT),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/presets/mainnet/bellatrix.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/presets/mainnet/bellatrix.yaml
           INACTIVITY_PENALTY_QUOTIENT_BELLATRIX:
             Base10.toString(INACTIVITY_PENALTY_QUOTIENT_BELLATRIX),
           MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX:
@@ -240,7 +240,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             to0xHex(DOMAIN_CONTRIBUTION_AND_PROOF.data),
           # PARTICIPATION_FLAG_WEIGHTS
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/phase0/validator.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#constants
           TARGET_AGGREGATORS_PER_COMMITTEE:
             Base10.toString(TARGET_AGGREGATORS_PER_COMMITTEE),
           RANDOM_SUBNETS_PER_VALIDATOR:
@@ -250,7 +250,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
           ATTESTATION_SUBNET_COUNT:
             Base10.toString(ATTESTATION_SUBNET_COUNT),
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.4/specs/altair/validator.md#constants
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/validator.md#constants
           TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE:
             Base10.toString(uint64(TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE)),
           SYNC_COMMITTEE_SUBNET_COUNT:
