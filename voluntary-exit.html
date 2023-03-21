@@ -1698,26 +1698,26 @@
 <p class="admonition-title">Note</p>
 <p>Voluntary exits won't be processed if the chain isn't finalising.</p>
 </div>
-<p>To perform a voluntary exit, make sure your beacon node is running with the <code>--rest</code>option enabled (e.g. <code>./run-mainnet-beacon-node.sh --rest</code>), then run:</p>
+<p>To perform a voluntary exit, make sure your beacon node is running with the <code>--rest</code> option enabled (e.g. <code>./run-mainnet-beacon-node.sh --rest</code>), then run:</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Mainnet</label><label for="__tabbed_1_2">Prater</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>build/nimbus_beacon_node deposits exit \
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  --data-dir=build/data/shared_mainnet_0 \
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  --validator=&lt;VALIDATOR_PUBLIC_KEY&gt;
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  --validator=&lt;VALIDATOR_KEYSTORE_PATH&gt;
 </code></pre></div>
 </div>
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>build/nimbus_beacon_node deposits exit \
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  --data-dir=build/data/shared_prater_0 \
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  --validator=&lt;VALIDATOR_PUBLIC_KEY&gt;
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  --validator=&lt;VALIDATOR_KEYSTORE_PATH&gt;
 </code></pre></div>
 </div>
 </div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Make sure your <code>&lt;VALIDATOR_PUBLIC_KEY&gt;</code> is prefixed with <code>0x</code>. In other words the public key should look like <code>0x95e3...</code></p>
+<p>In the command above, you must replace <code>&lt;VALIDATOR_KEYSTORE_PATH&gt;</code> with the file-system path of an Ethereum <a href="https://eips.ethereum.org/EIPS/eip-2335">ERC-2335 Keystore</a> created by a tool such as <a href="https://github.com/ethereum/staking-deposit-cli">staking-deposit-cli</a> or <a href="https://github.com/wealdtech/ethdo">ethdo</a>.</p>
 </div>
 <h2 id="rest-url-parameter"><code>rest-url</code> parameter</h2>
 <p>The <code>--rest-url</code> parameter can be used to point the exit command to a specific node for publishing the request, as long as it's compatible with the <a href="rest-api.html">REST API</a>.</p>
