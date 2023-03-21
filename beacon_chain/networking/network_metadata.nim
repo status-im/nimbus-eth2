@@ -228,9 +228,6 @@ elif const_preset == "mainnet":
     for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
       checkForkConsistency(network.cfg)
 
-    for network in [mainnetMetadata]:
-      doAssert network.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
-
     for network in [mainnetMetadata, praterMetadata]:
       doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
