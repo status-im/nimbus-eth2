@@ -252,7 +252,7 @@ type
 
   SomeEnginePayloadWithValue =
     BellatrixExecutionPayloadWithValue |
-    GetPayloadV2Response |
+    GetPayloadV2ResponseExact |
     CancunExecutionPayloadAndBlobs
 
 const
@@ -474,7 +474,7 @@ func asConsensusType*(payloadWithValue: BellatrixExecutionPayloadWithValue):
 template maybeDeref[T](o: Option[T]): T = o.get
 template maybeDeref[V](v: V): V = v
 
-func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPayloadV2):
+func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV2):
     capella.ExecutionPayload =
   template getTransaction(tt: TypedTransaction): bellatrix.Transaction =
     bellatrix.Transaction.init(tt.distinctBase)
@@ -499,7 +499,7 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV1OrV2|ExecutionPaylo
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(maybeDeref rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
 
-func asConsensusType*(payloadWithValue: engine_api.GetPayloadV2Response):
+func asConsensusType*(payloadWithValue: engine_api.GetPayloadV2ResponseExact):
     capella.ExecutionPayloadForSigning =
   capella.ExecutionPayloadForSigning(
     executionPayload: payloadWithValue.executionPayload.asConsensusType,
@@ -810,7 +810,8 @@ proc getPayloadFromSingleEL(
             timestamp: Quantity timestamp,
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient))
-      elif GetPayloadResponseType is engine_api.GetPayloadV2Response or GetPayloadResponseType is CancunExecutionPayloadAndBlobs:
+      elif GetPayloadResponseType is engine_api.GetPayloadV2ResponseExact or
+           GetPayloadResponseType is CancunExecutionPayloadAndBlobs:
         let response = await rpcClient.forkchoiceUpdated(
           ForkchoiceStateV1(
             headBlockHash: headBlock.asBlockHash,
@@ -862,7 +863,7 @@ template EngineApiResponseType*(T: type bellatrix.ExecutionPayloadForSigning): t
   BellatrixExecutionPayloadWithValue
 
 template EngineApiResponseType*(T: type capella.ExecutionPayloadForSigning): type =
-  engine_api.GetPayloadV2Response
+  engine_api.GetPayloadV2ResponseExact
 
 template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type =
   CancunExecutionPayloadAndBlobs
@@ -870,7 +871,8 @@ template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type 
 template payload(response: engine_api.ExecutionPayloadV1): engine_api.ExecutionPayloadV1 =
   response
 
-template payload(response: engine_api.GetPayloadV2Response): engine_api.ExecutionPayloadV1OrV2 =
+template payload(response: engine_api.GetPayloadV2ResponseExact):
+    engine_api.ExecutionPayloadV2 =
   response.executionPayload
 
 template payload(response: engine_api.GetPayloadV3Response): engine_api.ExecutionPayloadV3 =
@@ -882,7 +884,7 @@ template toEngineWithdrawals*(withdrawals: seq[capella.Withdrawal]): seq[Withdra
 template toFork(T: type ExecutionPayloadV1): ConsensusFork =
   ConsensusFork.Bellatrix
 
-template toFork(T: typedesc[ExecutionPayloadV1OrV2|ExecutionPayloadV2]): ConsensusFork =
+template toFork(T: type ExecutionPayloadV2): ConsensusFork =
   ConsensusFork.Capella
 
 template toFork(T: type ExecutionPayloadV3): ConsensusFork =
@@ -931,17 +933,7 @@ proc getPayload*(m: ELManager,
              url = m.elConnections[idx].engineUrl.url,
              err = req.error.msg
     else:
-      const payloadFork = PayloadType.toFork
-      when payloadFork >= ConsensusFork.Capella:
-        when payloadFork == ConsensusFork.Capella:
-          # TODO: The engine_api module may offer an alternative API where it is guaranteed
-          #       to return the correct response type (i.e. the rule below will be enforced
-          #       during deserialization).
-          if req.read.executionPayload.withdrawals.isNone:
-            warn "Execution client returned a block without a 'withdrawals' field for a post-Shanghai block",
-                  url = m.elConnections[idx].engineUrl.url
-            continue
-
+      when PayloadType.toFork >= ConsensusFork.Capella:
         if engineApiWithdrawals != req.read.executionPayload.withdrawals.maybeDeref:
           warn "Execution client did not return correct withdrawals",
             withdrawals_from_cl = engineApiWithdrawals,
