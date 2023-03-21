@@ -3334,6 +3334,32 @@
     }
   },
   {
+    "topics": ["validator", "beacon_committee_selections"],
+    "request": {
+      "url": "/eth/v1/validator/beacon_committee_selections",
+      "method": "POST",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "501"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 501, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["validator", "sync_committee_selections"],
+    "request": {
+      "url": "/eth/v1/validator/sync_committee_selections",
+      "method": "POST",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "501"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 501, "message": ""}}]
+    }
+  },
+  {
     "topics": ["validator", "register_validators"],
     "request": {
       "url": "/eth/v1/validator/register_validator",
