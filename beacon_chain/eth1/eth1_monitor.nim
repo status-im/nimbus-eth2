@@ -1120,7 +1120,8 @@ proc processResponse[ELResponseType](
     requests: openArray[Future[ELResponseType]],
     idx: int) =
 
-  doAssert requests[idx].completed
+  if not requests[idx].completed:
+    return
 
   let status = try: requests[idx].read.status
                except CatchableError: raiseAssert "checked above"
@@ -1166,7 +1167,7 @@ proc sendNewPayload*(m: ELManager,
   for idx, req in requests:
     if not req.finished:
       stillPending.add req
-    elif not req.failed:
+    elif req.completed:
       responseProcessor.processResponse(m.elConnections, requests, idx)
 
   if responseProcessor.disagreementAlreadyDetected:
@@ -1273,7 +1274,7 @@ proc forkchoiceUpdated*(m: ELManager,
   for idx, req in requests:
     if not req.finished:
       stillPending.add req
-    elif not req.failed:
+    elif req.completed:
       responseProcessor.processResponse(m.elConnections, requests, idx)
 
   if responseProcessor.disagreementAlreadyDetected:
