@@ -320,7 +320,8 @@ proc setWorkingState(connection: ELConnection) =
 
 proc trackEngineApiRequest(connection: ELConnection,
                            request: FutureBase, requestName: string,
-                           startTime: Moment, deadline: Future[void]) =
+                           startTime: Moment, deadline: Future[void],
+                           failureAllowed = false) =
   request.addCallback do (udata: pointer) {.gcsafe, raises: [Defect].}:
     # TODO `udata` is nil here. How come?
     # This forces us to create a GC cycle between the Future and the closure
@@ -343,7 +344,7 @@ proc trackEngineApiRequest(connection: ELConnection,
       else:
         0
 
-      if request.failed:
+      if request.failed and not failureAllowed:
         connection.setDegradedState(requestName, statusCode, request.error.msg)
 
       engine_api_responses.inc(1, [connection.engineUrl.url, requestName, $statusCode])
@@ -356,14 +357,16 @@ template awaitOrRaiseOnTimeout[T](fut: Future[T],
 template trackedRequestWithTimeout[T](connection: ELConnection,
                                       requestName: static string,
                                       lazyRequestExpression: Future[T],
-                                      timeout: Duration): T =
+                                      timeout: Duration,
+                                      failureAllowed = false): T =
   let
     connectionParam = connection
     startTime = Moment.now
     deadline = sleepAsync(timeout)
     request = lazyRequestExpression
 
-  connectionParam.trackEngineApiRequest(request, requestName, startTime, deadline)
+  connectionParam.trackEngineApiRequest(
+    request, requestName, startTime, deadline, failureAllowed)
 
   awaitWithTimeout(request, deadline):
     raise newException(DataProviderTimeout, "Timeout")
@@ -976,7 +979,8 @@ proc waitELToSyncDeposits(connection: ELConnection,
       discard connection.trackedRequestWithTimeout(
         "getBlockByHash",
         rpcClient.getBlockByHash(minimalRequiredBlock),
-        web3RequestsTimeout)
+        web3RequestsTimeout,
+        failureAllowed = true)
       connection.depositContractSyncStatus = DepositContractSyncStatus.synced
       return
     except CancelledError as err:
@@ -1495,10 +1499,14 @@ when hasDepositRootChecks:
       depositRoot = depositContract.get_deposit_root.call(blockNumber = blk.number)
       rawCount = depositContract.get_deposit_count.call(blockNumber = blk.number)
 
+    # We allow failures on these requests becaues the clients
+    # are expected to prune the state data for historical blocks
     connection.trackEngineApiRequest(
-      depositRoot, "get_deposit_root", startTime, deadline)
+      depositRoot, "get_deposit_root", startTime, deadline,
+      failureAllowed = true)
     connection.trackEngineApiRequest(
-      rawCount, "get_deposit_count", startTime, deadline)
+      rawCount, "get_deposit_count", startTime, deadline,
+      failureAllowed = true)
 
     try:
       let fetchedRoot = asEth2Digest(
