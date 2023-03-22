@@ -409,3 +409,55 @@ func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
     modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
   bytes_to_uint64(eth2digest(
     slot_signature.toRaw()).data.toOpenArray(0, 7)) mod modulo == 0
+
+# https://github.com/ethereum/builder-specs/pull/47
+func livenessFailsafeInEffect*(
+    block_roots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest],
+    slot: Slot): bool =
+  const
+    MAX_MISSING_CONTIGUOUS = 3
+    MAX_MISSING_WINDOW = 5
+
+  static: doAssert MAX_MISSING_WINDOW > MAX_MISSING_CONTIGUOUS
+  if slot <= MAX_MISSING_CONTIGUOUS:
+    # Cannot ever trigger and allows a bit of safe arithmetic. Furthermore
+    # there's notionally always a genesis block, which pushes the earliest
+    # possible failure out an additional slot.
+    return false
+
+  # Using this slightly convoluted construction to handle wraparound better;
+  # baseIndex + faultInspectionWindow can overflow array but only exactly by
+  # the required amount. Furthermore, go back one more slot to address using
+  # that it looks ahead rather than looks back and whether a block's missing
+  # requires seeing the previous block_root.
+  let
+    faultInspectionWindow = min(distinctBase(slot) - 1, SLOTS_PER_EPOCH)
+    baseIndex = (slot + SLOTS_PER_HISTORICAL_ROOT - faultInspectionWindow) mod
+      SLOTS_PER_HISTORICAL_ROOT
+    endIndex = baseIndex + faultInspectionWindow - 1
+
+  doAssert endIndex mod SLOTS_PER_HISTORICAL_ROOT ==
+    (slot - 1) mod SLOTS_PER_HISTORICAL_ROOT
+
+  var
+    totalMissing = 0
+    streakLen = 0
+    maxStreakLen = 0
+
+  for i in baseIndex .. endIndex:
+    # This look-forward means checking slot i for being missing uses i - 1
+    if  block_roots[(i mod SLOTS_PER_HISTORICAL_ROOT).int] ==
+        block_roots[((i + 1) mod SLOTS_PER_HISTORICAL_ROOT).int]:
+      totalMissing += 1
+      if totalMissing > MAX_MISSING_WINDOW:
+        return true
+
+      streakLen += 1
+      if streakLen > maxStreakLen:
+        maxStreakLen = streakLen
+        if maxStreakLen > MAX_MISSING_CONTIGUOUS:
+          return true
+    else:
+      streakLen = 0
+
+  false
