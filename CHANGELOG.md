@@ -1,7 +1,7 @@
 2023-03-22 v23.3.2
 ==================
 
-Nimbus `v23.3.2` is a `medium-urgency`, but mandatory upgrade providing full-support for the upcoming Capella hard-fork on Mainnet. Please upgrade at your earliest convenience - **before the 12th of April**.
+Nimbus `v23.3.2` is a `low-urgency`, but mandatory upgrade providing full-support for the upcoming Capella hard-fork on Mainnet. Please upgrade at your earliest convenience - **before the 12th of April**.
 
 ### Improvements
 
