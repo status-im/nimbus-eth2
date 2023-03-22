@@ -9,7 +9,7 @@
 
 import
   std/[tables, json, streams, sequtils, uri],
-  chronos, chronicles, metrics, eth/async_utils,
+  chronos, chronicles, metrics,
   json_serialization/std/net,
   presto, presto/client,
 
@@ -388,10 +388,11 @@ proc signWithDistributedKey(v: AttachedValidator,
   doAssert v.data.threshold <= uint32(v.clients.len)
 
   let
-    signatureReqs = mapIt(v.clients, it[0].signData(it[1].pubkey, request))
     deadline = sleepAsync(WEB3_SIGNER_DELAY_TOLERANCE)
+    signatureReqs = mapIt(v.clients, it[0].signData(it[1].pubkey, deadline,
+                                                    2, request))
 
-  await allFutures(signatureReqs) or deadline
+  await allFutures(signatureReqs)
 
   var shares: seq[SignatureShare]
   var neededShares = v.data.threshold
@@ -404,7 +405,9 @@ proc signWithDistributedKey(v: AttachedValidator,
     else:
       warn "Failed to obtain signature from remote signer",
            pubkey = shareInfo.pubkey,
-           signerUrl = $(v.clients[i][0].address)
+           signerUrl = $(v.clients[i][0].address),
+           reason = req.read.error.message,
+           kind = req.read.error.kind
 
     if neededShares == 0:
       let recovered = shares.recoverSignature()
@@ -413,17 +416,18 @@ proc signWithDistributedKey(v: AttachedValidator,
   return SignatureResult.err "Not enough shares to recover the signature"
 
 proc signWithSingleKey(v: AttachedValidator,
-                       request: Web3SignerRequest): Future[SignatureResult]
-                      {.async.} =
+                       request: Web3SignerRequest): Future[SignatureResult] {.
+     async.} =
   doAssert v.clients.len == 1
-  let (client, info) = v.clients[0]
-  let res = awaitWithTimeout(client.signData(info.pubkey, request),
-                             WEB3_SIGNER_DELAY_TOLERANCE):
-    return SignatureResult.err "Timeout"
-  if res.isErr:
-    return SignatureResult.err res.error
+  let
+    deadline = sleepAsync(WEB3_SIGNER_DELAY_TOLERANCE)
+    (client, info) = v.clients[0]
+    res = await client.signData(info.pubkey, deadline, 2, request)
+
+  if res.isErr():
+    return SignatureResult.err(res.error.message)
   else:
-    return SignatureResult.ok res.get.toValidatorSig
+    return SignatureResult.ok(res.get().toValidatorSig())
 
 proc signData(v: AttachedValidator,
               request: Web3SignerRequest): Future[SignatureResult] =
