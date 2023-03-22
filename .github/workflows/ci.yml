@@ -161,7 +161,7 @@ jobs:
 
       - name: Run tests
         run: |
-          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} DISABLE_TEST_FIXTURES_SCRIPT=1 test
+          ${make_cmd} -j ${ncpu} V=1 NIM_COMMIT=${{ matrix.branch }} NIMFLAGS="--passC:-fsanitize=undefined --passL:-fsanitize=undefined" DISABLE_TEST_FIXTURES_SCRIPT=1 test
 
       # The upload creates a combined report that gets posted as a comment on the PR
       # https://github.com/EnricoMi/publish-unit-test-result-action

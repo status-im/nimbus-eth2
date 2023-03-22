@@ -67,7 +67,7 @@ pipeline {
       parallel {
         stage('General') {
           steps { timeout(60) {
-            sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 test'
+            sh 'make DISABLE_TEST_FIXTURES_SCRIPT=1 NIMFLAGS="--passC:-fsanitize=undefined --passL:-fsanitize=undefined" test'
             sh 'git diff --exit-code'  /* Check no uncommitted changes. */
           } }
         }
