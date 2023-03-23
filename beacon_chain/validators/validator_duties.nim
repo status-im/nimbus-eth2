@@ -702,12 +702,19 @@ proc proposeBlockMEV[
   let (executionPayloadHeader, forkedBlck) = blindedBlockParts.get
 
   # This is only substantively asynchronous with a remote key signer
-  let blindedBlock = awaitWithTimeout(
-      getBlindedBeaconBlock[SBBB](
+  let blindedBlock =
+    case validator.kind
+    of ValidatorKind.Local:
+      await getBlindedBeaconBlock[SBBB](
         node, slot, validator, validator_index, forkedBlck,
-        executionPayloadHeader),
-      500.milliseconds):
-    Result[SBBB, string].err("getBlindedBlock timed out")
+        executionPayloadHeader)
+    of ValidatorKind.Remote:
+      awaitWithTimeout(
+          getBlindedBeaconBlock[SBBB](
+            node, slot, validator, validator_index, forkedBlck,
+            executionPayloadHeader),
+          1.seconds):
+        Result[SBBB, string].err("getBlindedBlock timed out")
 
   if blindedBlock.isErr:
     info "proposeBlockMEV: getBlindedBeaconBlock failed",
