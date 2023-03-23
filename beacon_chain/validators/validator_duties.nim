@@ -701,7 +701,20 @@ proc proposeBlockMEV[
   # proposal through the relay network.
   let (executionPayloadHeader, forkedBlck) = blindedBlockParts.get
 
-  # This is only substantively asynchronous with a remote key signer
+  # This is only substantively asynchronous with a remote key signer, whereas
+  # using local key signing, the await can't stall indefinitely any more than
+  # any other await. However, by imposing an arbitrary timeout, it risks that
+  # getBlindedBeaconBlock will check slashing conditions, register that block
+  # in the database to avoid future slashing, then take long enough to exceed
+  # any specific timeout provided. It's always better to at least try to send
+  # this proposal. Furthermore, because one attempt to propose on that slot's
+  # already been registered, the EL fallback will refuses to function, so the
+  # timeout ensures missing both by builder and engine APIs.
+  #
+  # When using web3signer or some other remote signer, this is to some extent
+  # difficult to avoid entirely, because some timeout should exist, so Nimbus
+  # can still fall back to EL block production in time. For local signing, it
+  # simply therefore uses `await` and avoids this potential race.
   let blindedBlock =
     case validator.kind
     of ValidatorKind.Local:
