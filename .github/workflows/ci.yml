@@ -99,9 +99,9 @@ jobs:
           fi
           echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
 
-          # Stack usage test on recent enough gcc:
+          # Stack usage test and UBSAN on recent enough gcc:
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.target.cpu }}' == 'amd64' ]]; then
-            export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage"
+            export NIMFLAGS="${NIMFLAGS} -d:limitStackUsage --passC:-fsanitize=undefined --passL:-fsanitize=undefined"
             echo "NIMFLAGS=${NIMFLAGS}" >> $GITHUB_ENV
           fi
 
