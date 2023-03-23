@@ -201,4 +201,7 @@
 	url = https://github.com/ethpandaops/withdrawals-testnet.git
 [submodule "vendor/sepolia"]
 	path = vendor/sepolia
-	url = https://github.com/eth-clients/sepolia
+	url = https://github.com/eth-clients/sepolia.git
+[submodule "vendor/nim-kzg4844"]
+	path = vendor/nim-kzg4844
+	url = https://github.com/status-im/nim-kzg4844/
