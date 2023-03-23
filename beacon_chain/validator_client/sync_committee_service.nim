@@ -406,14 +406,13 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
     debug "Producing contribution and proofs", delay = delay
   await service.produceAndPublishContributions(slot, beaconBlockRoot, duties)
 
-proc spawnSyncCommitteeTasks(service: SyncCommitteeServiceRef,
+proc processSyncCommitteeTasks(service: SyncCommitteeServiceRef,
                              slot: Slot) {.async.} =
   let
     vc = service.client
     duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)
     timeout = vc.beaconClock.durationToNextSlot()
 
-  var future: Future[void]
   try:
     await service.publishSyncMessagesAndContributions(slot,
                                                       duties).wait(timeout)
@@ -467,7 +466,7 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
           true
         else:
           currentSlot = slot
-          await service.spawnSyncCommitteeTasks(currentSlot.get())
+          await service.processSyncCommitteeTasks(currentSlot.get())
           false
       except CancelledError:
         debug "Service interrupted"
