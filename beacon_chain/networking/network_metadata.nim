@@ -205,9 +205,6 @@ template eth2Network(path: string, eth1Network: Eth1Network): Eth2NetworkMetadat
   loadCompileTimeNetworkMetadata(eth2NetworksDir & "/" & path,
                                  some eth1Network)
 
-template sepoliaTestnet(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
-  loadCompileTimeNetworkMetadata(sepoliaDir & "/" & path, some eth1Network)
-
 when const_preset == "gnosis":
   const
     gnosisMetadata* = loadCompileTimeNetworkMetadata(
@@ -222,7 +219,8 @@ elif const_preset == "mainnet":
   const
     mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
     praterMetadata* = eth2Network("shared/prater", goerli)
-    sepoliaMetadata* = sepoliaTestnet("bepolia", sepolia)
+    sepoliaMetadata* =
+      loadCompileTimeNetworkMetadata(sepoliaDir & "/bepolia", some sepolia)
   static:
     for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
       checkForkConsistency(network.cfg)
