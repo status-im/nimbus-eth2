@@ -22,8 +22,9 @@
 import
   chronicles, metrics,
   ../extras,
-  ./datatypes/[phase0, altair, bellatrix],
-  "."/[beaconstate, eth2_merkleization, helpers, validator, signatures]
+  ./datatypes/[phase0, altair, bellatrix, deneb],
+  "."/[beaconstate, eth2_merkleization, helpers, validator, signatures],
+  kzg4844/kzg_abi, kzg4844/kzg_ex
 
 from std/algorithm import fill, sorted
 from std/sequtils import count, filterIt, mapIt
@@ -751,23 +752,19 @@ func process_blob_kzg_commitments(
   else:
     return err("process_blob_kzg_commitments: verify_kzg_commitments_against_transactions failed")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.2/specs/eip4844/beacon-chain.md#validate_blobs_sidecar
-proc validate_blobs_sidecar*(slot: Slot, root: Eth2Digest,
-                          expected_kzg_commitments: seq[deneb.KZGCommitment],
-                          blobs_sidecar: deneb.BlobsSidecar):
-                            Result[void, cstring] =
-  if slot != blobs_sidecar.beacon_block_slot:
-    return err("validate_blobs_sidecar: different slot in block and sidecar")
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/fork-choice.md#validate_blobs
+proc validate_blobs*(expected_kzg_commitments: seq[KZGCommitment],
+                     blobs: seq[KzgBlob],
+                     proofs: seq[KZGProof]):
+                       Result[void, cstring] =
+  if expected_kzg_commitments.len != blobs.len:
+    return err("validate_blobs: different commitment and blob lengths")
 
-  if root != blobs_sidecar.beacon_block_root:
-    return err("validate_blobs_sidecar: different root in block and sidecar")
+  if proofs.len != blobs.len:
+    return err("validate_blobs: different proof and blob lengths")
 
-  if expected_kzg_commitments.len != blobs_sidecar.blobs.len:
-    return err("validate_blobs_sidecar: different commitment lengths")
-
-  # TODO
-  # if not kzg_4844.verify_aggregate_kzg_proof(asSeq(blobs_sidecar.blobs), expected_kzg_commitments, blobs_sidecar.kzg_aggregated_proof):
-  #  return err("validate_blobs_sidecar: aggregated kzg proof verification failed")
+  if verifyProofs(blobs, expected_kzg_commitments, proofs).isErr():
+    return err("validate_blobs: proof verification failed")
 
   ok()
 
