@@ -492,26 +492,58 @@ proc parseRoles*(data: string): Result[set[BeaconNodeRole], cstring] =
       return err("Invalid beacon node role string found")
   ok(res)
 
+proc normalizeUri*(remoteUri: Uri): Uri =
+  var r = remoteUri
+  if (len(r.scheme) == 0) and (len(r.username) == 0) and
+     (len(r.password) == 0) and (len(r.hostname) == 0) and
+     (len(r.port) == 0) and (len(r.path) > 0):
+    # When `scheme` is not specified and `port` is not specified - whole
+    # hostname is stored in `path`.`query` and `anchor` could still be present.
+    # test.com
+    # test.com?q=query
+    # test.com?q=query#anchor=anchor
+    parseUri("http://" & $remoteUri & ":" & $defaultEth2RestPort)
+  elif (len(r.scheme) > 0) and (len(r.username) == 0) and
+       (len(r.password) == 0) and (len(r.hostname) == 0) and
+       (len(r.port) == 0) and (len(r.path) > 0):
+    # When `scheme` is not specified but `port` is specified - whole
+    # hostname is stored in `scheme` and `port` is in `path`.
+    # 192.168.0.1:5052
+    # test.com:5052
+    # test.com:5052?q=query
+    # test.com:5052?q=query#anchor=anchor
+    parseUri("http://" & $remoteUri)
+  elif (len(r.scheme) > 0) and (len(r.hostname) > 0):
+    # When `scheme` is specified, but `port` is not we use default.
+    # http://192.168.0.1
+    # http://test.com
+    # http://test.com?q=query
+    # http://test.com?q=query#anchor=anchor
+    if len(r.port) == 0: r.port = $defaultEth2RestPort
+    r
+  else:
+    remoteUri
+
 proc init*(t: typedesc[BeaconNodeServerRef], remote: Uri,
            index: int): Result[BeaconNodeServerRef, string] =
   doAssert(index >= 0)
   let
     flags = {RestClientFlag.CommaSeparatedArray}
+    remoteUri = normalizeUri(remote)
     client =
       block:
-        let res = RestClientRef.new($remote, flags = flags)
+        let res = RestClientRef.new($remoteUri, flags = flags)
         if res.isErr(): return err($res.error())
         res.get()
     roles =
       block:
-        let res = parseRoles(remote.anchor)
+        let res = parseRoles(remoteUri.anchor)
         if res.isErr(): return err($res.error())
         res.get()
 
   let server = BeaconNodeServerRef(
-    client: client, endpoint: $remote, index: index, roles: roles,
-    logIdent: client.address.hostname & ":" &
-              Base10.toString(client.address.port),
+    client: client, endpoint: $remoteUri, index: index, roles: roles,
+    logIdent: $client.address.getUri(),
     status: RestBeaconNodeStatus.Offline
   )
   ok(server)
