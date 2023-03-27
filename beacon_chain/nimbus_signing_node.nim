@@ -78,9 +78,9 @@ proc stop(sn: SigningNodeRef) {.async.} =
 proc close(sn: SigningNodeRef) {.async.} =
   case sn.signingServer.kind
   of SigningNodeKind.Secure:
-    await sn.signingServer.sserver.stop()
+    await sn.signingServer.sserver.closeWait()
   of SigningNodeKind.NonSecure:
-    await sn.signingServer.nserver.stop()
+    await sn.signingServer.nserver.closeWait()
 
 proc loadTLSCert(pathName: InputFile): Result[TLSCertificate, cstring] =
   let data =
