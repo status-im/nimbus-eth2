@@ -36,31 +36,46 @@ type
     signingServer: SigningNodeServer
     keystoreCache: KeystoreCacheRef
     keysList: string
+    runKeystoreCachePruningLoopFut: Future[void]
+    sigintHandleFut: Future[void]
+    sigtermHandleFut: Future[void]
 
-proc getRouter*(): RestRouter
+  SigningNodeRef* = ref SigningNode
 
-proc router(sn: SigningNode): RestRouter =
+  SigningNodeError* = object of CatchableError
+
+proc validate(key: string, value: string): int =
+  case key
+  of "{validator_key}":
+    0
+  else:
+    1
+
+proc getRouter*(): RestRouter =
+  RestRouter.init(validate)
+
+proc router(sn: SigningNodeRef): RestRouter =
   case sn.signingServer.kind
   of SigningNodeKind.Secure:
     sn.signingServer.sserver.router
   of SigningNodeKind.NonSecure:
     sn.signingServer.nserver.router
 
-proc start(sn: SigningNode) =
+proc start(sn: SigningNodeRef) =
   case sn.signingServer.kind
   of SigningNodeKind.Secure:
     sn.signingServer.sserver.start()
   of SigningNodeKind.NonSecure:
     sn.signingServer.nserver.start()
 
-proc stop(sn: SigningNode) {.async.} =
+proc stop(sn: SigningNodeRef) {.async.} =
   case sn.signingServer.kind
   of SigningNodeKind.Secure:
     await sn.signingServer.sserver.stop()
   of SigningNodeKind.NonSecure:
     await sn.signingServer.nserver.stop()
 
-proc close(sn: SigningNode) {.async.} =
+proc close(sn: SigningNodeRef) {.async.} =
   case sn.signingServer.kind
   of SigningNodeKind.Secure:
     await sn.signingServer.sserver.stop()
@@ -95,106 +110,30 @@ proc loadTLSKey(pathName: InputFile): Result[TLSPrivateKey, cstring] =
       return err("Invalid private key or incorrect file format")
   ok(key)
 
-proc initValidators(sn: var SigningNode): bool =
-  info "Initializaing validators", path = sn.config.validatorsDir()
-  var publicKeyIdents: seq[string]
-  for keystore in listLoadableKeystores(sn.config, sn.keystoreCache):
-    # Not relevant in signing node
-    # TODO don't print when loading validators
-    let feeRecipient = default(Eth1Address)
-    case keystore.kind
-    of KeystoreKind.Local:
-      discard sn.attachedValidators.addValidator(keystore,
-                                                 feeRecipient,
-                                                 defaultGasLimit)
-      publicKeyIdents.add("\"0x" & keystore.pubkey.toHex() & "\"")
-    of KeystoreKind.Remote:
-      error "Signing node do not support remote validators",
-            validator_pubkey = keystore.pubkey
-      return false
-  sn.keysList = "[" & publicKeyIdents.join(", ") & "]"
-  true
-
-proc init(t: typedesc[SigningNode], config: SigningNodeConf): SigningNode =
-  var sn = SigningNode(
-    config: config,
-    keystoreCache: KeystoreCacheRef.init()
-  )
-
-  if not(initValidators(sn)):
-    fatal "Could not find/initialize local validators"
-    quit 1
-
-  asyncSpawn runKeystoreCachePruningLoop(sn.keystoreCache)
-
-  let
-    address = initTAddress(config.bindAddress, config.bindPort)
-    serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
-                   HttpServerFlags.NotifyDisconnect}
-    timeout =
-      if config.requestTimeout < 0:
-        warn "Negative value of request timeout, using default instead"
-        seconds(defaultSigningNodeRequestTimeout)
-      else:
-        seconds(config.requestTimeout)
-    serverIdent =
-      if config.serverIdent.isSome():
-        config.serverIdent.get()
-      else:
-        NimbusSigningNodeIdent
-
-  sn.signingServer =
-    if config.tlsEnabled:
-      if config.tlsCertificate.isNone():
-        fatal "TLS certificate path is missing, please use --tls-cert option"
-        quit 1
-
-      if config.tlsPrivateKey.isNone():
-        fatal "TLS private key path is missing, please use --tls-key option"
-        quit 1
-
-      let cert =
-        block:
-          let res = loadTLSCert(config.tlsCertificate.get())
-          if res.isErr():
-            fatal "Could not initialize SSL certificate", reason = $res.error()
-            quit 1
-          res.get()
-      let key =
-        block:
-          let res = loadTLSKey(config.tlsPrivateKey.get())
-          if res.isErr():
-            fatal "Could not initialize SSL private key", reason = $res.error()
-            quit 1
-          res.get()
-      let res = SecureRestServerRef.new(getRouter(), address, key, cert,
-                                        serverFlags = serverFlags,
-                                        httpHeadersTimeout = timeout,
-                                        serverIdent = serverIdent)
-      if res.isErr():
-        fatal "HTTPS(REST) server could not be started", address = $address,
-              reason = $res.error()
-        quit 1
-      SigningNodeServer(kind: SigningNodeKind.Secure, sserver: res.get())
-    else:
-      let res = RestServerRef.new(getRouter(), address,
-                                  serverFlags = serverFlags,
-                                  httpHeadersTimeout = timeout,
-                                  serverIdent = serverIdent)
-      if res.isErr():
-        fatal "HTTP(REST) server could not be started", address = $address,
-               reason = $res.error()
-        quit 1
-      SigningNodeServer(kind: SigningNodeKind.NonSecure, nserver: res.get())
-  sn
+proc new(t: typedesc[SigningNodeRef], config: SigningNodeConf): SigningNodeRef =
+  when declared(waitSignal):
+    SigningNodeRef(
+      config: config,
+      sigintHandleFut: waitSignal(SIGINT),
+      sigtermHandleFut: waitSignal(SIGTERM),
+      keystoreCache: KeystoreCacheRef.init()
+    )
+  else:
+    SigningNodeRef(
+      config: config,
+      sigintHandleFut: newFuture[void]("sigint_placeholder"),
+      sigtermHandleFut: newFuture[void]("sigterm_placeholder"),
+      keystoreCache: KeystoreCacheRef.init()
+    )
 
 template errorResponse(code: HttpCode, message: string): RestApiResponse =
   RestApiResponse.response("{\"error\": \"" & message & "\"}", code)
 
 template signatureResponse(code: HttpCode, signature: string): RestApiResponse =
-  RestApiResponse.response("{\"signature\": \"0x" & signature & "\"}", code, "application/json")
+  RestApiResponse.response("{\"signature\": \"0x" & signature & "\"}",
+                           code, "application/json")
 
-proc installApiHandlers*(node: SigningNode) =
+proc installApiHandlers*(node: SigningNodeRef) =
   var router = node.router()
 
   router.api(MethodGet, "/api/v1/eth2/publicKeys") do () -> RestApiResponse:
@@ -344,30 +283,155 @@ proc installApiHandlers*(node: SigningNode) =
           signature = cooked.toValidatorSig().toHex()
         signatureResponse(Http200, signature)
 
-proc validate(key: string, value: string): int =
-  case key
-  of "{validator_key}":
-    0
-  else:
-    1
-
-proc getRouter*(): RestRouter =
-  RestRouter.init(validate)
-
-programMain:
-  let config = makeBannerAndConfig("Nimbus signing node " & fullVersionStr,
-                                   SigningNodeConf)
-  setupLogging(config.logLevel, config.logStdout, config.logFile)
-
-  var sn = SigningNode.init(config)
+proc asyncInit(sn: SigningNodeRef) {.async.} =
   notice "Launching signing node", version = fullVersionStr,
-         cmdParams = commandLineParams(), config,
-         validators_count = sn.attachedValidators.count()
+         cmdParams = commandLineParams(), config = sn.config
+
+  info "Initializaing validators", path = sn.config.validatorsDir()
+  var keysList: seq[string]
+  for keystore in listLoadableKeystores(sn.config, sn.keystoreCache):
+    # Not relevant in signing node
+    # TODO don't print when loading validators
+    let feeRecipient = default(Eth1Address)
+    case keystore.kind
+    of KeystoreKind.Local:
+      discard sn.attachedValidators.addValidator(keystore,
+                                                 feeRecipient,
+                                                 defaultGasLimit)
+      keysList.add("\"0x" & keystore.pubkey.toHex() & "\"")
+    of KeystoreKind.Remote:
+      warn "Signing node do not support remote validators",
+           path = sn.config.validatorsDir(),
+           validator_pubkey = keystore.pubkey
+
+  if len(keysList) == 0:
+    fatal "Could not find/initialize local validators"
+    raise newException(SigningNodeError, "")
+
+  sn.keysList = "[" & keysList.join(", ") & "]"
+
+  let
+    address = initTAddress(sn.config.bindAddress, sn.config.bindPort)
+    serverFlags = {HttpServerFlags.QueryCommaSeparatedArray,
+                   HttpServerFlags.NotifyDisconnect}
+    timeout =
+      if sn.config.requestTimeout < 0:
+        warn "Negative value of request timeout, using default instead"
+        seconds(defaultSigningNodeRequestTimeout)
+      else:
+        seconds(sn.config.requestTimeout)
+    serverIdent =
+      if sn.config.serverIdent.isSome():
+        sn.config.serverIdent.get()
+      else:
+        NimbusSigningNodeIdent
+
+  sn.signingServer =
+    if sn.config.tlsEnabled:
+      if sn.config.tlsCertificate.isNone():
+        fatal "TLS certificate path is missing, please use --tls-cert option"
+        raise newException(SigningNodeError, "")
+
+      if sn.config.tlsPrivateKey.isNone():
+        fatal "TLS private key path is missing, please use --tls-key option"
+        raise newException(SigningNodeError, "")
+
+      let cert =
+        block:
+          let res = loadTLSCert(sn.config.tlsCertificate.get())
+          if res.isErr():
+            fatal "Could not initialize SSL certificate",
+                  reason = $res.error()
+            raise newException(SigningNodeError, "")
+          res.get()
+      let key =
+        block:
+          let res = loadTLSKey(sn.config.tlsPrivateKey.get())
+          if res.isErr():
+            fatal "Could not initialize SSL private key",
+                  reason = $res.error()
+            raise newException(SigningNodeError, "")
+          res.get()
+      let res = SecureRestServerRef.new(getRouter(), address, key, cert,
+                                        serverFlags = serverFlags,
+                                        httpHeadersTimeout = timeout,
+                                        serverIdent = serverIdent)
+      if res.isErr():
+        fatal "HTTPS(REST) server could not be started", address = $address,
+              reason = $res.error()
+        raise newException(SigningNodeError, "")
+      SigningNodeServer(kind: SigningNodeKind.Secure, sserver: res.get())
+    else:
+      let res = RestServerRef.new(getRouter(), address,
+                                  serverFlags = serverFlags,
+                                  httpHeadersTimeout = timeout,
+                                  serverIdent = serverIdent)
+      if res.isErr():
+        fatal "HTTP(REST) server could not be started", address = $address,
+               reason = $res.error()
+        raise newException(SigningNodeError, "")
+      SigningNodeServer(kind: SigningNodeKind.NonSecure, nserver: res.get())
+
+proc asyncRun*(sn: SigningNodeRef) {.async.} =
+  sn.runKeystoreCachePruningLoopFut =
+    runKeystorecachePruningLoop(sn.keystoreCache)
   sn.installApiHandlers()
   sn.start()
+
+  var future = newFuture[void]("signing-node-mainLoop")
   try:
-    runForever()
-  finally:
-    waitFor sn.stop()
-    waitFor sn.close()
-  discard sn.stop()
+    await future
+  except CancelledError:
+    debug "Main loop interrupted"
+  except CatchableError as exc:
+    warn "Main loop failed with unexpected error", err_name = $exc.name,
+         reason = $exc.msg
+
+  debug "Stopping main processing loop"
+  var pending: seq[Future[void]]
+  if not(sn.runKeystoreCachePruningLoopFut.finished()):
+    pending.add(cancelAndWait(sn.runKeystoreCachePruningLoopFut))
+  pending.add(sn.stop())
+  pending.add(sn.close())
+  await allFutures(pending)
+
+template runWithSignals(sn: SigningNodeRef, body: untyped): bool =
+  let future = body
+  discard await race(future, sn.sigintHandleFut, sn.sigtermHandleFut)
+  if future.finished():
+    if future.failed() or future.cancelled():
+      let exc = future.readError()
+      debug "Signing node initialization failed"
+      var pending: seq[Future[void]]
+      if not(sn.sigintHandleFut.finished()):
+        pending.add(cancelAndWait(sn.sigintHandleFut))
+      if not(sn.sigtermHandleFut.finished()):
+        pending.add(cancelAndWait(sn.sigtermHandleFut))
+      await allFutures(pending)
+      false
+    else:
+      true
+  else:
+    let signal = if sn.sigintHandleFut.finished(): "SIGINT" else: "SIGTERM"
+    info "Got interrupt, trying to shutdown gracefully", signal = signal
+    var pending = @[cancelAndWait(future)]
+    if not(sn.sigintHandleFut.finished()):
+      pending.add(cancelAndWait(sn.sigintHandleFut))
+    if not(sn.sigtermHandleFut.finished()):
+      pending.add(cancelAndWait(sn.sigtermHandleFut))
+    await allFutures(pending)
+    false
+
+proc runSigningNode(config: SigningNodeConf) {.async.} =
+  let sn = SigningNodeRef.new(config)
+  if not sn.runWithSignals(asyncInit sn):
+    return
+  if not sn.runWithSignals(asyncRun sn):
+    return
+
+programMain:
+  let config =
+    makeBannerAndConfig("Nimbus signing node " & fullVersionStr,
+                        SigningNodeConf)
+  setupLogging(config.logLevel, config.logStdout, config.logFile)
+  waitFor runSigningNode(config)
