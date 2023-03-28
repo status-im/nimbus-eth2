@@ -85,7 +85,6 @@ declarePublicGauge(attached_validator_balance_total,
 logScope: topics = "beacval"
 
 type
-  # could keep bid value here
   ForkedBlockResult = Result[ForkedBeaconBlock, string]
 
   SyncStatus* {.pure.} = enum
@@ -393,7 +392,7 @@ proc makeBeaconBlockForHeadAndSlot*(
               get_expected_withdrawals(forkyState.data))
             if  withdrawals_root.isNone or
                 hash_tree_root(withdrawals) != withdrawals_root.get:
-              # TODO: Why don't we fallback to the EL payload here?
+              # If engine API returned a block, will use that
               return err("Builder relay provided incorrect withdrawals root")
             # Otherwise, the state transition function notices that there are
             # too few withdrawals.
@@ -696,7 +695,7 @@ proc getBuilderBid[
   if blindedBlockParts.isErr:
     # Not signed yet, fine to try to fall back on EL
     beacon_block_builder_missed_with_fallback.inc()
-    return err "FOOBAR1"
+    return err "getBlindedBlockParts failed"
 
   # These, together, get combined into the blinded block for signing and
   # proposal through the relay network.
@@ -734,7 +733,7 @@ proc getBuilderBid[
     info "getBuilderBid: getBlindedBeaconBlock failed",
       slot, head = shortLog(head), validator_index, blindedBlock,
       error = blindedBlock.error
-    return err "FOOBAR2"
+    return err "getBuilderBid: getBlindedBeaconBlock failed"
 
   return blindedBlock
 
@@ -843,57 +842,86 @@ proc proposeBlockAux[SBBB, EPS](node: BeaconNode,
     if node.config.payloadBuilderEnable:
       withState(node.dag.headState):
         # Head slot, not proposal slot, matters here
+        # TODO it might make some sense to allow use of builder API if local
+        # EL fails -- i.e. it would change priorities, so any block from the
+        # execution layer client would override builder API. But it seems an
+        # odd requirement to produce no block at all in those conditions.
         not livenessFailsafeInEffect(
           forkyState.data.block_roots.data, forkyState.data.slot)
     else:
       false
 
-  let payloadBuilderBidFut =
-    if usePayloadBuilder:
-      getBuilderBid[SBBB](node, head, validator, slot, randao, validator_index)
-    else:
-      let fut = newFuture[Result[SBBB, string]]("FOOBAR3")
-      fut.complete(Result[SBBB, string].err("FOOBAR4"))
-      fut
+  let
+    payloadBuilderBidFut =
+      if usePayloadBuilder:
+        getBuilderBid[SBBB](node, head, validator, slot, randao, validator_index)
+      else:
+        let fut = newFuture[Result[SBBB, string]]("builder-bid")
+        fut.complete(Result[SBBB, string].err(
+          "either payload builder disabled or liveness failsafe active"))
+        fut
+    engineBlockFut = makeBeaconBlockForHeadAndSlot(
+      EPS, node, randao, validator_index, node.graffitiBytes, head, slot)
 
-  let engineBlockFut = makeBeaconBlockForHeadAndSlot(
-    EPS, node, randao, validator_index, node.graffitiBytes, head, slot)
-
-  # TODO are both sub-tasks already time-bounded with their own timeouts?
+  # getBuilderBid times out after BUILDER_PROPOSAL_DELAY_TOLERANCE, with 1 more
+  # second for remote validators. makeBeaconBlockForHeadAndSlot times out after
+  # 1 second.
   await allFutures(payloadBuilderBidFut, engineBlockFut)
   doAssert payloadBuilderBidFut.finished and engineBlockFut.finished
 
-  when false:
-    if newBlockMEV.isSome:
-      # This might be equivalent to the `head` passed in, but it signals that
-      # `submitBlindedBlock` ran, so don't do anything else. Otherwise, it is
-      # fine to try again with the local EL.
-      if newBlockMEV.get == head:
-        # Returning same block as head indicates failure to generate new block
-        beacon_block_builder_missed_without_fallback.inc()
-      return newBlockMEV.get
+  let builderBidAvailable =
+    if payloadBuilderBidFut.completed:
+      if payloadBuilderBidFut.read().isOk:
+        true
+      elif usePayloadBuilder:
+        info "Payload builder error",
+          slot, head = shortLog(head), validator = shortLog(validator),
+          err = payloadBuilderBidFut.read().error()
+        false
+      else:
+        # Effectively the same case, but without the log message
+        false
+    else:
+      info "Payload builder bid future failed",
+        slot, head = shortLog(head), validator = shortLog(validator)
+      false
 
-  # Compare bids
-  let
-    # TODO check for completed status ("Finished" in chronos)
-    useBuilderBlock = false  # check if newBlock.isErr, if so, always use builder
+  let engineBidAvailable =
+    if engineBlockFut.completed:
+      if engineBlockFut.read().isOk:
+        true
+      else:
+        info "Engine block building error",
+          slot, head = shortLog(head), validator = shortLog(validator),
+          err = payloadBuilderBidFut.read().error()
+        false
+    else:
+      info "Engine block building failed",
+        slot, head = shortLog(head), validator = shortLog(validator)
+      false
+
+  let useBuilderBlock =
+    if builderBidAvailable:
+      if engineBidAvailable:
+        true
+      else:
+        true
+    else:
+      if not engineBidAvailable:
+        return head   # errors logged in router
+      false
 
   if useBuilderBlock:
-    # TODO unprotected get, in proposeBlockMEV -- ensure is safe, or do here,
-    # and check whether newBlock = engineBlockFut.read() isErr
-    return (await proposeBlockMEV[SBBB](
+    let maybeUnblindedBlock = await proposeBlockMEV[SBBB](
       node, head, validator, slot, randao, validator_index,
-      # TODO can read multiplel times?
-      # TODO unprotected get
-      payloadBuilderBidFut.read())).get
+      payloadBuilderBidFut.read())
 
-  let newBlock = engineBlockFut.read()
+    # Committed to builder API. No more engine API fallback, even if it fails
+    return maybeUnblindedBlock.valueOr:
+      beacon_block_builder_missed_without_fallback.inc()
+      return head
 
-  if newBlock.isErr():
-    # TODO if tried should then still try MEV
-    return head # already logged elsewhere!
-
-  var forkedBlck = newBlock.get()
+  var forkedBlck = engineBlockFut.read().get
 
   withBlck(forkedBlck):
     var blobs_sidecar = deneb.BlobsSidecar(
@@ -937,7 +965,6 @@ proc proposeBlockAux[SBBB, EPS](node: BeaconNode,
             return head
           res.get()
       signedBlock =
-        # TODO need when/etc?
         when blck is phase0.BeaconBlock:
           phase0.SignedBeaconBlock(
             message: blck, signature: signature, root: blockRoot)
