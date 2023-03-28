@@ -676,7 +676,7 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
 
   return ok((executionPayloadHeader.get, forkedBlck))
 
-proc proposeBlockMEV1[
+proc getBuilderBid[
     SBBB: bellatrix_mev.SignedBlindedBeaconBlock |
           capella_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, head: BlockRef, validator: AttachedValidator, slot: Slot,
@@ -731,14 +731,14 @@ proc proposeBlockMEV1[
         Result[SBBB, string].err("getBlindedBlock timed out")
 
   if blindedBlock.isErr:
-    info "proposeBlockMEV: getBlindedBeaconBlock failed",
+    info "getBuilderBid: getBlindedBeaconBlock failed",
       slot, head = shortLog(head), validator_index, blindedBlock,
       error = blindedBlock.error
     return err "FOOBAR2"
 
   return blindedBlock
 
-proc proposeBlockMEV2[
+proc proposeBlockMEV[
     SBBB: bellatrix_mev.SignedBlindedBeaconBlock |
           capella_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, head: BlockRef, validator: AttachedValidator, slot: Slot,
@@ -838,46 +838,59 @@ proc proposeBlockAux[SBBB, EPS](node: BeaconNode,
                                 fork: Fork,
                                 genesis_validators_root: Eth2Digest):
                                 Future[BlockRef] {.async.} =
-  if node.config.payloadBuilderEnable:
-    let failsafeInEffect =
+  # Collect bids
+  let usePayloadBuilder =
+    if node.config.payloadBuilderEnable:
       withState(node.dag.headState):
         # Head slot, not proposal slot, matters here
-        livenessFailsafeInEffect(
+        not livenessFailsafeInEffect(
           forkyState.data.block_roots.data, forkyState.data.slot)
-    if not failsafeInEffect:
-      # TODO this shouldn't await here, but only set up future, to be awaited, if
-      # it exists, along with non-MEV newBlock, taking into account timings, that
-      # implicitly occur due to timeouts within each of proposeBlockMEV1, plus in
-      # makeBeaconBlockForHeadAndSlot's network components.
-      #
-      # Collate these essentially as semi-unified bids -- proposeBlockMEV1 [to be
-      # renamed] is safe to just spam out, but proposeBlockMEV2 commits. So it is
-      # fine to run proposeBlockMEV1 in parallel, get bid, and check from there.
-      #
-      # HERE, check future later and maybe do proposeBlockMEV2 then
-      let newBlockMEV = await proposeBlockMEV1[SBBB](
-        node, head, validator, slot, randao, validator_index)
+    else:
+      false
 
-      # TODO reevaluate this, and in general, need to ensure all codepaths
-      # still maintain slashing-safety
-      when false:
-        if newBlockMEV.isSome:
-          # This might be equivalent to the `head` passed in, but it signals that
-          # `submitBlindedBlock` ran, so don't do anything else. Otherwise, it is
-          # fine to try again with the local EL.
-          if newBlockMEV.get == head:
-            # Returning same block as head indicates failure to generate new block
-            beacon_block_builder_missed_without_fallback.inc()
-          return newBlockMEV.get
+  let payloadBuilderBidFut =
+    if usePayloadBuilder:
+      getBuilderBid[SBBB](node, head, validator, slot, randao, validator_index)
+    else:
+      let fut = newFuture[Result[SBBB, string]]("FOOBAR3")
+      fut.complete(Result[SBBB, string].err("FOOBAR4"))
+      fut
 
-  let newBlock = await makeBeaconBlockForHeadAndSlot(
+  let engineBlockFut = makeBeaconBlockForHeadAndSlot(
     EPS, node, randao, validator_index, node.graffitiBytes, head, slot)
 
-  # TODO Compare the value of the MEV block and the execution block
-  #      obtained from the EL below:
+  # TODO are both sub-tasks already time-bounded with their own timeouts?
+  await allFutures(payloadBuilderBidFut, engineBlockFut)
+  doAssert payloadBuilderBidFut.finished and engineBlockFut.finished
+
+  when false:
+    if newBlockMEV.isSome:
+      # This might be equivalent to the `head` passed in, but it signals that
+      # `submitBlindedBlock` ran, so don't do anything else. Otherwise, it is
+      # fine to try again with the local EL.
+      if newBlockMEV.get == head:
+        # Returning same block as head indicates failure to generate new block
+        beacon_block_builder_missed_without_fallback.inc()
+      return newBlockMEV.get
+
+  # Compare bids
+  let
+    # TODO check for completed status ("Finished" in chronos)
+    useBuilderBlock = false  # check if newBlock.isErr, if so, always use builder
+
+  if useBuilderBlock:
+    # TODO unprotected get, in proposeBlockMEV -- ensure is safe, or do here,
+    # and check whether newBlock = engineBlockFut.read() isErr
+    return (await proposeBlockMEV[SBBB](
+      node, head, validator, slot, randao, validator_index,
+      # TODO can read multiplel times?
+      # TODO unprotected get
+      payloadBuilderBidFut.read())).get
+
+  let newBlock = engineBlockFut.read()
 
   if newBlock.isErr():
-    # TODO should then still try MEV
+    # TODO if tried should then still try MEV
     return head # already logged elsewhere!
 
   var forkedBlck = newBlock.get()
