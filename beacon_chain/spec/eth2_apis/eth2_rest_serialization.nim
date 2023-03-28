@@ -1003,7 +1003,17 @@ proc readValue*[BlockType: ForkedBeaconBlock](
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
   of ConsensusFork.Deneb:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             deneb.BeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[deneb.BeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect deneb block format")
+    value = ForkedBeaconBlock.init(res.get()).BlockType
 
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        reader: var JsonReader[RestJson],
@@ -1066,7 +1076,17 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Capella,
                                      capellaData: res)
   of ConsensusFork.Deneb:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+    let res =
+      try:
+        RestJson.decode(string(data.get()),
+                        capella_mev.BlindedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError as exc:
+        reader.raiseUnexpectedValue("Incorrect deneb block format, [" &
+                                    exc.formatMsg("BlindedBlock") & "]")
+    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Deneb,
+                                     denebData: res)
 
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
@@ -1136,7 +1156,19 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
       kind: ConsensusFork.Capella,
       capellaData: res.get())
   of ConsensusFork.Deneb:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             BeaconBlockHeader,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[BeaconBlockHeader]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect deneb block format")
+    value = Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Deneb,
+      denebData: res.get())
 
 proc writeValue*[
     BlockType: Web3SignerForkedBeaconBlock](
@@ -1493,7 +1525,15 @@ proc readValue*(reader: var JsonReader[RestJson],
         )
       )
     of ConsensusFork.Deneb:
-      reader.raiseUnexpectedValue($denebImplementationMissing)
+      ForkedBeaconBlock.init(
+        deneb.BeaconBlock(
+          slot: slot.get(),
+          proposer_index: proposer_index.get(),
+          parent_root: parent_root.get(),
+          state_root: state_root.get(),
+          body: body.denebBody
+        )
+      )
   )
 
 ## RestPublishedSignedBeaconBlock
@@ -1554,7 +1594,12 @@ proc readValue*(reader: var JsonReader[RestJson],
         )
       )
     of ConsensusFork.Deneb:
-      reader.raiseUnexpectedValue($denebImplementationMissing)
+      ForkedSignedBeaconBlock.init(
+        deneb.SignedBeaconBlock(
+          message: blck.denebData,
+          signature: signature.get()
+        )
+      )
   )
 
 ## ForkedSignedBeaconBlock
@@ -1648,7 +1693,17 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = ForkedSignedBeaconBlock.init(res.get())
   of ConsensusFork.Deneb:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             deneb.SignedBeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[deneb.SignedBeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect deneb block format")
+    value = ForkedSignedBeaconBlock.init(res.get())
   withBlck(value):
     blck.root = hash_tree_root(blck.message)
 
@@ -2731,7 +2786,14 @@ proc decodeBody*(
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
     of ConsensusFork.Deneb:
-      return err($denebImplementationMissing)
+      let blck =
+        try:
+          SSZ.decode(body.data, deneb.SignedBeaconBlock)
+        except SerializationError:
+          return err("Unable to deserialize data")
+        except CatchableError:
+          return err("Unexpected deserialization error")
+      ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
   else:
     return err("Unsupported or invalid content media type")
 
