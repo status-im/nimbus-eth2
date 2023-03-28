@@ -275,7 +275,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       (ref phase0.HashedBeaconState)(),
       (ref altair.HashedBeaconState)(),
       (ref bellatrix.HashedBeaconState)(),
-      (ref capella.HashedBeaconState)())
+      (ref capella.HashedBeaconState)(),
+      (ref deneb.HashedBeaconState)())
 
   withTimer(timers[tLoadState]):
     doAssert dag.updateState(
@@ -334,7 +335,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 doAssert dbBenchmark.getState(
                   forkyState.root, loadedState[3][].data, noRollback)
               of ConsensusFork.Deneb:
-                raiseAssert $denebImplementationMissing & ": ncli_db.nim: cmdBench (1)"
+                doAssert dbBenchmark.getState(
+                  forkyState.root, loadedState[4][].data, noRollback)
 
             if forkyState.data.slot.epoch mod 16 == 0:
               let loadedRoot = case consensusFork
@@ -342,7 +344,7 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
                 of ConsensusFork.Altair:    hash_tree_root(loadedState[1][].data)
                 of ConsensusFork.Bellatrix: hash_tree_root(loadedState[2][].data)
                 of ConsensusFork.Capella:   hash_tree_root(loadedState[3][].data)
-                of ConsensusFork.Deneb:     raiseAssert $denebImplementationMissing & ": ncli_db.nim: cmdBench (2)"
+                of ConsensusFork.Deneb:     hash_tree_root(loadedState[4][].data)
               doAssert hash_tree_root(forkyState.data) == loadedRoot
 
   processBlocks(blocks[0])
