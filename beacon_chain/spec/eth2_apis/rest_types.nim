@@ -520,8 +520,7 @@ type
     signature*: ValidatorSig
     slot*: Slot
 
-  Web3SignerKeysResponse* = object
-    keys*: seq[ValidatorPubKey]
+  Web3SignerKeysResponse* = seq[ValidatorPubKey]
 
   Web3SignerStatusResponse* = object
     status*: string

@@ -666,6 +666,34 @@ proc getSlotSignature*(v: AttachedValidator, fork: Fork,
   v.slotSignature = Opt.some((slot, signature.get))
   return signature
 
+proc getValidatorExitSignature*(v: AttachedValidator, fork: Fork,
+                                genesis_validators_root: Eth2Digest,
+                                voluntary_exit: VoluntaryExit
+                               ): Future[SignatureResult] {.async.} =
+  return
+    case v.kind
+    of ValidatorKind.Local:
+      SignatureResult.ok(get_voluntary_exit_signature(
+        fork, genesis_validators_root, voluntary_exit,
+        v.data.privateKey).toValidatorSig())
+    of ValidatorKind.Remote:
+      let request = Web3SignerRequest.init(fork, genesis_validators_root,
+                                           voluntary_exit)
+      await v.signData(request)
+
+proc getDepositMessageSignature*(v: AttachedValidator, version: Version,
+                                 deposit_message: DepositMessage
+                                ): Future[SignatureResult] {.async.} =
+  return
+    case v.kind
+    of ValidatorKind.Local:
+      SignatureResult.ok(get_deposit_signature(
+        deposit_message, version,
+        v.data.privateKey).toValidatorSig())
+    of ValidatorKind.Remote:
+      let request = Web3SignerRequest.init(version, deposit_message)
+      await v.signData(request)
+
 # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/bellatrix/builder.md#signing
 proc getBuilderSignature*(v: AttachedValidator, fork: Fork,
     validatorRegistration: ValidatorRegistrationV1):

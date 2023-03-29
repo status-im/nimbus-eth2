@@ -2017,7 +2017,8 @@ proc readValue*(reader: var JsonReader[RestJson],
       signingRoot = some(reader.readValue(Eth2Digest))
     of "aggregation_slot", "aggregate_and_proof", "block", "beacon_block",
        "randao_reveal", "voluntary_exit", "sync_committee_message",
-       "sync_aggregator_selection_data", "contribution_and_proof", "attestation":
+       "sync_aggregator_selection_data", "contribution_and_proof",
+       "attestation", "deposit", "validator_registration":
       if data.isSome():
         reader.raiseUnexpectedField("Multiple data fields found",
                                     "Web3SignerRequest")
