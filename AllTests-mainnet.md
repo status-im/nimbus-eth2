@@ -223,11 +223,15 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + load altair state                                                                          OK
 + load bellatrix block                                                                       OK
 + load bellatrix state                                                                       OK
++ load capella block                                                                         OK
++ load capella state                                                                         OK
++ load deneb block                                                                           OK
++ load deneb state                                                                           OK
 + load phase0 block                                                                          OK
 + load phase0 state                                                                          OK
 + should raise on unknown data                                                               OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Gas limit management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the gas limit [Beacon Node] [Preset: mainnet]                                  OK
@@ -636,4 +640,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 353/358 Fail: 0/358 Skip: 5/358
+OK: 357/362 Fail: 0/362 Skip: 5/362
