@@ -948,9 +948,18 @@ suite "Nimbus remote signer test":
         check:
           response.status == 200
           len(response.data) == 3
-          "0x" & response.data[0].toHex() == ValidatorPubKey1
-          "0x" & response.data[1].toHex() == ValidatorPubKey2
-          "0x" & response.data[2].toHex() == ValidatorPubKey3
+        let
+          received = sorted([
+            "0x" & response.data[0].toHex(),
+            "0x" & response.data[1].toHex(),
+            "0x" & response.data[2].toHex()
+          ])
+          expected = sorted([
+            ValidatorPubKey1,
+            ValidatorPubKey2,
+            ValidatorPubKey3
+          ])
+        check received == expected
 
       await sleepAsync(seconds(SigningRequestTimeoutSeconds) + 100.milliseconds)
 
@@ -959,9 +968,18 @@ suite "Nimbus remote signer test":
         check:
           response.status == 200
           len(response.data) == 3
-          "0x" & response.data[0].toHex() == ValidatorPubKey1
-          "0x" & response.data[1].toHex() == ValidatorPubKey2
-          "0x" & response.data[2].toHex() == ValidatorPubKey3
+        let
+          received = sorted([
+            "0x" & response.data[0].toHex(),
+            "0x" & response.data[1].toHex(),
+            "0x" & response.data[2].toHex()
+          ])
+          expected = sorted([
+            ValidatorPubKey1,
+            ValidatorPubKey2,
+            ValidatorPubKey3
+          ])
+        check received == expected
 
     finally:
       await client.closeWait()
