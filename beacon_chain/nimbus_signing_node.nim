@@ -144,6 +144,28 @@ proc installApiHandlers*(node: SigningNodeRef) =
     return RestApiResponse.response("{\"status\": \"OK\"}", Http200,
                                     "application/json")
 
+  router.api(MethodPost, "/reload") do () -> RestApiResponse:
+    node.attachedValidators.close()
+
+    var keysList: seq[string]
+    for keystore in listLoadableKeystores(node.config, node.keystoreCache):
+      # Not relevant in signing node
+      # TODO don't print when loading validators
+      let feeRecipient = default(Eth1Address)
+      case keystore.kind
+      of KeystoreKind.Local:
+        discard node.attachedValidators.addValidator(keystore,
+                                                   feeRecipient,
+                                                   defaultGasLimit)
+        keysList.add("\"0x" & keystore.pubkey.toHex() & "\"")
+      of KeystoreKind.Remote:
+        warn "Signing node do not support remote validators",
+             path = node.config.validatorsDir(),
+             validator_pubkey = keystore.pubkey
+
+    node.keysList = "[" & keysList.join(", ") & "]"
+    return RestApiResponse.response(Http200)
+
   router.api(MethodPost, "/api/v1/eth2/sign/{validator_key}") do (
     validator_key: ValidatorPubKey,
     contentBody: Option[ContentBody]) -> RestApiResponse:

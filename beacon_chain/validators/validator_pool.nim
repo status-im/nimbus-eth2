@@ -268,6 +268,7 @@ proc close*(pool: var ValidatorPool) =
     if res.isErr():
       notice "Could not unlock validator's keystore file",
              pubkey = validator.pubkey, validator = shortLog(validator)
+  pool.validators.clear()
 
 iterator publicKeys*(pool: ValidatorPool): ValidatorPubKey =
   for item in pool.validators.keys():
@@ -394,6 +395,8 @@ proc signWithDistributedKey(v: AttachedValidator,
 
   await allFutures(signatureReqs)
 
+  if not(deadline.finished()): await cancelAndWait(deadline)
+
   var shares: seq[SignatureShare]
   var neededShares = v.data.threshold
 
@@ -424,6 +427,7 @@ proc signWithSingleKey(v: AttachedValidator,
     (client, info) = v.clients[0]
     res = await client.signData(info.pubkey, deadline, 2, request)
 
+  if not(deadline.finished()): await cancelAndWait(deadline)
   if res.isErr():
     return SignatureResult.err(res.error.message)
   else:

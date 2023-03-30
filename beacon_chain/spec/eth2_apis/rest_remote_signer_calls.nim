@@ -10,7 +10,7 @@ import
   chronicles, metrics,
   chronos, chronos/apps/http/httpclient, presto, presto/client,
   serialization, json_serialization,
-  json_serialization/std/[options, net, sets],
+  json_serialization/std/[net, sets],
   stew/[results, base10, byteutils],
   "."/[rest_types, eth2_rest_serialization]
 
@@ -67,6 +67,11 @@ proc getUpcheck*(): RestResponse[Web3SignerStatusResponse] {.
      rest, endpoint: "/upcheck",
      meth: MethodGet, accept: "application/json" .}
   ## https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Server-Status
+
+proc reload*(): RestPlainResponse {.
+     rest, endpoint: "/reload",
+     meth: MethodPost, accept: "application/json" .}
+  ## https://consensys.github.io/web3signer/web3signer-eth2.html#tag/Reload-Signer-Keys/operation/RELOAD
 
 proc getKeys*(): RestResponse[Web3SignerKeysResponse] {.
      rest, endpoint: "/api/v1/eth2/publicKeys",
@@ -229,7 +234,7 @@ proc signData*(
      ): Future[Web3SignerDataResponse] {.async.} =
   doAssert(attemptsCount >= 1)
 
-  var attempt = 1
+  var attempt = 0
   while true:
     var
       operationFut: Future[Web3SignerDataResponse]
@@ -239,13 +244,11 @@ proc signData*(
       if isNil(timerFut):
         await allFutures(operationFut)
       else:
-        await timerFut or operationFut
+        discard await race(timerFut, operationFut)
     except CancelledError as exc:
       var pending: seq[Future[void]]
       if not(operationFut.finished()):
         pending.add(operationFut.cancelAndWait())
-      if not(isNil(timerFut)) and not(timerFut.finished()):
-        pending.add(timerFut.cancelAndWait())
       await allFutures(pending)
       raise exc
 
@@ -262,8 +265,6 @@ proc signData*(
           )
         )
     else:
-      if not(isNil(timerFut)) and not(timerFut.finished()):
-        await cancelAndWait(timerFut)
       let resp = operationFut.read()
       if resp.isOk():
         return resp
