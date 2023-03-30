@@ -241,7 +241,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
       seq[phase0.TrustedSignedBeaconBlock],
       seq[altair.TrustedSignedBeaconBlock],
       seq[bellatrix.TrustedSignedBeaconBlock],
-      seq[capella.TrustedSignedBeaconBlock])
+      seq[capella.TrustedSignedBeaconBlock],
+      seq[deneb.TrustedSignedBeaconBlock])
 
   echo &"Loaded head slot {dag.head.slot}, selected {blockRefs.len} blocks"
   doAssert blockRefs.len() > 0, "Must select at least one block"
@@ -264,7 +265,8 @@ proc cmdBench(conf: DbConf, cfg: RuntimeConfig) =
         blocks[3].add dag.db.getBlock(
           blck.root, capella.TrustedSignedBeaconBlock).get()
       of ConsensusFork.Deneb:
-        raiseAssert $denebImplementationMissing
+        blocks[4].add dag.db.getBlock(
+          blck.root, deneb.TrustedSignedBeaconBlock).get()
 
   let stateData = newClone(dag.headState)
 

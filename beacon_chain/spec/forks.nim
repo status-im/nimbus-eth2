@@ -413,7 +413,6 @@ func init*(T: type ForkedSignedBlindedBeaconBlock,
       capellaData: capella_mev.SignedBlindedBeaconBlock(message: forked.capellaData,
                                                         signature: signature))
   of ConsensusFork.Deneb:
-    discard $denebImplementationMissing & "forks.nim:init(T: type ForkedSignedBlindedBeaconBlock)"
     T(kind: ConsensusFork.Deneb,
       denebData: capella_mev.SignedBlindedBeaconBlock(message: forked.denebData,
                                                       signature: signature))
