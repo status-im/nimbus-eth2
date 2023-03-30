@@ -51,6 +51,7 @@ download_geth_stable() {
     mkdir -p "$(dirname "$STABLE_GETH_BINARY")"
     mv "$tmp_extract_dir/geth$EXE_EXTENSION" "$STABLE_GETH_BINARY"
     chmod +x "$STABLE_GETH_BINARY"
+    patchelf_when_on_nixos "$STABLE_GETH_BINARY"
   fi
 }
 
@@ -96,6 +97,7 @@ download_status_geth_binary() {
     mkdir -p "$(dirname "$BINARY_FS_PATH")"
     mv "$tmp_extract_dir/geth$EXE_EXTENSION" "$BINARY_FS_PATH"
     chmod +x "$BINARY_FS_PATH"
+    patchelf_when_on_nixos "$BINARY_FS_PATH"
   fi
 }
 

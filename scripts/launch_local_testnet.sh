@@ -577,6 +577,7 @@ download_nimbus_eth1() {
     mkdir -p "$(dirname "$NIMBUS_ETH1_BINARY")"
     mv "$tmp_extract_dir/build/nimbus$EXE_EXTENSION" "$NIMBUS_ETH1_BINARY"
     chmod +x "$NIMBUS_ETH1_BINARY"
+    patchelf_when_on_nixos "$NIMBUS_ETH1_BINARY"
   fi
 }
 

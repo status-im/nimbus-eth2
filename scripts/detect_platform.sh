@@ -17,4 +17,12 @@ fi
 # Architecture detection
 ARCH="$(uname -m)"
 
+patchelf_when_on_nixos () {
+  if [ -f /etc/NIXOS ]; then
+    nix-shell \
+      -p stdenv.cc \
+      --command 'patchelf --set-interpreter $(cat $NIX_CC/nix-support/dynamic-linker) "'$1'"'
+  fi
+}
+
 fi
