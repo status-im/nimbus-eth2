@@ -695,7 +695,7 @@ proc getBuilderBid[
   if blindedBlockParts.isErr:
     # Not signed yet, fine to try to fall back on EL
     beacon_block_builder_missed_with_fallback.inc()
-    return err "getBlindedBlockParts failed"
+    return err blindedBlockParts.error()
 
   # These, together, get combined into the blinded block for signing and
   # proposal through the relay network.
@@ -730,10 +730,7 @@ proc getBuilderBid[
         Result[SBBB, string].err("getBlindedBlock timed out")
 
   if blindedBlock.isErr:
-    info "getBuilderBid: getBlindedBeaconBlock failed",
-      slot, head = shortLog(head), validator_index, blindedBlock,
-      error = blindedBlock.error
-    return err "getBuilderBid: getBlindedBeaconBlock failed"
+    return err blindedBlock.error()
 
   return blindedBlock
 
