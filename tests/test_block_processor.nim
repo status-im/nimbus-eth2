@@ -9,7 +9,7 @@
 
 import
   chronos,
-  std/[options, sequtils],
+  std/sequtils,
   unittest2,
   eth/keys, taskpools,
   ../beacon_chain/[conf, beacon_clock],

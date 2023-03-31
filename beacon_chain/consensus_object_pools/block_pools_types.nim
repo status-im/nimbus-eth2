@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[options, sets, tables, hashes],
+  std/[sets, tables, hashes],
   # Status libraries
   chronicles,
   # Internals
@@ -25,7 +25,7 @@ from ../spec/datatypes/deneb import TrustedSignedBeaconBlock
 from "."/vanity_logs/vanity_logs import VanityLogs
 
 export
-  options, sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
+  sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
   block_pools_types_light_client, validator_monitor, VanityLogs
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
