@@ -52,7 +52,7 @@ jobs:
       - name: Prints the current branch name
         run: echo "${GITHUB_BRANCH_NAME##*/}"
         env:
-          GITHUB_BRANCH_NAME: ${{ github.ref_name }}
+          GITHUB_BRANCH_NAME: ${{ github.ref }}
 
   # https://github.com/EnricoMi/publish-unit-test-result-action
   event_file:
