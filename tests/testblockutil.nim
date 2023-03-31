@@ -6,7 +6,6 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[options, random],
   chronicles,
   eth/keys,
   stew/endians2,
@@ -14,6 +13,9 @@ import
   ../beacon_chain/spec/datatypes/bellatrix,
   ../beacon_chain/spec/[
     beaconstate, helpers, keystore, signatures, state_transition, validator]
+
+# TODO remove this dependency
+from std/random import rand
 
 from eth/common/eth_types import EMPTY_ROOT_HASH
 from eth/common/eth_types_rlp import rlpHash

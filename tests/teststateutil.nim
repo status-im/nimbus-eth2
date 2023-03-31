@@ -9,7 +9,6 @@
 
 import
   chronicles,
-  std/options,
   ./mocking/mock_deposits,
   ./helpers/math_helpers,
   ../beacon_chain/spec/[

@@ -10,7 +10,7 @@
 # and attesting when they're supposed to.
 
 import
-  std/[strformat, options, sequtils, tables],
+  std/[strformat, sequtils, tables],
   chronicles,
   confutils,
   stew/io2,

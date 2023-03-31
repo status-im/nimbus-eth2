@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[options, tables, sets, macros],
+  std/[tables, sets, macros],
   chronicles, chronos, snappy, snappy/codec,
   libp2p/switch,
   ../spec/datatypes/[phase0, altair, bellatrix, capella, deneb],

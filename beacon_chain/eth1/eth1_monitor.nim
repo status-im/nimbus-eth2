@@ -8,8 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[deques, options, strformat, strutils, sequtils, tables,
-       typetraits, uri, json],
+  std/[deques, strformat, strutils, sequtils, tables, typetraits, uri, json],
   # Nimble packages:
   chronos, metrics, chronicles/timings, stint/endians2,
   json_rpc/[client, errors],
