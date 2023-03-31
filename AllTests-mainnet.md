@@ -592,8 +592,12 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + Add keystore files [REMOTE]                                                                OK
 + Add keystore files twice [LOCAL]                                                           OK
 + Add keystore files twice [REMOTE]                                                          OK
++ `createLocalValidatorFiles` with `keystoreDir` without permissions                         OK
++ `createLocalValidatorFiles` with `secretsDir` without permissions                          OK
++ `createLocalValidatorFiles` with `validatorsDir` without permissions                       OK
++ `createValidatorFiles` with already existing dirs and any error                            OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 8/8 Fail: 0/8 Skip: 0/8
 ## engine API authentication
 ```diff
 + HS256 JWS iat token signing                                                                OK
@@ -662,4 +666,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 375/380 Fail: 0/380 Skip: 5/380
+OK: 379/384 Fail: 0/384 Skip: 5/384
