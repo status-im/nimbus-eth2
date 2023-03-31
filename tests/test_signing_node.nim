@@ -988,9 +988,10 @@ suite "Nimbus remote signer test":
     let
       request = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
                                        Epoch(10))
-      deadline = sleepAsync(1.milliseconds)
+      deadline = newFuture[void]()
       (client, info) = validator4.clients[0]
 
+    deadline.complete()
     let res = await client.signData(info.pubkey, deadline, 1, request)
     check:
       res.isErr()
