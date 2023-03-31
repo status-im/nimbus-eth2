@@ -734,24 +734,14 @@ proc getBuilderBid[
 
   return blindedBlock
 
-proc proposeBlockMEV[
-    SBBB: bellatrix_mev.SignedBlindedBeaconBlock |
-          capella_mev.SignedBlindedBeaconBlock](
-    node: BeaconNode, head: BlockRef, validator: AttachedValidator, slot: Slot,
-    randao: ValidatorSig, validator_index: ValidatorIndex, blindedBlock: auto):
-    Future[Opt[BlockRef]] {.async.} =
-  # Before unblindAndRouteBlockMEV, can fall back to EL; after, cannot
+proc proposeBlockMEV(node: BeaconNode, blindedBlock: auto):
+    Future[Result[BlockRef, string]] {.async.} =
   let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
-      blindedBlock.get)
+    blindedBlock.get)
   return if unblindedBlockRef.isOk and unblindedBlockRef.get.isSome:
     beacon_blocks_proposed.inc()
-    unblindedBlockRef.get
+    ok(unblindedBlockRef.get.get)
   else:
-    # Signal to the caller that a signed, blinded beacon block was sent to the
-    # builder API server, at which point no local EL fallback can occur. Using
-    # non-`none` opt with the same head indicates this to proposeBlock(), with
-    # any non-`none` return value indicating this in general.
-    #
     # unblindedBlockRef.isOk and unblindedBlockRef.get.isNone indicates that
     # the block failed to validate and integrate into the DAG, which for the
     # purpose of this return value, is equivalent. It's used to drive Beacon
@@ -761,11 +751,7 @@ proc proposeBlockMEV[
         unblindedBlockRef.error
       else:
         "Unblinded block failed either to validate or integrate into validated store"
-    warn "proposeBlockMEV: blinded block either not successfully unblinded or not successfully proposed",
-      head = shortLog(head), slot, validator_index,
-      validator = shortLog(validator),
-      err = errMsg, blindedBlck = shortLog(blindedBlock.get)
-    Opt.some head
+    err errMsg
 
 proc makeBlindedBeaconBlockForHeadAndSlot*[
     BBB: bellatrix_mev.BlindedBeaconBlock | capella_mev.BlindedBeaconBlock](
@@ -909,12 +895,18 @@ proc proposeBlockAux[SBBB, EPS](node: BeaconNode,
       false
 
   if useBuilderBlock:
-    let maybeUnblindedBlock = await proposeBlockMEV[SBBB](
-      node, head, validator, slot, randao, validator_index,
-      payloadBuilderBidFut.read())
+    let
+      blindedBlock = payloadBuilderBidFut.read()
+      # Before proposeBlockMEV, can fall back to EL; after, cannot without
+      # risking slashing.
+      maybeUnblindedBlock = await proposeBlockMEV(node, blindedBlock)
 
-    # Committed to builder API. No more engine API fallback, even if it fails
     return maybeUnblindedBlock.valueOr:
+      warn "Blinded block proposal incomplete",
+        head = shortLog(head), slot, validator_index,
+        validator = shortLog(validator),
+        err = maybeUnblindedBlock.error,
+        blindedBlck = shortLog(blindedBlock.get)
       beacon_block_builder_missed_without_fallback.inc()
       return head
 
