@@ -27,10 +27,10 @@ export
 
 const
   WEB3_SIGNER_DELAY_TOLERANCE = 3.seconds
-  WEB3_SIGNER_DEFAULT_TIMEOUT = 29.seconds
-    # We make it compatible with original Web3Signer defaults
+  WEB3_SIGNER_DEFAULT_TIMEOUT = (int64(SECONDS_PER_SLOT) + 1).seconds
+    # This timeout value should not be greater than default value specified at:
     # https://docs.web3signer.consensys.net/Reference/CLI/CLI-Syntax#idle-connection-timeout-seconds
-  WEB3_SIGNER_CHECKING_PERIOD = 5.seconds
+  WEB3_SIGNER_CHECKING_PERIOD = ((int64(SECONDS_PER_SLOT) + 1) div 3).seconds
     # Host often connection pool will collect/destroy connections which are
     # expired.
 
