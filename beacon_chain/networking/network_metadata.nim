@@ -192,14 +192,17 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
 proc loadCompileTimeNetworkMetadata(
     path: string,
     eth1Network = none(Eth1Network)): Eth2NetworkMetadata {.raises: [Defect].} =
-  try:
-    result = loadEth2NetworkMetadata(path, eth1Network)
-    if result.incompatible:
-      macros.error "The current build is misconfigured. " &
-                   "Attempt to load an incompatible network metadata: " &
-                   result.incompatibilityDesc
-  except CatchableError as err:
-    macros.error "Failed to load network metadata at '" & path & "': " & err.msg
+  if fileExists(path / "config.yaml"):
+    try:
+      result = loadEth2NetworkMetadata(path, eth1Network)
+      if result.incompatible:
+        macros.error "The current build is misconfigured. " &
+                     "Attempt to load an incompatible network metadata: " &
+                     result.incompatibilityDesc
+    except CatchableError as err:
+      macros.error "Failed to load network metadata at '" & path & "': " & err.msg
+  else:
+    macros.error "config.yaml not found for network '" & path
 
 template eth2Network(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
   loadCompileTimeNetworkMetadata(eth2NetworksDir & "/" & path,
@@ -226,6 +229,9 @@ elif const_preset == "mainnet":
       checkForkConsistency(network.cfg)
 
     for network in [mainnetMetadata, praterMetadata, sepoliaMetaData]:
+      doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 proc getMetadataForNetwork*(
