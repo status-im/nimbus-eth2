@@ -986,6 +986,11 @@ type
       desc: "A directory containing validator keystore passwords"
       name: "secrets-dir" .}: Option[InputDir]
 
+    expectedFeeRecipient* {.
+      desc: "Signatures for blocks will require proofs of the specified " &
+            "fee recipient"
+      name: "expected-fee-recipient".}: Option[Address]
+
     serverIdent* {.
       desc: "Server identifier which will be used in HTTP Host header"
       name: "server-ident" .}: Option[string]

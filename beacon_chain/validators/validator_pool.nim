@@ -443,6 +443,55 @@ proc signData(v: AttachedValidator,
   else:
     v.signWithDistributedKey(request)
 
+proc getFeeRecipientProof(blck: ForkedBeaconBlock | ForkedBlindedBeaconBlock |
+                                bellatrix_mev.BlindedBeaconBlock |
+                                capella_mev.BlindedBeaconBlock
+                         ): Result[Web3SignerMerkleProof, string] =
+  when blck is ForkedBlindedBeaconBlock:
+    case blck.kind
+    of ConsensusFork.Phase0:
+      err("Invalid block fork: phase0")
+    of ConsensusFork.Altair:
+      err("Invalid block fork: altair")
+    of ConsensusFork.Bellatrix:
+      const FeeRecipientIndex = GeneralizedIndex(401)
+      let res = ? build_proof(blck.bellatrixData.body, FeeRecipientIndex)
+      ok(Web3SignerMerkleProof(index: FeeRecipientIndex, merkleProofs: @res))
+    of ConsensusFork.Capella:
+      const FeeRecipientIndex = GeneralizedIndex(401)
+      let res = ? build_proof(blck.capellaData.body, FeeRecipientIndex)
+      ok(Web3SignerMerkleProof(index: FeeRecipientIndex, merkleProofs: @res))
+    of ConsensusFork.Deneb:
+      const FeeRecipientIndex = GeneralizedIndex(401)
+      let res = ? build_proof(blck.denebData.body, FeeRecipientIndex)
+      ok(Web3SignerMerkleProof(index: FeeRecipientIndex, merkleProofs: @res))
+  elif blck is bellatrix_mev.BlindedBeaconBlock:
+    const FeeRecipientIndex = GeneralizedIndex(401)
+    let res = ? build_proof(blck.body, FeeRecipientIndex)
+    ok(Web3SignerMerkleProof(index: FeeRecipientIndex, merkleProofs: @res))
+  elif blck is capella_mev.BlindedBeaconBlock:
+    const FeeRecipientIndex = GeneralizedIndex(401)
+    let res = ? build_proof(blck.body, FeeRecipientIndex)
+    ok(Web3SignerMerkleProof(index: FeeRecipientIndex, merkleProofs: @res))
+  else:
+    case blck.kind
+    of ConsensusFork.Phase0:
+      err("Invalid block fork: phase0")
+    of ConsensusFork.Altair:
+      err("Invalid block fork: altair")
+    of ConsensusFork.Bellatrix:
+      const FeeRecipientIndex = GeneralizedIndex(401)
+      let res = ? build_proof(blck.bellatrixData.body, FeeRecipientIndex)
+      ok(Web3SignerMerkleProof(index: FeeRecipientIndex, merkleProofs: @res))
+    of ConsensusFork.Capella:
+      const FeeRecipientIndex = GeneralizedIndex(401)
+      let res = ? build_proof(blck.capellaData.body, FeeRecipientIndex)
+      ok(Web3SignerMerkleProof(index: FeeRecipientIndex, merkleProofs: @res))
+    of ConsensusFork.Deneb:
+      const FeeRecipientIndex = GeneralizedIndex(401)
+      let res = ? build_proof(blck.denebData.body, FeeRecipientIndex)
+      ok(Web3SignerMerkleProof(index: FeeRecipientIndex, merkleProofs: @res))
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#signature
 proc getBlockSignature*(v: AttachedValidator, fork: Fork,
                         genesis_validators_root: Eth2Digest, slot: Slot,
@@ -459,76 +508,137 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           fork, genesis_validators_root, slot, block_root,
           v.data.privateKey).toValidatorSig())
     of ValidatorKind.Remote:
-      when blck is ForkedBlindedBeaconBlock:
-        let
-          web3SignerBlock =
-            case blck.kind
-            of ConsensusFork.Phase0:
-              Web3SignerForkedBeaconBlock(
-                kind: ConsensusFork.Phase0,
-                phase0Data: blck.phase0Data)
-            of ConsensusFork.Altair:
-              Web3SignerForkedBeaconBlock(
-                kind: ConsensusFork.Altair,
-                altairData: blck.altairData)
-            of ConsensusFork.Bellatrix:
-              Web3SignerForkedBeaconBlock(
-                kind: ConsensusFork.Bellatrix,
-                bellatrixData: blck.bellatrixData.toBeaconBlockHeader)
-            of ConsensusFork.Capella:
-              Web3SignerForkedBeaconBlock(
-                kind: ConsensusFork.Capella,
-                capellaData: blck.capellaData.toBeaconBlockHeader)
-            of ConsensusFork.Deneb:
-              Web3SignerForkedBeaconBlock(
-                kind: ConsensusFork.Deneb,
-                denebData: blck.denebData.toBeaconBlockHeader)
-
-          request = Web3SignerRequest.init(
-            fork, genesis_validators_root, web3SignerBlock)
-        await v.signData(request)
-      elif blck is bellatrix_mev.BlindedBeaconBlock:
-        let request = Web3SignerRequest.init(
-          fork, genesis_validators_root,
-          Web3SignerForkedBeaconBlock(
-            kind: ConsensusFork.Bellatrix,
-            bellatrixData: blck.toBeaconBlockHeader))
-        await v.signData(request)
-      elif blck is capella_mev.BlindedBeaconBlock:
-        let request = Web3SignerRequest.init(
-          fork, genesis_validators_root,
-          Web3SignerForkedBeaconBlock(
-            kind: ConsensusFork.Capella,
-            capellaData: blck.toBeaconBlockHeader))
-        await v.signData(request)
-      else:
-        let
-          web3SignerBlock =
-            case blck.kind
-            of ConsensusFork.Phase0:
-              Web3SignerForkedBeaconBlock(
-                kind: ConsensusFork.Phase0,
-                phase0Data: blck.phase0Data)
-            of ConsensusFork.Altair:
-              Web3SignerForkedBeaconBlock(
-                kind: ConsensusFork.Altair,
-                altairData: blck.altairData)
-            of ConsensusFork.Bellatrix:
-              Web3SignerForkedBeaconBlock(
-                kind: ConsensusFork.Bellatrix,
-                bellatrixData: blck.bellatrixData.toBeaconBlockHeader)
-            of ConsensusFork.Capella:
-              Web3SignerForkedBeaconBlock(
-                kind: ConsensusFork.Capella,
-                capellaData: blck.capellaData.toBeaconBlockHeader)
-            of ConsensusFork.Deneb:
-              Web3SignerForkedBeaconBlock(
-                kind: ConsensusFork.Deneb,
-                denebData: blck.denebData.toBeaconBlockHeader)
-
-          request = Web3SignerRequest.init(
-            fork, genesis_validators_root, web3SignerBlock)
-        await v.signData(request)
+      let web3SignerRequest =
+        when blck is ForkedBlindedBeaconBlock:
+          case blck.kind
+          of ConsensusFork.Phase0:
+            # In case of `phase0` block we did not send merkle proof.
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Phase0,
+                phase0Data: blck.phase0Data))
+          of ConsensusFork.Altair:
+            # In case of `altair` block we did not send merkle proof.
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Altair,
+                altairData: blck.altairData))
+          of ConsensusFork.Bellatrix:
+            case v.data.remoteType
+            of RemoteSignerType.Web3Signer:
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
+                  bellatrixData: blck.bellatrixData.toBeaconBlockHeader))
+            of RemoteSignerType.Web3SignerDiva:
+              let res = getFeeRecipientProof(blck)
+              if res.isErr(): return SignatureResult.err(res.error)
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
+                  bellatrixData: blck.bellatrixData.toBeaconBlockHeader),
+                [res.get()])
+          of ConsensusFork.Capella:
+            case v.data.remoteType
+            of RemoteSignerType.Web3Signer:
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
+                  capellaData: blck.capellaData.toBeaconBlockHeader))
+            of RemoteSignerType.Web3SignerDiva:
+              let res = getFeeRecipientProof(blck)
+              if res.isErr(): return SignatureResult.err(res.error)
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
+                  capellaData: blck.capellaData.toBeaconBlockHeader),
+                [res.get()])
+          of ConsensusFork.Deneb:
+            case v.data.remoteType
+            of RemoteSignerType.Web3Signer:
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
+                  denebData: blck.denebData.toBeaconBlockHeader))
+            of RemoteSignerType.Web3SignerDiva:
+              let res = getFeeRecipientProof(blck)
+              if res.isErr(): return SignatureResult.err(res.error)
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
+                  denebData: blck.denebData.toBeaconBlockHeader),
+                [res.get()])
+        elif blck is bellatrix_mev.BlindedBeaconBlock:
+          case v.data.remoteType
+          of RemoteSignerType.Web3Signer:
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
+                bellatrixData: blck.toBeaconBlockHeader)
+            )
+          of RemoteSignerType.Web3SignerDiva:
+            let res = getFeeRecipientProof(blck)
+            if res.isErr(): return SignatureResult.err(res.error)
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
+                bellatrixData: blck.toBeaconBlockHeader),
+              [res.get()])
+        elif blck is capella_mev.BlindedBeaconBlock:
+          case v.data.remoteType
+          of RemoteSignerType.Web3Signer:
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
+                capellaData: blck.toBeaconBlockHeader))
+          of RemoteSignerType.Web3SignerDiva:
+            let res = getFeeRecipientProof(blck)
+            if res.isErr(): return SignatureResult.err(res.error)
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
+                capellaData: blck.toBeaconBlockHeader),
+              [res.get()])
+        else:
+          case blck.kind
+          of ConsensusFork.Phase0:
+            # In case of `phase0` block we did not send merkle proof.
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Phase0,
+                                          phase0Data: blck.phase0Data))
+          of ConsensusFork.Altair:
+            # In case of `altair` block we did not send merkle proof.
+            Web3SignerRequest.init(fork, genesis_validators_root,
+              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Altair,
+                                          altairData: blck.altairData))
+          of ConsensusFork.Bellatrix:
+            case v.data.remoteType
+            of RemoteSignerType.Web3Signer:
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
+                  bellatrixData: blck.bellatrixData.toBeaconBlockHeader))
+            of RemoteSignerType.Web3SignerDiva:
+              let res = getFeeRecipientProof(blck)
+              if res.isErr(): return SignatureResult.err(res.error)
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Bellatrix,
+                  bellatrixData: blck.bellatrixData.toBeaconBlockHeader),
+                [res.get()])
+          of ConsensusFork.Capella:
+            case v.data.remoteType
+            of RemoteSignerType.Web3Signer:
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
+                  capellaData: blck.capellaData.toBeaconBlockHeader))
+            of RemoteSignerType.Web3SignerDiva:
+              let res = getFeeRecipientProof(blck)
+              if res.isErr(): return SignatureResult.err(res.error)
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Capella,
+                  capellaData: blck.capellaData.toBeaconBlockHeader),
+                [res.get()])
+          of ConsensusFork.Deneb:
+            case v.data.remoteType
+            of RemoteSignerType.Web3Signer:
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
+                  denebData: blck.denebData.toBeaconBlockHeader))
+            of RemoteSignerType.Web3SignerDiva:
+              let res = getFeeRecipientProof(blck)
+              if res.isErr(): return SignatureResult.err(res.error)
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Deneb,
+                  denebData: blck.denebData.toBeaconBlockHeader),
+                [res.get()])
+      await v.signData(web3SignerRequest)
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#aggregate-signature
 proc getAttestationSignature*(v: AttachedValidator, fork: Fork,

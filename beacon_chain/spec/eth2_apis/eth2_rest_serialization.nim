@@ -1901,6 +1901,8 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     # https://github.com/ConsenSys/web3signer/blob/41c0cbfabcb1fca9587b59e058b7eb29f152c60c/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L418-L497
     writer.writeField("beacon_block", value.beaconBlock)
 
+    if isSome(value.proofs):
+      writer.writeField("proofs", value.proofs.get())
   of Web3SignerRequestKind.Deposit:
     writer.writeField("type", "DEPOSIT")
     if isSome(value.signingRoot):
@@ -1967,6 +1969,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     forkInfo: Option[Web3SignerForkInfo]
     signingRoot: Option[Eth2Digest]
     data: Option[JsonString]
+    proofs: seq[Web3SignerMerkleProof]
     dataName: string
 
   for fieldName in readObjectFields(reader):
@@ -2015,6 +2018,9 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedField("Multiple `signingRoot` fields found",
                                     "Web3SignerRequest")
       signingRoot = some(reader.readValue(Eth2Digest))
+    of "proofs":
+      let newProofs = reader.readValue(seq[Web3SignerMerkleProof])
+      proofs.add(newProofs)
     of "aggregation_slot", "aggregate_and_proof", "block", "beacon_block",
        "randao_reveal", "voluntary_exit", "sync_committee_message",
        "sync_aggregator_selection_data", "contribution_and_proof",
@@ -2024,6 +2030,7 @@ proc readValue*(reader: var JsonReader[RestJson],
                                     "Web3SignerRequest")
       dataName = fieldName
       data = some(reader.readValue(JsonString))
+
     else:
       unrecognizedFieldWarning()
 
@@ -2109,10 +2116,17 @@ proc readValue*(reader: var JsonReader[RestJson],
             reader.raiseUnexpectedValue(
               "Incorrect field `beacon_block` format")
           res.get()
-      Web3SignerRequest(
-        kind: Web3SignerRequestKind.BlockV2,
-        forkInfo: forkInfo, signingRoot: signingRoot, beaconBlock: data
-      )
+      if len(proofs) > 0:
+        Web3SignerRequest(
+          kind: Web3SignerRequestKind.BlockV2,
+          forkInfo: forkInfo, signingRoot: signingRoot, beaconBlock: data,
+          proofs: Opt.some(proofs)
+        )
+      else:
+        Web3SignerRequest(
+          kind: Web3SignerRequestKind.BlockV2,
+          forkInfo: forkInfo, signingRoot: signingRoot, beaconBlock: data
+        )
     of Web3SignerRequestKind.Deposit:
       if dataName != "deposit":
         reader.raiseUnexpectedValue("Field `deposit` is missing")

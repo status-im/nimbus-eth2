@@ -228,3 +228,8 @@ const
     "BLS to execution change was broadcast"
   AggregationSelectionNotImplemented* =
     "Attestation and sync committee aggreggation selection are not implemented"
+  MissingMerkleProofError* =
+    "Required merkle proof is missing"
+  InvalidMerkleProofError* =
+    "The given merkle proof is invalid"
+

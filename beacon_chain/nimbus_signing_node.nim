@@ -8,7 +8,7 @@ import std/[tables, os, strutils]
 import serialization, json_serialization,
        json_serialization/std/[options, net],
        chronos, presto, presto/secureserver, chronicles, confutils,
-       stew/[base10, results, byteutils, io2]
+       stew/[base10, results, byteutils, io2, bitops2]
 import "."/spec/datatypes/[base, altair, phase0],
        "."/spec/[crypto, digest, network, signatures, forks],
        "."/spec/eth2_apis/[rest_types, eth2_rest_serialization],
@@ -155,8 +155,8 @@ proc installApiHandlers*(node: SigningNodeRef) =
       case keystore.kind
       of KeystoreKind.Local:
         discard node.attachedValidators.addValidator(keystore,
-                                                   feeRecipient,
-                                                   defaultGasLimit)
+                                                     feeRecipient,
+                                                     defaultGasLimit)
         keysList.add("\"0x" & keystore.pubkey.toHex() & "\"")
       of KeystoreKind.Remote:
         warn "Signing node do not support remote validators",
@@ -192,108 +192,142 @@ proc installApiHandlers*(node: SigningNodeRef) =
       of Web3SignerRequestKind.AggregationSlot:
         let
           forkInfo = request.forkInfo.get()
-          cooked = get_slot_signature(forkInfo.fork,
+          signature = get_slot_signature(forkInfo.fork,
             forkInfo.genesis_validators_root,
-            request.aggregationSlot.slot, validator.data.privateKey)
-          signature = cooked.toValidatorSig().toHex()
+            request.aggregationSlot.slot,
+            validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.AggregateAndProof:
         let
           forkInfo = request.forkInfo.get()
-          cooked = get_aggregate_and_proof_signature(forkInfo.fork,
+          signature = get_aggregate_and_proof_signature(forkInfo.fork,
             forkInfo.genesis_validators_root, request.aggregateAndProof,
-            validator.data.privateKey)
-          signature = cooked.toValidatorSig().toHex()
+            validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Attestation:
         let
           forkInfo = request.forkInfo.get()
-          cooked = get_attestation_signature(forkInfo.fork,
+          signature = get_attestation_signature(forkInfo.fork,
             forkInfo.genesis_validators_root, request.attestation,
-            validator.data.privateKey)
-          signature = cooked.toValidatorSig().toHex()
+            validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Block:
         let
           forkInfo = request.forkInfo.get()
           blck = request.blck
-          blockRoot = hash_tree_root(blck)
-          cooked = get_block_signature(forkInfo.fork,
-            forkInfo.genesis_validators_root, blck.slot, blockRoot,
-            validator.data.privateKey)
-          signature = cooked.toValidatorSig().toHex()
+          signature = get_block_signature(forkInfo.fork,
+            forkInfo.genesis_validators_root, blck.slot, hash_tree_root(blck),
+            validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.BlockV2:
         let
           forkInfo = request.forkInfo.get()
-          forked = request.beaconBlock
-          blockRoot = hash_tree_root(forked)
-          cooked =
-            withBlck(forked):
+          blockRoot = hash_tree_root(request.beaconBlock)
+
+        if node.config.expectedFeeRecipient.isNone():
+          let
+            signature = withBlck(request.beaconBlock):
               get_block_signature(forkInfo.fork,
                 forkInfo.genesis_validators_root, blck.slot, blockRoot,
-                validator.data.privateKey)
-          signature = cooked.toValidatorSig().toHex()
-        signatureResponse(Http200, signature)
+                validator.data.privateKey).toValidatorSig().toHex()
+          signatureResponse(Http200, signature)
+        else:
+          let blockHeader =
+            case request.beaconBlock.kind
+            of ConsensusFork.Phase0, ConsensusFork.Altair:
+              # `phase0` and `altair` blocks do not have `fee_recipient`, so
+              # we sign it without any checks.
+              let
+                signature = withBlck(request.beaconBlock):
+                  get_block_signature(forkInfo.fork,
+                    forkInfo.genesis_validators_root, blck.slot, blockRoot,
+                    validator.data.privateKey).toValidatorSig().toHex()
+              return signatureResponse(Http200, signature)
+            of ConsensusFork.Bellatrix:
+              request.beaconBlock.bellatrixData
+            of ConsensusFork.Capella:
+              request.beaconBlock.capellaData
+            of ConsensusFork.Deneb:
+              request.beaconBlock.denebData
+
+          if request.proofs.isNone() or len(request.proofs.get()) == 0:
+            return errorResponse(Http400, MissingMerkleProofError)
+
+          let
+            proof = request.proofs.get()[0]
+            feeRecipientRoot =
+              hash_tree_root(distinctBase(
+                node.config.expectedFeeRecipient.get()))
+
+          if not(is_valid_merkle_branch(feeRecipientRoot, proof.merkleProofs,
+                                        log2trunc(proof.index),
+                                        get_subtree_index(proof.index),
+                                        blockHeader.body_root)):
+            return errorResponse(Http400, InvalidMerkleProofError)
+
+          let
+            forkInfo = request.forkInfo.get()
+            blockRoot = hash_tree_root(request.beaconBlock)
+            signature = withBlck(request.beaconBlock):
+              get_block_signature(forkInfo.fork,
+                forkInfo.genesis_validators_root, blck.slot, blockRoot,
+                validator.data.privateKey).toValidatorSig().toHex()
+          signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Deposit:
         let
           data = DepositMessage(pubkey: request.deposit.pubkey,
             withdrawal_credentials: request.deposit.withdrawalCredentials,
             amount: request.deposit.amount)
-          cooked = get_deposit_signature(data,
-            request.deposit.genesisForkVersion, validator.data.privateKey)
-          signature = cooked.toValidatorSig().toHex()
+          signature = get_deposit_signature(data,
+            request.deposit.genesisForkVersion,
+            validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.RandaoReveal:
         let
           forkInfo = request.forkInfo.get()
-          cooked = get_epoch_signature(forkInfo.fork,
+          signature = get_epoch_signature(forkInfo.fork,
             forkInfo.genesis_validators_root, request.randaoReveal.epoch,
-            validator.data.privateKey)
-          signature = cooked.toValidatorSig().toHex()
+            validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.VoluntaryExit:
         let
           forkInfo = request.forkInfo.get()
-          cooked = get_voluntary_exit_signature(forkInfo.fork,
+          signature = get_voluntary_exit_signature(forkInfo.fork,
             forkInfo.genesis_validators_root, request.voluntaryExit,
-            validator.data.privateKey)
-          signature = cooked.toValidatorSig().toHex()
+            validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.SyncCommitteeMessage:
         let
           forkInfo = request.forkInfo.get()
           msg = request.syncCommitteeMessage
-          cooked = get_sync_committee_message_signature(forkInfo.fork,
+          signature = get_sync_committee_message_signature(forkInfo.fork,
             forkInfo.genesis_validators_root, msg.slot, msg.beaconBlockRoot,
-            validator.data.privateKey)
-          signature = cooked.toValidatorSig().toHex()
+            validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.SyncCommitteeSelectionProof:
         let
           forkInfo = request.forkInfo.get()
           msg = request.syncAggregatorSelectionData
-          subcommittee = SyncSubcommitteeIndex.init(msg.subcommittee_index).valueOr:
-            return errorResponse(Http400, InvalidSubCommitteeIndexValueError)
-          cooked = get_sync_committee_selection_proof(forkInfo.fork,
+          subcommittee =
+            SyncSubcommitteeIndex.init(msg.subcommittee_index).valueOr:
+              return errorResponse(Http400, InvalidSubCommitteeIndexValueError)
+          signature = get_sync_committee_selection_proof(forkInfo.fork,
             forkInfo.genesis_validators_root, msg.slot, subcommittee,
-            validator.data.privateKey)
-          signature = cooked.toValidatorSig().toHex()
+            validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.SyncCommitteeContributionAndProof:
         let
           forkInfo = request.forkInfo.get()
           msg = request.syncCommitteeContributionAndProof
-          cooked = get_contribution_and_proof_signature(
+          signature = get_contribution_and_proof_signature(
             forkInfo.fork, forkInfo.genesis_validators_root, msg,
-            validator.data.privateKey)
-          signature = cooked.toValidatorSig().toHex()
+            validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.ValidatorRegistration:
         let
           forkInfo = request.forkInfo.get()
-          cooked = get_builder_signature(
-            forkInfo.fork, ValidatorRegistrationV1(
+          signature = get_builder_signature(forkInfo.fork,
+            ValidatorRegistrationV1(
               fee_recipient:
                 ExecutionAddress(data: distinctBase(Eth1Address.fromHex(
                   request.validatorRegistration.feeRecipient))),
@@ -301,8 +335,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
               timestamp: request.validatorRegistration.timestamp,
               pubkey: request.validatorRegistration.pubkey,
             ),
-            validator.data.privateKey)
-          signature = cooked.toValidatorSig().toHex()
+            validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
 
 proc asyncInit(sn: SigningNodeRef) {.async.} =

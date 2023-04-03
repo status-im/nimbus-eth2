@@ -11,6 +11,7 @@ import
 
 const
   TestDirectoryName = "test-signing-node"
+  TestDirectoryNameDiva = "test-signing-node-diva"
   ValidatorKeystore1 = "{\"crypto\":{\"kdf\":{\"function\":\"pbkdf2\",\"params\":{\"dklen\":32,\"c\":1,\"prf\":\"hmac-sha256\",\"salt\":\"040f3f4b9dfc4bdeb37de870cbaa83582f981f358e370f271c2945f2e6430aab\"},\"message\":\"\"},\"checksum\":{\"function\":\"sha256\",\"params\":{},\"message\":\"8b98b30b4e144dbbcc724e502ffecc67c33651aa49600e745e41f959e12abf37\"},\"cipher\":{\"function\":\"aes-128-ctr\",\"params\":{\"iv\":\"04f91a7eb3d6430a598255ea83621e78\"},\"message\":\"5c652e6cdd1215eb9203281e2446abc4d3e1bd50cb822583ce5c74570e9cab18\"}},\"pubkey\":\"99a8df087e253a874c3ca31e0d1115500a671ed8714800d503e99c2c887331a968a7fa7f0290c3a0698675eee138b407\",\"path\":\"m/12381/3600/161/0/0\",\"uuid\":\"81bec933-d928-4e7e-83da-54bbe37a4715\",\"version\":4}"
   ValidatorKeystore2 = "{\"crypto\":{\"kdf\":{\"function\":\"pbkdf2\",\"params\":{\"dklen\":32,\"c\":1,\"prf\":\"hmac-sha256\",\"salt\":\"040f3f4b9dfc4bdeb37de870cbaa83582f981f358e370f271c2945f2e6430aab\"},\"message\":\"\"},\"checksum\":{\"function\":\"sha256\",\"params\":{},\"message\":\"2ecda276340c04cb92ce003db9cface0727905f0ba1aa9c60b101f478fca9a5e\"},\"cipher\":{\"function\":\"aes-128-ctr\",\"params\":{\"iv\":\"9d9d73af0031fd19e6833983557b2e30\"},\"message\":\"16d5f87e0675c95cb1e4fc209eea738d45c19b3c0f14088c9e140c573bce0253\"}},\"pubkey\":\"aa19751eb240a04a17b8720e2334acf1d78182ab496e77c51b3bb9e887d50295a478d499abcf6434efbc1aa4c4c4f352\",\"path\":\"m/12381/3600/232/0/0\",\"uuid\":\"291e837b-d8ff-494c-8c7b-7e6bab23b8bf\",\"version\":4}"
   ValidatorKeystore3 = "{\"crypto\":{\"kdf\":{\"function\":\"pbkdf2\",\"params\":{\"dklen\":32,\"c\":1,\"prf\":\"hmac-sha256\",\"salt\":\"040f3f4b9dfc4bdeb37de870cbaa83582f981f358e370f271c2945f2e6430aab\"},\"message\":\"\"},\"checksum\":{\"function\":\"sha256\",\"params\":{},\"message\":\"a8c2333e787d65415a02d607c0ec774b654e5a67066e4bc379e2f3b7cf4c826a\"},\"cipher\":{\"function\":\"aes-128-ctr\",\"params\":{\"iv\":\"161171cb21c1c6ec20b15798f545fffc\"},\"message\":\"8ecb326d14dece099d4ba4800a5326324ccf3a8df38fd4aa37af02e8f0617da0\"}},\"pubkey\":\"acf31f9b1ecf65dbb198e380599b6c81fc1a1f5db4457482cc697d81b1fdfb6e49cf8eff4980477f6e32749eef61dc4d\",\"path\":\"m/12381/3600/36/0/0\",\"uuid\":\"420578fd-6832-4e79-a3db-ac0662ace13c\",\"version\":4}"
@@ -45,18 +46,69 @@ const
   SomeSignature =
     "0xb3baa751d0a9132cfe93e4e3d5ff9075111100e3789dca219ade5a24d27e19d16b3353149da1833e9b691bb38634e8dc04469be7032132906c927d7e1a49b414730612877bc6b2810c8f202daf793d1ab0d6b5cb21d52f9e52e883859887a5d9"
 
+  SigningExpectedFeeRecipient = "0x000095e79eac4d76aab57cb2c1f091d553b36ca0"
+  SigningOtherFeeRecipient =    "0x000096e79eac4d76aab57cb2c1f091d553b36ca0"
+
   AgAttestation = "{\"data\":{\"aggregation_bits\":\"0x01\",\"signature\":\"0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505\",\"data\":{\"slot\":\"1\",\"index\":\"1\",\"beacon_block_root\":\"0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2\",\"source\":{\"epoch\":\"1\",\"root\":\"0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2\"},\"target\":{\"epoch\":\"1\",\"root\":\"0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2\"}}}}"
 
   Phase0Block = "{\"version\":\"phase0\",\"data\":{\"slot\":\"1\",\"proposer_index\":\"1\",\"parent_root\":\"0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2\",\"state_root\":\"0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2\",\"body\":{\"randao_reveal\":\"0x1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505cc411d61252fb6cb3fa0017b679f8bb2305b26a285fa2737f175668d0dff91cc1b66ac1fb663c9bc59509846d6ec05345bd908eda73e670af888da41af171505\",\"eth1_data\":{\"deposit_root\":\"0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2\",\"deposit_count\":\"1\",\"block_hash\":\"0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[]}}}"
   AltairBlock = "{\"version\":\"altair\",\"data\":{\"slot\":\"5297696\",\"proposer_index\":\"153094\",\"parent_root\":\"0xe6106533af9be918120ead7440a8006c7f123cc3cb7daf1f11d951864abea014\",\"state_root\":\"0xf86196d34500ca25d1f4e7431d4d52f6f85540bcaf97dd0d2ad9ecdb3eebcdf0\",\"body\":{\"randao_reveal\":\"0xa7efee3d5ddceb60810b23e3b5d39734696418f41dfd13a0851c7be7a72acbdceaa61e1db27513801917d72519d1c1040ccfed829faf06abe06d9964949554bf4369134b66de715ea49eb4fecf3e2b7e646f1764a1993e31e53dbc6557929c12\",\"eth1_data\":{\"deposit_root\":\"0x8ec87d7219a3c873fff3bfe206b4f923d1b471ce4ff9d6d6ecc162ef07825e14\",\"deposit_count\":\"259476\",\"block_hash\":\"0x877b6f8332c7397251ff3f0c5cecec105ff7d4cb78251b47f91fd15a86a565ab\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[],\"sync_aggregate\":{\"sync_committee_bits\":\"0x733dfda7f5ffde5ade73367fcbf7fffeef7fe43777ffdffab9dbad6f7eed5fff9bfec4affdefbfaddf35bf5efbff9ffff9dfd7dbf97fbfcdfaddfeffbf95f75f\",\"sync_committee_signature\":\"0x81fdf76e797f81b0116a1c1ae5200b613c8041115223cd89e8bd5477aab13de6097a9ebf42b130c59527bbb4c96811b809353a17c717549f82d4bd336068ef0b99b1feebd4d2432a69fa77fac12b78f1fcc9d7b59edbeb381adf10b15bc4a520\"}}}}"
-  BellatrixBlock = "{\"version\":\"bellatrix\",\"data\":{\"slot\":\"5297696\",\"proposer_index\":\"153094\",\"parent_root\":\"0xe6106533af9be918120ead7440a8006c7f123cc3cb7daf1f11d951864abea014\",\"state_root\":\"0xf86196d34500ca25d1f4e7431d4d52f6f85540bcaf97dd0d2ad9ecdb3eebcdf0\",\"body\":{\"randao_reveal\":\"0xa7efee3d5ddceb60810b23e3b5d39734696418f41dfd13a0851c7be7a72acbdceaa61e1db27513801917d72519d1c1040ccfed829faf06abe06d9964949554bf4369134b66de715ea49eb4fecf3e2b7e646f1764a1993e31e53dbc6557929c12\",\"eth1_data\":{\"deposit_root\":\"0x8ec87d7219a3c873fff3bfe206b4f923d1b471ce4ff9d6d6ecc162ef07825e14\",\"deposit_count\":\"259476\",\"block_hash\":\"0x877b6f8332c7397251ff3f0c5cecec105ff7d4cb78251b47f91fd15a86a565ab\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[],\"sync_aggregate\":{\"sync_committee_bits\":\"0x733dfda7f5ffde5ade73367fcbf7fffeef7fe43777ffdffab9dbad6f7eed5fff9bfec4affdefbfaddf35bf5efbff9ffff9dfd7dbf97fbfcdfaddfeffbf95f75f\",\"sync_committee_signature\":\"0x81fdf76e797f81b0116a1c1ae5200b613c8041115223cd89e8bd5477aab13de6097a9ebf42b130c59527bbb4c96811b809353a17c717549f82d4bd336068ef0b99b1feebd4d2432a69fa77fac12b78f1fcc9d7b59edbeb381adf10b15bc4a520\"},\"execution_payload\":{\"parent_hash\":\"0x14c2242a8cfbce559e84c391f5f16d10d7719751b8558873012dc88ae5a193e8\",\"fee_recipient\":\"0x000095e79eac4d76aab57cb2c1f091d553b36ca0\",\"state_root\":\"0xdf8d96b2c292736d39e72e25802c2744d34d3d3c616de5b362425cab01f72fa5\",\"receipts_root\":\"0x4938a2bf640846d213b156a1a853548b369cd02917fa63d8766ab665d7930bac\",\"logs_bloom\":\"0x298610600038408c201080013832408850a00bc8f801920121840030a015310010e2a0e0108628110552062811441c84802f43825c4fc82140b036c58025a28800054c80a44025c052090a0f2c209a0400058040019ea0008e589084078048050880930113a2894082e0112408b088382402a851621042212aa40018a408d07e178c68691486411aa9a2809043b000a04c040000065a030028018540b04b1820271d00821b00c29059095022322c10a530060223240416140190056608200063c82248274ba8f0098e402041cd9f451031481a1010b8220824833520490221071898802d206348449116812280014a10a2d1c210100a30010802490f0a221849\",\"prev_randao\":\"0xc061711e135cd40531ec3ee29d17d3824c0e5f80d07f721e792ab83240aa0ab5\",\"block_number\":\"8737497\",\"gas_limit\":\"30000000\",\"gas_used\":\"16367052\",\"timestamp\":\"1680080352\",\"extra_data\":\"0xd883010b05846765746888676f312e32302e32856c696e7578\",\"base_fee_per_gas\":\"231613172261\",\"block_hash\":\"0x5aa9fd22a9238925adb2b038fd6eafc77adabf554051db5bc16ae5168a52eff6\",\"transactions\":[],\"withdrawals\":[]}}}}"
-  CapellaBlock = "{\"version\":\"capella\",\"data\":{\"slot\":\"5297696\",\"proposer_index\":\"153094\",\"parent_root\":\"0xe6106533af9be918120ead7440a8006c7f123cc3cb7daf1f11d951864abea014\",\"state_root\":\"0xf86196d34500ca25d1f4e7431d4d52f6f85540bcaf97dd0d2ad9ecdb3eebcdf0\",\"body\":{\"randao_reveal\":\"0xa7efee3d5ddceb60810b23e3b5d39734696418f41dfd13a0851c7be7a72acbdceaa61e1db27513801917d72519d1c1040ccfed829faf06abe06d9964949554bf4369134b66de715ea49eb4fecf3e2b7e646f1764a1993e31e53dbc6557929c12\",\"eth1_data\":{\"deposit_root\":\"0x8ec87d7219a3c873fff3bfe206b4f923d1b471ce4ff9d6d6ecc162ef07825e14\",\"deposit_count\":\"259476\",\"block_hash\":\"0x877b6f8332c7397251ff3f0c5cecec105ff7d4cb78251b47f91fd15a86a565ab\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[],\"sync_aggregate\":{\"sync_committee_bits\":\"0x733dfda7f5ffde5ade73367fcbf7fffeef7fe43777ffdffab9dbad6f7eed5fff9bfec4affdefbfaddf35bf5efbff9ffff9dfd7dbf97fbfcdfaddfeffbf95f75f\",\"sync_committee_signature\":\"0x81fdf76e797f81b0116a1c1ae5200b613c8041115223cd89e8bd5477aab13de6097a9ebf42b130c59527bbb4c96811b809353a17c717549f82d4bd336068ef0b99b1feebd4d2432a69fa77fac12b78f1fcc9d7b59edbeb381adf10b15bc4a520\"},\"execution_payload\":{\"parent_hash\":\"0x14c2242a8cfbce559e84c391f5f16d10d7719751b8558873012dc88ae5a193e8\",\"fee_recipient\":\"0x000095e79eac4d76aab57cb2c1f091d553b36ca0\",\"state_root\":\"0xdf8d96b2c292736d39e72e25802c2744d34d3d3c616de5b362425cab01f72fa5\",\"receipts_root\":\"0x4938a2bf640846d213b156a1a853548b369cd02917fa63d8766ab665d7930bac\",\"logs_bloom\":\"0x298610600038408c201080013832408850a00bc8f801920121840030a015310010e2a0e0108628110552062811441c84802f43825c4fc82140b036c58025a28800054c80a44025c052090a0f2c209a0400058040019ea0008e589084078048050880930113a2894082e0112408b088382402a851621042212aa40018a408d07e178c68691486411aa9a2809043b000a04c040000065a030028018540b04b1820271d00821b00c29059095022322c10a530060223240416140190056608200063c82248274ba8f0098e402041cd9f451031481a1010b8220824833520490221071898802d206348449116812280014a10a2d1c210100a30010802490f0a221849\",\"prev_randao\":\"0xc061711e135cd40531ec3ee29d17d3824c0e5f80d07f721e792ab83240aa0ab5\",\"block_number\":\"8737497\",\"gas_limit\":\"30000000\",\"gas_used\":\"16367052\",\"timestamp\":\"1680080352\",\"extra_data\":\"0xd883010b05846765746888676f312e32302e32856c696e7578\",\"base_fee_per_gas\":\"231613172261\",\"block_hash\":\"0x5aa9fd22a9238925adb2b038fd6eafc77adabf554051db5bc16ae5168a52eff6\",\"transactions\":[],\"withdrawals\":[]},\"bls_to_execution_changes\":[]}}}"
-  DenebBlock = "{\"version\":\"deneb\",\"data\":{\"slot\":\"5297696\",\"proposer_index\":\"153094\",\"parent_root\":\"0xe6106533af9be918120ead7440a8006c7f123cc3cb7daf1f11d951864abea014\",\"state_root\":\"0xf86196d34500ca25d1f4e7431d4d52f6f85540bcaf97dd0d2ad9ecdb3eebcdf0\",\"body\":{\"randao_reveal\":\"0xa7efee3d5ddceb60810b23e3b5d39734696418f41dfd13a0851c7be7a72acbdceaa61e1db27513801917d72519d1c1040ccfed829faf06abe06d9964949554bf4369134b66de715ea49eb4fecf3e2b7e646f1764a1993e31e53dbc6557929c12\",\"eth1_data\":{\"deposit_root\":\"0x8ec87d7219a3c873fff3bfe206b4f923d1b471ce4ff9d6d6ecc162ef07825e14\",\"deposit_count\":\"259476\",\"block_hash\":\"0x877b6f8332c7397251ff3f0c5cecec105ff7d4cb78251b47f91fd15a86a565ab\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[],\"sync_aggregate\":{\"sync_committee_bits\":\"0x733dfda7f5ffde5ade73367fcbf7fffeef7fe43777ffdffab9dbad6f7eed5fff9bfec4affdefbfaddf35bf5efbff9ffff9dfd7dbf97fbfcdfaddfeffbf95f75f\",\"sync_committee_signature\":\"0x81fdf76e797f81b0116a1c1ae5200b613c8041115223cd89e8bd5477aab13de6097a9ebf42b130c59527bbb4c96811b809353a17c717549f82d4bd336068ef0b99b1feebd4d2432a69fa77fac12b78f1fcc9d7b59edbeb381adf10b15bc4a520\"},\"execution_payload\":{\"parent_hash\":\"0x14c2242a8cfbce559e84c391f5f16d10d7719751b8558873012dc88ae5a193e8\",\"fee_recipient\":\"0x000095e79eac4d76aab57cb2c1f091d553b36ca0\",\"state_root\":\"0xdf8d96b2c292736d39e72e25802c2744d34d3d3c616de5b362425cab01f72fa5\",\"receipts_root\":\"0x4938a2bf640846d213b156a1a853548b369cd02917fa63d8766ab665d7930bac\",\"logs_bloom\":\"0x298610600038408c201080013832408850a00bc8f801920121840030a015310010e2a0e0108628110552062811441c84802f43825c4fc82140b036c58025a28800054c80a44025c052090a0f2c209a0400058040019ea0008e589084078048050880930113a2894082e0112408b088382402a851621042212aa40018a408d07e178c68691486411aa9a2809043b000a04c040000065a030028018540b04b1820271d00821b00c29059095022322c10a530060223240416140190056608200063c82248274ba8f0098e402041cd9f451031481a1010b8220824833520490221071898802d206348449116812280014a10a2d1c210100a30010802490f0a221849\",\"prev_randao\":\"0xc061711e135cd40531ec3ee29d17d3824c0e5f80d07f721e792ab83240aa0ab5\",\"block_number\":\"8737497\",\"gas_limit\":\"30000000\",\"gas_used\":\"16367052\",\"timestamp\":\"1680080352\",\"extra_data\":\"0xd883010b05846765746888676f312e32302e32856c696e7578\",\"base_fee_per_gas\":\"231613172261\",\"block_hash\":\"0x5aa9fd22a9238925adb2b038fd6eafc77adabf554051db5bc16ae5168a52eff6\",\"transactions\":[],\"withdrawals\":[],\"excess_data_gas\":\"231613172261\"},\"bls_to_execution_changes\":[],\"blob_kzg_commitments\":[]}}}"
+  BellatrixBlock = "{\"version\":\"bellatrix\",\"data\":{\"slot\":\"5297696\",\"proposer_index\":\"153094\",\"parent_root\":\"0xe6106533af9be918120ead7440a8006c7f123cc3cb7daf1f11d951864abea014\",\"state_root\":\"0xf86196d34500ca25d1f4e7431d4d52f6f85540bcaf97dd0d2ad9ecdb3eebcdf0\",\"body\":{\"randao_reveal\":\"0xa7efee3d5ddceb60810b23e3b5d39734696418f41dfd13a0851c7be7a72acbdceaa61e1db27513801917d72519d1c1040ccfed829faf06abe06d9964949554bf4369134b66de715ea49eb4fecf3e2b7e646f1764a1993e31e53dbc6557929c12\",\"eth1_data\":{\"deposit_root\":\"0x8ec87d7219a3c873fff3bfe206b4f923d1b471ce4ff9d6d6ecc162ef07825e14\",\"deposit_count\":\"259476\",\"block_hash\":\"0x877b6f8332c7397251ff3f0c5cecec105ff7d4cb78251b47f91fd15a86a565ab\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[],\"sync_aggregate\":{\"sync_committee_bits\":\"0x733dfda7f5ffde5ade73367fcbf7fffeef7fe43777ffdffab9dbad6f7eed5fff9bfec4affdefbfaddf35bf5efbff9ffff9dfd7dbf97fbfcdfaddfeffbf95f75f\",\"sync_committee_signature\":\"0x81fdf76e797f81b0116a1c1ae5200b613c8041115223cd89e8bd5477aab13de6097a9ebf42b130c59527bbb4c96811b809353a17c717549f82d4bd336068ef0b99b1feebd4d2432a69fa77fac12b78f1fcc9d7b59edbeb381adf10b15bc4a520\"},\"execution_payload\":{\"parent_hash\":\"0x14c2242a8cfbce559e84c391f5f16d10d7719751b8558873012dc88ae5a193e8\",\"fee_recipient\":\"$1\",\"state_root\":\"0xdf8d96b2c292736d39e72e25802c2744d34d3d3c616de5b362425cab01f72fa5\",\"receipts_root\":\"0x4938a2bf640846d213b156a1a853548b369cd02917fa63d8766ab665d7930bac\",\"logs_bloom\":\"0x298610600038408c201080013832408850a00bc8f801920121840030a015310010e2a0e0108628110552062811441c84802f43825c4fc82140b036c58025a28800054c80a44025c052090a0f2c209a0400058040019ea0008e589084078048050880930113a2894082e0112408b088382402a851621042212aa40018a408d07e178c68691486411aa9a2809043b000a04c040000065a030028018540b04b1820271d00821b00c29059095022322c10a530060223240416140190056608200063c82248274ba8f0098e402041cd9f451031481a1010b8220824833520490221071898802d206348449116812280014a10a2d1c210100a30010802490f0a221849\",\"prev_randao\":\"0xc061711e135cd40531ec3ee29d17d3824c0e5f80d07f721e792ab83240aa0ab5\",\"block_number\":\"8737497\",\"gas_limit\":\"30000000\",\"gas_used\":\"16367052\",\"timestamp\":\"1680080352\",\"extra_data\":\"0xd883010b05846765746888676f312e32302e32856c696e7578\",\"base_fee_per_gas\":\"231613172261\",\"block_hash\":\"0x5aa9fd22a9238925adb2b038fd6eafc77adabf554051db5bc16ae5168a52eff6\",\"transactions\":[],\"withdrawals\":[]}}}}"
+  CapellaBlock = "{\"version\":\"capella\",\"data\":{\"slot\":\"5297696\",\"proposer_index\":\"153094\",\"parent_root\":\"0xe6106533af9be918120ead7440a8006c7f123cc3cb7daf1f11d951864abea014\",\"state_root\":\"0xf86196d34500ca25d1f4e7431d4d52f6f85540bcaf97dd0d2ad9ecdb3eebcdf0\",\"body\":{\"randao_reveal\":\"0xa7efee3d5ddceb60810b23e3b5d39734696418f41dfd13a0851c7be7a72acbdceaa61e1db27513801917d72519d1c1040ccfed829faf06abe06d9964949554bf4369134b66de715ea49eb4fecf3e2b7e646f1764a1993e31e53dbc6557929c12\",\"eth1_data\":{\"deposit_root\":\"0x8ec87d7219a3c873fff3bfe206b4f923d1b471ce4ff9d6d6ecc162ef07825e14\",\"deposit_count\":\"259476\",\"block_hash\":\"0x877b6f8332c7397251ff3f0c5cecec105ff7d4cb78251b47f91fd15a86a565ab\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[],\"sync_aggregate\":{\"sync_committee_bits\":\"0x733dfda7f5ffde5ade73367fcbf7fffeef7fe43777ffdffab9dbad6f7eed5fff9bfec4affdefbfaddf35bf5efbff9ffff9dfd7dbf97fbfcdfaddfeffbf95f75f\",\"sync_committee_signature\":\"0x81fdf76e797f81b0116a1c1ae5200b613c8041115223cd89e8bd5477aab13de6097a9ebf42b130c59527bbb4c96811b809353a17c717549f82d4bd336068ef0b99b1feebd4d2432a69fa77fac12b78f1fcc9d7b59edbeb381adf10b15bc4a520\"},\"execution_payload\":{\"parent_hash\":\"0x14c2242a8cfbce559e84c391f5f16d10d7719751b8558873012dc88ae5a193e8\",\"fee_recipient\":\"$1\",\"state_root\":\"0xdf8d96b2c292736d39e72e25802c2744d34d3d3c616de5b362425cab01f72fa5\",\"receipts_root\":\"0x4938a2bf640846d213b156a1a853548b369cd02917fa63d8766ab665d7930bac\",\"logs_bloom\":\"0x298610600038408c201080013832408850a00bc8f801920121840030a015310010e2a0e0108628110552062811441c84802f43825c4fc82140b036c58025a28800054c80a44025c052090a0f2c209a0400058040019ea0008e589084078048050880930113a2894082e0112408b088382402a851621042212aa40018a408d07e178c68691486411aa9a2809043b000a04c040000065a030028018540b04b1820271d00821b00c29059095022322c10a530060223240416140190056608200063c82248274ba8f0098e402041cd9f451031481a1010b8220824833520490221071898802d206348449116812280014a10a2d1c210100a30010802490f0a221849\",\"prev_randao\":\"0xc061711e135cd40531ec3ee29d17d3824c0e5f80d07f721e792ab83240aa0ab5\",\"block_number\":\"8737497\",\"gas_limit\":\"30000000\",\"gas_used\":\"16367052\",\"timestamp\":\"1680080352\",\"extra_data\":\"0xd883010b05846765746888676f312e32302e32856c696e7578\",\"base_fee_per_gas\":\"231613172261\",\"block_hash\":\"0x5aa9fd22a9238925adb2b038fd6eafc77adabf554051db5bc16ae5168a52eff6\",\"transactions\":[],\"withdrawals\":[]},\"bls_to_execution_changes\":[]}}}"
+  DenebBlock = "{\"version\":\"deneb\",\"data\":{\"slot\":\"5297696\",\"proposer_index\":\"153094\",\"parent_root\":\"0xe6106533af9be918120ead7440a8006c7f123cc3cb7daf1f11d951864abea014\",\"state_root\":\"0xf86196d34500ca25d1f4e7431d4d52f6f85540bcaf97dd0d2ad9ecdb3eebcdf0\",\"body\":{\"randao_reveal\":\"0xa7efee3d5ddceb60810b23e3b5d39734696418f41dfd13a0851c7be7a72acbdceaa61e1db27513801917d72519d1c1040ccfed829faf06abe06d9964949554bf4369134b66de715ea49eb4fecf3e2b7e646f1764a1993e31e53dbc6557929c12\",\"eth1_data\":{\"deposit_root\":\"0x8ec87d7219a3c873fff3bfe206b4f923d1b471ce4ff9d6d6ecc162ef07825e14\",\"deposit_count\":\"259476\",\"block_hash\":\"0x877b6f8332c7397251ff3f0c5cecec105ff7d4cb78251b47f91fd15a86a565ab\"},\"graffiti\":\"\",\"proposer_slashings\":[],\"attester_slashings\":[],\"attestations\":[],\"deposits\":[],\"voluntary_exits\":[],\"sync_aggregate\":{\"sync_committee_bits\":\"0x733dfda7f5ffde5ade73367fcbf7fffeef7fe43777ffdffab9dbad6f7eed5fff9bfec4affdefbfaddf35bf5efbff9ffff9dfd7dbf97fbfcdfaddfeffbf95f75f\",\"sync_committee_signature\":\"0x81fdf76e797f81b0116a1c1ae5200b613c8041115223cd89e8bd5477aab13de6097a9ebf42b130c59527bbb4c96811b809353a17c717549f82d4bd336068ef0b99b1feebd4d2432a69fa77fac12b78f1fcc9d7b59edbeb381adf10b15bc4a520\"},\"execution_payload\":{\"parent_hash\":\"0x14c2242a8cfbce559e84c391f5f16d10d7719751b8558873012dc88ae5a193e8\",\"fee_recipient\":\"$1\",\"state_root\":\"0xdf8d96b2c292736d39e72e25802c2744d34d3d3c616de5b362425cab01f72fa5\",\"receipts_root\":\"0x4938a2bf640846d213b156a1a853548b369cd02917fa63d8766ab665d7930bac\",\"logs_bloom\":\"0x298610600038408c201080013832408850a00bc8f801920121840030a015310010e2a0e0108628110552062811441c84802f43825c4fc82140b036c58025a28800054c80a44025c052090a0f2c209a0400058040019ea0008e589084078048050880930113a2894082e0112408b088382402a851621042212aa40018a408d07e178c68691486411aa9a2809043b000a04c040000065a030028018540b04b1820271d00821b00c29059095022322c10a530060223240416140190056608200063c82248274ba8f0098e402041cd9f451031481a1010b8220824833520490221071898802d206348449116812280014a10a2d1c210100a30010802490f0a221849\",\"prev_randao\":\"0xc061711e135cd40531ec3ee29d17d3824c0e5f80d07f721e792ab83240aa0ab5\",\"block_number\":\"8737497\",\"gas_limit\":\"30000000\",\"gas_used\":\"16367052\",\"timestamp\":\"1680080352\",\"extra_data\":\"0xd883010b05846765746888676f312e32302e32856c696e7578\",\"base_fee_per_gas\":\"231613172261\",\"block_hash\":\"0x5aa9fd22a9238925adb2b038fd6eafc77adabf554051db5bc16ae5168a52eff6\",\"transactions\":[],\"withdrawals\":[],\"excess_data_gas\":\"231613172261\"},\"bls_to_execution_changes\":[],\"blob_kzg_commitments\":[]}}}"
 
   SigningNodeAddress = "127.0.0.1"
   SigningNodePort = 35333
 
   SigningRequestTimeoutSeconds = 1
+
+proc getNodePort(rt: RemoteSignerType): int =
+  case rt
+  of RemoteSignerType.Web3Signer:
+    SigningNodePort
+  of RemoteSignerType.Web3SignerDiva:
+    SigningNodePort + 1
+
+proc getBlock(fork: ConsensusFork,
+              feeRecipient = SigningExpectedFeeRecipient): ForkedBeaconBlock =
+  let
+    blckData =
+      case fork
+      of ConsensusFork.Phase0:    Phase0Block
+      of ConsensusFork.Altair:    AltairBlock
+      of ConsensusFork.Bellatrix: BellatrixBlock % [feeRecipient]
+      of ConsensusFork.Capella:   CapellaBlock % [feeRecipient]
+      of ConsensusFork.Deneb:     DenebBlock % [feeRecipient]
+    contentType = ContentTypeData(
+      mediaType: MediaType.init("application/json"))
+
+  decodeBytes(ProduceBlockResponseV2,
+              blckData.toOpenArrayByte(0, len(blckData) - 1),
+              Opt.some(contentType)).tryGet()
+
+proc init(t: typedesc[Web3SignerForkedBeaconBlock],
+          forked: ForkedBeaconBlock): Web3SignerForkedBeaconBlock =
+  case forked.kind
+  of ConsensusFork.Phase0:
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Phase0,
+      phase0Data: forked.phase0Data)
+  of ConsensusFork.Altair:
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Altair,
+      altairData: forked.altairData)
+  of ConsensusFork.Bellatrix:
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Bellatrix,
+      bellatrixData: forked.bellatrixData.toBeaconBlockHeader)
+  of ConsensusFork.Capella:
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Capella,
+      capellaData: forked.capellaData.toBeaconBlockHeader)
+  of ConsensusFork.Deneb:
+    Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Deneb,
+      denebData: forked.denebData.toBeaconBlockHeader)
 
 proc createKeystore(dataDir, pubkey,
                     store, password: string): Result[void, string] =
@@ -114,23 +166,30 @@ proc createDataDir(pathName: string): Result[void, string] =
                    KeystorePassword)
   ok()
 
-proc createTestDir(): Result[void, string] =
+proc getTestDir(rt: RemoteSignerType): string =
+  case rt
+  of RemoteSignerType.Web3Signer:
+    TestDirectoryName
+  of RemoteSignerType.Web3SignerDiva:
+    TestDirectoryNameDiva
+
+proc createTestDir(rt: RemoteSignerType): Result[void, string] =
   let
-    pathName = TestDirectoryName
+    pathName = getTestDir(rt)
     signingDir = pathName & DirSep & "signing-node"
   if not(isDir(pathName)):
     let res = secureCreatePath(pathName)
     if res.isErr(): return err(ioErrorMsg(res.error))
   createDataDir(signingDir)
 
-proc createAdditionalKeystore(): Result[void, string] =
-  let signingDir = "test-signing-node" & DirSep & "signing-node"
+proc createAdditionalKeystore(rt: RemoteSignerType): Result[void, string] =
+  let signingDir = getTestDir(rt) & DirSep & "signing-node"
   createKeystore(signingDir, ValidatorPubKey4, ValidatorKeystore4,
                  KeystorePassword)
 
-proc removeTestDir() =
+proc removeTestDir(rt: RemoteSignerType) =
   let
-    pathName = TestDirectoryName
+    pathName = getTestDir(rt)
     signingDir = pathName & DirSep & "signing-node"
   # signing-node cleanup
   removeKeystore(signingDir, ValidatorPubKey1)
@@ -162,34 +221,49 @@ proc getLocalKeystoreData(data: string): Result[KeystoreData, string] =
     pubkey: privateKey.toPubKey().toPubKey()
   ))
 
-proc getRemoteKeystoreData(data: string): Result[KeystoreData, string] =
+proc getRemoteKeystoreData(data: string,
+                           rt: RemoteSignerType): Result[KeystoreData, string] =
   let
     publicKey = ValidatorPubKey.fromHex(data).valueOr:
       return err("Invalid public key")
 
     info = RemoteSignerInfo(
       url: HttpHostUri(parseUri("http://" & SigningNodeAddress & ":" &
-                                $SigningNodePort)),
+                                $getNodePort(rt))),
       pubkey: publicKey
     )
   ok(KeystoreData(
     kind: KeystoreKind.Remote,
+    remoteType: rt,
     version: uint64(4),
     pubkey: publicKey,
     remotes: @[info]
   ))
 
-proc spawnSigningNodeProcess(): Result[Process, string] =
+proc spawnSigningNodeProcess(rt: RemoteSignerType): Result[Process, string] =
   let process =
     try:
-      let arguments = [
-        "--non-interactive=true",
-        "--data-dir=" & "test-signing-node" & DirSep & "signing-node",
-        "--bind-address=" & SigningNodeAddress,
-        "--bind-port=" & $SigningNodePort,
-        "--request-timeout=" & $SigningRequestTimeoutSeconds
-          # we make so low `timeout` to test connection pool.
-      ]
+      let arguments =
+        case rt
+        of RemoteSignerType.Web3Signer:
+          @[
+            "--non-interactive=true",
+            "--data-dir=" & getTestDir(rt) & DirSep & "signing-node",
+            "--bind-address=" & SigningNodeAddress,
+            "--bind-port=" & $getNodePort(rt),
+            "--request-timeout=" & $SigningRequestTimeoutSeconds
+              # we make so low `timeout` to test connection pool.
+          ]
+        of RemoteSignerType.Web3SignerDiva:
+          @[
+            "--non-interactive=true",
+            "--data-dir=" & getTestDir(rt) & DirSep & "signing-node",
+            "--bind-address=" & SigningNodeAddress,
+            "--bind-port=" & $getNodePort(rt),
+            "--expected-fee-recipient=" & $SigningExpectedFeeRecipient,
+            "--request-timeout=" & $SigningRequestTimeoutSeconds
+              # we make so low `timeout` to test connection pool.
+          ]
       startProcess("build/nimbus_signing_node", "", arguments)
     except CatchableError as exc:
       echo "Error while spawning `nimbus_signing_node` process [", $exc.name,
@@ -202,11 +276,11 @@ proc shutdownSigningNodeProcess(process: Process) =
     process.kill()
   discard process.waitForExit()
 
-suite "Nimbus remote signer test":
-  let res = createTestDir()
+suite "Nimbus remote signer/signing test (web3signer)":
+  let res = createTestDir(RemoteSignerType.Web3Signer)
   doAssert(res.isOk())
 
-  let pres = spawnSigningNodeProcess()
+  let pres = spawnSigningNodeProcess(RemoteSignerType.Web3Signer)
   doAssert(pres.isOk())
   let process = pres.get()
 
@@ -232,15 +306,18 @@ suite "Nimbus remote signer test":
 
     let pool2 = newClone(default(ValidatorPool))
     let validator4 = pool2[].addValidator(
-      getRemoteKeystoreData(ValidatorPubKey1).get(),
+      getRemoteKeystoreData(ValidatorPubKey1,
+                            RemoteSignerType.Web3Signer).get(),
       default(Eth1Address), 300_000_000'u64
     )
     let validator5 = pool2[].addValidator(
-      getRemoteKeystoreData(ValidatorPubKey2).get(),
+      getRemoteKeystoreData(ValidatorPubKey2,
+                            RemoteSignerType.Web3Signer).get(),
       default(Eth1Address), 300_000_000'u64
     )
     let validator6 = pool2[].addValidator(
-      getRemoteKeystoreData(ValidatorPubKey3).get(),
+      getRemoteKeystoreData(ValidatorPubKey3,
+                            RemoteSignerType.Web3Signer).get(),
       default(Eth1Address), 300_000_000'u64
     )
 
@@ -250,7 +327,8 @@ suite "Nimbus remote signer test":
 
   asyncTest "Waiting for signing node (/upcheck) test":
     let
-      remoteUrl = "http://" & SigningNodeAddress & ":" & $SigningNodePort
+      remoteUrl = "http://" & SigningNodeAddress & ":" &
+                  $getNodePort(RemoteSignerType.Web3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
 
@@ -277,7 +355,8 @@ suite "Nimbus remote signer test":
 
   asyncTest "Public keys enumeration (/api/v1/eth2/publicKeys) test":
     let
-      remoteUrl = "http://" & SigningNodeAddress & ":" & $SigningNodePort
+      remoteUrl = "http://" & SigningNodeAddress & ":" &
+                  $getNodePort(RemoteSignerType.Web3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
 
@@ -305,597 +384,550 @@ suite "Nimbus remote signer test":
       await client.closeWait()
 
   asyncTest "Signing phase0 block":
-    {.gcsafe.}:
-      let
-        contentType = ContentTypeData(
-          mediaType: MediaType.init("application/json"))
-        forked = decodeBytes(
-          ProduceBlockResponseV2,
-          Phase0Block.toOpenArrayByte(0, len(Phase0Block) - 1),
-          Opt.some(contentType)).tryGet()
-        blockRoot = withBlck(forked): hash_tree_root(blck)
-        request = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
-                                         forked.phase0Data)
-        remoteUrl = "http://" & SigningNodeAddress & ":" & $SigningNodePort
-        prestoFlags = {RestClientFlag.CommaSeparatedArray}
-        rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
+    let
+      forked = getBlock(ConsensusFork.Phase0)
+      blockRoot = withBlck(forked): hash_tree_root(blck)
+      request = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+                                       forked.phase0Data)
+      remoteUrl = "http://" & SigningNodeAddress & ":" &
+                  $getNodePort(RemoteSignerType.Web3Signer)
+      prestoFlags = {RestClientFlag.CommaSeparatedArray}
+      rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
 
-      check rclient.isOk()
-      let client = rclient.get()
+    check rclient.isOk()
+    let client = rclient.get()
+    let
+      sres1 =
+        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      sres2 =
+        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      sres3 =
+        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+
+    try:
       let
-        sres1 =
-          await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        sres2 =
-          await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        sres3 =
-          await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
+        publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
+        publicKey2 = ValidatorPubKey.fromHex(ValidatorPubKey2).get()
+        publicKey3 = ValidatorPubKey.fromHex(ValidatorPubKey3).get()
+        response1 = await client.signData(publicKey1, request)
+        response2 = await client.signData(publicKey2, request)
+        response3 = await client.signData(publicKey3, request)
 
       check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
+        response1.isOk()
+        response2.isOk()
+        response3.isOk()
+        response1.get().toValidatorSig() == sres1.get()
+        response2.get().toValidatorSig() == sres2.get()
+        response3.get().toValidatorSig() == sres3.get()
 
-      try:
-        let
-          publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
-          publicKey2 = ValidatorPubKey.fromHex(ValidatorPubKey2).get()
-          publicKey3 = ValidatorPubKey.fromHex(ValidatorPubKey3).get()
-          response1 = await client.signData(publicKey1, request)
-          response2 = await client.signData(publicKey2, request)
-          response3 = await client.signData(publicKey3, request)
-
-        check:
-          response1.isOk()
-          response2.isOk()
-          response3.isOk()
-          response1.get().toValidatorSig() == sres1.get()
-          response2.get().toValidatorSig() == sres2.get()
-          response3.get().toValidatorSig() == sres3.get()
-
-      finally:
-        await client.closeWait()
+    finally:
+      await client.closeWait()
 
   asyncTest "Signing aggregation slot (getSlotSignature())":
-    {.gcsafe.}:
-      let
-        sres1 =
-          await validator1.getSlotSignature(SigningFork,
-            GenesisValidatorsRoot, Slot(10))
-        sres2 =
-          await validator2.getSlotSignature(SigningFork,
-            GenesisValidatorsRoot, Slot(100))
-        sres3 =
-          await validator3.getSlotSignature(SigningFork,
-            GenesisValidatorsRoot, Slot(1000))
-        rres1 =
-          await validator4.getSlotSignature(SigningFork,
-            GenesisValidatorsRoot, Slot(10))
-        rres2 =
-          await validator5.getSlotSignature(SigningFork,
-            GenesisValidatorsRoot, Slot(100))
-        rres3 =
-          await validator6.getSlotSignature(SigningFork,
-            GenesisValidatorsRoot, Slot(1000))
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    let
+      sres1 =
+        await validator1.getSlotSignature(SigningFork,
+          GenesisValidatorsRoot, Slot(10))
+      sres2 =
+        await validator2.getSlotSignature(SigningFork,
+          GenesisValidatorsRoot, Slot(100))
+      sres3 =
+        await validator3.getSlotSignature(SigningFork,
+          GenesisValidatorsRoot, Slot(1000))
+      rres1 =
+        await validator4.getSlotSignature(SigningFork,
+          GenesisValidatorsRoot, Slot(10))
+      rres2 =
+        await validator5.getSlotSignature(SigningFork,
+          GenesisValidatorsRoot, Slot(100))
+      rres3 =
+        await validator6.getSlotSignature(SigningFork,
+          GenesisValidatorsRoot, Slot(1000))
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing randao reveal (getEpochSignature())":
-    {.gcsafe.}:
-      let
-        sres1 =
-          await validator1.getEpochSignature(SigningFork,
-            GenesisValidatorsRoot, Epoch(10))
-        sres2 =
-          await validator2.getEpochSignature(SigningFork,
-            GenesisValidatorsRoot, Epoch(100))
-        sres3 =
-          await validator3.getEpochSignature(SigningFork,
-            GenesisValidatorsRoot, Epoch(1000))
-        rres1 =
-          await validator4.getEpochSignature(SigningFork,
-            GenesisValidatorsRoot, Epoch(10))
-        rres2 =
-          await validator5.getEpochSignature(SigningFork,
-            GenesisValidatorsRoot, Epoch(100))
-        rres3 =
-          await validator6.getEpochSignature(SigningFork,
-            GenesisValidatorsRoot, Epoch(1000))
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    let
+      sres1 =
+        await validator1.getEpochSignature(SigningFork,
+          GenesisValidatorsRoot, Epoch(10))
+      sres2 =
+        await validator2.getEpochSignature(SigningFork,
+          GenesisValidatorsRoot, Epoch(100))
+      sres3 =
+        await validator3.getEpochSignature(SigningFork,
+          GenesisValidatorsRoot, Epoch(1000))
+      rres1 =
+        await validator4.getEpochSignature(SigningFork,
+          GenesisValidatorsRoot, Epoch(10))
+      rres2 =
+        await validator5.getEpochSignature(SigningFork,
+          GenesisValidatorsRoot, Epoch(100))
+      rres3 =
+        await validator6.getEpochSignature(SigningFork,
+          GenesisValidatorsRoot, Epoch(1000))
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing SC message (getSyncCommitteeMessage())":
-    {.gcsafe.}:
-      let
-        sres1 =
-          await validator1.getSyncCommitteeMessage(SigningFork,
-            GenesisValidatorsRoot, Slot(10), SomeOtherRoot)
-        sres2 =
-          await validator2.getSyncCommitteeMessage(SigningFork,
-            GenesisValidatorsRoot, Slot(100), SomeOtherRoot)
-        sres3 =
-          await validator3.getSyncCommitteeMessage(SigningFork,
-            GenesisValidatorsRoot, Slot(1000), SomeOtherRoot)
-        rres1 =
-          await validator4.getSyncCommitteeMessage(SigningFork,
-            GenesisValidatorsRoot, Slot(10), SomeOtherRoot)
-        rres2 =
-          await validator5.getSyncCommitteeMessage(SigningFork,
-            GenesisValidatorsRoot, Slot(100), SomeOtherRoot)
-        rres3 =
-          await validator6.getSyncCommitteeMessage(SigningFork,
-            GenesisValidatorsRoot, Slot(1000), SomeOtherRoot)
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    let
+      sres1 =
+        await validator1.getSyncCommitteeMessage(SigningFork,
+          GenesisValidatorsRoot, Slot(10), SomeOtherRoot)
+      sres2 =
+        await validator2.getSyncCommitteeMessage(SigningFork,
+          GenesisValidatorsRoot, Slot(100), SomeOtherRoot)
+      sres3 =
+        await validator3.getSyncCommitteeMessage(SigningFork,
+          GenesisValidatorsRoot, Slot(1000), SomeOtherRoot)
+      rres1 =
+        await validator4.getSyncCommitteeMessage(SigningFork,
+          GenesisValidatorsRoot, Slot(10), SomeOtherRoot)
+      rres2 =
+        await validator5.getSyncCommitteeMessage(SigningFork,
+          GenesisValidatorsRoot, Slot(100), SomeOtherRoot)
+      rres3 =
+        await validator6.getSyncCommitteeMessage(SigningFork,
+          GenesisValidatorsRoot, Slot(1000), SomeOtherRoot)
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing SC selection proof " &
             "(getSyncCommitteeSelectionProof())":
-    {.gcsafe.}:
-      let
-        sres1 =
-          await validator1.getSyncCommitteeSelectionProof(SigningFork,
-            GenesisValidatorsRoot, Slot(10), SyncSubcommitteeIndex(1))
-        sres2 =
-          await validator2.getSyncCommitteeSelectionProof(SigningFork,
-            GenesisValidatorsRoot, Slot(100), SyncSubcommitteeIndex(2))
-        sres3 =
-          await validator3.getSyncCommitteeSelectionProof(SigningFork,
-            GenesisValidatorsRoot, Slot(1000), SyncSubcommitteeIndex(3))
-        rres1 =
-          await validator4.getSyncCommitteeSelectionProof(SigningFork,
-            GenesisValidatorsRoot, Slot(10), SyncSubcommitteeIndex(1))
-        rres2 =
-          await validator5.getSyncCommitteeSelectionProof(SigningFork,
-            GenesisValidatorsRoot, Slot(100), SyncSubcommitteeIndex(2))
-        rres3 =
-          await validator6.getSyncCommitteeSelectionProof(SigningFork,
-            GenesisValidatorsRoot, Slot(1000), SyncSubcommitteeIndex(3))
+    let
+      sres1 =
+        await validator1.getSyncCommitteeSelectionProof(SigningFork,
+          GenesisValidatorsRoot, Slot(10), SyncSubcommitteeIndex(1))
+      sres2 =
+        await validator2.getSyncCommitteeSelectionProof(SigningFork,
+          GenesisValidatorsRoot, Slot(100), SyncSubcommitteeIndex(2))
+      sres3 =
+        await validator3.getSyncCommitteeSelectionProof(SigningFork,
+          GenesisValidatorsRoot, Slot(1000), SyncSubcommitteeIndex(3))
+      rres1 =
+        await validator4.getSyncCommitteeSelectionProof(SigningFork,
+          GenesisValidatorsRoot, Slot(10), SyncSubcommitteeIndex(1))
+      rres2 =
+        await validator5.getSyncCommitteeSelectionProof(SigningFork,
+          GenesisValidatorsRoot, Slot(100), SyncSubcommitteeIndex(2))
+      rres3 =
+        await validator6.getSyncCommitteeSelectionProof(SigningFork,
+          GenesisValidatorsRoot, Slot(1000), SyncSubcommitteeIndex(3))
 
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing SC contribution and proof " &
             "(getContributionAndProofSignature())":
-    {.gcsafe.}:
-      let
-        conProof = default(ContributionAndProof)
-        sres1 =
-          await validator1.getContributionAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, conProof)
-        sres2 =
-          await validator2.getContributionAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, conProof)
-        sres3 =
-          await validator3.getContributionAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, conProof)
-        rres1 =
-          await validator4.getContributionAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, conProof)
-        rres2 =
-          await validator5.getContributionAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, conProof)
-        rres3 =
-          await validator6.getContributionAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, conProof)
+    let
+      conProof = default(ContributionAndProof)
+      sres1 =
+        await validator1.getContributionAndProofSignature(SigningFork,
+          GenesisValidatorsRoot, conProof)
+      sres2 =
+        await validator2.getContributionAndProofSignature(SigningFork,
+          GenesisValidatorsRoot, conProof)
+      sres3 =
+        await validator3.getContributionAndProofSignature(SigningFork,
+          GenesisValidatorsRoot, conProof)
+      rres1 =
+        await validator4.getContributionAndProofSignature(SigningFork,
+          GenesisValidatorsRoot, conProof)
+      rres2 =
+        await validator5.getContributionAndProofSignature(SigningFork,
+          GenesisValidatorsRoot, conProof)
+      rres3 =
+        await validator6.getContributionAndProofSignature(SigningFork,
+          GenesisValidatorsRoot, conProof)
 
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing attestation (getAttestationSignature())":
-    {.gcsafe.}:
-      let
-        adata = default(AttestationData)
-        sres1 =
-          await validator1.getAttestationSignature(SigningFork,
-            GenesisValidatorsRoot, adata)
-        sres2 =
-          await validator2.getAttestationSignature(SigningFork,
-            GenesisValidatorsRoot, adata)
-        sres3 =
-          await validator3.getAttestationSignature(SigningFork,
-            GenesisValidatorsRoot, adata)
-        rres1 =
-          await validator4.getAttestationSignature(SigningFork,
-            GenesisValidatorsRoot, adata)
-        rres2 =
-          await validator5.getAttestationSignature(SigningFork,
-            GenesisValidatorsRoot, adata)
-        rres3 =
-          await validator6.getAttestationSignature(SigningFork,
-            GenesisValidatorsRoot, adata)
+    let
+      adata = default(AttestationData)
+      sres1 =
+        await validator1.getAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, adata)
+      sres2 =
+        await validator2.getAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, adata)
+      sres3 =
+        await validator3.getAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, adata)
+      rres1 =
+        await validator4.getAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, adata)
+      rres2 =
+        await validator5.getAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, adata)
+      rres3 =
+        await validator6.getAttestationSignature(SigningFork,
+          GenesisValidatorsRoot, adata)
 
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing aggregate and proof (getAggregateAndProofSignature())":
-    {.gcsafe.}:
-      let
-        contentType = ContentTypeData(
-          mediaType: MediaType.init("application/json"))
-        agAttestation = decodeBytes(
-          GetAggregatedAttestationResponse,
-          AgAttestation.toOpenArrayByte(0, len(AgAttestation) - 1),
-          Opt.some(contentType)).tryGet().data
-        agProof = AggregateAndProof(
-          aggregator_index: 1'u64,
-          aggregate: agAttestation,
-          selection_proof: ValidatorSig.fromHex(SomeSignature).get())
-        sres1 =
-          await validator1.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        sres2 =
-          await validator2.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        sres3 =
-          await validator3.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        rres1 =
-          await validator4.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        rres2 =
-          await validator5.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
-        rres3 =
-          await validator6.getAggregateAndProofSignature(SigningFork,
-            GenesisValidatorsRoot, agProof)
+    let
+      contentType = ContentTypeData(
+        mediaType: MediaType.init("application/json"))
+      agAttestation = decodeBytes(
+        GetAggregatedAttestationResponse,
+        AgAttestation.toOpenArrayByte(0, len(AgAttestation) - 1),
+        Opt.some(contentType)).tryGet().data
+      agProof = AggregateAndProof(
+        aggregator_index: 1'u64,
+        aggregate: agAttestation,
+        selection_proof: ValidatorSig.fromHex(SomeSignature).get())
+      sres1 =
+        await validator1.getAggregateAndProofSignature(SigningFork,
+          GenesisValidatorsRoot, agProof)
+      sres2 =
+        await validator2.getAggregateAndProofSignature(SigningFork,
+          GenesisValidatorsRoot, agProof)
+      sres3 =
+        await validator3.getAggregateAndProofSignature(SigningFork,
+          GenesisValidatorsRoot, agProof)
+      rres1 =
+        await validator4.getAggregateAndProofSignature(SigningFork,
+          GenesisValidatorsRoot, agProof)
+      rres2 =
+        await validator5.getAggregateAndProofSignature(SigningFork,
+          GenesisValidatorsRoot, agProof)
+      rres3 =
+        await validator6.getAggregateAndProofSignature(SigningFork,
+          GenesisValidatorsRoot, agProof)
 
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing validator registration (getBuilderSignature())":
-    {.gcsafe.}:
-      let
-        vdata = default(ValidatorRegistrationV1)
-        sres1 = await validator1.getBuilderSignature(SigningFork, vdata)
-        sres2 = await validator2.getBuilderSignature(SigningFork, vdata)
-        sres3 = await validator3.getBuilderSignature(SigningFork, vdata)
-        rres1 = await validator4.getBuilderSignature(SigningFork, vdata)
-        rres2 = await validator5.getBuilderSignature(SigningFork, vdata)
-        rres3 = await validator6.getBuilderSignature(SigningFork, vdata)
+    let
+      vdata = default(ValidatorRegistrationV1)
+      sres1 = await validator1.getBuilderSignature(SigningFork, vdata)
+      sres2 = await validator2.getBuilderSignature(SigningFork, vdata)
+      sres3 = await validator3.getBuilderSignature(SigningFork, vdata)
+      rres1 = await validator4.getBuilderSignature(SigningFork, vdata)
+      rres2 = await validator5.getBuilderSignature(SigningFork, vdata)
+      rres3 = await validator6.getBuilderSignature(SigningFork, vdata)
 
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing voluntary exit (getValidatorExitSignature())":
-    {.gcsafe.}:
-      let
-        voluntaryExit = default(VoluntaryExit)
-        sres1 =
-          await validator1.getValidatorExitSignature(SigningFork,
-            GenesisValidatorsRoot, voluntaryExit)
-        sres2 =
-          await validator2.getValidatorExitSignature(SigningFork,
-            GenesisValidatorsRoot, voluntaryExit)
-        sres3 =
-          await validator3.getValidatorExitSignature(SigningFork,
-            GenesisValidatorsRoot, voluntaryExit)
-        rres1 =
-          await validator4.getValidatorExitSignature(SigningFork,
-            GenesisValidatorsRoot, voluntaryExit)
-        rres2 =
-          await validator5.getValidatorExitSignature(SigningFork,
-            GenesisValidatorsRoot, voluntaryExit)
-        rres3 =
-          await validator6.getValidatorExitSignature(SigningFork,
-            GenesisValidatorsRoot, voluntaryExit)
+    let
+      voluntaryExit = default(VoluntaryExit)
+      sres1 =
+        await validator1.getValidatorExitSignature(SigningFork,
+          GenesisValidatorsRoot, voluntaryExit)
+      sres2 =
+        await validator2.getValidatorExitSignature(SigningFork,
+          GenesisValidatorsRoot, voluntaryExit)
+      sres3 =
+        await validator3.getValidatorExitSignature(SigningFork,
+          GenesisValidatorsRoot, voluntaryExit)
+      rres1 =
+        await validator4.getValidatorExitSignature(SigningFork,
+          GenesisValidatorsRoot, voluntaryExit)
+      rres2 =
+        await validator5.getValidatorExitSignature(SigningFork,
+          GenesisValidatorsRoot, voluntaryExit)
+      rres3 =
+        await validator6.getValidatorExitSignature(SigningFork,
+          GenesisValidatorsRoot, voluntaryExit)
 
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing deposit message (getDepositMessageSignature())":
-    {.gcsafe.}:
-      let
-        depositMessage = default(DepositMessage)
-        sres1 =
-          await validator1.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        sres2 =
-          await validator2.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        sres3 =
-          await validator3.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        rres1 =
-          await validator4.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        rres2 =
-          await validator5.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
-        rres3 =
-          await validator6.getDepositMessageSignature(GenesisForkVersion,
-            depositMessage)
+    let
+      depositMessage = default(DepositMessage)
+      sres1 =
+        await validator1.getDepositMessageSignature(GenesisForkVersion,
+          depositMessage)
+      sres2 =
+        await validator2.getDepositMessageSignature(GenesisForkVersion,
+          depositMessage)
+      sres3 =
+        await validator3.getDepositMessageSignature(GenesisForkVersion,
+          depositMessage)
+      rres1 =
+        await validator4.getDepositMessageSignature(GenesisForkVersion,
+          depositMessage)
+      rres2 =
+        await validator5.getDepositMessageSignature(GenesisForkVersion,
+          depositMessage)
+      rres3 =
+        await validator6.getDepositMessageSignature(GenesisForkVersion,
+          depositMessage)
 
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing BeaconBlock (getBlockSignature(phase0))":
-    {.gcsafe.}:
-      let
-        contentType = ContentTypeData(
-          mediaType: MediaType.init("application/json"))
-        forked = decodeBytes(
-          ProduceBlockResponseV2,
-          Phase0Block.toOpenArrayByte(0, len(Phase0Block) - 1),
-          Opt.some(contentType)).tryGet()
-        blockRoot = withBlck(forked): hash_tree_root(blck)
+    let
+      forked = getBlock(ConsensusFork.Phase0)
+      blockRoot = withBlck(forked): hash_tree_root(blck)
 
-        sres1 =
-          await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        sres2 =
-          await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        sres3 =
-          await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres1 =
-          await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres2 =
-          await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres3 =
-          await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
+      sres1 =
+        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      sres2 =
+        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      sres3 =
+        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
 
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing BeaconBlock (getBlockSignature(altair))":
-    {.gcsafe.}:
-      let
-        contentType = ContentTypeData(
-          mediaType: MediaType.init("application/json"))
-        forked = decodeBytes(
-          ProduceBlockResponseV2,
-          AltairBlock.toOpenArrayByte(0, len(AltairBlock) - 1),
-          Opt.some(contentType)).tryGet()
-        blockRoot = withBlck(forked): hash_tree_root(blck)
+    let
+      forked = getBlock(ConsensusFork.Altair)
+      blockRoot = withBlck(forked): hash_tree_root(blck)
 
-        sres1 =
-          await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        sres2 =
-          await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        sres3 =
-          await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres1 =
-          await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres2 =
-          await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres3 =
-          await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
+      sres1 =
+        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      sres2 =
+        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      sres3 =
+        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
 
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing BeaconBlock (getBlockSignature(bellatrix))":
-    {.gcsafe.}:
-      let
-        contentType = ContentTypeData(
-          mediaType: MediaType.init("application/json"))
-        forked = decodeBytes(
-          ProduceBlockResponseV2,
-          BellatrixBlock.toOpenArrayByte(0, len(BellatrixBlock) - 1),
-          Opt.some(contentType)).tryGet()
-        blockRoot = withBlck(forked): hash_tree_root(blck)
+    let
+      forked = getBlock(ConsensusFork.Bellatrix)
+      blockRoot = withBlck(forked): hash_tree_root(blck)
 
-        sres1 =
-          await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        sres2 =
-          await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        sres3 =
-          await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres1 =
-          await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres2 =
-          await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres3 =
-          await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
+      sres1 =
+        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      sres2 =
+        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      sres3 =
+        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
 
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing BeaconBlock (getBlockSignature(capella))":
-    {.gcsafe.}:
-      let
-        contentType = ContentTypeData(
-          mediaType: MediaType.init("application/json"))
-        forked = decodeBytes(
-          ProduceBlockResponseV2,
-          CapellaBlock.toOpenArrayByte(0, len(CapellaBlock) - 1),
-          Opt.some(contentType)).tryGet()
-        blockRoot = withBlck(forked): hash_tree_root(blck)
+    let
+      forked = getBlock(ConsensusFork.Capella)
+      blockRoot = withBlck(forked): hash_tree_root(blck)
 
-        sres1 =
-          await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        sres2 =
-          await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        sres3 =
-          await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres1 =
-          await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres2 =
-          await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres3 =
-          await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
+      sres1 =
+        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      sres2 =
+        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      sres3 =
+        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
 
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Signing BeaconBlock (getBlockSignature(deneb))":
-    {.gcsafe.}:
-      let
-        contentType = ContentTypeData(
-          mediaType: MediaType.init("application/json"))
-      let
-        forked = decodeBytes(
-          ProduceBlockResponseV2,
-          DenebBlock.toOpenArrayByte(0, len(DenebBlock) - 1),
-          Opt.some(contentType)).tryGet()
-      let
-        blockRoot = withBlck(forked): hash_tree_root(blck)
+    let
+      forked = getBlock(ConsensusFork.Deneb)
+      blockRoot = withBlck(forked): hash_tree_root(blck)
 
-        sres1 =
-          await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        sres2 =
-          await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        sres3 =
-          await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres1 =
-          await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres2 =
-          await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
-        rres3 =
-          await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
-            Slot(1), blockRoot, forked)
+      sres1 =
+        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      sres2 =
+        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      sres3 =
+        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
+      rres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot, forked)
 
-      check:
-        sres1.isOk()
-        sres2.isOk()
-        sres3.isOk()
-        rres1.isOk()
-        rres2.isOk()
-        rres3.isOk()
-        sres1.get() == rres1.get()
-        sres2.get() == rres2.get()
-        sres3.get() == rres3.get()
+    check:
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
 
   asyncTest "Connections pool stress test":
     const TestsCount = 100
@@ -932,7 +964,8 @@ suite "Nimbus remote signer test":
 
   asyncTest "Idle connection test":
     let
-      remoteUrl = "http://" & SigningNodeAddress & ":" & $SigningNodePort
+      remoteUrl = "http://" & SigningNodeAddress & ":" &
+                  $getNodePort(RemoteSignerType.Web3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient =
         RestClientRef.new(remoteUrl, prestoFlags, {},
@@ -999,8 +1032,9 @@ suite "Nimbus remote signer test":
 
   asyncTest "Public keys reload (/reload) test":
     let
-      res = createAdditionalKeystore()
-      remoteUrl = "http://" & SigningNodeAddress & ":" & $SigningNodePort
+      res = createAdditionalKeystore(RemoteSignerType.Web3Signer)
+      remoteUrl = "http://" & SigningNodeAddress & ":" &
+                  $getNodePort(RemoteSignerType.Web3Signer)
       prestoFlags = {RestClientFlag.CommaSeparatedArray}
       rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
 
@@ -1037,5 +1071,541 @@ suite "Nimbus remote signer test":
       await client.closeWait()
 
   shutdownSigningNodeProcess(process)
+  removeTestDir(RemoteSignerType.Web3Signer)
 
-  removeTestDir()
+suite "Nimbus remote signer/signing test (web3signer-diva)":
+  let res = createTestDir(RemoteSignerType.Web3SignerDiva)
+  doAssert(res.isOk())
+
+  let pres = spawnSigningNodeProcess(RemoteSignerType.Web3SignerDiva)
+  doAssert(pres.isOk())
+  let process = pres.get()
+
+  setup:
+    let pool1 = newClone(default(ValidatorPool))
+    let
+      validator1 = pool1[].addValidator(
+        getLocalKeystoreData(ValidatorPrivateKey1).get(),
+        default(Eth1Address), 300_000_000'u64
+      )
+      validator2 = pool1[].addValidator(
+        getLocalKeystoreData(ValidatorPrivateKey2).get(),
+        default(Eth1Address), 300_000_000'u64
+      )
+      validator3 = pool1[].addValidator(
+        getLocalKeystoreData(ValidatorPrivateKey3).get(),
+        default(Eth1Address), 300_000_000'u64
+      )
+
+    validator1.index = Opt.some(ValidatorIndex(100))
+    validator2.index = Opt.some(ValidatorIndex(101))
+    validator3.index = Opt.some(ValidatorIndex(102))
+
+    let pool2 = newClone(default(ValidatorPool))
+    let validator4 = pool2[].addValidator(
+      getRemoteKeystoreData(ValidatorPubKey1,
+                            RemoteSignerType.Web3SignerDiva).get(),
+      default(Eth1Address), 300_000_000'u64
+    )
+    let validator5 = pool2[].addValidator(
+      getRemoteKeystoreData(ValidatorPubKey2,
+                            RemoteSignerType.Web3SignerDiva).get(),
+      default(Eth1Address), 300_000_000'u64
+    )
+    let validator6 = pool2[].addValidator(
+      getRemoteKeystoreData(ValidatorPubKey3,
+                            RemoteSignerType.Web3SignerDiva).get(),
+      default(Eth1Address), 300_000_000'u64
+    )
+
+    validator4.index = Opt.some(ValidatorIndex(100))
+    validator5.index = Opt.some(ValidatorIndex(101))
+    validator6.index = Opt.some(ValidatorIndex(102))
+
+  asyncTest "Waiting for signing node (/upcheck) test":
+    let
+      remoteUrl = "http://" & SigningNodeAddress & ":" &
+                  $getNodePort(RemoteSignerType.Web3SignerDiva)
+      prestoFlags = {RestClientFlag.CommaSeparatedArray}
+      rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
+
+    check rclient.isOk()
+    let client = rclient.get()
+
+    var attempts = 0
+    while attempts < 3:
+      let loopBreak =
+        try:
+          let response = await client.getUpcheck()
+          check:
+            response.status == 200
+            response.data.status == "OK"
+          true
+        except CatchableError:
+          inc(attempts)
+          false
+      if loopBreak:
+        break
+      await sleepAsync(500.milliseconds)
+
+    await client.closeWait()
+
+  asyncTest "Signing BeaconBlock (getBlockSignature(phase0))":
+    let
+      fork = ConsensusFork.Phase0
+      forked1 = getBlock(fork)
+      blockRoot1 = withBlck(forked1): hash_tree_root(blck)
+      forked2 = getBlock(fork, SigningOtherFeeRecipient)
+      blockRoot2 = withBlck(forked2): hash_tree_root(blck)
+      request1 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+        Web3SignerForkedBeaconBlock.init(forked1))
+      request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+        Web3SignerForkedBeaconBlock.init(forked1), @[])
+      remoteUrl = "http://" & SigningNodeAddress & ":" &
+                  $getNodePort(RemoteSignerType.Web3SignerDiva)
+      prestoFlags = {RestClientFlag.CommaSeparatedArray}
+      rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
+      publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
+      publicKey2 = ValidatorPubKey.fromHex(ValidatorPubKey2).get()
+      publicKey3 = ValidatorPubKey.fromHex(ValidatorPubKey3).get()
+
+    check rclient.isOk()
+
+    let
+      client = rclient.get()
+      sres1 =
+        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      sres2 =
+        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      sres3 =
+        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      bres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+      bres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+      bres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+
+    check:
+      # Local requests
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      # Phase0 blocks do not have FeeRecipient field, so it should not care
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      # Signature comparison
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
+      # Phase0 blocks do not have FeeRecipient field, so it should not care
+      bres1.isOk()
+      bres2.isOk()
+      bres3.isOk()
+      # Signature comparison
+      bres1.get() == rres1.get()
+      bres2.get() == rres2.get()
+      bres3.get() == rres3.get()
+
+    try:
+      let
+        # `proofs` array is not present.
+        response1 = await client.signDataPlain(publicKey1, request1)
+        response2 = await client.signDataPlain(publicKey2, request1)
+        response3 = await client.signDataPlain(publicKey3, request1)
+        # `proofs` array is empty.
+        response4 = await client.signDataPlain(publicKey1, request2)
+        response5 = await client.signDataPlain(publicKey2, request2)
+        response6 = await client.signDataPlain(publicKey3, request2)
+      check:
+        # When `Phase0` block specified remote signer should ignore `proof`
+        # field and its value
+        response1.status == 200
+        response2.status == 200
+        response3.status == 200
+        response4.status == 200
+        response5.status == 200
+        response6.status == 200
+    finally:
+      await client.closeWait()
+
+  asyncTest "Signing BeaconBlock (getBlockSignature(altair))":
+    let
+      fork = ConsensusFork.Altair
+      forked1 = getBlock(fork)
+      blockRoot1 = withBlck(forked1): hash_tree_root(blck)
+      forked2 = getBlock(fork, SigningOtherFeeRecipient)
+      blockRoot2 = withBlck(forked2): hash_tree_root(blck)
+      request1 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+        Web3SignerForkedBeaconBlock.init(forked1))
+      request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+        Web3SignerForkedBeaconBlock.init(forked1), @[])
+      remoteUrl = "http://" & SigningNodeAddress & ":" &
+                  $getNodePort(RemoteSignerType.Web3SignerDiva)
+      prestoFlags = {RestClientFlag.CommaSeparatedArray}
+      rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
+      publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
+      publicKey2 = ValidatorPubKey.fromHex(ValidatorPubKey2).get()
+      publicKey3 = ValidatorPubKey.fromHex(ValidatorPubKey3).get()
+
+    check rclient.isOk()
+
+    let
+      client = rclient.get()
+      sres1 =
+        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      sres2 =
+        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      sres3 =
+        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      bres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+      bres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+      bres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+
+    check:
+      # Local requests
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      # Altair block do not have FeeRecipient field, so it should not care
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      # Signature comparison
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
+      # Altair block do not have FeeRecipient field, so it should not care
+      bres1.isOk()
+      bres2.isOk()
+      bres3.isOk()
+      # Signature comparison
+      bres1.get() == rres1.get()
+      bres2.get() == rres2.get()
+      bres3.get() == rres3.get()
+
+    try:
+      let
+        # `proofs` array is not present.
+        response1 = await client.signDataPlain(publicKey1, request1)
+        response2 = await client.signDataPlain(publicKey2, request1)
+        response3 = await client.signDataPlain(publicKey3, request1)
+        # `proofs` array is empty.
+        response4 = await client.signDataPlain(publicKey1, request2)
+        response5 = await client.signDataPlain(publicKey2, request2)
+        response6 = await client.signDataPlain(publicKey3, request2)
+      check:
+        # When `Altair` block specified remote signer should ignore `proof`
+        # field and its value.
+        response1.status == 200
+        response2.status == 200
+        response3.status == 200
+        response4.status == 200
+        response5.status == 200
+        response6.status == 200
+    finally:
+      await client.closeWait()
+
+  asyncTest "Signing BeaconBlock (getBlockSignature(bellatrix))":
+    let
+      fork = ConsensusFork.Bellatrix
+      forked1 = getBlock(fork)
+      blockRoot1 = withBlck(forked1): hash_tree_root(blck)
+      forked2 = getBlock(fork, SigningOtherFeeRecipient)
+      blockRoot2 = withBlck(forked2): hash_tree_root(blck)
+      request1 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+        Web3SignerForkedBeaconBlock.init(forked1))
+      request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+        Web3SignerForkedBeaconBlock.init(forked1), @[])
+      remoteUrl = "http://" & SigningNodeAddress & ":" &
+                  $getNodePort(RemoteSignerType.Web3SignerDiva)
+      prestoFlags = {RestClientFlag.CommaSeparatedArray}
+      rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
+      publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
+      publicKey2 = ValidatorPubKey.fromHex(ValidatorPubKey2).get()
+      publicKey3 = ValidatorPubKey.fromHex(ValidatorPubKey3).get()
+
+    check rclient.isOk()
+
+    let
+      client = rclient.get()
+      sres1 =
+        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      sres2 =
+        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      sres3 =
+        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      bres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+      bres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+      bres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+
+    check:
+      # Local requests
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      # Remote requests with proper merkle proof of proper FeeRecipent field
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      # Signature comparison
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
+      # Remote requests with changed FeeRecipient field
+      bres1.isErr()
+      bres2.isErr()
+      bres3.isErr()
+
+    try:
+      let
+        # `proofs` array is not present.
+        response1 = await client.signDataPlain(publicKey1, request1)
+        response2 = await client.signDataPlain(publicKey2, request1)
+        response3 = await client.signDataPlain(publicKey3, request1)
+        # `proofs` array is empty.
+        response4 = await client.signDataPlain(publicKey1, request2)
+        response5 = await client.signDataPlain(publicKey2, request2)
+        response6 = await client.signDataPlain(publicKey3, request2)
+      check:
+        response1.status == 400
+        response2.status == 400
+        response3.status == 400
+        response4.status == 400
+        response5.status == 400
+        response6.status == 400
+    finally:
+      await client.closeWait()
+
+  asyncTest "Signing BeaconBlock (getBlockSignature(capella))":
+    let
+      fork = ConsensusFork.Capella
+      forked1 = getBlock(fork)
+      blockRoot1 = withBlck(forked1): hash_tree_root(blck)
+      forked2 = getBlock(fork, SigningOtherFeeRecipient)
+      blockRoot2 = withBlck(forked2): hash_tree_root(blck)
+      request1 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+        Web3SignerForkedBeaconBlock.init(forked1))
+      request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+        Web3SignerForkedBeaconBlock.init(forked1), @[])
+      remoteUrl = "http://" & SigningNodeAddress & ":" &
+                  $getNodePort(RemoteSignerType.Web3SignerDiva)
+      prestoFlags = {RestClientFlag.CommaSeparatedArray}
+      rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
+      publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
+      publicKey2 = ValidatorPubKey.fromHex(ValidatorPubKey2).get()
+      publicKey3 = ValidatorPubKey.fromHex(ValidatorPubKey3).get()
+
+    check rclient.isOk()
+
+    let
+      client = rclient.get()
+      sres1 =
+        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      sres2 =
+        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      sres3 =
+        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      bres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+      bres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+      bres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+
+    check:
+      # Local requests
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      # Remote requests with proper merkle proof of proper FeeRecipent field
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      # Signature comparison
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
+      # Remote requests with changed FeeRecipient field
+      bres1.isErr()
+      bres2.isErr()
+      bres3.isErr()
+
+    try:
+      let
+        # `proofs` array is not present.
+        response1 = await client.signDataPlain(publicKey1, request1)
+        response2 = await client.signDataPlain(publicKey2, request1)
+        response3 = await client.signDataPlain(publicKey3, request1)
+        # `proofs` array is empty.
+        response4 = await client.signDataPlain(publicKey1, request2)
+        response5 = await client.signDataPlain(publicKey2, request2)
+        response6 = await client.signDataPlain(publicKey3, request2)
+      check:
+        response1.status == 400
+        response2.status == 400
+        response3.status == 400
+        response4.status == 400
+        response5.status == 400
+        response6.status == 400
+    finally:
+      await client.closeWait()
+
+  asyncTest "Signing BeaconBlock (getBlockSignature(deneb))":
+    let
+      fork = ConsensusFork.Deneb
+      forked1 = getBlock(fork)
+      blockRoot1 = withBlck(forked1): hash_tree_root(blck)
+      forked2 = getBlock(fork, SigningOtherFeeRecipient)
+      blockRoot2 = withBlck(forked2): hash_tree_root(blck)
+      request1 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+        Web3SignerForkedBeaconBlock.init(forked1))
+      request2 = Web3SignerRequest.init(SigningFork, GenesisValidatorsRoot,
+        Web3SignerForkedBeaconBlock.init(forked1), @[])
+      remoteUrl = "http://" & SigningNodeAddress & ":" &
+                  $getNodePort(RemoteSignerType.Web3SignerDiva)
+      prestoFlags = {RestClientFlag.CommaSeparatedArray}
+      rclient = RestClientRef.new(remoteUrl, prestoFlags, {})
+      publicKey1 = ValidatorPubKey.fromHex(ValidatorPubKey1).get()
+      publicKey2 = ValidatorPubKey.fromHex(ValidatorPubKey2).get()
+      publicKey3 = ValidatorPubKey.fromHex(ValidatorPubKey3).get()
+
+    check rclient.isOk()
+
+    let
+      client = rclient.get()
+      sres1 =
+        await validator1.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      sres2 =
+        await validator2.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      sres3 =
+        await validator3.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      rres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot1, forked1)
+      bres1 =
+        await validator4.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+      bres2 =
+        await validator5.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+      bres3 =
+        await validator6.getBlockSignature(SigningFork, GenesisValidatorsRoot,
+          Slot(1), blockRoot2, forked2)
+
+    check:
+      # Local requests
+      sres1.isOk()
+      sres2.isOk()
+      sres3.isOk()
+      # Remote requests with proper merkle proof of proper FeeRecipent field
+      rres1.isOk()
+      rres2.isOk()
+      rres3.isOk()
+      # Signature comparison
+      sres1.get() == rres1.get()
+      sres2.get() == rres2.get()
+      sres3.get() == rres3.get()
+      # Remote requests with changed FeeRecipient field
+      bres1.isErr()
+      bres2.isErr()
+      bres3.isErr()
+
+    try:
+      let
+        # `proofs` array is not present.
+        response1 = await client.signDataPlain(publicKey1, request1)
+        response2 = await client.signDataPlain(publicKey2, request1)
+        response3 = await client.signDataPlain(publicKey3, request1)
+        # `proofs` array is empty.
+        response4 = await client.signDataPlain(publicKey1, request2)
+        response5 = await client.signDataPlain(publicKey2, request2)
+        response6 = await client.signDataPlain(publicKey3, request2)
+      check:
+        response1.status == 400
+        response2.status == 400
+        response3.status == 400
+        response4.status == 400
+        response5.status == 400
+        response6.status == 400
+    finally:
+      await client.closeWait()
+
+  shutdownSigningNodeProcess(process)
+  removeTestDir(RemoteSignerType.Web3SignerDiva)
