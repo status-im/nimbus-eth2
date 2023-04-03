@@ -364,7 +364,7 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Voluntary exit signatures                                                                  OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
-## Nimbus remote signer test
+## Nimbus remote signer/signing test (web3signer)
 ```diff
 + Connection timeout test                                                                    OK
 + Connections pool stress test                                                               OK
@@ -390,6 +390,16 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 OK: 22/22 Fail: 0/22 Skip: 0/22
+## Nimbus remote signer/signing test (web3signer-diva)
+```diff
++ Signing BeaconBlock (getBlockSignature(altair))                                            OK
++ Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
++ Signing BeaconBlock (getBlockSignature(capella))                                           OK
++ Signing BeaconBlock (getBlockSignature(deneb))                                             OK
++ Signing BeaconBlock (getBlockSignature(phase0))                                            OK
++ Waiting for signing node (/upcheck) test                                                   OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -666,4 +676,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 379/384 Fail: 0/384 Skip: 5/384
+OK: 385/390 Fail: 0/390 Skip: 5/390
