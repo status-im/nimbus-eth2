@@ -288,8 +288,6 @@ proc processSignedBlobSidecar*(
 
   v
 
-
-
 proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # When another client's already running, this is very likely to detect
   # potential duplicate validators, which can trigger slashing.
