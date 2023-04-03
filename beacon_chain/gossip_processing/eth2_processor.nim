@@ -41,6 +41,10 @@ declareCounter beacon_blocks_received,
   "Number of valid blocks processed by this node"
 declareCounter beacon_blocks_dropped,
   "Number of invalid blocks dropped by this node", labels = ["reason"]
+declareCounter blob_sidecars_received,
+  "Number of valid blobs processed by this node"
+declareCounter blob_sidecars_dropped,
+  "Number of invalid blobs dropped by this node", labels = ["reason"]
 declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
@@ -84,6 +88,9 @@ declareHistogram beacon_aggregate_delay,
 
 declareHistogram beacon_block_delay,
   "Time(s) between slot start and beacon block reception", buckets = delayBuckets
+
+declareHistogram blob_sidecar_delay,
+  "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
 
 type
   DoppelgangerProtection = object
@@ -245,6 +252,43 @@ proc processSignedBeaconBlock*(
     beacon_blocks_dropped.inc(1, [$v.error[0]])
 
   v
+
+proc processSignedBlobSidecar*(
+    self: var Eth2Processor, src: MsgSource,
+    signedBlobSidecar: deneb.SignedBlobSidecar, idx: BlobIndex): ValidationRes =
+  let
+    wallTime = self.getCurrentBeaconTime()
+    (afterGenesis, wallSlot) = wallTime.toSlot()
+
+  logScope:
+    blob = shortLog(signedBlobSidecar.message)
+    signature = shortLog(signedBlobSidecar.signature)
+    wallSlot
+
+  # Potential under/overflows are fine; would just create odd metrics and logs
+  let delay = wallTime - signedBlobSidecar.message.slot.start_beacon_time
+
+  debug "Blob received", delay
+
+  let v =
+    self.dag.validateBlobSidecar(self.quarantine, signedBlobSidecar, wallTime, idx)
+
+  if v.isOk():
+    trace "Blob validated"
+
+    # TODO
+    # hand blob off to blob quarantine
+
+    blob_sidecars_received.inc()
+    blob_sidecar_delay.observe(delay.toFloatSeconds())
+  else:
+    debug "Dropping blob", error = v.error()
+
+    blob_sidecars_dropped.inc(1, [$v.error[0]])
+
+  v
+
+
 
 proc setupDoppelgangerDetection*(self: var Eth2Processor, slot: Slot) =
   # When another client's already running, this is very likely to detect
