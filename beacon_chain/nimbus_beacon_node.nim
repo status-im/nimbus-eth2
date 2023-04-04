@@ -1478,7 +1478,7 @@ proc installMessageValidators(node: BeaconNode) =
           toValidationResult(node.processor[].processSignedBeaconBlock(
             MsgSource.gossip, signedBlock)))
 
-    for i in 1..MAX_BLOBS_PER_BLOCK:
+    for i in 0 ..< MAX_BLOBS_PER_BLOCK:
       closureScope:
         let idx = i
         node.network.addValidator(
