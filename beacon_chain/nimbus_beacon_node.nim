@@ -1479,11 +1479,13 @@ proc installMessageValidators(node: BeaconNode) =
             MsgSource.gossip, signedBlock)))
 
     for i in 1..MAX_BLOBS_PER_BLOCK:
-      node.network.addValidator(
-        getBlobSidecarTopic(forkDigests.deneb, i),
-        proc (signedBlobSidecar: deneb.SignedBlobSidecar): ValidationResult =
-            toValidationResult(node.processor[].processSignedBlobSidecar(
-              MsgSource.gossip, signedBlobSidecar, i)))
+      closureScope:
+        let idx = i
+        node.network.addValidator(
+          getBlobSidecarTopic(forkDigests.deneb, idx),
+          proc (signedBlobSidecar: deneb.SignedBlobSidecar): ValidationResult =
+              toValidationResult(node.processor[].processSignedBlobSidecar(
+                MsgSource.gossip, signedBlobSidecar, idx)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:
