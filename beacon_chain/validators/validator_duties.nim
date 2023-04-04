@@ -866,7 +866,8 @@ proc proposeBlockAux[SBBB, EPS](node: BeaconNode,
         false
     else:
       info "Payload builder bid future failed",
-        slot, head = shortLog(head), validator = shortLog(validator)
+        slot, head = shortLog(head), validator = shortLog(validator),
+        err = payloadBuilderBidFut.error.msg
       false
 
   let engineBidAvailable =
