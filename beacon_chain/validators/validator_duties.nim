@@ -881,7 +881,8 @@ proc proposeBlockAux[SBBB, EPS](node: BeaconNode,
         false
     else:
       info "Engine block building failed",
-        slot, head = shortLog(head), validator = shortLog(validator)
+        slot, head = shortLog(head), validator = shortLog(validator),
+        err = engineBlockFut.error.msg
       false
 
   let useBuilderBlock =
