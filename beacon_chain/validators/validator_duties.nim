@@ -811,15 +811,11 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
     else:
       return err("Attempt to create pre-Bellatrix blinded block")
 
-proc proposeBlockAux[SBBB, EPS](node: BeaconNode,
-                                validator: AttachedValidator,
-                                validator_index: ValidatorIndex,
-                                head: BlockRef,
-                                slot: Slot,
-                                randao: ValidatorSig,
-                                fork: Fork,
-                                genesis_validators_root: Eth2Digest):
-                                Future[BlockRef] {.async.} =
+proc proposeBlockAux(
+    SBBB: typedesc, EPS: typedesc, node: BeaconNode,
+    validator: AttachedValidator, validator_index: ValidatorIndex,
+    head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork,
+    genesis_validators_root: Eth2Digest): Future[BlockRef] {.async.} =
   # Collect bids
   let usePayloadBuilder =
     if node.config.payloadBuilderEnable:
@@ -1015,8 +1011,8 @@ proc proposeBlock(node: BeaconNode,
       res.get()
 
   template proposeBlockContinuation(type1, type2: untyped): auto =
-    await proposeBlockAux[type1, type2](
-      node, validator, validator_index, head, slot, randao, fork,
+    await proposeBlockAux(
+      type1, type2, node, validator, validator_index, head, slot, randao, fork,
         genesis_validators_root)
 
   return
