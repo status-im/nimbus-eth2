@@ -98,6 +98,15 @@ func compute_block_signing_root*(
       fork, DOMAIN_BEACON_PROPOSER, epoch, genesis_validators_root)
   compute_signing_root(blck, domain)
 
+func compute_blob_signing_root*(
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    blob: BlobSidecar): Eth2Digest =
+  let
+    epoch = epoch(slot)
+    domain = get_domain(fork, DOMAIN_BLOB_SIDECAR, epoch,
+                        genesis_validators_root)
+  compute_signing_root(blob, domain)
+
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#signature
 func get_block_signature*(
     fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
@@ -115,6 +124,17 @@ proc verify_block_signature*(
     let
       signing_root = compute_block_signing_root(
         fork, genesis_validators_root, slot, blck)
+
+    blsVerify(pubkey, signing_root.data, signature)
+
+proc verify_blob_signature*(
+    fork: Fork, genesis_validators_root: Eth2Digest, slot: Slot,
+    blobSidecar: BlobSidecar,
+    pubkey: ValidatorPubKey | CookedPubKey, signature: SomeSig): bool =
+  withTrust(signature):
+    let
+      signing_root = compute_blob_signing_root(
+        fork, genesis_validators_root, slot, blobSidecar)
 
     blsVerify(pubkey, signing_root.data, signature)
 

@@ -525,6 +525,22 @@ func shortLog*(v: SomeBeaconBlock): auto =
     fee_recipient: to0xHex(v.body.execution_payload.fee_recipient.data),
   )
 
+func shortLog*(v: BlobSidecar): auto =
+  (
+    block_root: shortLog(v.block_root),
+    index: v.index,
+    slot: shortLog(v.slot),
+    block_parent_root: shortLog(v.block_parent_root),
+    proposer_index: v.proposer_index,
+    bloblen: v.blob.len(),
+  )
+
+func shortLog*(v: SignedBlobSidecar): auto =
+  (
+    blob: shortLog(v.message),
+    signature: shortLog(v.signature)
+  )
+
 func shortLog*(v: SomeSignedBeaconBlock): auto =
   (
     blck: shortLog(v.message),
