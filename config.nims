@@ -194,7 +194,6 @@ switch("hint", "XCannotRaiseY:off")
 #--define:chronosFutureTracking
 
 --define:kzgExternalBlst
---define:kzgExternalBlstNoSha256
 
 # ############################################################
 #
