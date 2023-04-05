@@ -4,7 +4,7 @@ After the Capella hard-fork, activated on 12th of April 2023, all validators wil
 
 Withdrawals are enabled for each validator once it's configured to use [0x01 withdrawal credentials](https://notes.ethereum.org/@launchpad/withdrawals-faq#Q-What-are-0x00-and-0x01-withdrawal-credentials-prefixes) which specify an execution layer address that will be the beneficiary of all withdrawn funds.
 
-If your validator was created with 0x01 withdrawal credentials, it's already fully prepared for withdrawals and you can safely skip the next steps.
+If your validator was created with 0x01 withdrawal credentials, it's already fully prepared for withdrawals and you can safely skip the next step.
 
 ## Updating your withdrawal credentials
 
@@ -30,7 +30,6 @@ If you have used other software for generating your BLS withdrawal credentials, 
     It's recommended that you prepare your `BLS-to-Execution-Change` message on a secure device, disconnected from the internet.
     You can use an USB drive to transfer the produced JSON file to the machine where Nimbus is running and then use the following command to broadcast the message to the network:
 
-
         curl \
           -X POST \
           -H “Content-type: application/json” \
@@ -45,7 +44,7 @@ No user action is required.
 !!! info
     It is not possible to manually request specific amounts of ETH to be withdrawn
 
-## How to withdrawal all staked funds?
+## Full withdrawals
 
 To withdrwal the entire staked balance of your validator, you must perform a voluntary validator exit.
 
