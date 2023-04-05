@@ -5,7 +5,8 @@
 
 The Nimbus Light Client is a light-weight alternative to running a full beacon node, when you're not planning on becoming a validator but still want to run an Ethereum execution layer client.
 
-Execution layer (EL) clients provide the [Web3 API](https://ethereum.github.io/execution-apis/api-documentation/) to expose information stored on the Ethereum blockchain. Since the merge 🐼, execution clients can no longer run standalone.
+Execution layer (EL) clients provide the [Web3 API](https://ethereum.github.io/execution-apis/api-documentation/) to expose information stored on the Ethereum blockchain.
+Since the merge 🐼, execution clients can no longer run standalone.
 
 ## Comparison
 
@@ -19,10 +20,12 @@ Compared to a full beacon node, a light client has several advantages and disadv
 | Head delay | 4/3 slot (15 s) | **None** |
 | Security | Light | **Full** |
 
-Light clients delegate full validation to other network participants and operate under a honest supermajority (> 2/3) assumption among elected participants. Due to this delegation, light clients are typically behind by ~4/3 slots (~15 seconds on Ethereum mainnet).
+Light clients delegate full validation to other network participants and operate under a honest supermajority (> 2/3) assumption among elected participants.
+Due to this delegation, light clients are typically behind by ~4/3 slots (~15 seconds on Ethereum mainnet).
 
 !!! note
-    If you are validating, you must run a full beacon node. To use Nimbus, follow the [installation instructions](./install.md).
+    If you are validating, you must run a full beacon node.
+    To use Nimbus, follow the [installation instructions](./install.md).
 
 ## Building from source
 
@@ -46,24 +49,29 @@ make -j4 nimbus_light_client
 !!! tip
     Omit `-j4` on systems with 4GB of memory or less.
 
-This may take a few minutes. When the process finishes, the `nimbus_light_client` executable can be found in the `build` subdirectory.
+This may take a few minutes.
+When the process finishes, the `nimbus_light_client` executable can be found in the `build` subdirectory.
 
 ## Pairing with the EL client
 
-To ensure that only the light client can control the EL client, a file with random content (JWT secret) must be created. The format is 64 hexadecimal (0-9, a-f) characters. To create one, the following command may be used:
+To ensure that only the light client can control the EL client, a file with random content (JWT secret) must be created.
+The format is 64 hexadecimal (0-9, a-f) characters.
+To create one, the following command may be used:
 
 ```sh
 openssl rand -hex 32 | tr -d "\n" > "$HOME/jwtsecret"
 ```
 
 !!! tip
-    To adjust where the file is created, adjust the `$HOME/jwtsecret` portion in the command above. Also adjust other commands in this guide accordingly.
+    To adjust where the file is created, adjust the `$HOME/jwtsecret` portion in the command above.
+    Also adjust other commands in this guide accordingly.
 
 The JWT secret must be passed to both the EL client and the light client to complete the pairing.
 
 ## Running the EL client
 
-In addition to the [regular instructions](./eth1.md) to run an EL client, the JWT secret must be configured. The following sections explain how to do this for certain EL clients.
+In addition to the [regular instructions](./eth1.md) to run an EL client, the JWT secret must be configured.
+The following sections explain how to do this for certain EL clients.
 
 === "Geth"
 
@@ -95,9 +103,10 @@ In addition to the [regular instructions](./eth1.md) to run an EL client, the JW
 
 ## Running the light client
 
-The light client starts syncing from a trusted block. This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
+The light client starts syncing from a trusted block.
+This trusted block should be somewhat recent ([~1-2 weeks](https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/weak-subjectivity.md)) and needs to be configured each time when starting the light client.
 
-1. Obtaining a trusted block root
+### 1. Obtaining a trusted block root
 
 A block root may be obtained from another trusted beacon node, or from a trusted provider.
 
@@ -110,12 +119,17 @@ A block root may be obtained from another trusted beacon node, or from a trusted
     ```
 
 === "Beaconcha.in"
-    On the [beaconcha.in](https://beaconcha.in) website ([Goerli](https://prater.beaconcha.in)), navigate to the `Epochs` section and select a recent `Finalized` epoch. Then, scroll down to the bottom of the page. If the bottom-most slot has a `Proposed` status, copy its `Root Hash`. Otherwise, for example if the bottom-most slot was `Missed`, go back and pick a different epoch.
+    On the [beaconcha.in](https://beaconcha.in) website ([Goerli](https://prater.beaconcha.in)), navigate to the `Epochs` section and select a recent `Finalized` epoch.
+    Then, scroll down to the bottom of the page.
+    If the bottom-most slot has a `Proposed` status, copy its `Root Hash`.
+    Otherwise, for example if the bottom-most slot was `Missed`, go back and pick a different epoch.
 
 !!! warning
-    Selecting a block root from an untrusted source or using an outdated block root may lead to the light client syncing to an unexpected state. If that happens, stop the light client and restart it with a new trusted block root. Depending on the EL client, its database must be deleted and sync restarted from scratch.
+    Selecting a block root from an untrusted source or using an outdated block root may lead to the light client syncing to an unexpected state.
+    If that happens, stop the light client and restart it with a new trusted block root.
+    Depending on the EL client, its database must be deleted and sync restarted from scratch.
 
-2. Starting the light client
+### 2. Starting the light client
 
 To start the light client, run the following commands (inserting your own trusted block root):
 
@@ -136,11 +150,13 @@ To start the light client, run the following commands (inserting your own truste
     ```
 
 !!! tip
-    The light client can be left running in the background. Note that a new trusted block root is required when restarting.
+    The light client can be left running in the background.
+    Note that a new trusted block root is required when restarting.
 
 ## Observing the sync process
 
-After a while, the light client will pick up beacon block headers from the Ethereum network and start informing the EL client about the latest data. You should see logs similar to the following:
+After a while, the light client will pick up beacon block headers from the Ethereum network and start informing the EL client about the latest data.
+You should see logs similar to the following:
 
 ### Nimbus
 
@@ -172,7 +188,9 @@ NOT 2022-11-21 18:04:03.982+01:00 New LC optimistic block                    opt
 ```
 
 !!! note
-    The [light client protocol](https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data. As this is a new protocol, not all implementations are supporting it yet. Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.
+    The [light client protocol](https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/sync-protocol.md) depends on consensus layer (CL) full nodes to serve additional data.
+    As this is a new protocol, not all implementations are supporting it yet.
+    Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.
 
 === "Geth"
 

@@ -1,14 +1,20 @@
 # Migrate from another client
 
-This guide will take you through the basics of how to migrate to Nimbus from another client. *See [here](./migration-options.md) for advanced options*.
+This guide will take you through the basics of how to migrate to Nimbus from another client.
+See [here](./migration-options.md) for advanced options.
 
-**Please take your time to get this right.** Don't hesitate to reach out to us in the `#helpdesk` channel of [our discord](https://discord.gg/j3nYBUeEad) if you come across a stumbling block. We are more than happy to help guide you through the migration process. Given what's at stake, there is no such thing as a stupid question.
+**Please take your time to get this right.**
+Don't hesitate to reach out to us in the `#helpdesk` channel of [our discord](https://discord.gg/j3nYBUeEad) if you come across a stumbling block.
+We are more than happy to help guide you through the migration process.
+Given what's at stake, there is no such thing as a stupid question.
 
 !!! info ""
-    Unlike other clients, Nimbus does not require a separate validator client - instead, validators run in the beacon node process.
+    Unlike other clients, Nimbus does not require a separate validator client.
+    Instead, validators run in the beacon node process.
 
 !!! warning
-    **The most important takeaway is that you ensure that two clients will never validate with the same keys at the same time.** In other words, you must ensure that your original client is stopped, and no longer validating, before importing your keys into Nimbus.
+    **The most important takeaway is that you ensure that two clients will never validate with the same keys at the same time.**
+    In other words, you must ensure that your original client is stopped, and no longer validating, before importing your keys into Nimbus.
 
 ## Steps
 
@@ -28,7 +34,7 @@ Once your Nimbus beacon node has synced and you're satisfied that it's working, 
     ```
     Look for an `"is_syncing":false` in the response to confirm that your node has synced.
 
-### Step 2 - Stop your existing client and export your slashing protection history
+### 2. Stop your existing client and export your slashing protection history
 
 As part of the migration process, you need to stop your existing client and export its [slashing protection database](https://eips.ethereum.org/EIPS/eip-3076).
 
@@ -45,7 +51,7 @@ As part of the migration process, you need to stop your existing client and expo
     sudo systemctl disable prysmvalidator.service
     ```
 
-    It's important that you disable the Prysm validator as well as stopping it, to prevent it from starting up again on reboot.
+    It is important that you disable the Prysm validator as well as stopping it, to prevent it from starting up again on reboot.
 
     #### 2. Export slashing protection history
 
@@ -60,7 +66,8 @@ As part of the migration process, you need to stop your existing client and expo
     You will then find the `slashing-protection.json` file in your specified `/path/to/export_dir` folder.
 
     !!! tip
-        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)).
+        Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
 === "Lighthouse"
 
@@ -82,7 +89,7 @@ As part of the migration process, you need to stop your existing client and expo
     sudo systemctl disable lighthousebeacon
     ```
 
-    *It's important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.*
+    It is important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.
 
     #### 2. Export slashing protection history
 
@@ -95,7 +102,8 @@ As part of the migration process, you need to stop your existing client and expo
     This will export your history in the correct format to `slashing-protection.json`.
 
     !!! tip
-        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)).
+        Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
 === "Teku"
 
@@ -108,7 +116,7 @@ As part of the migration process, you need to stop your existing client and expo
     sudo systemctl disable teku
     ```
 
-    *It's important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.*
+    It is important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.
 
 
     #### 2. Export slashing protection history
@@ -125,7 +133,8 @@ As part of the migration process, you need to stop your existing client and expo
     - `--to` specifies the file to export the slashing-protection data to (in this case `/home/slash/slashing-protection.json`).
 
     !!! tip
-        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)).
+        Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
 === "Nimbus"
 
@@ -140,7 +149,7 @@ As part of the migration process, you need to stop your existing client and expo
     sudo systemctl disable nimbus-eth2-mainnet.service
     ```
 
-    *It's important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.*
+    It is important that you disable the service as well as stopping it, to prevent it from starting up again on reboot.
 
     #### 2. Export slashing protection history
 
@@ -152,16 +161,20 @@ As part of the migration process, you need to stop your existing client and expo
 
     This will export your history in the correct format to `slashing-protection.json`.
 
-    > **Tip:** To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)). Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
+    !!! tip
+        To be extra sure that your validator has stopped, wait a few epochs and confirm that your validator has stopped attesting (check its recent history on [beaconcha.in](https://beaconcha.in/)).
+        Then go to [step 3](./migration.md#step-3---import-your-validator-keys-into-nimbus).
 
 
 ### 3. Import your validator key(s) into Nimbus
+
 To import your validator key(s), follow the instructions [outlined here](./keys.md).
 
 !!! tip
     To check that your key(s) has been successfully imported, look for a file named after your public key in `build/data/shared_mainet_0/secrets/`.
 
-    If you run into an error at this stage, it's probably because the wrong permissions have been set on either a folder or file. See [here](faq.md#folder-permissions) for how to fix this.
+    If you run into an error at this stage, it's probably because the wrong permissions have been set on either a folder or file.
+    See [here](faq.md#folder-permissions) for how to fix this.
 
 
 ### 4. Import your slashing protection history
@@ -184,7 +197,8 @@ For a quick guide on how to set up a systemd service, see [here](./beacon-node-s
 
 ## Final thoughts
 
-If you are unsure of the safety of a step, please get in touch with us directly on [discord](https://discord.gg/nnNEBvHu3m). Additionally, we recommend testing the migration works correctly on a testnet before going ahead on mainnet.
+If you are unsure of the safety of a step, please get in touch with us directly on [discord](https://discord.gg/nnNEBvHu3m).
+Additionally, we recommend testing the migration works correctly on a testnet before going ahead on mainnet.
 
 
 

@@ -5,7 +5,8 @@ In order to perform validation duties, you need to also be running an execution 
 Nimbus has been tested all major execution clients - see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
 
 !!! warning
-    You need to run your own execution client - relying on third-party services such as Infura, Alchemy and Pocket is no longer possible. Sharing the same execution client between multiple beacon nodes is not supported.
+    You need to run your own execution client - relying on third-party services such as Infura, Alchemy and Pocket is no longer possible.
+    Sharing the same execution client between multiple beacon nodes is not supported.
 
 !!! info
     Syncing an execution client may take hours or even days, depending on your hardware!
@@ -18,7 +19,8 @@ Select an execution client and install it, configuring it such that that the aut
 
 === "Nimbus"
 
-    In parallel to `nimbus-eth2`, we are working hard on the [Nimbus execution client](https://github.com/status-im/nimbus-eth1). While this is very much a project in development (i.e. not yet ready for public consumption), we welcome you to experiment with it.
+    In parallel to `nimbus-eth2`, we are working hard on the [Nimbus execution client](https://github.com/status-im/nimbus-eth1).
+    While this is very much a project in development (i.e. not yet ready for public consumption), we welcome you to experiment with it.
 
 === "Geth"
 
@@ -60,7 +62,9 @@ Select an execution client and install it, configuring it such that that the aut
 
 ### 2. Leave the execution client running
 
-The execution client needs to be running at all times in order for the beacon node to be able to support validators. It will start its syncing process as soon as the beacon node connects to it - once both are synced, they will continue to work in tandem to validate the latest Ethereum state.
+The execution client needs to be running at all times in order for the beacon node to be able to support validators.
+It will start its syncing process as soon as the beacon node connects to it.
+Once both are synced, they will continue to work in tandem to validate the latest Ethereum state.
 
 It is safe to start the beacon node even if the execution client is not yet fully synced and vice versa.
 
@@ -69,9 +73,12 @@ It is safe to start the beacon node even if the execution client is not yet full
 The `--el` option informs the beacon node how to connect to the execution client - both `http://` and `ws://` URLs are supported.
 
 !!! info
-    By default, the execution client accepts connections on the localhost interface (`127.0.0.1`), with default authenticated RPC port `8551`. When the `--el` option is not explicitly specified, Nimbus will assume that the execution client is running on the same machine with such default settings.
+    By default, the execution client accepts connections on the localhost interface (`127.0.0.1`), with default authenticated RPC port `8551`.
+    When the `--el` option is not explicitly specified, Nimbus will assume that the execution client is running on the same machine with such default settings.
 
-Once started, the execution client will create a file containing a JWT secret token. The token file is needed for Nimbus to authenticate itself with the execution client and perform trusted operations. You will need to pass the path to the token file to Nimbus together with the web3 URL.
+Once started, the execution client will create a file containing a JWT secret token.
+The token file is needed for Nimbus to authenticate itself with the execution client and perform trusted operations.
+You will need to pass the path to the token file to Nimbus together with the web3 URL.
 
 === "Mainnet"
     ```sh
@@ -88,13 +95,15 @@ Once started, the execution client will create a file containing a JWT secret to
     ```
 
 !!! info
-    When the `--jwt-secret` option is not specified and the execution client is running on the same machine under default setting, Nimbus may be able to connect successfully to it by using the default secret value `0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3`. This is a [proposed standard protocol](https://github.com/ethereum/execution-apis/pull/302) that aims to simplify the required user configuration, but it's not yet adopted by all execution clients.
+    When the `--jwt-secret` option is not specified and the execution client is running on the same machine under default setting, Nimbus may be able to connect successfully to it by using the default secret value `0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3`.
+    This is a [proposed standard protocol](https://github.com/ethereum/execution-apis/pull/302) that aims to simplify the required user configuration, but it's not yet adopted by all execution clients.
 
 ## Advanced setups
 
 ### Running multiple execution clients
 
-You can increase the resilience of your setup and eliminate any downtime during upgrade procedure of the execution client software by allowing your beacon node to manage multiple execution clients. To enable this mode, just specify multiple URLs through the `--el` option when starting your beacon node:
+You can increase the resilience of your setup and eliminate any downtime during upgrade procedure of the execution client software by allowing your beacon node to manage multiple execution clients.
+To enable this mode, just specify multiple URLs through the `--el` option when starting your beacon node:
 
 ```sh
 ./run-mainnet-beacon-node.sh \
@@ -104,7 +113,8 @@ You can increase the resilience of your setup and eliminate any downtime during 
 ```
 
 !!! tip
-    You can use a different secret for each connection by specifying `jwt-secret` or `jwt-secret-file` as a query parameter in the anchor section of the URL (e.g. `http://127.0.0.1:8551/#jwt-secret=0x12345...` or `http://127.0.0.1:8551/#jwt-secret-file=/tmp/jwtsecret`). If you use a [TOML config file](./options.html#configuration-files), you can also use the following more natural syntax:
+    You can use a different secret for each connection by specifying `jwt-secret` or `jwt-secret-file` as a query parameter in the anchor section of the URL (e.g. `http://127.0.0.1:8551/#jwt-secret=0x12345...` or `http://127.0.0.1:8551/#jwt-secret-file=/tmp/jwtsecret`).
+    If you use a [TOML config file](./options.md#configuration-files), you can also use the following more natural syntax:
 
     ```toml
     data-dir = "my-data-dir"
