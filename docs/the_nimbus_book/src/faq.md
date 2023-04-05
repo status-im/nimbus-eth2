@@ -151,7 +151,7 @@ At the other end of the spectrum, if your balance is closer to 31 ETH, it's prob
 
 ### When can I withdraw my funds, and what's the difference between exiting and withdrawing?
 
-After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use 0x01 withdrwal credentials will have their funds automatically withdrawn. Please see our dedicated [guide for withdrawals](./withdrawals.md) for further information.
+After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use 0x01 withdrawal credentials will have their funds automatically withdrawn. Please see our dedicated [guide for withdrawals](./withdrawals.md) for further information.
 
 ### How are validators incentivized to stay active and honest?
 
