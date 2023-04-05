@@ -264,7 +264,7 @@ proc spawnSigningNodeProcess(rt: RemoteSignerType): Result[Process, string] =
             "--request-timeout=" & $SigningRequestTimeoutSeconds
               # we make so low `timeout` to test connection pool.
           ]
-      startProcess("build/nimbus_signing_node", "", arguments)
+      osproc.startProcess("build/nimbus_signing_node", "", arguments)
     except CatchableError as exc:
       echo "Error while spawning `nimbus_signing_node` process [", $exc.name,
            "] " & $exc.msg
@@ -1207,21 +1207,13 @@ suite "Nimbus remote signer/signing test (web3signer-diva)":
       sres2.isOk()
       sres3.isOk()
       # Phase0 blocks do not have FeeRecipient field, so it should not care
-      rres1.isOk()
-      rres2.isOk()
-      rres3.isOk()
-      # Signature comparison
-      sres1.get() == rres1.get()
-      sres2.get() == rres2.get()
-      sres3.get() == rres3.get()
+      rres1.isErr()
+      rres2.isErr()
+      rres3.isErr()
       # Phase0 blocks do not have FeeRecipient field, so it should not care
-      bres1.isOk()
-      bres2.isOk()
-      bres3.isOk()
-      # Signature comparison
-      bres1.get() == rres1.get()
-      bres2.get() == rres2.get()
-      bres3.get() == rres3.get()
+      bres1.isErr()
+      bres2.isErr()
+      bres3.isErr()
 
     try:
       let
@@ -1236,12 +1228,12 @@ suite "Nimbus remote signer/signing test (web3signer-diva)":
       check:
         # When `Phase0` block specified remote signer should ignore `proof`
         # field and its value
-        response1.status == 200
-        response2.status == 200
-        response3.status == 200
-        response4.status == 200
-        response5.status == 200
-        response6.status == 200
+        response1.status == 400
+        response2.status == 400
+        response3.status == 400
+        response4.status == 400
+        response5.status == 400
+        response6.status == 400
     finally:
       await client.closeWait()
 
@@ -1302,21 +1294,13 @@ suite "Nimbus remote signer/signing test (web3signer-diva)":
       sres2.isOk()
       sres3.isOk()
       # Altair block do not have FeeRecipient field, so it should not care
-      rres1.isOk()
-      rres2.isOk()
-      rres3.isOk()
-      # Signature comparison
-      sres1.get() == rres1.get()
-      sres2.get() == rres2.get()
-      sres3.get() == rres3.get()
+      rres1.isErr()
+      rres2.isErr()
+      rres3.isErr()
       # Altair block do not have FeeRecipient field, so it should not care
-      bres1.isOk()
-      bres2.isOk()
-      bres3.isOk()
-      # Signature comparison
-      bres1.get() == rres1.get()
-      bres2.get() == rres2.get()
-      bres3.get() == rres3.get()
+      bres1.isErr()
+      bres2.isErr()
+      bres3.isErr()
 
     try:
       let
@@ -1331,12 +1315,12 @@ suite "Nimbus remote signer/signing test (web3signer-diva)":
       check:
         # When `Altair` block specified remote signer should ignore `proof`
         # field and its value.
-        response1.status == 200
-        response2.status == 200
-        response3.status == 200
-        response4.status == 200
-        response5.status == 200
-        response6.status == 200
+        response1.status == 400
+        response2.status == 400
+        response3.status == 400
+        response4.status == 400
+        response5.status == 400
+        response6.status == 400
     finally:
       await client.closeWait()
 

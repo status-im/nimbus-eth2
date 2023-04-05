@@ -232,4 +232,5 @@ const
     "Required merkle proof is missing"
   InvalidMerkleProofError* =
     "The given merkle proof is invalid"
-
+  InvalidMerkleProofIndexError* =
+    "The given merkle proof index is invalid"

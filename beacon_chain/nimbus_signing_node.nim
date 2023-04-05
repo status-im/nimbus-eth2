@@ -133,6 +133,25 @@ template signatureResponse(code: HttpCode, signature: string): RestApiResponse =
   RestApiResponse.response("{\"signature\": \"0x" & signature & "\"}",
                            code, "application/json")
 
+proc loadKeystores*(node: SigningNodeRef) =
+  var keysList: seq[string]
+  for keystore in listLoadableKeystores(node.config, node.keystoreCache):
+    # Not relevant in signing node
+    # TODO don't print when loading validators
+    let feeRecipient = default(Eth1Address)
+    case keystore.kind
+    of KeystoreKind.Local:
+      discard node.attachedValidators.addValidator(keystore,
+                                                   feeRecipient,
+                                                   defaultGasLimit)
+      keysList.add("\"0x" & keystore.pubkey.toHex() & "\"")
+    of KeystoreKind.Remote:
+      warn "Signing node do not support remote validators",
+           path = node.config.validatorsDir(),
+           validator_pubkey = keystore.pubkey
+
+  node.keysList = "[" & keysList.join(", ") & "]"
+
 proc installApiHandlers*(node: SigningNodeRef) =
   var router = node.router()
 
@@ -146,24 +165,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
 
   router.api(MethodPost, "/reload") do () -> RestApiResponse:
     node.attachedValidators.close()
-
-    var keysList: seq[string]
-    for keystore in listLoadableKeystores(node.config, node.keystoreCache):
-      # Not relevant in signing node
-      # TODO don't print when loading validators
-      let feeRecipient = default(Eth1Address)
-      case keystore.kind
-      of KeystoreKind.Local:
-        discard node.attachedValidators.addValidator(keystore,
-                                                     feeRecipient,
-                                                     defaultGasLimit)
-        keysList.add("\"0x" & keystore.pubkey.toHex() & "\"")
-      of KeystoreKind.Remote:
-        warn "Signing node do not support remote validators",
-             path = node.config.validatorsDir(),
-             validator_pubkey = keystore.pubkey
-
-    node.keysList = "[" & keysList.join(", ") & "]"
+    node.loadKeystores()
     return RestApiResponse.response(Http200)
 
   router.api(MethodPost, "/api/v1/eth2/sign/{validator_key}") do (
@@ -220,51 +222,7 @@ proc installApiHandlers*(node: SigningNodeRef) =
             validator.data.privateKey).toValidatorSig().toHex()
         signatureResponse(Http200, signature)
       of Web3SignerRequestKind.BlockV2:
-        let
-          forkInfo = request.forkInfo.get()
-          blockRoot = hash_tree_root(request.beaconBlock)
-
         if node.config.expectedFeeRecipient.isNone():
-          let
-            signature = withBlck(request.beaconBlock):
-              get_block_signature(forkInfo.fork,
-                forkInfo.genesis_validators_root, blck.slot, blockRoot,
-                validator.data.privateKey).toValidatorSig().toHex()
-          signatureResponse(Http200, signature)
-        else:
-          let blockHeader =
-            case request.beaconBlock.kind
-            of ConsensusFork.Phase0, ConsensusFork.Altair:
-              # `phase0` and `altair` blocks do not have `fee_recipient`, so
-              # we sign it without any checks.
-              let
-                signature = withBlck(request.beaconBlock):
-                  get_block_signature(forkInfo.fork,
-                    forkInfo.genesis_validators_root, blck.slot, blockRoot,
-                    validator.data.privateKey).toValidatorSig().toHex()
-              return signatureResponse(Http200, signature)
-            of ConsensusFork.Bellatrix:
-              request.beaconBlock.bellatrixData
-            of ConsensusFork.Capella:
-              request.beaconBlock.capellaData
-            of ConsensusFork.Deneb:
-              request.beaconBlock.denebData
-
-          if request.proofs.isNone() or len(request.proofs.get()) == 0:
-            return errorResponse(Http400, MissingMerkleProofError)
-
-          let
-            proof = request.proofs.get()[0]
-            feeRecipientRoot =
-              hash_tree_root(distinctBase(
-                node.config.expectedFeeRecipient.get()))
-
-          if not(is_valid_merkle_branch(feeRecipientRoot, proof.merkleProofs,
-                                        log2trunc(proof.index),
-                                        get_subtree_index(proof.index),
-                                        blockHeader.body_root)):
-            return errorResponse(Http400, InvalidMerkleProofError)
-
           let
             forkInfo = request.forkInfo.get()
             blockRoot = hash_tree_root(request.beaconBlock)
@@ -272,7 +230,46 @@ proc installApiHandlers*(node: SigningNodeRef) =
               get_block_signature(forkInfo.fork,
                 forkInfo.genesis_validators_root, blck.slot, blockRoot,
                 validator.data.privateKey).toValidatorSig().toHex()
-          signatureResponse(Http200, signature)
+          return signatureResponse(Http200, signature)
+
+        let (feeRecipientIndex, blockHeader) =
+          case request.beaconBlock.kind
+          of ConsensusFork.Phase0, ConsensusFork.Altair:
+            # `phase0` and `altair` blocks do not have `fee_recipient`, so
+            # we return an error.
+            return errorResponse(Http400, BlockIncorrectFork)
+          of ConsensusFork.Bellatrix:
+            (GeneralizedIndex(401), request.beaconBlock.bellatrixData)
+          of ConsensusFork.Capella:
+            (GeneralizedIndex(401), request.beaconBlock.capellaData)
+          of ConsensusFork.Deneb:
+            (GeneralizedIndex(401), request.beaconBlock.denebData)
+
+        if request.proofs.isNone() or len(request.proofs.get()) == 0:
+          return errorResponse(Http400, MissingMerkleProofError)
+
+        let proof = request.proofs.get()[0]
+
+        if proof.index != feeRecipientIndex:
+          return errorResponse(Http400, InvalidMerkleProofIndexError)
+
+        let feeRecipientRoot = hash_tree_root(distinctBase(
+          node.config.expectedFeeRecipient.get()))
+
+        if not(is_valid_merkle_branch(feeRecipientRoot, proof.merkleProofs,
+                                      log2trunc(proof.index),
+                                      get_subtree_index(proof.index),
+                                      blockHeader.body_root)):
+          return errorResponse(Http400, InvalidMerkleProofError)
+
+        let
+          forkInfo = request.forkInfo.get()
+          blockRoot = hash_tree_root(request.beaconBlock)
+          signature = withBlck(request.beaconBlock):
+            get_block_signature(forkInfo.fork,
+              forkInfo.genesis_validators_root, blck.slot, blockRoot,
+              validator.data.privateKey).toValidatorSig().toHex()
+        signatureResponse(Http200, signature)
       of Web3SignerRequestKind.Deposit:
         let
           data = DepositMessage(pubkey: request.deposit.pubkey,
@@ -343,27 +340,11 @@ proc asyncInit(sn: SigningNodeRef) {.async.} =
          cmdParams = commandLineParams(), config = sn.config
 
   info "Initializaing validators", path = sn.config.validatorsDir()
-  var keysList: seq[string]
-  for keystore in listLoadableKeystores(sn.config, sn.keystoreCache):
-    # Not relevant in signing node
-    # TODO don't print when loading validators
-    let feeRecipient = default(Eth1Address)
-    case keystore.kind
-    of KeystoreKind.Local:
-      discard sn.attachedValidators.addValidator(keystore,
-                                                 feeRecipient,
-                                                 defaultGasLimit)
-      keysList.add("\"0x" & keystore.pubkey.toHex() & "\"")
-    of KeystoreKind.Remote:
-      warn "Signing node do not support remote validators",
-           path = sn.config.validatorsDir(),
-           validator_pubkey = keystore.pubkey
+  sn.loadKeystores()
 
-  if len(keysList) == 0:
+  if sn.attachedValidators.count() == 0:
     fatal "Could not find/initialize local validators"
     raise newException(SigningNodeError, "")
-
-  sn.keysList = "[" & keysList.join(", ") & "]"
 
   let
     address = initTAddress(sn.config.bindAddress, sn.config.bindPort)

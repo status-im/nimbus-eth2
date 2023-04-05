@@ -59,7 +59,7 @@ declareCounter nbc_remote_signer_unknown_responses,
 declareCounter nbc_remote_signer_communication_errors,
   "Number of communication errors"
 
-declareHistogram nbc_remote_signer_time,
+declareHistogram nbc_remote_signer_duration,
   "Time(s) used to generate signature usign remote signer",
    buckets = [0.050, 0.100, 0.500, 1.0, 5.0, 10.0]
 
@@ -101,7 +101,8 @@ proc signData*(client: RestClientRef, identifier: ValidatorPubKey,
           res = await client.signDataPlain(identifier, body,
                                            restAcceptType = "application/json")
           duration = Moment.now() - startSignMoment
-        nbc_remote_signer_time.observe(float(milliseconds(duration)) / 1000.0)
+        nbc_remote_signer_duration.observe(
+          float(milliseconds(duration)) / 1000.0)
         res
       except RestError as exc:
         return Web3SignerDataResponse.err(
@@ -246,10 +247,8 @@ proc signData*(
       else:
         discard await race(timerFut, operationFut)
     except CancelledError as exc:
-      var pending: seq[Future[void]]
       if not(operationFut.finished()):
-        pending.add(operationFut.cancelAndWait())
-      await allFutures(pending)
+        await operationFut.cancelAndWait()
       raise exc
 
     if not(operationFut.finished()):

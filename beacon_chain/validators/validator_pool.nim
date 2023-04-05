@@ -512,15 +512,21 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
         when blck is ForkedBlindedBeaconBlock:
           case blck.kind
           of ConsensusFork.Phase0:
-            # In case of `phase0` block we did not send merkle proof.
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Phase0,
-                phase0Data: blck.phase0Data))
+            case v.data.remoteType
+            of RemoteSignerType.Web3Signer:
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Phase0,
+                  phase0Data: blck.phase0Data))
+            of RemoteSignerType.Web3SignerDiva:
+              return SignatureResult.err("Invalid beacon block fork version")
           of ConsensusFork.Altair:
-            # In case of `altair` block we did not send merkle proof.
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Altair,
-                altairData: blck.altairData))
+            case v.data.remoteType
+            of RemoteSignerType.Web3Signer:
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Altair,
+                  altairData: blck.altairData))
+            of RemoteSignerType.Web3SignerDiva:
+              return SignatureResult.err("Invalid beacon block fork version")
           of ConsensusFork.Bellatrix:
             case v.data.remoteType
             of RemoteSignerType.Web3Signer:
@@ -591,14 +597,22 @@ proc getBlockSignature*(v: AttachedValidator, fork: Fork,
           case blck.kind
           of ConsensusFork.Phase0:
             # In case of `phase0` block we did not send merkle proof.
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Phase0,
-                                          phase0Data: blck.phase0Data))
+            case v.data.remoteType
+            of RemoteSignerType.Web3Signer:
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Phase0,
+                                            phase0Data: blck.phase0Data))
+            of RemoteSignerType.Web3SignerDiva:
+              return SignatureResult.err("Invalid beacon block fork version")
           of ConsensusFork.Altair:
             # In case of `altair` block we did not send merkle proof.
-            Web3SignerRequest.init(fork, genesis_validators_root,
-              Web3SignerForkedBeaconBlock(kind: ConsensusFork.Altair,
-                                          altairData: blck.altairData))
+            case v.data.remoteType
+            of RemoteSignerType.Web3Signer:
+              Web3SignerRequest.init(fork, genesis_validators_root,
+                Web3SignerForkedBeaconBlock(kind: ConsensusFork.Altair,
+                                            altairData: blck.altairData))
+            of RemoteSignerType.Web3SignerDiva:
+              return SignatureResult.err("Invalid beacon block fork version")
           of ConsensusFork.Bellatrix:
             case v.data.remoteType
             of RemoteSignerType.Web3Signer:
