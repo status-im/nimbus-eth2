@@ -2,9 +2,12 @@
 
 In this page we'll cover how to use  Grafana and Prometheus to help you visualise important real-time metrics concerning your validator and/or beacon node.
 
-Prometheus is an open-source systems monitoring and alerting toolkit. It runs as a service on your computer and its job is to capture metrics. You can find more information about Prometheus [here](https://prometheus.io/docs/introduction/overview/).
+Prometheus is an open-source systems monitoring and alerting toolkit.
+It runs as a service on your computer and its job is to capture metrics.
+You can find more information about Prometheus [here](https://prometheus.io/docs/introduction/overview/).
 
-Grafana is a tool for beautiful dashboard monitoring that works well with Prometheus. You can learn more about Grafana [here](https://github.com/grafana/grafana).
+Grafana is a tool for beautiful dashboard monitoring that works well with Prometheus.
+You can learn more about Grafana [here](https://github.com/grafana/grafana).
 
 ## Simple metrics
 
@@ -14,7 +17,8 @@ To enable the metrics server, run the beacon node  with the `--metrics` flag:
 ./run-prater-beacon-node.sh --metrics
 ```
 
-Visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) with a browser or `curl`. You should see a plaintext page that looks something like this:
+Visit [http://127.0.0.1:8008/metrics](http://127.0.0.1:8008/metrics) with a browser or `curl`.
+You should see a plaintext page that looks something like this:
 
 ```
 # HELP nim_runtime_info Nim runtime info
@@ -35,9 +39,12 @@ nim_gc_heap_instance_occupied_bytes{type_name="seq[TrustedAttestation]"} 29728.0
 ...
 ```
 
-> **Note:** Metrics are by default only accessible from the same machine as the beacon node is running on - to fetch metrics from a remote machine, an SSH tunnel is recommended.
+!!! note
+    Metrics are by default only accessible from the same machine as the beacon node is running on.
+    To fetch metrics from a remote machine, an SSH tunnel is recommended.
 
-The metrics server offers one snapshot in time of the state of the beacon node -- metrics however are at their most useful when collected over time -- for this, we'll need to set up two more pieces of software -- Prometheus and Grafana.
+The metrics server offers one snapshot in time of the state of the beacon node.
+Metrics, however, are at their most useful when collected over time — for this, we'll need to set up two more pieces of software: Prometheus and Grafana.
 
 ## Prometheus and Grafana
 
@@ -47,7 +54,7 @@ The following steps will take you through how to use Prometheus and Grafana to s
 
 #### 1. Download Prometheus
 
-Use your favourite package manager to download Prometheus -- for example `apt-get install prometheus` on Ubuntu, or `brew install prometheus` on MacOS, should do the trick.
+Use your favourite package manager to download Prometheus: for example `apt-get install prometheus` on Ubuntu, or `brew install prometheus` on MacOS, should do the trick.
 
 > If you don't use a package manager, you can download the [latest release](https://prometheus.io/download/) of directly from Prometheus website. To extract it, run:
 >
@@ -59,7 +66,8 @@ Use your favourite package manager to download Prometheus -- for example `apt-ge
 
 #### 2. Copy the binary
 
-The Prometheus server is a single binary called prometheus (or prometheus.exe on Microsoft Windows). Copy it over to [`/usr/local/bin`](https://unix.stackexchange.com/questions/4186/what-is-usr-local-bin)
+The Prometheus server is a single binary called prometheus (or prometheus.exe on Microsoft Windows).
+Copy it over to [`/usr/local/bin`](https://unix.stackexchange.com/questions/4186/what-is-usr-local-bin):
 
 ```
 cp prometheus-2.20.1.linux-amd64/prometheus /usr/local/bin/
@@ -98,9 +106,11 @@ level=info ts=2021-01-22T14:52:10.604Z caller=main.go:673 msg="Server is ready t
 
 #### 4. Download Grafana
 
-[Download the latest release]((https://grafana.com/grafana/download?platform=linux)) of Grafana for your platform. You need version 7.2 or newer.
+[Download the latest release]((https://grafana.com/grafana/download?platform=linux)) of Grafana for your platform.
+You need version 7.2 or newer.
 
->**Note:** If you use a package manager, you can also download Grafana that way -- for example `apt-get install grafana` on Ubuntu, or `brew install grafana` on MacOS, should do the trick.
+!!! note
+    If you use a package manager, you can also download Grafana that way -- for example `apt-get install grafana` on Ubuntu, or `brew install grafana` on MacOS, should do the trick.
 
 #### 5. Install and start Grafana
 
@@ -108,12 +118,13 @@ Follow [the instructions for your platform](https://grafana.com/docs/grafana/lat
 
 #### 6. Configure login
 
-Go to [http://localhost:3000/](http://localhost:3000/), you should see a Grafana login screen that looks like this
+Go to [http://localhost:3000/](http://localhost:3000/), you should see a Grafana login screen that looks like this:
 
 
 ![](https://i.imgur.com/jcP1qWl.png)
 
-Type in `admin` for both the username and password. You'll be asked to change the password (we recommend you do so).
+Type in `admin` for both the username and password.
+You'll be asked to change the password (and we recommend you do so).
 
 
 #### 7. Add a data source
@@ -134,7 +145,7 @@ Enter `http://localhost:9090` in the URL field
 
 ![](https://i.imgur.com/PtVOnur.png)
 
-Set the "Scrape interval" field to the same value you used in the Prometheus config ("12" in our example above).
+Set the "Scrape interval" field to the same value you used in the Prometheus config ("15s" in our example below).
 
 Scroll to the bottom and click on `Save and Test`
 
@@ -163,10 +174,13 @@ You'll be directed to the dashboard where you'll be able to gain insights into t
 
 ![](https://i.imgur.com/aIfJ1iT.png)
 
-> **Note:** the dashboard is very much a work in progress. Some of the highlights right now include received and proposed blocks, received and sent attestations, peers, memory and cpu usage stats. But keep an eye out for additional metrics in the near future.
+!!! note
+    The dashboard is very much a work in progress.
+    Some of the highlights right now include received and proposed blocks, received and sent attestations, peers, memory and cpu usage stats.
+    But keep an eye out for additional metrics in the near future.
 
 
-And voila! That's all there is to it :)
+And voilà! That's all there is to it :)
 
 
 ## Community dashboards
@@ -175,13 +189,13 @@ And voila! That's all there is to it :)
 
 ![](https://i.imgur.com/05eJeBr.png)
 
-Joe – who’s done some brilliant work [integrating Nimbus with Rocket Pool](https://our.status.im/rocket-pool-integration/) – has created a [wonderful guide](https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md) where he takes you through how to set up a Grafana server on your Pi – using his dashboard as an example.
+Joe — who’s done some brilliant work [integrating Nimbus with Rocket Pool](https://our.status.im/rocket-pool-integration/) — has created a [wonderful guide](https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md) where he takes you through how to set up a Grafana server on your Pi, using his dashboard as an example.
 
 In his words:
 
 > This captures just about every metric I think I’d like to see at a glance.
 
-Whether or not you're running a Pi, we recommend you check out his guide [here]( https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md).
+Whether or not you're running a Pi, we recommend you check out [his guide]( https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md).
 
 
 ### Metanull
