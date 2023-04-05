@@ -60,7 +60,7 @@ The time required for the withdrawal to complete depends on multiple factors suc
 Under typical conditions, it's expected to take 2 to 7 days.
 
 !!! warning
-    Do no remove the validator keys or shut down your validator software until the withdrawal operation is complete.
+    Do not remove the validator keys or shut down your validator software until the withdrawal operation is complete.
     Otherwise, you may incur protocol inactivity penalties.
 
 To perform the voluntary exit, make sure your beacon node is running with the `--rest` option enabled (e.g. `./run-mainnet-beacon-node.sh --rest`), then run:
