@@ -7,8 +7,6 @@ Exits are subject to a wait period that depends on the length of the exit queue.
 !!! warning
     Voluntary exits are **irreversible**. You won't be able to validate again with the same key.
 
-    You will also not be able to withdraw your funds until a future hard fork that enables withdrawals.*
-
 !!! note
     Voluntary exits won't be processed if the chain isn't finalising.
 
@@ -22,3 +20,4 @@ To perform a voluntary exit, make sure your beacon node is running with the `--r
 ## `rest-url` parameter
 
 The `--rest-url` parameter can be used to point the exit command to a specific node for publishing the request, as long as it's compatible with the [REST API](./rest-api.md).
+

@@ -64,10 +64,10 @@ nav:
       - 'suggested-fee-recipient.md'
       - 'external-block-builder.md'
       - 'keep-an-eye.md'
-      - 'voluntary-exit.md'
       - 'more-keys.md'
       - 'additional-validator.md'
       - 'validator-client.md'
+      - 'withdrawals.md'
 
     - General:
       - 'keep-updated.md'
