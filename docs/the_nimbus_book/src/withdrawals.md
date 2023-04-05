@@ -14,7 +14,7 @@ You have to create a signed `BLS-to-Execution-Change` message that must be broad
 If you have used the [staking-deposit-cli](https://github.com/ethereum/staking-deposit-cli) tool (formerly known as `eth2.0-deposit-cli`), please follow the steps provided [here](https://launchpad.ethereum.org/en/btec/).
 Alternatively, if you have used [ethdo](https://github.com/wealdtech/ethdo), follow the steps provided [here](https://github.com/wealdtech/ethdo/blob/master/docs/changingwithdrawalcredentials.md).
 
-If you have used another software for generating your BLS withdrawal credentials, please refer to its documentation or development team for further assistance regarding creating a signed `BLS-to-Execution-Change` message.
+If you have used other software for generating your BLS withdrawal credentials, please refer to its documentation or development team for further assistance regarding creating a signed `BLS-to-Execution-Change` message.
 
 !!! warning
     Your choice of withdrawal address is permanent.
