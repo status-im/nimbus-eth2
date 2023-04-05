@@ -28,7 +28,7 @@ If you have used other software for generating your BLS withdrawal credentials, 
 
 !!! tip
     It's recommended that you prepare your `BLS-to-Execution-Change` message on a secure device, disconnected from the internet.
-    You can use an USB drive to transfer the produced json file to the machine where Nimbus is running and then use the following command to broadcast the message to the network:
+    You can use an USB drive to transfer the produced JSON file to the machine where Nimbus is running and then use the following command to broadcast the message to the network:
 
 
         curl \
