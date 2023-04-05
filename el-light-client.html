@@ -571,6 +571,26 @@
     Running the light client
   </a>
   
+    <nav class="md-nav" aria-label="Running the light client">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-obtaining-a-trusted-block-root" class="md-nav__link">
+    1. Obtaining a trusted block root
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-starting-the-light-client" class="md-nav__link">
+    2. Starting the light client
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -869,20 +889,6 @@
   
   
     <li class="md-nav__item">
-      <a href="voluntary-exit.html" class="md-nav__link">
-        Perform a voluntary exit
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="more-keys.html" class="md-nav__link">
         Recover lost keys and generate new ones
       </a>
@@ -913,6 +919,20 @@
     <li class="md-nav__item">
       <a href="validator-client.html" class="md-nav__link">
         Run a separate validator client
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="withdrawals.html" class="md-nav__link">
+        Withdraw your staked funds
       </a>
     </li>
   
@@ -1777,6 +1797,26 @@
     Running the light client
   </a>
   
+    <nav class="md-nav" aria-label="Running the light client">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-obtaining-a-trusted-block-root" class="md-nav__link">
+    1. Obtaining a trusted block root
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-starting-the-light-client" class="md-nav__link">
+    2. Starting the light client
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1823,7 +1863,8 @@
 <p>The light client is currently in BETA and details around running it may change.</p>
 </div>
 <p>The Nimbus Light Client is a light-weight alternative to running a full beacon node, when you're not planning on becoming a validator but still want to run an Ethereum execution layer client.</p>
-<p>Execution layer (EL) clients provide the <a href="https://ethereum.github.io/execution-apis/api-documentation/">Web3 API</a> to expose information stored on the Ethereum blockchain. Since the merge 🐼, execution clients can no longer run standalone.</p>
+<p>Execution layer (EL) clients provide the <a href="https://ethereum.github.io/execution-apis/api-documentation/">Web3 API</a> to expose information stored on the Ethereum blockchain.
+Since the merge 🐼, execution clients can no longer run standalone.</p>
 <h2 id="comparison">Comparison</h2>
 <p>Compared to a full beacon node, a light client has several advantages and disadvantages.</p>
 <table>
@@ -1862,10 +1903,12 @@
 </tr>
 </tbody>
 </table>
-<p>Light clients delegate full validation to other network participants and operate under a honest supermajority (&gt; 2/3) assumption among elected participants. Due to this delegation, light clients are typically behind by ~4/3 slots (~15 seconds on Ethereum mainnet).</p>
+<p>Light clients delegate full validation to other network participants and operate under a honest supermajority (&gt; 2/3) assumption among elected participants.
+Due to this delegation, light clients are typically behind by ~4/3 slots (~15 seconds on Ethereum mainnet).</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If you are validating, you must run a full beacon node. To use Nimbus, follow the <a href="install.html">installation instructions</a>.</p>
+<p>If you are validating, you must run a full beacon node.
+To use Nimbus, follow the <a href="install.html">installation instructions</a>.</p>
 </div>
 <h2 id="building-from-source">Building from source</h2>
 <p>The Nimbus light client is currently not bundled as part of the Docker images and needs to be built from source.</p>
@@ -1881,18 +1924,23 @@
 <p class="admonition-title">Tip</p>
 <p>Omit <code>-j4</code> on systems with 4GB of memory or less.</p>
 </div>
-<p>This may take a few minutes. When the process finishes, the <code>nimbus_light_client</code> executable can be found in the <code>build</code> subdirectory.</p>
+<p>This may take a few minutes.
+When the process finishes, the <code>nimbus_light_client</code> executable can be found in the <code>build</code> subdirectory.</p>
 <h2 id="pairing-with-the-el-client">Pairing with the EL client</h2>
-<p>To ensure that only the light client can control the EL client, a file with random content (JWT secret) must be created. The format is 64 hexadecimal (0-9, a-f) characters. To create one, the following command may be used:</p>
+<p>To ensure that only the light client can control the EL client, a file with random content (JWT secret) must be created.
+The format is 64 hexadecimal (0-9, a-f) characters.
+To create one, the following command may be used:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>openssl rand -hex <span class="m">32</span> <span class="p">|</span> tr -d <span class="s2">&quot;\n&quot;</span> &gt; <span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/jwtsecret&quot;</span>
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>To adjust where the file is created, adjust the <code>$HOME/jwtsecret</code> portion in the command above. Also adjust other commands in this guide accordingly.</p>
+<p>To adjust where the file is created, adjust the <code>$HOME/jwtsecret</code> portion in the command above.
+Also adjust other commands in this guide accordingly.</p>
 </div>
 <p>The JWT secret must be passed to both the EL client and the light client to complete the pairing.</p>
 <h2 id="running-the-el-client">Running the EL client</h2>
-<p>In addition to the <a href="eth1.html">regular instructions</a> to run an EL client, the JWT secret must be configured. The following sections explain how to do this for certain EL clients.</p>
+<p>In addition to the <a href="eth1.html">regular instructions</a> to run an EL client, the JWT secret must be configured.
+The following sections explain how to do this for certain EL clients.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Geth</label><label for="__tabbed_1_2">Nethermind</label><label for="__tabbed_1_3">Others</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -1929,10 +1977,9 @@
 </div>
 </div>
 <h2 id="running-the-light-client">Running the light client</h2>
-<p>The light client starts syncing from a trusted block. This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
-<ol>
-<li>Obtaining a trusted block root</li>
-</ol>
+<p>The light client starts syncing from a trusted block.
+This trusted block should be somewhat recent (<a href="https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/weak-subjectivity.md">~1-2 weeks</a>) and needs to be configured each time when starting the light client.</p>
+<h3 id="1-obtaining-a-trusted-block-root">1. Obtaining a trusted block root</h3>
 <p>A block root may be obtained from another trusted beacon node, or from a trusted provider.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">Trusted beacon node</label><label for="__tabbed_4_2">Beaconcha.in</label></div>
 <div class="tabbed-content">
@@ -1943,17 +1990,20 @@
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<p>On the <a href="https://beaconcha.in">beaconcha.in</a> website (<a href="https://prater.beaconcha.in">Goerli</a>), navigate to the <code>Epochs</code> section and select a recent <code>Finalized</code> epoch. Then, scroll down to the bottom of the page. If the bottom-most slot has a <code>Proposed</code> status, copy its <code>Root Hash</code>. Otherwise, for example if the bottom-most slot was <code>Missed</code>, go back and pick a different epoch.</p>
+<p>On the <a href="https://beaconcha.in">beaconcha.in</a> website (<a href="https://prater.beaconcha.in">Goerli</a>), navigate to the <code>Epochs</code> section and select a recent <code>Finalized</code> epoch.
+Then, scroll down to the bottom of the page.
+If the bottom-most slot has a <code>Proposed</code> status, copy its <code>Root Hash</code>.
+Otherwise, for example if the bottom-most slot was <code>Missed</code>, go back and pick a different epoch.</p>
 </div>
 </div>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Selecting a block root from an untrusted source or using an outdated block root may lead to the light client syncing to an unexpected state. If that happens, stop the light client and restart it with a new trusted block root. Depending on the EL client, its database must be deleted and sync restarted from scratch.</p>
+<p>Selecting a block root from an untrusted source or using an outdated block root may lead to the light client syncing to an unexpected state.
+If that happens, stop the light client and restart it with a new trusted block root.
+Depending on the EL client, its database must be deleted and sync restarted from scratch.</p>
 </div>
-<ol>
-<li>Starting the light client</li>
-</ol>
+<h3 id="2-starting-the-light-client">2. Starting the light client</h3>
 <p>To start the light client, run the following commands (inserting your own trusted block root):</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="__tabbed_5_1" name="__tabbed_5" type="radio" /><input id="__tabbed_5_2" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="__tabbed_5_1">Mainnet</label><label for="__tabbed_5_2">Goerli</label></div>
 <div class="tabbed-content">
@@ -1975,10 +2025,12 @@
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>The light client can be left running in the background. Note that a new trusted block root is required when restarting.</p>
+<p>The light client can be left running in the background.
+Note that a new trusted block root is required when restarting.</p>
 </div>
 <h2 id="observing-the-sync-process">Observing the sync process</h2>
-<p>After a while, the light client will pick up beacon block headers from the Ethereum network and start informing the EL client about the latest data. You should see logs similar to the following:</p>
+<p>After a while, the light client will pick up beacon block headers from the Ethereum network and start informing the EL client about the latest data.
+You should see logs similar to the following:</p>
 <h3 id="nimbus">Nimbus</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>NOT 2022-11-21 18:00:23.666+01:00 Starting light client                      topics=&quot;lightcl&quot; trusted_block_root=some(c092a1d110a1c8d630ac2c3fa2565813d43087f42c986855a2cd985b995a328c)
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>...
@@ -2007,7 +2059,9 @@
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The <a href="https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/sync-protocol.md">light client protocol</a> depends on consensus layer (CL) full nodes to serve additional data. As this is a new protocol, not all implementations are supporting it yet. Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.</p>
+<p>The <a href="https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/sync-protocol.md">light client protocol</a> depends on consensus layer (CL) full nodes to serve additional data.
+As this is a new protocol, not all implementations are supporting it yet.
+Therefore, it may take several minutes to discover supporting peers, during which no log messages may be produced.</p>
 </div>
 <div class="tabbed-set tabbed-alternate" data-tabs="6:2"><input checked="checked" id="__tabbed_6_1" name="__tabbed_6" type="radio" /><input id="__tabbed_6_2" name="__tabbed_6" type="radio" /><div class="tabbed-labels"><label for="__tabbed_6_1">Geth</label><label for="__tabbed_6_2">Nethermind</label></div>
 <div class="tabbed-content">

@@ -758,20 +758,6 @@
   
   
     <li class="md-nav__item">
-      <a href="voluntary-exit.html" class="md-nav__link">
-        Perform a voluntary exit
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="more-keys.html" class="md-nav__link">
         Recover lost keys and generate new ones
       </a>
@@ -802,6 +788,20 @@
     <li class="md-nav__item">
       <a href="validator-client.html" class="md-nav__link">
         Run a separate validator client
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="withdrawals.html" class="md-nav__link">
+        Withdraw your staked funds
       </a>
     </li>
   
@@ -2280,9 +2280,7 @@
 <p>You should certainly top up if your balance is close to 16 ETH: this is to ensure you don't get removed from the validator set (which automatically happens if your balance falls below 16 ETH).</p>
 <p>At the other end of the spectrum, if your balance is closer to 31 ETH, it's probably not worth your while adding the extra ETH required to get back to 32.</p>
 <h3 id="when-can-i-withdraw-my-funds-and-whats-the-difference-between-exiting-and-withdrawing">When can I withdraw my funds, and what's the difference between exiting and withdrawing?</h3>
-<p>You can signal your intent to stop validating by signing a <a href="voluntary-exit.html">voluntary exit</a> message with your validator.</p>
-<p>However, bear in mind that in Phase 0, once you've exited, there's no going back.</p>
-<p>There's no way for you to activate your validator again, and you won't be able to transfer or withdraw your funds until at least Phase 1.5 (which means your funds will remain inaccessible until then).</p>
+<p>After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use 0x01 withdrawal credentials will have their funds automatically withdrawn. Please see our dedicated <a href="withdrawals.html">guide for withdrawals</a> for further information.</p>
 <h3 id="how-are-validators-incentivized-to-stay-active-and-honest">How are validators incentivized to stay active and honest?</h3>
 <p>In addition to being penalized for being offline, validators are penalized for behaving maliciously – for example attesting to invalid or contradicting blocks.</p>
 <p>On the other hand, they are rewarded for proposing / attesting to blocks that are included in the chain.</p>

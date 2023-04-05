@@ -967,20 +967,6 @@
   
   
     <li class="md-nav__item">
-      <a href="voluntary-exit.html" class="md-nav__link">
-        Perform a voluntary exit
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="more-keys.html" class="md-nav__link">
         Recover lost keys and generate new ones
       </a>
@@ -1011,6 +997,20 @@
     <li class="md-nav__item">
       <a href="validator-client.html" class="md-nav__link">
         Run a separate validator client
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="withdrawals.html" class="md-nav__link">
+        Withdraw your staked funds
       </a>
     </li>
   
@@ -2022,30 +2022,34 @@
 </blockquote>
 <h2 id="introduction">Introduction</h2>
 <p>This page will take you through how to use your laptop to program your Raspberry Pi.</p>
-<p>One of the most important aspects of the Raspberry Pi experience is trying to make it as easy as possible to get started. As such, we try our best to explain things from first-principles.</p>
+<p>One of the most important aspects of the Raspberry Pi experience is trying to make it as easy as possible to get started.
+As such, we try our best to explain things from first-principles.</p>
 <h2 id="prerequisites">Prerequisites</h2>
 <ul>
 <li>Raspberry Pi 4 4GB (8GB recommended if also running execution client)</li>
 <li>64GB microSD Card</li>
 <li>microSD USB adapter</li>
 <li>5V 3A USB-C charger</li>
-<li>Reliable Wifi connection</li>
+<li>Reliable Wi-Fi connection</li>
 <li>Laptop</li>
 <li>Basic understanding of the <a href="https://www.learnenough.com/command-line-tutorial/basics">command line</a></li>
 <li>200GB SSD (2TB recommended if also running execution client)</li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>You will need an SSD to run the Nimbus - mechanical hard drives are typically too slow to run an Ethereum node. You have two options:</p>
+<p>You will need an SSD to run the Nimbus: mechanical hard drives are typically too slow to run an Ethereum node. You have two options:</p>
 <ol>
 <li>Use an USB portable SSD disk such as the Samsung T5 Portable SSD.</li>
-<li>Use an USB 3.0 External Hard Drive Case with a SSD Disk. For example, <a href="https://twitter.com/EthereumOnARM">Ethereum on Arm</a> use an Inateck 2.5 Hard Drive Enclosure FE2011. Make sure to buy a case with an UASP compliant chip, particularly, one of these: JMicron (JMS567 or JMS578) or ASMedia (ASM1153E).</li>
+<li>Use an USB 3.0 External Hard Drive Case with a SSD Disk.
+   For example, <a href="https://twitter.com/EthereumOnARM">Ethereum on Arm</a> use an Inateck 2.5 Hard Drive Enclosure FE2011.
+   Make sure to buy a case with an UASP compliant chip, particularly, one of these: JMicron (JMS567 or JMS578) or ASMedia (ASM1153E).</li>
 </ol>
-<p>In both cases, avoid low quality SSD disks (the SSD is a key component of your node and can drastically affect both the performance and sync time). Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).</p>
+<p>In both cases, avoid low quality SSD disks (the SSD is a key component of your node and can drastically affect both the performance and sync time).
+Keep in mind that you need to plug the disk to an USB 3.0 port (the blue port).</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please <a href="https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426">read this recommended fix.</a></p>
+<p>If you have a Raspberry Pi 4 and are getting bad speeds transferring data to/from USB3.0 SSDs, please <a href="https://www.raspberrypi.org/forums/viewtopic.php?t=245931#p1501426">read this recommended fix</a>.</p>
 </div>
 <h2 id="steps">Steps</h2>
 <h3 id="1-download-raspberry-pi-imager">1. Download Raspberry Pi Imager</h3>
@@ -2063,7 +2067,8 @@
 <p>Find the OS you downloaded in step 2</p>
 <p><img alt="" src="https://i.imgur.com/NeOT8pf.png" /></p>
 <h3 id="4b-write-to-sd-card">4b. Write to SD card</h3>
-<p>Click on <strong>CHOOSE SD CARD</strong>. You should see a menu pop-up with your SD card listed -- Select it</p>
+<p>Click on <strong>CHOOSE SD CARD</strong>.
+You should see a menu pop-up with your SD card listed -- Select it</p>
 <p><img alt="" src="https://storage.googleapis.com/ethereum-hackmd/upload_f90713c1ef782a94b5fce9eb8249c206.png" /></p>
 <p>Click on <strong>WRITE</strong></p>
 <p><img alt="" src="https://i.imgur.com/NeOT8pf.png" /></p>
@@ -2071,7 +2076,8 @@
 <p><img alt="" src="https://storage.googleapis.com/ethereum-hackmd/upload_160208a5bc983165c2a1eb9bffed01c2.png" /></p>
 <p>Make a cup of coffee :)</p>
 <h3 id="5-set-up-wireless-lan">5. Set up wireless LAN</h3>
-<p>Since you have loaded Raspberry Pi OS onto a blank SD card, you will have two partitions. The first one, which is the smaller one, is the <code>boot</code> partition.</p>
+<p>Since you have loaded Raspberry Pi OS onto a blank SD card, you will have two partitions.
+The first one, which is the smaller one, is the <code>boot</code> partition.</p>
 <p>Create a <code>wpa_supplicant</code> configuration file in the <code>boot</code> partition with the following content:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a># wpa_supplicant.conf
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
@@ -2086,12 +2092,15 @@
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Don't forget to replace the placeholder <code>country</code>, <code>ssid</code>, and <code>psk</code> values. See <a href="https://en.wikipedia.org/wiki/ISO_3166-1">Wikipedia</a> for a list of 2 letter <code>ISO 3166-1</code> country codes.</p>
+<p>Don't forget to replace the placeholder <code>country</code>, <code>ssid</code>, and <code>psk</code> values.
+See <a href="https://en.wikipedia.org/wiki/ISO_3166-1">Wikipedia</a> for a list of 2 letter <code>ISO 3166-1</code> country codes.</p>
 </div>
 <h3 id="6-enable-ssh-using-linux-or-macos">6. Enable SSH (using Linux or macOS)</h3>
 <p>You can <a href="https://www.raspberrypi.org/documentation/remote-access/ssh/">access the command line</a> of a Raspberry Pi remotely from another computer or device on the same network using <a href="https://en.wikipedia.org/wiki/Ssh_(Secure_Shell)">SSH</a>.</p>
 <p>While SSH is not enabled by default, you can enable it by placing a file named <code>ssh</code>, without any extension, onto the boot partition of the SD card.</p>
-<p>When the Pi boots, it will look for the <code>ssh</code> file. If it is found, SSH is enabled and the file is deleted. The content of the file does not matter; it can contain text, or nothing at all.</p>
+<p>When the Pi boots, it will look for the <code>ssh</code> file.
+If it is found, SSH is enabled and the file is deleted.
+The content of the file does not matter; it can contain text, or nothing at all.</p>
 <p>To create an empty <code>ssh</code> file, from the home directory of the <code>boot</code> partition file, run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>touch ssh
 </code></pre></div>
@@ -2107,7 +2116,8 @@
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="m">64</span> bytes from <span class="m">195</span>.177.101.93: <span class="nv">icmp_seq</span><span class="o">=</span><span class="m">2</span> <span class="nv">ttl</span><span class="o">=</span><span class="m">64</span> <span class="nv">time</span><span class="o">=</span><span class="m">10</span>.828 ms
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>...
 </code></pre></div>
-<p>Keep note of your Pi's IP address. In the above case, that's <code>195.177.101.93</code></p>
+<p>Keep note of your Pi's IP address.
+In the above case, that's <code>195.177.101.93</code></p>
 <h3 id="8-ssh-using-linux-or-macos">8. SSH (using Linux or macOS)</h3>
 <p>Connect to your Pi by running:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>ssh pi@195.177.101.93
@@ -2137,7 +2147,8 @@
 <p>The first step is to increase the <a href="https://itsfoss.com/swap-size/">swap size</a> to 2GB (2048MB).</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Swap acts as a breather to your system when the RAM is exhausted. When the RAM is exhausted, your Linux system uses part of the hard disk memory and allocates it to the running application.</p>
+<p>Swap acts as a breather to your system when the RAM is exhausted.
+When the RAM is exhausted, your Linux system uses part of the hard disk memory and allocates it to the running application.</p>
 </div>
 <p>Use the Pi's built-in text editor <a href="https://www.nano-editor.org/dist/latest/cheatsheet.html">nano</a> to open up the swap file:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>sudo nano /etc/dphys-swapfile
@@ -2156,7 +2167,8 @@
 <p>Reboot your Pi to have the above changes take effect:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>sudo reboot
 </code></pre></div>
-<p>This will cause your connection to close. So you'll need to <code>ssh</code> into your Pi again:</p>
+<p>This will cause your connection to close.
+So you'll need to <code>ssh</code> into your Pi again:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>ssh pi@195.177.101.93
 </code></pre></div>
 <div class="admonition note">
@@ -2196,7 +2208,8 @@
 <p class="admonition-title">Note</p>
 <p>If you haven't generated your validator key(s) and/or made your deposit yet, follow the instructions on <a href="deposit.html">this page</a> before carrying on.</p>
 </div>
-<p>We'll use the <code>scp</code> command to send files over SSH. It allows you to copy files between computers, say from your Raspberry Pi to your desktop/laptop, or vice-versa.</p>
+<p>We'll use the <code>scp</code> command to send files over SSH.
+It allows you to copy files between computers, say from your Raspberry Pi to your desktop/laptop, or vice-versa.</p>
 <p>Copy the folder containing your validator key(s) from your computer to your <code>pi</code>'s homefolder by opening up a new terminal window and running the following command:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>scp -r &lt;VALIDATOR_KEYS_DIRECTORY&gt; pi@195.177.101.93:
 </code></pre></div>
@@ -2213,12 +2226,15 @@
 <p>To import your signing key into Nimbus, from the <code>nimbus-eth2</code> directory run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>build/nimbus_beacon_node deposits import  --data-dir<span class="o">=</span>build/data/shared_prater_0 ../validator_keys
 </code></pre></div>
-<p>You'll be asked to enter the password you created to encrypt your keystore(s). Don't worry, this is entirely normal. Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
+<p>You'll be asked to enter the password you created to encrypt your keystore(s).
+ Don't worry, this is entirely normal.
+ Your validator client needs both your signing keystore(s) and the password encrypting it to import your <a href="https://blog.ethereum.org/2020/05/21/keys/">key</a> (since it needs to decrypt the keystore in order to be able to use it to sign on your behalf).</p>
 <h3 id="14-connect-to-prater">14. Connect to Prater</h3>
 <p>We're finally ready to connect to the Prater testnet!</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>If you haven't already, we recommend registering for, and running, your own eth1 node in parallel. For instructions on how to do so, see <a href="eth1.html">this page</a>.</p>
+<p>If you haven't already, we recommend registering for, and running, your own eth1 node in parallel.
+For instructions on how to do so, see <a href="eth1.html">this page</a>.</p>
 </div>
 <p>To connect to Prater, run:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>./run-prater-beacon-node.sh
@@ -2239,15 +2255,20 @@
 <a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>INF 2020-12-01 11:26:31.000+00:00 Slot start                                 topics=&quot;beacnde&quot; tid=21815 file=nimbus_beacon_node.nim:505 lastSlot=96566 scheduledSlot=96567 beaconTime=1w6d9h53m24s944us774ns peers=7 head=b54486c4:96563 headEpoch=3017 finalized=2f5d12e4:96479 finalizedEpoch=3014
 <a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>INF 2020-12-01 11:26:36.285+00:00 Slot end                                   topics=&quot;beacnde&quot; tid=21815 file=nimbus_beacon_node.nim:593 slot=96567 nextSlot=96568 head=b54486c4:96563 headEpoch=3017 finalizedHead=2f5d12e4:96479 finalizedEpoch=3014
 </code></pre></div>
-<p>To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running. You should see something like:</p>
+<p>To keep track of your syncing progress, have a look at the output at the very bottom of the terminal window in which your validator is running.
+You should see something like:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>peers: 15 ❯ finalized: ada7228a:8765 ❯ head: b2fe11cd:8767:2 ❯ time: 9900:7 (316807) ❯ sync: wPwwwwwDwwDPwPPPwwww:7:1.2313:1.0627:12h01m(280512)
 </code></pre></div>
 <p>Keep an eye on the number of peers you're currently connected to (in the above case that's <code>15</code>), as well as your <a href="keep-an-eye.html#syncing-progress">sync progress</a>.</p>
-<blockquote>
-<p><strong>Note:</strong> 15 - 20 peers and an average sync speed of <strong>0.5 - 1.0</strong> blocks per second is normal on <code>Prater</code> with a Pi. If your sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter. See <a href="https://www.raspberrypi.org/forums/viewtopic.php?f=28&amp;t=245931">this post</a> for a recommended workaround.</p>
-</blockquote>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>15 - 20 peers and an average sync speed of <strong>0.5 - 1.0</strong> blocks per second is normal on <code>Prater</code> with a Pi.
+If your sync speed is much slower than this, the root of the problem may be your USB3.0 to SSD adapter.
+See <a href="https://www.raspberrypi.org/forums/viewtopic.php?f=28&amp;t=245931">this post</a> for a recommended workaround.</p>
+</div>
 <h2 id="mainnet-advice">Mainnet advice</h2>
-<p>Whether or not your Pi is up to the task will depend on a number of factors such as SSD speed, network connectivity, etc. As such, it's best to verify performance  on a testnet first.</p>
+<p>Whether or not your Pi is up to the task will depend on a number of factors such as SSD speed, network connectivity, etc.
+As such, it's best to verify performance  on a testnet first.</p>
 <p>The best thing you can do is to set your Pi to run Prater. <strong>If you have no trouble syncing and attesting on Prater, your setup should be more than good enough for mainnet</strong> as well (Mainnet is expected to use fewer resources).</p>
 <blockquote class="twitter-tweet" data-conversation="none"><p lang="en" dir="ltr">We&#39;ve been running lots of PIs and NanoPCs 24/7 for 3 years and never got a hardware fail. It is easy (and cheap) to get redundancy of components (even spare PIs in different locations, more of this to come).</p>&mdash; Ethereum on ARM (@EthereumOnARM) <a href="https://twitter.com/EthereumOnARM/status/1332772217420177408?ref_src=twsrc%5Etfw">November 28, 2020</a></blockquote>
 <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
@@ -2261,7 +2282,8 @@
 <p>While you shouldn't need to, if you're feeling adventurous and want to try and squeeze out some extra performance out of your Pi's CPU, see <a href="https://docs.rocketpool.net/guides/node/local/prepare-pi.html#overclocking-the-pi">this guide</a> by Joe Clapis.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>We have since improved performance in several ways which should make a vanilla Pi perform well. However, overclocking may still give some benefits, in particular you have more performance to deal with anomalies (like spamming etc).</p>
+<p>We have since improved performance in several ways which should make a vanilla Pi perform well.
+However, overclocking may still give some benefits, in particular you have more performance to deal with anomalies (like spamming etc).</p>
 </div>
 
               

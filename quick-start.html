@@ -835,20 +835,6 @@
   
   
     <li class="md-nav__item">
-      <a href="voluntary-exit.html" class="md-nav__link">
-        Perform a voluntary exit
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="more-keys.html" class="md-nav__link">
         Recover lost keys and generate new ones
       </a>
@@ -879,6 +865,20 @@
     <li class="md-nav__item">
       <a href="validator-client.html" class="md-nav__link">
         Run a separate validator client
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="withdrawals.html" class="md-nav__link">
+        Withdraw your staked funds
       </a>
     </li>
   
@@ -1751,10 +1751,10 @@
 
 <h1 id="run-the-beacon-node">Run the beacon node</h1>
 <p>This page takes you through the steps of getting a standard installation of the Nimbus beacon node running.</p>
-<p>The quickstart setup involves running two nodes: an <a href="eth1.html">execution client</a> and a beacon node - both are needed to run a full Ethereum setup.</p>
-<p>The beacon node connects to the beacon chain network, syncs historical data and provides <a href="rest-api.html">API's</a> to monitor and interact with the beacon chain.</p>
+<p>The quickstart setup involves running two nodes: an <a href="eth1.html">execution client</a> and a beacon node — both are needed to run a full Ethereum setup.</p>
+<p>The beacon node connects to the beacon chain network, syncs historical data, and provides <a href="rest-api.html">API's</a> to monitor and interact with the beacon chain.</p>
 <p>Running a beacon node is a <a href="https://vitalik.ca/general/2021/05/23/scaling.html#its-crucial-for-blockchain-decentralization-for-regular-users-to-be-able-to-run-a-node">worthwhile endeavor</a> even if you are not planning on validating yourself!</p>
-<p>The guide assumes <a href="https://ubuntu.com/download/server">Ubuntu Linux</a> is being used, and therefore some familiarity with <a href="https://ubuntu.com/tutorials/command-line-for-beginners">the linux command line</a> is needed.</p>
+<p>The guide assumes <a href="https://ubuntu.com/download/server">Ubuntu Linux</a> is being used, and therefore some familiarity with <a href="https://ubuntu.com/tutorials/command-line-for-beginners">the Linux command line</a> is needed.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>To become a validator, you first need to set up a beacon node.</p>
@@ -1767,10 +1767,12 @@
 <h3 id="1-prepare">1. Prepare</h3>
 <p>Prepare your machine by installing <a href="install.html">Nimbus' dependencies</a>.</p>
 <h3 id="2-set-up-an-execution-client">2. Set up an execution client</h3>
-<p>To run a beacon node, you need to have access to an execution client exposing the web3 API - throughout, we'll assume an execution client is running on the same machine as the beacon node, but this is not required.</p>
-<p>See the <a href="eth1.html">execution client</a> guide for instructions on how to pick and install an execution client!</p>
+<p>To run a beacon node, you need to have access to an execution client exposing the web3 API.
+Throughout, we'll assume an execution client is running on the same machine as the beacon node, but this is not required.</p>
+<p>See the <a href="eth1.html">execution client guide</a> for instructions on how to pick and install an execution client!</p>
 <h3 id="3-install-nimbus">3. Install Nimbus</h3>
-<p>Next, download the <a href="binaries.html">latest release</a> and install it by unpacking the archive. Using a command line terminal:</p>
+<p>Next, download the <a href="binaries.html">latest release</a> and install it by unpacking the archive.
+Using a command line terminal:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Create a directory that can hold the beacon chain data and applications - this should be a fast SSD</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mkdir -p nimbus-eth2
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
@@ -1810,9 +1812,9 @@
 <div class="admonition success">
 <p class="admonition-title">What next?</p>
 <ul>
-<li>If you will be running the node on a regular basis, it is recommended you set up a <a href="beacon-node-systemd.html">systemd service</a> that automatically restarts your node if the computer reboots.</li>
+<li>If you will be running the node on a regular basis, it is recommended that you <a href="beacon-node-systemd.html">set up a systemd service</a> that automatically restarts your node if the computer reboots.</li>
 <li>If you wish to stake, continue your journey by following the <a href="run-a-validator.html">validator quick start</a>.</li>
-<li>The <a href="health.html">monitoring</a> page contains information about how to keep your node healthy</li>
+<li>The <a href="health.html">monitoring</a> page contains information about how to keep your node healthy.</li>
 </ul>
 </div>
 

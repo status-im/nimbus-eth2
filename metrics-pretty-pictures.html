@@ -868,20 +868,6 @@
   
   
     <li class="md-nav__item">
-      <a href="voluntary-exit.html" class="md-nav__link">
-        Perform a voluntary exit
-      </a>
-    </li>
-  
-
-            
-          
-            
-              
-  
-  
-  
-    <li class="md-nav__item">
       <a href="more-keys.html" class="md-nav__link">
         Recover lost keys and generate new ones
       </a>
@@ -912,6 +898,20 @@
     <li class="md-nav__item">
       <a href="validator-client.html" class="md-nav__link">
         Run a separate validator client
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="withdrawals.html" class="md-nav__link">
+        Withdraw your staked funds
       </a>
     </li>
   
@@ -1817,13 +1817,17 @@
 
 <h1 id="grafana-and-prometheus">Grafana and Prometheus</h1>
 <p>In this page we'll cover how to use  Grafana and Prometheus to help you visualise important real-time metrics concerning your validator and/or beacon node.</p>
-<p>Prometheus is an open-source systems monitoring and alerting toolkit. It runs as a service on your computer and its job is to capture metrics. You can find more information about Prometheus <a href="https://prometheus.io/docs/introduction/overview/">here</a>.</p>
-<p>Grafana is a tool for beautiful dashboard monitoring that works well with Prometheus. You can learn more about Grafana <a href="https://github.com/grafana/grafana">here</a>.</p>
+<p>Prometheus is an open-source systems monitoring and alerting toolkit.
+It runs as a service on your computer and its job is to capture metrics.
+You can find more information about Prometheus <a href="https://prometheus.io/docs/introduction/overview/">here</a>.</p>
+<p>Grafana is a tool for beautiful dashboard monitoring that works well with Prometheus.
+You can learn more about Grafana <a href="https://github.com/grafana/grafana">here</a>.</p>
 <h2 id="simple-metrics">Simple metrics</h2>
 <p>To enable the metrics server, run the beacon node  with the <code>--metrics</code> flag:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>./run-prater-beacon-node.sh --metrics
 </code></pre></div>
-<p>Visit <a href="http://127.0.0.1:8008/metrics">http://127.0.0.1:8008/metrics</a> with a browser or <code>curl</code>. You should see a plaintext page that looks something like this:</p>
+<p>Visit <a href="http://127.0.0.1:8008/metrics">http://127.0.0.1:8008/metrics</a> with a browser or <code>curl</code>.
+You should see a plaintext page that looks something like this:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a># HELP nim_runtime_info Nim runtime info
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a># TYPE nim_runtime_info gauge
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>nim_gc_mem_bytes 6275072.0
@@ -1841,15 +1845,18 @@
 <a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
 <a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>...
 </code></pre></div>
-<blockquote>
-<p><strong>Note:</strong> Metrics are by default only accessible from the same machine as the beacon node is running on - to fetch metrics from a remote machine, an SSH tunnel is recommended.</p>
-</blockquote>
-<p>The metrics server offers one snapshot in time of the state of the beacon node -- metrics however are at their most useful when collected over time -- for this, we'll need to set up two more pieces of software -- Prometheus and Grafana.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Metrics are by default only accessible from the same machine as the beacon node is running on.
+To fetch metrics from a remote machine, an SSH tunnel is recommended.</p>
+</div>
+<p>The metrics server offers one snapshot in time of the state of the beacon node.
+Metrics, however, are at their most useful when collected over time — for this, we'll need to set up two more pieces of software: Prometheus and Grafana.</p>
 <h2 id="prometheus-and-grafana">Prometheus and Grafana</h2>
 <p>The following steps will take you through how to use Prometheus and Grafana to spin up a beautiful and useful monitoring dashboard for your validator and beacon node.</p>
 <h3 id="steps">Steps</h3>
 <h4 id="1-download-prometheus">1. Download Prometheus</h4>
-<p>Use your favourite package manager to download Prometheus -- for example <code>apt-get install prometheus</code> on Ubuntu, or <code>brew install prometheus</code> on MacOS, should do the trick.</p>
+<p>Use your favourite package manager to download Prometheus: for example <code>apt-get install prometheus</code> on Ubuntu, or <code>brew install prometheus</code> on MacOS, should do the trick.</p>
 <blockquote>
 <p>If you don't use a package manager, you can download the <a href="https://prometheus.io/download/">latest release</a> of directly from Prometheus website. To extract it, run:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>tar xvfz prometheus-*.tar.gz
@@ -1857,7 +1864,8 @@
 </code></pre></div>
 </blockquote>
 <h4 id="2-copy-the-binary">2. Copy the binary</h4>
-<p>The Prometheus server is a single binary called prometheus (or prometheus.exe on Microsoft Windows). Copy it over to <a href="https://unix.stackexchange.com/questions/4186/what-is-usr-local-bin"><code>/usr/local/bin</code></a></p>
+<p>The Prometheus server is a single binary called prometheus (or prometheus.exe on Microsoft Windows).
+Copy it over to <a href="https://unix.stackexchange.com/questions/4186/what-is-usr-local-bin"><code>/usr/local/bin</code></a>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cp prometheus-2.20.1.linux-amd64/prometheus /usr/local/bin/
 </code></pre></div>
 <h4 id="3-run-prometheus-with-the-default-configuration-file">3. Run Prometheus with the default configuration file</h4>
@@ -1879,16 +1887,19 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>level=info ts=2021-01-22T14:52:10.604Z caller=main.go:673 msg=&quot;Server is ready to receive web requests.&quot;
 </code></pre></div>
 <h4 id="4-download-grafana">4. Download Grafana</h4>
-<p><a href="(https://grafana.com/grafana/download?platform=linux)">Download the latest release</a> of Grafana for your platform. You need version 7.2 or newer.</p>
-<blockquote>
-<p><strong>Note:</strong> If you use a package manager, you can also download Grafana that way -- for example <code>apt-get install grafana</code> on Ubuntu, or <code>brew install grafana</code> on MacOS, should do the trick.</p>
-</blockquote>
+<p><a href="(https://grafana.com/grafana/download?platform=linux)">Download the latest release</a> of Grafana for your platform.
+You need version 7.2 or newer.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you use a package manager, you can also download Grafana that way -- for example <code>apt-get install grafana</code> on Ubuntu, or <code>brew install grafana</code> on MacOS, should do the trick.</p>
+</div>
 <h4 id="5-install-and-start-grafana">5. Install and start Grafana</h4>
 <p>Follow <a href="https://grafana.com/docs/grafana/latest/installation/">the instructions for your platform</a> to install and start Grafana.</p>
 <h4 id="6-configure-login">6. Configure login</h4>
-<p>Go to <a href="http://localhost:3000/">http://localhost:3000/</a>, you should see a Grafana login screen that looks like this</p>
+<p>Go to <a href="http://localhost:3000/">http://localhost:3000/</a>, you should see a Grafana login screen that looks like this:</p>
 <p><img alt="" src="https://i.imgur.com/jcP1qWl.png" /></p>
-<p>Type in <code>admin</code> for both the username and password. You'll be asked to change the password (we recommend you do so).</p>
+<p>Type in <code>admin</code> for both the username and password.
+You'll be asked to change the password (and we recommend you do so).</p>
 <h4 id="7-add-a-data-source">7. Add a data source</h4>
 <p>Hover your mouse over the gear icon in the left menu bar, and click on the <code>Data Sources</code> option in the sub-menu that pops up.</p>
 <p><img alt="" src="https://i.imgur.com/0Xsgx61.png" /></p>
@@ -1898,7 +1909,7 @@
 <p><img alt="" src="https://i.imgur.com/YpwThOr.png" /></p>
 <p>Enter <code>http://localhost:9090</code> in the URL field</p>
 <p><img alt="" src="https://i.imgur.com/PtVOnur.png" /></p>
-<p>Set the "Scrape interval" field to the same value you used in the Prometheus config ("12" in our example above).</p>
+<p>Set the "Scrape interval" field to the same value you used in the Prometheus config ("15s" in our example below).</p>
 <p>Scroll to the bottom and click on <code>Save and Test</code></p>
 <p><img alt="" src="https://i.imgur.com/GJVdwaK.png" /></p>
 <p>If everything is working correctly you should see a green <code>Data source is working</code> box pop up</p>
@@ -1912,19 +1923,22 @@
 <p><img alt="" src="https://i.imgur.com/SoU5Isz.png" /></p>
 <p>You'll be directed to the dashboard where you'll be able to gain insights into the performance of <code>nimbus-eth2</code> and your validators</p>
 <p><img alt="" src="https://i.imgur.com/aIfJ1iT.png" /></p>
-<blockquote>
-<p><strong>Note:</strong> the dashboard is very much a work in progress. Some of the highlights right now include received and proposed blocks, received and sent attestations, peers, memory and cpu usage stats. But keep an eye out for additional metrics in the near future.</p>
-</blockquote>
-<p>And voila! That's all there is to it :)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The dashboard is very much a work in progress.
+Some of the highlights right now include received and proposed blocks, received and sent attestations, peers, memory and cpu usage stats.
+But keep an eye out for additional metrics in the near future.</p>
+</div>
+<p>And voilà! That's all there is to it :)</p>
 <h2 id="community-dashboards">Community dashboards</h2>
 <h3 id="joe-clapis">Joe Clapis</h3>
 <p><img alt="" src="https://i.imgur.com/05eJeBr.png" /></p>
-<p>Joe – who’s done some brilliant work <a href="https://our.status.im/rocket-pool-integration/">integrating Nimbus with Rocket Pool</a> – has created a <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md">wonderful guide</a> where he takes you through how to set up a Grafana server on your Pi – using his dashboard as an example.</p>
+<p>Joe — who’s done some brilliant work <a href="https://our.status.im/rocket-pool-integration/">integrating Nimbus with Rocket Pool</a> — has created a <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md">wonderful guide</a> where he takes you through how to set up a Grafana server on your Pi, using his dashboard as an example.</p>
 <p>In his words:</p>
 <blockquote>
 <p>This captures just about every metric I think I’d like to see at a glance.</p>
 </blockquote>
-<p>Whether or not you're running a Pi, we recommend you check out his guide <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md">here</a>.</p>
+<p>Whether or not you're running a Pi, we recommend you check out <a href="https://github.com/jclapis/rp-pi-guide/blob/main/Grafana.md">his guide</a>.</p>
 <h3 id="metanull">Metanull</h3>
 <p><img alt="" src="https://i.imgur.com/OlvNGlq.jpg" /></p>
 <p>A dashboard aimed primarily at users rather than developers.</p>
