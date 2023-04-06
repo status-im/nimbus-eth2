@@ -44,8 +44,10 @@ proc decodeHttpLightClientObject[T: SomeForkedLightClientObject](
     contentType: Opt[ContentTypeData],
     consensusFork: ConsensusFork,
     cfg: RuntimeConfig): T {.raises: [RestError].} =
-  let mediaType = decodeMediaType(contentType).valueOr(resError):
-    raise newException(RestError, $resError)
+  let mediaTypeRes = decodeMediaType(contentType)
+  if mediaTypeRes.isErr:
+    raise newException(RestError, $mediaTypeRes.error)
+  template mediaType: auto = mediaTypeRes.get
 
   if mediaType == OctetStreamMediaType:
     try:
@@ -62,8 +64,10 @@ proc decodeHttpLightClientObject[T: SomeForkedLightClientObject](
       raiseRestDecodingBytesError(cstring("Malformed data: " & $exc.msg))
 
   if mediaType == ApplicationJsonMediaType:
-    let obj = decodeBytes(T, data, contentType).valueOr(resError):
-      raiseRestDecodingBytesError(resError)
+    let objRes = decodeBytes(T, data, contentType)
+    if objRes.isErr:
+      raiseRestDecodingBytesError(objRes.error)
+    template obj: auto = objRes.get
     obj.checkForkConsistency(cfg, consensusFork)
     return obj
 
@@ -75,8 +79,10 @@ proc decodeHttpLightClientObjects[S: seq[SomeForkedLightClientObject]](
     contentType: Opt[ContentTypeData],
     cfg: RuntimeConfig,
     forkDigests: ref ForkDigests): S {.raises: [RestError].} =
-  let mediaType = decodeMediaType(contentType).valueOr(resError):
-    raise newException(RestError, $resError)
+  let mediaTypeRes = decodeMediaType(contentType)
+  if mediaTypeRes.isErr:
+    raise newException(RestError, $mediaTypeRes.error)
+  template mediaType: auto = mediaTypeRes.get
 
   if mediaType == OctetStreamMediaType:
     let l = data.len
@@ -127,11 +133,13 @@ proc decodeHttpLightClientObjects[S: seq[SomeForkedLightClientObject]](
     return res
 
   if mediaType == ApplicationJsonMediaType:
-    let res = decodeBytes(S, data, contentType).valueOr(resError):
-      raiseRestDecodingBytesError(resError)
-    for obj in res:
+    let objsRes = decodeBytes(S, data, contentType)
+    if objsRes.isErr:
+      raiseRestDecodingBytesError(objsRes.error)
+    template objs: auto = objsRes.get
+    for obj in objs:
       obj.checkForkConsistency(cfg)
-    return res
+    return objs
 
   raise newException(RestError, "Unsupported content-type")
 
@@ -158,11 +166,12 @@ proc getLightClientBootstrap*(
   return
     case resp.status
     of 200:
-      let consensusFork = decodeEthConsensusVersion(
-        resp.headers.getString("eth-consensus-version")).valueOr(resError):
-          raiseRestDecodingBytesError(resError)
+      let consensusForkRes = decodeEthConsensusVersion(
+        resp.headers.getString("eth-consensus-version"))
+      if consensusForkRes.isErr:
+        raiseRestDecodingBytesError(consensusForkRes.error)
       ForkedLightClientBootstrap.decodeHttpLightClientObject(
-        data, resp.contentType, consensusFork, cfg)
+        data, resp.contentType, consensusForkRes.get, cfg)
     of 404:
       default(ForkedLightClientBootstrap)
     of 400, 406, 500:
@@ -239,11 +248,12 @@ proc getLightClientFinalityUpdate*(
   return
     case resp.status
     of 200:
-      let consensusFork = decodeEthConsensusVersion(
-        resp.headers.getString("eth-consensus-version")).valueOr(resError):
-          raiseRestDecodingBytesError(resError)
+      let consensusForkRes = decodeEthConsensusVersion(
+        resp.headers.getString("eth-consensus-version"))
+      if consensusForkRes.isErr:
+        raiseRestDecodingBytesError(consensusForkRes.error)
       ForkedLightClientFinalityUpdate.decodeHttpLightClientObject(
-        data, resp.contentType, consensusFork, cfg)
+        data, resp.contentType, consensusForkRes.get, cfg)
     of 404:
       default(ForkedLightClientFinalityUpdate)
     of 406, 500:
@@ -280,11 +290,12 @@ proc getLightClientOptimisticUpdate*(
   return
     case resp.status
     of 200:
-      let consensusFork = decodeEthConsensusVersion(
-        resp.headers.getString("eth-consensus-version")).valueOr(resError):
-          raiseRestDecodingBytesError(resError)
+      let consensusForkRes = decodeEthConsensusVersion(
+        resp.headers.getString("eth-consensus-version"))
+      if consensusForkRes.isErr:
+        raiseRestDecodingBytesError(consensusForkRes.error)
       ForkedLightClientOptimisticUpdate.decodeHttpLightClientObject(
-        data, resp.contentType, consensusFork, cfg)
+        data, resp.contentType, consensusForkRes.get, cfg)
     of 404:
       default(ForkedLightClientOptimisticUpdate)
     of 406, 500:

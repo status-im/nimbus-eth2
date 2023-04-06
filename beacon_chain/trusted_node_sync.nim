@@ -200,12 +200,13 @@ proc doTrustedNodeSync*(
           quit 1
         bootstrap.migrateToDataFork(lcDataFork)
 
-        var store =
+        var storeRes =
           initialize_light_client_store(
-            trustedBlockRoot, bootstrap.forky(lcDataFork), cfg
-          ).valueOr(resError):
-            error "`initialize_light_client_store` failed", resError
-            quit 1
+            trustedBlockRoot, bootstrap.forky(lcDataFork), cfg)
+        if storeRes.isErr:
+          error "`initialize_light_client_store` failed", err = storeRes.error
+          quit 1
+        template store: auto = storeRes.get
         store.trackBestViableCheckpoint()
 
         while true:
