@@ -340,7 +340,7 @@ FORCE_BUILD_ALONE_ALL_TESTS_DEPS :=
 endif
 force_build_alone_all_tests: | $(FORCE_BUILD_ALONE_ALL_TESTS_DEPS)
 
-all_tests: | build deps force_build_alone_all_tests
+all_tests: | build deps nimbus_signing_node force_build_alone_all_tests
 	+ echo -e $(BUILD_MSG) "build/$@" && \
 		MAKE="$(MAKE)" V="$(V)" $(ENV_SCRIPT) scripts/compile_nim_program.sh \
 			$@ \

@@ -140,7 +140,8 @@ func init*(T: type KeystoreData, keystore: RemoteKeystore,
     description: keystore.description,
     version: keystore.version,
     remotes: keystore.remotes,
-    threshold: keystore.threshold
+    threshold: keystore.threshold,
+    remoteType: keystore.remoteType
   ))
 
 func init*(T: type KeystoreData, cookedKey: CookedPubKey,
