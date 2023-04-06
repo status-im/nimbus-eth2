@@ -326,6 +326,8 @@ proc checkDB(db: SlashingProtectionDB_v2,
     return err "Invalid database genesis validator root: " & root.data.toHex() & " " &
                "but expected: " & genesis_validators_root.data.toHex()
 
+  ok()
+
 proc setupCachedQueries(db: SlashingProtectionDB_v2) =
   ## Create prepared queries for reuse
 
