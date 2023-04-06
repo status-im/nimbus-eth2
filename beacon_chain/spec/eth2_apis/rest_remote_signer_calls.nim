@@ -294,7 +294,8 @@ proc signData*(
           lastError = Opt.some(resp.error)
           inc(attempt)
           await sleepAsync(BackoffTimeouts[currentTimeout])
-          currentTimeout = (currentTimeout + 1) mod len(BackoffTimeouts)
+          if currentTimeout < len(BackoffTimeouts) - 1:
+            inc currentTimeout
       of Web3SignerErrorKind.Error400,
          Web3SignerErrorKind.UknownStatus,
          Web3SignerErrorKind.InvalidContentType,
