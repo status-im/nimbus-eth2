@@ -414,8 +414,13 @@ proc initFullNode(
         node.validatorMonitor[].addMonitor(validator.pubkey, validator.index)
 
       if validator.index.isSome():
-        node.consensusManager[].actionTracker.knownValidators[
-          validator.index.get()] = wallSlot
+        withState(dag.headState):
+          let idx = validator.index.get()
+          if distinctBase(idx) <= forkyState.data.validators.lenu64:
+            template v: auto = forkyState.data.validators.item(idx)
+            if  is_active_validator(v, wallSlot.epoch) or
+                is_active_validator(v, wallSlot.epoch + 1):
+              node.consensusManager[].actionTracker.knownValidators[idx] = wallSlot
     let stabilitySubnets =
       node.consensusManager[].actionTracker.stabilitySubnets(wallSlot)
     # Here, we also set the correct ENR should we be in all subnets mode!
