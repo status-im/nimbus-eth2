@@ -235,7 +235,14 @@ proc signData*(
      ): Future[Web3SignerDataResponse] {.async.} =
   doAssert(attemptsCount >= 1)
 
-  var attempt = 0
+  const BackoffTimeouts = [
+    10.milliseconds, 100.milliseconds, 1.seconds, 2.seconds, 5.seconds
+  ]
+
+  var
+    attempt = 0
+    currentTimeout = 0
+
   while true:
     var
       operationFut: Future[Web3SignerDataResponse]
@@ -286,6 +293,8 @@ proc signData*(
                 attempts_count = attemptsCount, attempt = attempt
           lastError = Opt.some(resp.error)
           inc(attempt)
+          await sleepAsync(BackoffTimeouts[currentTimeout])
+          currentTimeout = (currentTimeout + 1) mod len(BackoffTimeouts)
       of Web3SignerErrorKind.Error400,
          Web3SignerErrorKind.UknownStatus,
          Web3SignerErrorKind.InvalidContentType,
