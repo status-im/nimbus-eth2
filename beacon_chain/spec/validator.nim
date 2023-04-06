@@ -152,13 +152,13 @@ func get_shuffled_active_validator_indices*(
   withState(state):
     cache.get_shuffled_active_validator_indices(forkyState.data, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_active_validator_indices
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_active_validator_indices
 func count_active_validators*(state: ForkyBeaconState,
                               epoch: Epoch,
                               cache: var StateCache): uint64 =
   cache.get_shuffled_active_validator_indices(state, epoch).lenu64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_committee_count_per_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_committee_count_per_slot
 func get_committee_count_per_slot*(num_active_validators: uint64): uint64 =
   clamp(
     num_active_validators div SLOTS_PER_EPOCH div TARGET_COMMITTEE_SIZE,
@@ -183,7 +183,7 @@ iterator get_committee_indices*(committee_count_per_slot: uint64): CommitteeInde
     let committee_index = CommitteeIndex.init(idx).expect("value clamped")
     yield committee_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#compute_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#compute_committee
 func compute_committee_slice*(
     active_validators, index, count: uint64): Slice[int] =
   doAssert active_validators <= ValidatorIndex.high.uint64
@@ -229,7 +229,7 @@ func compute_committee_len*(
 
   (slice.b - slice.a + 1).uint64
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_beacon_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_beacon_committee
 iterator get_beacon_committee*(
     state: ForkyBeaconState, slot: Slot, index: CommitteeIndex,
     cache: var StateCache): (int, ValidatorIndex) =
@@ -292,7 +292,7 @@ func get_beacon_committee_len*(
   withState(state):
     get_beacon_committee_len(forkyState.data, slot, index, cache)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#compute_shuffled_index
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#compute_shuffled_index
 func compute_shuffled_index*(
     index: uint64, index_count: uint64, seed: Eth2Digest): uint64 =
   ## Return the shuffled index corresponding to ``seed`` (and ``index_count``).
@@ -354,7 +354,7 @@ func compute_proposer_index(state: ForkyBeaconState,
       return Opt.some(candidate_index)
     i += 1
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_beacon_proposer_index
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_beacon_proposer_index
 func get_beacon_proposer_index*(
     state: ForkyBeaconState, cache: var StateCache, slot: Slot):
     Opt[ValidatorIndex] =
@@ -403,9 +403,61 @@ func get_beacon_proposer_index*(state: ForkedHashedBeaconState,
   withState(state):
     get_beacon_proposer_index(forkyState.data, cache, slot)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#aggregation-selection
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#aggregation-selection
 func is_aggregator*(committee_len: uint64, slot_signature: ValidatorSig): bool =
   let
     modulo = max(1'u64, committee_len div TARGET_AGGREGATORS_PER_COMMITTEE)
   bytes_to_uint64(eth2digest(
     slot_signature.toRaw()).data.toOpenArray(0, 7)) mod modulo == 0
+
+# https://github.com/ethereum/builder-specs/pull/47
+func livenessFailsafeInEffect*(
+    block_roots: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest],
+    slot: Slot): bool =
+  const
+    MAX_MISSING_CONTIGUOUS = 3
+    MAX_MISSING_WINDOW = 5
+
+  static: doAssert MAX_MISSING_WINDOW > MAX_MISSING_CONTIGUOUS
+  if slot <= MAX_MISSING_CONTIGUOUS:
+    # Cannot ever trigger and allows a bit of safe arithmetic. Furthermore
+    # there's notionally always a genesis block, which pushes the earliest
+    # possible failure out an additional slot.
+    return false
+
+  # Using this slightly convoluted construction to handle wraparound better;
+  # baseIndex + faultInspectionWindow can overflow array but only exactly by
+  # the required amount. Furthermore, go back one more slot to address using
+  # that it looks ahead rather than looks back and whether a block's missing
+  # requires seeing the previous block_root.
+  let
+    faultInspectionWindow = min(distinctBase(slot) - 1, SLOTS_PER_EPOCH)
+    baseIndex = (slot + SLOTS_PER_HISTORICAL_ROOT - faultInspectionWindow) mod
+      SLOTS_PER_HISTORICAL_ROOT
+    endIndex = baseIndex + faultInspectionWindow - 1
+
+  doAssert endIndex mod SLOTS_PER_HISTORICAL_ROOT ==
+    (slot - 1) mod SLOTS_PER_HISTORICAL_ROOT
+
+  var
+    totalMissing = 0
+    streakLen = 0
+    maxStreakLen = 0
+
+  for i in baseIndex .. endIndex:
+    # This look-forward means checking slot i for being missing uses i - 1
+    if  block_roots[(i mod SLOTS_PER_HISTORICAL_ROOT).int] ==
+        block_roots[((i + 1) mod SLOTS_PER_HISTORICAL_ROOT).int]:
+      totalMissing += 1
+      if totalMissing > MAX_MISSING_WINDOW:
+        return true
+
+      streakLen += 1
+      if streakLen > maxStreakLen:
+        maxStreakLen = streakLen
+        if maxStreakLen > MAX_MISSING_CONTIGUOUS:
+          return true
+    else:
+      streakLen = 0
+
+  false

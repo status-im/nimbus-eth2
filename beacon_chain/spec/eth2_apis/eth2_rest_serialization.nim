@@ -1019,7 +1019,17 @@ proc readValue*[BlockType: ForkedBeaconBlock](
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = ForkedBeaconBlock.init(res.get()).BlockType
   of ConsensusFork.Deneb:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             deneb.BeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[deneb.BeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect deneb block format")
+    value = ForkedBeaconBlock.init(res.get()).BlockType
 
 proc readValue*[BlockType: ForkedBlindedBeaconBlock](
        reader: var JsonReader[RestJson],
@@ -1082,7 +1092,17 @@ proc readValue*[BlockType: ForkedBlindedBeaconBlock](
     value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Capella,
                                      capellaData: res)
   of ConsensusFork.Deneb:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+    let res =
+      try:
+        RestJson.decode(string(data.get()),
+                        capella_mev.BlindedBeaconBlock,
+                        requireAllFields = true,
+                        allowUnknownFields = true)
+      except SerializationError as exc:
+        reader.raiseUnexpectedValue("Incorrect deneb block format, [" &
+                                    exc.formatMsg("BlindedBlock") & "]")
+    value = ForkedBlindedBeaconBlock(kind: ConsensusFork.Deneb,
+                                     denebData: res)
 
 proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
     reader: var JsonReader[RestJson],
@@ -1152,7 +1172,19 @@ proc readValue*[BlockType: Web3SignerForkedBeaconBlock](
       kind: ConsensusFork.Capella,
       capellaData: res.get())
   of ConsensusFork.Deneb:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             BeaconBlockHeader,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[BeaconBlockHeader]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect deneb block format")
+    value = Web3SignerForkedBeaconBlock(
+      kind: ConsensusFork.Deneb,
+      denebData: res.get())
 
 proc writeValue*[
     BlockType: Web3SignerForkedBeaconBlock](
@@ -1509,7 +1541,15 @@ proc readValue*(reader: var JsonReader[RestJson],
         )
       )
     of ConsensusFork.Deneb:
-      reader.raiseUnexpectedValue($denebImplementationMissing)
+      ForkedBeaconBlock.init(
+        deneb.BeaconBlock(
+          slot: slot.get(),
+          proposer_index: proposer_index.get(),
+          parent_root: parent_root.get(),
+          state_root: state_root.get(),
+          body: body.denebBody
+        )
+      )
   )
 
 ## RestPublishedSignedBeaconBlock
@@ -1570,7 +1610,12 @@ proc readValue*(reader: var JsonReader[RestJson],
         )
       )
     of ConsensusFork.Deneb:
-      reader.raiseUnexpectedValue($denebImplementationMissing)
+      ForkedSignedBeaconBlock.init(
+        deneb.SignedBeaconBlock(
+          message: blck.denebData,
+          signature: signature.get()
+        )
+      )
   )
 
 ## ForkedSignedBeaconBlock
@@ -1664,7 +1709,17 @@ proc readValue*(reader: var JsonReader[RestJson],
       reader.raiseUnexpectedValue("Incorrect capella block format")
     value = ForkedSignedBeaconBlock.init(res.get())
   of ConsensusFork.Deneb:
-    reader.raiseUnexpectedValue($denebImplementationMissing)
+    let res =
+      try:
+        some(RestJson.decode(string(data.get()),
+                             deneb.SignedBeaconBlock,
+                             requireAllFields = true,
+                             allowUnknownFields = true))
+      except SerializationError:
+        none[deneb.SignedBeaconBlock]()
+    if res.isNone():
+      reader.raiseUnexpectedValue("Incorrect deneb block format")
+    value = ForkedSignedBeaconBlock.init(res.get())
   withBlck(value):
     blck.root = hash_tree_root(blck.message)
 
@@ -1905,6 +1960,8 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     # https://github.com/ConsenSys/web3signer/blob/41c0cbfabcb1fca9587b59e058b7eb29f152c60c/core/src/main/resources/openapi-specs/eth2/signing/schemas.yaml#L418-L497
     writer.writeField("beacon_block", value.beaconBlock)
 
+    if isSome(value.proofs):
+      writer.writeField("proofs", value.proofs.get())
   of Web3SignerRequestKind.Deposit:
     writer.writeField("type", "DEPOSIT")
     if isSome(value.signingRoot):
@@ -1971,6 +2028,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     forkInfo: Option[Web3SignerForkInfo]
     signingRoot: Option[Eth2Digest]
     data: Option[JsonString]
+    proofs: seq[Web3SignerMerkleProof]
     dataName: string
 
   for fieldName in readObjectFields(reader):
@@ -2019,14 +2077,19 @@ proc readValue*(reader: var JsonReader[RestJson],
         reader.raiseUnexpectedField("Multiple `signingRoot` fields found",
                                     "Web3SignerRequest")
       signingRoot = some(reader.readValue(Eth2Digest))
+    of "proofs":
+      let newProofs = reader.readValue(seq[Web3SignerMerkleProof])
+      proofs.add(newProofs)
     of "aggregation_slot", "aggregate_and_proof", "block", "beacon_block",
        "randao_reveal", "voluntary_exit", "sync_committee_message",
-       "sync_aggregator_selection_data", "contribution_and_proof", "attestation":
+       "sync_aggregator_selection_data", "contribution_and_proof",
+       "attestation", "deposit", "validator_registration":
       if data.isSome():
         reader.raiseUnexpectedField("Multiple data fields found",
                                     "Web3SignerRequest")
       dataName = fieldName
       data = some(reader.readValue(JsonString))
+
     else:
       unrecognizedFieldWarning()
 
@@ -2112,10 +2175,17 @@ proc readValue*(reader: var JsonReader[RestJson],
             reader.raiseUnexpectedValue(
               "Incorrect field `beacon_block` format")
           res.get()
-      Web3SignerRequest(
-        kind: Web3SignerRequestKind.BlockV2,
-        forkInfo: forkInfo, signingRoot: signingRoot, beaconBlock: data
-      )
+      if len(proofs) > 0:
+        Web3SignerRequest(
+          kind: Web3SignerRequestKind.BlockV2,
+          forkInfo: forkInfo, signingRoot: signingRoot, beaconBlock: data,
+          proofs: Opt.some(proofs)
+        )
+      else:
+        Web3SignerRequest(
+          kind: Web3SignerRequestKind.BlockV2,
+          forkInfo: forkInfo, signingRoot: signingRoot, beaconBlock: data
+        )
     of Web3SignerRequestKind.Deposit:
       if dataName != "deposit":
         reader.raiseUnexpectedValue("Field `deposit` is missing")
@@ -2790,7 +2860,14 @@ proc decodeBody*(
           return err("Unexpected deserialization error")
       ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
     of ConsensusFork.Deneb:
-      return err($denebImplementationMissing)
+      let blck =
+        try:
+          SSZ.decode(body.data, deneb.SignedBeaconBlock)
+        except SerializationError:
+          return err("Unable to deserialize data")
+        except CatchableError:
+          return err("Unexpected deserialization error")
+      ok(RestPublishedSignedBeaconBlock(ForkedSignedBeaconBlock.init(blck)))
   else:
     return err("Unsupported or invalid content media type")
 

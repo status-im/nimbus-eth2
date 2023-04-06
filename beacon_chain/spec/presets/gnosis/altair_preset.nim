@@ -1,5 +1,5 @@
 # Mainnet preset - Altair
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/presets/mainnet/altair.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/presets/mainnet/altair.yaml
 const
   # Updated penalty values
   # ---------------------------------------------------------------

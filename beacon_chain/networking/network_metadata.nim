@@ -77,7 +77,7 @@ type
 
 const
   eth2NetworksDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/eth2-networks"
-  mergeTestnetsDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/merge-testnets"
+  sepoliaDir = currentSourcePath.parentDir.replace('\\', '/') & "/../../vendor/sepolia"
 
 proc readBootstrapNodes*(path: string): seq[string] {.raises: [IOError, Defect].} =
   # Read a list of ENR values from a YAML file containing a flat list of entries
@@ -192,21 +192,20 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
 proc loadCompileTimeNetworkMetadata(
     path: string,
     eth1Network = none(Eth1Network)): Eth2NetworkMetadata {.raises: [Defect].} =
-  try:
-    result = loadEth2NetworkMetadata(path, eth1Network)
-    if result.incompatible:
-      macros.error "The current build is misconfigured. " &
-                   "Attempt to load an incompatible network metadata: " &
-                   result.incompatibilityDesc
-  except CatchableError as err:
-    macros.error "Failed to load network metadata at '" & path & "': " & err.msg
+  if fileExists(path / "config.yaml"):
+    try:
+      result = loadEth2NetworkMetadata(path, eth1Network)
+      if result.incompatible:
+        macros.error "The current build is misconfigured. " &
+                     "Attempt to load an incompatible network metadata: " &
+                     result.incompatibilityDesc
+    except CatchableError as err:
+      macros.error "Failed to load network metadata at '" & path & "': " & err.msg
+  else:
+    macros.error "config.yaml not found for network '" & path
 
 template eth2Network(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
   loadCompileTimeNetworkMetadata(eth2NetworksDir & "/" & path,
-                                 some eth1Network)
-
-template mergeTestnet(path: string, eth1Network: Eth1Network): Eth2NetworkMetadata =
-  loadCompileTimeNetworkMetadata(mergeTestnetsDir & "/" & path,
                                  some eth1Network)
 
 when const_preset == "gnosis":
@@ -223,15 +222,16 @@ elif const_preset == "mainnet":
   const
     mainnetMetadata* = eth2Network("shared/mainnet", mainnet)
     praterMetadata* = eth2Network("shared/prater", goerli)
-    sepoliaMetadata* = mergeTestnet("sepolia", sepolia)
+    sepoliaMetadata* =
+      loadCompileTimeNetworkMetadata(sepoliaDir & "/bepolia", some sepolia)
   static:
     for network in [mainnetMetadata, praterMetadata, sepoliaMetadata]:
       checkForkConsistency(network.cfg)
 
-    for network in [mainnetMetadata]:
-      doAssert network.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH
-
-    for network in [mainnetMetadata, praterMetadata]:
+    for network in [mainnetMetadata, praterMetadata, sepoliaMetaData]:
+      doAssert network.cfg.ALTAIR_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.BELLATRIX_FORK_EPOCH < FAR_FUTURE_EPOCH
+      doAssert network.cfg.CAPELLA_FORK_EPOCH < FAR_FUTURE_EPOCH
       doAssert network.cfg.DENEB_FORK_EPOCH == FAR_FUTURE_EPOCH
 
 proc getMetadataForNetwork*(

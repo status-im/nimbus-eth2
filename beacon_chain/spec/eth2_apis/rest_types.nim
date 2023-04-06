@@ -349,7 +349,7 @@ type
     MAX_DEPOSITS*: uint64
     MAX_VOLUNTARY_EXITS*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/presets/mainnet/altair.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/presets/mainnet/altair.yaml
     INACTIVITY_PENALTY_QUOTIENT_ALTAIR*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR*: uint64
@@ -358,7 +358,7 @@ type
     MIN_SYNC_COMMITTEE_PARTICIPANTS*: uint64
     UPDATE_TIMEOUT*: uint64
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/presets/mainnet/bellatrix.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/presets/mainnet/bellatrix.yaml
     INACTIVITY_PENALTY_QUOTIENT_BELLATRIX*: uint64
     MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX*: uint64
     PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX*: uint64
@@ -400,7 +400,7 @@ type
     DEPOSIT_NETWORK_ID*: uint64
     DEPOSIT_CONTRACT_ADDRESS*: Eth1Address
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#constants
     # GENESIS_SLOT
     # GENESIS_EPOCH
     # FAR_FUTURE_EPOCH
@@ -433,7 +433,7 @@ type
     DOMAIN_CONTRIBUTION_AND_PROOF*: DomainType
     # PARTICIPATION_FLAG_WEIGHTS
 
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#constants
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#constants
     TARGET_AGGREGATORS_PER_COMMITTEE*: uint64
     RANDOM_SUBNETS_PER_VALIDATOR*: uint64
     EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION*: uint64
@@ -520,8 +520,7 @@ type
     signature*: ValidatorSig
     slot*: Slot
 
-  Web3SignerKeysResponse* = object
-    keys*: seq[ValidatorPubKey]
+  Web3SignerKeysResponse* = seq[ValidatorPubKey]
 
   Web3SignerStatusResponse* = object
     status*: string
@@ -564,6 +563,10 @@ type
     timestamp*: uint64
     pubkey*: ValidatorPubKey
 
+  Web3SignerMerkleProof* = object
+    index*: GeneralizedIndex
+    merkleProofs* {.serializedFieldName: "merkle_proofs".}: seq[Eth2Digest]
+
   Web3SignerRequestKind* {.pure.} = enum
     AggregationSlot, AggregateAndProof, Attestation, Block, BlockV2,
     Deposit, RandaoReveal, VoluntaryExit, SyncCommitteeMessage,
@@ -588,6 +591,7 @@ type
     of Web3SignerRequestKind.BlockV2:
       beaconBlock* {.
         serializedFieldName: "beacon_block".}: Web3SignerForkedBeaconBlock
+      proofs*: Opt[seq[Web3SignerMerkleProof]]
     of Web3SignerRequestKind.Deposit:
       deposit*: Web3SignerDepositData
     of Web3SignerRequestKind.RandaoReveal:
@@ -759,7 +763,8 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
   )
 
 func init*(t: typedesc[Web3SignerRequest], fork: Fork,
-           genesis_validators_root: Eth2Digest, data: Web3SignerForkedBeaconBlock,
+           genesis_validators_root: Eth2Digest,
+           data: Web3SignerForkedBeaconBlock,
            signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
           ): Web3SignerRequest =
   Web3SignerRequest(
@@ -768,6 +773,22 @@ func init*(t: typedesc[Web3SignerRequest], fork: Fork,
       fork: fork, genesis_validators_root: genesis_validators_root
     )),
     signingRoot: signingRoot,
+    beaconBlock: data
+  )
+
+func init*(t: typedesc[Web3SignerRequest], fork: Fork,
+           genesis_validators_root: Eth2Digest,
+           data: Web3SignerForkedBeaconBlock,
+           proofs: openArray[Web3SignerMerkleProof],
+           signingRoot: Option[Eth2Digest] = none[Eth2Digest]()
+          ): Web3SignerRequest =
+  Web3SignerRequest(
+    kind: Web3SignerRequestKind.BlockV2,
+    forkInfo: some(Web3SignerForkInfo(
+      fork: fork, genesis_validators_root: genesis_validators_root
+    )),
+    signingRoot: signingRoot,
+    proofs: Opt.some(@proofs),
     beaconBlock: data
   )
 

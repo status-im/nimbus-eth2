@@ -41,6 +41,10 @@ declareCounter beacon_blocks_received,
   "Number of valid blocks processed by this node"
 declareCounter beacon_blocks_dropped,
   "Number of invalid blocks dropped by this node", labels = ["reason"]
+declareCounter blob_sidecars_received,
+  "Number of valid blobs processed by this node"
+declareCounter blob_sidecars_dropped,
+  "Number of invalid blobs dropped by this node", labels = ["reason"]
 declareCounter beacon_attester_slashings_received,
   "Number of valid attester slashings processed by this node"
 declareCounter beacon_attester_slashings_dropped,
@@ -65,6 +69,14 @@ declareCounter beacon_sync_committee_contributions_received,
   "Number of valid sync committee contributions processed by this node"
 declareCounter beacon_sync_committee_contributions_dropped,
   "Number of invalid sync committee contributions dropped by this node", labels = ["reason"]
+declareCounter beacon_light_client_finality_update_received,
+  "Number of valid light client finality update processed by this node"
+declareCounter beacon_light_client_finality_update_dropped,
+  "Number of invalid light client finality update dropped by this node", labels = ["reason"]
+declareCounter beacon_light_client_optimistic_update_received,
+  "Number of valid light client optimistic update processed by this node"
+declareCounter beacon_light_client_optimistic_update_dropped,
+  "Number of invalid light client optimistic update dropped by this node", labels = ["reason"]
 
 const delayBuckets = [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, Inf]
 
@@ -76,6 +88,9 @@ declareHistogram beacon_aggregate_delay,
 
 declareHistogram beacon_block_delay,
   "Time(s) between slot start and beacon block reception", buckets = delayBuckets
+
+declareHistogram blob_sidecar_delay,
+  "Time(s) between slot start and blob sidecar reception", buckets = delayBuckets
 
 type
   DoppelgangerProtection = object
@@ -235,6 +250,41 @@ proc processSignedBeaconBlock*(
     self.blockProcessor[].dumpInvalidBlock(signedBlock)
 
     beacon_blocks_dropped.inc(1, [$v.error[0]])
+
+  v
+
+proc processSignedBlobSidecar*(
+    self: var Eth2Processor, src: MsgSource,
+    signedBlobSidecar: deneb.SignedBlobSidecar, idx: BlobIndex): ValidationRes =
+  let
+    wallTime = self.getCurrentBeaconTime()
+    (afterGenesis, wallSlot) = wallTime.toSlot()
+
+  logScope:
+    blob = shortLog(signedBlobSidecar.message)
+    signature = shortLog(signedBlobSidecar.signature)
+    wallSlot
+
+  # Potential under/overflows are fine; would just create odd metrics and logs
+  let delay = wallTime - signedBlobSidecar.message.slot.start_beacon_time
+
+  debug "Blob received", delay
+
+  let v =
+    self.dag.validateBlobSidecar(self.quarantine, signedBlobSidecar, wallTime, idx)
+
+  if v.isOk():
+    trace "Blob validated"
+
+    # TODO
+    # hand blob off to blob quarantine
+
+    blob_sidecars_received.inc()
+    blob_sidecar_delay.observe(delay.toFloatSeconds())
+  else:
+    debug "Dropping blob", error = v.error()
+
+    blob_sidecars_dropped.inc(1, [$v.error[0]])
 
   v
 
@@ -574,6 +624,11 @@ proc processLightClientFinalityUpdate*(
     wallTime = self.getCurrentBeaconTime()
     v = validateLightClientFinalityUpdate(
       self.lightClientPool[], self.dag, finality_update, wallTime)
+
+  if v.isOk():
+    beacon_light_client_finality_update_received.inc()
+  else:
+    beacon_light_client_finality_update_dropped.inc(1, [$v.error[0]])
   v
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#process_light_client_optimistic_update
@@ -585,4 +640,8 @@ proc processLightClientOptimisticUpdate*(
     wallTime = self.getCurrentBeaconTime()
     v = validateLightClientOptimisticUpdate(
       self.lightClientPool[], self.dag, optimistic_update, wallTime)
+  if v.isOk():
+    beacon_light_client_optimistic_update_received.inc()
+  else:
+    beacon_light_client_optimistic_update_dropped.inc(1, [$v.error[0]])
   v

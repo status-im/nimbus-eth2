@@ -205,18 +205,18 @@ proc new*(T: type ValidatorClientRef,
                 url = $url, error = res.error()
         else:
           debug "Beacon node was initialized", node = res.get()
-        servers.add(res.get())
+          servers.add(res.get())
       let missingRoles = getMissingRoles(servers)
       if len(missingRoles) != 0:
-        fatal "Beacon nodes do not use all required roles",
-              missing_roles = $missingRoles, nodes_count = len(servers)
-        quit 1
+        if len(servers) == 0:
+          fatal "Not enough beacon nodes available",
+                nodes_count = len(servers)
+          quit 1
+        else:
+          fatal "Beacon nodes do not cover all required roles",
+                missing_roles = $missingRoles, nodes_count = len(servers)
+          quit 1
       servers
-
-  if len(beaconNodes) == 0:
-    # This should not happen, thanks to defaults in `conf.nim`
-    fatal "Not enough beacon nodes in command line"
-    quit 1
 
   when declared(waitSignal):
     ValidatorClientRef(
@@ -254,6 +254,9 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
                                        cmdParams = commandLineParams(),
                                        config = vc.config,
                                        beacon_nodes_count = len(vc.beaconNodes)
+
+  for node in vc.beaconNodes:
+    notice "Beacon node initialized", node = node
 
   vc.beaconGenesis = await vc.initGenesis()
   info "Genesis information", genesis_time = vc.beaconGenesis.genesis_time,

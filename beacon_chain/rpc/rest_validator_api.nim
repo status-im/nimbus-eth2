@@ -993,3 +993,27 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         )
       )
     return RestApiResponse.jsonResponse(response)
+
+  # https://github.com/ethereum/beacon-APIs/blob/f087fbf2764e657578a6c29bdf0261b36ee8db1e/apis/validator/beacon_committee_selections.yaml
+  router.api(MethodPost, "/eth/v1/validator/beacon_committee_selections") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    # "Consensus clients need not support this endpoint and may return a 501."
+    # https://github.com/ethereum/beacon-APIs/pull/224: "This endpoint need not
+    # be implemented on the CL side. Once a validator client is aware of it and
+    # able to use it when a feature flag is turned on, the intercepting
+    # middleware can handle and swallow the request. I suggest a CL either
+    # returns 501 Not Implemented [or] 400 Bad Request."
+    return RestApiResponse.jsonError(
+      Http501, AggregationSelectionNotImplemented)
+
+  # https://github.com/ethereum/beacon-APIs/blob/f087fbf2764e657578a6c29bdf0261b36ee8db1e/apis/validator/sync_committee_selections.yaml
+  router.api(MethodPost, "/eth/v1/validator/sync_committee_selections") do (
+    contentBody: Option[ContentBody]) -> RestApiResponse:
+    # "Consensus clients need not support this endpoint and may return a 501."
+    # https://github.com/ethereum/beacon-APIs/pull/224: "This endpoint need not
+    # be implemented on the CL side. Once a validator client is aware of it and
+    # able to use it when a feature flag is turned on, the intercepting
+    # middleware can handle and swallow the request. I suggest a CL either
+    # returns 501 Not Implemented [or] 400 Bad Request."
+    return RestApiResponse.jsonError(
+      Http501, AggregationSelectionNotImplemented)

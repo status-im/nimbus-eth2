@@ -1,5 +1,5 @@
 # Minimal preset - Deneb
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/presets/minimal/deneb.yaml
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/presets/minimal/deneb.yaml
 const
   # [customized]
   FIELD_ELEMENTS_PER_BLOB*: uint64 = 4

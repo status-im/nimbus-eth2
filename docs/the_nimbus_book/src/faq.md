@@ -151,11 +151,7 @@ At the other end of the spectrum, if your balance is closer to 31 ETH, it's prob
 
 ### When can I withdraw my funds, and what's the difference between exiting and withdrawing?
 
-You can signal your intent to stop validating by signing a [voluntary exit](./voluntary-exit.md) message with your validator.
-
-However, bear in mind that in Phase 0, once you've exited, there's no going back.
-
-There's no way for you to activate your validator again, and you won't be able to transfer or withdraw your funds until at least Phase 1.5 (which means your funds will remain inaccessible until then).
+After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use 0x01 withdrawal credentials will have their funds automatically withdrawn. Please see our dedicated [guide for withdrawals](./withdrawals.md) for further information.
 
 ### How are validators incentivized to stay active and honest?
 

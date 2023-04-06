@@ -1,9 +1,15 @@
 import
   std/[options, strutils, uri],
   stew/results, chronicles, confutils,
+  confutils/toml/defs as confTomlDefs,
+  confutils/toml/std/net as confTomlNet,
+  confutils/toml/std/uri as confTomlUri,
   json_serialization, # for logging
   toml_serialization, toml_serialization/lexer,
   ../spec/engine_authentication
+
+export
+  toml_serialization, confTomlDefs, confTomlNet, confTomlUri
 
 type
   EngineApiRole* = enum
@@ -20,8 +26,8 @@ type
 
   EngineApiUrlConfigValue* = object
     url*: string # TODO: Use the URI type here
-    jwtSecret*: Option[string]
-    jwtSecretFile*: Option[InputFile]
+    jwtSecret* {.serializedFieldName: "jwt-secret".}: Option[string]
+    jwtSecretFile* {.serializedFieldName: "jwt-secret-file".}: Option[InputFile]
     roles*: Option[EngineApiRoles]
 
 const
@@ -97,9 +103,9 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
   if uri.anchor != "":
     for key, value in decodeQuery(uri.anchor):
       case key
-      of "jwtSecret":
+      of "jwtSecret", "jwt-secret":
         jwtSecret = some value
-      of "jwtSecretFile":
+      of "jwtSecretFile", "jwt-secret-file":
         jwtSecretFile = some InputFile.parseCmdArg(value)
       of "roles":
         var uriRoles: EngineApiRoles = {}
@@ -126,6 +132,26 @@ proc parseCmdArg*(T: type EngineApiUrlConfigValue, input: string): T
     jwtSecretFile: jwtSecretFile,
     roles: roles)
 
+proc readValue*(reader: var TomlReader, value: var EngineApiUrlConfigValue)
+               {.raises: [Defect, SerializationError, IOError].} =
+  if reader.lex.readable and reader.lex.peekChar in ['\'', '"']:
+    # If the input is a string, we'll reuse the command-line parsing logic
+    value = try: parseCmdArg(EngineApiUrlConfigValue, reader.readValue(string))
+            except ValueError as err:
+              reader.lex.raiseUnexpectedValue("Valid Engine API URL expected: " & err.msg)
+  else:
+    # Else, we'll use the standard object-serializer in TOML
+    toml_serialization.readValue(reader, value)
+
+proc fixupWeb3Urls*(web3Url: var string) =
+  var normalizedUrl = toLowerAscii(web3Url)
+  if not (normalizedUrl.startsWith("https://") or
+          normalizedUrl.startsWith("http://") or
+          normalizedUrl.startsWith("wss://") or
+          normalizedUrl.startsWith("ws://")):
+    warn "The Web3 URL does not specify a protocol. Assuming a WebSocket server", web3Url
+    web3Url = "ws://" & web3Url
+
 proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
                  confJwtSecret: Option[seq[byte]]): Result[EngineApiUrl, cstring] =
   if confValue.jwtSecret.isSome and confValue.jwtSecretFile.isSome:
@@ -138,8 +164,11 @@ proc toFinalUrl*(confValue: EngineApiUrlConfigValue,
   else:
     confJwtSecret
 
+  var url = confValue.url
+  fixupWeb3Urls(url)
+
   ok EngineApiUrl.init(
-    url = confValue.url,
+    url = url,
     jwtSecret = jwtSecret,
     roles = confValue.roles.get(defaultEngineApiRoles))
 
@@ -163,12 +192,3 @@ proc toFinalEngineApiUrls*(elUrls: seq[EngineApiUrlConfigValue],
       fatal "Invalid EL configuration", err = error
       quit 1
     result.add engineApiUrl
-
-proc fixupWeb3Urls*(web3Url: var string) =
-  var normalizedUrl = toLowerAscii(web3Url)
-  if not (normalizedUrl.startsWith("https://") or
-          normalizedUrl.startsWith("http://") or
-          normalizedUrl.startsWith("wss://") or
-          normalizedUrl.startsWith("ws://")):
-    warn "The Web3 URL does not specify a protocol. Assuming a WebSocket server", web3Url
-    web3Url = "ws://" & web3Url

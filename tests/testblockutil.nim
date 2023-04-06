@@ -6,7 +6,6 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import
-  std/[options, random],
   chronicles,
   eth/keys,
   stew/endians2,
@@ -14,6 +13,9 @@ import
   ../beacon_chain/spec/datatypes/bellatrix,
   ../beacon_chain/spec/[
     beaconstate, helpers, keystore, signatures, state_transition, validator]
+
+# TODO remove this dependency
+from std/random import rand
 
 from eth/common/eth_types import EMPTY_ROOT_HASH
 from eth/common/eth_types_rlp import rlpHash
@@ -26,7 +28,7 @@ const
   MockPrivKeys* = MockPrivKeysT()
   MockPubKeys* = MockPubKeysT()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/tests/core/pyspec/eth2spec/test/helpers/keys.py
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/tests/core/pyspec/eth2spec/test/helpers/keys.py
 func `[]`*(_: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
   # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
   # lighthouse. EF tests use 1 instead of 1000.
@@ -223,7 +225,7 @@ func makeAttestationData*(
     "Computed epoch was " & $slot.epoch &
     "  while the state current_epoch was " & $current_epoch
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#attestation-data
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#attestation-data
   AttestationData(
     slot: slot,
     index: committee_index.uint64,

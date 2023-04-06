@@ -226,3 +226,11 @@ const
     "Invalid BLS to execution change; it won't validate, so it's rejected"
   BlsToExecutionChangeValidationSuccess* =
     "BLS to execution change was broadcast"
+  AggregationSelectionNotImplemented* =
+    "Attestation and sync committee aggreggation selection are not implemented"
+  MissingMerkleProofError* =
+    "Required merkle proof is missing"
+  InvalidMerkleProofError* =
+    "The given merkle proof is invalid"
+  InvalidMerkleProofIndexError* =
+    "The given merkle proof index is invalid"

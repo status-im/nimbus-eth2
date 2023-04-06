@@ -8,8 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[deques, options, strformat, strutils, sequtils, tables,
-       typetraits, uri, json],
+  std/[deques, strformat, strutils, sequtils, tables, typetraits, uri, json],
   # Nimble packages:
   chronos, metrics, chronicles/timings, stint/endians2,
   json_rpc/[client, errors],
@@ -57,7 +56,29 @@ contract(DepositContract):
 const
   hasDepositRootChecks = defined(has_deposit_root_checks)
 
-  targetBlocksPerLogsRequest = 5000'u64  # This is roughly a day of Eth1 blocks
+  targetBlocksPerLogsRequest = 1000'u64
+    # TODO
+    #
+    # This is currently set to 1000, because this was the default maximum
+    # value in Besu circa our 22.3.0 release. Previously, we've used 5000,
+    # but this was effectively forcing the fallback logic in `syncBlockRange`
+    # to always execute multiple requests before getting a successful response.
+    #
+    # Besu have raised this default to 5000 in https://github.com/hyperledger/besu/pull/5209
+    # which is expected to ship in their next release.
+    #
+    # Full deposits sync time with various values for this parameter:
+    #
+    # Blocks per request | Geth running on the same host | Geth running on a more distant host
+    # ----------------------------------------------------------------------------------------
+    # 1000               |                      11m 20s  |                                 22m
+    # 5000               |                       5m 20s  |                             15m 40s
+    # 100000             |                       4m 10s  |                          not tested
+    #
+    # The number of requests scales linearly with the parameter value as you would expect.
+    #
+    # These results suggest that it would be reasonable for us to get back to 5000 once the
+    # Besu release is well-spread within their userbase.
 
   # Engine API timeouts
   engineApiConnectionTimeout = 5.seconds  # How much we wait before giving up connecting to the Engine API
@@ -298,7 +319,8 @@ proc setWorkingState(connection: ELConnection) =
 
 proc trackEngineApiRequest(connection: ELConnection,
                            request: FutureBase, requestName: string,
-                           startTime: Moment, deadline: Future[void]) =
+                           startTime: Moment, deadline: Future[void],
+                           failureAllowed = false) =
   request.addCallback do (udata: pointer) {.gcsafe, raises: [Defect].}:
     # TODO `udata` is nil here. How come?
     # This forces us to create a GC cycle between the Future and the closure
@@ -321,7 +343,7 @@ proc trackEngineApiRequest(connection: ELConnection,
       else:
         0
 
-      if request.failed:
+      if request.failed and not failureAllowed:
         connection.setDegradedState(requestName, statusCode, request.error.msg)
 
       engine_api_responses.inc(1, [connection.engineUrl.url, requestName, $statusCode])
@@ -334,14 +356,16 @@ template awaitOrRaiseOnTimeout[T](fut: Future[T],
 template trackedRequestWithTimeout[T](connection: ELConnection,
                                       requestName: static string,
                                       lazyRequestExpression: Future[T],
-                                      timeout: Duration): T =
+                                      timeout: Duration,
+                                      failureAllowed = false): T =
   let
     connectionParam = connection
     startTime = Moment.now
     deadline = sleepAsync(timeout)
     request = lazyRequestExpression
 
-  connectionParam.trackEngineApiRequest(request, requestName, startTime, deadline)
+  connectionParam.trackEngineApiRequest(
+    request, requestName, startTime, deadline, failureAllowed)
 
   awaitWithTimeout(request, deadline):
     raise newException(DataProviderTimeout, "Timeout")
@@ -383,7 +407,7 @@ template toGaugeValue(x: Quantity): int64 =
 func compute_time_at_slot(genesis_time: uint64, slot: Slot): uint64 =
   genesis_time + slot * SECONDS_PER_SLOT
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/phase0/validator.md#get_eth1_data
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#get_eth1_data
 func voting_period_start_time(state: ForkedHashedBeaconState): uint64 =
   let eth1_voting_period_start_slot =
     getStateField(state, slot) - getStateField(state, slot) mod
@@ -954,7 +978,8 @@ proc waitELToSyncDeposits(connection: ELConnection,
       discard connection.trackedRequestWithTimeout(
         "getBlockByHash",
         rpcClient.getBlockByHash(minimalRequiredBlock),
-        web3RequestsTimeout)
+        web3RequestsTimeout,
+        failureAllowed = true)
       connection.depositContractSyncStatus = DepositContractSyncStatus.synced
       return
     except CancelledError as err:
@@ -1038,7 +1063,7 @@ type
     oldStatusIsOk
     disagreement
 
-func compareStatuses(prevStatus, newStatus: PayloadExecutionStatus): StatusRelation =
+func compareStatuses(newStatus, prevStatus: PayloadExecutionStatus): StatusRelation =
   case prevStatus
   of PayloadExecutionStatus.syncing:
     if newStatus == PayloadExecutionStatus.syncing:
@@ -1098,7 +1123,8 @@ proc processResponse[ELResponseType](
     requests: openArray[Future[ELResponseType]],
     idx: int) =
 
-  doAssert requests[idx].completed
+  if not requests[idx].completed:
+    return
 
   let status = try: requests[idx].read.status
                except CatchableError: raiseAssert "checked above"
@@ -1144,7 +1170,7 @@ proc sendNewPayload*(m: ELManager,
   for idx, req in requests:
     if not req.finished:
       stillPending.add req
-    elif not req.failed:
+    elif req.completed:
       responseProcessor.processResponse(m.elConnections, requests, idx)
 
   if responseProcessor.disagreementAlreadyDetected:
@@ -1251,7 +1277,7 @@ proc forkchoiceUpdated*(m: ELManager,
   for idx, req in requests:
     if not req.finished:
       stillPending.add req
-    elif not req.failed:
+    elif req.completed:
       responseProcessor.processResponse(m.elConnections, requests, idx)
 
   if responseProcessor.disagreementAlreadyDetected:
@@ -1472,10 +1498,14 @@ when hasDepositRootChecks:
       depositRoot = depositContract.get_deposit_root.call(blockNumber = blk.number)
       rawCount = depositContract.get_deposit_count.call(blockNumber = blk.number)
 
+    # We allow failures on these requests becaues the clients
+    # are expected to prune the state data for historical blocks
     connection.trackEngineApiRequest(
-      depositRoot, "get_deposit_root", startTime, deadline)
+      depositRoot, "get_deposit_root", startTime, deadline,
+      failureAllowed = true)
     connection.trackEngineApiRequest(
-      rawCount, "get_deposit_count", startTime, deadline)
+      rawCount, "get_deposit_count", startTime, deadline,
+      failureAllowed = true)
 
     try:
       let fetchedRoot = asEth2Digest(
@@ -1896,9 +1926,8 @@ proc syncBlockRange(m: ELManager,
 
     for i in 0 ..< blocksWithDeposits.len:
       let blk = blocksWithDeposits[i]
-      await fetchTimestamp(connection, rpcClient, blk)
-
       if blk.number > fullSyncFromBlock:
+        await fetchTimestamp(connection, rpcClient, blk)
         let lastBlock = m.eth1Chain.blocks.peekLast
         for n in max(lastBlock.number + 1, fullSyncFromBlock) ..< blk.number:
           debug "Obtaining block without deposits", blockNum = n
@@ -1966,6 +1995,15 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
   let rpcClient = awaitOrRaiseOnTimeout(connection.connectedRpcClient(),
                                         1.seconds)
   let
+    # BEWARE
+    # `connectedRpcClient` guarantees that connection.web3 will not be
+    # `none` here, but it's not safe to initialize this later (e.g closer
+    # to where it's used) because `connection.web3` may be set to `none`
+    # at any time after a failed request. Luckily, the `contractSender`
+    # object is very cheap to create.
+    depositContract = connection.web3.get.contractSender(
+      DepositContract, m.depositContractAddress)
+
     shouldProcessDeposits = not (
       m.depositContractAddress.isZeroMemory or
       m.eth1Chain.finalizedBlockHash.data.isZeroMemory)
@@ -2064,8 +2102,6 @@ proc syncEth1Chain(m: ELManager, connection: ELConnection) {.async.} =
 
     if shouldProcessDeposits and
        latestBlock.number.uint64 > m.cfg.ETH1_FOLLOW_DISTANCE:
-      let depositContract = connection.web3.get.contractSender(
-        DepositContract, m.depositContractAddress)
       await m.syncBlockRange(connection,
                              rpcClient,
                              depositContract,

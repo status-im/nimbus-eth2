@@ -9,7 +9,7 @@
 
 import
   # Standard library
-  std/[options, sets, tables, hashes],
+  std/[sets, tables, hashes],
   # Status libraries
   chronicles,
   # Internals
@@ -25,7 +25,7 @@ from ../spec/datatypes/deneb import TrustedSignedBeaconBlock
 from "."/vanity_logs/vanity_logs import VanityLogs
 
 export
-  options, sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
+  sets, tables, hashes, helpers, beacon_chain_db, era_db, block_dag,
   block_pools_types_light_client, validator_monitor, VanityLogs
 
 # ChainDAG and types related to forming a DAG of blocks, keeping track of their
@@ -235,7 +235,7 @@ type
       ## committee messages will be rejected
 
     optimisticRoots*: HashSet[Eth2Digest]
-      ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/sync/optimistic.md#helpers
+      ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/sync/optimistic.md#helpers
 
   EpochKey* = object
     ## The epoch key fully determines the shuffling for proposers and

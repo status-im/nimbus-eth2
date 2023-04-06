@@ -414,8 +414,13 @@ proc initFullNode(
         node.validatorMonitor[].addMonitor(validator.pubkey, validator.index)
 
       if validator.index.isSome():
-        node.consensusManager[].actionTracker.knownValidators[
-          validator.index.get()] = wallSlot
+        withState(dag.headState):
+          let idx = validator.index.get()
+          if distinctBase(idx) <= forkyState.data.validators.lenu64:
+            template v: auto = forkyState.data.validators.item(idx)
+            if  is_active_validator(v, wallSlot.epoch) or
+                is_active_validator(v, wallSlot.epoch + 1):
+              node.consensusManager[].actionTracker.knownValidators[idx] = wallSlot
     let stabilitySubnets =
       node.consensusManager[].actionTracker.stabilitySubnets(wallSlot)
     # Here, we also set the correct ENR should we be in all subnets mode!
@@ -1467,15 +1472,25 @@ proc installMessageValidators(node: BeaconNode) =
         toValidationResult(node.processor[].processSignedBeaconBlock(
           MsgSource.gossip, signedBlock)))
 
-  node.network.addValidator(
-    getBeaconBlocksTopic(forkDigests.deneb),
-    proc (signedBlock: deneb.SignedBeaconBlock): ValidationResult =
-      if node.shouldSyncOptimistically(node.currentSlot):
-        toValidationResult(
-          node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
-      else:
-        toValidationResult(node.processor[].processSignedBeaconBlock(
-          MsgSource.gossip, signedBlock)))
+  if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    node.network.addValidator(
+      getBeaconBlocksTopic(forkDigests.deneb),
+      proc (signedBlock: deneb.SignedBeaconBlock): ValidationResult =
+        if node.shouldSyncOptimistically(node.currentSlot):
+          toValidationResult(
+            node.optimisticProcessor.processSignedBeaconBlock(signedBlock))
+        else:
+          toValidationResult(node.processor[].processSignedBeaconBlock(
+            MsgSource.gossip, signedBlock)))
+
+    for i in 0 ..< MAX_BLOBS_PER_BLOCK:
+      closureScope:
+        let idx = i
+        node.network.addValidator(
+          getBlobSidecarTopic(forkDigests.deneb, idx),
+          proc (signedBlobSidecar: deneb.SignedBlobSidecar): ValidationResult =
+              toValidationResult(node.processor[].processSignedBlobSidecar(
+                MsgSource.gossip, signedBlobSidecar, idx)))
 
   template installSyncCommitteeeValidators(digest: auto) =
     for subcommitteeIdx in SyncSubcommitteeIndex:
@@ -1806,6 +1821,7 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   ignoreDeprecatedOption terminalTotalDifficultyOverride
   ignoreDeprecatedOption optimistic
   ignoreDeprecatedOption validatorMonitorTotals
+  ignoreDeprecatedOption web3ForcePolling
 
   createPidFile(config.dataDir.string / "beacon_node.pid")
 

@@ -76,6 +76,8 @@ suite "Honest validator":
         "/eth2/00000000/sync_committee_1/ssz_snappy"
       getSyncCommitteeTopic(forkDigest, SyncSubcommitteeIndex(3)) ==
         "/eth2/00000000/sync_committee_3/ssz_snappy"
+      getBlobSidecarTopic(forkDigest, BlobIndex(1)) ==
+        "/eth2/00000000/blob_sidecar_1/ssz_snappy"
 
   test "is_aggregator":
     check:
@@ -198,3 +200,86 @@ suite "Honest validator":
     for i in 1'u64 .. 20'u64:
       for j in (SYNC_COMMITTEE_SUBNET_COUNT + 1'u64) .. 7'u64:
         check: nearSyncCommitteePeriod((EPOCHS_PER_SYNC_COMMITTEE_PERIOD * i - j).Epoch).isNone
+
+  test "Liveness failsafe conditions":
+    var x: array[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+    const MAX_MISSING_CONTIGUOUS = 3
+    const MAX_MISSING_WINDOW = 5
+    const FAULT_INSPECTION_WINDOW = 32
+
+    # There haven't been enough slots to trigger any of the conditions
+    for i in 0 .. MAX_MISSING_CONTIGUOUS + 1:
+      check: not livenessFailsafeInEffect(x, i.Slot)
+    # But once there are, the default all-equals array shouldn't allow it. An
+    # additional slot is gained because it's notionally not possible for some
+    # genesis block not to exist.
+    for i in MAX_MISSING_CONTIGUOUS + 2 .. FAULT_INSPECTION_WINDOW + 10:
+      check: livenessFailsafeInEffect(x, i.Slot)
+
+    for i in FAULT_INSPECTION_WINDOW * 2 ..< FAULT_INSPECTION_WINDOW * 3:
+      x[i].data[0] = i.uint8
+
+    # There haven't been enough slots to trigger any of the conditions; unlike
+    # first round this doesn't line up with genesis-adjacent slots and doesn't
+    # have that additional genesis block additional-slot-before-trigger.
+    for i in
+        FAULT_INSPECTION_WINDOW * 3 ..
+        FAULT_INSPECTION_WINDOW * 3 + MAX_MISSING_CONTIGUOUS:
+      check: not livenessFailsafeInEffect(x, i.Slot)
+    for i in
+        FAULT_INSPECTION_WINDOW * 3 + MAX_MISSING_CONTIGUOUS + 1 ..
+        FAULT_INSPECTION_WINDOW * 4:
+      check: livenessFailsafeInEffect(x, i.Slot)
+
+    # This time, add some extant blocks to extend non-liveness-failsafe conditions
+    for i in FAULT_INSPECTION_WINDOW * 4 ..< FAULT_INSPECTION_WINDOW * 5:
+      x[i].data[0] = i.uint8
+    # extend last entry to simulate missing blocks
+    for i in
+        FAULT_INSPECTION_WINDOW * 5 ..<
+        FAULT_INSPECTION_WINDOW * 5 + MAX_MISSING_CONTIGUOUS:
+      x[i].data[0] = (FAULT_INSPECTION_WINDOW * 5 - 1).uint8
+    # next real block
+    x[FAULT_INSPECTION_WINDOW * 5 + MAX_MISSING_CONTIGUOUS].data[0] = 34
+
+    for i in
+        FAULT_INSPECTION_WINDOW * 5 ..
+        FAULT_INSPECTION_WINDOW * 3 + MAX_MISSING_CONTIGUOUS * 2:
+      check: not livenessFailsafeInEffect(x, i.Slot)
+    for i in
+        FAULT_INSPECTION_WINDOW * 5 + MAX_MISSING_CONTIGUOUS * 2 + 1 ..
+        FAULT_INSPECTION_WINDOW * 6:
+      check: livenessFailsafeInEffect(x, i.Slot)
+
+    # Add some all-present blocks for a few epochs
+    for i in FAULT_INSPECTION_WINDOW * 6 ..< FAULT_INSPECTION_WINDOW * 9:
+      x[i].data[0] = i.uint8
+    static: doAssert MAX_MISSING_WINDOW > MAX_MISSING_CONTIGUOUS
+    # This satisfies contiguous-missing limit, but not total-per-window limit
+    for i in countup(
+        FAULT_INSPECTION_WINDOW * 9,
+        FAULT_INSPECTION_WINDOW * 9 + MAX_MISSING_CONTIGUOUS * 2, 2):
+      x[i].data[0] = i.uint8
+      x[i + 1].data[0] = i.uint8   # missing block
+
+    for i in
+        FAULT_INSPECTION_WINDOW * 7 ..
+        FAULT_INSPECTION_WINDOW * 9 + MAX_MISSING_WINDOW * 2 - 1:
+      # i.e. two fullly covered epochs then get into MAX_MISSING_WINDOW * 2 - 1
+      # of the every-other-block is present. Because only MAX_MISSING_WINDOW of
+      # these can exist, it's the ones at (FIW*9 base of 0): 1, 3, 5, 7, 9 that
+      # are missing. Can get up to 9 here, i.e. by 2 * MAX_MISSING_WINDOW, as a
+      # result of 50% duty cycle pattern.
+      check: not livenessFailsafeInEffect(x, i.Slot)
+    for i in
+        FAULT_INSPECTION_WINDOW * 9 + MAX_MISSING_WINDOW * 2 ..
+        FAULT_INSPECTION_WINDOW * 10:
+      check: livenessFailsafeInEffect(x, i.Slot)
+
+    # Check wraparound is sane; same mod-equivalent slots but actually near
+    # genesis don't trigger liveness failures, as they clamp the inspection
+    # window at element 0 of array rather than wrapping backwards.
+    for i in
+        SLOTS_PER_HISTORICAL_ROOT ..
+        SLOTS_PER_HISTORICAL_ROOT + FAULT_INSPECTION_WINDOW:
+      check: livenessFailsafeInEffect(x, i.Slot)

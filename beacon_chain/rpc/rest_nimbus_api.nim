@@ -67,7 +67,6 @@ type
   RestPubSubPeer* = object
     peerId*: PeerId
     score*: float64
-    iWantBudget*: int
     iHaveBudget*: int
     outbound*: bool
     appScore*: float64
@@ -103,7 +102,6 @@ proc toNode(v: PubSubPeer, backoff: Moment): RestPubSubPeer =
   RestPubSubPeer(
     peerId: v.peerId,
     score: v.score,
-    iWantBudget: v.iWantBudget,
     iHaveBudget: v.iHaveBudget,
     outbound: v.outbound,
     appScore: v.appScore,

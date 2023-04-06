@@ -8,9 +8,9 @@ source "${SCRIPTS_DIR}/detect_platform.sh"
 source "${SCRIPTS_DIR}/bash_utils.sh"
 
 : ${CURL_BINARY:="curl"}
-: ${STABLE_GETH_BINARY:="${BUILD_DIR}/downloads/geth"}
-: ${GETH_CAPELLA_BINARY:="${BUILD_DIR}/downloads/geth_capella"}
-: ${GETH_DENEB_BINARY:="${BUILD_DIR}/downloads/geth_deneb"}
+: ${STABLE_GETH_BINARY:="${BUILD_DIR}/downloads/geth$EXE_EXTENSION"}
+: ${GETH_CAPELLA_BINARY:="${BUILD_DIR}/downloads/geth_capella$EXE_EXTENSION"}
+: ${GETH_DENEB_BINARY:="${BUILD_DIR}/downloads/geth_deneb$EXE_EXTENSION"}
 
 download_geth_stable() {
   if [[ ! -e "${STABLE_GETH_BINARY}" ]]; then
@@ -49,8 +49,9 @@ download_geth_stable() {
     CLEANUP_DIRS+=("$tmp_extract_dir")
     tar -xzf "$GETH_TARBALL" -C "$tmp_extract_dir" --strip-components=1
     mkdir -p "$(dirname "$STABLE_GETH_BINARY")"
-    mv "$tmp_extract_dir/geth" "$STABLE_GETH_BINARY"
+    mv "$tmp_extract_dir/geth$EXE_EXTENSION" "$STABLE_GETH_BINARY"
     chmod +x "$STABLE_GETH_BINARY"
+    patchelf_when_on_nixos "$STABLE_GETH_BINARY"
   fi
 }
 
@@ -85,7 +86,7 @@ download_status_geth_binary() {
 
     GETH_TARBALL_NAME="geth-binaries-${GETH_PLATFORM}.tar.gz"
     GETH_TARBALL_URL="https://github.com/status-im/nimbus-simulation-binaries/releases/download/latest/${GETH_TARBALL_NAME}"
-    GETH_BINARY_IN_TARBALL="geth/${BINARY_NAME}/geth"
+    GETH_BINARY_IN_TARBALL="geth/${BINARY_NAME}/geth$EXE_EXTENSION"
 
     "$CURL_BINARY" -o "$GETH_TARBALL_NAME" -sSL "$GETH_TARBALL_URL"
     local tmp_extract_dir
@@ -94,8 +95,9 @@ download_status_geth_binary() {
     tar -xzf "$GETH_TARBALL_NAME" -C "$tmp_extract_dir" --strip-components 2 \
       "$GETH_BINARY_IN_TARBALL"
     mkdir -p "$(dirname "$BINARY_FS_PATH")"
-    mv "$tmp_extract_dir/geth" "$BINARY_FS_PATH"
+    mv "$tmp_extract_dir/geth$EXE_EXTENSION" "$BINARY_FS_PATH"
     chmod +x "$BINARY_FS_PATH"
+    patchelf_when_on_nixos "$BINARY_FS_PATH"
   fi
 }
 

@@ -92,7 +92,7 @@ func check_propagation_slot_range(
   let
     pastSlot = (wallTime - MAXIMUM_GOSSIP_CLOCK_DISPARITY).toSlot()
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/p2p-interface.md#configuration
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/p2p-interface.md#configuration
   # The spec value of ATTESTATION_PROPAGATION_SLOT_RANGE is 32, but it can
   # retransmit attestations on the cusp of being out of spec, and which by
   # the time they reach their destination might be out of spec.
@@ -178,7 +178,7 @@ template validateBeaconBlockBellatrix(
     parent: BlockRef): untyped =
   discard
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/bellatrix/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/p2p-interface.md#beacon_block
 template validateBeaconBlockBellatrix(
        signed_beacon_block: bellatrix.SignedBeaconBlock |
        capella.SignedBeaconBlock | deneb.SignedBeaconBlock,
@@ -220,6 +220,79 @@ template validateBeaconBlockBellatrix(
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
 
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/p2p-interface.md#blob_sidecar_index
+proc validateBlobSidecar*(
+    dag: ChainDAGRef, quarantine: ref Quarantine,
+    sbs: SignedBlobSidecar,
+    wallTime: BeaconTime, idx: BlobIndex): Result[void, ValidationError] =
+
+  # [REJECT] The sidecar is for the correct topic --
+  # i.e. sidecar.index matches the topic {index}.
+  if sbs.message.index != idx:
+    return errReject("SignedBlobSidecar: mismatched gossip topic index")
+
+  if dag.getBlockRef(sbs.message.block_root).isSome():
+    return errIgnore("SignedBlobSidecar: already have block")
+
+  # [IGNORE] The sidecar is not from a future slot (with a
+  # MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance) -- i.e. validate that
+  # sidecar.slot <= current_slot (a client MAY queue future sidecars
+  # for processing at the appropriate slot).
+  if not (sbs.message.slot <=
+      (wallTime + MAXIMUM_GOSSIP_CLOCK_DISPARITY).slotOrZero):
+    return errIgnore("SignedBlobSidecar: slot too high")
+
+  # [IGNORE] The block is from a slot greater than the latest
+  # finalized slot -- i.e. validate that
+  # signed_beacon_block.message.slot >
+  # compute_start_slot_at_epoch(state.finalized_checkpoint.epoch)
+  if not (sbs.message.slot > dag.finalizedHead.slot):
+    return errIgnore("SignedBlobSidecar: slot already finalized")
+
+  # [REJECT] The sidecar's block's parent (defined by sidecar.block_parent_root)
+  # passes validation.
+  let parent = dag.getBlockRef(sbs.message.block_parent_root).valueOr:
+    return errReject("SignedBlobSidecar: parent not validated")
+
+  # [REJECT] The sidecar is from a higher slot than the sidecar's
+  # block's parent (defined by sidecar.block_parent_root).
+  if sbs.message.slot <= parent.bid.slot:
+    return errReject("SignedBlobSidecar: slot lower than parents'")
+
+  # [REJECT] The sidecar is proposed by the expected proposer_index
+  # for the block's slot in the context of the current shuffling
+  # (defined by block_parent_root/slot).  If the proposer_index
+  # cannot immediately be verified against the expected shuffling,
+  # the sidecar MAY be queued for later processing while proposers
+  # for the block's branch are calculated -- in such a case do not
+  # REJECT, instead IGNORE this message.
+  let
+    proposer = getProposer(
+      dag, parent, sbs.message.slot).valueOr:
+      warn "cannot compute proposer for blob"
+      return errIgnore("SignedBlobSidecar: Cannot compute proposer")
+
+  if uint64(proposer) != sbs.message.proposer_index:
+    return errReject("SignedBlobSidecar: Unexpected proposer")
+
+  # [REJECT] The proposer signature, signed_blob_sidecar.signature,
+  # is valid as verified by verify_sidecar_signature.
+  if not verify_blob_signature(
+    dag.forkAtEpoch(sbs.message.slot.epoch),
+    getStateField(dag.headState, genesis_validators_root),
+    sbs.message.slot,
+    sbs.message,
+    dag.validatorKey(proposer).get(),
+    sbs.signature):
+    return errReject("SignedBlobSidecar: invalid blob signature")
+
+  # [IGNORE] The sidecar is the only sidecar with valid signature received for the tuple (sidecar.block_root, sidecar.index).
+  # TODO
+  # check that there isn't a conflicting sidecar in blob_quarantine
+
+  ok()
+
+
 # https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_block
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/bellatrix/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
@@ -248,7 +321,7 @@ proc validateBeaconBlock*(
   # proposer for the slot, signed_beacon_block.message.slot.
   #
   # While this condition is similar to the proposer slashing condition at
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#proposer-slashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#proposer-slashing
   # it's not identical, and this check does not address slashing:
   #
   # (1) The beacon blocks must be conflicting, i.e. different, for the same
@@ -746,7 +819,7 @@ proc validateAggregate*(
 
   return ok((attesting_indices, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/capella/p2p-interface.md#bls_to_execution_change
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/p2p-interface.md#bls_to_execution_change
 proc validateBlsToExecutionChange*(
     pool: ValidatorChangePool, batchCrypto: ref BatchCrypto,
     signed_address_change: SignedBLSToExecutionChange,
@@ -791,7 +864,7 @@ proc validateBlsToExecutionChange*(
 
   return ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/p2p-interface.md#attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/p2p-interface.md#attester_slashing
 proc validateAttesterSlashing*(
     pool: ValidatorChangePool, attester_slashing: AttesterSlashing):
     Result[void, ValidationError] =
@@ -812,7 +885,7 @@ proc validateAttesterSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/p2p-interface.md#proposer_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/p2p-interface.md#proposer_slashing
 proc validateProposerSlashing*(
     pool: ValidatorChangePool, proposer_slashing: ProposerSlashing):
     Result[void, ValidationError] =
@@ -835,7 +908,7 @@ proc validateProposerSlashing*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/p2p-interface.md#voluntary_exit
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/p2p-interface.md#voluntary_exit
 proc validateVoluntaryExit*(
     pool: ValidatorChangePool, signed_voluntary_exit: SignedVoluntaryExit):
     Result[void, ValidationError] =
@@ -865,7 +938,7 @@ proc validateVoluntaryExit*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/p2p-interface.md#sync_committee_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/p2p-interface.md#sync_committee_subnet_id
 proc validateSyncCommitteeMessage*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,
@@ -1057,7 +1130,7 @@ proc validateContribution*(
 
   return ok((sig, participants))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/p2p-interface.md#light_client_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/p2p-interface.md#light_client_finality_update
 proc validateLightClientFinalityUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     finality_update: ForkedLightClientFinalityUpdate,
@@ -1093,7 +1166,7 @@ proc validateLightClientFinalityUpdate*(
   pool.latestForwardedFinalitySlot = finalized_slot
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/p2p-interface.md#light_client_optimistic_update
 proc validateLightClientOptimisticUpdate*(
     pool: var LightClientPool, dag: ChainDAGRef,
     optimistic_update: ForkedLightClientOptimisticUpdate,

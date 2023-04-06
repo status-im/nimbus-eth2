@@ -157,6 +157,7 @@ type
       flags*: set[RemoteKeystoreFlag]
       remotes*: seq[RemoteSignerInfo]
       threshold*: uint32
+      remoteType*: RemoteSignerType
 
   NetKeystore* = object
     crypto*: Crypto
@@ -166,7 +167,7 @@ type
     version*: int
 
   RemoteSignerType* {.pure.} = enum
-    Web3Signer
+    Web3Signer, Web3SignerDiva
 
   RemoteKeystore* = object
     version*: uint64
@@ -598,6 +599,8 @@ proc writeValue*(writer: var JsonWriter, value: RemoteKeystore)
   case value.remoteType
   of RemoteSignerType.Web3Signer:
     writer.writeField("type", "web3signer")
+  of RemoteSignerType.Web3SignerDiva:
+    writer.writeField("type", "web3signer-diva")
   if value.description.isSome():
     writer.writeField("description", value.description.get())
   if RemoteKeystoreFlag.IgnoreSSLVerification in value.flags:
@@ -704,6 +707,8 @@ proc readValue*(reader: var JsonReader, value: var RemoteKeystore)
       case res.toLowerAscii()
       of "web3signer":
         RemoteSignerType.Web3Signer
+      of "web3signer-diva":
+        RemoteSignerType.Web3SignerDiva
       else:
         reader.raiseUnexpectedValue("Unsupported remote signer `type` value")
     else:
@@ -1175,7 +1180,7 @@ proc createWallet*(kdfKind: KdfKind,
     crypto: crypto,
     nextAccount: nextAccount.get(0))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#bls_withdrawal_prefix
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#bls_withdrawal_prefix
 func makeWithdrawalCredentials*(k: ValidatorPubKey): Eth2Digest =
   var bytes = eth2digest(k.toRaw())
   bytes.data[0] = BLS_WITHDRAWAL_PREFIX.uint8

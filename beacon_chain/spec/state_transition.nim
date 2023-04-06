@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 #
 # The entry point is `state_transition` which is at the bottom of the file!
 #
@@ -123,7 +123,7 @@ func clear_epoch_from_cache(cache: var StateCache, epoch: Epoch) =
   for slot in epoch.slots():
     cache.beacon_proposer_indices.del slot
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#beacon-chain-state-transition-function
 proc advance_slot(
     cfg: RuntimeConfig,
     state: var ForkyBeaconState, previous_slot_state_root: Eth2Digest,
@@ -331,7 +331,7 @@ proc state_transition*(
   state_transition_block(
     cfg, state, signedBlock, cache, flags, rollback)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#preparing-for-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#preparing-for-a-beaconblock
 template partialBeaconBlock*(
     cfg: RuntimeConfig,
     state: var phase0.HashedBeaconState,
@@ -359,7 +359,7 @@ template partialBeaconBlock*(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: validator_changes.voluntary_exits))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/validator.md#preparing-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/validator.md#preparing-a-beaconblock
 template partialBeaconBlock*(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,
@@ -537,7 +537,7 @@ proc makeBeaconBlock*(
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/bellatrix/beacon-chain.md#beaconblockbody
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#beaconblockbody
           # Effectively hash_tree_root(ExecutionPayload) with the beacon block
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.
@@ -556,7 +556,7 @@ proc makeBeaconBlock*(
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#beaconblockbody
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/beacon-chain.md#beaconblockbody
           # Effectively hash_tree_root(ExecutionPayload) with the beacon block
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.

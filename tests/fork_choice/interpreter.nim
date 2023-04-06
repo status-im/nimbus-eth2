@@ -7,7 +7,7 @@
 
 import
   # Standard library
-  std/[options, strformat, tables],
+  std/[strformat, tables],
   # Status libraries
   stew/[results, endians2],
   # Internals
@@ -15,7 +15,7 @@ import
   ../../beacon_chain/spec/helpers,
   ../../beacon_chain/fork_choice/[fork_choice, fork_choice_types]
 
-export results, base, helpers, fork_choice, fork_choice_types, tables, options
+export results, base, helpers, fork_choice, fork_choice_types, tables
 
 func fakeHash*(index: SomeInteger): Eth2Digest =
   ## Create fake hashes

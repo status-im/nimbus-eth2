@@ -24,16 +24,7 @@ log() {
   fi
 }
 
-# OS detection
-OS="linux"
-if uname | grep -qi darwin; then
-  OS="macos"
-elif uname | grep -qiE "mingw|msys"; then
-  OS="windows"
-fi
-
-# architecture detection
-ARCH="$(uname -m)"
+source "$SCRIPTS_DIR/detect_platform.sh"
 
 # Created processed that will be cleaned up when the script exits
 PIDS=""
@@ -107,18 +98,18 @@ DL_GETH="0"
 : ${DL_NIMBUS_ETH2:="0"}
 
 # TODO: Add command-line flags for these
-: ${NIMBUS_ETH2_VERSION:=22.12.0}
-: ${NIMBUS_ETH2_REVISION:=f6a5a5b1}
+: ${NIMBUS_ETH2_VERSION:=23.3.2}
+: ${NIMBUS_ETH2_REVISION:=6c0d756d}
 
-: ${BEACON_NODE_COMMAND:="./build/nimbus_beacon_node"}
+: ${BEACON_NODE_COMMAND:="./build/nimbus_beacon_node$EXE_EXTENSION"}
 : ${CAPELLA_FORK_EPOCH:=40}
 : ${DENEB_FORK_EPOCH:=50}
 #NIMBUS EL VARS
 RUN_NIMBUS_ETH1="0"
-: ${NIMBUS_ETH1_BINARY:="./build/downloads/nimbus"}
+: ${NIMBUS_ETH1_BINARY:="./build/downloads/nimbus$EXE_EXTENSION"}
 : ${WEB3SIGNER_VERSION:=22.11.0}
 : ${WEB3SIGNER_DIR:="${BUILD_DIR}/downloads/web3signer-${WEB3SIGNER_VERSION}"}
-: ${WEB3SIGNER_BINARY:="${WEB3SIGNER_DIR}/bin/web3signer"}
+: ${WEB3SIGNER_BINARY:="${WEB3SIGNER_DIR}/bin/web3signer$BAT_EXTENSION"}
 WEB3SIGNER_NODES=0
 PROCS_TO_KILL=("nimbus_beacon_node" "nimbus_validator_client" "nimbus_signing_node" "nimbus_light_client")
 PORTS_TO_KILL=()
@@ -584,8 +575,9 @@ download_nimbus_eth1() {
     CLEANUP_DIRS+=("$tmp_extract_dir")
     tar -xzf "${NIMBUS_ETH1_TARBALL_NAME}" -C "$tmp_extract_dir" --strip-components=1
     mkdir -p "$(dirname "$NIMBUS_ETH1_BINARY")"
-    mv "$tmp_extract_dir/build/nimbus" "$NIMBUS_ETH1_BINARY"
+    mv "$tmp_extract_dir/build/nimbus$EXE_EXTENSION" "$NIMBUS_ETH1_BINARY"
     chmod +x "$NIMBUS_ETH1_BINARY"
+    patchelf_when_on_nixos "$NIMBUS_ETH1_BINARY"
   fi
 }
 
@@ -617,15 +609,15 @@ download_nimbus_eth2() {
     NIMBUS_ETH2_TARBALL_URL="https://github.com/status-im/nimbus-eth2/releases/download/v${NIMBUS_ETH2_VERSION}/${NIMBUS_ETH2_TARBALL_NAME}"
 
     log "Downloading Nimbus ETH2 binary"
-
     "${CURL_BINARY}" -o "$NIMBUS_ETH2_TARBALL_NAME" -sSL "$NIMBUS_ETH2_TARBALL_URL"
     local tmp_extract_dir
     tmp_extract_dir=$(mktemp -d nimbus-eth2-tarball-XXX)
     CLEANUP_DIRS+=("$tmp_extract_dir")
     tar -xzf "${NIMBUS_ETH2_TARBALL_NAME}" -C "$tmp_extract_dir" --strip-components=1
     mkdir -p "$(dirname "$BEACON_NODE_COMMAND")"
-    mv "$tmp_extract_dir/build/nimbus_beacon_node" "$BEACON_NODE_COMMAND"
+    mv "$tmp_extract_dir/build/nimbus_beacon_node$EXE_EXTENSION" "$BEACON_NODE_COMMAND"
     chmod +x "$BEACON_NODE_COMMAND"
+    patchelf_when_on_nixos "$BEACON_NODE_COMMAND"
 
     REUSE_BINARIES=1
   fi
@@ -650,7 +642,7 @@ case "${OS}" in
     ;;
 esac
 LH_URL="https://github.com/sigp/lighthouse/releases/download/v${LH_VERSION}/${LH_TARBALL}"
-LH_BINARY="lighthouse-${LH_VERSION}"
+LH_BINARY="lighthouse-${LH_VERSION}${EXE_EXTENSION}"
 
 if [[ "${USE_VC}" == "1" && "${LIGHTHOUSE_VC_NODES}" != "0" && ! -e "build/${LH_BINARY}" ]]; then
   echo "Downloading Lighthouse binary"
@@ -658,26 +650,26 @@ if [[ "${USE_VC}" == "1" && "${LIGHTHOUSE_VC_NODES}" != "0" && ! -e "build/${LH_
   "${CURL_BINARY}" -sSLO "${LH_URL}"
   tar -xzf "${LH_TARBALL}" # contains just one file named "lighthouse"
   rm lighthouse-* # deletes both the tarball and old binary versions
-  mv lighthouse "${LH_BINARY}"
+  mv "lighthouse$EXE_EXTENSION" "${LH_BINARY}"
   popd >/dev/null
 fi
 
+BINARIES="ncli_testnet"
+
+if [[ "$LC_NODES" -ge "1" ]]; then
+  BINARIES="${BINARIES} nimbus_light_client"
+fi
+
+if [[ "$NIMBUS_SIGNER_NODES" -gt "0" ]]; then
+  BINARIES="${BINARIES} nimbus_signing_node"
+fi
 
 # Don't build binaries if we are downloading them
 if [[ "${DL_NIMBUS_ETH2}" != "1" ]]; then
   # Build the binaries
-  BINARIES="ncli_testnet"
-
-  if [[ "$NIMBUS_SIGNER_NODES" -gt "0" ]]; then
-    BINARIES="${BINARIES} nimbus_signing_node"
-  fi
 
   if [[ "${USE_VC}" == "1" ]]; then
     BINARIES="${BINARIES} nimbus_validator_client"
-  fi
-
-  if [[ "$LC_NODES" -ge "1" ]]; then
-    BINARIES="${BINARIES} nimbus_light_client"
   fi
 
   BINARIES="${BINARIES} nimbus_beacon_node"
@@ -703,7 +695,6 @@ else
   CONTAINER_DATA_DIR="${DATA_DIR}"
   if [[ "${DL_NIMBUS_ETH2}" == "1" ]]; then
     download_nimbus_eth2
-    BINARIES=""
   fi
 fi
 
@@ -717,10 +708,8 @@ for BINARY in ${BINARIES}; do
 done
 
 if [[ "${REUSE_BINARIES}" == "0" || "${BINARIES_MISSING}" == "1" ]]; then
-  if [[ "${DL_NIMBUS_ETH2}" == "0" ]]; then
-    log "Rebuilding binaries ${BINARIES}"
-    ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET} -d:web3_consensus_const_preset=${CONST_PRESET}" ${BINARIES}
-  fi
+  log "Rebuilding binaries ${BINARIES}"
+  ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET} -d:web3_consensus_const_preset=${CONST_PRESET}" ${BINARIES}
 fi
 
 if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then

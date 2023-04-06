@@ -176,6 +176,11 @@ type
       desc: "A directory containing era files"
       name: "era-dir" .}: Option[InputDir]
 
+    web3ForcePolling* {.
+      hidden
+      desc: "Force the use of polling when determining the head block of Eth1 (obsolete)"
+      name: "web3-force-polling" .}: Option[bool]
+
     web3Urls* {.
       desc: "One or more execution layer Engine API URLs"
       name: "web3-url" .}: seq[EngineApiUrlConfigValue]
@@ -547,8 +552,8 @@ type
       deploymentPhase* {.
         hidden
         desc: "Configures the deployment phase"
-        defaultValue: DeploymentPhase.Mainnet
-        defaultValueDesc: $DeploymentPhase.Mainnet
+        defaultValue: DeploymentPhase.CapellaReady
+        defaultValueDesc: $DeploymentPhase.CapellaReady
         name: "deployment-phase" .}: DeploymentPhase
 
       terminalTotalDifficultyOverride* {.
@@ -694,7 +699,7 @@ type
       of DepositsCmd.exit:
         exitedValidator* {.
           name: "validator"
-          desc: "Validator index or a public key of the exited validator" .}: string
+          desc: "Validator index, public key or a keystore path of the exited validator" .}: string
 
         exitAtEpoch* {.
           name: "epoch"
@@ -705,6 +710,11 @@ type
           defaultValue: defaultBeaconNode
           defaultValueDesc: $defaultBeaconNodeDesc
           name: "rest-url" .}: string
+
+        printData* {.
+          desc: "Print signed exit message instead of publishing it"
+          defaultValue: false
+          name: "print" .}: bool
 
     of BNStartUpCmd.record:
       case recordCmd* {.command.}: RecordCmd
@@ -979,6 +989,11 @@ type
     secretsDirFlag* {.
       desc: "A directory containing validator keystore passwords"
       name: "secrets-dir" .}: Option[InputDir]
+
+    expectedFeeRecipient* {.
+      desc: "Signatures for blocks will require proofs of the specified " &
+            "fee recipient"
+      name: "expected-fee-recipient".}: Option[Address]
 
     serverIdent* {.
       desc: "Server identifier which will be used in HTTP Host header"

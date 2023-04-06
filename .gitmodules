@@ -193,13 +193,15 @@
 	url = https://github.com/status-im/nim-toml-serialization.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/merge-testnets"]
-	path = vendor/merge-testnets
-	url = https://github.com/eth-clients/merge-testnets.git
-	branch = main
 [submodule "vendor/gnosis-chain-configs"]
 	path = vendor/gnosis-chain-configs
 	url = https://github.com/gnosischain/configs.git
 [submodule "vendor/withdrawals-testnets"]
 	path = vendor/withdrawals-testnets
 	url = https://github.com/ethpandaops/withdrawals-testnet.git
+[submodule "vendor/sepolia"]
+	path = vendor/sepolia
+	url = https://github.com/eth-clients/sepolia.git
+[submodule "vendor/nim-kzg4844"]
+	path = vendor/nim-kzg4844
+	url = https://github.com/status-im/nim-kzg4844/

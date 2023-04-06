@@ -33,7 +33,7 @@ import
 # - https://notes.ethereum.org/@djrtwo/Bkn3zpwxB#Validator-responsibilities
 #
 # Phase 0 spec - Honest Validator - how to avoid slashing
-# - https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#how-to-avoid-slashing
+# - https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#how-to-avoid-slashing
 #
 # In-depth reading on slashing conditions
 #
@@ -55,7 +55,7 @@ import
 #   2. An attester can get slashed for signing
 #      two attestations that together violate
 #      the Casper FFG slashing conditions.
-# - https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#ffg-vote
+# - https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#ffg-vote
 #   The "source" is the current_justified_epoch
 #   The "target" is the current_epoch
 #
@@ -300,7 +300,8 @@ proc setupDB(db: SlashingProtectionDB_v2, genesis_validators_root: Eth2Digest) =
       );
     """).expect("DB should be working and \"attestations\" should not exist")
 
-proc checkDB(db: SlashingProtectionDB_v2, genesis_validators_root: Eth2Digest) =
+proc checkDB(db: SlashingProtectionDB_v2,
+             genesis_validators_root: Eth2Digest): Result[void, string] =
   ## Check the metadata of the DB
   let selectStmt = db.backend.prepareStmt(
     "SELECT * FROM metadata;",
@@ -316,13 +317,16 @@ proc checkDB(db: SlashingProtectionDB_v2, genesis_validators_root: Eth2Digest) =
 
   selectStmt.dispose()
 
-  doAssert status.isOk()
-  doAssert version == db.typeof().version(),
-    "Incorrect database version: " & $version & "\n" &
-    "but expected: " & $db.typeof().version()
-  doAssert root == genesis_validators_root,
-    "Invalid database genesis validator root: " & root.data.toHex() & "\n" &
-    "but expected: " & genesis_validators_root.data.toHex()
+  if status.isErr:
+    return err "Unable to read DB metadata"
+  if version != db.typeof().version():
+    return err "Incorrect database version: " & $version & " " &
+               "but expected: " & $db.typeof().version()
+  if root != genesis_validators_root:
+    return err "Invalid database genesis validator root: " & root.data.toHex() & " " &
+               "but expected: " & genesis_validators_root.data.toHex()
+
+  ok()
 
 proc setupCachedQueries(db: SlashingProtectionDB_v2) =
   ## Create prepared queries for reuse
@@ -655,22 +659,32 @@ proc getMetadataTable_DbV2*(db: SlashingProtectionDB_v2): Option[Eth2Digest] =
   else:
     return none(Eth2Digest)
 
-proc initCompatV1*(T: type SlashingProtectionDB_v2,
-           genesis_validators_root: Eth2Digest,
-           basePath: string,
-           dbname: string
-     ): tuple[db: SlashingProtectionDB_v2, requiresMigration: bool] =
+proc initCompatV1*(
+    T: type SlashingProtectionDB_v2,
+    genesis_validators_root: Eth2Digest,
+    databasePath: string,
+    databaseName: string
+  ): tuple[db: SlashingProtectionDB_v2, requiresMigration: bool] =
   ## Initialize a new slashing protection database
   ## or load an existing one with matching genesis root
-  ## `dbname` MUST not be ending with .sqlite3
+  ## `databaseName` MUST not be ending with .sqlite3
+  logScope:
+    databasePath
+    databaseName
 
-  let alreadyExists = fileExists(basePath/dbname&".sqlite3")
+  let
+    alreadyExists = fileExists(databasePath / databaseName & ".sqlite3")
+    backend = SqStoreRef.init(databasePath, databaseName).valueOr:
+      fatal "Failed to open slashing protection database"
+      quit 1
 
-  result.db = T(backend: SqStoreRef.init(
-      basePath, dbname,
-    ).get())
+  result.db = T(backend: backend)
   if alreadyExists and result.db.getMetadataTable_DbV2().isSome():
-    result.db.checkDB(genesis_validators_root)
+    let status = result.db.checkDB(genesis_validators_root)
+    if status.isErr:
+      fatal "Incompatible slashing protection database",
+             reason = status.error
+      quit 1
     result.requiresMigration = false
   elif alreadyExists:
     result.db.setupDB(genesis_validators_root)
@@ -684,25 +698,36 @@ proc initCompatV1*(T: type SlashingProtectionDB_v2,
 
   debug "Loaded slashing protection (v2)",
     genesis_validators_root = shortLog(genesis_validators_root),
-    requiresMigration = result.requiresMigration,
-    basePath, dbname
+    requiresMigration = result.requiresMigration
 
 # Resource Management
 # -------------------------------------------------------------
 
 proc init*(T: type SlashingProtectionDB_v2,
            genesis_validators_root: Eth2Digest,
-           basePath: string,
-           dbname: string): T =
+           databasePath: string,
+           databaseName: string): T =
   ## Initialize a new slashing protection database
   ## or load an existing one with matching genesis root
   ## `dbname` MUST not be ending with .sqlite3
+  logScope:
+    databasePath
+    databaseName
 
-  let alreadyExists = fileExists(basePath/dbname&".sqlite3")
+  let
+    alreadyExists = fileExists(databasePath / databaseName & ".sqlite3")
+    backend = SqStoreRef.init(databasePath, databaseName,
+                              keyspaces = []).valueOr:
+      fatal "Failed to open slashing protection database"
+      quit 1
 
-  result = T(backend: SqStoreRef.init(basePath, dbname, keyspaces = []).get())
+  result = T(backend: backend)
   if alreadyExists:
-    result.checkDB(genesis_validators_root)
+    let status = result.checkDB(genesis_validators_root)
+    if status.isErr:
+      fatal "Slashing protection database check error",
+             reason = status.error
+      quit 1
   else:
     result.setupDB(genesis_validators_root)
 

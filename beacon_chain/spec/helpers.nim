@@ -55,7 +55,7 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#is_active_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
   ## Check if ``validator`` is active
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
@@ -93,23 +93,23 @@ func get_active_validator_indices_len*(
   withState(state):
     get_active_validator_indices_len(forkyState.data, epoch)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkyBeaconState): Epoch =
   ## Return the current epoch.
   state.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_current_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_current_epoch
 func get_current_epoch*(state: ForkedHashedBeaconState): Epoch =
   ## Return the current epoch.
   withState(state): get_current_epoch(forkyState.data)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_previous_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_previous_epoch
 func get_previous_epoch*(
     state: ForkyBeaconState | ForkedHashedBeaconState): Epoch =
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   get_previous_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
   ## Returns the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
@@ -131,7 +131,7 @@ func uint_to_bytes*(x: uint32): array[4, byte] = toBytesLE(x)
 func uint_to_bytes*(x: uint16): array[2, byte] = toBytesLE(x)
 func uint_to_bytes*(x: uint8): array[1, byte] = toBytesLE(x)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#compute_domain
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#compute_domain
 func compute_domain*(
     domain_type: DomainType,
     fork_version: Version,
@@ -145,7 +145,7 @@ func compute_domain*(
   result[0..3] = domain_type.data
   result[4..31] = fork_data_root.data.toOpenArray(0, 27)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_domain
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_domain
 func get_domain*(
     fork: Fork,
     domain_type: DomainType,
@@ -166,7 +166,7 @@ func get_domain*(
   ## of a message.
   get_domain(state.fork, domain_type, epoch, state.genesis_validators_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#compute_signing_root
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#compute_signing_root
 func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   ## Return the signing root of an object by calculating the root of the
   ## object-domain tree.
@@ -176,7 +176,7 @@ func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
   )
   hash_tree_root(domain_wrapped_object)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_seed
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_seed
 func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
     Eth2Digest =
   ## Return the seed at ``epoch``.
@@ -194,12 +194,12 @@ func get_seed*(state: ForkyBeaconState, epoch: Epoch, domain_type: DomainType):
       epoch + EPOCHS_PER_HISTORICAL_VECTOR - MIN_SEED_LOOKAHEAD - 1).data
   eth2digest(seed_input)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#add_flag
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#add_flag
 func add_flag*(flags: ParticipationFlags, flag_index: int): ParticipationFlags =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   flags or flag
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#has_flag
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#has_flag
 func has_flag*(flags: ParticipationFlags, flag_index: int): bool =
   let flag = ParticipationFlags(1'u8 shl flag_index)
   (flags and flag) == flag
@@ -212,14 +212,14 @@ template is_sync_committee_update*(update: SomeForkyLightClientUpdate): bool =
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#is_finality_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/sync-protocol.md#is_finality_update
 template is_finality_update*(update: SomeForkyLightClientUpdate): bool =
   when update is SomeForkyLightClientUpdateWithFinality:
     update.finality_branch != default(typeof(update.finality_branch))
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/sync-protocol.md#is_next_sync_committee_known
 template is_next_sync_committee_known*(store: ForkyLightClientStore): bool =
   store.next_sync_committee != default(typeof(store.next_sync_committee))
 
@@ -230,7 +230,7 @@ func get_safety_threshold*(store: ForkyLightClientStore): uint64 =
     store.current_max_active_participants
   ) div 2
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/sync-protocol.md#is_better_update
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/sync-protocol.md#is_better_update
 type LightClientUpdateMetadata* = object
   attested_slot*, finalized_slot*, signature_slot*: Slot
   has_sync_committee*, has_finality*: bool
@@ -321,24 +321,24 @@ template is_better_update*[
     new_update: A, old_update: B): bool =
   is_better_data(toMeta(new_update), toMeta(old_update))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/p2p-interface.md#getlightclientbootstrap
 func contextEpoch*(bootstrap: ForkyLightClientBootstrap): Epoch =
   bootstrap.header.beacon.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/p2p-interface.md#lightclientupdatesbyrange
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/p2p-interface.md#getlightclientfinalityupdate
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/p2p-interface.md#getlightclientoptimisticupdate
 func contextEpoch*(update: SomeForkyLightClientUpdate): Epoch =
   update.attested_header.beacon.slot.epoch
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#is_merge_transition_complete
 func is_merge_transition_complete*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState): bool =
   const defaultExecutionPayloadHeader =
     default(typeof(state.latest_execution_payload_header))
   state.latest_execution_payload_header != defaultExecutionPayloadHeader
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/sync/optimistic.md#helpers
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/sync/optimistic.md#helpers
 func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
   when typeof(blck).toFork >= ConsensusFork.Bellatrix:
     const defaultExecutionPayload =
@@ -347,7 +347,7 @@ func is_execution_block*(blck: SomeForkyBeaconBlock): bool =
   else:
     false
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/bellatrix/beacon-chain.md#is_merge_transition_block
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#is_merge_transition_block
 func is_merge_transition_block(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
@@ -360,7 +360,7 @@ func is_merge_transition_block(
   not is_merge_transition_complete(state) and
     body.execution_payload != defaultExecutionPayload
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/bellatrix/beacon-chain.md#is_execution_enabled
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#is_execution_enabled
 func is_execution_enabled*(
     state: bellatrix.BeaconState | capella.BeaconState | deneb.BeaconState,
     body: bellatrix.BeaconBlockBody | bellatrix.TrustedBeaconBlockBody |
@@ -371,7 +371,7 @@ func is_execution_enabled*(
           deneb.SigVerifiedBeaconBlockBody): bool =
   is_merge_transition_block(state, body) or is_merge_transition_complete(state)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#compute_timestamp_at_slot
 func compute_timestamp_at_slot*(state: ForkyBeaconState, slot: Slot): uint64 =
   # Note: This function is unsafe with respect to overflows and underflows.
   let slots_since_genesis = slot - GENESIS_SLOT

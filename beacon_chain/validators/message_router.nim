@@ -272,7 +272,7 @@ proc routeSyncCommitteeMessages*(
     Future[seq[SendResult]] {.async.} =
   return withState(router[].dag.headState):
     when consensusFork >= ConsensusFork.Altair:
-      var statuses = newSeq[Option[SendResult]](len(msgs))
+      var statuses = newSeq[Opt[SendResult]](len(msgs))
 
       let
         curPeriod = sync_committee_period(forkyState.data.slot)
@@ -291,10 +291,11 @@ proc routeSyncCommitteeMessages*(
               elif msgPeriod == nextPeriod:
                 resNxt[msg.validator_index] = index
               else:
-                statuses[index] =
-                  some(SendResult.err("Message's slot out of state's head range"))
+                statuses[index] = Opt.some(
+                  SendResult.err("Message's slot out of state's head range"))
             else:
-              statuses[index] = some(SendResult.err("Incorrect validator's index"))
+              statuses[index] = Opt.some(
+                SendResult.err("Incorrect validator's index"))
           if (len(resCur) == 0) and (len(resNxt) == 0):
             return statuses.mapIt(it.get())
           (resCur, resNxt)
@@ -327,14 +328,14 @@ proc routeSyncCommitteeMessages*(
         if future.done():
           let fres = future.read()
           if fres.isErr():
-            statuses[indices[index]] = some(SendResult.err(fres.error()))
+            statuses[indices[index]] = Opt.some(SendResult.err(fres.error()))
           else:
-            statuses[indices[index]] = some(SendResult.ok())
+            statuses[indices[index]] = Opt.some(SendResult.ok())
         elif future.failed() or future.cancelled():
           let exc = future.readError()
           debug "Unexpected failure while sending committee message",
             message = msgs[indices[index]], error = $exc.msg
-          statuses[indices[index]] = some(SendResult.err(
+          statuses[indices[index]] = Opt.some(SendResult.err(
             "Unexpected failure while sending committee message"))
 
       var res: seq[SendResult]

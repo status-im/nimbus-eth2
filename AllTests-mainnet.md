@@ -161,10 +161,19 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 + Testing uints        inputs - valid                                                        OK
 ```
 OK: 10/12 Fail: 0/12 Skip: 2/12
+## EL Configuration
+```diff
++ Empty config file                                                                          OK
++ Invalid URls                                                                               OK
++ New style config files                                                                     OK
++ Old style config files                                                                     OK
++ URL parsing                                                                                OK
+```
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Eth1 monitor
 ```diff
 + Deposits chain                                                                             OK
-+ Rewrite HTTPS Infura URLs                                                                  OK
++ Rewrite URLs                                                                               OK
 + Roundtrip engine RPC V1 and bellatrix ExecutionPayload representations                     OK
 + Roundtrip engine RPC V2 and capella ExecutionPayload representations                       OK
 + Roundtrip engine RPC V3 and deneb ExecutionPayload representations                         OK
@@ -214,11 +223,15 @@ OK: 3/3 Fail: 0/3 Skip: 0/3
 + load altair state                                                                          OK
 + load bellatrix block                                                                       OK
 + load bellatrix state                                                                       OK
++ load capella block                                                                         OK
++ load capella state                                                                         OK
++ load deneb block                                                                           OK
++ load deneb state                                                                           OK
 + load phase0 block                                                                          OK
 + load phase0 state                                                                          OK
 + should raise on unknown data                                                               OK
 ```
-OK: 7/7 Fail: 0/7 Skip: 0/7
+OK: 11/11 Fail: 0/11 Skip: 0/11
 ## Gas limit management [Beacon Node] [Preset: mainnet]
 ```diff
 + Configuring the gas limit [Beacon Node] [Preset: mainnet]                                  OK
@@ -249,11 +262,12 @@ OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Honest validator
 ```diff
 + General pubsub topics                                                                      OK
++ Liveness failsafe conditions                                                               OK
 + Mainnet attestation topics                                                                 OK
 + isNearSyncCommitteePeriod                                                                  OK
 + is_aggregator                                                                              OK
 ```
-OK: 4/4 Fail: 0/4 Skip: 0/4
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## ImportKeystores requests [Beacon Node] [Preset: mainnet]
 ```diff
 + ImportKeystores/ListKeystores/DeleteKeystores [Beacon Node] [Preset: mainnet]              OK
@@ -350,6 +364,42 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Voluntary exit signatures                                                                  OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## Nimbus remote signer/signing test (web3signer)
+```diff
++ Connection timeout test                                                                    OK
++ Connections pool stress test                                                               OK
++ Idle connection test                                                                       OK
++ Public keys enumeration (/api/v1/eth2/publicKeys) test                                     OK
++ Public keys reload (/reload) test                                                          OK
++ Signing BeaconBlock (getBlockSignature(altair))                                            OK
++ Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
++ Signing BeaconBlock (getBlockSignature(capella))                                           OK
++ Signing BeaconBlock (getBlockSignature(deneb))                                             OK
++ Signing BeaconBlock (getBlockSignature(phase0))                                            OK
++ Signing SC contribution and proof (getContributionAndProofSignature())                     OK
++ Signing SC message (getSyncCommitteeMessage())                                             OK
++ Signing SC selection proof (getSyncCommitteeSelectionProof())                              OK
++ Signing aggregate and proof (getAggregateAndProofSignature())                              OK
++ Signing aggregation slot (getSlotSignature())                                              OK
++ Signing attestation (getAttestationSignature())                                            OK
++ Signing deposit message (getDepositMessageSignature())                                     OK
++ Signing phase0 block                                                                       OK
++ Signing randao reveal (getEpochSignature())                                                OK
++ Signing validator registration (getBuilderSignature())                                     OK
++ Signing voluntary exit (getValidatorExitSignature())                                       OK
++ Waiting for signing node (/upcheck) test                                                   OK
+```
+OK: 22/22 Fail: 0/22 Skip: 0/22
+## Nimbus remote signer/signing test (web3signer-diva)
+```diff
++ Signing BeaconBlock (getBlockSignature(altair))                                            OK
++ Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
++ Signing BeaconBlock (getBlockSignature(capella))                                           OK
++ Signing BeaconBlock (getBlockSignature(deneb))                                             OK
++ Signing BeaconBlock (getBlockSignature(phase0))                                            OK
++ Waiting for signing node (/upcheck) test                                                   OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -626,4 +676,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 347/352 Fail: 0/352 Skip: 5/352
+OK: 385/390 Fail: 0/390 Skip: 5/390

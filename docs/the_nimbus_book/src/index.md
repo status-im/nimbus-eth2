@@ -7,9 +7,10 @@
 
 Nimbus is a client for the Ethereum network that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and [easy to use](./run-a-validator.md).
 
-Its efficiency and low resource consumption allows it to perform well on all kinds of systems, ranging from Raspberry Pi's and mobile devices where it contributes to low power consumption and security -- to powerful servers where it leaves resources free to perform other tasks, such as running an [execution node](./eth1.md).
+Its efficiency and low resource consumption allows it to perform well on all kinds of systems: ranging from Raspberry Pi's and mobile devices — where it contributes to low power consumption and security — to powerful servers where it leaves resources free to perform other tasks, such as running an [execution node](./eth1.md).
 
-This book describes the consensus layer client, [`nimbus-eth2`](https://github.com/status-im/nimbus-eth2). A execution client, [nimbus-eth1](https://github.com/status-im/nimbus-eth2), is also under development.
+This book describes the consensus layer client, [`nimbus-eth2`](https://github.com/status-im/nimbus-eth2).
+An execution client, [nimbus-eth1](https://github.com/status-im/nimbus-eth2), is also under development.
 
 ## Feature highlights
 
@@ -38,4 +39,6 @@ Subscribe to our newsletter [here](https://subscribe.nimbus.guide/).
 
 ## Disclaimer
 
-This documentation assumes Nimbus is in its ideal state. The project is still under active development. Please submit a [Github issue](https://github.com/status-im/nimbus-eth2/issues) if you come across a problem.
+This documentation assumes Nimbus is in its ideal state.
+The project is still under active development.
+Please submit a [Github issue](https://github.com/status-im/nimbus-eth2/issues) if you come across a problem.
