@@ -491,7 +491,6 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
       else:
         RestApiResponse.jsonError(Http500, InvalidAcceptError)
 
-    static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
     case node.dag.cfg.consensusForkAtEpoch(node.currentSlot.epoch)
     of ConsensusFork.Deneb:
       # TODO
@@ -506,7 +505,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, res.error())
       return responsePlain(ForkedBlindedBeaconBlock(
         kind: ConsensusFork.Capella,
-        capellaData: res.get()))
+        capellaData: res.get().blindedBlckPart))
     of ConsensusFork.Bellatrix:
       let res = await makeBlindedBeaconBlockForHeadAndSlot[
           bellatrix_mev.BlindedBeaconBlock](
@@ -515,7 +514,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         return RestApiResponse.jsonError(Http400, res.error())
       return responsePlain(ForkedBlindedBeaconBlock(
         kind: ConsensusFork.Bellatrix,
-        bellatrixData: res.get()))
+        bellatrixData: res.get().blindedBlckPart))
     of ConsensusFork.Altair, ConsensusFork.Phase0:
       # Pre-Bellatrix, this endpoint will return a BeaconBlock
       let res = await makeBeaconBlockForHeadAndSlot(
@@ -523,7 +522,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
         proposer, qgraffiti, qhead, qslot)
       if res.isErr():
         return RestApiResponse.jsonError(Http400, res.error())
-      return responsePlain(res.get)
+      return responsePlain(res.get().blck)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceAttestationData
   router.api(MethodGet, "/eth/v1/validator/attestation_data") do (
