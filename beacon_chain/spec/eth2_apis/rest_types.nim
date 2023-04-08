@@ -495,6 +495,9 @@ type
     validators*: seq[ValidatorIndex]
     validator_aggregates*: seq[seq[ValidatorIndex]]
 
+  RestEpochRandao* = object
+    randao*: Eth2Digest
+
   DataEnclosedObject*[T] = object
     data*: T
 
