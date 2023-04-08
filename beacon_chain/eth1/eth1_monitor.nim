@@ -943,9 +943,19 @@ proc getPayload*(m: ELManager,
             continue
 
         if engineApiWithdrawals != req.read.executionPayload.withdrawals.maybeDeref:
+          # otherwise it formats as "@[(index: ..., validatorIndex: ...,
+          # address: ..., amount: ...), (index: ..., validatorIndex: ...,
+          # address: ..., amount: ...)]"
           warn "Execution client did not return correct withdrawals",
-            withdrawals_from_cl = engineApiWithdrawals,
-            withdrawals_from_el = req.read.executionPayload.withdrawals
+            withdrawals_from_cl_len = engineApiWithdrawals.len,
+            withdrawals_from_el_len =
+              req.read.executionPayload.withdrawals.maybeDeref.len,
+            withdrawals_from_cl =
+              mapIt(engineApiWithdrawals, it.asConsensusWithdrawal),
+            withdrawals_from_el =
+              mapIt(
+                req.read.executionPayload.withdrawals.maybeDeref,
+                it.asConsensusWithdrawal)
 
       if req.read.executionPayload.extraData.len > MAX_EXTRA_DATA_BYTES:
         warn "Execution client provided a block with invalid extraData (size exceeds limit)",
