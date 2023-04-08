@@ -400,7 +400,7 @@ proc installValidatorApiHandlers*(router: var RestRouter, node: BeaconNode) =
             return RestApiResponse.jsonError(Http400, InvalidSlotValueError)
         if res.isErr():
           return RestApiResponse.jsonError(Http400, res.error())
-        res.get
+        res.get.blck
     return RestApiResponse.jsonResponsePlain(message)
 
   # https://ethereum.github.io/beacon-APIs/#/Validator/produceBlindedBlock
