@@ -19,6 +19,8 @@ const
     ## Arbitrary
   MaxOrphans = SLOTS_PER_EPOCH * 3
     ## Enough for finalization in an alternative fork
+  MaxBlobless = SLOTS_PER_EPOCH
+    ## Arbitrary
   MaxUnviables = 16 * 1024
     ## About a day of blocks - most likely not needed but it's quite cheap..
 
@@ -39,10 +41,19 @@ type
     ## Trivially invalid blocks may be dropped before reaching this stage.
 
     orphans*: Table[(Eth2Digest, ValidatorSig), ForkedSignedBeaconBlock]
-      ## Blocks that we don't have a parent for - when we resolve the parent, we
-      ## can proceed to resolving the block as well - we index this by root and
-      ## signature such that a block with invalid signature won't cause a block
-      ## with a valid signature to be dropped
+      ## Blocks that we don't have a parent for - when we resolve the
+      ## parent, we can proceed to resolving the block as well - we
+      ## index this by root and signature such that a block with
+      ## invalid signature won't cause a block with a valid signature
+      ## to be dropped. An orphan block may also be "blobless" (see
+      ## below) - if so, upon resolving the parent, it should be
+      ## stored in the blobless table.
+
+    blobless*: Table[(Eth2Digest, ValidatorSig), deneb.SignedBeaconBlock]
+      ## Blocks that we don't have blobs for. When we have received
+      ## all blobs for this block, we can proceed to resolving the
+      ## block as well. A blobless block inserted into this table must
+      ## have a resolved parent (i.e., it is not an orphan).
 
     unviable*: OrderedTable[Eth2Digest, tuple[]]
       ## Unviable blocks are those that come from a history that does not
@@ -115,12 +126,14 @@ func removeOrphan*(
     quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
   quarantine.orphans.del((signedBlock.root, signedBlock.signature))
 
-func isViableOrphan(
-    finalizedSlot: Slot, signedBlock: ForkedSignedBeaconBlock): bool =
+func removeBlobless*(
+  quarantine: var Quarantine, signedBlock: ForkySignedBeaconBlock) =
+  quarantine.blobless.del((signedBlock.root, signedBlock.signature))
+
+func isViable(
+    finalizedSlot: Slot, slot: Slot): bool =
   # The orphan must be newer than the finalization point so that its parent
   # either is the finalized block or more recent
-  let
-    slot = getForkedBlockField(signedBlock, slot)
   slot > finalizedSlot
 
 func cleanupUnviable(quarantine: var Quarantine) =
@@ -131,33 +144,51 @@ func cleanupUnviable(quarantine: var Quarantine) =
       break # Cannot modify while for-looping
     quarantine.unviable.del(toDel)
 
-func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
-  if root in quarantine.unviable:
-    return
-
-  quarantine.cleanupUnviable()
-
+func removeUnviableTree[T](quarantine: var Quarantine,
+                        toCheck: var seq[Eth2Digest],
+                        tbl: var Table[(Eth2Digest, ValidatorSig),
+                                       T]): seq[Eth2Digest] =
   # Remove the tree of orphans whose ancestor is unviable - they are now also
   # unviable! This helps avoiding junk in the quarantine, because we don't keep
   # unviable parents in the DAG and there's no way to tell an orphan from an
   # unviable block without the parent.
   var
     toRemove: seq[(Eth2Digest, ValidatorSig)] # Can't modify while iterating
-    toCheck = @[root]
+    checked: seq[Eth2Digest]
   while toCheck.len > 0:
     let root = toCheck.pop()
-    for k, v in quarantine.orphans.mpairs():
-      if getForkedBlockField(v, parent_root) == root:
+    if root notin checked:
+      checked.add(root)
+    for k, v in tbl.mpairs():
+      when T is ForkedSignedBeaconBlock:
+        let blockRoot = getForkedBlockField(v, parent_root)
+      elif T is ForkySignedBeaconBlock:
+        let blockRoot = v.message.parent_root
+      else:
+        static: doAssert false
+
+      if blockRoot == root:
         toCheck.add(k[0])
         toRemove.add(k)
       elif k[0] == root:
         toRemove.add(k)
 
     for k in toRemove:
-      quarantine.orphans.del k
+      tbl.del k
       quarantine.unviable[k[0]] = ()
 
     toRemove.setLen(0)
+
+  checked
+
+func addUnviable*(quarantine: var Quarantine, root: Eth2Digest) =
+  if root in quarantine.unviable:
+    return
+
+  quarantine.cleanupUnviable()
+  var toCheck = @[root]
+  var checked = quarantine.removeUnviableTree(toCheck, quarantine.orphans)
+  discard quarantine.removeUnviableTree(checked, quarantine.blobless)
 
   quarantine.unviable[root] = ()
 
@@ -165,12 +196,23 @@ func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
   var toDel: seq[(Eth2Digest, ValidatorSig)]
 
   for k, v in quarantine.orphans:
-    if not isViableOrphan(finalizedSlot, v):
+    if not isViable(finalizedSlot, getForkedBlockField(v, slot)):
       toDel.add k
 
   for k in toDel:
     quarantine.addUnviable k[0]
     quarantine.orphans.del k
+
+func cleanupBlobless(quarantine: var Quarantine, finalizedSlot: Slot) =
+  var toDel: seq[(Eth2Digest, ValidatorSig)]
+
+  for k, v in quarantine.blobless:
+    if not isViable(finalizedSlot, v.message.slot):
+      toDel.add k
+
+  for k in toDel:
+    quarantine.addUnviable k[0]
+    quarantine.blobless.del k
 
 func clearAfterReorg*(quarantine: var Quarantine) =
   ## Clear missing and orphans to start with a fresh slate in case of a reorg
@@ -193,7 +235,7 @@ func addOrphan*(
     quarantine: var Quarantine, finalizedSlot: Slot,
     signedBlock: ForkedSignedBeaconBlock): bool =
   ## Adds block to quarantine's `orphans` and `missing` lists.
-  if not isViableOrphan(finalizedSlot, signedBlock):
+  if not isViable(finalizedSlot, getForkedBlockField(signedBlock, slot)):
     quarantine.addUnviable(signedBlock.root)
     return false
 
@@ -229,4 +271,27 @@ iterator pop*(quarantine: var Quarantine, root: Eth2Digest):
   for k, v in quarantine.orphans.mpairs():
     if getForkedBlockField(v, parent_root) == root:
       toRemove.add(k)
+      yield v
+
+proc addBlobless*(
+    quarantine: var Quarantine, finalizedSlot: Slot,
+    signedBlock: deneb.SignedBeaconBlock): bool =
+
+  if not isViable(finalizedSlot, signedBlock.message.slot):
+    quarantine.addUnviable(signedBlock.root)
+    return false
+
+  quarantine.cleanupBlobless(finalizedSlot)
+
+  if quarantine.blobless.lenu64 >= MaxBlobless:
+    return false
+
+  quarantine.blobless[(signedBlock.root, signedBlock.signature)] = signedBlock
+  quarantine.missing.del(signedBlock.root)
+  true
+
+iterator peekBlobless*(quarantine: var Quarantine, root: Eth2Digest):
+         deneb.SignedBeaconBlock =
+  for k, v in quarantine.blobless.mpairs():
+    if k[0] == root:
       yield v
