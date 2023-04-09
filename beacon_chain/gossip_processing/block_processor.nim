@@ -349,7 +349,8 @@ proc storeBlock*(
     payloadStatus =
       if maybeFinalized and
           (self.lastPayload + SLOTS_PER_PAYLOAD) > signedBlock.message.slot and
-          (signedBlock.message.slot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot:
+          (signedBlock.message.slot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot and
+          signedBlock.message.is_execution_block:
         # Skip payload validation when message source (reasonably) claims block
         # has been finalized - this speeds up forward sync - in the worst case
         # that the claim is false, we will correct every time we process a block
