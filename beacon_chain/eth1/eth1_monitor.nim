@@ -1258,12 +1258,6 @@ proc forkchoiceUpdated*(m: ELManager,
   else:
     static: doAssert false
 
-  m.nextExpectedPayloadParams = some NextExpectedPayloadParams(
-    headBlockHash: headBlockHash,
-    safeBlockHash: safeBlockHash,
-    finalizedBlockHash: finalizedBlockHash,
-    payloadAttributes: payloadAttributesV2)
-
   let
     state = newClone ForkchoiceStateV1(
       headBlockHash: headBlockHash.asBlockHash,
@@ -1305,16 +1299,21 @@ proc forkchoiceUpdated*(m: ELManager,
   return if responseProcessor.disagreementAlreadyDetected:
     (PayloadExecutionStatus.invalid, none BlockHash)
   elif responseProcessor.selectedResponse.isSome:
+    # Ensure that there's no race condition window where getPayload's check for
+    # whether it needs to trigger a new fcU payload, due to cache invalidation,
+    # falsely suggests that the expected payload matches, and similarly that if
+    # the fcU fails or times out for other reasons, the expected payload params
+    # remain synchronized with EL state.
+    m.nextExpectedPayloadParams = some NextExpectedPayloadParams(
+      headBlockHash: headBlockHash,
+      safeBlockHash: safeBlockHash,
+      finalizedBlockHash: finalizedBlockHash,
+      payloadAttributes: payloadAttributesV2)
+
     (requests[responseProcessor.selectedResponse.get].read.status,
      requests[responseProcessor.selectedResponse.get].read.latestValidHash)
   else:
     (PayloadExecutionStatus.syncing, none BlockHash)
-
-proc forkchoiceUpdatedNoResult*(m: ELManager,
-                                headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
-                                payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2) {.async.} =
-  discard await m.forkchoiceUpdated(
-    headBlockHash, safeBlockHash, finalizedBlockHash, payloadAttributes)
 
 # TODO can't be defined within exchangeConfigWithSingleEL
 func `==`(x, y: Quantity): bool {.borrow.}
