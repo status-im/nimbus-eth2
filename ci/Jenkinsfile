@@ -62,12 +62,12 @@ pipeline {
         sh 'make LOG_LEVEL=TRACE'
         /* Check documentation reflects `nimbus_beacon_node --help`. */
         sh '''
-          diff -u \
-            <(sed -n '/Usage/,/^...$/ { /^...$/d; p; }' \
-              docs/the_nimbus_book/src/options.md) \
-            <(build/nimbus_beacon_node --help | \
-              sed -n '/Usage/,/Available sub-commands/ { /Available sub-commands/d; p; }' | \
-              sed 's/\x1B\[[0-9;]*[mG]//g' | \
+          diff -u \\
+            <(sed -n '/Usage/,/^...$/ { /^...$/d; p; }' \\
+              docs/the_nimbus_book/src/options.md) \\
+            <(build/nimbus_beacon_node --help | \\
+              sed -n '/Usage/,/Available sub-commands/ { /Available sub-commands/d; p; }' | \\
+              sed 's/\\x1B\\[[0-9;]*[mG]//g' | \\
               sed 's/[[:space:]]*$//')
         '''
       } }
