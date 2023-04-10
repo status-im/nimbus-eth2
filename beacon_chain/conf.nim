@@ -519,7 +519,7 @@ type
 
       debugForkChoice* {.
         hidden
-        desc: "Enable debug API for fork choice (https://github.com/ethereum/beacon-APIs/pull/232)"
+        desc: "Enable debug API for fork choice (https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Debug/getDebugForkChoice)"
         defaultValue: false
         name: "debug-fork-choice" .}: bool
 
