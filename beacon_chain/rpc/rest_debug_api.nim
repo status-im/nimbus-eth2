@@ -81,33 +81,51 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
       )
     )
 
-  # https://github.com/ethereum/beacon-APIs/pull/232
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Debug/getDebugForkChoice
   if node.config.debugForkChoice or experimental in node.dag.updateFlags:
     router.api(MethodGet,
                "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
       type
-        ForkChoiceResponseExtraData = object
+        NodeValidity {.pure.} = enum
+          valid = "VALID",
+          invalid = "INVALID",
+          optimistic = "OPTIMISTIC"
+
+        NodeExtraData = object
           justified_root: Eth2Digest
           finalized_root: Eth2Digest
           u_justified_checkpoint: Option[Checkpoint]
           u_finalized_checkpoint: Option[Checkpoint]
           best_child: Eth2Digest
           best_descendant: Eth2Digest
-          invalid: bool
 
-        ForkChoiceResponse = object
+        Node = object
           slot: Slot
           block_root: Eth2Digest
           parent_root: Eth2Digest
           justified_epoch: Epoch
           finalized_epoch: Epoch
           weight: uint64
-          execution_optimistic: bool
-          execution_payload_root: Eth2Digest
-          extra_data: Option[ForkChoiceResponseExtraData]
+          validity: NodeValidity
+          execution_block_hash: Eth2Digest
+          extra_data: Option[NodeExtraData]
 
-      var responses: seq[ForkChoiceResponse]
-      for item in node.attestationPool[].forkChoice.backend.proto_array:
+        ExtraData = object
+          discard
+
+        GetForkChoiceResponse = object
+          justified_checkpoint: Checkpoint
+          finalized_checkpoint: Checkpoint
+          fork_choice_nodes: seq[Node]
+          extra_data: ExtraData
+
+      template forkChoice: auto = node.attestationPool[].forkChoice
+
+      var response = GetForkChoiceResponse(
+        justified_checkpoint: forkChoice.checkpoints.justified.checkpoint,
+        finalized_checkpoint: forkChoice.checkpoints.finalized)
+
+      for item in forkChoice.backend.proto_array:
         let
           unrealized = item.unrealized.get(item.checkpoints)
           u_justified_checkpoint =
@@ -121,21 +139,27 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
             else:
               none(Checkpoint)
 
-        responses.add ForkChoiceResponse(
+        response.fork_choice_nodes.add Node(
           slot: item.bid.slot,
           block_root: item.bid.root,
           parent_root: item.parent,
           justified_epoch: item.checkpoints.justified.epoch,
           finalized_epoch: item.checkpoints.finalized.epoch,
           weight: cast[uint64](item.weight),
-          execution_optimistic: node.dag.is_optimistic(item.bid.root),
-          execution_payload_root: node.dag.loadExecutionBlockRoot(item.bid),
-          extra_data: some ForkChoiceResponseExtraData(
+          validity:
+            if item.invalid:
+              NodeValidity.invalid
+            elif node.dag.is_optimistic(item.bid.root):
+              NodeValidity.optimistic
+            else:
+              NodeValidity.valid,
+          execution_block_hash: node.dag.loadExecutionBlockRoot(item.bid),
+          extra_data: some NodeExtraData(
             justified_root: item.checkpoints.justified.root,
             finalized_root: item.checkpoints.finalized.root,
             u_justified_checkpoint: u_justified_checkpoint,
             u_finalized_checkpoint: u_finalized_checkpoint,
             best_child: item.bestChild,
-            bestDescendant: item.bestDescendant,
-            invalid: item.invalid))
-      return RestApiResponse.jsonResponse(responses)
+            bestDescendant: item.bestDescendant))
+
+      return RestApiResponse.jsonResponse(response)
