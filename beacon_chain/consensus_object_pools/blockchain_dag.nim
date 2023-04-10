@@ -2086,7 +2086,8 @@ proc updateHead*(
       if dag.vanityLogs.onUpgradeToCapella != nil:
         dag.vanityLogs.onUpgradeToCapella()
     of ConsensusFork.Deneb:
-      discard
+      if dag.vanityLogs.onUpgradeToDeneb != nil:
+        dag.vanityLogs.onUpgradeToDeneb()
 
   if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
       checkBlsToExecutionChanges(
