@@ -1202,7 +1202,6 @@ for NUM_NODE in $(seq 1 $NUM_NODES); do
     --finalized-deposit-tree-snapshot="$CONTAINER_DEPOSIT_TREE_SNAPSHOT_FILE" \
     --rest-port="$(( BASE_REST_PORT + NUM_NODE - 1 ))" \
     --metrics-port="$(( BASE_METRICS_PORT + NUM_NODE - 1 ))" \
-    --sync-light-client=on \
     --doppelganger-detection=off \
     ${EXTRA_ARGS} \
     &> "${DATA_DIR}/log${NUM_NODE}.txt" &

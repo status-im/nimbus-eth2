@@ -60,6 +60,7 @@ The following options are available:
                                seen by other nodes it communicates with. This option allows to enable/disable
                                this functionality [=false].
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format block_root:epoch_number.
+     --sync-light-client       Accelerate execution layer sync using light client [=true].
      --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
      --finalized-deposit-tree-snapshot  SSZ file specifying a recent finalized EIP-4881 deposit tree snapshot.
      --node-name               A name for this node that will appear in the logs. If you set this to 'auto', a

@@ -312,9 +312,8 @@ type
         name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
 
       syncLightClient* {.
-        hidden
-        desc: "Accelerate sync using light client"
-        defaultValue: false
+        desc: "Accelerate execution layer sync using light client"
+        defaultValue: true
         name: "sync-light-client" .}: bool
 
       trustedBlockRoot* {.
