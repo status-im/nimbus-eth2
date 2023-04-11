@@ -85,40 +85,6 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
   if node.config.debugForkChoice or experimental in node.dag.updateFlags:
     router.api(MethodGet,
                "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
-      type
-        NodeValidity {.pure.} = enum
-          valid = "VALID",
-          invalid = "INVALID",
-          optimistic = "OPTIMISTIC"
-
-        NodeExtraData = object
-          justified_root: Eth2Digest
-          finalized_root: Eth2Digest
-          u_justified_checkpoint: Option[Checkpoint]
-          u_finalized_checkpoint: Option[Checkpoint]
-          best_child: Eth2Digest
-          best_descendant: Eth2Digest
-
-        Node = object
-          slot: Slot
-          block_root: Eth2Digest
-          parent_root: Eth2Digest
-          justified_epoch: Epoch
-          finalized_epoch: Epoch
-          weight: uint64
-          validity: NodeValidity
-          execution_block_hash: Eth2Digest
-          extra_data: Option[NodeExtraData]
-
-        ExtraData = object
-          discard
-
-        GetForkChoiceResponse = object
-          justified_checkpoint: Checkpoint
-          finalized_checkpoint: Checkpoint
-          fork_choice_nodes: seq[Node]
-          extra_data: ExtraData
-
       template forkChoice: auto = node.attestationPool[].forkChoice
 
       var response = GetForkChoiceResponse(
@@ -139,7 +105,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
             else:
               none(Checkpoint)
 
-        response.fork_choice_nodes.add Node(
+        response.fork_choice_nodes.add RestNode(
           slot: item.bid.slot,
           block_root: item.bid.root,
           parent_root: item.parent,
@@ -148,13 +114,13 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
           weight: cast[uint64](item.weight),
           validity:
             if item.invalid:
-              NodeValidity.invalid
+              RestNodeValidity.invalid
             elif node.dag.is_optimistic(item.bid.root):
-              NodeValidity.optimistic
+              RestNodeValidity.optimistic
             else:
-              NodeValidity.valid,
+              RestNodeValidity.valid,
           execution_block_hash: node.dag.loadExecutionBlockHash(item.bid),
-          extra_data: some NodeExtraData(
+          extra_data: some RestNodeExtraData(
             justified_root: item.checkpoints.justified.root,
             finalized_root: item.checkpoints.finalized.root,
             u_justified_checkpoint: u_justified_checkpoint,
@@ -162,4 +128,4 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
             best_child: item.bestChild,
             bestDescendant: item.bestDescendant))
 
-      return RestApiResponse.jsonResponse(response)
+      return RestApiResponse.jsonResponsePlain(response)
