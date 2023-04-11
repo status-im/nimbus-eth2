@@ -157,7 +157,7 @@ func setOptimisticHead*(
 
 proc updateExecutionClientHead(self: ref ConsensusManager,
                                newHead: BeaconHead): Future[Opt[void]] {.async.} =
-  let headExecutionPayloadHash = self.dag.loadExecutionBlockRoot(newHead.blck)
+  let headExecutionPayloadHash = self.dag.loadExecutionBlockHash(newHead.blck)
 
   if headExecutionPayloadHash.isZero:
     # Blocks without execution payloads can't be optimistic.
@@ -229,7 +229,7 @@ proc updateHead*(self: var ConsensusManager, wallSlot: Slot) =
       head = shortLog(self.dag.head), wallSlot
     return
 
-  if self.dag.loadExecutionBlockRoot(newHead.blck).isZero:
+  if self.dag.loadExecutionBlockHash(newHead.blck).isZero:
     # Blocks without execution payloads can't be optimistic.
     self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
 
@@ -335,7 +335,7 @@ proc runProposalForkchoiceUpdated*(
       else:
         Opt.none(seq[Withdrawal])
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
-    headBlockHash = self.dag.loadExecutionBlockRoot(beaconHead.blck)
+    headBlockHash = self.dag.loadExecutionBlockHash(beaconHead.blck)
 
   if headBlockHash.isZero:
     return

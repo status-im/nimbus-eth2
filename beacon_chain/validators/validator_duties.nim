@@ -620,7 +620,7 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
     graffiti: GraffitiBytes): Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]]
     {.async.} =
   let
-    executionBlockRoot = node.dag.loadExecutionBlockRoot(head)
+    executionBlockRoot = node.dag.loadExecutionBlockHash(head)
     executionPayloadHeader =
       try:
         awaitWithTimeout(
