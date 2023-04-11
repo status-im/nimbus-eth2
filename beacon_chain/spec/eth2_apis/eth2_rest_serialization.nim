@@ -3148,6 +3148,31 @@ proc decodeString*(t: typedesc[EventTopic],
   else:
     err("Incorrect event's topic value")
 
+proc encodeString*(value: set[EventTopic]): Result[string, cstring] =
+  var res: string
+  if EventTopic.Head in value:
+    res.add("head,")
+  if EventTopic.Block in value:
+    res.add("block,")
+  if EventTopic.Attestation in value:
+    res.add("attestation,")
+  if EventTopic.VoluntaryExit in value:
+    res.add("voluntary_exit,")
+  if EventTopic.FinalizedCheckpoint in value:
+    res.add("finalized_checkpoint,")
+  if EventTopic.ChainReorg in value:
+    res.add("chain_reorg,")
+  if EventTopic.ContributionAndProof in value:
+    res.add("contribution_and_proof,")
+  if EventTopic.LightClientFinalityUpdate in value:
+    res.add("light_client_finality_update,")
+  if EventTopic.LightClientOptimisticUpdate in value:
+    res.add("light_client_optimistic_update,")
+  if len(res) == 0:
+    return err("Topics set must not be empty")
+  res.setLen(len(res) - 1)
+  ok(res)
+
 proc decodeString*(t: typedesc[ValidatorSig],
                    value: string): Result[ValidatorSig, cstring] =
   if len(value) != ValidatorSigSize + 2:
@@ -3351,3 +3376,12 @@ proc decodeString*(t: typedesc[ConsensusFork],
   of "capella": ok(ConsensusFork.Capella)
   of "deneb": ok(ConsensusFork.Deneb)
   else: err("Unsupported or invalid beacon block fork version")
+
+proc decodeString*(t: typedesc[EventBeaconBlockObject],
+                   value: string): Result[EventBeaconBlockObject, string] =
+  try:
+    ok(RestJson.decode(value, t,
+                       requireAllFields = true,
+                       allowUnknownFields = true))
+  except SerializationError as exc:
+    err(exc.formatMsg("<data>"))

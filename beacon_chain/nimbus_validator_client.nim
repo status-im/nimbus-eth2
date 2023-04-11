@@ -10,7 +10,8 @@ import
   ./rpc/rest_key_management_api,
   ./validator_client/[
     common, fallback_service, duties_service, fork_service, block_service,
-    doppelganger_service, attestation_service, sync_committee_service]
+    doppelganger_service, attestation_service, sync_committee_service
+    monitor_service]
 
 const
   PREGENESIS_EPOCHS_COUNT = 1
@@ -318,6 +319,7 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
     vc.attestationService = await AttestationServiceRef.init(vc)
     vc.blockService = await BlockServiceRef.init(vc)
     vc.syncCommitteeService = await SyncCommitteeServiceRef.init(vc)
+    vc.monitorService = await MonitorServiceRef.init(vc)
     vc.keymanagerServer = keymanagerInitResult.server
     if vc.keymanagerServer != nil:
       vc.keymanagerHost = newClone KeymanagerHost.init(
@@ -404,6 +406,7 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   vc.attestationService.start()
   vc.blockService.start()
   vc.syncCommitteeService.start()
+  vc.monitorService.start()
 
   if not isNil(vc.keymanagerServer):
     doAssert vc.keymanagerHost != nil
@@ -453,6 +456,7 @@ proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   pending.add(vc.attestationService.stop())
   pending.add(vc.blockService.stop())
   pending.add(vc.syncCommitteeService.stop())
+  pending.add(vc.monitorService.stop())
   if not isNil(vc.keymanagerServer):
     pending.add(vc.keymanagerServer.stop())
   await allFutures(pending)

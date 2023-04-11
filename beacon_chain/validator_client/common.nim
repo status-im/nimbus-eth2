@@ -15,6 +15,7 @@ import
   ".."/spec/[eth2_merkleization, helpers, signatures, validator],
   ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
                        dynamic_fee_recipients],
+  ".."/consensus_object_pools/block_pools_types,
   ".."/validators/[keystore_management, validator_pool, slashing_protection],
   ".."/[conf, beacon_clock, version, nimbus_binary_common]
 
@@ -26,7 +27,7 @@ export
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
   beacon_clock, keystore_management, slashing_protection, validator_pool,
-  dynamic_fee_recipients, Time, toUnix, fromUnix, getTime
+  dynamic_fee_recipients, Time, toUnix, fromUnix, getTime, block_pools_types
 
 const
   SYNC_TOLERANCE* = 4'u64
@@ -74,6 +75,8 @@ type
 
   DoppelgangerServiceRef* = ref object of ClientServiceRef
     enabled*: bool
+
+  MonitorServiceRef* = ref object of ClientServiceRef
 
   DutyAndProof* = object
     epoch*: Epoch
@@ -150,6 +153,14 @@ type
   DoppelgangerAttempt* {.pure.} = enum
     None, Failure, SuccessTrue, SuccessFalse
 
+  BlockWaiter* = object
+    future*: Future[seq[Eth2Digest]]
+    count*: int
+
+  BlockDataItem* = object
+    blocks: seq[Eth2Digest]
+    waiters*: seq[BlockWaiter]
+
   ValidatorClient* = object
     config*: ValidatorClientConf
     metricsServer*: Option[MetricsHttpServerRef]
@@ -162,6 +173,7 @@ type
     blockService*: BlockServiceRef
     syncCommitteeService*: SyncCommitteeServiceRef
     doppelgangerService*: DoppelgangerServiceRef
+    monitorService*: MonitorServiceRef
     runSlotLoopFut*: Future[void]
     runKeystoreCachePruningLoopFut*: Future[void]
     sigintHandleFut*: Future[void]
@@ -185,6 +197,7 @@ type
     proposerTasks*: Table[Slot, seq[ProposerTask]]
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
+    blocksSeen*: Table[Slot, BlockDataItem]
     rng*: ref HmacDrbgContext
 
   ApiFailure* {.pure.} = enum
@@ -214,6 +227,17 @@ const
     BeaconNodeRole.BlockProposalPublish,
     BeaconNodeRole.SyncCommitteeData,
     BeaconNodeRole.SyncCommitteePublish,
+  }
+  AllBeaconNodeStatuses* = {
+    RestBeaconNodeStatus.Offline,
+    RestBeaconNodeStatus.Online,
+    RestBeaconNodeStatus.Incompatible,
+    RestBeaconNodeStatus.Compatible,
+    RestBeaconNodeStatus.NotSynced,
+    RestBeaconNodeStatus.OptSynced,
+    RestBeaconNodeStatus.Synced,
+    RestBeaconNodeStatus.Unexpected,
+    RestBeaconNodeStatus.InternalError
   }
 
 proc `$`*(roles: set[BeaconNodeRole]): string =
@@ -990,3 +1014,57 @@ proc checkedWaitForNextSlot*(vc: ValidatorClientRef, curSlot: Opt[Slot],
     nextSlot = currentSlot + 1
 
   vc.checkedWaitForSlot(nextSlot, offset, showLogs)
+  
+proc expectBlock*(vc: ValidatorClientRef, slot: Slot,
+                  confirmations: int = 1): Future[seq[Eth2Digest]] =
+  var
+    retFuture = newFuture[seq[Eth2Digest]]("expectBlock")
+    waiter = BlockWaiter(future: retFuture, count: confirmations)
+
+  proc cancellation(udata: pointer) =
+    vc.blocksSeen.withValue(slot, adata):
+      adata[].waiters.keepItIf(it.future != retFuture)
+
+  proc scheduleCallbacks(data: var BlockDataItem,
+                         waiter: BlockWaiter) =
+    data.waiters.add(waiter)
+    for mitem in data.waiters.mitems():
+      if mitem.count >= len(data.blocks):
+        if not(mitem.future.finished()): mitem.future.complete(data.blocks)
+
+  vc.blocksSeen.mgetOrPut(slot, BlockDataItem()).scheduleCallbacks(waiter)
+  if not(retFuture.finished()): retFuture.cancelCallback = cancellation
+  retFuture
+
+proc registerBlock*(vc: ValidatorClientRef, data: EventBeaconBlockObject) =
+  let
+    wallTime = vc.beaconClock.now()
+    delay = wallTime - data.slot.start_beacon_time()
+
+  notice "Block received", slot = data.slot,
+         block_root = shortLog(data.block_root), optimistic = data.optimistic,
+         delay = delay
+
+  proc scheduleCallbacks(data: var BlockDataItem,
+                         blck: EventBeaconBlockObject) =
+    data.blocks.add(blck.block_root)
+    for mitem in data.waiters.mitems():
+      if mitem.count >= len(data.blocks):
+        if not(mitem.future.finished()): mitem.future.complete(data.blocks)
+  vc.blocksSeen.mgetOrPut(data.slot, BlockDataItem()).scheduleCallbacks(data)
+
+proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
+  var blocksSeen: Table[Slot, BlockDataItem]
+  for slot, item in vc.blocksSeen.pairs():
+    if (slot.epoch() + HISTORICAL_DUTIES_EPOCHS) >= epoch:
+      blocksSeen[slot] = item
+    else:
+      let blockRoot =
+        if len(item.blocks) == 0:
+          "<missing>"
+        elif len(item.blocks) == 1:
+          shortLog(item.blocks[0])
+        else:
+          "[" & item.blocks.mapIt(shortLog(it)).join(", ") & "]"
+      debug "Block data has been pruned", slot = slot, blocks = blockRoot
+  vc.blocksSeen = blocksSeen

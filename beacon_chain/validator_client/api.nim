@@ -623,7 +623,7 @@ proc getIndexedErrorMessage(response: RestPlainResponse): string =
   else:
     "Unable to decode error response: [" & $res.error & "]"
 
-proc getErrorMessage(response: RestPlainResponse): string =
+proc getErrorMessage*(response: RestPlainResponse): string =
   let res = decodeBytes(RestErrorMessage, response.data,
                         response.contentType)
   if res.isOk():

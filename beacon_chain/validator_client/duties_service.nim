@@ -404,6 +404,7 @@ proc pollForAttesterDuties*(service: DutiesServiceRef) {.async.} =
              subscriptions_count = len(subscriptions)
 
   service.pruneAttesterDuties(currentEpoch)
+  vc.pruneBlocksSeen(currentEpoch)
 
 proc pollForSyncCommitteeDuties*(service: DutiesServiceRef) {.async.} =
   let vc = service.client
