@@ -255,7 +255,7 @@ proc expectValidForkchoiceUpdated(
 from ../consensus_object_pools/attestation_pool import
   addForkChoice, selectOptimisticHead, BeaconHead
 from ../consensus_object_pools/blockchain_dag import
-  is_optimistic, loadExecutionBlockRoot, markBlockVerified
+  is_optimistic, loadExecutionBlockHash, markBlockVerified
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
 from ../spec/datatypes/altair import SignedBeaconBlock
@@ -516,7 +516,7 @@ proc storeBlock*(
     else:
       let
         headExecutionPayloadHash =
-          self.consensusManager.dag.loadExecutionBlockRoot(newHead.get.blck)
+          self.consensusManager.dag.loadExecutionBlockHash(newHead.get.blck)
         wallSlot = self.getBeaconTime().slotOrZero
       if  headExecutionPayloadHash.isZero or
           NewPayloadStatus.noResponse == payloadStatus:

@@ -199,7 +199,7 @@ template validateBeaconBlockBellatrix(
   # exactly equivalent to whether that block's execution payload is default or
   # not, so test cached block information rather than reconstructing a state.
   if  signed_beacon_block.message.is_execution_block or
-      not dag.loadExecutionBlockRoot(parent).isZero:
+      not dag.loadExecutionBlockHash(parent).isZero:
     # [REJECT] The block's execution payload timestamp is correct with respect
     # to the slot -- i.e. execution_payload.timestamp ==
     # compute_timestamp_at_slot(state, block.slot).
@@ -376,7 +376,7 @@ proc validateBeaconBlock*(
       # `is_execution_enabled(state, block.body)` check, but unlike in
       # validateBeaconBlockBellatrix() don't have parent BlockRef.
       if  signed_beacon_block.message.is_execution_block or
-          not dag.loadExecutionBlockRoot(dag.finalizedHead.blck).isZero:
+          not dag.loadExecutionBlockHash(dag.finalizedHead.blck).isZero:
         # Blocks with execution enabled will be permitted to propagate
         # regardless of the validity of the execution payload. This prevents
         # network segregation between optimistic and non-optimistic nodes.

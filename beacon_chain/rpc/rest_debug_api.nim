@@ -153,7 +153,7 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
               NodeValidity.optimistic
             else:
               NodeValidity.valid,
-          execution_block_hash: node.dag.loadExecutionBlockRoot(item.bid),
+          execution_block_hash: node.dag.loadExecutionBlockHash(item.bid),
           extra_data: some NodeExtraData(
             justified_root: item.checkpoints.justified.root,
             finalized_root: item.checkpoints.finalized.root,
