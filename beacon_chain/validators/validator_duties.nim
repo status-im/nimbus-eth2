@@ -85,7 +85,10 @@ declarePublicGauge(attached_validator_balance_total,
 logScope: topics = "beacval"
 
 type
-  ForkedBlockResult = Result[ForkedBeaconBlock, string]
+  ForkedBlockResult =
+    Result[tuple[blck: ForkedBeaconBlock, blockValue: Wei], string]
+  BlindedBlockResult[SBBB] =
+    Result[tuple[blindedBlckPart: SBBB, blockValue: UInt256], string]
 
   SyncStatus* {.pure.} = enum
     synced
@@ -435,7 +438,7 @@ proc makeBeaconBlockForHeadAndSlot*(
         slot, validator_index
       return err("Unable to get execution payload")
 
-  return makeBeaconBlock(
+  let blck = makeBeaconBlock(
       node.dag.cfg,
       state[],
       validator_index,
@@ -460,6 +463,8 @@ proc makeBeaconBlockForHeadAndSlot*(
       slot, head = shortLog(head), error
     $error
 
+  return ok((blck.get, payload.blockValue))
+
 # workaround for https://github.com/nim-lang/Nim/issues/20900 to avoid default
 # parameters
 proc makeBeaconBlockForHeadAndSlot*(
@@ -477,7 +482,7 @@ proc makeBeaconBlockForHeadAndSlot*(
 proc getBlindedExecutionPayload[
     EPH: bellatrix.ExecutionPayloadHeader | capella.ExecutionPayloadHeader](
     node: BeaconNode, slot: Slot, executionBlockRoot: Eth2Digest,
-    pubkey: ValidatorPubKey): Future[Result[EPH, string]] {.async.} =
+    pubkey: ValidatorPubKey): Future[BlindedBlockResult[EPH]] {.async.} =
   if node.payloadBuilderRestClient.isNil:
     return err "getBlindedExecutionPayload: nil REST client"
 
@@ -506,7 +511,9 @@ proc getBlindedExecutionPayload[
         blindedHeader.data.data.signature):
       return err "getBlindedExecutionPayload: signature verification failed"
 
-    return ok blindedHeader.data.data.message.header
+    return ok((
+      blindedBlckPart: blindedHeader.data.data.message.header,
+      blockValue: blindedHeader.data.data.message.value))
 
 from ./message_router_mev import
   copyFields, getFieldNames, unblindAndRouteBlockMEV
@@ -610,7 +617,7 @@ proc getBlindedBeaconBlock[
 proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
     node: BeaconNode, head: BlockRef, pubkey: ValidatorPubKey,
     slot: Slot, randao: ValidatorSig, validator_index: ValidatorIndex,
-    graffiti: GraffitiBytes): Future[Result[(EPH, ForkedBeaconBlock), string]]
+    graffiti: GraffitiBytes): Future[Result[(EPH, UInt256, ForkedBeaconBlock), string]]
     {.async.} =
   let
     executionBlockRoot = node.dag.loadExecutionBlockRoot(head)
@@ -620,12 +627,13 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
             getBlindedExecutionPayload[EPH](
               node, slot, executionBlockRoot, pubkey),
             BUILDER_PROPOSAL_DELAY_TOLERANCE):
-          Result[EPH, string].err("getBlindedExecutionPayload timed out")
+          BlindedBlockResult[EPH].err("getBlindedExecutionPayload timed out")
       except RestDecodingError as exc:
-        Result[EPH, string].err(
-          "getBlindedExecutionPayload REST decoding error")
+        BlindedBlockResult[EPH].err(
+          "getBlindedExecutionPayload REST decoding error: " & exc.msg)
       except CatchableError as exc:
-        Result[EPH, string].err("getBlindedExecutionPayload error")
+        BlindedBlockResult[EPH].err(
+          "getBlindedExecutionPayload error: " & exc.msg)
 
   if executionPayloadHeader.isErr:
     debug "getBlindedBlockParts: getBlindedExecutionPayload failed",
@@ -645,7 +653,8 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
     let withdrawals_root = Opt.none Eth2Digest
   elif EPH is capella.ExecutionPayloadHeader:
     type PayloadType = capella.ExecutionPayloadForSigning
-    let withdrawals_root = Opt.some executionPayloadHeader.get.withdrawals_root
+    let withdrawals_root =
+      Opt.some executionPayloadHeader.get.blindedBlckPart.withdrawals_root
   elif EPH is deneb.ExecutionPayloadHeader:
     type PayloadType = deneb.ExecutionPayloadForSigning
     let withdrawals_root = Opt.some executionPayloadHeader.get.withdrawals_root
@@ -654,7 +663,8 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
 
   var shimExecutionPayload: PayloadType
   copyFields(
-    shimExecutionPayload.executionPayload, executionPayloadHeader.get, getFieldNames(EPH))
+    shimExecutionPayload.executionPayload,
+    executionPayloadHeader.get.blindedBlckPart, getFieldNames(EPH))
   # In Capella and later, this doesn't have withdrawals, which each node knows
   # regardless of EL or builder API. makeBeaconBlockForHeadAndSlot fills it in
   # when it detects builder API usage.
@@ -662,7 +672,8 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
   let newBlock = await makeBeaconBlockForHeadAndSlot(
     PayloadType, node, randao, validator_index, graffiti, head, slot,
     execution_payload = Opt.some shimExecutionPayload,
-    transactions_root = Opt.some executionPayloadHeader.get.transactions_root,
+    transactions_root =
+      Opt.some executionPayloadHeader.get.blindedBlckPart.transactions_root,
     execution_payload_root =
       Opt.some hash_tree_root(executionPayloadHeader.get),
     withdrawals_root = withdrawals_root)
@@ -673,14 +684,17 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
 
   let forkedBlck = newBlock.get()
 
-  return ok((executionPayloadHeader.get, forkedBlck))
+  return ok(
+    (executionPayloadHeader.get.blindedBlckPart,
+     executionPayloadHeader.get.blockValue,
+     forkedBlck.blck))
 
 proc getBuilderBid[
     SBBB: bellatrix_mev.SignedBlindedBeaconBlock |
           capella_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, head: BlockRef, validator: AttachedValidator, slot: Slot,
     randao: ValidatorSig, validator_index: ValidatorIndex):
-    Future[Result[SBBB, string]] {.async.} =
+    Future[BlindedBlockResult[SBBB]] {.async.} =
   # Used by the BN's own validators, but not the REST server
   when SBBB is bellatrix_mev.SignedBlindedBeaconBlock:
     type EPH = bellatrix.ExecutionPayloadHeader
@@ -699,7 +713,7 @@ proc getBuilderBid[
 
   # These, together, get combined into the blinded block for signing and
   # proposal through the relay network.
-  let (executionPayloadHeader, forkedBlck) = blindedBlockParts.get
+  let (executionPayloadHeader, bidValue, forkedBlck) = blindedBlockParts.get
 
   # This is only substantively asynchronous with a remote key signer, whereas
   # using local key signing, the await can't stall indefinitely any more than
@@ -732,12 +746,11 @@ proc getBuilderBid[
   if blindedBlock.isErr:
     return err blindedBlock.error()
 
-  return blindedBlock
+  return ok (blindedBlock.get, bidValue)
 
 proc proposeBlockMEV(node: BeaconNode, blindedBlock: auto):
     Future[Result[BlockRef, string]] {.async.} =
-  let unblindedBlockRef = await node.unblindAndRouteBlockMEV(
-    blindedBlock.get)
+  let unblindedBlockRef = await node.unblindAndRouteBlockMEV(blindedBlock)
   return if unblindedBlockRef.isOk and unblindedBlockRef.get.isSome:
     beacon_blocks_proposed.inc()
     ok(unblindedBlockRef.get.get)
@@ -746,18 +759,28 @@ proc proposeBlockMEV(node: BeaconNode, blindedBlock: auto):
     # the block failed to validate and integrate into the DAG, which for the
     # purpose of this return value, is equivalent. It's used to drive Beacon
     # REST API output.
+    #
+    # https://collective.flashbots.net/t/post-mortem-april-3rd-2023-mev-boost-relay-incident-and-related-timing-issue/1540
+    # has caused false positives, because
+    # "A potential mitigation to this attack is to introduce a cutoff timing
+    # into the proposer's slot whereafter this time (e.g. 3 seconds) the relay
+    # will no longer return a block to the proposer. Relays began to roll out
+    # this mitigation in the evening of April 3rd UTC time with a 2 second
+    # cutoff, and notified other relays to do the same. After receiving
+    # credible reports of honest validators missing their slots the suggested
+    # timing cutoff was increased to 3 seconds."
     let errMsg =
       if unblindedBlockRef.isErr:
         unblindedBlockRef.error
       else:
-        "Unblinded block failed either to validate or integrate into validated store"
+        "Unblinded block not returned to proposer"
     err errMsg
 
 proc makeBlindedBeaconBlockForHeadAndSlot*[
     BBB: bellatrix_mev.BlindedBeaconBlock | capella_mev.BlindedBeaconBlock](
     node: BeaconNode, randao_reveal: ValidatorSig,
     validator_index: ValidatorIndex, graffiti: GraffitiBytes, head: BlockRef,
-    slot: Slot): Future[Result[BBB, string]] {.async.} =
+    slot: Slot): Future[BlindedBlockResult[BBB]] {.async.} =
   ## Requests a beacon node to produce a valid blinded block, which can then be
   ## signed by a validator. A blinded block is a block with only a transactions
   ## root, rather than a full transactions list.
@@ -795,7 +818,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
     # Don't try EL fallback -- VC specifically requested a blinded block
     return err("Unable to create blinded block")
 
-  let (executionPayloadHeader, forkedBlck) = blindedBlockParts.get
+  let (executionPayloadHeader, bidValue, forkedBlck) = blindedBlockParts.get
   withBlck(forkedBlck):
     when consensusFork >= ConsensusFork.Deneb:
       debugRaiseAssert $denebImplementationMissing & ": makeBlindedBeaconBlockForHeadAndSlot"
@@ -804,8 +827,8 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
              EPH is bellatrix.ExecutionPayloadHeader) or
             (consensusFork == ConsensusFork.Capella and
              EPH is capella.ExecutionPayloadHeader)):
-        return ok constructPlainBlindedBlock[BBB, EPH](
-          blck, executionPayloadHeader)
+        return ok (constructPlainBlindedBlock[BBB, EPH](
+          blck, executionPayloadHeader), bidValue)
       else:
         return err("makeBlindedBeaconBlockForHeadAndSlot: mismatched block/payload types")
     else:
@@ -835,8 +858,8 @@ proc proposeBlockAux(
       if usePayloadBuilder:
         getBuilderBid[SBBB](node, head, validator, slot, randao, validator_index)
       else:
-        let fut = newFuture[Result[SBBB, string]]("builder-bid")
-        fut.complete(Result[SBBB, string].err(
+        let fut = newFuture[BlindedBlockResult[SBBB]]("builder-bid")
+        fut.complete(BlindedBlockResult[SBBB].err(
           "either payload builder disabled or liveness failsafe active"))
         fut
     engineBlockFut = makeBeaconBlockForHeadAndSlot(
@@ -868,7 +891,7 @@ proc proposeBlockAux(
 
   let engineBidAvailable =
     if engineBlockFut.completed:
-      if engineBlockFut.read().isOk:
+      if engineBlockFut.read.isOk:
         true
       else:
         info "Engine block building error",
@@ -883,10 +906,8 @@ proc proposeBlockAux(
 
   let useBuilderBlock =
     if builderBidAvailable:
-      if engineBidAvailable:
-        true
-      else:
-        true
+      (not engineBidAvailable) or payloadBuilderBidFut.read.get().blockValue >
+        engineBlockFut.read.get().blockValue
     else:
       if not engineBidAvailable:
         return head   # errors logged in router
@@ -894,21 +915,22 @@ proc proposeBlockAux(
 
   if useBuilderBlock:
     let
-      blindedBlock = payloadBuilderBidFut.read()
+      blindedBlock = payloadBuilderBidFut.read
       # Before proposeBlockMEV, can fall back to EL; after, cannot without
       # risking slashing.
-      maybeUnblindedBlock = await proposeBlockMEV(node, blindedBlock)
+      maybeUnblindedBlock = await proposeBlockMEV(
+        node, blindedBlock.get.blindedBlckPart)
 
     return maybeUnblindedBlock.valueOr:
       warn "Blinded block proposal incomplete",
         head = shortLog(head), slot, validator_index,
         validator = shortLog(validator),
         err = maybeUnblindedBlock.error,
-        blindedBlck = shortLog(blindedBlock.get)
+        blindedBlck = shortLog(blindedBlock.get().blindedBlckPart)
       beacon_block_builder_missed_without_fallback.inc()
       return head
 
-  var forkedBlck = engineBlockFut.read().get
+  var forkedBlck = engineBlockFut.read.get().blck
 
   withBlck(forkedBlck):
     var blobs_sidecar = deneb.BlobsSidecar(
