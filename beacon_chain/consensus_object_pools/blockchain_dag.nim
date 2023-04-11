@@ -1978,9 +1978,9 @@ proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
       ZERO_HASH
 
 proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Eth2Digest =
-  if blck.executionBlockRoot.isNone:
-    blck.executionBlockRoot = Opt.some dag.loadExecutionBlockHash(blck.bid)
-  blck.executionBlockRoot.unsafeGet
+  if blck.executionBlockHash.isNone:
+    blck.executionBlockHash = Opt.some dag.loadExecutionBlockHash(blck.bid)
+  blck.executionBlockHash.unsafeGet
 
 from std/packedsets import PackedSet, incl, items
 

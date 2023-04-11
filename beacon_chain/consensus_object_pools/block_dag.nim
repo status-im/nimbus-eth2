@@ -34,7 +34,7 @@ type
     bid*: BlockId ##\
       ## Root that can be used to retrieve block data from database
 
-    executionBlockRoot*: Opt[Eth2Digest]
+    executionBlockHash*: Opt[Eth2Digest]
 
     parent*: BlockRef ##\
       ## Not nil, except for the finalized head
@@ -54,10 +54,10 @@ template slot*(blck: BlockRef): Slot = blck.bid.slot
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
-    executionPayloadRoot: Opt[Eth2Digest], slot: Slot): BlockRef =
+    executionBlockHash: Opt[Eth2Digest], slot: Slot): BlockRef =
   BlockRef(
     bid: BlockId(root: root, slot: slot),
-    executionBlockRoot: executionPayloadRoot)
+    executionBlockHash: executionBlockHash)
 
 func init*(
     T: type BlockRef, root: Eth2Digest,
