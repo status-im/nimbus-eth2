@@ -1,9 +1,11 @@
 # Build from source
 
-Building Nimbus from source ensures that all hardware-specific optimizations are turned on. The build process itself is simple and fully automated, but may take a few minutes.
+Building Nimbus from source ensures that all hardware-specific optimizations are turned on.
+The build process itself is simple and fully automated, but may take a few minutes.
 
 !!! note "Nim"
-    Nimbus is written in the [Nim](https://nim-lang.org) programming language - the correct version will automatically be downloaded as part of the build process!
+    Nimbus is written in the [Nim](https://nim-lang.org) programming language.
+    The correct version will automatically be downloaded as part of the build process!
 
 ## Prerequisites
 
@@ -44,14 +46,15 @@ When building from source, you will need additional build dependencies to be ins
 
     Install Mingw-w64 for your architecture using the "[MinGW-W64 Online Installer](https://sourceforge.net/projects/mingw-w64/files/)":
 
-    1. Select your architecture in the setup menu (`i686` on 32-bit, `x86_64` on 64-bit)
-    2. Set threads to `win32`
+    1. Select your architecture in the setup menu (`i686` on 32-bit, `x86_64` on 64-bit).
+    2. Set threads to `win32`.
     3. Set exceptions to "dwarf" on 32-bit and "seh" on 64-bit.
-    4. Change the installation directory to `C:\mingw-w64` and add it to your system PATH in `"My Computer"/"This PC" -> Properties -> Advanced system settings -> Environment Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin` (`C:\mingw-w64\mingw32\bin` on 32-bit)
+    4. Change the installation directory to `C:\mingw-w64` and add it to your system PATH in `"My Computer"/"This PC" -> Properties -> Advanced system settings -> Environment Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin` (`C:\mingw-w64\mingw32\bin` on 32-bit).
 
     Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build `nimbus-eth2`.
 
-    > **Note:** If the online installer isn't working you can try installing `mingw-w64` through [MSYS2](https://www.msys2.org/).
+    !!! note
+        If the online installer isn't working you can try installing `mingw-w64` through [MSYS2](https://www.msys2.org/).
 
 === "Android"
 

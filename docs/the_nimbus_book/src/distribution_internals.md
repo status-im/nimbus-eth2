@@ -27,17 +27,18 @@ binaries, etc); they get access to the source code through the use of external v
 
 ## Build process
 
-It all starts from the GitHub actions in `.github/workflows/release.yml`. There
-is a different job for each supported OS-architecture combination and they all
+It all starts from the GitHub actions in `.github/workflows/release.yml`.
+There is a different job for each supported OS-architecture combination and they all
 run in parallel (ideally).
 
-Once all those CI jobs complete successfully, a GitHub release draft is created
-and all the distributable archives are uploaded to it. A list of checksums for
-the main binaries is inserted in the release description. That draft needs to
-be manually published.
+Once all those CI jobs are completed successfully, a GitHub release draft is created
+and all the distributable archives are uploaded to it.
+A list of checksums for
+the main binaries is inserted in the release description.
+That draft needs to be manually published.
 
-The build itself is triggered by a Make target. E.g.: `make dist-amd64`. This invokes
-`scripts/make_dist.sh` which builds the corresponding Docker container from
+The build itself is triggered by a Make target, e.g. `make dist-amd64`.
+This invokes `scripts/make_dist.sh` which builds the corresponding Docker container from
 `docker/dist/` and runs it with the Git repository's top directory as an external
 volume.
 
@@ -48,8 +49,8 @@ create distributable tarballs.
 ## Docker images for end users
 
 Configured in `.github/workflows/release.yml` (only for Linux AMD64, ARM and
-ARM64): we unpack the distribution tarball and copy its content into a third
-type of Docker image - meant for end users and defined by
+ARM64), we unpack the distribution tarball and copy its content into a third
+type of Docker image — meant for end users and defined by
 `docker/dist/binaries/Dockerfile.amd64` (and related).
 
 We then publish that to [Docker Hub](https://hub.docker.com/r/statusim/nimbus-eth2).

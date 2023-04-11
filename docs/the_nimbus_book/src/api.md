@@ -337,7 +337,7 @@ Equivalent call in the official REST API:
 curl http://localhost:5052/eth/v1/node/health -s -w "%{http_code}"
 ```
 
-## Valdiator API
+## Validator API
 
 ### [`get_v1_validator_duties_attester`](https://ethereum.github.io/eth2.0-APIs/#/ValidatorRequiredApi/getAttesterDuties)
 

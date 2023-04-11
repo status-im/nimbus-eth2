@@ -1,19 +1,23 @@
 # Prater testnet
 
-`prater`, also known as `goerli`, is the current long-running merge testnet. It provides an opportunity to verify your setup works as expected through the proof-of-stake transition and in a post-merge context as well as to safely practise node operations such as adding and removing validators, migrating between clients, and performing upgrades and backups. If you come across any issues, please [report them here](https://github.com/status-im/nimbus-eth2/issues).
+`prater`, also known as `goerli`, is the current long-running merge testnet.
+It provides an opportunity to verify your setup works as expected through the proof-of-stake transition and in a post-merge context as well as to safely practice node operations such as adding and removing validators, migrating between clients, and performing upgrades and backups.
+If you come across any issues, please [report them here](https://github.com/status-im/nimbus-eth2/issues).
 
 !!! note
     Post-merge, node runners will need to run both a consensus and execution layer client.
 
-# General Preparation
+## General Preparation
 
 1. Generate the JWT secret with `openssl rand -hex 32 | tr -d "\n" > "/opt/jwtsecret"`. This file needs to be passed to both the execution client and the consensus client.
 
-2. Choose an Ethereum address to receive transaction fees. This ETH will be immediately available, not part of the staking contract.
+2. Choose an Ethereum address to receive transaction fees.
+   This ETH will be immediately available, not part of the staking contract.
 
 3. Download the [latest release](./binaries.md) and install it by unpacking the archive.
 
-4. Choose one of Nethermind, Besu, Erigon, or Geth as an execution client, using one of the [compatible versions](https://blog.ethereum.org/2022/07/27/goerli-prater-merge-announcement/#execution-layer). Download, install, and [run it](https://notes.ethereum.org/@launchpad/goerli#Run-an-Execution-Layer-Client).
+4. Choose one of Nethermind, Besu, Erigon, or Geth as an execution client, using one of the [compatible versions](https://blog.ethereum.org/2022/07/27/goerli-prater-merge-announcement/#execution-layer).
+   Download, install, and [run it](https://notes.ethereum.org/@launchpad/goerli#Run-an-Execution-Layer-Client).
 
 For example, Nethermind on Goerli can run via:
 ```sh
@@ -49,7 +53,7 @@ build/install/besu/bin/besu     \
   --engine-jwt-secret=/opt/jwtsecret
 ```
 
-# Sync the beacon node and execution client
+## Sync the beacon node and execution client
 
 5. [Start syncing](./start-syncing.md) the node consisting of Nimbus and chosen execution client, for example by running:
 ```sh
@@ -64,9 +68,11 @@ nimbus-eth2/build/nimbus_beacon_node \
 
 One might consider here to [set up a systemd service](./beacon-node-systemd.md) to ensure this runs automatically, including after restarts.
 
-# Begin validating
+## Begin validating
 
-6. Once this Goerli/Prater node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress), use the [Prater launchpad](https://prater.launchpad.ethereum.org/en/) to obtain Goerli/Prater validators with [Goerli ETH](./goerli-eth.md). It might require some time before these enter and are activated on the beacon chain. If one does this before the node which will attest and propose using those validators has synced, one might miss attestations and block proposals.
+6. Once this Goerli/Prater node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress), use the [Prater launchpad](https://prater.launchpad.ethereum.org/en/) to obtain Goerli/Prater validators with [Goerli ETH](./goerli-eth.md).
+It might require some time before these enter and are activated on the beacon chain.
+If one does this before the node which will attest and propose using those validators has synced, one might miss attestations and block proposals.
 
 7. [Import the validator keys](./keys.md) you receive into Nimbus.
 

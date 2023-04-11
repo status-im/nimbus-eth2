@@ -8,7 +8,7 @@ Exits are subject to a wait period that depends on the length of the exit queue.
     Voluntary exits are **irreversible**. You won't be able to validate again with the same key.
 
 !!! note
-    Voluntary exits won't be processed if the chain isn't finalising.
+    Voluntary exits won't be processed if the chain isn't finalizing.
 
 To perform a voluntary exit, make sure your beacon node is running with the `--rest` option enabled (e.g. `./run-mainnet-beacon-node.sh --rest`), then run:
 

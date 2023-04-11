@@ -1,6 +1,8 @@
 # Upgrade / downgrade
 
-Make sure you stay on the lookout for any critical updates to Nimbus. The best way to do so is through the **announcements** channel on our [discord](https://discord.com/invite/XRxWahP). The release page can be found [here](https://github.com/status-im/nimbus-eth2/releases/).
+Make sure you stay on the lookout for any critical updates to Nimbus.
+The best way to do so is through the **announcements** channel on our [discord](https://discord.com/invite/XRxWahP).
+The release page can be found [here](https://github.com/status-im/nimbus-eth2/releases/).
 
 !!! note
     If your beacon node is already running, you'll need to restart it for the changes to take effect.
@@ -46,7 +48,7 @@ To update to the latest version, either download the binary or compile the beaco
     ```
 
     !!! tip
-        If you want to minimise downtime, you can build Nimbus while the node is running!
+        If you want to minimize downtime, you can build Nimbus while the node is running!
 
 Complete the upgrade by restarting the node!
 
@@ -54,16 +56,16 @@ Complete the upgrade by restarting the node!
 
 As of `v1.4.0`, releases are marked with the following tags:
 
-`low-urgency`: update at your own convenience, sometime within our normal update cycle of two weeks
+- `low-urgency`: update at your own convenience, sometime within our normal update cycle of two weeks
 
-`medium-urgency`: may contain an important stability fix, it is better to update sooner rather than later
+- `medium-urgency`: may contain an important stability fix, it is better to update sooner rather than later
 
-`high-urgency`: update as soon as you can, this is a critical update required for Nimbus to function correctly
+- `high-urgency`: update as soon as you can, this is a critical update required for Nimbus to function correctly
 
 
 ## Install a specific version
 
-*Occassionally you may need to either upgrade or downgrade to a specific version of Nimbus.*
+Occasionally, you may need to either upgrade or downgrade to a specific version of Nimbus.
 
 Nimbus can safely be downgraded to any version targeting the current hard fork of the chain, unless otherwise noted among the release notes.
 
