@@ -1,4 +1,7 @@
+
 # Attestation performance
+
+TODO: This documentation is probably outdated
 
 `ncli_db validatorPerf` is an advanced tool that helps you analyze the performance of your validator over time.
 
@@ -9,6 +12,7 @@ The tool requires that you [build nimbus from source](./build.md).
 Make sure you're in the `nimbus-eth2` repository.
 
 ### 1. Build ncli_db
+
 The first step is to build `ncli_db`:
 ```sh
 make ncli_db

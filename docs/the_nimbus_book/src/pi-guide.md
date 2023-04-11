@@ -265,6 +265,8 @@ Open the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/re
 
 Run this in your home directory to download nimbus-eth2:
 
+TODO: The guide should recommend installing through our APT package.
+
 ```sh
 mkdir nimbus-eth2
 wget <insert download link here>

@@ -1,6 +1,10 @@
 # For Developers
 
+TODO: Clean up the project README and link to this page instead
+
 This page contains tips and tricks for developers, further resources, along with information on how to set up your build environment on your platform.
+
+TODO: The install.md pre-requisites are missing packages needed for development, such as cmake (potentially others as well)
 
 Before building Nimbus for the first time, make sure to install the [prerequisites](./install.md).
 
@@ -180,6 +184,8 @@ Usually 1 - 100, but can be higher on multi-core CPUs.
 ## Build and run the local beacon chain simulation
 
 The beacon chain simulation runs several beacon nodes on the local machine, attaches several local validators to each, and builds a beacon chain between them.
+
+TODO: This information is outdated (see my remarks in the main README)
 
 To run the simulation:
 

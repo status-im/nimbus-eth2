@@ -59,7 +59,6 @@ You can check where the beacon chain fits in the Ethereum ecosystem in our Two-P
 ## Donations
 
 If you'd like to contribute to Nimbus development, our donation address is [`0x70E47C843E0F6ab0991A3189c28F2957eb6d3842`](https://etherscan.io/address/0x70E47C843E0F6ab0991A3189c28F2957eb6d3842)
-
 ## Branch guide
 
 * `stable` - latest stable release - **this branch is recommended for most users**
@@ -96,6 +95,8 @@ build/state_sim --help
 ```
 
 ### Local network simulation
+
+TODO: The correct way to run the local simulation nowadays is with `make local-testnet-minimal` and `make local-testnet-mainnet` 
 
 The local network simulation will create a full peer-to-peer network of beacon nodes and validators on a single machine, and run the beacon chain in real time.
 
@@ -145,6 +146,8 @@ You can find out more about it in the [development update](https://our.status.im
 _Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us your feedback about the process!_
 
 ### Visualising simulation metrics
+
+# TODO: Is this up to date?
 
 The [generic instructions from the Nimbus repo](https://github.com/status-im/nimbus/#metric-visualisation) apply here as well.
 

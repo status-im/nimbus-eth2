@@ -58,6 +58,8 @@ This simulates the maximum load that the consensus layer will put on the machine
 
 ### How do I add an additional validator?
 
+TODO: This is already answered in another section in the guide
+
 To add an additional validator, follow [the same steps](./keys.md) as you did when you added your first.
 You'll have to restart the beacon node for the changes to take effect.
 
@@ -251,6 +253,8 @@ This means that validators need not go to extreme lengths with backup clients or
 Again, it depends.
 Behaving maliciously, e.g. attesting to invalid or contradicting blocks, will lead to a validator's stake being slashed.
 
+TODO: I don't think this is accurate. Verify with the latest specs.
+
 The minimum amount that can be slashed is 1 ETH, but **this number increases if other validators are slashed at the same time.**
 
 The idea behind this is to minimize the losses from honest mistakes, but strongly discouraging coordinated attacks.
@@ -269,6 +273,11 @@ Validators that are slashed are prevented from participating in the protocol fur
 
 ### What happens I lose my signing key?
 
+TODO: This should first recommend the key to be regenerated from the withdrwal key (see below).
+      If the user have lost their withdrawal key as well, explain that they will be eventually
+      booted from the network and 16 ETH will be transfered to their withdrawal address (as long
+      as it's specified).
+
 If the signing key is lost, the validator can no longer propose or attest.
 
 Over time, the validator's balance will decrease as he or she is punished for not participating in the consensus process.
@@ -282,6 +291,9 @@ The 16 ETH can then be withdrawn, with the withdrawal key, after a delay of arou
 Note that this delay can be longer if many others are exiting or being kicked out at the same time.
 
 ### What happens if I lose my withdrawal key?
+
+TODO: This should probably recommend or mention that you don't need to have withdrawal key.
+      You can use 0x01 withdrawal credentials specifying a withdrawal address.
 
 If the withdrawal key is lost, there is no way to obtain access to the funds held by the validator.
 

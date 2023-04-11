@@ -200,8 +200,3 @@ For a quick guide on how to set up a systemd service, see [here](./beacon-node-s
 If you are unsure of the safety of a step, please get in touch with us directly on [discord](https://discord.gg/nnNEBvHu3m).
 Additionally, we recommend testing the migration works correctly on a testnet before going ahead on mainnet.
 
-
-
-
-
-

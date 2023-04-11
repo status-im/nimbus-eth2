@@ -9,6 +9,9 @@ See [here](./networking.md) for our networking related tips and tricks.
 Attestation effectiveness is a metric that directly affects your validator rewards.
 In simple terms, an attestation is more valuable the sooner it is put into a block and included in the chain.
 
+TODO: It's no longer true that the inclusion distance affects the validator rewards.
+      As long as you are within the allowed inclusion distance, you get the full reward.
+
 This interval is called the *inclusion distance* of an attestation.
 The smaller it is, the more profitable your validator will be.
 For a deeper understanding we highly recommend reading [Attestant's wonderful blog post](https://www.attestant.io/posts/defining-attestation-effectiveness/#:~:text=Stakers%20looking%20to%20maximize%20their,provide%20clear%20metrics%20for%20performance.) on the matter.

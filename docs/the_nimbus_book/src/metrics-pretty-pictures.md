@@ -43,6 +43,8 @@ nim_gc_heap_instance_occupied_bytes{type_name="seq[TrustedAttestation]"} 29728.0
     Metrics are by default only accessible from the same machine as the beacon node is running on.
     To fetch metrics from a remote machine, an SSH tunnel is recommended.
 
+TODO: Create a reference page with all metrics for each of the products (beacon node and validator client)
+
 The metrics server offers one snapshot in time of the state of the beacon node.
 Metrics, however, are at their most useful when collected over time — for this, we'll need to set up two more pieces of software: Prometheus and Grafana.
 
@@ -214,5 +216,5 @@ See [here](https://github.com/metanull-operator/eth2-grafana/tree/master/nimbus)
 
 ### Telegram
 
-TODO
+TODO: We should either provide instructions here or delete this section
 

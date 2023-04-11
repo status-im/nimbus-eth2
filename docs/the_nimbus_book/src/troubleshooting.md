@@ -124,6 +124,8 @@ Please check that your setup matches our [system requirements](./hardware.md).
 
 ### Eth1 chain monitor failure
 
+TODO: This error message has changed
+
 If you see an error that looks like the following:
 
 ```

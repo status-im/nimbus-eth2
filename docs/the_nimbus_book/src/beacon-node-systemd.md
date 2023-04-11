@@ -109,6 +109,8 @@ sudo journalctl -u nimbus_beacon_node.service --since yesterday
 
 ## Import validator keys
 
+TODO: This should probably reference the standard way of importing validators
+
 When using a service, the beacon node is running as a different user.
 The key import must be performed as this user in order for the key files to have the correct permission:
 
