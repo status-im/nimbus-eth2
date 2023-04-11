@@ -4,7 +4,7 @@ In the most simple setup, a single beacon node paired with an execution client i
 
 Nimbus however also provides options for running advanded setups that provide additional security and redundancy.
 
-See the [validator client](./validator-client.md) page to get started!
+See the [validator client page](./validator-client.md) to get started!
 
 ## Multiple beacon nodes
 
@@ -34,7 +34,7 @@ When configuring multiple beacon nodes, each beacon node can be assigned to perf
 | sync-publish        | [publishContributionAndProofs()](https://ethereum.github.io/beacon-APIs/#/Validator/publishContributionAndProofs) <br/> [submitPoolSyncCommitteeSignatures()](https://ethereum.github.io/beacon-APIs/#/Beacon/submitPoolSyncCommitteeSignatures)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | duties              | [getGenesis()](https://ethereum.github.io/beacon-APIs/#/Beacon/getGenesis)<br/>[getSpec()](https://ethereum.github.io/beacon-APIs/#/Config/getSpec)<br/> [getSyncingStatus()](https://ethereum.github.io/beacon-APIs/#/Node/getSyncingStatus)<br/>getValidatorsActivity()<br/>[getForkSchedule()](https://ethereum.github.io/beacon-APIs/#/Config/getForkSchedule)<br/>[getAttesterDuties()](https://ethereum.github.io/beacon-APIs/#/Validator/getAttesterDuties)<br/>[getProposerDuties()](https://ethereum.github.io/beacon-APIs/#/Validator/getProposerDuties)<br/>[getSyncCommitteeDuties()](https://ethereum.github.io/beacon-APIs/#/Validator/getSyncCommitteeDuties)<br/> [getStateValidators()](https://ethereum.github.io/beacon-APIs/#/Beacon/getStateValidators)<br/>[prepareSyncCommitteeSubnets()](https://ethereum.github.io/beacon-APIs/#/Validator/prepareSyncCommitteeSubnets)<br/>[prepareBeaconCommitteeSubnet()](https://ethereum.github.io/beacon-APIs/#/Validator/prepareBeaconCommitteeSubnet) |
 
-Also there could be combinations
+Also, there could be combinations:
 
 | Name        | Roles                                                                |
 | ----------- |:-------------------------------------------------------------------- |
@@ -48,13 +48,15 @@ Also there could be combinations
 
 ### Configuration
 
-Roles are configured using the `#roles=` URL anchor - the default is `all`:
+Roles are configured using the `#roles=` URL anchor.
+The default is `all`:
 
 Examples:
-`http://127.0.0.1:5052/#roles=attestation-data,attestation-publish`
-`http://127.0.0.1:5053/#roles=block-proposal-data,block-proposal-publish`
-`http://127.0.0.1:5054/#roles=all`
-`http://127.0.0.1:5055/` also means `all` roles.
+
+- `http://127.0.0.1:5052/#roles=attestation-data,attestation-publish`
+- `http://127.0.0.1:5053/#roles=block-proposal-data,block-proposal-publish`
+- `http://127.0.0.1:5054/#roles=all`
+- `http://127.0.0.1:5055/` also means `all` roles.
 
 Before usage all the roles are got stripped from BN URLs.
 
@@ -68,9 +70,11 @@ These setups are resilient against any single beacon node getting disconnected a
 
 ### Sentry node setup
 
-In the Ethereum network, the block proposer is known up to 12 minutes before they propose the block. Because each validator sends attestations every 6 minutes, it is also possible to map the validator key to the beacon node IP address that serves it.
+In the Ethereum network, the block proposer is known up to 12 minutes before they propose the block.
+Because each validator sends attestations every 6 minutes, it is also possible to map the validator key to the beacon node IP address that serves it.
 
-Sentry nodes setups allow separating block production traffic from attestations and sync committee messages, making sure that a separate public IP address is used when proposing blocks. In this setup, there are two beacon nodes:
+Sentry nodes setups allow separating block production traffic from attestations and sync committee messages, making sure that a separate public IP address is used when proposing blocks.
+In this setup, there are two beacon nodes:
 
 * One beacon node has all roles except `block`
 * The other beacon node has the `block` role

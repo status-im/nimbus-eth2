@@ -8,9 +8,11 @@ Check that your machine matches the [minimal system requirements](./hardware.md)
 
 ## Time
 
-The beacon chain relies on your computer having the correct time set (±0.5 seconds). It is important that you periodically synchronize the time with an NTP server.
+The beacon chain relies on your computer having the correct time set (±0.5 seconds).
+It is important that you periodically synchronize the time with an NTP server.
 
-If the above sounds like latin to you, don't worry. You should be fine as long as you haven't changed the time and date settings on your computer (they should be set automatically).
+If the above sounds like Latin to you, don't worry.
+You should be fine as long as you haven't changed the time and date settings on your computer (they should be set automatically).
 
 === "Linux"
 

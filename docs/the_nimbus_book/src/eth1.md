@@ -1,11 +1,12 @@
 # Run an execution client
 
-In order to perform validation duties, you need to also be running an execution client - at least one for each beacon node.
+In order to perform validation duties, you need to also be running an execution client — at least one for each beacon node.
 
-Nimbus has been tested all major execution clients - see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
+Nimbus has been tested all major execution clients, see the [execution client comparison](https://ethereum.org/en/developers/docs/nodes-and-clients/#execution-clients) for more information.
 
 !!! warning
-    You need to run your own execution client - relying on third-party services such as Infura, Alchemy and Pocket is no longer possible.
+    You need to run your own execution client.
+    Relying on third-party services such as Infura, Alchemy and Pocket is no longer possible.
     Sharing the same execution client between multiple beacon nodes is not supported.
 
 !!! info
@@ -66,11 +67,11 @@ The execution client needs to be running at all times in order for the beacon no
 It will start its syncing process as soon as the beacon node connects to it.
 Once both are synced, they will continue to work in tandem to validate the latest Ethereum state.
 
-It is safe to start the beacon node even if the execution client is not yet fully synced and vice versa.
+It is safe to start the beacon node even if the execution client is not yet fully synced, and vice versa.
 
 ### 3. Pass the URL and JWT secret to Nimbus
 
-The `--el` option informs the beacon node how to connect to the execution client - both `http://` and `ws://` URLs are supported.
+The `--el` option informs the beacon node how to connect to the execution client — both `http://` and `ws://` URLs are supported.
 
 !!! info
     By default, the execution client accepts connections on the localhost interface (`127.0.0.1`), with default authenticated RPC port `8551`.
@@ -114,7 +115,7 @@ To enable this mode, just specify multiple URLs through the `--el` option when s
 
 !!! tip
     You can use a different secret for each connection by specifying `jwt-secret` or `jwt-secret-file` as a query parameter in the anchor section of the URL (e.g. `http://127.0.0.1:8551/#jwt-secret=0x12345...` or `http://127.0.0.1:8551/#jwt-secret-file=/tmp/jwtsecret`).
-    If you use a [TOML config file](./options.md#configuration-files), you can also use the following more natural syntax:
+    If you use a [TOML config file](./options.md#configuration-files), you can also use the following, more natural, syntax:
 
     ```toml
     data-dir = "my-data-dir"

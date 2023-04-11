@@ -1,6 +1,7 @@
 # Sync your node
 
-Before you can use your node, it needs to sync with the network. Syncing starts automatically when you start your node, and may take several days depending on the performance of your hardware.
+Before you can use your node, it needs to sync with the network.
+Syncing starts automatically when you start your node, and may take several days depending on the performance of your hardware.
 
 If you are planning to become a validator, you should ensure that your beacon node is [completely synced](./keep-an-eye.md#keep-track-of-your-syncing-progress) before submitting your deposit, or you might miss attestations and proposal duties until it has finished syncing.
 
@@ -8,25 +9,27 @@ If you are planning to become a validator, you should ensure that your beacon no
     To get started more quickly, you can perform a [trusted node sync](./trusted-node-sync.md) instead - this requires access to a synced node or a third-party service.
 
 !!! note
-    You need need to run an execution client (**web3 provider**) together with the beacon node. See [here](./eth1.md) for instructions on how to do so.
+    You need need to run an execution client (**web3 provider**) together with the beacon node.
+    See [here](./eth1.md) for instructions on how to do so.
 
 ## Networks
 
-Using Nimbus, you can connect either to a testnet, or mainnet. Mainnet is the main ethereum network where real assets are at stake, while testnets are used by users and developers alike to test their node and setup before committing real assets.
+Using Nimbus, you can connect either to a testnet or mainnet.
+Mainnet is the main Ethereum network where real assets are at stake, while testnets are used by users and developers alike to test their node and setup before committing real assets.
 
 !!! tip
-    If this is the first time you're setting up your node, it is recommended you run it on a testnet first. Later, when everything is working, you can easily switch to mainned.
+    If this is the first time you're setting up your node, it is recommended you run it on a testnet first.
+    Later, when everything is working, you can easily switch to mainnet.
 
 ### Testnet
 
-To start syncing the `prater` testnet , from the `nimbus-eth2` repository, run:
+To start syncing the `prater` testnet from the `nimbus-eth2` repository, run:
 
 ```
  ./run-prater-beacon-node.sh
 ```
 
 ### Mainnet
-
 
 To start syncing the Ethereum beacon chain mainnet, run:
 
@@ -55,11 +58,13 @@ INF 2020-12-01 11:26:36.285+00:00 Slot end                                   top
 
 ## Data directory
 
-While running, the beacon node will store chain data and other information its data directory, which by default is found in `build/data` - for more information, see the [data directory](./data-dir.md) guide.
+While running, the beacon node will store chain data and other information its data directory, which by default is found in `build/data`.
+For more information, see the [data directory](./data-dir.md) guide.
 
 ## Command line options
 
-You can add command line options to the startup command - for example, to change the port to 9100, use:
+You can add command line options to the startup command.
+For example, to change the port to 9100, use:
 
 ```sh
 ./run-prater-beacon-node.sh --tcp-port=9100 --udp-port=9100

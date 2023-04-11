@@ -24,7 +24,7 @@ If you have used other software for generating your BLS withdrawal credentials, 
     Nimbus will allow you to broadcast the `BLS-to-Execution-Change` message only after the Capella hard-fork is activated on 12th of April 2023.
 
 !!! tip
-    The specified withdrawal address doesn't need to match the [fee recipient address](./suggested-fee-recipient.md) used by your validator
+    The specified withdrawal address doesn't need to match the [fee recipient address](./suggested-fee-recipient.md) used by your validator.
 
 !!! tip
     It's recommended that you prepare your `BLS-to-Execution-Change` message on a secure device, disconnected from the internet.
@@ -46,7 +46,7 @@ No user action is required.
 
 ## Full withdrawals
 
-To withdrwal the entire staked balance of your validator, you must perform a voluntary validator exit.
+To withdrawal the entire staked balance of your validator, you must perform a voluntary validator exit.
 
 !!! warning
     Voluntary exits are **irreversible**.

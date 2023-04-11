@@ -2,7 +2,8 @@
 
 Command line options allow you to customize the way your beacon node operates.
 
-You pass options to the beacon node by adding them to the command line. For example, if you want to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, run:
+You pass options to the beacon node by adding them to the command line.
+For example, if you want to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, run:
 
 ```sh
 ./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
@@ -10,7 +11,7 @@ You pass options to the beacon node by adding them to the command line. For exam
 
 ## Available options
 
-To see the full list of command line options availabe to you, with descriptions, run:
+To see the full list of command line options available to you, with descriptions, run:
 
 ```sh
 build/nimbus_beacon_node --help
@@ -127,13 +128,17 @@ The following options are available:
 ## Configuration files
 
 All command line options can also be provided in a [TOML](https://toml.io/en/)
-config file specified through the `--config-file` flag. Within the config file,
-you need to use the long names of all options. Please note that certain options
+config file specified through the `--config-file` flag.
+Within the config file, you need to use the long names of all options.
+Please note that certain options
 such as `web3-url`, `bootstrap-node`, `direct-peer`, and `validator-monitor-pubkey`
-can be supplied more than once on the command line - in the TOML file, you need
-to supply them as arrays. There are also some minor differences in the parsing
+can be supplied more than once on the command line: in the TOML file, you need
+to supply them as arrays.
+
+There are also some minor differences in the parsing
 of certain option values in the TOML files in order to conform more closely to
-existing TOML standards. For example, you can freely use keywords such as `on`,
+existing TOML standards.
+For example, you can freely use keywords such as `on`,
 `off`, `yes` and `no` on the command-line as synonyms for the canonical values
 `true` and `false` which are mandatory to use in TOML. Options affecting Nimbus
 sub-commands should appear in a section of the file matching the sub-command name.
