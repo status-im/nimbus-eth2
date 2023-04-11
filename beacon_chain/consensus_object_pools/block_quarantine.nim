@@ -170,6 +170,7 @@ func cleanupOrphans(quarantine: var Quarantine, finalizedSlot: Slot) =
 
   for k in toDel:
     quarantine.addUnviable k[0]
+    quarantine.orphans.del k
 
 func clearAfterReorg*(quarantine: var Quarantine) =
   ## Clear missing and orphans to start with a fresh slate in case of a reorg
