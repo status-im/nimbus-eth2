@@ -1,7 +1,8 @@
 # JSON-RPC API (deprecated)
 
 !!! warning
-    As of v22.6.0, the Nimbus JSON-RPC interface has been **removed** following an extended deprecation period. You are encouraged to migrate your applications to the [REST API](./rest-api.md).
+    As of v22.6.0, the Nimbus JSON-RPC interface has been **removed** following an extended deprecation period. 
+    You are encouraged to migrate your applications to the [REST API](./rest-api.md).
 
 The JSON-RPC API pre-dated the REST API and was based on early designs of the beacon chain.
 
@@ -583,8 +584,8 @@ curl -X POST http://localhost:5052/nimbus/v1/chronicles/settings -d "DEBUG; TRAC
 
 ### setGraffiti
 
-Set the graffiti bytes that will be included in proposed blocks. The graffiti bytes can be
-specified as an UTF-8 encoded string or as an 0x-prefixed hex string specifying raw bytes.
+Set the graffiti bytes that will be included in proposed blocks.
+The graffiti bytes can be specified as an UTF-8 encoded string or as an 0x-prefixed hex string specifying raw bytes.
 
 ```
 curl -d '{"jsonrpc":"2.0","id":"id","method":"setGraffiti","params":["Mr F was here"] }' -H 'Content-Type: application/json' localhost:9190 -s | jq

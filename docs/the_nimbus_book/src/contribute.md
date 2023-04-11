@@ -29,7 +29,8 @@ make publish-book
 
 ## Troubleshooting
 
-If you see file conflicts in the pull request, this may due to that you have created your new branch from an old version of the `unstable` branch. Update your new branch using the following commands:
+If you see file conflicts in the pull request, this may due to that you have created your new branch from an old version of the `unstable` branch.
+Update your new branch using the following commands:
 
 ```sh
 git checkout unstable

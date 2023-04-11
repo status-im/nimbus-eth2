@@ -6,7 +6,8 @@ Doppelganger detection works by monitoring network activity for a short period f
 
 If any activity is detected, the node shuts down with exit code 129.
 
-Because detection depends on network detection, there are cases where it may fail to find duplicate validators even though they are live - you should never use it as a mechanism for running redundant setups!
+Because detection depends on network detection, there are cases where it may fail to find duplicate validators even though they are live.
+You should never use it as a mechanism for running redundant setups!
 
 ## Command line
 

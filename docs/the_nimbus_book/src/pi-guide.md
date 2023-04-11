@@ -23,7 +23,8 @@ As such, we try our best to explain things from first-principles.
 - 200GB SSD (2TB recommended if also running execution client)
 
 !!! note
-    You will need an SSD to run the Nimbus: mechanical hard drives are typically too slow to run an Ethereum node. You have two options:
+    You will need an SSD to run the Nimbus: mechanical hard drives are typically too slow to run an Ethereum node.
+    You have two options:
 
     1. Use an USB portable SSD disk such as the Samsung T5 Portable SSD.
     2. Use an USB 3.0 External Hard Drive Case with a SSD Disk.
