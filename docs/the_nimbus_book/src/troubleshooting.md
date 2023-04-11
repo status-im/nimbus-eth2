@@ -135,7 +135,7 @@ If you see an error that looks like the following:
 It is because your node can't connect to the web3 provider you have specified.
 Please double check that you've correctly specified your provider.
 
-If you haven't done so already, we recommend [adding a backup](web3-backup.md).
+If you haven't done so already, we recommend [allowing multiple execution clients](eth1.md#running-multiple-execution-clients).
 
 ### Discovered new external address warning log
 

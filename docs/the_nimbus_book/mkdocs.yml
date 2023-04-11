@@ -54,7 +54,6 @@ nav:
       - 'build.md'
       - 'start-syncing.md'
       - 'trusted-node-sync.md'
-      - 'web3-backup.md'
 
     - Validator:
       - 'deposit.md'
