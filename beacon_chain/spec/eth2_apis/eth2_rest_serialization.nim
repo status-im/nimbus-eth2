@@ -29,18 +29,18 @@ from web3/ethtypes import BlockHash
 export ethtypes.BlockHash
 
 func decodeMediaType*(
-    contentType: Opt[ContentTypeData]): Result[MediaType, cstring] =
+    contentType: Opt[ContentTypeData]): Result[MediaType, string] =
   if contentType.isNone or isWildCard(contentType.get.mediaType):
     return err("Missing or incorrect Content-Type")
   ok contentType.get.mediaType
 
 func decodeEthConsensusVersion*(
-    value: string): Result[ConsensusFork, cstring] =
+    value: string): Result[ConsensusFork, string] =
   let normalizedValue = value.toLowerAscii()
   for consensusFork in ConsensusFork:
     if normalizedValue == ($consensusFork).toLowerAscii():
       return ok consensusFork
-  err(cstring("Unsupported Eth-Consensus-Version: " & value))
+  err("Unsupported Eth-Consensus-Version: " & value)
 
 Json.createFlavor RestJson
 

@@ -46,7 +46,7 @@ proc decodeHttpLightClientObject[T: SomeForkedLightClientObject](
     cfg: RuntimeConfig): T {.raises: [RestError].} =
   let mediaTypeRes = decodeMediaType(contentType)
   if mediaTypeRes.isErr:
-    raise newException(RestError, $mediaTypeRes.error)
+    raise newException(RestError, mediaTypeRes.error)
   template mediaType: auto = mediaTypeRes.get
 
   if mediaType == OctetStreamMediaType:
@@ -81,7 +81,7 @@ proc decodeHttpLightClientObjects[S: seq[SomeForkedLightClientObject]](
     forkDigests: ref ForkDigests): S {.raises: [RestError].} =
   let mediaTypeRes = decodeMediaType(contentType)
   if mediaTypeRes.isErr:
-    raise newException(RestError, $mediaTypeRes.error)
+    raise newException(RestError, mediaTypeRes.error)
   template mediaType: auto = mediaTypeRes.get
 
   if mediaType == OctetStreamMediaType:
