@@ -91,15 +91,16 @@ proc decodeHttpLightClientObjects[S: seq[SomeForkedLightClientObject]](
       o = 0
     while l - o != 0:
       # response_chunk_len
-      type lType = uint64
-      const lLen = sizeof lType  # 8
-      if l - o < lLen:
+      type chunkLenType = uint64
+      const chunkLenLen = sizeof chunkLenType  # 8
+      if l - o < chunkLenLen:
         raiseRestDecodingBytesError("Malformed data: Incomplete length")
-      let responseChunkLen = lType.fromBytesLE data.toOpenArray(o, o + lLen - 1)
-      o = o + lLen
+      let responseChunkLen = chunkLenType.fromBytesLE(
+        data.toOpenArray(o, o + chunkLenLen - 1))
+      o = o + chunkLenLen
 
       # response_chunk
-      if responseChunkLen > int.high.lType:
+      if responseChunkLen > int.high.chunkLenType:
         raiseRestDecodingBytesError("Malformed data: Unsupported length")
       if l - o < responseChunkLen.int:
         raiseRestDecodingBytesError("Malformed data: Incomplete chunk")
@@ -109,8 +110,8 @@ proc decodeHttpLightClientObjects[S: seq[SomeForkedLightClientObject]](
       o += responseChunkLen.int
 
       # context
-      const cLen = sizeof ForkDigest  # 4
-      if responseChunkLen < cLen.lType:
+      const contextLen = sizeof ForkDigest  # 4
+      if responseChunkLen < contextLen.chunkLenType:
         raiseRestDecodingBytesError("Malformed data: Incomplete context")
       let
         context = ForkDigest [
@@ -125,7 +126,8 @@ proc decodeHttpLightClientObjects[S: seq[SomeForkedLightClientObject]](
             type T = typeof(res[0])
             var obj = T(kind: lcDataFork)
             obj.forky(lcDataFork) = SSZ.decode(
-              data.toOpenArray(begin + cLen, after - 1), T.Forky(lcDataFork))
+              data.toOpenArray(begin + contextLen, after - 1),
+              T.Forky(lcDataFork))
             obj.checkForkConsistency(cfg, consensusFork)
             res.add obj
           else:
@@ -172,7 +174,7 @@ proc getLightClientBootstrap*(
       let consensusForkRes = decodeEthConsensusVersion(
         resp.headers.getString("eth-consensus-version"))
       if consensusForkRes.isErr:
-        raiseRestDecodingBytesError(consensusForkRes.error)
+        raiseRestDecodingBytesError(cstring(consensusForkRes.error))
       ForkedLightClientBootstrap.decodeHttpLightClientObject(
         data, resp.contentType, consensusForkRes.get, cfg)
     of 404:
@@ -254,7 +256,7 @@ proc getLightClientFinalityUpdate*(
       let consensusForkRes = decodeEthConsensusVersion(
         resp.headers.getString("eth-consensus-version"))
       if consensusForkRes.isErr:
-        raiseRestDecodingBytesError(consensusForkRes.error)
+        raiseRestDecodingBytesError(cstring(consensusForkRes.error))
       ForkedLightClientFinalityUpdate.decodeHttpLightClientObject(
         data, resp.contentType, consensusForkRes.get, cfg)
     of 404:
@@ -296,7 +298,7 @@ proc getLightClientOptimisticUpdate*(
       let consensusForkRes = decodeEthConsensusVersion(
         resp.headers.getString("eth-consensus-version"))
       if consensusForkRes.isErr:
-        raiseRestDecodingBytesError(consensusForkRes.error)
+        raiseRestDecodingBytesError(cstring(consensusForkRes.error))
       ForkedLightClientOptimisticUpdate.decodeHttpLightClientObject(
         data, resp.contentType, consensusForkRes.get, cfg)
     of 404:
