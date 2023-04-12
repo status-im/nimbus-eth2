@@ -211,7 +211,7 @@ proc storeBackfillBlock(
 from web3/engine_api_types import PayloadExecutionStatus, PayloadStatusV1
 from ../eth1/eth1_monitor import
   ELManager, NoPayloadAttributes, asEngineExecutionPayload, sendNewPayload,
-  forkchoiceUpdated, forkchoiceUpdatedNoResult
+  forkchoiceUpdated
 
 proc expectValidForkchoiceUpdated(
     elManager: ELManager,
