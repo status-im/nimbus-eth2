@@ -11,7 +11,7 @@ import
   ../spec/datatypes/[phase0, altair, bellatrix],
   ../spec/eth2_apis/rest_types,
   ../validators/activity_metrics,
-  "."/[common, api, block_service]
+  "."/[common, api]
 
 const
   ServiceName = "sync_committee_service"
@@ -340,7 +340,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
      async.} =
   let vc = service.client
 
-  await vc.waitForBlockPublished(slot, syncCommitteeMessageSlotOffset)
+  await vc.waitForBlock(slot, syncCommitteeMessageSlotOffset)
 
   block:
     let delay = vc.getDelay(slot.sync_committee_message_deadline())
@@ -458,7 +458,7 @@ proc mainLoop(service: SyncCommitteeServiceRef) {.async.} =
       try:
         let
           # We use zero offset here, because we do waiting in
-          # waitForBlockPublished(syncCommitteeMessageSlotOffset).
+          # waitForBlock(syncCommitteeMessageSlotOffset).
           slot = await vc.checkedWaitForNextSlot(currentSlot, ZeroTimeDiff,
                                                  false)
         if slot.isNone():

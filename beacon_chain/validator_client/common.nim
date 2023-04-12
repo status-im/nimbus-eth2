@@ -1029,7 +1029,7 @@ proc expectBlock*(vc: ValidatorClientRef, slot: Slot,
                          waiter: BlockWaiter) =
     data.waiters.add(waiter)
     for mitem in data.waiters.mitems():
-      if mitem.count >= len(data.blocks):
+      if mitem.count <= len(data.blocks):
         if not(mitem.future.finished()): mitem.future.complete(data.blocks)
 
   vc.blocksSeen.mgetOrPut(slot, BlockDataItem()).scheduleCallbacks(waiter)
@@ -1041,9 +1041,9 @@ proc registerBlock*(vc: ValidatorClientRef, data: EventBeaconBlockObject) =
     wallTime = vc.beaconClock.now()
     delay = wallTime - data.slot.start_beacon_time()
 
-  notice "Block received", slot = data.slot,
-         block_root = shortLog(data.block_root), optimistic = data.optimistic,
-         delay = delay
+  debug "Block received", slot = data.slot,
+        block_root = shortLog(data.block_root), optimistic = data.optimistic,
+        delay = delay
 
   proc scheduleCallbacks(data: var BlockDataItem,
                          blck: EventBeaconBlockObject) =
@@ -1068,3 +1068,88 @@ proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
           "[" & item.blocks.mapIt(shortLog(it)).join(", ") & "]"
       debug "Block data has been pruned", slot = slot, blocks = blockRoot
   vc.blocksSeen = blocksSeen
+
+proc waitForBlock*(
+       vc: ValidatorClientRef,
+       slot: Slot,
+       timediff: TimeDiff,
+       confirmations: int = 1
+     ) {.async.} =
+  ## This procedure will wait for a block proposal for a ``slot`` received
+  ## by the beacon node.
+  let
+    startTime = Moment.now()
+    waitTime = (start_beacon_time(slot) + timediff) - vc.beaconClock.now()
+
+  logScope:
+    slot = slot
+    timediff = timediff
+    wait_time = waitTime
+
+  debug "Waiting for block proposal"
+
+  if waitTime.nanoseconds <= 0'i64:
+    # We do not have time to wait for block.
+    return
+
+  let blocks =
+    try:
+      let timeout = nanoseconds(waitTime.nanoseconds)
+      await vc.expectBlock(slot, confirmations).wait(timeout)
+    except AsyncTimeoutError:
+      let dur = Moment.now() - startTime
+      debug "Block has not been received in time", duration = dur
+      return
+    except CancelledError as exc:
+      let dur = Moment.now() - startTime
+      debug "Block awaiting was interrupted", duration = dur
+      raise exc
+    except CatchableError as exc:
+      let dur = Moment.now() - startTime
+      error "Unexpected error occured while waiting for block publication",
+            err_name = exc.name, err_msg = exc.msg, duration = dur
+      return
+
+  let
+    dur = Moment.now() - startTime
+    blockRoot =
+      if len(blocks) == 0:
+        "<missing>"
+      elif len(blocks) == 1:
+        shortLog(blocks[0])
+      else:
+        "[" & blocks.mapIt(shortLog(it)).join(", ") & "]"
+
+  debug "Block proposal(s) awaited", duration = dur,
+        block_root = blockRoot
+
+  # The expected block arrived - in our async loop however, we might
+  # have been doing other processing that caused delays here so we'll
+  # cap the waiting to the time when we would have sent out attestations
+  # had the block not arrived. An opposite case is that we received
+  # (or produced) a block that has not yet reached our neighbours. To
+  # protect against our attestations being dropped (because the others
+  # have not yet seen the block), we'll impose a minimum delay of
+  # 2000ms. The delay is enforced only when we're not hitting the
+  # "normal" cutoff time for sending out attestations. An earlier delay
+  # of 250ms has proven to be not enough, increasing the risk of losing
+  # attestations, and with growing block sizes, 1000ms started to be
+  # risky as well. Regardless, because we "just" received the block,
+  # we'll impose the delay.
+
+  # Take into consideration chains with a different slot time
+  const afterBlockDelay = nanos(attestationSlotOffset.nanoseconds div 2)
+  let
+    afterBlockTime = vc.beaconClock.now() + afterBlockDelay
+    afterBlockCutoff = vc.beaconClock.fromNow(
+      min(afterBlockTime, slot.attestation_deadline() + afterBlockDelay))
+
+  if afterBlockCutoff.inFuture:
+    debug "Got block, waiting for block cutoff time",
+          after_block_cutoff = shortLog(afterBlockCutoff.offset)
+    try:
+      await sleepAsync(afterBlockCutoff.offset)
+    except CancelledError as exc:
+      let dur = Moment.now() - startTime
+      debug "Waiting for block cutoff was interrupted", duration = dur
+      raise exc

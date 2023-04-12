@@ -10,7 +10,7 @@ import
   ./rpc/rest_key_management_api,
   ./validator_client/[
     common, fallback_service, duties_service, fork_service, block_service,
-    doppelganger_service, attestation_service, sync_committee_service
+    doppelganger_service, attestation_service, sync_committee_service,
     monitor_service]
 
 const
