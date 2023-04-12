@@ -109,8 +109,8 @@ proc decodeHttpLightClientObjects[S: seq[SomeForkedLightClientObject]](
       o += responseChunkLen.int
 
       # context
-      const dLen = sizeof ForkDigest  # 4
-      if responseChunkLen < dLen.lType:
+      const cLen = sizeof ForkDigest  # 4
+      if responseChunkLen < cLen.lType:
         raiseRestDecodingBytesError("Malformed data: Incomplete context")
       let
         context = ForkDigest [
@@ -125,7 +125,7 @@ proc decodeHttpLightClientObjects[S: seq[SomeForkedLightClientObject]](
             type T = typeof(res[0])
             var obj = T(kind: lcDataFork)
             obj.forky(lcDataFork) = SSZ.decode(
-              data.toOpenArray(begin + dLen, after - 1), T.Forky(lcDataFork))
+              data.toOpenArray(begin + cLen, after - 1), T.Forky(lcDataFork))
             obj.checkForkConsistency(cfg, consensusFork)
             res.add obj
           else:
