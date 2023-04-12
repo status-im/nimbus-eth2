@@ -29,7 +29,7 @@ The following options are available:
      --config-file             Loads the configuration from a TOML file.
      --log-level               Sets the log level for process and topics (e.g. "DEBUG; TRACE:discv5,libp2p;
                                REQUIRED:none; DISABLED:none") [=INFO].
-     --log-file                Specifies a path for the written Json log file (deprecated).
+     --log-file                Specifies a path for the written JSON log file (deprecated).
      --network                 The Eth2 network to join [=mainnet].
  -d, --data-dir                The directory where nimbus will store all blockchain data.
      --validators-dir          A directory containing validator keystores.
@@ -39,7 +39,7 @@ The following options are available:
      --el                      One or more execution layer Engine API URLs.
      --no-el                   Don't use an EL. The node will remain optimistically synced and won't be able to
                                perform validator duties [=false].
-     --non-interactive         Do not display interative prompts. Quit on missing configuration.
+     --non-interactive         Do not display interactive prompts. Quit on missing configuration.
      --netkey-file             Source of network (secp256k1) private key file (random|<path>) [=random].
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key file [=false].
      --agent-string            Node agent string which is used as identifier in network [=nimbus].
@@ -102,7 +102,7 @@ The following options are available:
                                beacon node itself [=true].
      --discv5                  Enable Discovery v5 [=true].
      --dump                    Write SSZ dumps of blocks, attestations and states to data dir [=false].
-     --direct-peer             The list of priviledged, secure and known peers to connect and maintain the
+     --direct-peer             The list of privileged, secure and known peers to connect and maintain the
                                connection to, this requires a not random netkey-file. In the complete
                                multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>.
                                Peering agreements are established out of band and must be reciprocal..
