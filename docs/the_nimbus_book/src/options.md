@@ -2,7 +2,8 @@
 
 Command line options allow you to customize the way your beacon node operates.
 
-You pass options to the beacon node by adding them to the command line. For example, if you want to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, run:
+You pass options to the beacon node by adding them to the command line.
+For example, if you want to launch Nimbus on mainnet with different base ports than the default `9000/udp` and `9000/tcp`, say `9100/udp` and `9100/tcp`, run:
 
 ```sh
 ./run-mainnet-beacon-node.sh --tcp-port=9100 --udp-port=9100
@@ -10,7 +11,7 @@ You pass options to the beacon node by adding them to the command line. For exam
 
 ## Available options
 
-To see the full list of command line options availabe to you, with descriptions, run:
+To see the full list of command line options available to you, with descriptions, run:
 
 ```sh
 build/nimbus_beacon_node --help
@@ -28,7 +29,7 @@ The following options are available:
      --config-file             Loads the configuration from a TOML file.
      --log-level               Sets the log level for process and topics (e.g. "DEBUG; TRACE:discv5,libp2p;
                                REQUIRED:none; DISABLED:none") [=INFO].
-     --log-file                Specifies a path for the written Json log file (deprecated).
+     --log-file                Specifies a path for the written JSON log file (deprecated).
      --network                 The Eth2 network to join [=mainnet].
  -d, --data-dir                The directory where nimbus will store all blockchain data.
      --validators-dir          A directory containing validator keystores.
@@ -38,7 +39,7 @@ The following options are available:
      --el                      One or more execution layer Engine API URLs.
      --no-el                   Don't use an EL. The node will remain optimistically synced and won't be able to
                                perform validator duties [=false].
-     --non-interactive         Do not display interative prompts. Quit on missing configuration.
+     --non-interactive         Do not display interactive prompts. Quit on missing configuration.
      --netkey-file             Source of network (secp256k1) private key file (random|<path>) [=random].
      --insecure-netkey-password  Use pre-generated INSECURE password for network private key file [=false].
      --agent-string            Node agent string which is used as identifier in network [=nimbus].
@@ -60,6 +61,7 @@ The following options are available:
                                seen by other nodes it communicates with. This option allows to enable/disable
                                this functionality [=false].
      --weak-subjectivity-checkpoint  Weak subjectivity checkpoint in the format block_root:epoch_number.
+     --sync-light-client       Accelerate execution layer sync using light client [=true].
      --finalized-checkpoint-state  SSZ file specifying a recent finalized state.
      --finalized-deposit-tree-snapshot  SSZ file specifying a recent finalized EIP-4881 deposit tree snapshot.
      --node-name               A name for this node that will appear in the logs. If you set this to 'auto', a
@@ -100,7 +102,7 @@ The following options are available:
                                beacon node itself [=true].
      --discv5                  Enable Discovery v5 [=true].
      --dump                    Write SSZ dumps of blocks, attestations and states to data dir [=false].
-     --direct-peer             The list of priviledged, secure and known peers to connect and maintain the
+     --direct-peer             The list of privileged, secure and known peers to connect and maintain the
                                connection to, this requires a not random netkey-file. In the complete
                                multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>.
                                Peering agreements are established out of band and must be reciprocal..
@@ -126,13 +128,17 @@ The following options are available:
 ## Configuration files
 
 All command line options can also be provided in a [TOML](https://toml.io/en/)
-config file specified through the `--config-file` flag. Within the config file,
-you need to use the long names of all options. Please note that certain options
+config file specified through the `--config-file` flag.
+Within the config file, you need to use the long names of all options.
+Please note that certain options
 such as `web3-url`, `bootstrap-node`, `direct-peer`, and `validator-monitor-pubkey`
-can be supplied more than once on the command line - in the TOML file, you need
-to supply them as arrays. There are also some minor differences in the parsing
+can be supplied more than once on the command line: in the TOML file, you need
+to supply them as arrays.
+
+There are also some minor differences in the parsing
 of certain option values in the TOML files in order to conform more closely to
-existing TOML standards. For example, you can freely use keywords such as `on`,
+existing TOML standards.
+For example, you can freely use keywords such as `on`,
 `off`, `yes` and `no` on the command-line as synonyms for the canonical values
 `true` and `false` which are mandatory to use in TOML. Options affecting Nimbus
 sub-commands should appear in a section of the file matching the sub-command name.

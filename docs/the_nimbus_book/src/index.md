@@ -1,9 +1,11 @@
 # The Nimbus Guide
 
 !!! note ""
-    Eager to get started? The [quickstart guide](./quick-start.md) is for you.
+    Eager to get started?
+    The [quickstart guide](./quick-start.md) is for you.
 
-    Coming from a different client? Check out the [migration guide](./migration.md).
+    Coming from a different client?
+    Check out the [migration guide](./migration.md).
 
 Nimbus is a client for the Ethereum network that is [lightweight](https://our.status.im/ethereum-is-green/), [secure](./audit.md) and [easy to use](./run-a-validator.md).
 
@@ -24,7 +26,8 @@ An execution client, [nimbus-eth1](https://github.com/status-im/nimbus-eth2), is
 
 ## Get in touch
 
-Need help with anything? Join us on [Status](https://join.status.im/nimbus-general) and [Discord](https://discord.gg/9dWwPnG).
+Need help with anything?
+Join us on [Status](https://join.status.im/nimbus-general) and [Discord](https://discord.gg/9dWwPnG).
 
 ## Donate
 

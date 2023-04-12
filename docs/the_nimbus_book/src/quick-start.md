@@ -78,7 +78,8 @@ Once the beacon node starts, you'll see it logging information to the console, l
 INF 2022-07-19 15:42:58.145+02:00 Launching beacon node                      topics="beacnde" version=v22.10.1-97a1cdc4-stateofus ...
 ```
 
-Congratulations! Your beacon node is up and running, and syncing the network!
+Congratulations!
+Your beacon node is up and running, and syncing the network!
 
 !!! success "What next?"
 

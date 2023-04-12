@@ -51,19 +51,19 @@ proc getEarliestInvalidBlockRoot*(
 
   # Only allow this special case outside loop; it's when the LVH is the direct
   # parent of the reported invalid block
-  if  curBlck.executionBlockRoot.isSome and
-      curBlck.executionBlockRoot.get == latestValidHash:
+  if  curBlck.executionBlockHash.isSome and
+      curBlck.executionBlockHash.get == latestValidHash:
     return defaultEarliestInvalidBlockRoot
 
   while true:
     # This was supposed to have been either caught by the pre-loop check or the
     # parent check.
-    if  curBlck.executionBlockRoot.isSome and
-        curBlck.executionBlockRoot.get == latestValidHash:
+    if  curBlck.executionBlockHash.isSome and
+        curBlck.executionBlockHash.get == latestValidHash:
       doAssert false, "getEarliestInvalidBlockRoot: unexpected LVH in loop body"
 
     if (curBlck.parent.isNil) or
-       curBlck.parent.executionBlockRoot.get(latestValidHash) ==
+       curBlck.parent.executionBlockHash.get(latestValidHash) ==
          latestValidHash:
       break
     curBlck = curBlck.parent

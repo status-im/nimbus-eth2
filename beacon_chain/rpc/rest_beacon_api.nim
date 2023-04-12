@@ -711,6 +711,53 @@ proc installBeaconApiHandlers*(router: var RestRouter, node: BeaconNode) =
 
     return RestApiResponse.jsonError(Http404, StateNotFoundError)
 
+  # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateRandao
+  # https://github.com/ethereum/beacon-APIs/blob/b3c4defa238aaa74bf22aa602aa1b24b68a4c78e/apis/beacon/states/randao.yaml
+  router.api(MethodGet,
+             "/eth/v1/beacon/states/{state_id}/randao") do (
+    state_id: StateIdent, epoch: Option[Epoch]) -> RestApiResponse:
+    let
+      sid = state_id.valueOr:
+        return RestApiResponse.jsonError(Http400, InvalidStateIdValueError,
+                                         $error)
+      bslot = node.getBlockSlotId(sid).valueOr:
+        if sid.kind == StateQueryKind.Root:
+          # TODO (cheatfate): Its impossible to retrieve state by `state_root`
+          # in current version of database.
+          return RestApiResponse.jsonError(Http500, NoImplementationError)
+        return RestApiResponse.jsonError(Http404, StateNotFoundError,
+                                          $error)
+
+    let qepoch =
+      if epoch.isSome():
+        let repoch = epoch.get()
+        if repoch.isErr():
+          return RestApiResponse.jsonError(Http400, InvalidEpochValueError,
+                                           $repoch.error())
+        let res = repoch.get()
+        if res > MaxEpoch:
+          return RestApiResponse.jsonError(Http400, EpochOverflowValueError)
+        if res < node.dag.cfg.ALTAIR_FORK_EPOCH:
+          return RestApiResponse.jsonError(Http400,
+                                           EpochFromTheIncorrectForkError)
+        if res > bslot.slot.epoch() + 1:
+          return RestApiResponse.jsonError(Http400,
+                                           EpochFromFutureError)
+        res
+      else:
+        # If ``epoch`` not present then the RANDAO mix for the epoch of
+        # the state will be obtained.
+        bslot.slot.epoch()
+
+    node.withStateForBlockSlotId(bslot):
+      withState(state):
+        return RestApiResponse.jsonResponseWOpt(
+          RestEpochRandao(randao: get_randao_mix(forkyState.data, qepoch)),
+          node.getStateOptimistic(state)
+        )
+
+    return RestApiResponse.jsonError(Http404, StateNotFoundError)
+
   # https://ethereum.github.io/beacon-APIs/#/Beacon/getBlockHeaders
   router.api(MethodGet, "/eth/v1/beacon/headers") do (
     slot: Option[Slot], parent_root: Option[Eth2Digest]) -> RestApiResponse:

@@ -144,7 +144,7 @@ type
       name: "log-format" .}: StdoutLogKind
 
     logFile* {.
-      desc: "Specifies a path for the written Json log file (deprecated)"
+      desc: "Specifies a path for the written JSON log file (deprecated)"
       name: "log-file" .}: Option[OutFile]
 
     eth2Network* {.
@@ -205,7 +205,7 @@ type
       name: "require-engine-api-in-bellatrix" .}: Option[bool]
 
     nonInteractive* {.
-      desc: "Do not display interative prompts. Quit on missing configuration"
+      desc: "Do not display interactive prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool
 
     netKeyFile* {.
@@ -312,9 +312,8 @@ type
         name: "weak-subjectivity-checkpoint" .}: Option[Checkpoint]
 
       syncLightClient* {.
-        hidden
-        desc: "Accelerate sync using light client"
-        defaultValue: false
+        desc: "Accelerate execution layer sync using light client"
+        defaultValue: true
         name: "sync-light-client" .}: bool
 
       trustedBlockRoot* {.
@@ -519,7 +518,7 @@ type
 
       debugForkChoice* {.
         hidden
-        desc: "Enable debug API for fork choice (https://github.com/ethereum/beacon-APIs/pull/232)"
+        desc: "Enable debug API for fork choice (https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Debug/getDebugForkChoice)"
         defaultValue: false
         name: "debug-fork-choice" .}: bool
 
@@ -534,7 +533,7 @@ type
         name: "dump" .}: bool
 
       directPeers* {.
-        desc: "The list of priviledged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the complete multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>. Peering agreements are established out of band and must be reciprocal."
+        desc: "The list of privileged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the complete multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>. Peering agreements are established out of band and must be reciprocal."
         name: "direct-peer" .}: seq[string]
 
       doppelgangerDetection* {.
@@ -825,7 +824,7 @@ type
       name: "log-format" .}: StdoutLogKind
 
     logFile* {.
-      desc: "Specifies a path for the written Json log file (deprecated)"
+      desc: "Specifies a path for the written JSON log file (deprecated)"
       name: "log-file" .}: Option[OutFile]
 
     dataDir* {.
@@ -847,7 +846,7 @@ type
       name: "doppelganger-detection" .}: bool
 
     nonInteractive* {.
-      desc: "Do not display interative prompts. Quit on missing configuration"
+      desc: "Do not display interactive prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool
 
     validatorsDirFlag* {.
@@ -968,11 +967,11 @@ type
       name: "log-stdout" .}: StdoutLogKind
 
     logFile* {.
-      desc: "Specifies a path for the written Json log file"
+      desc: "Specifies a path for the written JSON log file"
       name: "log-file" .}: Option[OutFile]
 
     nonInteractive* {.
-      desc: "Do not display interative prompts. Quit on missing configuration"
+      desc: "Do not display interactive prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool
 
     dataDir* {.

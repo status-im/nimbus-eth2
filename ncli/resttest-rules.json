@@ -1562,6 +1562,66 @@
     }
   },
   {
+    "topics": ["beacon", "states_randao_mix"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/randao",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"randao": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_randao_mix"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/randao?epoch=0",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "200"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmps", "start": ["data"], "value": {"randao": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_randao_mix"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/randao?epoch=576460752303423488",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_randao_mix"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/randao?epoch=18446744073709551615",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
+    "topics": ["beacon", "states_randao_mix"],
+    "request": {
+      "url": "/eth/v1/beacon/states/head/randao?epoch=18446744073709551616",
+      "headers": {"Accept": "application/json"}
+    },
+    "response": {
+      "status": {"operator": "equals", "value": "400"},
+      "headers": [{"key": "Content-Type", "value": "application/json", "operator": "equals"}],
+      "body": [{"operator": "jstructcmpns", "value": {"code": 400, "message": ""}}]
+    }
+  },
+  {
     "topics": ["beacon", "beacon_headers"],
     "request": {
       "url": "/eth/v1/beacon/headers",

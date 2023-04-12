@@ -1964,7 +1964,7 @@ proc pruneHistory*(dag: ChainDAGRef, startup = false) =
         for fork in ConsensusFork.Phase0..<blockFork:
           dag.db.clearBlocks(fork)
 
-proc loadExecutionBlockRoot*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
+proc loadExecutionBlockHash*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
   if dag.cfg.consensusForkAtEpoch(bid.slot.epoch) < ConsensusFork.Bellatrix:
     return ZERO_HASH
 
@@ -1977,10 +1977,10 @@ proc loadExecutionBlockRoot*(dag: ChainDAGRef, bid: BlockId): Eth2Digest =
     else:
       ZERO_HASH
 
-proc loadExecutionBlockRoot*(dag: ChainDAGRef, blck: BlockRef): Eth2Digest =
-  if blck.executionBlockRoot.isNone:
-    blck.executionBlockRoot = Opt.some dag.loadExecutionBlockRoot(blck.bid)
-  blck.executionBlockRoot.unsafeGet
+proc loadExecutionBlockHash*(dag: ChainDAGRef, blck: BlockRef): Eth2Digest =
+  if blck.executionBlockHash.isNone:
+    blck.executionBlockHash = Opt.some dag.loadExecutionBlockHash(blck.bid)
+  blck.executionBlockHash.unsafeGet
 
 from std/packedsets import PackedSet, incl, items
 
@@ -2086,7 +2086,8 @@ proc updateHead*(
       if dag.vanityLogs.onUpgradeToCapella != nil:
         dag.vanityLogs.onUpgradeToCapella()
     of ConsensusFork.Deneb:
-      discard
+      if dag.vanityLogs.onUpgradeToDeneb != nil:
+        dag.vanityLogs.onUpgradeToDeneb()
 
   if  dag.vanityLogs.onKnownBlsToExecutionChange != nil and
       checkBlsToExecutionChanges(
@@ -2198,8 +2199,8 @@ proc updateHead*(
 
       dag.db.updateFinalizedBlocks(newFinalized)
 
-    if  dag.loadExecutionBlockRoot(oldFinalizedHead.blck).isZero and
-        not dag.loadExecutionBlockRoot(dag.finalizedHead.blck).isZero and
+    if  dag.loadExecutionBlockHash(oldFinalizedHead.blck).isZero and
+        not dag.loadExecutionBlockHash(dag.finalizedHead.blck).isZero and
         dag.vanityLogs.onFinalizedMergeTransitionBlock != nil:
       dag.vanityLogs.onFinalizedMergeTransitionBlock()
 

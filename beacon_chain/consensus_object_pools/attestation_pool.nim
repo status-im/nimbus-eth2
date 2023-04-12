@@ -774,7 +774,7 @@ proc getBeaconHead*(
     pool: AttestationPool, headBlock: BlockRef): BeaconHead =
   let
     finalizedExecutionPayloadHash =
-      pool.dag.loadExecutionBlockRoot(pool.dag.finalizedHead.blck)
+      pool.dag.loadExecutionBlockHash(pool.dag.finalizedHead.blck)
 
     # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/fork_choice/safe-block.md#get_safe_execution_payload_hash
     safeBlockRoot = pool.forkChoice.get_safe_beacon_block_root()
@@ -789,7 +789,7 @@ proc getBeaconHead*(
         # let's just report the finalized execution payload hash instead.
         finalizedExecutionPayloadHash
       else:
-        pool.dag.loadExecutionBlockRoot(safeBlock.get)
+        pool.dag.loadExecutionBlockHash(safeBlock.get)
 
   BeaconHead(
     blck: headBlock,

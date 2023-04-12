@@ -2,17 +2,20 @@
 
 This page will take you through how to set up a `systemd` service for your beacon node.
 
-`systemd` is used in order to have a command or program run when your device boots (i.e. add it as a service). Once this is done, you can start/stop enable/disable from the linux prompt.
+`systemd` is used in order to have a command or a program run when your device boots (i.e. add it as a service).
+Once this is done, you can start/stop enable/disable from the linux prompt.
 
 !!! abstract "`systemd`"
-    [`systemd`](https://systemd.io/) is a service manager designed specifically for Linux - it cannot be used on Windows / Mac. You can find out more about `systemd` [here](https://fedoramagazine.org/what-is-an-init-system/)
+    [`systemd`](https://systemd.io/) is a service manager designed specifically for Linux - it cannot be used on Windows / Mac.
+    You can find out more about `systemd` [here](https://fedoramagazine.org/what-is-an-init-system/)
 
 !!! note "Package manager installations"
     When installing Nimbus via your [package manager](./binaries.md), a user and service will already have been created for you and you can skip straight to the configuration section.
 
 ### 1. Create a dedicated user
 
-We will start by creating a dedicated user and [data directory](./data-dir.md) for Nimbus. The same user can also be used for the execution client.
+We will start by creating a dedicated user and [data directory](./data-dir.md) for Nimbus.
+The same user can also be used for the execution client.
 
 ```sh
 # Create the `nimbus` group
@@ -50,16 +53,18 @@ sudo vi /etc/systemd/system/nimbus_beacon_node.service
 sudo systemctl edit nimbus_beacon_node.service
 ```
 
-The service file contains several options for controlling Nimbus. Important options include:
+The service file contains several options for controlling Nimbus.
+Important options include:
 
 * `Environment=NETWORK`: set this to `mainnet`, `prater` or `sepolia`, depending on which network you want to connect to
-* `Environment=WEB3_URL`: point this to your execution client - see the [Execution Client](./eth1.md) setup guide
-* `Environment=REST_ENABLED`: REST is used to interact with the beacon node, in particular when setting up a separate Validator Client - see the [REST API](./rest-api.md) guide
-* `Environment=METRICS_ENABLED`: Metrics are used for monitoring the node - see the [metrics](./metrics-pretty-pictures.md) setup guide
-* `ExecStart=`: Custom options - see the [options](./options.md) guide
+* `Environment=WEB3_URL`: point this to your execution client, see the [Execution Client](./eth1.md) setup guide
+* `Environment=REST_ENABLED`: REST is used to interact with the beacon node, in particular when setting up a separate Validator Client, see the [REST API](./rest-api.md) guide
+* `Environment=METRICS_ENABLED`: metrics are used for monitoring the node, see the [metrics](./metrics-pretty-pictures.md) setup guide
+* `ExecStart=`: custom options, see the [options](./options.md) guide
 
 !!! note
-    The example assumes Nimbus was installed in `/usr/bin/nimbus_beacon_node` - if you installed Nimbus elsewhere, make sure to update this path.
+    The example assumes Nimbus was installed in `/usr/bin/nimbus_beacon_node`.
+    If you installed Nimbus elsewhere, make sure to update this path.
 
 ### 4. Notify systemd of the newly added service
 
@@ -93,9 +98,10 @@ You can also follow the logs using the following command:
 sudo journalctl -uf nimbus_beacon_node.service
 ```
 
-This will show you the Nimbus logs at the default setting  -- it should include regular "slot start" messages which will show your [sync progress](./keep-an-eye.md#keep-track-of-your-syncing-progress). Press `ctrl-c` to stop following the logs.
+This will show you the Nimbus logs at the default setting — it should include regular "slot start" messages which will show your [sync progress](./keep-an-eye.md#keep-track-of-your-syncing-progress).
+Press `ctrl-c` to stop following the logs.
 
-To rewind logs - by one day, say - run:
+To rewind logs — by one day, say — run:
 
 ```sh
 sudo journalctl -u nimbus_beacon_node.service --since yesterday
@@ -103,7 +109,8 @@ sudo journalctl -u nimbus_beacon_node.service --since yesterday
 
 ## Import validator keys
 
-When using a service, the beacon node is running as a different user - key import must be performed as this user in order for the key files to have the correct permission:
+When using a service, the beacon node is running as a different user.
+The key import must be performed as this user in order for the key files to have the correct permission:
 
 ```
 # Run import command as the `nimbus` user
@@ -111,7 +118,8 @@ sudo -u nimbus /usr/bin/nimbus_beacon_node deposit import --data-dir=/var/lib/ni
 ```
 
 !!! note
-    Make sure to use the same `--data-dir` option as is used in the service file! Some guides use `--data-dir=/var/lib/nimbus` instead.
+    Make sure to use the same `--data-dir` option as is used in the service file!
+    Some guides use `--data-dir=/var/lib/nimbus` instead.
 
 ## Running multiple beacon nodes
 
@@ -125,5 +133,5 @@ When running multiple beacon nodes, make sure that each service:
 
 ## Further examples
 
-- A [service template file](https://github.com/chfast/ethereum-node/blob/main/nimbus%40.service) by Pawel Bylica which allows you to start two services at the same time: e.g. `nimbus@prater.service` and `nimbus@mainnet.service`.
+- A [service template file](https://github.com/chfast/ethereum-node/blob/main/nimbus%40.service) by Pawel Bylica which allows you to start two services at the same time, e.g. `nimbus@prater.service` and `nimbus@mainnet.service`.
 - The [EthereumOnARM](https://github.com/diglos/ethereumonarm/blob/main/fpm-package-builder/nimbus/extras/nimbus.service) project maintains a service file as part of their Ethereum installation package repository.

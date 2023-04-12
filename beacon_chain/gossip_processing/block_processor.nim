@@ -211,7 +211,7 @@ proc storeBackfillBlock(
 from web3/engine_api_types import PayloadExecutionStatus, PayloadStatusV1
 from ../eth1/eth1_monitor import
   ELManager, NoPayloadAttributes, asEngineExecutionPayload, sendNewPayload,
-  forkchoiceUpdated, forkchoiceUpdatedNoResult
+  forkchoiceUpdated
 
 proc expectValidForkchoiceUpdated(
     elManager: ELManager,
@@ -255,7 +255,7 @@ proc expectValidForkchoiceUpdated(
 from ../consensus_object_pools/attestation_pool import
   addForkChoice, selectOptimisticHead, BeaconHead
 from ../consensus_object_pools/blockchain_dag import
-  is_optimistic, loadExecutionBlockRoot, markBlockVerified
+  is_optimistic, loadExecutionBlockHash, markBlockVerified
 from ../consensus_object_pools/spec_cache import get_attesting_indices
 from ../spec/datatypes/phase0 import TrustedSignedBeaconBlock
 from ../spec/datatypes/altair import SignedBeaconBlock
@@ -349,7 +349,8 @@ proc storeBlock*(
     payloadStatus =
       if maybeFinalized and
           (self.lastPayload + SLOTS_PER_PAYLOAD) > signedBlock.message.slot and
-          (signedBlock.message.slot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot:
+          (signedBlock.message.slot + PAYLOAD_PRE_WALL_SLOTS) < wallSlot and
+          signedBlock.message.is_execution_block:
         # Skip payload validation when message source (reasonably) claims block
         # has been finalized - this speeds up forward sync - in the worst case
         # that the claim is false, we will correct every time we process a block
@@ -515,7 +516,7 @@ proc storeBlock*(
     else:
       let
         headExecutionPayloadHash =
-          self.consensusManager.dag.loadExecutionBlockRoot(newHead.get.blck)
+          self.consensusManager.dag.loadExecutionBlockHash(newHead.get.blck)
         wallSlot = self.getBeaconTime().slotOrZero
       if  headExecutionPayloadHash.isZero or
           NewPayloadStatus.noResponse == payloadStatus:

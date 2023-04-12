@@ -2726,6 +2726,12 @@ proc writeValue*(writer: var JsonWriter[RestJson],
     writer.writeField("execution_optimistic", value.optimistic.get())
   writer.endRecord()
 
+## RestNodeValidity
+proc writeValue*(writer: var JsonWriter[RestJson],
+                 value: RestNodeValidity) {.
+     raises: [IOError, Defect].} =
+  writer.writeValue($value)
+
 ## RestSyncInfo
 proc writeValue*(writer: var JsonWriter[RestJson],
                  value: RestSyncInfo) {.

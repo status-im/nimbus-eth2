@@ -495,6 +495,9 @@ type
     validators*: seq[ValidatorIndex]
     validator_aggregates*: seq[seq[ValidatorIndex]]
 
+  RestEpochRandao* = object
+    randao*: Eth2Digest
+
   DataEnclosedObject*[T] = object
     data*: T
 
@@ -667,6 +670,39 @@ type
   SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
+
+  RestNodeValidity* {.pure.} = enum
+    valid = "VALID",
+    invalid = "INVALID",
+    optimistic = "OPTIMISTIC"
+
+  RestNodeExtraData* = object
+    justified_root*: Eth2Digest
+    finalized_root*: Eth2Digest
+    u_justified_checkpoint*: Option[Checkpoint]
+    u_finalized_checkpoint*: Option[Checkpoint]
+    best_child*: Eth2Digest
+    best_descendant*: Eth2Digest
+
+  RestNode* = object
+    slot*: Slot
+    block_root*: Eth2Digest
+    parent_root*: Eth2Digest
+    justified_epoch*: Epoch
+    finalized_epoch*: Epoch
+    weight*: uint64
+    validity*: RestNodeValidity
+    execution_block_hash*: Eth2Digest
+    extra_data*: Option[RestNodeExtraData]
+
+  RestExtraData* = object
+    discard
+
+  GetForkChoiceResponse* = object
+    justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+    fork_choice_nodes*: seq[RestNode]
+    extra_data*: RestExtraData
 
 func `==`*(a, b: RestValidatorIndex): bool =
   uint64(a) == uint64(b)
