@@ -207,14 +207,14 @@ proc storeBackfillBlock(
 
   res
 
-
-from web3/engine_api_types import PayloadExecutionStatus, PayloadStatusV1
+from web3/engine_api_types import
+  PayloadAttributesV1, PayloadAttributesV2, PayloadExecutionStatus,
+  PayloadStatusV1
 from ../eth1/eth1_monitor import
-  ELManager, NoPayloadAttributes, asEngineExecutionPayload, sendNewPayload,
-  forkchoiceUpdated
+  ELManager, asEngineExecutionPayload, sendNewPayload, forkchoiceUpdated
 
 proc expectValidForkchoiceUpdated(
-    elManager: ELManager,
+    elManager: ELManager, headBlockPayloadAttributesType: typedesc,
     headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
     receivedBlock: ForkySignedBeaconBlock): Future[void] {.async.} =
   let
@@ -222,7 +222,7 @@ proc expectValidForkchoiceUpdated(
       headBlockHash = headBlockHash,
       safeBlockHash = safeBlockHash,
       finalizedBlockHash = finalizedBlockHash,
-      payloadAttributes = NoPayloadAttributes)
+      payloadAttributes = none headBlockPayloadAttributesType)
     receivedExecutionBlockHash =
       when typeof(receivedBlock).toFork >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
@@ -499,7 +499,7 @@ proc storeBlock*(
       # > Client software MAY skip an update of the forkchoice state and MUST
       #   NOT begin a payload build process if `forkchoiceState.headBlockHash`
       #   references an ancestor of the head of canonical chain.
-      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#specification-1
+      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification-1
       #
       # However, in practice, an EL client may not have completed importing all
       # block headers, so may be unaware of a block's ancestor status.
@@ -508,11 +508,27 @@ proc storeBlock*(
       # - "Beacon chain gapped" from DAG head to optimistic head,
       # - followed by "Beacon chain reorged" from optimistic head back to DAG.
       self.consensusManager[].updateHead(newHead.get.blck)
-      discard await elManager.forkchoiceUpdated(
-        headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
-        safeBlockHash = newHead.get.safeExecutionPayloadHash,
-        finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
-        payloadAttributes = NoPayloadAttributes)
+
+      template callForkchoiceUpdated(attributes: untyped) =
+        discard await elManager.forkchoiceUpdated(
+          headBlockHash = self.consensusManager[].optimisticExecutionPayloadHash,
+          safeBlockHash = newHead.get.safeExecutionPayloadHash,
+          finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+          payloadAttributes = none attributes)
+
+      case self.consensusManager.dag.cfg.consensusForkAtEpoch(
+          newHead.get.blck.bid.slot.epoch)
+      of ConsensusFork.Capella, ConsensusFork.Deneb:
+        # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
+        # Consensus layer client MUST call this method instead of
+        # `engine_forkchoiceUpdatedV1` under any of the following conditions:
+        # `headBlockHash` references a block which `timestamp` is greater or
+        # equal to the Shanghai timestamp
+        callForkchoiceUpdated(PayloadAttributesV2)
+      of ConsensusFork.Bellatrix:
+        callForkchoiceUpdated(PayloadAttributesV1)
+      of ConsensusFork.Phase0, ConsensusFork.Altair:
+        discard
     else:
       let
         headExecutionPayloadHash =
@@ -531,11 +547,22 @@ proc storeBlock*(
 
         if self.consensusManager.checkNextProposer(wallSlot).isNone:
           # No attached validator is next proposer, so use non-proposal fcU
-          await elManager.expectValidForkchoiceUpdated(
-            headBlockHash = headExecutionPayloadHash,
-            safeBlockHash = newHead.get.safeExecutionPayloadHash,
-            finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
-            receivedBlock = signedBlock)
+
+          template callForkchoiceUpdated(payloadAttributeType: untyped): auto =
+            await elManager.expectValidForkchoiceUpdated(
+              headBlockPayloadAttributesType = payloadAttributeType,
+              headBlockHash = headExecutionPayloadHash,
+              safeBlockHash = newHead.get.safeExecutionPayloadHash,
+              finalizedBlockHash = newHead.get.finalizedExecutionPayloadHash,
+              receivedBlock = signedBlock)
+
+          case self.consensusManager.dag.cfg.consensusForkAtEpoch(
+              newHead.get.blck.bid.slot.epoch)
+          of ConsensusFork.Capella, ConsensusFork.Deneb:
+            callForkchoiceUpdated(payloadAttributeType = PayloadAttributesV2)
+          of  ConsensusFork.Phase0, ConsensusFork.Altair,
+              ConsensusFork.Bellatrix:
+            callForkchoiceUpdated(payloadAttributeType = PayloadAttributesV1)
         else:
           # Some attached validator is next proposer, so prepare payload. As
           # updateHead() updated the DAG head, runProposalForkchoiceUpdated,

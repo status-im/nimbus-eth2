@@ -133,10 +133,6 @@ type
     hasConsensusViolation: bool
       ## The local chain contradicts the observed consensus on the network
 
-  NoPayloadAttributesType = object
-    ## A type with exactly one value, and which is not constructed via a `nil`
-    ## value for a ref object, which which Nim 1.6 crashes with an ICE.
-
   NextExpectedPayloadParams* = object
     headBlockHash*: Eth2Digest
     safeBlockHash*: Eth2Digest
@@ -254,9 +250,6 @@ type
     BellatrixExecutionPayloadWithValue |
     GetPayloadV2Response |
     CancunExecutionPayloadAndBlobs
-
-const
-  NoPayloadAttributes* = default(NoPayloadAttributesType)
 
 declareCounter failed_web3_requests,
   "Failed web3 requests"
@@ -764,16 +757,13 @@ func areSameAs(expectedParams: Option[NextExpectedPayloadParams],
 
 proc forkchoiceUpdated(rpcClient: RpcClient,
                        state: ForkchoiceStateV1,
-                       payloadAttributes: PayloadAttributesV1 |
-                                          PayloadAttributesV2 |
-                                          NoPayloadAttributesType):
+                       payloadAttributes: Option[PayloadAttributesV1] |
+                                          Option[PayloadAttributesV2]):
                        Future[ForkchoiceUpdatedResponse] =
-  when payloadAttributes is NoPayloadAttributesType:
-    rpcClient.engine_forkchoiceUpdatedV1(state, none PayloadAttributesV1)
-  elif payloadAttributes is PayloadAttributesV1:
-    rpcClient.engine_forkchoiceUpdatedV1(state, some payloadAttributes)
-  elif payloadAttributes is PayloadAttributesV2:
-    rpcClient.engine_forkchoiceUpdatedV2(state, some payloadAttributes)
+  when payloadAttributes is Option[PayloadAttributesV1]:
+    rpcClient.engine_forkchoiceUpdatedV1(state, payloadAttributes)
+  elif payloadAttributes is Option[PayloadAttributesV2]:
+    rpcClient.engine_forkchoiceUpdatedV2(state, payloadAttributes)
   else:
     static: doAssert false
 
@@ -806,7 +796,7 @@ proc getPayloadFromSingleEL(
             headBlockHash: headBlock.asBlockHash,
             safeBlockHash: safeBlock.asBlockHash,
             finalizedBlockHash: finalizedBlock.asBlockHash),
-          PayloadAttributesV1(
+          some PayloadAttributesV1(
             timestamp: Quantity timestamp,
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient))
@@ -816,7 +806,7 @@ proc getPayloadFromSingleEL(
             headBlockHash: headBlock.asBlockHash,
             safeBlockHash: safeBlock.asBlockHash,
             finalizedBlockHash: finalizedBlock.asBlockHash),
-          PayloadAttributesV2(
+          some PayloadAttributesV2(
             timestamp: Quantity timestamp,
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient,
@@ -1204,8 +1194,8 @@ proc sendNewPayload*(m: ELManager,
 proc forkchoiceUpdatedForSingleEL(
     connection: ELConnection,
     state: ref ForkchoiceStateV1,
-    payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2 |
-                       NoPayloadAttributesType):
+    payloadAttributes: Option[PayloadAttributesV1] |
+                       Option[PayloadAttributesV2]):
     Future[PayloadStatusV1] {.async.} =
   let
     rpcClient = await connection.connectedRpcClient()
@@ -1223,9 +1213,10 @@ proc forkchoiceUpdatedForSingleEL(
   return response.payloadStatus
 
 proc forkchoiceUpdated*(m: ELManager,
-                        headBlockHash, safeBlockHash, finalizedBlockHash: Eth2Digest,
-                        payloadAttributes: PayloadAttributesV1 | PayloadAttributesV2 |
-                                           NoPayloadAttributesType):
+                        headBlockHash, safeBlockHash,
+                        finalizedBlockHash: Eth2Digest,
+                        payloadAttributes: Option[PayloadAttributesV1] |
+                                           Option[PayloadAttributesV2]):
                         Future[(PayloadExecutionStatus, Option[BlockHash])] {.async.} =
   doAssert not headBlockHash.isZero
 
@@ -1243,18 +1234,24 @@ proc forkchoiceUpdated*(m: ELManager,
   if m.elConnections.len == 0:
     return (PayloadExecutionStatus.syncing, none BlockHash)
 
-  when payloadAttributes is PayloadAttributesV2:
-    template payloadAttributesV2(): auto = payloadAttributes
-  elif payloadAttributes is PayloadAttributesV1:
-    template payloadAttributesV2(): auto = PayloadAttributesV2(
-      timestamp: payloadAttributes.timestamp,
-      prevRandao: payloadAttributes.prevRandao,
-      suggestedFeeRecipient: payloadAttributes.suggestedFeeRecipient,
-      withdrawals: @[])
-  elif payloadAttributes is NoPayloadAttributesType:
+  when payloadAttributes is Option[PayloadAttributesV2]:
     template payloadAttributesV2(): auto =
-      # Because timestamp and prevRandao are both 0, won't false-positive match
-      (static(default(PayloadAttributesV2)))
+      if payloadAttributes.isSome:
+        payloadAttributes.get
+      else:
+        # As timestamp and prevRandao are both 0, won't false-positive match
+        (static(default(PayloadAttributesV2)))
+  elif payloadAttributes is Option[PayloadAttributesV1]:
+    template payloadAttributesV2(): auto =
+      if payloadAttributes.isSome:
+        PayloadAttributesV2(
+          timestamp: payloadAttributes.get.timestamp,
+          prevRandao: payloadAttributes.get.prevRandao,
+          suggestedFeeRecipient: payloadAttributes.get.suggestedFeeRecipient,
+          withdrawals: @[])
+      else:
+        # As timestamp and prevRandao are both 0, won't false-positive match
+        (static(default(PayloadAttributesV2)))
   else:
     static: doAssert false
 

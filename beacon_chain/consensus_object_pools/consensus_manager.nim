@@ -164,13 +164,25 @@ proc updateExecutionClientHead(self: ref ConsensusManager,
     self.dag.markBlockVerified(self.quarantine[], newHead.blck.root)
     return Opt[void].ok()
 
-  # Can't use dag.head here because it hasn't been updated yet
-  let (payloadExecutionStatus, latestValidHash) =
+  template callForkchoiceUpdated(attributes: untyped): auto =
     await self.elManager.forkchoiceUpdated(
       headBlockHash = headExecutionPayloadHash,
       safeBlockHash = newHead.safeExecutionPayloadHash,
       finalizedBlockHash = newHead.finalizedExecutionPayloadHash,
-      payloadAttributes = NoPayloadAttributes)
+      payloadAttributes = none attributes)
+
+  # Can't use dag.head here because it hasn't been updated yet
+  let (payloadExecutionStatus, latestValidHash) =
+    case self.dag.cfg.consensusForkAtEpoch(newHead.blck.bid.slot.epoch)
+    of ConsensusFork.Capella, ConsensusFork.Deneb:
+      # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
+      # Consensus layer client MUST call this method instead of
+      # `engine_forkchoiceUpdatedV1` under any of the following conditions:
+      # `headBlockHash` references a block which `timestamp` is greater or
+      # equal to the Shanghai timestamp
+      callForkchoiceUpdated(PayloadAttributesV2)
+    of ConsensusFork.Phase0, ConsensusFork.Altair, ConsensusFork.Bellatrix:
+      callForkchoiceUpdated(PayloadAttributesV1)
 
   case payloadExecutionStatus
   of PayloadExecutionStatus.valid:
@@ -348,7 +360,7 @@ proc runProposalForkchoiceUpdated*(
         let (status, _) = await self.elManager.forkchoiceUpdated(
           headBlockHash, safeBlockHash,
           beaconHead.finalizedExecutionPayloadHash,
-          payloadAttributes = fcPayloadAttributes)
+          payloadAttributes = some fcPayloadAttributes)
         debug "Fork-choice updated for proposal", status
 
       static: doAssert high(ConsensusFork) == ConsensusFork.Deneb
