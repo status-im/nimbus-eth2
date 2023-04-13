@@ -234,3 +234,5 @@ const
     "The given merkle proof is invalid"
   InvalidMerkleProofIndexError* =
     "The given merkle proof index is invalid"
+  InvalidTimestampValue* =
+    "Invalid or missing timestamp value"

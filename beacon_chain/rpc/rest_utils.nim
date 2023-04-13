@@ -10,7 +10,7 @@
 import std/[options, macros],
        stew/byteutils, presto,
        ../spec/[forks],
-       ../spec/eth2_apis/[rest_types, eth2_rest_serialization],
+       ../spec/eth2_apis/[rest_types, eth2_rest_serialization, rest_common],
        ../validators/validator_duties,
        ../consensus_object_pools/blockchain_dag,
        ../beacon_node,
@@ -18,7 +18,7 @@ import std/[options, macros],
 
 export
   options, eth2_rest_serialization, blockchain_dag, presto, rest_types,
-  rest_constants
+  rest_constants, rest_common
 
 type
   ValidatorIndexError* {.pure.} = enum

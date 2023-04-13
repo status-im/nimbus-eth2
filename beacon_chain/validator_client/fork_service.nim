@@ -71,12 +71,6 @@ proc pollForFork(vc: ValidatorClientRef) {.async.} =
     notice "Fork schedule updated", fork_schedule = sortedForks
     vc.forksAvailable.fire()
 
-proc waitForNextEpoch(service: ForkServiceRef) {.async.} =
-  let vc = service.client
-  let sleepTime = vc.beaconClock.durationToNextEpoch() + TIME_DELAY_FROM_SLOT
-  debug "Sleeping until next epoch", sleep_time = sleepTime
-  await sleepAsync(sleepTime)
-
 proc mainLoop(service: ForkServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
@@ -99,7 +93,7 @@ proc mainLoop(service: ForkServiceRef) {.async.} =
     let breakLoop =
       try:
         await vc.pollForFork()
-        await service.waitForNextEpoch()
+        await service.waitForNextEpoch(TIME_DELAY_FROM_SLOT)
         false
       except CancelledError:
         debug "Service interrupted"

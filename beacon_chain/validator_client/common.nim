@@ -1153,3 +1153,11 @@ proc waitForBlock*(
       let dur = Moment.now() - startTime
       debug "Waiting for block cutoff was interrupted", duration = dur
       raise exc
+
+proc waitForNextEpoch*(service: ClientServiceRef,
+                       delay: Duration) {.async.} =
+  let vc = service.client
+  let sleepTime = vc.beaconClock.durationToNextEpoch() + delay
+  debug "Sleeping until next epoch", service = service.name,
+                                     sleep_time = sleepTime, delay = delay
+  await sleepAsync(sleepTime)

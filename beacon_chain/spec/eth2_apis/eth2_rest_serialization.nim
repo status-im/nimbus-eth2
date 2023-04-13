@@ -104,7 +104,8 @@ type
     capella_mev.SignedBlindedBeaconBlock |
     SignedValidatorRegistrationV1 |
     SignedVoluntaryExit |
-    Web3SignerRequest
+    Web3SignerRequest |
+    RestNimbusTimestamp1
 
   EncodeOctetTypes* =
     altair.SignedBeaconBlock |
@@ -152,7 +153,9 @@ type
     GetStateRootResponse |
     GetBlockRootResponse |
     SomeForkedLightClientObject |
-    seq[SomeForkedLightClientObject]
+    seq[SomeForkedLightClientObject] |
+    RestNimbusTimestamp1 |
+    RestNimbusTimestamp2
 
   RestVersioned*[T] = object
     data*: T

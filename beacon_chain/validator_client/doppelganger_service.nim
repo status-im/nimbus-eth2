@@ -21,12 +21,6 @@ proc getCheckingList*(vc: ValidatorClientRef, epoch: Epoch): seq[ValidatorIndex]
       res.add validator.index.get()
   res
 
-proc waitForNextEpoch(service: DoppelgangerServiceRef) {.async.} =
-  let vc = service.client
-  let sleepTime = vc.beaconClock.durationToNextEpoch() + TIME_DELAY_FROM_SLOT
-  debug "Sleeping until next epoch", sleep_time = sleepTime
-  await sleepAsync(sleepTime)
-
 proc processActivities(service: DoppelgangerServiceRef, epoch: Epoch,
                        activities: GetValidatorsLivenessResponse) =
   let vc = service.client
@@ -79,12 +73,12 @@ proc mainLoop(service: DoppelgangerServiceRef) {.async.} =
   # before that, we can safely perform the check for epoch 0 and thus keep
   # validating in epoch 1
   if vc.beaconClock.now().slotOrZero() > GENESIS_SLOT:
-    await service.waitForNextEpoch()
+    await service.waitForNextEpoch(TIME_DELAY_FROM_SLOT)
 
   while try:
     # Wait for the epoch to end - at the end (or really, the beginning of the
     # next one, we ask what happened
-    await service.waitForNextEpoch()
+    await service.waitForNextEpoch(TIME_DELAY_FROM_SLOT)
     let
       currentEpoch = vc.currentSlot().epoch()
       previousEpoch =
