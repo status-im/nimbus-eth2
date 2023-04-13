@@ -22,7 +22,9 @@ from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
   EpochRef, VerifierError
 from ../consensus_object_pools/block_quarantine import
-  addOrphan, addUnviable, pop, removeOrphan
+  addBlobless, addOrphan, addUnviable, pop, removeOrphan
+from ../consensus_object_pools/blob_quarantine import
+  BlobQuarantine, hasBlobs, popBlobs
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
@@ -91,6 +93,7 @@ type
     validatorMonitor: ref ValidatorMonitor
     getBeaconTime: GetBeaconTimeFn
 
+    blobQuarantine: ref BlobQuarantine
     verifier: BatchVerifier
 
     lastPayload: Slot
@@ -123,6 +126,7 @@ proc new*(T: type BlockProcessor,
           rng: ref HmacDrbgContext, taskpool: TaskPoolPtr,
           consensusManager: ref ConsensusManager,
           validatorMonitor: ref ValidatorMonitor,
+          blobQuarantine: ref BlobQuarantine,
           getBeaconTime: GetBeaconTimeFn): ref BlockProcessor =
   (ref BlockProcessor)(
     dumpEnabled: dumpEnabled,
@@ -131,6 +135,7 @@ proc new*(T: type BlockProcessor,
     blockQueue: newAsyncQueue[BlockEntry](),
     consensusManager: consensusManager,
     validatorMonitor: validatorMonitor,
+    blobQuarantine: blobQuarantine,
     getBeaconTime: getBeaconTime,
     verifier: BatchVerifier(rng: rng, taskpool: taskpool)
   )
@@ -564,7 +569,22 @@ proc storeBlock*(
 
   for quarantined in self.consensusManager.quarantine[].pop(blck.get().root):
     # Process the blocks that had the newly accepted block as parent
-    self[].addBlock(MsgSource.gossip, quarantined, BlobSidecars @[])
+    withBlck(quarantined):
+      when typeof(blck).toFork() < ConsensusFork.Deneb:
+        self[].addBlock(MsgSource.gossip, quarantined, BlobSidecars @[])
+      else:
+        if len(blck.message.body.blob_kzg_commitments) == 0:
+          self[].addBlock(MsgSource.gossip, quarantined, BlobSidecars @[])
+        else:
+          if self.blobQuarantine[].hasBlobs(blck):
+            let blobs = self.blobQuarantine[].popBlobs(blck.root)
+            self[].addBlock(MsgSource.gossip, quarantined, blobs)
+          else:
+            if not self.consensusManager.quarantine[].addBlobless(
+              dag.finalizedHead.slot, blck):
+              notice "Block quarantine full (blobless)",
+               blockRoot = shortLog(quarantined.root),
+               signature = shortLog(quarantined.signature)
 
   return Result[BlockRef, (VerifierError, ProcessingStatus)].ok blck.get
 

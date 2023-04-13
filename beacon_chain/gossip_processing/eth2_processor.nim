@@ -14,8 +14,8 @@ import
   ../spec/[helpers, forks],
   ../spec/datatypes/[altair, phase0, deneb],
   ../consensus_object_pools/[
-    block_clearance, block_quarantine, blockchain_dag, exit_pool, attestation_pool,
-    light_client_pool, sync_committee_msg_pool],
+    blob_quarantine, block_clearance, block_quarantine, blockchain_dag,
+    exit_pool, attestation_pool, light_client_pool, sync_committee_msg_pool],
   ../validators/validator_pool,
   ../beacon_clock,
   "."/[gossip_validation, block_processor, batch_validation],
@@ -145,6 +145,8 @@ type
     # ----------------------------------------------------------------
     quarantine*: ref Quarantine
 
+    blobQuarantine*: ref BlobQuarantine
+
     # Application-provided current time provider (to facilitate testing)
     getCurrentBeaconTime*: GetBeaconTimeFn
 
@@ -167,6 +169,7 @@ proc new*(T: type Eth2Processor,
           syncCommitteeMsgPool: ref SyncCommitteeMsgPool,
           lightClientPool: ref LightClientPool,
           quarantine: ref Quarantine,
+          blobQuarantine: ref BlobQuarantine,
           rng: ref HmacDrbgContext,
           getBeaconTime: GetBeaconTimeFn,
           taskpool: TaskPoolPtr
@@ -184,6 +187,7 @@ proc new*(T: type Eth2Processor,
     syncCommitteeMsgPool: syncCommitteeMsgPool,
     lightClientPool: lightClientPool,
     quarantine: quarantine,
+    blobQuarantine: blobQuarantine,
     getCurrentBeaconTime: getBeaconTime,
     batchCrypto: BatchCrypto.new(
       rng = rng,
@@ -234,9 +238,21 @@ proc processSignedBeaconBlock*(
     # propagation of seemingly good blocks
     trace "Block validated"
 
+    var blobs: BlobSidecars
+    when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
+      if self.blobQuarantine[].hasBlobs(signedBlock):
+        blobs = self.blobQuarantine[].popBlobs(signedBlock.root)
+      else:
+        if not self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
+                                             signedBlock):
+          notice "Block quarantine full (blobless)",
+           blockRoot = shortLog(signedBlock.root),
+           blck = shortLog(signedBlock.message),
+           signature = shortLog(signedBlock.signature)
+
     self.blockProcessor[].addBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
-      BlobSidecars @[],
+      blobs,
       maybeFinalized = maybeFinalized,
       validationDur = nanoseconds(
         (self.getCurrentBeaconTime() - wallTime).nanoseconds))
@@ -268,23 +284,50 @@ proc processSignedBlobSidecar*(
   # Potential under/overflows are fine; would just create odd metrics and logs
   let delay = wallTime - signedBlobSidecar.message.slot.start_beacon_time
 
-  debug "Blob received", delay
+  if self.blobQuarantine[].hasBlob(signedBlobSidecar.message):
+    debug "Blob received, already in quarantine", delay
+    return ValidationRes.ok
+  else:
+    debug "Blob received", delay
 
   let v =
-    self.dag.validateBlobSidecar(self.quarantine, signedBlobSidecar, wallTime, idx)
+    self.dag.validateBlobSidecar(self.quarantine,
+                                 signedBlobSidecar, wallTime, idx)
 
-  if v.isOk():
-    trace "Blob validated"
-
-    # TODO
-    # hand blob off to blob quarantine
-
-    blob_sidecars_received.inc()
-    blob_sidecar_delay.observe(delay.toFloatSeconds())
-  else:
+  if v.isErr():
     debug "Dropping blob", error = v.error()
-
     blob_sidecars_dropped.inc(1, [$v.error[0]])
+    return v
+
+  debug "Blob validated, putting in blob quarantine"
+  self.blobQuarantine[].put(newClone(signedBlobSidecar.message))
+  var toAdd: seq[deneb.SignedBeaconBlock]
+
+  var skippedBlocks = false
+
+  for blobless in self.quarantine[].peekBlobless(
+    signedBlobSidecar.message.block_root):
+    if self.blobQuarantine[].hasBlobs(blobless):
+      toAdd.add(blobless)
+    else:
+      skippedBlocks = true
+
+  if len(toAdd) > 0:
+    let blobs = self.blobQuarantine[].peekBlobs(
+      signedBlobSidecar.message.block_root)
+    for blobless in toAdd:
+      self.blockProcessor[].addBlock(
+        MsgSource.gossip,
+        ForkedSignedBeaconBlock.init(blobless), blobs)
+      self.quarantine[].removeBlobless(blobless)
+
+    if not skippedBlocks:
+      # no blobless blocks remain in quarantine that need these blobs,
+      # so we can remove them.
+      self.blobQuarantine[].removeBlobs(toAdd[0].root)
+
+  blob_sidecars_received.inc()
+  blob_sidecar_delay.observe(delay.toFloatSeconds())
 
   v
 
