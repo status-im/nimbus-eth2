@@ -967,11 +967,11 @@ func shortLog*[
     of LightClientDataFork.None:
       discard
     of LightClientDataFork.Altair:
-      altairData*: typeof(x.altairData.shortLog())
+      altairData: typeof(x.altairData.shortLog())
     of LightClientDataFork.Capella:
-      capellaData*: typeof(x.capellaData.shortLog())
+      capellaData: typeof(x.capellaData.shortLog())
     of LightClientDataFork.Deneb:
-      denebData*: typeof(x.denebData.shortLog())
+      denebData: typeof(x.denebData.shortLog())
 
   let xKind = x.kind  # Nim 1.6.12: Using `kind: x.kind` inside case is broken
   case xKind
