@@ -1,7 +1,7 @@
 # Historical data
 
 !!! note ""
-    This feature is available from `v23.1.0` onwards.
+    This feature is available from Nimbus `v23.1.0` onwards.
 
 In order for the network to remain healthy, each node must keep a minimum of 5 months of historical block data.
 
@@ -32,7 +32,7 @@ As noted above, the database will not shrink in size.
 To reclaim space, perform a [trusted node sync](./trusted-node-sync.md) on a fresh database instead.
 
 !!! warning "Backwards compatiblity"
-    Versions prior to v23.1.0 do not fully support pruned databases!
+    Versions prior to Nimbus `v23.1.0` do not fully support pruned databases!
     To downgrade, you may need to perform a [trusted node sync](./trusted-node-sync.md).
 
 When switching to `archive` mode, the node will start keeping history from the most recent prune point, but will not recreate deep history.

@@ -1,7 +1,7 @@
 # Validator monitoring
 
 !!! note
-    This feature is available from `v23.1.0` onwards.
+    This feature is available from Nimbus `v23.1.0` onwards.
     Earlier Nimbus versions included a preview version this feature behind a feature flag without enabling it by default.
 
 The validator monitoring feature allows for tracking the life cycle and performance of one or more validators in detail.

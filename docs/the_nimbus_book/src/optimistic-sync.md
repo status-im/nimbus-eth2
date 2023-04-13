@@ -10,7 +10,7 @@ Both execution and consensus clients must be fully synced to perform validation 
 !!! info "Running without execution client"
     Nimbus continues to sync optimistically when the execution client is not available thanks to its built-in execution payload verifier.
 
-    This feature is available from `v23.1.0` onwards.
+    This feature is available from Nimbus `v23.1.0` onwards.
     A preview of the feature could be enabled with `--optimistic` in earlier versions - this flag is no longer needed.
 
 ## Identifying optimistic sync

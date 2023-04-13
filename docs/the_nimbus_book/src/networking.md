@@ -18,7 +18,7 @@ Enabling UPnP is usually as simple as checking a box in your router's configurat
 ## Monitor your Peer count
 
 !!! note
-    As of `v1.7.0`, peer scoring has been fine-tuned.
+    As of Nimbus `v1.7.0` (February 2022, peer scoring has been fine-tuned.
     As such `--max-peers` should not be set below 70. Note that Lowering `max-peers` does not significantly improve bandwidth usage, but does increase the risk of missed attestations.
 
 If your Peer count is low (less than `15`) and/or you repeatedly see either of the following warnings:

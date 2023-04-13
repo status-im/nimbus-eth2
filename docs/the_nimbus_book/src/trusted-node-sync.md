@@ -1,8 +1,5 @@
 # Sync from a trusted node
 
-!!! note ""
-    This feature is available from `v1.7.0` onwards.
-
 When you [start the beacon node](./quick-start.md) for the first time, it connects to the beacon chain network and starts syncing automatically — a process that can take several days.
 
 Trusted node sync allows you to get started more quickly by fetching a recent checkpoint from a trusted node — you can get started in minutes instead of days.
@@ -86,7 +83,7 @@ The `head` root is also printed in the log output at regular intervals.
 ### Sync deposit history
 
 !!! note ""
-    This feature is available from `v22.12.0` onwards.
+    This feature is available from Nimbus `v22.12.0` onwards.
 
 The `--with-deposit-snapshot` allows syncing deposit history via REST, avoiding the need to search the execution client for this information and thus allowing the client to more quickly start producing blocks.
 
