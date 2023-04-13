@@ -226,6 +226,7 @@ proc pollForTime(service: MonitorServiceRef,
       timeOffset = tres.get()
       timeDuration = nanoseconds(abs(tres.get()))
       soffset = if tres.get() < 0: "-" & $timeDuration else: $timeDuration
+    debug "Remote beacon time offset received", offset = soffset
     if timeDuration >= WARNING_TIME_OFFSET:
       warn "Remote beacon node has significant time offset", offset = soffset
     elif timeDuration >= NOTICE_TIME_OFFSET:
@@ -311,18 +312,22 @@ proc mainLoop(service: MonitorServiceRef) {.async.} =
 
   var breakLoop = false
   var blockMonitoringLoopFut: Future[void]
+  var timeMonitoringLoopFut: Future[void]
 
   while not(breakLoop):
     breakLoop =
       try:
         blockMonitoringLoopFut = service.blockMonitoringLoop()
-        await allFutures(blockMonitoringLoopFut)
+        timeMonitoringLoopFut = service.timeMonitoringLoop()
+        await allFutures(blockMonitoringLoopFut, timeMonitoringLoopFut)
         false
       except CancelledError:
         debug "Service interrupted"
         var pending: seq[Future[void]]
         if not(blockMonitoringLoopFut.finished()):
           pending.add(blockMonitoringLoopFut.cancelAndWait())
+        if not(timeMonitoringLoopFut.finished()):
+          pending.add(timeMonitoringLoopFut.cancelAndWait())
         await allFutures(pending)
         true
       except CatchableError as exc:
