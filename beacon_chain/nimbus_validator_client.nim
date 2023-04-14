@@ -101,17 +101,17 @@ proc initClock(vc: ValidatorClientRef): Future[BeaconClock] {.async.} =
     currentTime = res.now()
     currentSlot = currentTime.slotOrZero()
     currentEpoch = currentSlot.epoch()
+    genesisTime = res.fromNow(Slot(0))
 
-  if currentTime.ns_since_genesis >= 0:
-    info "Initializing beacon clock",
-         genesis_time = vc.beaconGenesis.genesis_time,
-         current_slot = currentSlot, current_epoch = currentEpoch
-  else:
-    let genesisTime = res.fromNow(start_beacon_time(Slot(0)))
+  if genesisTime.inFuture:
     info "Initializing beacon clock",
          genesis_time = vc.beaconGenesis.genesis_time,
          current_slot = "<n/a>", current_epoch = "<n/a>",
-         time_to_genesis = currentTime.toDuration()
+         time_to_genesis = genesisTime.offset
+  else:
+    info "Initializing beacon clock",
+         genesis_time = vc.beaconGenesis.genesis_time,
+         current_slot = currentSlot, current_epoch = currentEpoch
   return res
 
 proc initMetrics(vc: ValidatorClientRef): Future[bool] {.async.} =
@@ -345,41 +345,56 @@ proc asyncInit(vc: ValidatorClientRef): Future[ValidatorClientRef] {.async.} =
   return vc
 
 proc runPreGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
-  const
-    PREGENESIS_TIMESTAMP = -int64(PREGENESIS_EPOCHS_COUNT) *
-                            int64(NANOSECONDS_PER_EPOCH)
-  try:
-    while true:
-      let currentTime = vc.beaconClock.now()
-      if currentTime.ns_since_genesis >= PREGENESIS_TIMESTAMP:
-        break
-      notice "Waiting for genesis",
-             genesis_time = vc.beaconGenesis.genesis_time,
-             time_to_genesis = currentTime.toDuration()
-      await sleepAsync(vc.beaconClock.durationToNextSlot())
-    vc.preGenesisEvent.fire()
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
-    error "Pre-genesis waiting loop failed with unexpected error",
-          err_name = $exc.name, err_msg = $exc.msg
+  var breakLoop = false
+  while not(breakLoop):
+    let
+      genesisTime = vc.beaconClock.fromNow(Slot(0))
+      currentEpoch = vc.beaconClock.now().toSlot().slot.epoch()
+
+    if not(genesisTime.inFuture) or currentEpoch < PREGENESIS_EPOCHS_COUNT:
+      break
+
+    notice "Waiting for genesis",
+           genesis_time = vc.beaconGenesis.genesis_time,
+           time_to_genesis = genesisTime.offset
+
+    breakLoop =
+      try:
+        await sleepAsync(vc.beaconClock.durationToNextSlot())
+        false
+      except CancelledError:
+        debug "Pre-genesis waiting loop was interrupted"
+        true
+      except CatchableError as exc:
+        error "Pre-genesis waiting loop failed with unexpected error",
+              err_name = $exc.name, err_msg = $exc.msg
+        true
+  vc.preGenesisEvent.fire()
 
 proc runGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
-  try:
-    while true:
-      let currentTime = vc.beaconClock.now()
-      if currentTime.ns_since_genesis >= 0:
-        break
-      notice "Waiting for genesis",
-             genesis_time = vc.beaconGenesis.genesis_time,
-             time_to_genesis = currentTime.toDuration()
-      await sleepAsync(vc.beaconClock.durationToNextSlot())
-    vc.genesisEvent.fire()
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
-    error "Genesis waiting loop failed with unexpected error",
-          err_name = $exc.name, err_msg = $exc.msg
+  var breakLoop = false
+  while not(breakLoop):
+    let genesisTime = vc.beaconClock.fromNow(Slot(0))
+
+    if genesisTime.inFuture:
+      break
+
+    notice "Waiting for genesis",
+           genesis_time = vc.beaconGenesis.genesis_time,
+           time_to_genesis = genesisTime.offset
+
+    breakLoop =
+      try:
+        await sleepAsync(vc.beaconClock.durationToNextSlot())
+        false
+      except CancelledError:
+        debug "Genesis waiting loop was interrupted"
+        true
+      except CatchableError as exc:
+        error "Genesis waiting loop failed with unexpected error",
+              err_name = $exc.name, err_msg = $exc.msg
+        true
+  vc.genesisEvent.fire()
 
 proc asyncRun*(vc: ValidatorClientRef) {.async.} =
   vc.fallbackService.start()

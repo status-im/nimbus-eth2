@@ -574,9 +574,9 @@ proc init*(t: typedesc[ProposedData], epoch: Epoch, dependentRoot: Eth2Digest,
   ProposedData(epoch: epoch, dependentRoot: dependentRoot, duties: @data)
 
 proc getCurrentSlot*(vc: ValidatorClientRef): Opt[Slot] =
-  let wallTime = vc.beaconClock.now()
-  if wallTime.ns_since_genesis >= 0:
-    Opt.some(wallTime.toSlot().slot)
+  let res = vc.beaconClock.now().toSlot()
+  if res.afterGenesis:
+    Opt.some(res.slot)
   else:
     Opt.none(Slot)
 
