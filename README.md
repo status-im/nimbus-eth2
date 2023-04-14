@@ -67,11 +67,7 @@ If you'd like to contribute to Nimbus development, our donation address is [`0x7
 
 ## Developer resources
 
-To build tools that interact with Nimbus while it's running, we expose an [RPC API](https://nimbus.guide/api.html).
-
-To get started with developing Nimbus itself, see the [developer handbook](https://nimbus.guide/developers.html). The code follows the [Status Nim Style Guide](https://status-im.github.io/nim-style-guide/).
-
-Nimbus is built in the [Nim language](https://nim-lang.org) - the compiler is automatically installed when building the project for the first time. More information - in particular security-related information about the language - can be found in the [Auditor Handbook](https://nimbus.guide/auditors-book/).
+To get started with developing Nimbus itself, see the [developer handbook](https://nimbus.guide/developers.html).
 
 ## Tooling and utilities
 

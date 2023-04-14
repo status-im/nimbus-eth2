@@ -1,10 +1,6 @@
 # For Developers
 
-TODO: Clean up the project README and link to this page instead
-
 This page contains tips and tricks for developers, further resources, along with information on how to set up your build environment on your platform.
-
-TODO: The install.md pre-requisites are missing packages needed for development, such as cmake (potentially others as well)
 
 Before building Nimbus for the first time, make sure to install the [prerequisites](./install.md).
 
@@ -13,6 +9,13 @@ Before building Nimbus for the first time, make sure to install the [prerequisit
 * [Ethereum consensus spec](https://github.com/ethereum/consensus-specs/)
 * [Ben Edgington's annotated spec](https://eth2book.info/bellatrix/)
 * [Vitalik's annotated spec](https://github.com/ethereum/annotated-spec/blob/master/phase0/beacon-chain.md)
+
+## Nim programming language
+
+Nimbus is built in the [Nim language](https://nim-lang.org).
+The compiler is automatically installed when building the project for the first time.
+
+More information — in particular security-related information about the language — can be found in the [Auditor Handbook](https://nimbus.guide/auditors-book/).
 
 ## Code style
 
