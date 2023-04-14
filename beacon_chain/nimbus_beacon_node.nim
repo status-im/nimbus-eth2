@@ -14,6 +14,7 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   eth/keys,
+  ./consensus_object_pools/blob_quarantine,
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/topic_params,
   ./rpc/[rest_api, state_ttl_cache],
@@ -319,6 +320,7 @@ proc initFullNode(
       LightClientPool())
     validatorChangePool = newClone(
       ValidatorChangePool.init(dag, attestationPool, onVoluntaryExitAdded))
+    blobQuarantine = newClone(BlobQuarantine())
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(rng, config.subscribeAllSubnets),
@@ -326,7 +328,8 @@ proc initFullNode(
       config.defaultFeeRecipient, config.suggestedGasLimit)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime)
+      rng, taskpool, consensusManager, node.validatorMonitor,
+      blobQuarantine, getBeaconTime)
     blockVerifier =
         proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
@@ -356,7 +359,7 @@ proc initFullNode(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, quarantine, rng, getBeaconTime, taskpool)
+      lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool, dag.cfg.DENEB_FORK_EPOCH, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
@@ -1347,6 +1350,9 @@ proc onSecond(node: BeaconNode, time: Moment) =
       node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
     notice "Shutting down after having reached the target synced epoch"
     bnStatus = BeaconNodeStatus.Stopping
+
+# TODO
+# onSecond timer to handle missing blobs, similar to above for blocks
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
   const
