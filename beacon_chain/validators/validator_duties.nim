@@ -296,26 +296,6 @@ proc getExecutionPayload(
     else:
       node.getFeeRecipient(pubkey.get().toPubKey(), validator_index, epoch)
 
-  template empty_execution_payload(): auto =
-    # Callers should already ensure these match, but type system doesn't
-    # transmit this information through the Forked types, so this has to
-    # be re-proven here.
-    withState(proposalState[]):
-      when consensusFork >= ConsensusFork.Capella:
-        # As of Capella, because EL state root changes in way more difficult to
-        # compute way from CL due to incorporation of withdrawals into EL state
-        # cannot use fake-EL fallback. Unlike transactions, withdrawals are not
-        # optional, so one cannot avoid this by not including any withdrawals.
-        Opt.none PayloadType
-      elif (consensusFork == ConsensusFork.Bellatrix and
-            PayloadType is bellatrix.ExecutionPayloadForSigning):
-        Opt.some build_empty_execution_payload(forkyState.data, feeRecipient)
-      elif consensusFork == ConsensusFork.Bellatrix:
-        raiseAssert "getExecutionPayload: mismatched proposalState and ExecutionPayload fork"
-      else:
-        # Vacuously -- these are pre-Bellatrix and not used.
-        Opt.some default(PayloadType)
-
   try:
     let
       beaconHead = node.attestationPool[].getBeaconHead(node.dag.head)
@@ -349,7 +329,7 @@ proc getExecutionPayload(
     beacon_block_payload_errors.inc()
     error "Error creating non-empty execution payload; using empty execution payload",
       msg = err.msg
-    return empty_execution_payload
+    return Opt.none PayloadType
 
 proc makeBeaconBlockForHeadAndSlot*(
     PayloadType: type ForkyExecutionPayloadForSigning,
