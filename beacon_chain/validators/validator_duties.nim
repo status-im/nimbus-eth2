@@ -327,7 +327,7 @@ proc getExecutionPayload(
     return Opt.some payload.get
   except CatchableError as err:
     beacon_block_payload_errors.inc()
-    error "Error creating non-empty execution payload; using empty execution payload",
+    error "Error creating non-empty execution payload",
       msg = err.msg
     return Opt.none PayloadType
 
