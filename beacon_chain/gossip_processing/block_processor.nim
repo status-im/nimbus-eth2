@@ -486,8 +486,7 @@ proc storeBlock*(
   # otherwise somewhat unpredictable CL head movement.
 
   if payloadValid:
-    self.consensusManager.dag.markBlockVerified(
-      self.consensusManager.quarantine[], signedBlock.root)
+    dag.markBlockVerified(self.consensusManager.quarantine[], signedBlock.root)
 
   # Grab the new head according to our latest attestation data; determines how
   # async this needs to be.
@@ -521,14 +520,14 @@ proc storeBlock*(
     else:
       let
         headExecutionPayloadHash =
-          self.consensusManager.dag.loadExecutionBlockHash(newHead.get.blck)
+          dag.loadExecutionBlockHash(newHead.get.blck)
         wallSlot = self.getBeaconTime().slotOrZero
       if  headExecutionPayloadHash.isZero or
           NewPayloadStatus.noResponse == payloadStatus:
         # Blocks without execution payloads can't be optimistic, and don't try
         # to fcU to a block the EL hasn't seen
         self.consensusManager[].updateHead(newHead.get.blck)
-      elif not self.consensusManager.dag.is_optimistic newHead.get.blck.root:
+      elif not dag.is_optimistic newHead.get.blck.root:
         # Not `NOT_VALID`; either `VALID` or `INVALIDATED`, but latter wouldn't
         # be selected as head, so `VALID`. `forkchoiceUpdated` necessary for EL
         # client only.
@@ -552,7 +551,7 @@ proc storeBlock*(
           newHead.get, self.getBeaconTime)
   else:
     warn "Head selection failed, using previous head",
-      head = shortLog(self.consensusManager.dag.head), wallSlot
+      head = shortLog(dag.head), wallSlot
 
   let
     updateHeadTick = Moment.now()
@@ -563,7 +562,7 @@ proc storeBlock*(
   beacon_store_block_duration_seconds.observe(storeBlockDur.toFloatSeconds())
 
   debug "Block processed",
-    localHeadSlot = self.consensusManager.dag.head.slot,
+    localHeadSlot = dag.head.slot,
     blockSlot = blck.get().slot,
     validationDur, queueDur, storeBlockDur, updateHeadDur
 
