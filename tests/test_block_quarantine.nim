@@ -56,16 +56,16 @@ suite "Block quarantine":
       quarantine.addBlobless(Slot 0, b6)
 
       (b4.root, ValidatorSig()) in quarantine.orphans
-      (b5.root, ValidatorSig()) in quarantine.blobless
-      (b6.root, ValidatorSig()) in quarantine.blobless
+      b5.root in quarantine.blobless
+      b6.root in quarantine.blobless
 
     quarantine.addUnviable(b4.root)
 
     check:
       (b4.root, ValidatorSig()) notin quarantine.orphans
 
-      (b5.root, ValidatorSig()) in quarantine.blobless
-      (b6.root, ValidatorSig()) notin quarantine.blobless
+      b5.root in quarantine.blobless
+      b6.root notin quarantine.blobless
 
     quarantine.addUnviable(b1.root)
 
@@ -74,5 +74,5 @@ suite "Block quarantine":
       (b2.root, ValidatorSig()) notin quarantine.orphans
       (b3.root, ValidatorSig()) notin quarantine.orphans
 
-      (b5.root, ValidatorSig()) notin quarantine.blobless
-      (b6.root, ValidatorSig()) notin quarantine.blobless
+      b5.root notin quarantine.blobless
+      b6.root notin quarantine.blobless
