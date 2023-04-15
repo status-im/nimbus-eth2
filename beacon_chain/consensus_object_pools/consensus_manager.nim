@@ -310,28 +310,40 @@ proc runProposalForkchoiceUpdated*(
   debug "runProposalForkchoiceUpdated: expected to be proposing next slot",
     nextWallSlot, validatorIndex, nextProposer
 
-  withState(self.dag.headState):
-    let
-      nextSlotFork = self.dag.cfg.forkAtEpoch(nextWallSlot.epoch)
-      nextSlotForkVersion = self.dag.cfg.forkVersionAtEpoch(nextWallSlot.epoch)
-    if  nextSlotForkVersion == self.dag.cfg.CAPELLA_FORK_VERSION and
-        forkyState.data.fork.current_version != nextSlotFork.current_version:
-      debug "runProposalForkchoiceUpdated: about to do Capella transition; don't have appropriate state to fcU ahead",
-        nextWallSlot, validatorIndex, nextProposer, nextSlotFork,
-        nextSlotForkVersion, stateFork = forkyState.data.fork
-
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
   let
     timestamp = withState(self.dag.headState):
       compute_timestamp_at_slot(forkyState.data, nextWallSlot)
+    # If the current head block still forms the basis of the eventual proposal
+    # state, then its `get_randao_mix` will remain unchanged as well, as it is
+    # constant until the next block.
     randomData = withState(self.dag.headState):
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data)).data
     feeRecipient = self[].getFeeRecipient(
       nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
     withdrawals = withState(self.dag.headState):
       when consensusFork >= ConsensusFork.Capella:
-        Opt.some get_expected_withdrawals(forkyState.data)
+        # Within an epoch, so long as there's no block, the withdrawals also
+        # remain unchanged. Balances change at epoch boundaries, however, so
+        # if and only if the proposal slot is the first slot of an epoch the
+        # beacon node must transition epochs to compute correct balances.
+        if nextWallSlot.is_epoch:
+          var cache: StateCache
+          let proposalState = self.dag.getProposalState(
+              self.dag.head, nextWallSlot, cache).valueOr:
+            warn "Failed to create proposal state for withdrawals",
+              err = error, nextWallSlot, validatorIndex, nextProposer
+            return
+          withState(proposalState[]):
+            when consensusFork >= ConsensusFork.Capella:
+              Opt.some get_expected_withdrawals(forkyState.data)
+            else:
+              Opt.none(seq[Withdrawal])
+        else:
+          # Head state is not eventual proposal state, but withdrawals will be
+          # identical.
+          Opt.some get_expected_withdrawals(forkyState.data)
       else:
         Opt.none(seq[Withdrawal])
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)
