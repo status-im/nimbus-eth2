@@ -428,6 +428,10 @@ proc initFullNode(
             if  is_active_validator(v, wallSlot.epoch) or
                 is_active_validator(v, wallSlot.epoch + 1):
               node.consensusManager[].actionTracker.knownValidators[idx] = wallSlot
+            elif is_exited_validator(v, wallSlot.epoch):
+              notice "Ignoring exited validator",
+                index = idx,
+                pubkey = shortLog(v.pubkey)
     let stabilitySubnets =
       node.consensusManager[].actionTracker.stabilitySubnets(wallSlot)
     # Here, we also set the correct ENR should we be in all subnets mode!
