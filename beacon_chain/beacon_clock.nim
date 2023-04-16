@@ -16,10 +16,6 @@ from times import Time, getTime, fromUnix, `<`, `-`, inNanoseconds
 
 export chronos.Duration, Moment, now
 
-const
-  NANOSECONDS_PER_SLOT* = SECONDS_PER_SLOT * 1_000_000_000'u64
-  NANOSECONDS_PER_EPOCH* = NANOSECONDS_PER_SLOT * SLOTS_PER_EPOCH
-
 type
   BeaconClock* = object
     ## The beacon clock represents time as it passes on a beacon chain. Beacon
