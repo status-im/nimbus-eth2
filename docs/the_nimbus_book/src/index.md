@@ -29,7 +29,7 @@ Need help with anything? Join us on [Status](https://join.status.im/nimbus-gener
 
 If you'd like to contribute to Nimbus development:
 
-* Our donation address is [`0x70E47C843E0F6ab0991A3189c28F2957eb6d3842`](https://etherscan.io/address/0x70E47C843E0F6ab0991A3189c28F2957eb6d3842)
+* Our donation address is [`0xDeb4A0e8d9a8dB30a9f53AF2dCc9Eb27060c6557`](https://etherscan.io/address/0xDeb4A0e8d9a8dB30a9f53AF2dCc9Eb27060c6557)
 * We're also listed on [GitCoin](https://gitcoin.co/grants/137/nimbus-2)
 
 ## Stay updated
