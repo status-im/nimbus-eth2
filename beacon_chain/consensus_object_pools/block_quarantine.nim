@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[options,tables],
+  std/[options, tables],
   stew/bitops2,
   ../spec/forks
 
@@ -49,7 +49,7 @@ type
       ## below) - if so, upon resolving the parent, it should be
       ## added to the blobless table, after verifying its signature.
 
-    blobless*: Table[(Eth2Digest), deneb.SignedBeaconBlock]
+    blobless*: Table[Eth2Digest, deneb.SignedBeaconBlock]
       ## Blocks that we don't have blobs for. When we have received
       ## all blobs for this block, we can proceed to resolving the
       ## block as well. A blobless block inserted into this table must

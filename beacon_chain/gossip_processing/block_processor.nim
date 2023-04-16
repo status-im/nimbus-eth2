@@ -17,7 +17,8 @@ from ../consensus_object_pools/consensus_manager import
   ConsensusManager, checkNextProposer, optimisticExecutionPayloadHash,
   runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
   updateHeadWithExecution
-from ../consensus_object_pools/blockchain_dag import getBlockRef, getProposer, forkAtEpoch, validatorKey
+from ../consensus_object_pools/blockchain_dag import
+  getBlockRef, getProposer, forkAtEpoch, validatorKey
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
