@@ -305,26 +305,17 @@ proc processSignedBlobSidecar*(
 
   var skippedBlocks = false
 
-  for blobless in self.quarantine[].peekBlobless(
-    signedBlobSidecar.message.block_root):
-    if self.blobQuarantine[].hasBlobs(blobless):
-      toAdd.add(blobless)
-    else:
-      skippedBlocks = true
+  if (let o = self.quarantine[].peekBlobless(
+    signedBlobSidecar.message.block_root); o.isSome):
+    let blobless = o.unsafeGet()
 
-  if len(toAdd) > 0:
-    let blobs = self.blobQuarantine[].peekBlobs(
-      signedBlobSidecar.message.block_root)
-    for blobless in toAdd:
+    if self.blobQuarantine[].hasBlobs(blobless):
       self.blockProcessor[].addBlock(
         MsgSource.gossip,
-        ForkedSignedBeaconBlock.init(blobless), blobs)
-      self.quarantine[].removeBlobless(blobless)
-
-    if not skippedBlocks:
-      # no blobless blocks remain in quarantine that need these blobs,
-      # so we can remove them.
-      self.blobQuarantine[].removeBlobs(toAdd[0].root)
+        ForkedSignedBeaconBlock.init(blobless),
+        self.blobQuarantine[].popBlobs(
+          signedBlobSidecar.message.block_root)
+      )
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())

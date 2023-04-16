@@ -10,13 +10,15 @@
 import
   stew/results,
   chronicles, chronos, metrics,
-  ../spec/signatures_batch,
+  ../spec/[signatures, signatures_batch],
   ../sszdump
 
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, checkNextProposer, optimisticExecutionPayloadHash,
   runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
   updateHeadWithExecution
+from ../consensus_object_pools/blockchain_dag import
+  getBlockRef, getProposer, forkAtEpoch, validatorKey
 from ../beacon_clock import GetBeaconTimeFn, toFloatSeconds
 from ../consensus_object_pools/block_dag import BlockRef, root, shortLog, slot
 from ../consensus_object_pools/block_pools_types import
@@ -334,6 +336,26 @@ proc getExecutionValidity(
     error "getExecutionValidity: newPayload failed", err = err.msg
     return NewPayloadStatus.noResponse
 
+proc checkBloblessSignature(self: BlockProcessor,
+                            signed_beacon_block: deneb.SignedBeaconBlock):
+                              Result[void, cstring] =
+  let dag = self.consensusManager.dag
+  let parent = dag.getBlockRef(signed_beacon_block.message.parent_root).valueOr:
+    return err("checkBloblessSignature called with orphan block")
+  let proposer = getProposer(
+        dag, parent, signed_beacon_block.message.slot).valueOr:
+    return err("checkBloblessSignature: Cannot compute proposer")
+  if uint64(proposer) != signed_beacon_block.message.proposer_index:
+    return err("checkBloblessSignature: Incorrect proposer")
+  if not verify_block_signature(
+      dag.forkAtEpoch(signed_beacon_block.message.slot.epoch),
+      getStateField(dag.headState, genesis_validators_root),
+      signed_beacon_block.message.slot,
+      signed_beacon_block.root,
+      dag.validatorKey(proposer).get(),
+      signed_beacon_block.signature):
+    return err("checkBloblessSignature: Invalid proposer signature")
+
 proc storeBlock*(
     self: ref BlockProcessor, src: MsgSource, wallTime: BeaconTime,
     signedBlock: ForkySignedBeaconBlock,
@@ -575,6 +597,11 @@ proc storeBlock*(
         if len(blck.message.body.blob_kzg_commitments) == 0:
           self[].addBlock(MsgSource.gossip, quarantined, BlobSidecars @[])
         else:
+          if (let res = checkBloblessSignature(self[], blck); res.isErr):
+            warn "Failed to verify signature of unorphaned blobless block",
+             blck = shortLog(blck),
+             error = res.error()
+            continue
           if self.blobQuarantine[].hasBlobs(blck):
             let blobs = self.blobQuarantine[].popBlobs(blck.root)
             self[].addBlock(MsgSource.gossip, quarantined, blobs)
