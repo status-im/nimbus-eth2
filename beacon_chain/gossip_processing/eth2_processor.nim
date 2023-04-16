@@ -249,6 +249,7 @@ proc processSignedBeaconBlock*(
            blockRoot = shortLog(signedBlock.root),
            blck = shortLog(signedBlock.message),
            signature = shortLog(signedBlock.signature)
+        return v
 
     self.blockProcessor[].addBlock(
       src, ForkedSignedBeaconBlock.init(signedBlock),
