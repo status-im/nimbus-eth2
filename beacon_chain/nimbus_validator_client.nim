@@ -376,7 +376,7 @@ proc runGenesisWaitingLoop(vc: ValidatorClientRef) {.async.} =
   while not(breakLoop):
     let genesisTime = vc.beaconClock.fromNow(Slot(0))
 
-    if genesisTime.inFuture:
+    if not(genesisTime.inFuture):
       break
 
     notice "Waiting for genesis",
