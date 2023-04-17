@@ -212,9 +212,3 @@ The good news is that you don't need to use all these tools, as long as you take
 
 See [here](https://github.com/metanull-operator/eth2-grafana/tree/master/nimbus) for a detailed guide explaining how to use it.
 
-## Enabling mobile alerts
-
-### Telegram
-
-TODO: We should either provide instructions here or delete this section
-
