@@ -953,3 +953,37 @@ func toLightClientHeader*(
     blck.toAltairLightClientHeader()
   else:
     static: raiseAssert "Unreachable"
+
+import chronicles
+
+func shortLog*[
+    T:
+      ForkedLightClientHeader |
+      SomeForkedLightClientObject |
+      ForkedLightClientStore](
+    x: T): auto =
+  type ResultType = object
+    case kind: LightClientDataFork
+    of LightClientDataFork.None:
+      discard
+    of LightClientDataFork.Altair:
+      altairData: typeof(x.altairData.shortLog())
+    of LightClientDataFork.Capella:
+      capellaData: typeof(x.capellaData.shortLog())
+    of LightClientDataFork.Deneb:
+      denebData: typeof(x.denebData.shortLog())
+
+  let xKind = x.kind  # Nim 1.6.12: Using `kind: x.kind` inside case is broken
+  case xKind
+  of LightClientDataFork.Deneb:
+    ResultType(kind: xKind, denebData: x.denebData.shortLog())
+  of LightClientDataFork.Capella:
+    ResultType(kind: xKind, capellaData: x.capellaData.shortLog())
+  of LightClientDataFork.Altair:
+    ResultType(kind: xKind, altairData: x.altairData.shortLog())
+  of LightClientDataFork.None:
+    ResultType(kind: xKind)
+
+chronicles.formatIt ForkedLightClientHeader: it.shortLog
+chronicles.formatIt SomeForkedLightClientObject: it.shortLog
+chronicles.formatIt ForkedLightClientStore: it.shortLog

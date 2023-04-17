@@ -29,3 +29,26 @@ proc raiseUnknownStatusError*(resp: RestPlainResponse) {.
      noreturn, raises: [RestError, Defect].} =
   let msg = "Unknown response status error (" & $resp.status & ")"
   raise newException(RestError, msg)
+
+proc getBodyBytesWithCap*(
+    response: HttpClientResponseRef,
+    maxBytes: int): Future[Opt[seq[byte]]] {.async.} =
+  var reader = response.getBodyReader()
+  try:
+    let
+      data = await reader.read(maxBytes)
+      isComplete = reader.atEof()
+    await reader.closeWait()
+    reader = nil
+    await response.finish()
+    if not isComplete:
+      return err()
+    return ok data
+  except CancelledError as exc:
+    if not(isNil(reader)):
+      await reader.closeWait()
+    raise exc
+  except AsyncStreamError:
+    if not(isNil(reader)):
+      await reader.closeWait()
+    raise newHttpReadError("Could not read response")

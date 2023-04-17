@@ -144,7 +144,7 @@ type
       name: "log-format" .}: StdoutLogKind
 
     logFile* {.
-      desc: "Specifies a path for the written Json log file (deprecated)"
+      desc: "Specifies a path for the written JSON log file (deprecated)"
       name: "log-file" .}: Option[OutFile]
 
     eth2Network* {.
@@ -205,7 +205,7 @@ type
       name: "require-engine-api-in-bellatrix" .}: Option[bool]
 
     nonInteractive* {.
-      desc: "Do not display interative prompts. Quit on missing configuration"
+      desc: "Do not display interactive prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool
 
     netKeyFile* {.
@@ -533,7 +533,7 @@ type
         name: "dump" .}: bool
 
       directPeers* {.
-        desc: "The list of priviledged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the complete multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>. Peering agreements are established out of band and must be reciprocal."
+        desc: "The list of privileged, secure and known peers to connect and maintain the connection to, this requires a not random netkey-file. In the complete multiaddress format like: /ip4/<address>/tcp/<port>/p2p/<peerId-public-key>. Peering agreements are established out of band and must be reciprocal."
         name: "direct-peer" .}: seq[string]
 
       doppelgangerDetection* {.
@@ -779,14 +779,18 @@ type
 
       stateId* {.
         desc: "State id to sync to - this can be \"finalized\", a slot number or state hash or \"head\""
-        defaultValue: "finalized",
         name: "state-id"
-      .}: string
+      .}: Option[string]
 
       blockId* {.
         hidden
         desc: "Block id to sync to - this can be a block root, slot number, \"finalized\" or \"head\" (deprecated)"
       .}: Option[string]
+
+      lcTrustedBlockRoot* {.
+        hidden
+        desc: "Recent trusted finalized block root to initialize light client from"
+        name: "trusted-block-root" .}: Option[Eth2Digest]
 
       backfillBlocks* {.
         desc: "Backfill blocks directly from REST server instead of fetching via API"
@@ -820,7 +824,7 @@ type
       name: "log-format" .}: StdoutLogKind
 
     logFile* {.
-      desc: "Specifies a path for the written Json log file (deprecated)"
+      desc: "Specifies a path for the written JSON log file (deprecated)"
       name: "log-file" .}: Option[OutFile]
 
     dataDir* {.
@@ -842,7 +846,7 @@ type
       name: "doppelganger-detection" .}: bool
 
     nonInteractive* {.
-      desc: "Do not display interative prompts. Quit on missing configuration"
+      desc: "Do not display interactive prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool
 
     validatorsDirFlag* {.
@@ -963,11 +967,11 @@ type
       name: "log-stdout" .}: StdoutLogKind
 
     logFile* {.
-      desc: "Specifies a path for the written Json log file"
+      desc: "Specifies a path for the written JSON log file"
       name: "log-file" .}: Option[OutFile]
 
     nonInteractive* {.
-      desc: "Do not display interative prompts. Quit on missing configuration"
+      desc: "Do not display interactive prompts. Quit on missing configuration"
       name: "non-interactive" .}: bool
 
     dataDir* {.

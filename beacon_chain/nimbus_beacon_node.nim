@@ -14,6 +14,7 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   eth/keys,
+  ./consensus_object_pools/blob_quarantine,
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/topic_params,
   ./rpc/[rest_api, state_ttl_cache],
@@ -319,6 +320,7 @@ proc initFullNode(
       LightClientPool())
     validatorChangePool = newClone(
       ValidatorChangePool.init(dag, attestationPool, onVoluntaryExitAdded))
+    blobQuarantine = newClone(BlobQuarantine())
     consensusManager = ConsensusManager.new(
       dag, attestationPool, quarantine, node.elManager,
       ActionTracker.init(rng, config.subscribeAllSubnets),
@@ -326,7 +328,8 @@ proc initFullNode(
       config.defaultFeeRecipient, config.suggestedGasLimit)
     blockProcessor = BlockProcessor.new(
       config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-      rng, taskpool, consensusManager, node.validatorMonitor, getBeaconTime)
+      rng, taskpool, consensusManager, node.validatorMonitor,
+      blobQuarantine, getBeaconTime)
     blockVerifier =
         proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
         Future[Result[void, VerifierError]] =
@@ -356,7 +359,7 @@ proc initFullNode(
       config.doppelgangerDetection,
       blockProcessor, node.validatorMonitor, dag, attestationPool,
       validatorChangePool, node.attachedValidators, syncCommitteeMsgPool,
-      lightClientPool, quarantine, rng, getBeaconTime, taskpool)
+      lightClientPool, quarantine, blobQuarantine, rng, getBeaconTime, taskpool)
     syncManager = newSyncManager[Peer, PeerId](
       node.network.peerPool, dag.cfg.DENEB_FORK_EPOCH, SyncQueueKind.Forward, getLocalHeadSlot,
       getLocalWallSlot, getFirstSlotAtFinalizedEpoch, getBackfillSlot,
@@ -425,6 +428,10 @@ proc initFullNode(
             if  is_active_validator(v, wallSlot.epoch) or
                 is_active_validator(v, wallSlot.epoch + 1):
               node.consensusManager[].actionTracker.knownValidators[idx] = wallSlot
+            elif is_exited_validator(v, wallSlot.epoch):
+              notice "Ignoring exited validator",
+                index = idx,
+                pubkey = shortLog(v.pubkey)
     let stabilitySubnets =
       node.consensusManager[].actionTracker.stabilitySubnets(wallSlot)
     # Here, we also set the correct ENR should we be in all subnets mode!
@@ -1348,6 +1355,9 @@ proc onSecond(node: BeaconNode, time: Moment) =
     notice "Shutting down after having reached the target synced epoch"
     bnStatus = BeaconNodeStatus.Stopping
 
+# TODO
+# onSecond timer to handle missing blobs, similar to above for blocks
+
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
   const
     sleepTime = chronos.seconds(1)
@@ -1981,6 +1991,23 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
     let
       network = loadEth2Network(config)
       cfg = network.cfg
+      syncTarget =
+        if config.stateId.isSome:
+          if config.lcTrustedBlockRoot.isSome:
+            warn "Ignoring `trustedBlockRoot`, `stateId` is set",
+              stateId = config.stateId,
+              trustedBlockRoot = config.lcTrustedBlockRoot
+          TrustedNodeSyncTarget(
+            kind: TrustedNodeSyncKind.StateId,
+            stateId: config.stateId.get)
+        elif config.lcTrustedBlockRoot.isSome:
+          TrustedNodeSyncTarget(
+            kind: TrustedNodeSyncKind.TrustedBlockRoot,
+            trustedBlockRoot: config.lcTrustedBlockRoot.get)
+        else:
+          TrustedNodeSyncTarget(
+            kind: TrustedNodeSyncKind.StateId,
+            stateId: "finalized")
       genesis =
         if network.genesisData.len > 0:
           newClone(readSszForkedHashedBeaconState(
@@ -1997,7 +2024,7 @@ proc handleStartUpCmd(config: var BeaconNodeConf) {.raises: [Defect, CatchableEr
       config.databaseDir,
       config.eraDir,
       config.trustedNodeUrl,
-      config.stateId,
+      syncTarget,
       config.backfillBlocks,
       config.reindex,
       config.downloadDepositSnapshot,
