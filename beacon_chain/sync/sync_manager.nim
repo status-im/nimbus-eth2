@@ -64,7 +64,6 @@ type
     queue: SyncQueue[A]
     syncFut: Future[void]
     blockVerifier: BlockVerifier
-    blockBlobsVerifier: BlockBlobsVerifier
     inProgress*: bool
     insSyncSpeed*: float
     avgSyncSpeed*: float
@@ -99,8 +98,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
     man.queue = SyncQueue.init(A, man.direction, man.getFirstSlot(),
                                man.getLastSlot(), man.chunkSize,
                                man.getSafeSlot, man.blockVerifier,
-                               man.blockBlobsVerifier, 1,
-                               man.ident)
+                               1, man.ident)
   of SyncQueueKind.Backward:
     let
       firstSlot = man.getFirstSlot()
@@ -113,8 +111,7 @@ proc initQueue[A, B](man: SyncManager[A, B]) =
                     Slot(firstSlot - 1'u64)
     man.queue = SyncQueue.init(A, man.direction, startSlot, lastSlot,
                                man.chunkSize, man.getSafeSlot,
-                               man.blockVerifier, man.blockBlobsVerifier, 1,
-                               man.ident)
+                               man.blockVerifier, 1, man.ident)
 
 proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            denebEpoch: Epoch,
@@ -126,7 +123,6 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
                            getFrontfillSlotCb: GetSlotCallback,
                            progressPivot: Slot,
                            blockVerifier: BlockVerifier,
-                           blockBlobsVerifier: BlockBlobsVerifier,
                            maxHeadAge = uint64(SLOTS_PER_EPOCH * 1),
                            chunkSize = uint64(SLOTS_PER_EPOCH),
                            flags: set[SyncManagerFlag] = {},
@@ -150,7 +146,6 @@ proc newSyncManager*[A, B](pool: PeerPool[A, B],
     maxHeadAge: maxHeadAge,
     chunkSize: chunkSize,
     blockVerifier: blockVerifier,
-    blockBlobsVerifier: blockBlobsVerifier,
     notInSyncEvent: newAsyncEvent(),
     direction: direction,
     ident: ident,

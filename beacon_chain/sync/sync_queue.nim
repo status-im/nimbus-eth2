@@ -25,12 +25,8 @@ logScope:
 type
   GetSlotCallback* = proc(): Slot {.gcsafe, raises: [Defect].}
   ProcessingCallback* = proc() {.gcsafe, raises: [Defect].}
-  BlockVerifier* =
-    proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
-      Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
-  BlockBlobsVerifier* =
-    proc(signedBlock: ForkedSignedBeaconBlock, blobs: BlobSidecars,
-         maybeFinalized: bool):
+  BlockVerifier* =  proc(signedBlock: ForkedSignedBeaconBlock,
+                         blobs: BlobSidecars, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
 
   SyncQueueKind* {.pure.} = enum
@@ -79,7 +75,6 @@ type
     readyQueue: HeapQueue[SyncResult[T]]
     rewind: Option[RewindPoint]
     blockVerifier: BlockVerifier
-    blockBlobsVerifier: BlockBlobsVerifier
     ident*: string
 
 chronicles.formatIt SyncQueueKind: toLowerAscii($it)
@@ -198,7 +193,6 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
               start, final: Slot, chunkSize: uint64,
               getSafeSlotCb: GetSlotCallback,
               blockVerifier: BlockVerifier,
-              blockBlobsVerifier: BlockBlobsVerifier,
               syncQueueSize: int = -1,
               ident: string = "main"): SyncQueue[T] =
   ## Create new synchronization queue with parameters
@@ -270,7 +264,6 @@ proc init*[T](t1: typedesc[SyncQueue], t2: typedesc[T],
     inpSlot: start,
     outSlot: start,
     blockVerifier: blockVerifier,
-    blockBlobsVerifier: blockBlobsVerifier,
     ident: ident
   )
 
@@ -684,9 +677,9 @@ proc push*[T](sq: SyncQueue[T], sr: SyncRequest[T],
     var i=0
     for blk in sq.blocks(item):
       if reqres.get().blobs.isNone():
-        res = await sq.blockVerifier(blk[], maybeFinalized)
+        res = await sq.blockVerifier(blk[], BlobSidecars @[], maybeFinalized)
       else:
-        res = await sq.blockBlobsVerifier(blk[], reqres.get().blobs.get()[i], maybeFinalized)
+        res = await sq.blockVerifier(blk[], reqres.get().blobs.get()[i], maybeFinalized)
       inc(i)
 
       if res.isOk():
