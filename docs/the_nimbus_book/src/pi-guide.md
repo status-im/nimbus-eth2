@@ -261,20 +261,30 @@ Once you're done, `ssh` back into your Pi.
 
 ### 11. Install the beacon node
 
-Open the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/releases/latest) and copy the link for the file that starts with `nimbus-eth2_Linux_arm64v8`.
+=== "Manual installation"
 
-Run this in your home directory to download nimbus-eth2:
+    Open the [Nimbus eth2 releases page](https://github.com/status-im/nimbus-eth2/releases/latest) and copy the link for the file that starts with `nimbus-eth2_Linux_arm64v8`.
 
-TODO: The guide should recommend installing through our APT package.
+    Run this in your home directory to download nimbus-eth2:
 
-```sh
-mkdir nimbus-eth2
-wget <insert download link here>
-tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz -C nimbus-eth2
-rm nimbus-eth2_Linux_arm64v8*.tar.gz
-```
+    ```sh
+    mkdir nimbus-eth2
+    wget <insert download link here>
+    tar -xzf nimbus-eth2_Linux_arm64v8*.tar.gz -C nimbus-eth2
+    rm nimbus-eth2_Linux_arm64v8*.tar.gz
+    ```
 
-Now you can find the software in the nimbus-eth2 directory.
+    Now you can find the software in the nimbus-eth2 directory.
+
+=== "Using package manager"
+
+    Install Nimbus using apt:
+
+    ```sh
+    sudo apt-get install nimbus-beacon-node
+    ```
+
+
 
 ### 12. Copy signing key over to Pi
 
