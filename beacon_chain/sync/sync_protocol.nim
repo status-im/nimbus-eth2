@@ -66,7 +66,7 @@ type
     slot: Slot
 
   BlockRootsList* = List[Eth2Digest, Limit MAX_REQUEST_BLOCKS]
-  BlobIdentifierList* = List[BlobIdentifier, Limit (MAX_REQUEST_BLOB_SIDECARS * MAX_BLOBS_PER_BLOCK)]
+  BlobIdentifierList* = List[BlobIdentifier, Limit (MAX_REQUEST_BLOB_SIDECARS)]
 
 template readChunkPayload*(
     conn: Connection, peer: Peer, MsgType: type ForkySignedBeaconBlock):
@@ -429,7 +429,7 @@ p2pProtocol BeaconSync(version = 1,
       peer: Peer,
       blobIds: BlobIdentifierList,
       response: MultipleChunksResponse[
-        ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS * MAX_BLOBS_PER_BLOCK)])
+        ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)])
       {.async, libp2pProtocol("blob_sidecars_by_root", 1).} =
     # TODO Semantically, this request should return a non-ref, but doing so
     #      runs into extreme inefficiency due to the compiler introducing
@@ -481,7 +481,7 @@ p2pProtocol BeaconSync(version = 1,
       peer: Peer,
       startSlot: Slot,
       reqCount: uint64,
-      response: MultipleChunksResponse[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS * MAX_BLOBS_PER_BLOCK)])
+      response: MultipleChunksResponse[ref BlobSidecar, Limit(MAX_REQUEST_BLOB_SIDECARS)])
       {.async, libp2pProtocol("blob_sidecars_by_range", 1).} =
     # TODO This code is more complicated than it needs to be, since the type
     #      of the multiple chunks response is not actually used in this server
@@ -507,7 +507,7 @@ p2pProtocol BeaconSync(version = 1,
     if startSlot.epoch < epochBoundary:
       raise newException(ResourceUnavailableError, BlobsOutOfRange)
 
-    var blockIds: array[MAX_REQUEST_BLOB_SIDECARS, BlockId]
+    var blockIds: array[int(MAX_REQUEST_BLOB_SIDECARS), BlockId]
     let
       count = int min(reqCount, blockIds.lenu64)
       endIndex = count - 1

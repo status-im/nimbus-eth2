@@ -29,7 +29,7 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS_DENEB* = 128 # TODO Make use of in request code
-  MAX_REQUEST_BLOB_SIDECARS* = int(MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK)
+  MAX_REQUEST_BLOB_SIDECARS* = MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
   # TODO MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/p2p-interface.md#configuration
