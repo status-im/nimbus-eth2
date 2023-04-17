@@ -273,22 +273,10 @@ Validators that are slashed are prevented from participating in the protocol fur
 
 ### What happens I lose my signing key?
 
-TODO: This should first recommend the key to be regenerated from the withdrwal key (see below).
-      If the user have lost their withdrawal key as well, explain that they will be eventually
-      booted from the network and 16 ETH will be transfered to their withdrawal address (as long
-      as it's specified).
-
 If the signing key is lost, the validator can no longer propose or attest.
-
-Over time, the validator's balance will decrease as he or she is punished for not participating in the consensus process.
-When the validator's balance reaches 16 ETH, he or she will be automatically exited from the validator pool.
 
 However, all is not lost.
 Assuming validators derive their keys using [EIP2334](https://eips.ethereum.org/EIPS/eip-2334) (as per the default onboarding flow) then **validators can always recalculate their signing key from their withdrawal key**.
-
-The 16 ETH can then be withdrawn, with the withdrawal key, after a delay of around a day.
-
-Note that this delay can be longer if many others are exiting or being kicked out at the same time.
 
 ### What happens if I lose my withdrawal key?
 
@@ -296,9 +284,11 @@ TODO: This should probably recommend or mention that you don't need to have with
       You can use 0x01 withdrawal credentials specifying a withdrawal address.
 
 If the withdrawal key is lost, there is no way to obtain access to the funds held by the validator.
-
 As such, it's a good idea to create your keys from mnemonics which act as another backup.
 This will be the default for validators who join via this site's onboarding process.
+
+If the validator can no longer propose or attest, their balance will decrease over time as they are punished for not participating in the consensus process.
+When the validator's balance reaches 16 ETH, they will be automatically exited from the validator pool, and 16 ETH will be transfered to their withdrawal address (as long it's specified).
 
 ### What happens if my withdrawal key is stolen?
 
