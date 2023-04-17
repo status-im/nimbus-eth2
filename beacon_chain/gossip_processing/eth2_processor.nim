@@ -306,7 +306,7 @@ proc processSignedBlobSidecar*(
 
   var skippedBlocks = false
 
-  if (let o = self.quarantine[].peekBlobless(
+  if (let o = self.quarantine[].popBlobless(
     signedBlobSidecar.message.block_root); o.isSome):
     let blobless = o.unsafeGet()
 
@@ -317,6 +317,9 @@ proc processSignedBlobSidecar*(
         self.blobQuarantine[].popBlobs(
           signedBlobSidecar.message.block_root)
       )
+    else:
+      discard self.quarantine[].addBlobless(self.dag.finalizedHead.slot,
+                                            blobless)
 
   blob_sidecars_received.inc()
   blob_sidecar_delay.observe(delay.toFloatSeconds())
