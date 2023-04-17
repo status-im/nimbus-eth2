@@ -34,6 +34,10 @@ proc otherNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
 proc otherNodesCount*(vc: ValidatorClientRef): int =
   vc.beaconNodes.countIt(it.status != RestBeaconNodeStatus.Synced)
 
+proc preGenesisNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
+  vc.beaconNodes.filterIt(it.status notin {RestBeaconNodeStatus.Synced,
+                                           RestBeaconNodeStatus.OptSynced})
+
 proc waitNodes*(vc: ValidatorClientRef, timeoutFut: Future[void],
                 statuses: set[RestBeaconNodeStatus],
                 roles: set[BeaconNodeRole], waitChanges: bool) {.async.} =
@@ -230,7 +234,12 @@ proc checkNode(vc: ValidatorClientRef,
 
 proc checkNodes*(service: FallbackServiceRef): Future[bool] {.async.} =
   let
-    nodesToCheck = service.client.otherNodes()
+    vc = service.client
+    nodesToCheck =
+      if vc.genesisEvent.isSet():
+        service.client.otherNodes()
+      else:
+        service.client.preGenesisNodes()
     pendingChecks = nodesToCheck.mapIt(service.client.checkNode(it))
   var res = false
   try:
@@ -251,6 +260,16 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
   debug "Service started"
+
+  try:
+    await vc.preGenesisEvent.wait()
+  except CancelledError:
+    debug "Service interrupted"
+    return
+  except CatchableError as exc:
+    warn "Service crashed with unexpected error", err_name = exc.name,
+         err_msg = exc.msg
+    return
 
   while true:
     # This loop could look much more nicer/better, when
@@ -279,8 +298,6 @@ proc init*(t: typedesc[FallbackServiceRef],
                                state: ServiceState.Initialized,
                                changesEvent: newAsyncEvent())
   debug "Initializing service"
-  # Perform initial nodes check.
-  if await res.checkNodes(): res.changesEvent.fire()
   return res
 
 proc start*(service: FallbackServiceRef) =
