@@ -80,10 +80,9 @@ It may happen that the same message is counted more than once under certain cond
 
 ## Monitoring metrics
 
-TODO: Link to the metrics reference page (which can feature sections with anchor URLs, grouping the metrics in catecogies)
+For instructions on how to use Prometheus and Grafana, see [these instructions](./metrics-pretty-pictures.md).
 
 The full list of metrics supported by the validator monitoring feature can be seen in the [source code](https://github.com/status-im/nimbus-eth2/blob/unstable/beacon_chain/validators/validator_monitor.nim) or by examining the metrics output:
-
 
 ```sh
 curl -s localhost:8008/metrics | grep HELP.*validator_
