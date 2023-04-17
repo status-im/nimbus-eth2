@@ -47,11 +47,11 @@ proc initLightClient*(
       withBlck(signedBlock):
         when consensusFork >= ConsensusFork.Bellatrix:
           if blck.message.is_execution_block:
-            template payload(): auto = blck.message.body.execution_payload
+            template blckPayload(): auto = blck.message.body.execution_payload
 
-            if not payload.block_hash.isZero:
+            if not blckPayload.block_hash.isZero:
               # engine_newPayloadV1
-              discard await node.elManager.newExecutionPayload(payload)
+              discard await node.elManager.newExecutionPayload(blckPayload)
 
               # Retain optimistic head for other `forkchoiceUpdated` callers.
               # May temporarily block `forkchoiceUpdatedV1` calls, e.g., Geth:
@@ -60,15 +60,32 @@ proc initLightClient*(
               # Once DAG sync catches up or as new optimistic heads are fetched
               # the situation recovers
               node.consensusManager[].setOptimisticHead(
-                blck.toBlockId(), payload.block_hash)
+                blck.toBlockId(), blckPayload.block_hash)
 
-              # engine_forkchoiceUpdatedV1
+              # engine_forkchoiceUpdatedV1 or engine_forkchoiceUpdatedV2,
+              # depending on pre or post-Shapella
               let beaconHead = node.attestationPool[].getBeaconHead(nil)
-              discard await node.elManager.forkchoiceUpdated(
-                headBlockHash = payload.block_hash,
-                safeBlockHash = beaconHead.safeExecutionPayloadHash,
-                finalizedBlockHash = beaconHead.finalizedExecutionPayloadHash,
-                payloadAttributes = NoPayloadAttributes)
+
+              template callForkchoiceUpdated(attributes: untyped) =
+                discard await node.elManager.forkchoiceUpdated(
+                  headBlockHash = blckPayload.block_hash,
+                  safeBlockHash = beaconHead.safeExecutionPayloadHash,
+                  finalizedBlockHash = beaconHead.finalizedExecutionPayloadHash,
+                  payloadAttributes = none attributes)
+
+              case node.dag.cfg.consensusForkAtEpoch(beaconHead.blck.bid.slot.epoch)
+              of ConsensusFork.Capella, ConsensusFork.Deneb:
+                # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
+                # Consensus layer client MUST call this method instead of
+                # `engine_forkchoiceUpdatedV1` under any of the following
+                # conditions:
+                # `headBlockHash` references a block which `timestamp` is
+                # greater or equal to the Shanghai timestamp
+                callForkchoiceUpdated(PayloadAttributesV2)
+              of ConsensusFork.Bellatrix:
+                callForkchoiceUpdated(PayloadAttributesV1)
+              of ConsensusFork.Phase0, ConsensusFork.Altair:
+                discard
           else: discard
 
     optimisticProcessor = initOptimisticProcessor(
