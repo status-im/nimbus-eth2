@@ -116,7 +116,7 @@ The key import must be performed as this user in order for the key files to have
 
 ```
 # Run import command as the `nimbus` user
-sudo -u nimbus /usr/bin/nimbus_beacon_node deposit import --data-dir=/var/lib/nimbus/shared_mainnet_0 /path/to/keys
+sudo -u nimbus /usr/bin/nimbus_beacon_node deposits import --data-dir=/var/lib/nimbus/shared_mainnet_0 /path/to/keys
 ```
 
 !!! note

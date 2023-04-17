@@ -1,4 +1,3 @@
-
 # Attestation performance
 
 TODO: This documentation is probably outdated
