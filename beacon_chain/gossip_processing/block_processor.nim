@@ -293,7 +293,8 @@ proc newExecutionPayload*(
     Future[Opt[PayloadExecutionStatus]] {.async.} =
 
   if not elManager.hasProperlyConfiguredConnection:
-    debug "No EL connection for newPayload"
+    warn "No EL connection for newPayload",
+      executionPayload = shortLog(executionPayload)
     return Opt.none PayloadExecutionStatus
 
   debug "newPayload: inserting block into execution engine",
