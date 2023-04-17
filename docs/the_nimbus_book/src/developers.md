@@ -126,7 +126,7 @@ nim --version # Nimbus is tested and supported on 1.2.12 at the moment
 
 - you can freely combine those variables on the `make` command line:
   ```bash
-  make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes eth2_network_simulation
+  make -j$(nproc) NIMFLAGS="-d:release" USE_MULTITAIL=yes local-testnet-minimal
   ```
 
 - don't use the [lightweight stack tracing implementation from nim-libbacktrace](https://github.com/status-im/nimbus-eth2/pull/745):
@@ -194,7 +194,7 @@ To run the simulation:
 
 ```bash
 make update
-make eth2_network_simulation
+make local-testnet-minimal
 ```
 
 To clean the previous run's data:
@@ -207,14 +207,14 @@ To change the number of validators and nodes:
 
 ```bash
 # Clear data files from your last run and start the simulation with a new genesis block:
-make VALIDATORS=192 NODES=6 USER_NODES=1 eth2_network_simulation
+make VALIDATORS=192 NODES=6 USER_NODES=1 local-testnet-minimal
 ```
 
 If you’d like to see the nodes running on separated sub-terminals inside one big window, install [Multitail](https://www.vanheusden.com/multitail/index.php) (if you're on a Mac, follow the instructions [here](https://brewinstall.org/Install-multitail-on-Mac-with-Brew/)), then:
 
 
 ```
-USE_MULTITAIL="yes" make eth2_network_simulation
+USE_MULTITAIL="yes" make local-testnet-minimal
 ```
 
 You’ll get something like this (click for full size):
