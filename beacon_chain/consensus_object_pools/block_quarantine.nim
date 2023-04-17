@@ -307,7 +307,7 @@ proc addBlobless*(
   quarantine.missing.del(signedBlock.root)
   true
 
-func peekBlobless*(quarantine: var Quarantine, root: Eth2Digest):
+func popBlobless*(quarantine: var Quarantine, root: Eth2Digest):
          Option[deneb.SignedBeaconBlock] =
   var blck: deneb.SignedBeaconBlock
   if quarantine.blobless.pop(root, blck):
