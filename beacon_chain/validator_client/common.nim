@@ -971,7 +971,7 @@ proc checkedWaitForSlot*(vc: ValidatorClientRef, destinationSlot: Slot,
     elif wallSlot > destinationSlot + SLOTS_PER_EPOCH:
       if showLogs:
         warn "Time moved forwards by more than an epoch, skipping ahead"
-      return Opt.some(wallSlot - SLOTS_PER_EPOCH)
+      return Opt.some(wallSlot)
 
     elif wallSlot > destinationSlot:
       if showLogs:
