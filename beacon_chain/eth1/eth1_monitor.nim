@@ -84,10 +84,11 @@ const
   engineApiConnectionTimeout = 5.seconds  # How much we wait before giving up connecting to the Engine API
   web3RequestsTimeout* = 8.seconds # How much we wait for eth_* requests (e.g. eth_getBlockByHash)
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/specification.md#request-2
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#request-2
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#request-2
   GETPAYLOAD_TIMEOUT = 1.seconds
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/experimental/blob-extension.md#engine_getblobsbundlev1
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/experimental/blob-extension.md#request-2
   GETBLOBS_TIMEOUT = 1.seconds
 
 type
@@ -1353,7 +1354,7 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
       debug "Failed to obtain eth_chainId",
              error = exc.msg
 
-  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/specification.md#engine_exchangetransitionconfigurationv1
+  # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_exchangetransitionconfigurationv1
   let
     ourConf = TransitionConfigurationV1(
       terminalTotalDifficulty: m.eth1Chain.cfg.TERMINAL_TOTAL_DIFFICULTY,
@@ -1997,7 +1998,7 @@ proc startExchangeTransitionConfigurationLoop(m: ELManager) {.async.} =
   debug "Starting exchange transition configuration loop"
 
   while true:
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/specification.md#engine_exchangetransitionconfigurationv1
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification-3
     debug "Exchange transition configuration tick"
     traceAsyncErrors m.exchangeTransitionConfiguration()
     await sleepAsync(60.seconds)

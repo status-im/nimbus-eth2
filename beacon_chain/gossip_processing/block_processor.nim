@@ -403,9 +403,9 @@ proc storeBlock*(
     # When the execution layer is not available to verify the payload, we do the
     # required check on the CL side instead and proceed as if the EL was syncing
 
-    # Client software MUST validate blockHash value as being equivalent to
-    # Keccak256(RLP(ExecutionBlockHeader))
-    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.2/src/engine/paris.md#specification
+    # Client software MUST validate `blockHash` value as being equivalent to
+    # `Keccak256(RLP(ExecutionBlockHeader))`
+    # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#specification
     when typeof(signedBlock).toFork() >= ConsensusFork.Bellatrix:
       template payload(): auto = signedBlock.message.body.execution_payload
       if  signedBlock.message.is_execution_block and
