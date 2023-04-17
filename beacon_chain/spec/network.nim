@@ -26,8 +26,6 @@ const
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/p2p-interface.md#configuration
   MAX_REQUEST_BLOCKS* = 1024
-
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/p2p-interface.md#configuration
   RESP_TIMEOUT* = 10.seconds
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/p2p-interface.md#configuration
