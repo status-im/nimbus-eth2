@@ -12,7 +12,8 @@ import
   ./sync/sync_manager,
   ./consensus_object_pools/[block_clearance, blockchain_dag],
   ./spec/eth2_apis/rest_beacon_client,
-  ./spec/[beaconstate, eth2_merkleization, forks, light_client_sync, presets,
+  ./spec/[beaconstate, eth2_merkleization, forks, light_client_sync,
+          network, presets,
           state_transition, deposit_snapshots],
   "."/[beacon_clock, beacon_chain_db, era_db]
 

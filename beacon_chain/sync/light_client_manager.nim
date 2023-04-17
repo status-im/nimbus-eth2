@@ -10,6 +10,7 @@
 import chronos, chronicles, stew/base10
 import
   eth/p2p/discoveryv5/random2,
+  ../spec/network,
   ../networking/eth2_network,
   ../beacon_clock,
   "."/sync_protocol, "."/sync_manager

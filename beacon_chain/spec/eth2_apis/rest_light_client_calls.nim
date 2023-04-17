@@ -195,7 +195,7 @@ proc getLightClientBootstrap*(
         contentType: resp.contentType,
         data: data))
 
-from ../../networking/eth2_network import MAX_REQUEST_LIGHT_CLIENT_UPDATES
+from ../../spec/network import MAX_REQUEST_LIGHT_CLIENT_UPDATES
 export MAX_REQUEST_LIGHT_CLIENT_UPDATES
 
 proc getLightClientUpdatesByRangePlain(

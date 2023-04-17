@@ -25,11 +25,20 @@ const
   topicBlsToExecutionChangeSuffix* = "bls_to_execution_change/ssz_snappy"
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/p2p-interface.md#configuration
+  MAX_REQUEST_BLOCKS* = 1024
   RESP_TIMEOUT* = 10.seconds
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/light-client/p2p-interface.md#configuration
+  MAX_REQUEST_LIGHT_CLIENT_UPDATES* = 128
 
   # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/p2p-interface.md#configuration
   GOSSIP_MAX_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
   MAX_CHUNK_SIZE_BELLATRIX* = 10 * 1024 * 1024 # bytes
+
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/p2p-interface.md#configuration
+  MAX_REQUEST_BLOCKS_DENEB* = 128 # TODO Make use of in request code
+  MAX_REQUEST_BLOB_SIDECARS* = MAX_REQUEST_BLOCKS_DENEB * MAX_BLOBS_PER_BLOCK
+  # TODO MIN_EPOCHS_FOR_BLOB_SIDECARS_REQUESTS
 
   defaultEth2TcpPort* = 9000
   defaultEth2TcpPortDesc* = $defaultEth2TcpPort
