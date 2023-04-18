@@ -40,7 +40,7 @@ proc initLightClient*(
   let
     optimisticHandler = proc(signedBlock: ForkedMsgTrustedSignedBeaconBlock):
                              Future[void] {.async.} =
-      info "New LC optimistic block",
+      debug "New LC optimistic block",
         opt = signedBlock.toBlockId(),
         dag = node.dag.head.bid,
         wallSlot = node.currentSlot
