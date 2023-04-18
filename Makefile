@@ -672,14 +672,6 @@ sepolia-dev-deposit: | sepolia-build deposit_contract
 clean-sepolia:
 	$(call CLEAN_NETWORK,sepolia)
 
-### Withdrawals testnets
-
-zhejiang:
-	tmuxinator start -p scripts/tmuxinator-el-cl-pair-in-devnet.yml network="vendor/withdrawals-testnets/zhejiang-testnet/custom_config_data"
-
-clean-zhejiang:
-	scripts/clean-devnet-dir.sh vendor/withdrawals-testnets/zhejiang-testnet/custom_config_data
-
 ###
 ### Gnosis chain binary
 ###
