@@ -49,14 +49,11 @@ func compute_deltas(
 logScope: topics = "fork_choice"
 
 func init*(
-    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints,
-    experimental = false, hasLowParticipation = false): T =
-  T(proto_array: ProtoArray.init(
-    checkpoints, experimental, hasLowParticipation))
+    T: type ForkChoiceBackend, checkpoints: FinalityCheckpoints): T =
+  T(proto_array: ProtoArray.init(checkpoints))
 
 proc init*(
-    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef,
-    experimental = false, hasLowParticipation = false): T =
+    T: type ForkChoice, epochRef: EpochRef, blck: BlockRef): T =
   ## Initialize a fork choice context for a finalized state - in the finalized
   ## state, the justified and finalized checkpoints are the same, so only one
   ## is used here
@@ -68,10 +65,8 @@ proc init*(
     backend: ForkChoiceBackend.init(
       FinalityCheckpoints(
         justified: checkpoint,
-        finalized: checkpoint),
-      experimental, hasLowParticipation),
+        finalized: checkpoint)),
     checkpoints: Checkpoints(
-      experimental: experimental,
       justified: BalanceCheckpoint(
         checkpoint: checkpoint,
         balances: epochRef.effective_balances),
@@ -84,33 +79,6 @@ func extend[T](s: var seq[T], minLen: int) =
   ## The extension is zero-initialized
   if s.len < minLen:
     s.setLen(minLen)
-
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/fork-choice.md#should_update_justified_checkpoint
-func should_update_justified_checkpoint(
-    self: var Checkpoints, dag: ChainDAGRef,
-    new_justified_checkpoint: Checkpoint): FcResult[bool] =
-  ## To address the bouncing attack, only update conflicting justified
-  ## checkpoints in the fork choice if in the early slots of the epoch.
-  ## Otherwise, delay incorporation of new justified checkpoint until next epoch
-  ## boundary.
-  ##
-  ## See https://ethresear.ch/t/prevention-of-bouncing-attack-on-ffg/6114 for
-  ## more detailed analysis and discussion.
-  if self.time.slotOrZero.since_epoch_start() < SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
-    return ok true
-
-  let
-    justified_slot = self.justified.checkpoint.epoch.start_slot()
-    justified_blck = dag.getBlockRef(new_justified_checkpoint.root).valueOr:
-      return err ForkChoiceError(
-        kind: fcJustifiedNodeUnknown,
-        blockRoot: new_justified_checkpoint.root)
-
-  let justified_ancestor = justified_blck.atSlot(justified_slot)
-  if justified_ancestor.blck.root != self.justified.checkpoint.root:
-    return ok false
-
-  ok true
 
 proc update_justified(
     self: var Checkpoints, dag: ChainDAGRef, blck: BlockRef, epoch: Epoch) =
@@ -146,23 +114,13 @@ proc update_checkpoints(
   ## Update checkpoints in store if necessary
   # Update justified checkpoint
   if checkpoints.justified.epoch > self.justified.checkpoint.epoch:
-    if not self.experimental:
-      if checkpoints.justified.epoch > self.best_justified.epoch:
-        self.best_justified = checkpoints.justified
-
-      if ? should_update_justified_checkpoint(self, dag, checkpoints.justified):
-        ? self.update_justified(dag, checkpoints.justified)
-    else:
-      ? self.update_justified(dag, checkpoints.justified)
+    ? self.update_justified(dag, checkpoints.justified)
 
   # Update finalized checkpoint
   if checkpoints.finalized.epoch > self.finalized.epoch:
     trace "Updating finalized",
       store = self.finalized, state = checkpoints.finalized
     self.finalized = checkpoints.finalized
-    if not self.experimental:
-      if checkpoints.justified != self.justified.checkpoint:
-        ? self.update_justified(dag, checkpoints.justified)
 
   ok()
 
@@ -188,22 +146,6 @@ proc on_tick(
   # Not a new epoch, return
   if not (current_slot > previous_slot and current_slot.is_epoch):
     return ok()
-
-  # Update store.justified_checkpoint if a better checkpoint on the
-  # store.finalized_checkpoint chain
-  if not self.checkpoints.experimental:
-    let
-      best_justified_epoch = self.checkpoints.best_justified.epoch
-      store_justified_epoch = self.checkpoints.justified.checkpoint.epoch
-    if best_justified_epoch > store_justified_epoch:
-      let
-        blck = dag.getBlockRef(self.checkpoints.best_justified.root).valueOr:
-          return err ForkChoiceError(
-            kind: fcJustifiedNodeUnknown,
-            blockRoot: self.checkpoints.best_justified.root)
-        finalized_ancestor = blck.atEpochStart(self.checkpoints.finalized.epoch)
-      if finalized_ancestor.blck.root == self.checkpoints.finalized.root:
-        self.checkpoints.update_justified(dag, blck, best_justified_epoch)
 
   # Pull-up chain tips from previous epoch
   for realized in self.backend.proto_array.realizePendingCheckpoints():

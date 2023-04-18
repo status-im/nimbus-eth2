@@ -82,50 +82,49 @@ proc installDebugApiHandlers*(router: var RestRouter, node: BeaconNode) =
     )
 
   # https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Debug/getDebugForkChoice
-  if node.config.debugForkChoice or experimental in node.dag.updateFlags:
-    router.api(MethodGet,
-               "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
-      template forkChoice: auto = node.attestationPool[].forkChoice
+  router.api(MethodGet,
+             "/eth/v1/debug/fork_choice") do () -> RestApiResponse:
+    template forkChoice: auto = node.attestationPool[].forkChoice
 
-      var response = GetForkChoiceResponse(
-        justified_checkpoint: forkChoice.checkpoints.justified.checkpoint,
-        finalized_checkpoint: forkChoice.checkpoints.finalized)
+    var response = GetForkChoiceResponse(
+      justified_checkpoint: forkChoice.checkpoints.justified.checkpoint,
+      finalized_checkpoint: forkChoice.checkpoints.finalized)
 
-      for item in forkChoice.backend.proto_array:
-        let
-          unrealized = item.unrealized.get(item.checkpoints)
-          u_justified_checkpoint =
-            if unrealized.justified != item.checkpoints.justified:
-              some unrealized.justified
-            else:
-              none(Checkpoint)
-          u_finalized_checkpoint =
-            if unrealized.finalized != item.checkpoints.finalized:
-              some unrealized.finalized
-            else:
-              none(Checkpoint)
+    for item in forkChoice.backend.proto_array:
+      let
+        unrealized = item.unrealized.get(item.checkpoints)
+        u_justified_checkpoint =
+          if unrealized.justified != item.checkpoints.justified:
+            some unrealized.justified
+          else:
+            none(Checkpoint)
+        u_finalized_checkpoint =
+          if unrealized.finalized != item.checkpoints.finalized:
+            some unrealized.finalized
+          else:
+            none(Checkpoint)
 
-        response.fork_choice_nodes.add RestNode(
-          slot: item.bid.slot,
-          block_root: item.bid.root,
-          parent_root: item.parent,
-          justified_epoch: item.checkpoints.justified.epoch,
-          finalized_epoch: item.checkpoints.finalized.epoch,
-          weight: cast[uint64](item.weight),
-          validity:
-            if item.invalid:
-              RestNodeValidity.invalid
-            elif node.dag.is_optimistic(item.bid.root):
-              RestNodeValidity.optimistic
-            else:
-              RestNodeValidity.valid,
-          execution_block_hash: node.dag.loadExecutionBlockHash(item.bid),
-          extra_data: some RestNodeExtraData(
-            justified_root: item.checkpoints.justified.root,
-            finalized_root: item.checkpoints.finalized.root,
-            u_justified_checkpoint: u_justified_checkpoint,
-            u_finalized_checkpoint: u_finalized_checkpoint,
-            best_child: item.bestChild,
-            bestDescendant: item.bestDescendant))
+      response.fork_choice_nodes.add RestNode(
+        slot: item.bid.slot,
+        block_root: item.bid.root,
+        parent_root: item.parent,
+        justified_epoch: item.checkpoints.justified.epoch,
+        finalized_epoch: item.checkpoints.finalized.epoch,
+        weight: cast[uint64](item.weight),
+        validity:
+          if item.invalid:
+            RestNodeValidity.invalid
+          elif node.dag.is_optimistic(item.bid.root):
+            RestNodeValidity.optimistic
+          else:
+            RestNodeValidity.valid,
+        execution_block_hash: node.dag.loadExecutionBlockHash(item.bid),
+        extra_data: some RestNodeExtraData(
+          justified_root: item.checkpoints.justified.root,
+          finalized_root: item.checkpoints.finalized.root,
+          u_justified_checkpoint: u_justified_checkpoint,
+          u_finalized_checkpoint: u_finalized_checkpoint,
+          best_child: item.bestChild,
+          bestDescendant: item.bestDescendant))
 
-      return RestApiResponse.jsonResponsePlain(response)
+    return RestApiResponse.jsonResponsePlain(response)

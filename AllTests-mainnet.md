@@ -202,14 +202,6 @@ OK: 7/7 Fail: 0/7 Skip: 0/7
 + Basic ops [Preset: mainnet]                                                                OK
 ```
 OK: 1/1 Fail: 0/1 Skip: 0/1
-## Fork Choice + Finality  [Preset: mainnet]
-```diff
-+ fork_choice - testing finality #01                                                         OK
-+ fork_choice - testing finality #02                                                         OK
-+ fork_choice - testing no votes                                                             OK
-+ fork_choice - testing with votes                                                           OK
-```
-OK: 4/4 Fail: 0/4 Skip: 0/4
 ## Fork id compatibility test
 ```diff
 + Digest check                                                                               OK
@@ -675,4 +667,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 384/389 Fail: 0/389 Skip: 5/389
+OK: 380/385 Fail: 0/385 Skip: 5/385
