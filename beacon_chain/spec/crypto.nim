@@ -203,7 +203,7 @@ func finish*(agg: AggregateSignature): CookedSig {.inline.} =
   sig.finish(agg)
   CookedSig(sig)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#bls-signatures
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#bls-signatures
 func blsVerify*(
     pubkey: CookedPubKey, message: openArray[byte],
     signature: CookedSig): bool =

@@ -6,8 +6,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 # State transition - epoch processing, as described in
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#epoch-processing and
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/beacon-chain.md#epoch-processing
 #
 # The entry point is `process_epoch`, which is at the bottom of this file.
 #
@@ -653,7 +655,7 @@ func get_flag_index_reward*(
   else:
     0.Gwei
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#get_flag_index_deltas
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#get_flag_index_deltas
 func get_unslashed_participating_increment*(
     info: altair.EpochInfo | bellatrix.BeaconState, flag_index: int): Gwei =
   info.balances.previous_epoch[flag_index] div EFFECTIVE_BALANCE_INCREMENT
@@ -970,7 +972,7 @@ func process_randao_mixes_reset*(state: var ForkyBeaconState) =
 func compute_historical_root*(state: var ForkyBeaconState): Eth2Digest =
   # Equivalent to hash_tree_root(foo: HistoricalBatch), but without using
   # significant additional stack or heap.
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#historicalbatch
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#historicalbatch
   # In response to https://github.com/status-im/nimbus-eth2/issues/921
   hash_tree_root([
     hash_tree_root(state.block_roots), hash_tree_root(state.state_roots)])
@@ -995,7 +997,7 @@ func process_participation_record_updates*(state: var phase0.BeaconState) =
   state.previous_epoch_attestations.clear()
   swap(state.previous_epoch_attestations, state.current_epoch_attestations)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#participation-flags-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#participation-flags-updates
 func process_participation_flag_updates*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState)) =
@@ -1009,7 +1011,7 @@ func process_participation_flag_updates*(
   # grows. New elements are automatically initialized to 0, as required.
   doAssert state.current_epoch_participation.asList.setLen(state.validators.len)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#sync-committee-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#sync-committee-updates
 func process_sync_committee_updates*(
     state: var (altair.BeaconState | bellatrix.BeaconState |
                 capella.BeaconState | deneb.BeaconState)) =
@@ -1055,7 +1057,7 @@ func process_inactivity_updates*(
     if pre_inactivity_score != inactivity_score:
       state.inactivity_scores[index] = inactivity_score
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.2/specs/capella/beacon-chain.md#historical-summaries-updates
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/beacon-chain.md#historical-summaries-updates
 func process_historical_summaries_update*(
     state: var (capella.BeaconState | deneb.BeaconState)):
     Result[void, cstring] =
@@ -1130,7 +1132,7 @@ func init*(
            deneb.BeaconState): T =
   init(result, state)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#epoch-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#epoch-processing
 proc process_epoch*(
     cfg: RuntimeConfig,
     state: var (altair.BeaconState | bellatrix.BeaconState),
