@@ -73,7 +73,7 @@ proc initLightClient*(
                   finalizedBlockHash = beaconHead.finalizedExecutionPayloadHash,
                   payloadAttributes = none attributes)
 
-              case node.dag.cfg.consensusForkAtEpoch(beaconHead.blck.bid.slot.epoch)
+              case node.dag.cfg.consensusForkAtEpoch(blck.message.slot.epoch)
               of ConsensusFork.Capella, ConsensusFork.Deneb:
                 # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/shanghai.md#specification-1
                 # Consensus layer client MUST call this method instead of
