@@ -293,7 +293,7 @@ proc newExecutionPayload*(
     Future[Opt[PayloadExecutionStatus]] {.async.} =
 
   if not elManager.hasProperlyConfiguredConnection:
-    warn "No EL connection for newPayload",
+    warn "No execution client connected; cannot process block payloads",
       executionPayload = shortLog(executionPayload)
     return Opt.none PayloadExecutionStatus
 
