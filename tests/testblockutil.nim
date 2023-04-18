@@ -108,6 +108,42 @@ proc build_empty_merge_execution_payload(state: bellatrix.BeaconState):
   bellatrix.ExecutionPayloadForSigning(executionPayload: payload,
                                        blockValue: Wei.zero)
 
+from eth/common/eth_types import GasInt
+from eth/eip1559 import calcEip1599BaseFee
+from stew/saturating_arith import saturate
+
+proc build_empty_execution_payload(
+    state: bellatrix.BeaconState,
+    feeRecipient: Eth1Address): bellatrix.ExecutionPayloadForSigning =
+  ## Assuming a pre-state of the same slot, build a valid ExecutionPayload
+  ## without any transactions.
+  let
+    latest = state.latest_execution_payload_header
+    timestamp = compute_timestamp_at_slot(state, state.slot)
+    randao_mix = get_randao_mix(state, get_current_epoch(state))
+    base_fee = calcEip1599BaseFee(GasInt.saturate latest.gas_limit,
+                                  GasInt.saturate latest.gas_used,
+                                  latest.base_fee_per_gas)
+
+  var payload = bellatrix.ExecutionPayloadForSigning(
+    executionPayload: bellatrix.ExecutionPayload(
+      parent_hash: latest.block_hash,
+      fee_recipient: bellatrix.ExecutionAddress(data: distinctBase(feeRecipient)),
+      state_root: latest.state_root, # no changes to the state
+      receipts_root: EMPTY_ROOT_HASH,
+      block_number: latest.block_number + 1,
+      prev_randao: randao_mix,
+      gas_limit: latest.gas_limit, # retain same limit
+      gas_used: 0, # empty block, 0 gas
+      timestamp: timestamp,
+      base_fee_per_gas: base_fee),
+    blockValue: Wei.zero)
+
+  payload.executionPayload.block_hash =
+    payload.executionPayload.compute_execution_block_hash()
+
+  payload
+
 proc addTestBlock*(
     state: var ForkedHashedBeaconState,
     cache: var StateCache,
