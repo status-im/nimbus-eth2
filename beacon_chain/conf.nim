@@ -115,13 +115,6 @@ type
     # migrateAll = "Export and remove the whole validator slashing protection DB."
     # migrate = "Export and remove specified validators from Nimbus."
 
-  DeploymentPhase* {.pure.} = enum
-    Devnet = "devnet"
-    CapellaReady = "capella"
-    Testnet = "testnet"
-    Mainnet = "mainnet"
-    None = "none"
-
   ImportMethod* {.pure.} = enum
     Normal = "normal"
     SingleSalt = "single-salt"
@@ -516,12 +509,6 @@ type
         defaultValue: true # the use of the nimbus_signing_process binary by default will be delayed until async I/O over stdin/stdout is developed for the child process.
         name: "in-process-validators" .}: bool
 
-      debugForkChoice* {.
-        hidden
-        desc: "Enable debug API for fork choice (https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Debug/getDebugForkChoice)"
-        defaultValue: false
-        name: "debug-fork-choice" .}: bool
-
       discv5Enabled* {.
         desc: "Enable Discovery v5"
         defaultValue: true
@@ -547,13 +534,6 @@ type
         defaultValue: MaxEmptySlotCount
         defaultValueDesc: "50"
         name: "sync-horizon" .}: uint64
-
-      deploymentPhase* {.
-        hidden
-        desc: "Configures the deployment phase"
-        defaultValue: DeploymentPhase.CapellaReady
-        defaultValueDesc: $DeploymentPhase.CapellaReady
-        name: "deployment-phase" .}: DeploymentPhase
 
       terminalTotalDifficultyOverride* {.
         hidden

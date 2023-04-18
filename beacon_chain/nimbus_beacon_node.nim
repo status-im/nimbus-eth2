@@ -178,9 +178,6 @@ proc loadChainDag(
             jsonVersion: contextFork,
             sszContext: dag.forkDigests[].atConsensusFork(contextFork)))
 
-  var extraFlags = {enableTestFeatures}
-  if config.deploymentPhase <= DeploymentPhase.Testnet:
-    extraFlags.incl experimental
   let
     chainDagFlags =
       if config.strictVerification: {strictVerification}
@@ -192,7 +189,7 @@ proc loadChainDag(
       if config.lightClientDataServe: onLightClientOptimisticUpdate
       else: nil
   dag = ChainDAGRef.init(
-    cfg, db, validatorMonitor, extraFlags + chainDagFlags, config.eraDir,
+    cfg, db, validatorMonitor, chainDagFlags, config.eraDir,
     vanityLogs = getVanityLogs(detectTTY(config.logStdout)),
     lcDataConfig = LightClientDataConfig(
       serve: config.lightClientDataServe,
@@ -1853,9 +1850,6 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
   # works
   for node in metadata.bootstrapNodes:
     config.bootstrapNodes.add node
-  if not (metadata.cfg.CAPELLA_FORK_EPOCH == FAR_FUTURE_EPOCH or
-      config.deploymentPhase == DeploymentPhase.None):
-    config.deploymentPhase = DeploymentPhase.CapellaReady
 
   let node = BeaconNode.init(rng, config, metadata)
 

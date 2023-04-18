@@ -88,8 +88,6 @@ type
     ## Subtracted from logical index to get the physical index
 
   ProtoArray* = object
-    experimental*: bool
-    hasLowParticipation*: bool
     currentEpoch*: Epoch
     checkpoints*: FinalityCheckpoints
     nodes*: ProtoNodes
@@ -112,7 +110,6 @@ type
     balances*: seq[Gwei]
 
   Checkpoints* = object
-    experimental*: bool
     time*: BeaconTime
     justified*: BalanceCheckpoint
     finalized*: Checkpoint

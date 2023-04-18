@@ -97,8 +97,7 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
   let finalizedEpochRef = dag.getFinalizedEpochRef()
 
   var forkChoice = ForkChoice.init(
-    finalizedEpochRef, dag.finalizedHead.blck,
-    experimental in dag.updateFlags)
+    finalizedEpochRef, dag.finalizedHead.blck)
 
   # Feed fork choice with unfinalized history - during startup, block pool only
   # keeps track of a single history so we just need to follow it
@@ -138,16 +137,19 @@ proc init*(T: type AttestationPool, dag: ChainDAGRef,
         else:
           epochRef = dag.getEpochRef(blckRef, blckRef.slot.epoch, false).expect(
             "Getting an EpochRef should always work for non-finalized blocks")
-          let blck = dag.getForkedBlock(blckRef.bid).expect(
-            "Should be able to load initial fork choice blocks")
-          var unrealized: FinalityCheckpoints
-          if enableTestFeatures in dag.updateFlags and blckRef == dag.head:
-            unrealized = withState(dag.headState):
-              when consensusFork >= ConsensusFork.Altair:
-                forkyState.data.compute_unrealized_finality()
+          let
+            blck = dag.getForkedBlock(blckRef.bid).expect(
+              "Should be able to load initial fork choice blocks")
+            unrealized =
+              if blckRef == dag.head:
+                withState(dag.headState):
+                  when consensusFork >= ConsensusFork.Altair:
+                    forkyState.data.compute_unrealized_finality()
+                  else:
+                    var cache: StateCache
+                    forkyState.data.compute_unrealized_finality(cache)
               else:
-                var cache: StateCache
-                forkyState.data.compute_unrealized_finality(cache)
+                default(FinalityCheckpoints)
           withBlck(blck):
             forkChoice.process_block(
               dag, epochRef, blckRef, unrealized, blck.message,

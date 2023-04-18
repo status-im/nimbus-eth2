@@ -90,8 +90,7 @@ func nodeLeadsToViableHead(
 # ----------------------------------------------------------------------
 
 func init*(
-    T: type ProtoArray, checkpoints: FinalityCheckpoints,
-    experimental, hasLowParticipation: bool): T =
+    T: type ProtoArray, checkpoints: FinalityCheckpoints): T =
   let node = ProtoNode(
     bid: BlockId(
       slot: checkpoints.finalized.epoch.start_slot,
@@ -103,14 +102,12 @@ func init*(
     bestChild: none(int),
     bestDescendant: none(int))
 
-  T(experimental: experimental,
-    hasLowParticipation: hasLowParticipation,
-    checkpoints: checkpoints,
+  T(checkpoints: checkpoints,
     nodes: ProtoNodes(buf: @[node], offset: 0),
     indices: {node.bid.root: 0}.toTable())
 
 iterator realizePendingCheckpoints*(
-    self: var ProtoArray, resetTipTracking = true): FinalityCheckpoints =
+    self: var ProtoArray): FinalityCheckpoints =
   # Pull-up chain tips from previous epoch
   for idx, unrealized in self.currentEpochTips.pairs():
     let physicalIdx = idx - self.nodes.offset
@@ -124,8 +121,7 @@ iterator realizePendingCheckpoints*(
     yield unrealized
 
   # Reset tip tracking for new epoch
-  if resetTipTracking:
-    self.currentEpochTips.clear()
+  self.currentEpochTips.clear()
 
 # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
 func calculateProposerBoost(validatorBalances: openArray[Gwei]): uint64 =
@@ -541,44 +537,33 @@ func nodeIsViableForHead(
   if node.invalid:
     return false
 
-  if self.experimental:
-    var correctJustified =
-      self.checkpoints.justified.epoch == GENESIS_EPOCH or
-      node.checkpoints.justified.epoch == self.checkpoints.justified.epoch
-    if not correctJustified and self.isPreviousEpochJustified and
-        node.bid.slot.epoch == self.currentEpoch:
-      let unrealized =
-        self.currentEpochTips.getOrDefault(nodeIdx, node.checkpoints)
-      correctJustified =
-        unrealized.justified.epoch >= self.checkpoints.justified.epoch and
-        node.checkpoints.justified.epoch + 2 >= self.currentEpoch
-    return
-      if not correctJustified:
-        false
-      elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
-        true
-      else:
-        let finalizedSlot = self.checkpoints.finalized.epoch.start_slot
-        var ancestor = some node
-        while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot:
-          if ancestor.unsafeGet.parent.isSome:
-            ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
-          else:
-            ancestor.reset()
-        if ancestor.isSome:
-          ancestor.unsafeGet.bid.root == self.checkpoints.finalized.root
+  var correctJustified =
+    self.checkpoints.justified.epoch == GENESIS_EPOCH or
+    node.checkpoints.justified.epoch == self.checkpoints.justified.epoch
+  if not correctJustified and self.isPreviousEpochJustified and
+      node.bid.slot.epoch == self.currentEpoch:
+    let unrealized =
+      self.currentEpochTips.getOrDefault(nodeIdx, node.checkpoints)
+    correctJustified =
+      unrealized.justified.epoch >= self.checkpoints.justified.epoch and
+      node.checkpoints.justified.epoch + 2 >= self.currentEpoch
+  return
+    if not correctJustified:
+      false
+    elif self.checkpoints.finalized.epoch == GENESIS_EPOCH:
+      true
+    else:
+      let finalizedSlot = self.checkpoints.finalized.epoch.start_slot
+      var ancestor = some node
+      while ancestor.isSome and ancestor.unsafeGet.bid.slot > finalizedSlot:
+        if ancestor.unsafeGet.parent.isSome:
+          ancestor = self.nodes[ancestor.unsafeGet.parent.unsafeGet]
         else:
-          false
-
-  ## Any node that has a different finalized or justified epoch
-  ## should not be viable for the head.
-  (
-    (node.checkpoints.justified == self.checkpoints.justified) or
-    (self.checkpoints.justified.epoch == GENESIS_EPOCH)
-  ) and (
-    (node.checkpoints.finalized == self.checkpoints.finalized) or
-    (self.checkpoints.finalized.epoch == GENESIS_EPOCH)
-  )
+          ancestor.reset()
+      if ancestor.isSome:
+        ancestor.unsafeGet.bid.root == self.checkpoints.finalized.root
+      else:
+        false
 
 func propagateInvalidity*(
     self: var ProtoArray, startPhysicalIdx: Index) =
