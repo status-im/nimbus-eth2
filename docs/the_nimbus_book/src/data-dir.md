@@ -86,8 +86,6 @@ Here is how to fix them.
 
 === "Windows"
 
-    TODO: Can we do this with native Windows tools, without asking the user to run Git Bash specifically?
-
     From inside `Git Bash`, run:
 
     ```sh

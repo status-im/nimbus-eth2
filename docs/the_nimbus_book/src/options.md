@@ -19,9 +19,6 @@ build/nimbus_beacon_node --help
 
 You should see the following output:
 
-TODO: It would be nice if we develop a solution for keeping this up-to-date
-      automatically
-
 ```
 Usage:
 

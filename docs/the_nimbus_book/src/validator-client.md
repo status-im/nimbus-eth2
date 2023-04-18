@@ -15,7 +15,7 @@ The Nimbus beacon node supports both its own and third-party validator clients v
 
 ## Setup
 
-To run a separate validator client, you must first make sure that your beacon node has its REST API enabled - start it with the `--rest` option.
+To run a separate validator client, you must first make sure that your beacon node has its REST API enabled: start it with the `--rest` option.
 
 Next, choose a data directory for the validator client and import the keys there:
 

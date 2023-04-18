@@ -188,8 +188,6 @@ Usually 1 - 100, but can be higher on multi-core CPUs.
 
 The beacon chain simulation runs several beacon nodes on the local machine, attaches several local validators to each, and builds a beacon chain between them.
 
-TODO: This information is outdated (see my remarks in the main README)
-
 To run the simulation:
 
 ```bash

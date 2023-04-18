@@ -7,7 +7,7 @@ Once this is done, you can start/stop enable/disable from the linux prompt.
 
 !!! abstract "`systemd`"
     [`systemd`](https://systemd.io/) is a service manager designed specifically for Linux - it cannot be used on Windows / Mac.
-    You can find out more about `systemd` [here](https://fedoramagazine.org/what-is-an-init-system/)
+    You can find out more about `systemd` [here](https://fedoramagazine.org/what-is-an-init-system/).
 
 !!! note "Package manager installations"
     When installing Nimbus via your [package manager](./binaries.md), a user and service will already have been created for you and you can skip straight to the configuration section.

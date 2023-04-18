@@ -37,7 +37,7 @@ The following options are available:
 
 Where:
 
-- The `network` can be `mainnet`, `prater`, or `sepolia`
+- The `network` can be `mainnet`, `prater`, or `sepolia`.
 
 - The default location of the `db`  is `build/data/shared_mainnet_0/db` for `mainnet`, `build/data/shared_prater_0/db` for `prater`, etc.
 
