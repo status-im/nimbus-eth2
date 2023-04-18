@@ -169,7 +169,7 @@ At the other end of the spectrum, if your balance is closer to 31 ETH, it's prob
 
 ### When can I withdraw my funds, and what's the difference between exiting and withdrawing?
 
-After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use 0x01 withdrawal credentials will have their funds automatically withdrawn.
+After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use `0x01` withdrawal credentials will have their funds automatically withdrawn.
 Please see our dedicated [guide for withdrawals](./withdrawals.md) for further information.
 
 ### How are validators incentivized to stay active and honest?
@@ -280,15 +280,16 @@ Assuming validators derive their keys using [EIP2334](https://eips.ethereum.org/
 
 ### What happens if I lose my withdrawal key?
 
-TODO: This should probably recommend or mention that you don't need to have withdrawal key.
-      You can use 0x01 withdrawal credentials specifying a withdrawal address.
-
 If the withdrawal key is lost, there is no way to obtain access to the funds held by the validator.
 As such, it's a good idea to create your keys from mnemonics which act as another backup.
 This will be the default for validators who join via this site's onboarding process.
 
 If the validator can no longer propose or attest, their balance will decrease over time as they are punished for not participating in the consensus process.
 When the validator's balance reaches 16 ETH, they will be automatically exited from the validator pool, and 16 ETH will be transfered to their withdrawal address (as long it's specified).
+
+!!! note
+    After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use `0x01` withdrawal credentials will have their funds automatically withdrawn.
+    Please see our dedicated [guide for withdrawals](./withdrawals.md) for further information.
 
 ### What happens if my withdrawal key is stolen?
 

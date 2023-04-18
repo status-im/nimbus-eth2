@@ -1,14 +1,14 @@
 # Withdraw your staked funds
 
-After the Capella hard-fork, activated on 12th of April 2023, all validators will be able to withdrawal their staked funds from the beacon chain.
+After the Capella hard-fork, activated on 12th of April 2023, all validators are able to withdrawal their staked funds from the beacon chain.
 
 Withdrawals are enabled for each validator once it's configured to use [0x01 withdrawal credentials](https://notes.ethereum.org/@launchpad/withdrawals-faq#Q-What-are-0x00-and-0x01-withdrawal-credentials-prefixes) which specify an execution layer address that will be the beneficiary of all withdrawn funds.
 
-If your validator was created with 0x01 withdrawal credentials, it's already fully prepared for withdrawals and you can safely skip the next step.
+If your validator was created with `0x01` withdrawal credentials, it's already fully prepared for withdrawals and you can safely skip the next step.
 
 ## Updating your withdrawal credentials
 
-To migrate your validator from BLS to 0x01 withdrawal credentials, you have to use the same third-party tool that was used to generate the BLS key.
+To migrate your validator from BLS to `0x01` withdrawal credentials, you have to use the same third-party tool that was used to generate the BLS key.
 You have to create a signed `BLS-to-Execution-Change` message that must be broadcast to the network (and eventually published in a beacon chain block) in order to execute the desired withdrawal credentials update.
 
 If you have used the [staking-deposit-cli](https://github.com/ethereum/staking-deposit-cli) tool (formerly known as `eth2.0-deposit-cli`), please follow the steps provided [here](https://launchpad.ethereum.org/en/btec/).
@@ -21,7 +21,7 @@ If you have used other software for generating your BLS withdrawal credentials, 
     If you ever wish to switch it later, the only option is to exit your validator and then create a new one.
 
 !!! note
-    Nimbus will allow you to broadcast the `BLS-to-Execution-Change` message only after the Capella hard-fork is activated on 12th of April 2023.
+    After the Capella hard-fork (activated on 12th of April 2023), Nimbus allows you to broadcast the `BLS-to-Execution-Change` message.
 
 !!! tip
     The specified withdrawal address doesn't need to match the [fee recipient address](./suggested-fee-recipient.md) used by your validator.
@@ -38,7 +38,7 @@ If you have used other software for generating your BLS withdrawal credentials, 
 
 ## Periodic withdrawals of staking rewards (partial withdrawals)
 
-Once the validator is configured with 0x01 withdrawal credentials, all staking rewards will be periodically withdrawn as long as the validator balance is above 32 ETH.
+Once the validator is configured with `0x01` withdrawal credentials, all staking rewards will be periodically withdrawn as long as the validator balance is above 32 ETH.
 No user action is required.
 
 !!! info
@@ -53,7 +53,7 @@ To withdrawal the entire staked balance of your validator, you must perform a vo
     You won't be able to validate again with the same key.
 
 !!! warning
-    Make sure you've migrated your validator to 0x01 withdrawal credentials before exiting.
+    Make sure you've migrated your validator to `0x01` withdrawal credentials before exiting.
 
 The time required for the withdrawal to complete depends on multiple factors such as the total number of validators in the network, the number of other validators attempting to exit at the moment and the current time in the periodic withdrawals cycle.
 Under typical conditions, it's expected to take 2 to 7 days.
