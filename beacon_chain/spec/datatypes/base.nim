@@ -126,7 +126,7 @@ template maxSize*(n: int) {.pragma.}
 # - broke the compiler in SSZ and nim-serialization
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#custom-types
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#custom-types
   Eth2Domain* = array[32, byte]
 
   ValidatorIndex* = distinct uint32
@@ -275,7 +275,7 @@ type
     # if the deposit should be added or not during processing
     signature*: ValidatorSig  # Signing over DepositMessage
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#voluntaryexit
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#voluntaryexit
   VoluntaryExit* = object
     epoch*: Epoch
       ## Earliest epoch when voluntary exit can be processed

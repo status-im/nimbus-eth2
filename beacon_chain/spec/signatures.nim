@@ -203,7 +203,7 @@ func compute_deposit_signing_root*(
     domain = compute_domain(DOMAIN_DEPOSIT, version)
   compute_signing_root(deposit_message, domain)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#deposits
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#deposits
 func get_deposit_signature*(preset: RuntimeConfig,
                             deposit: DepositData,
                             privkey: ValidatorPrivKey): CookedSig =

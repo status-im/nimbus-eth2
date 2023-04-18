@@ -66,7 +66,7 @@ func get_validator_from_deposit*(deposit: DepositData):
     effective_balance: effective_balance
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#compute_activation_exit_epoch
 func compute_activation_exit_epoch*(epoch: Epoch): Epoch =
   ## Return the epoch during which validator activations and exits initiated in
   ## ``epoch`` take effect.
@@ -286,7 +286,7 @@ func get_initial_beacon_block*(state: ForkedHashedBeaconState):
   withState(state):
     ForkedTrustedSignedBeaconBlock.init(get_initial_beacon_block(forkyState))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#get_block_root_at_slot
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_block_root_at_slot
 func get_block_root_at_slot*(state: ForkyBeaconState, slot: Slot): Eth2Digest =
   ## Return the block root at a recent ``slot``.
 
@@ -1201,7 +1201,7 @@ func upgrade_to_bellatrix*(cfg: RuntimeConfig, pre: altair.BeaconState):
     latest_execution_payload_header: default(bellatrix.ExecutionPayloadHeader)
   )
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.0/specs/capella/fork.md#upgrading-the-state
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/fork.md#upgrading-the-state
 func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
     ref capella.BeaconState =
   let
@@ -1279,6 +1279,9 @@ func upgrade_to_capella*(cfg: RuntimeConfig, pre: bellatrix.BeaconState):
     # Withdrawals
     next_withdrawal_index: 0,
     next_withdrawal_validator_index: 0
+
+    # Deep history valid from Capella onwards [New in Capella]
+    # historical_summaries initialized to correct default automatically
   )
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/deneb/fork.md#upgrading-the-state
