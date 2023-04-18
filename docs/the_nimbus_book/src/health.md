@@ -9,12 +9,8 @@ See [here](./networking.md) for our networking related tips and tricks.
 Attestation effectiveness is a metric that directly affects your validator rewards.
 In simple terms, an attestation is more valuable the sooner it is put into a block and included in the chain.
 
-TODO: It's no longer true that the inclusion distance affects the validator rewards.
-      As long as you are within the allowed inclusion distance, you get the full reward.
-
 This interval is called the *inclusion distance* of an attestation.
-The smaller it is, the more profitable your validator will be.
-For a deeper understanding we highly recommend reading [Attestant's wonderful blog post](https://www.attestant.io/posts/defining-attestation-effectiveness/#:~:text=Stakers%20looking%20to%20maximize%20their,provide%20clear%20metrics%20for%20performance.) on the matter.
+As long as your validator is within the allowed inclusion distance, you will get the full reward.
 
 You can verify your validator's effectiveness on the [beaconcha.in](https://beaconcha.in/) website.
 
@@ -22,7 +18,7 @@ You can verify your validator's effectiveness on the [beaconcha.in](https://beac
 
 Ideally you want to see a value above 95%.
 
-While attestation effectiveness depends on a variety of factors - attestation network propagation, your network connectivity, and the peers you are connected to - your network connectivity is likely the most important factors you can control to improve this metric.
+While attestation effectiveness depends on a variety of factors — attestation network propagation, your network connectivity, and the peers you are connected to — your network connectivity is likely the most important factors you can control to improve this metric.
 Apart from the tips outlined on this guide, you could also experiment with [subscribing to all subnets](./profits.md#subscribe-to-all-subnets).
 
 ## Monitor your system's network I/O usage
