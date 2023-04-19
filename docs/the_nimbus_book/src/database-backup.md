@@ -7,8 +7,7 @@ The best way to do this is to use `.backup` sqlite command:
 
 2. Run the following command:
   ```
-  sqlite3 my_db.sq3 ".backup 'backup_of_my_db.sq3'"
+  sqlite3 nbc.sqlite3 ".backup 'backup_nbc.sqlite3'"
   ```
-  where `my_db.sq3` is the name of your current database, and `backup_of_my_db.sq3` is the name for your backup file.
   Make sure to correctly type both single and double quotes, as written above.
 
