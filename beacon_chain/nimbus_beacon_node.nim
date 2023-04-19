@@ -403,6 +403,7 @@ proc initFullNode(
   dag.setReorgCb(onChainReorg)
 
   node.dag = dag
+  node.blobQuarantine = blobQuarantine
   node.quarantine = quarantine
   node.attestationPool = attestationPool
   node.syncCommitteeMsgPool = syncCommitteeMsgPool
@@ -414,6 +415,8 @@ proc initFullNode(
   node.requestManager = RequestManager.init(node.network,
                                             dag.cfg.DENEB_FORK_EPOCH,
                                             getBeaconTime,
+                                            quarantine,
+                                            blobQuarantine,
                                             rmanBlockVerifier)
   node.syncManager = syncManager
   node.backfiller = backfiller
@@ -1345,6 +1348,36 @@ proc onSlotStart(node: BeaconNode, wallTime: BeaconTime,
 
   return false
 
+proc handleMissingBlobs(node: BeaconNode) =
+  let
+    wallTime = node.beaconClock.now()
+    wallSlot = wallTime.slotOrZero()
+    delay = wallTime - wallSlot.start_beacon_time()
+    waitDur = TimeDiff(nanoseconds: BLOB_GOSSIP_WAIT_TIME_NS)
+
+  var fetches: seq[BlobFetchRecord]
+  for blobless in node.quarantine[].peekSortedBlobless():
+
+    # give blobs a chance to arrive over gossip
+    if blobless.message.slot == wallSlot and delay < waitDur:
+      continue
+
+    if not node.blobQuarantine[].hasBlobs(blobless):
+      let missing = node.blobQuarantine[].blobFetchRecord(blobless)
+      doAssert not len(missing.indices) == 0
+      fetches.add(missing)
+    else:
+      # this is a programming error should it occur.
+      warn "missing blob handler found blobless block with all blobs"
+      node.blockProcessor[].addBlock(
+        MsgSource.gossip,
+        ForkedSignedBeaconBlock.init(blobless),
+        node.blobQuarantine[].popBlobs(
+          blobless.root)
+      )
+      node.quarantine[].removeBlobless(blobless)
+  node.requestManager.fetchMissingBlobs(fetches)
+
 proc handleMissingBlocks(node: BeaconNode) =
   let missingBlocks = node.quarantine[].checkMissing()
   if missingBlocks.len > 0:
@@ -1355,6 +1388,7 @@ proc onSecond(node: BeaconNode, time: Moment) =
   ## This procedure will be called once per second.
   if not(node.syncManager.inProgress):
     node.handleMissingBlocks()
+    node.handleMissingBlobs()
 
   # Nim GC metrics (for the main thread)
   updateThreadMetrics()
@@ -1363,9 +1397,6 @@ proc onSecond(node: BeaconNode, time: Moment) =
       node.dag.head.slot.epoch >= node.config.stopAtSyncedEpoch:
     notice "Shutting down after having reached the target synced epoch"
     bnStatus = BeaconNodeStatus.Stopping
-
-# TODO
-# onSecond timer to handle missing blobs, similar to above for blocks
 
 proc runOnSecondLoop(node: BeaconNode) {.async.} =
   const

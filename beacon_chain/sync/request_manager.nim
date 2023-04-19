@@ -10,10 +10,11 @@
 import std/[sequtils, strutils]
 import chronos, chronicles
 import
-  ../spec/datatypes/[phase0],
-  ../spec/forks,
+  ../spec/datatypes/[phase0, deneb],
+  ../spec/[forks, network],
   ../networking/eth2_network,
   ../consensus_object_pools/block_quarantine,
+  ../consensus_object_pools/blob_quarantine,
   "."/sync_protocol, "."/sync_manager,
   ../gossip_processing/block_processor
 
@@ -30,16 +31,23 @@ const
   PARALLEL_REQUESTS* = 2
     ## Number of peers we using to resolve our request.
 
+  BLOB_GOSSIP_WAIT_TIME_NS* = 2 * 1_000_000_000
+    ## How long to wait for blobs to arrive over gossip before fetching.
+
 type
   BlockVerifier* =
     proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   RequestManager* = object
     network*: Eth2Node
-    inpQueue*: AsyncQueue[FetchRecord]
+    inpBlockQueue*: AsyncQueue[FetchRecord]
+    inpBlobQueue: AsyncQueue[BlobIdentifier]
     getBeaconTime: GetBeaconTimeFn
+    quarantine: ref Quarantine
+    blobQuarantine: ref BlobQuarantine
     blockVerifier: BlockVerifier
-    loopFuture: Future[void]
+    blockLoopFuture: Future[void]
+    blobLoopFuture: Future[void]
 
 func shortLog*(x: seq[Eth2Digest]): string =
   "[" & x.mapIt(shortLog(it)).join(", ") & "]"
@@ -50,11 +58,16 @@ func shortLog*(x: seq[FetchRecord]): string =
 proc init*(T: type RequestManager, network: Eth2Node,
               denebEpoch: Epoch,
               getBeaconTime: GetBeaconTimeFn,
+              quarantine: ref Quarantine,
+              blobQuarantine: ref BlobQuarantine,
               blockVerifier: BlockVerifier): RequestManager =
   RequestManager(
     network: network,
-    inpQueue: newAsyncQueue[FetchRecord](),
+    inpBlockQueue: newAsyncQueue[FetchRecord](),
+    inpBlobQueue: newAsyncQueue[BlobIdentifier](),
     getBeaconTime: getBeaconTime,
+    quarantine: quarantine,
+    blobQuarantine: blobQuarantine,
     blockVerifier: blockVerifier,
   )
 
@@ -70,6 +83,21 @@ proc checkResponse(roots: openArray[Eth2Digest],
       return false
     else:
       checks.del(res)
+  return true
+
+proc checkResponse(idList: seq[BlobIdentifier],
+                   blobs: openArray[ref BlobSidecar]): bool =
+  if len(blobs) > len(idList):
+    return false
+  for blob in blobs:
+    var found = false
+    for id in idList:
+      if id.block_root == blob.block_root and
+         id.index == blob.index:
+          found = true
+          break
+    if not found:
+        return false
   return true
 
 proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
@@ -144,19 +172,60 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
     if not(isNil(peer)):
       rman.network.peerPool.release(peer)
 
+proc fetchBlobsFromNetwork(self: RequestManager,
+                           idList: seq[BlobIdentifier]) {.async.} =
+  var peer: Peer
 
-proc requestManagerLoop(rman: RequestManager) {.async.} =
+  try:
+    peer = await self.network.peerPool.acquire()
+    debug "Requesting blobs by root", peer = peer, blobs = shortLog(idList),
+                                             peer_score = peer.getScore()
+
+    let blobs = (await blobSidecarsByRoot(peer, BlobIdentifierList idList))
+
+    if blobs.isOk:
+      let ublobs = blobs.get()
+      if not checkResponse(idList, ublobs.asSeq()):
+        peer.updateScore(PeerScoreBadResponse)
+        return
+
+      for b in ublobs:
+        self.blobQuarantine[].put(b)
+      var curRoot: Eth2Digest
+      for b in ublobs:
+        if b.block_root != curRoot:
+          curRoot = b.block_root
+          if (let o = self.quarantine[].popBlobless(curRoot); o.isSome):
+            let b = o.unsafeGet()
+            discard await self.blockVerifier(ForkedSignedBeaconBlock.init(b), false)
+            # TODO:
+            # If appropriate, return a VerifierError.InvalidBlob from verification,
+            # check for it here, and penalize the peer accordingly.
+
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    peer.updateScore(PeerScoreNoValues)
+    debug "Error while fetching blobs", exc = exc.msg,
+          idList = shortLog(idList), peer = peer, peer_score = peer.getScore()
+    raise exc
+  finally:
+    if not(isNil(peer)):
+      self.network.peerPool.release(peer)
+
+
+proc requestManagerBlockLoop(rman: RequestManager) {.async.} =
   var rootList = newSeq[Eth2Digest]()
   var workers = newSeq[Future[void]](PARALLEL_REQUESTS)
   while true:
     try:
       rootList.setLen(0)
-      let req = await rman.inpQueue.popFirst()
+      let req = await rman.inpBlockQueue.popFirst()
       rootList.add(req.root)
 
-      var count = min(SYNC_MAX_REQUESTED_BLOCKS - 1, len(rman.inpQueue))
+      var count = min(SYNC_MAX_REQUESTED_BLOCKS - 1, len(rman.inpBlockQueue))
       while count > 0:
-        rootList.add(rman.inpQueue.popFirstNoWait().root)
+        rootList.add(rman.inpBlockQueue.popFirstNoWait().root)
         dec(count)
 
       let start = SyncMoment.now(0)
@@ -174,28 +243,78 @@ proc requestManagerLoop(rman: RequestManager) {.async.} =
         if worker.finished() and not(worker.failed()):
           inc(succeed)
 
-      debug "Request manager tick", blocks_count = len(rootList),
-                                    succeed = succeed,
-                                    failed = (len(workers) - succeed),
-                                    queue_size = len(rman.inpQueue),
-                                    sync_speed = speed(start, finish)
+      debug "Request manager block tick", blocks_count = len(rootList),
+                                          succeed = succeed,
+                                          failed = (len(workers) - succeed),
+                                          queue_size = len(rman.inpBlockQueue),
+                                          sync_speed = speed(start, finish)
+
+    except CatchableError as exc:
+      debug "Got a problem in request manager", exc = exc.msg
+
+proc requestManagerBlobLoop(rman: RequestManager) {.async.} =
+  var idList = newSeq[BlobIdentifier]()
+  var workers = newSeq[Future[void]](PARALLEL_REQUESTS)
+  while true:
+    try:
+      idList.setLen(0)
+      let id = await rman.inpBlobQueue.popFirst()
+      idList.add(id)
+
+      var count = min(MAX_REQUEST_BLOB_SIDECARS - 1, lenu64(rman.inpBlobQueue))
+      while count > 0:
+        idList.add(rman.inpBlobQueue.popFirstNoWait())
+        dec(count)
+
+      let start = SyncMoment.now(0)
+
+      for i in 0 ..< PARALLEL_REQUESTS:
+        workers[i] = rman.fetchBlobsFromNetwork(idList)
+
+      await allFutures(workers)
+
+      var succeed = 0
+      for worker in workers:
+        if worker.finished() and not(worker.failed()):
+          inc(succeed)
+
+      debug "Request manager blob tick", blobs_count = len(idList),
+                                         succeed = succeed,
+                                         failed = (len(workers) - succeed),
+                                         queue_size = len(rman.inpBlobQueue)
 
     except CatchableError as exc:
       debug "Got a problem in request manager", exc = exc.msg
 
 proc start*(rman: var RequestManager) =
-  ## Start Request Manager's loop.
-  rman.loopFuture = rman.requestManagerLoop()
+  ## Start Request Manager's loops.
+  rman.blockLoopFuture = rman.requestManagerBlockLoop()
+  rman.blobLoopFuture = rman.requestManagerBlobLoop()
 
 proc stop*(rman: RequestManager) =
   ## Stop Request Manager's loop.
-  if not(isNil(rman.loopFuture)):
-    rman.loopFuture.cancel()
+  if not(isNil(rman.blockLoopFuture)):
+    rman.blockLoopFuture.cancel()
+  if not(isNil(rman.blobLoopFuture)):
+    rman.blobLoopFuture.cancel()
 
 proc fetchAncestorBlocks*(rman: RequestManager, roots: seq[FetchRecord]) =
   ## Enqueue list missing blocks roots ``roots`` for download by
   ## Request Manager ``rman``.
   for item in roots:
     try:
-      rman.inpQueue.addLastNoWait(item)
+      rman.inpBlockQueue.addLastNoWait(item)
+    except AsyncQueueFullError: raiseAssert "unbounded queue"
+
+
+proc fetchMissingBlobs*(rman: RequestManager,
+                        recs: seq[BlobFetchRecord]) =
+  var idList: seq[BlobIdentifier]
+  for r in recs:
+    for idx in r.indices:
+      idList.add(BlobIdentifier(block_root: r.block_root, index: idx))
+
+  for id in idList:
+    try:
+      rman.inpBlobQueue.addLastNoWait(id)
     except AsyncQueueFullError: raiseAssert "unbounded queue"

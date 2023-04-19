@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/tables,
+  std/[sequtils, strutils, tables],
   ../spec/datatypes/deneb
 
 
@@ -19,7 +19,15 @@ const
 type
   BlobQuarantine* = object
     blobs*: Table[(Eth2Digest, BlobIndex), ref BlobSidecar]
+  BlobFetchRecord* = object
+    block_root*: Eth2Digest
+    indices*: seq[BlobIndex]
 
+func shortLog*(x: seq[BlobIndex]): string =
+  "<" & x.mapIt($it).join(", ") & ">"
+
+func shortLog*(x: seq[BlobFetchRecord]): string =
+  "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices)).join(", ") & "]"
 
 func put*(quarantine: var BlobQuarantine, blobSidecar: ref BlobSidecar) =
   if quarantine.blobs.lenu64 > MaxBlobs:
@@ -68,3 +76,12 @@ func hasBlobs*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
     if idxs[i] != uint64(i):
       return false
   true
+
+func blobFetchRecord*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
+     BlobFetchRecord =
+  var indices: seq[BlobIndex]
+  for i in 0..len(blck.message.body.blob_kzg_commitments)-1:
+    let idx = BlobIndex(i)
+    if not quarantine.blobs.hasKey((blck.root, idx)):
+      indices.add(idx)
+  return BlobFetchRecord(block_root: blck.root, indices: indices)
