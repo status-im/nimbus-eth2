@@ -32,8 +32,7 @@ const
 
 type
   BlockVerifier* =
-    proc(signedBlock: ForkedSignedBeaconBlock, blobs: BlobSidecars,
-         maybeFinalized: bool):
+    proc(signedBlock: ForkedSignedBeaconBlock, maybeFinalized: bool):
       Future[Result[void, VerifierError]] {.gcsafe, raises: [Defect].}
   RequestManager* = object
     network*: Eth2Node
@@ -91,9 +90,7 @@ proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
           gotUnviableBlock = false
 
         for b in ublocks:
-          let ver = await rman.blockVerifier(b[], BlobSidecars @[], false)
-          # TODO:
-          # blob handling for Deneb blocks
+          let ver = await rman.blockVerifier(b[], false)
           if ver.isErr():
             case ver.error()
             of VerifierError.MissingParent:
