@@ -178,7 +178,6 @@ type
 
   EtcStatus {.pure.} = enum
     notExchangedYet
-    exchangeError
     mismatch
     match
 
@@ -1354,45 +1353,22 @@ proc exchangeConfigWithSingleEL(m: ELManager, connection: ELConnection) {.async.
       debug "Failed to obtain eth_chainId",
              error = exc.msg
 
+  connection.etcStatus = EtcStatus.match
+
   # https://github.com/ethereum/execution-apis/blob/v1.0.0-beta.3/src/engine/paris.md#engine_exchangetransitionconfigurationv1
   let
     ourConf = TransitionConfigurationV1(
       terminalTotalDifficulty: m.eth1Chain.cfg.TERMINAL_TOTAL_DIFFICULTY,
       terminalBlockHash: m.eth1Chain.cfg.TERMINAL_BLOCK_HASH,
       terminalBlockNumber: Quantity 0)
-    elConf = try:
-      connection.trackedRequestWithTimeout(
-        "exchangeTransitionConfiguration",
-        rpcClient.engine_exchangeTransitionConfigurationV1(ourConf),
-        timeout = 1.seconds)
-    except CatchableError as err:
-      warn "Failed to exchange transition configuration",
-            url = connection.engineUrl, err = err.msg
-      connection.etcStatus = EtcStatus.exchangeError
-      return
-
-  connection.etcStatus =
-    if ourConf.terminalTotalDifficulty != elConf.terminalTotalDifficulty:
-      warn "Engine API configured with different terminal total difficulty",
-            engineAPI_value = elConf.terminalTotalDifficulty,
-            localValue = ourConf.terminalTotalDifficulty
-      EtcStatus.mismatch
-    elif ourConf.terminalBlockNumber != elConf.terminalBlockNumber:
-      warn "Engine API reporting different terminal block number",
-            engineAPI_value = elConf.terminalBlockNumber.uint64,
-            localValue = ourConf.terminalBlockNumber.uint64
-      EtcStatus.mismatch
-    elif ourConf.terminalBlockHash != elConf.terminalBlockHash:
-      warn "Engine API reporting different terminal block hash",
-            engineAPI_value = elConf.terminalBlockHash,
-            localValue = ourConf.terminalBlockHash
-      EtcStatus.mismatch
-    else:
-      if connection.etcStatus == EtcStatus.notExchangedYet:
-        # Log successful engine configuration exchange once at startup
-        info "Successfully exchanged engine configuration",
-             url = connection.engineUrl
-      EtcStatus.match
+  try:
+    discard connection.trackedRequestWithTimeout(
+      "exchangeTransitionConfiguration",
+      rpcClient.engine_exchangeTransitionConfigurationV1(ourConf),
+      timeout = 1.seconds)
+  except CatchableError as err:
+    warn "Failed to exchange transition configuration",
+          url = connection.engineUrl, err = err.msg
 
 proc exchangeTransitionConfiguration*(m: ELManager) {.async.} =
   if m.elConnections.len == 0:
@@ -1408,7 +1384,6 @@ proc exchangeTransitionConfiguration*(m: ELManager) {.async.} =
   var cancelled = 0
   for idx, req in requests:
     if not req.finished:
-      m.elConnections[idx].etcStatus = EtcStatus.exchangeError
       req.cancel()
       inc cancelled
 
