@@ -1987,12 +1987,15 @@ func init(T: type FullBlockId, blk: Eth1BlockHeader|BlockObject): T =
 func isNewLastBlock(m: ELManager, blk: Eth1BlockHeader|BlockObject): bool =
   m.latestEth1Block.isNone or blk.number.uint64 > m.latestEth1BlockNumber
 
+func hasConnection*(m: ELManager): bool =
+  m.elConnections.len > 0
+
 func hasProperlyConfiguredConnection*(m: ELManager): bool =
   for connection in m.elConnections:
     if connection.etcStatus == EtcStatus.match:
       return true
 
-  return false
+  false
 
 proc startExchangeTransitionConfigurationLoop(m: ELManager) {.async.} =
   debug "Starting exchange transition configuration loop"

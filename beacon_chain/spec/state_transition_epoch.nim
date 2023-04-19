@@ -329,12 +329,12 @@ proc weigh_justification_and_finalization(
       current_epoch = current_epoch,
       checkpoint = shortLog(state.current_justified_checkpoint)
   elif strictVerification in flags:
-    warn "Low attestation participation in previous epoch",
+    fatal "Low attestation participation in previous epoch",
       total_active_balance,
       previous_epoch_target_balance,
       current_epoch_target_balance,
       epoch = get_current_epoch(state)
-    doAssert false
+    quit 1
 
   if current_epoch_target_balance * 3 >= total_active_balance * 2:
     state.current_justified_checkpoint =
