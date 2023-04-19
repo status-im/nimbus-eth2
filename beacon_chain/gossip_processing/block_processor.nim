@@ -13,7 +13,6 @@ import
   ../spec/[signatures, signatures_batch],
   ../sszdump
 
-from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, checkNextProposer, optimisticExecutionPayloadHash,
   runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
@@ -47,10 +46,6 @@ const
     ## syncing the finalized part of the chain
   PAYLOAD_PRE_WALL_SLOTS = SLOTS_PER_EPOCH * 2
     ## Number of slots from wall time that we start processing every payload
-  MAX_DEDUP_QUEUE_LEN = 16
-    ## Number of blocks, with FIFO discipline, against which to check queued
-    ## blocks before being processed to avoid spamming ELs. This should stay
-    ## small enough that even O(n) algorithms are reasonable.
 
 type
   BlobSidecars* = seq[ref BlobSidecar]
@@ -107,9 +102,6 @@ type
       ## The slot at which we sent a payload to the execution client the last
       ## time
 
-    dupBlckBuf: Deque[(Eth2Digest, ValidatorSig)]
-      # Small buffer to allow for filtering of duplicate blocks in block queue
-
   NewPayloadStatus {.pure.} = enum
     valid
     notValid
@@ -147,9 +139,7 @@ proc new*(T: type BlockProcessor,
     validatorMonitor: validatorMonitor,
     blobQuarantine: blobQuarantine,
     getBeaconTime: getBeaconTime,
-    verifier: BatchVerifier(rng: rng, taskpool: taskpool),
-    dupBlckBuf: initDeque[(Eth2Digest, ValidatorSig)](
-      initialSize = MAX_DEDUP_QUEUE_LEN)
+    verifier: BatchVerifier(rng: rng, taskpool: taskpool)
   )
 
 # Sync callbacks
@@ -689,19 +679,6 @@ proc addBlock*(
   except AsyncQueueFullError:
     raiseAssert "unbounded queue"
 
-# Dedup
-# ------------------------------------------------------------------------------
-
-func checkDuplicateBlocks(self: ref BlockProcessor, entry: BlockEntry): bool =
-  let key = (entry.blck.root, entry.blck.signature)
-  if self.dupBlckBuf.contains key:
-    return true
-  doAssert self.dupBlckBuf.len <= MAX_DEDUP_QUEUE_LEN
-  if self.dupBlckBuf.len >= MAX_DEDUP_QUEUE_LEN:
-    self.dupBlckBuf.shrink(fromFirst = 1)
-  self.dupBlckBuf.addLast key
-  false
-
 # Event Loop
 # ------------------------------------------------------------------------------
 
@@ -717,9 +694,6 @@ proc processBlock(
   if not afterGenesis:
     error "Processing block before genesis, clock turned back?"
     quit 1
-
-  if self.checkDuplicateBlocks(entry):
-    return
 
   let res = withBlck(entry.blck):
     await self.storeBlock(
