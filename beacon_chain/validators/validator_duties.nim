@@ -236,7 +236,7 @@ proc createAndSendAttestation(node: BeaconNode,
           fork, genesis_validators_root, data)
         if res.isErr():
           warn "Unable to sign attestation", validator = shortLog(validator),
-                attestatingData = shortLog(data), error_msg = res.error()
+                attestationData = shortLog(data), error_msg = res.error()
           return
         res.get()
       attestation =

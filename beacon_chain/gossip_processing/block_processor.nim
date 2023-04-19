@@ -218,7 +218,8 @@ from web3/engine_api_types import
   PayloadAttributesV1, PayloadAttributesV2, PayloadExecutionStatus,
   PayloadStatusV1
 from ../eth1/eth1_monitor import
-  ELManager, asEngineExecutionPayload, sendNewPayload, forkchoiceUpdated
+  ELManager, asEngineExecutionPayload, forkchoiceUpdated, hasConnection,
+  sendNewPayload
 
 proc expectValidForkchoiceUpdated(
     elManager: ELManager, headBlockPayloadAttributesType: typedesc,
@@ -283,7 +284,12 @@ proc newExecutionPayload*(
     Future[Opt[PayloadExecutionStatus]] {.async.} =
 
   if not elManager.hasProperlyConfiguredConnection:
-    debug "No EL connection for newPayload"
+    if elManager.hasConnection:
+      info "No execution client connected; cannot process block payloads",
+        executionPayload = shortLog(executionPayload)
+    else:
+      debug "No execution client connected; cannot process block payloads",
+        executionPayload = shortLog(executionPayload)
     return Opt.none PayloadExecutionStatus
 
   debug "newPayload: inserting block into execution engine",
