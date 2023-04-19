@@ -1,7 +1,5 @@
 # Attestation performance
 
-TODO: This documentation is probably outdated
-
 `ncli_db validatorPerf` is an advanced tool that helps you analyze the performance of your validator over time.
 
 The tool requires that you [build nimbus from source](./build.md).
@@ -94,9 +92,11 @@ This workbook consists of three inter-related spreadsheets: `Summary`, `My Valid
 
 2. Remove the table entries in `My Validators` and delete everything in the `datasource` sheet.
 
-3. Import the output from `validatorPerf` to `datasource` - the easiest way to do this is to pipe the output to a `csv`, remove the first few lines, and import the `csv` into `datasource`.
+3. Import the output from `validatorPerf` to `datasource`.
+   The easiest way to do this is to pipe the output to a `csv`, remove the first few lines, and import the `csv` into `datasource`.
 
-4. Manually copy over your validator(s) to the `My Validators` sheet  - the easiest way to find your validator's  `validator_index` is to search for it by its public key on [beaconcha.in](https://beaconcha.in/) (for example, [this validator's](https://beaconcha.in/validator/115733) index is 115733).
+4. Manually copy over your validator(s) to the `My Validators` sheet.
+   The easiest way to find your validator's `validator_index` is to search for it by its public key on [beaconcha.in](https://beaconcha.in/) (for example, [this validator's](https://beaconcha.in/validator/115733) index is 115733).
 
 5. Go to the `Summary` page and view your results.
 
