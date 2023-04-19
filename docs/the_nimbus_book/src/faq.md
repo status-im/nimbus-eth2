@@ -253,9 +253,8 @@ This means that validators need not go to extreme lengths with backup clients or
 Again, it depends.
 Behaving maliciously, e.g. attesting to invalid or contradicting blocks, will lead to a validator's stake being slashed.
 
-TODO: I don't think this is accurate. Verify with the latest specs.
-
-The minimum amount that can be slashed is 1 ETH, but **this number increases if other validators are slashed at the same time.**
+If a malicious behavior is detected, 1/32 of validator's staked ether (up to a maximum of 1 ETH) is immediately slashed and a 36-day removal period begins.
+During this period, the validator's stake is gradually slashed and at day 18 an additional penalty is applied: the amount depends on the number of other slashed validators — the more validators are slashed, the magnitude of the slash increases.
 
 The idea behind this is to minimize the losses from honest mistakes, but strongly discouraging coordinated attacks.
 
