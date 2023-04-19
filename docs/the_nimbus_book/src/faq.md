@@ -58,13 +58,7 @@ This simulates the maximum load that the consensus layer will put on the machine
 
 ### How do I add an additional validator?
 
-TODO: This is already answered in another section in the guide
-
-To add an additional validator, follow [the same steps](./keys.md) as you did when you added your first.
-You'll have to restart the beacon node for the changes to take effect.
-
-!!! note
-    A single Nimbus instance is able to handle multiple validators.
+See the information [here](./additional-validator.md).
 
 ### What does `synced/opt` mean, in the "Slot start" message?
 
