@@ -1,7 +1,5 @@
 # Withdraw your staked funds
 
-After the Capella hard-fork, activated on 12th of April 2023, all validators are able to withdrawal their staked funds from the beacon chain.
-
 Withdrawals are enabled for each validator once it's configured to use [0x01 withdrawal credentials](https://notes.ethereum.org/@launchpad/withdrawals-faq#Q-What-are-0x00-and-0x01-withdrawal-credentials-prefixes) which specify an execution layer address that will be the beneficiary of all withdrawn funds.
 
 If your validator was created with `0x01` withdrawal credentials, it's already fully prepared for withdrawals and you can safely skip the next step.
@@ -19,9 +17,6 @@ If you have used other software for generating your BLS withdrawal credentials, 
 !!! warning
     Your choice of withdrawal address is permanent.
     If you ever wish to switch it later, the only option is to exit your validator and then create a new one.
-
-!!! note
-    After the Capella hard-fork (activated on 12th of April 2023), Nimbus allows you to broadcast the `BLS-to-Execution-Change` message.
 
 !!! tip
     The specified withdrawal address doesn't need to match the [fee recipient address](./suggested-fee-recipient.md) used by your validator.

@@ -82,14 +82,7 @@ The `head` root is also printed in the log output at regular intervals.
 
 ### Sync deposit history
 
-!!! note ""
-    This feature is available from Nimbus `v22.12.0` onwards.
-
 The `--with-deposit-snapshot` allows syncing deposit history via REST, avoiding the need to search the execution client for this information and thus allowing the client to more quickly start producing blocks.
-
-!!! note
-    The API endpoint for downloading this information was recently added to the Beacon API specification and is available on nodes running Nimbus v22.12.0 and later.
-    For other checkpoint sources, consult their documentation with regards to the `/eth/v1/beacon/deposit_snapshot` endpoint.
 
 !!! tip
     It's safe to always specify this option.
