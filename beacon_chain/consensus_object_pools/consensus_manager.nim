@@ -322,6 +322,13 @@ proc runProposalForkchoiceUpdated*(
   debug "runProposalForkchoiceUpdated: expected to be proposing next slot",
     nextWallSlot, validatorIndex, nextProposer
 
+  # In Capella and later, computing correct withdrawals would mean creating a
+  # proposal state. Instead, only do that at proposal time.
+  if nextWallSlot.is_epoch:
+    debug "runProposalForkchoiceUpdated: not running early fcU for epoch-aligned proposal slot",
+      nextWallSlot, validatorIndex, nextProposer
+    return
+
   # Approximately lines up with validator_duties version. Used optimistically/
   # opportunistically, so mismatches are fine if not too frequent.
   let
@@ -334,28 +341,15 @@ proc runProposalForkchoiceUpdated*(
       get_randao_mix(forkyState.data, get_current_epoch(forkyState.data)).data
     feeRecipient = self[].getFeeRecipient(
       nextProposer, Opt.some(validatorIndex), nextWallSlot.epoch)
-    withdrawals = withState(self.dag.headState):
-      when consensusFork >= ConsensusFork.Capella:
-        # Within an epoch, so long as there's no block, the withdrawals also
-        # remain unchanged. Balances change at epoch boundaries, however, so
-        # if and only if the proposal slot is the first slot of an epoch the
-        # beacon node must transition epochs to compute correct balances.
-        if nextWallSlot.is_epoch:
-          var cache: StateCache
-          let proposalState = self.dag.getProposalState(
-              self.dag.head, nextWallSlot, cache).valueOr:
-            warn "Failed to create proposal state for withdrawals",
-              err = error, nextWallSlot, validatorIndex, nextProposer
-            return
-          withState(proposalState[]):
-            when consensusFork >= ConsensusFork.Capella:
-              Opt.some get_expected_withdrawals(forkyState.data)
-            else:
-              Opt.none(seq[Withdrawal])
-        else:
-          # Head state is not eventual proposal state, but withdrawals will be
-          # identical.
-          Opt.some get_expected_withdrawals(forkyState.data)
+    withdrawals =
+      if self.dag.headState.kind >= ConsensusFork.Capella:
+        # Head state is not eventual proposal state, but withdrawals will be
+        # identical within an epoch.
+        withState(self.dag.headState):
+          when consensusFork >= ConsensusFork.Capella:
+            Opt.some get_expected_withdrawals(forkyState.data)
+          else:
+            Opt.none(seq[Withdrawal])
       else:
         Opt.none(seq[Withdrawal])
     beaconHead = self.attestationPool[].getBeaconHead(self.dag.head)

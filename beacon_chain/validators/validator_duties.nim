@@ -443,7 +443,10 @@ proc makeBeaconBlockForHeadAndSlot*(
       slot, head = shortLog(head), error
     $error
 
-  return ok((blck.get, payload.blockValue))
+  return if blck.isOk:
+    ok((blck.get, payload.blockValue))
+  else:
+    err(blck.error)
 
 # workaround for https://github.com/nim-lang/Nim/issues/20900 to avoid default
 # parameters
