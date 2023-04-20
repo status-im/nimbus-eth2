@@ -31,7 +31,7 @@ NOT 2022-07-19 17:36:37.578+02:00 Keystore imported
 After importing keys, it's time to [restart the node](./connect-eth2.md) and check that the keys have been picked up by the beacon node.
 
 !!! info "All the keys"
-    You can read more about the different types of keys [here](https://blog.ethereum.org/2020/05/21/keys/) — the `deposit import` command will import the **signing key** only.
+    You can read more about the different types of keys [here](https://blog.ethereum.org/2020/05/21/keys/) — the `deposits import` command will import the **signing key** only.
 
 ## Command line
 

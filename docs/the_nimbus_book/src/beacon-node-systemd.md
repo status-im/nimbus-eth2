@@ -6,7 +6,7 @@ This page will take you through how to set up a `systemd` service for your beaco
 Once this is done, you can start/stop enable/disable from the linux prompt.
 
 !!! abstract "`systemd`"
-    [`systemd`](https://systemd.io/) is a service manager designed specifically for Linux - it cannot be used on Windows / Mac.
+    [`systemd`](https://systemd.io/) is a service manager designed specifically for Linux: it cannot be used on Windows / Mac.
     You can find out more about `systemd` [here](https://fedoramagazine.org/what-is-an-init-system/).
 
 !!! note "Package manager installations"
@@ -109,9 +109,15 @@ sudo journalctl -u nimbus_beacon_node.service --since yesterday
 
 ## Import validator keys
 
-TODO: This should probably reference the standard way of importing validators
+Before you start, familiarize yourself with the [standard way of importing validators](./keys.md).
+
+Make sure you use the correct [data directory](./data-dir.md).
+Look for the `--data-dir` option in the `.service` file.
 
 When using a service, the beacon node is running as a different user.
+Look for the `User=` option in the `.service`.
+Here we assume that the user is called `nimbus`.
+
 The key import must be performed as this user in order for the key files to have the correct permission:
 
 ```
