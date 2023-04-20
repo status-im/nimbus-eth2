@@ -238,6 +238,7 @@ local-testnet-mainnet:
 	./scripts/launch_local_testnet.sh \
 		--data-dir $@ \
 		--nodes 2 \
+		--capella-fork-epoch 3 \
 		--stop-at-epoch 6 \
 		--disable-htop \
 		--enable-logtrace \
