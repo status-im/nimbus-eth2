@@ -97,7 +97,7 @@ Parameters such as shard, validator counts, and data folders can be set in as en
 
 ```bash
 # Clear data files from your last run and start the simulation with a new genesis block:
-make VALIDATORS=192 NODES=6 USER_NODES=1 local-testnet-minimal
+make VALIDATORS=192 NUM_NODES=6 USER_NODES=1 local-testnet-minimal
 
 # In another terminal, get a shell with the right environment variables set:
 ./env.sh bash
@@ -118,15 +118,7 @@ client processes (50/50), communicating through the
 beacon node and 6 validator client processes, where each of them will handle 16
 validators), but if you don't want to use external validator clients and instead
 want to have all the validators handled by the beacon nodes you may use
-`BN_VC_VALIDATOR_SPLIT=no` as an additional argument to `make local-testnet-minimal`.
-
-By default, the simulation will start from a pre-generated genesis state. If you wish to
-simulate the bootstrap process with a Ethereum 1.0 validator deposit contract, start the
-simulation with `WAIT_GENESIS=yes`
-
-```
-make local-testnet-minimal WAIT_GENESIS=yes
-```
+`DISABLE-VC="yes"` as an additional argument to `make local-testnet-minimal`.
 
 You can also separate the output from each beacon node in its own panel, using [multitail](https://www.vanheusden.com/multitail/):
 
@@ -147,16 +139,15 @@ The [generic instructions from the Nimbus repo](https://github.com/status-im/nim
 Specific steps:
 
 ```bash
-# This will generate the Prometheus config on the fly, based on the number of
-# nodes (which you can control by passing something like NODES=6 to `make`).
-make VALIDATORS=192 NODES=6 USER_NODES=0 local-testnet-minimal
+# This will generate the Prometheus config on the fly, based on the number of nodes:
+make REMOTE_VALIDATORS_COUNT=192 NUM_NODES=6 USER_NODES=0 local-testnet-minimal
 
 # In another terminal tab, after the sim started:
 cd tests/simulation/prometheus
 prometheus
 ```
 
-The dashboard you need to import in Grafana is "grafana/beacon\_nodes\_Grafana\_dashboard.json".
+The dashboard you need to import in Grafana is `grafana/beacon_nodes_Grafana_dashboard.json`.
 
 ![monitoring dashboard](./media/monitoring.png)
 
