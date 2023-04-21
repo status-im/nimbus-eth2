@@ -93,9 +93,7 @@ build/state_sim --help
 ### Local network simulation
 
 The local network simulation will create a full peer-to-peer network of beacon nodes and validators on a single machine, and run the beacon chain in real time.
-
-Parameters such as shard, validator counts, and data folders are configured [vars.sh](tests/simulation/vars.sh).
-They can be set in as environment variables before launching the simulation.
+Parameters such as shard, validator counts, and data folders can be set in as environment variables before launching the simulation.
 
 ```bash
 # Clear data files from your last run and start the simulation with a new genesis block:
