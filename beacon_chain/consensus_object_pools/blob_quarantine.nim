@@ -38,7 +38,7 @@ func put*(quarantine: var BlobQuarantine, blobSidecar: ref BlobSidecar) =
 func blobIndices*(quarantine: BlobQuarantine, digest: Eth2Digest):
      seq[BlobIndex] =
   var r: seq[BlobIndex] = @[]
-  for i in 0..MAX_BLOBS_PER_BLOCK-1:
+  for i in 0..< MAX_BLOBS_PER_BLOCK:
     if quarantine.blobs.hasKey((digest, i)):
       r.add(i)
   r
@@ -49,7 +49,7 @@ func hasBlob*(quarantine: BlobQuarantine, blobSidecar: BlobSidecar) : bool =
 func popBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest):
      seq[ref BlobSidecar] =
   var r: seq[ref BlobSidecar] = @[]
-  for i in 0..MAX_BLOBS_PER_BLOCK-1:
+  for i in 0..< MAX_BLOBS_PER_BLOCK:
     var b: ref BlobSidecar
     if quarantine.blobs.pop((digest, i), b):
       r.add(b)
@@ -58,13 +58,13 @@ func popBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest):
 func peekBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest):
      seq[ref BlobSidecar] =
   var r: seq[ref BlobSidecar] = @[]
-  for i in 0..MAX_BLOBS_PER_BLOCK-1:
+  for i in 0..< MAX_BLOBS_PER_BLOCK:
     quarantine.blobs.withValue((digest, i), value):
       r.add(value[])
   r
 
 func removeBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest) =
-  for i in 0..MAX_BLOBS_PER_BLOCK-1:
+  for i in 0..< MAX_BLOBS_PER_BLOCK:
     quarantine.blobs.del((digest, i))
 
 func hasBlobs*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
@@ -80,8 +80,8 @@ func hasBlobs*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
 func blobFetchRecord*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
      BlobFetchRecord =
   var indices: seq[BlobIndex]
-  for i in 0..len(blck.message.body.blob_kzg_commitments)-1:
+  for i in 0..< len(blck.message.body.blob_kzg_commitments):
     let idx = BlobIndex(i)
     if not quarantine.blobs.hasKey((blck.root, idx)):
       indices.add(idx)
-  return BlobFetchRecord(block_root: blck.root, indices: indices)
+  BlobFetchRecord(block_root: blck.root, indices: indices)

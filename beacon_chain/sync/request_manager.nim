@@ -83,7 +83,7 @@ proc checkResponse(roots: openArray[Eth2Digest],
       return false
     else:
       checks.del(res)
-  return true
+  true
 
 proc checkResponse(idList: seq[BlobIdentifier],
                    blobs: openArray[ref BlobSidecar]): bool =
@@ -98,7 +98,7 @@ proc checkResponse(idList: seq[BlobIdentifier],
           break
     if not found:
         return false
-  return true
+  true
 
 proc fetchAncestorBlocksFromNetwork(rman: RequestManager,
                                     items: seq[Eth2Digest]) {.async.} =
