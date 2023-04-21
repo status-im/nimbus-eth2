@@ -274,7 +274,7 @@ chronicles.formatIt(TimeOffset):
   $it
 
 chronicles.formatIt(Opt[TimeOffset]):
-  if it.isSome(): $it else: "<unknown>"
+  if it.isSome(): $(it.get()) else: "<unknown>"
 
 proc `$`*(roles: set[BeaconNodeRole]): string =
   if card(roles) > 0:
@@ -1290,3 +1290,8 @@ proc waitForNextEpoch*(service: ClientServiceRef,
 
 proc waitForNextEpoch*(service: ClientServiceRef): Future[void] =
   waitForNextEpoch(service, ZeroDuration)
+
+proc waitForNextSlot*(service: ClientServiceRef) {.async.} =
+  let vc = service.client
+  let sleepTime = vc.beaconClock.durationToNextSlot()
+  await sleepAsync(sleepTime)

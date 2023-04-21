@@ -37,8 +37,16 @@ proc getTimeOffset*(client: RestClientRef): Future[int64] {.async.} =
                                resp.contentType).valueOr:
         raise newException(RestError, $error)
 
-      let offset = (int64(stamps.timestamp2) - int64(timestamp1)) +
-                   (int64(stamps.timestamp3) - int64(getTimestamp()))
+      # t1 - time when we sent request.
+      # t2 - time when remote server received request.
+      # t3 - time when remote server sent response.
+      # t4 - time when we received response.
+      #
+      # Round-trip network delay `delta` = (t4 - t1) - (t3 - t2)
+      # Estimated server time is t3 + (delta div 2)
+      # Estimated clock skew `theta` = t3 + (delta div 2) - t4
+      let offset = ((int64(stamps.timestamp2) - int64(stamps.timestamp1)) +
+                    (int64(stamps.timestamp3) - int64(getTimestamp()))) div 2
       offset
     of 400:
       let error = decodeBytes(RestErrorMessage, resp.data,

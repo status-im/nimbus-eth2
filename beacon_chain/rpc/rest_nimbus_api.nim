@@ -443,9 +443,6 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                              InvalidTimestampValue,
                                              $dres.error())
           dres.get().timestamp1
-    # We need some gap here, otherwise `timestamp2` would be equal to
-    # `timestamp3`.
-    await sleepAsync(50.milliseconds)
     let response = RestNimbusTimestamp2(
       timestamp1: timestamp1,
       timestamp2: timestamp2,

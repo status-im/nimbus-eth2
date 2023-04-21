@@ -347,7 +347,7 @@ proc runTimeMonitor(service: FallbackServiceRef,
     else:
       debug "Remote beacon time offset was not updated"
 
-    await service.waitForNextEpoch()
+    await service.waitForNextSlot()
 
 proc processTimeMonitoring(service: FallbackServiceRef) {.async.} =
   let

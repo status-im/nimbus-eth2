@@ -207,7 +207,7 @@ proc runVCSlotLoop(vc: ValidatorClientRef) {.async.} =
         blockIn = vc.getDurationToNextBlock(wallSlot),
         validators = vc.attachedValidators[].count(),
         node_status = $vc.beaconNodes[0].status,
-        time_offset = $vc.beaconNodes[0].timeOffset,
+        time_offset = vc.beaconNodes[0].timeOffset,
         delay = shortLog(delay)
 
 proc new*(T: type ValidatorClientRef,
