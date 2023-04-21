@@ -7,7 +7,7 @@
 {.push raises: [Defect].}
 
 import
-  chronos, presto/client,
+  chronos, chronicles, presto/client,
   "."/[rest_types, eth2_rest_serialization, rest_common]
 
 proc getValidatorsActivity*(epoch: Epoch,
@@ -24,6 +24,7 @@ proc getTimeOffset*(client: RestClientRef): Future[int64] {.async.} =
     timestamp1 = getTimestamp()
     data = RestNimbusTimestamp1(timestamp1: timestamp1)
     resp = await client.getTimesyncInifo(data)
+    timestamp4 = getTimestamp()
 
   return
     case resp.status
@@ -45,8 +46,8 @@ proc getTimeOffset*(client: RestClientRef): Future[int64] {.async.} =
       # Round-trip network delay `delta` = (t4 - t1) - (t3 - t2)
       # Estimated server time is t3 + (delta div 2)
       # Estimated clock skew `theta` = t3 + (delta div 2) - t4
-      let offset = ((int64(stamps.timestamp2) - int64(stamps.timestamp1)) +
-                    (int64(stamps.timestamp3) - int64(getTimestamp()))) div 2
+      let offset = ((int64(stamps.timestamp2) - int64(timestamp1)) +
+                    (int64(stamps.timestamp3) - int64(timestamp4))) div 2
       offset
     of 400:
       let error = decodeBytes(RestErrorMessage, resp.data,
