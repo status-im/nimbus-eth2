@@ -7,9 +7,9 @@
 
 # State transition - block processing, as described in
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#block-processing
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#block-processing
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/beacon-chain.md#block-processing
 #
 # The entry point is `process_block` which is at the bottom of this file.
@@ -515,7 +515,7 @@ proc process_sync_aggregate*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#process_execution_payload
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#process_execution_payload
 proc process_execution_payload*(
     state: var bellatrix.BeaconState, payload: bellatrix.ExecutionPayload,
     notify_new_payload: bellatrix.ExecutePayload): Result[void, cstring] =
@@ -756,7 +756,7 @@ func process_blob_kzg_commitments(
   else:
     return err("process_blob_kzg_commitments: verify_kzg_commitments_against_transactions failed")
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/fork-choice.md#validate_blobs
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/fork-choice.md#validate_blobs
 proc validate_blobs*(expected_kzg_commitments: seq[KZGCommitment],
                      blobs: seq[KzgBlob],
                      proofs: seq[KZGProof]):
@@ -772,7 +772,7 @@ proc validate_blobs*(expected_kzg_commitments: seq[KZGCommitment],
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/fork-choice.md#is_data_available
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/fork-choice.md#is_data_available
 func is_data_available(
     slot: Slot, beacon_block_root: Eth2Digest,
     blob_kzg_commitments: seq[deneb.KZGCommitment]): bool =
@@ -800,7 +800,7 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 # copy of datatypes/altair.nim
 type SomeAltairBlock =
@@ -829,7 +829,7 @@ proc process_block*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#block-processing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#block-processing
 # TODO workaround for https://github.com/nim-lang/Nim/issues/18095
 type SomeBellatrixBlock =
   bellatrix.BeaconBlock | bellatrix.SigVerifiedBeaconBlock | bellatrix.TrustedBeaconBlock
