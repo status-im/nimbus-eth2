@@ -278,11 +278,14 @@ Once you're done, `ssh` back into your Pi.
 
 === "Using package manager"
 
-    Install Nimbus using apt:
+    1. Add Status APT repository to your system.
+       Follow [this guide](https://apt.status.im).
 
-    ```sh
-    sudo apt-get install nimbus-beacon-node
-    ```
+    2. Install Nimbus using APT:
+
+        ```sh
+        sudo apt-get install nimbus-beacon-node
+        ```
 
 
 
