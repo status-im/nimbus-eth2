@@ -9,6 +9,9 @@ import common
 
 const
   ServiceName = "fallback_service"
+  WARNING_TIME_OFFSET = TimeOffset.init(2.seconds)
+  NOTICE_TIME_OFFSET = TimeOffset.init(1.seconds)
+  DEBUG_TIME_OFFSET = TimeOffset.init(500.milliseconds)
 
 logScope: service = ServiceName
 
@@ -73,6 +76,20 @@ proc waitNodes*(vc: ValidatorClientRef, timeoutFut: Future[void],
         break
 
     inc(iterations)
+
+func getAverageOffset*(vc: ValidatorClientRef): Opt[TimeOffset] =
+  let blockNodes = vc.filterNodes(AllBeaconNodeStatuses, AllBeaconNodeRoles)
+  var count = 0
+  var sum = 0'i64
+  for node in blockNodes:
+    if node.timeOffset.isSome():
+      sum += node.timeOffset.get().nanoseconds()
+      inc(count)
+
+  if count == 0:
+    return Opt.none(TimeOffset)
+
+  Opt.some(TimeOffset.init(sum div count))
 
 proc checkCompatible(
        vc: ValidatorClientRef,
@@ -280,15 +297,92 @@ proc checkNodes*(service: FallbackServiceRef): Future[bool] {.async.} =
     raise exc
   return res
 
+proc runTimeMonitor(service: FallbackServiceRef,
+                    node: BeaconNodeServerRef) {.async.} =
+  let
+    vc = service.client
+    roles = AllBeaconNodeRoles
+    statuses = AllBeaconNodeStatuses - {RestBeaconNodeStatus.Offline}
+
+  logScope:
+    node = node
+
+  while true:
+    while node.status notin statuses:
+      await vc.waitNodes(nil, statuses, roles, false)
+
+    let tres =
+      try:
+        let res = await node.client.getTimeOffset()
+        Opt.some(res)
+      except RestError as exc:
+        debug "Unable to obtain remote beacon node time offset",
+              reason = $exc.msg
+        Opt.none(int64)
+      except RestResponseError as exc:
+        debug "Remote beacon node responds with invalid status",
+              status = $exc.status, reason = $exc.msg,
+              error_message = $exc.message
+        Opt.none(int64)
+      except CancelledError as exc:
+        raise exc
+      except CatchableError as exc:
+        warn "An unexpected error occurred while asking for time offset",
+             reason = $exc.msg, error = $exc.name
+        Opt.none(int64)
+
+    if tres.isSome():
+      let timeOffset = TimeOffset.init(tres.get())
+      node.timeOffset = Opt.some(timeOffset)
+      debug "Remote beacon time offset updated", time_offset = timeOffset
+      if timeOffset >= WARNING_TIME_OFFSET:
+        warn "Remote beacon node and validator client has significant " &
+             "time difference", time_offset = timeOffset
+      elif timeOffset >= NOTICE_TIME_OFFSET:
+        notice "Remote beacon node and validator client has notable " &
+               "time difference", time_offset = timeOffset
+      elif timeOffset >= DEBUG_TIME_OFFSET:
+        debug "Remote beacon node and validator client has insignificant " &
+              "time difference", time_offset = timeOffset
+    else:
+      debug "Remote beacon time offset was not updated"
+
+    await service.waitForNextEpoch()
+
+proc processTimeMonitoring(service: FallbackServiceRef) {.async.} =
+  let
+    vc = service.client
+    blockNodes = vc.filterNodes(AllBeaconNodeStatuses, AllBeaconNodeRoles)
+
+  var pendingChecks: seq[Future[void]]
+
+  try:
+    for node in blockNodes:
+      pendingChecks.add(service.runTimeMonitor(node))
+    await allFutures(pendingChecks)
+  except CancelledError as exc:
+    var pending: seq[Future[void]]
+    for future in pendingChecks:
+      if not(future.finished()): pending.add(future.cancelAndWait())
+    await allFutures(pending)
+    raise exc
+  except CatchableError as exc:
+    warn "An unexpected error occurred while running time monitoring",
+         reason = $exc.msg, error = $exc.name
+    return
+
 proc mainLoop(service: FallbackServiceRef) {.async.} =
   let vc = service.client
   service.state = ServiceState.Running
   debug "Service started"
 
+  let timeMonitorFut = processTimeMonitoring(service)
+
   try:
     await vc.preGenesisEvent.wait()
   except CancelledError:
     debug "Service interrupted"
+    if not(timeMonitorFut.finished()): await timeMonitorFut.cancelAndWait()
     return
   except CatchableError as exc:
     warn "Service crashed with unexpected error", err_name = exc.name,
@@ -306,6 +400,7 @@ proc mainLoop(service: FallbackServiceRef) {.async.} =
         false
       except CancelledError as exc:
         debug "Service interrupted"
+        if not(timeMonitorFut.finished()): await timeMonitorFut.cancelAndWait()
         true
       except CatchableError as exc:
         error "Service crashed with unexpected error", err_name = exc.name,

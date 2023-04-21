@@ -108,6 +108,9 @@ type
     BlockProposalData, BlockProposalPublish,
     SyncCommitteeData, SyncCommitteePublish
 
+  TimeOffset* = object
+    value: int64
+
   BeaconNodeServer* = object
     client*: RestClientRef
     endpoint*: string
@@ -119,6 +122,7 @@ type
     roles*: set[BeaconNodeRole]
     logIdent*: string
     index*: int
+    timeOffset*: Opt[TimeOffset]
 
   EpochDuties* = object
     duties*: Table[Epoch, DutyAndProof]
@@ -247,6 +251,30 @@ const
     RestBeaconNodeStatus.UnexpectedResponse,
     RestBeaconNodeStatus.InternalError
   }
+
+  AllBeaconNodeStatuses* = {
+    RestBeaconNodeStatus.Offline,
+    RestBeaconNodeStatus.Online,
+    RestBeaconNodeStatus.Incompatible,
+    RestBeaconNodeStatus.Compatible,
+    RestBeaconNodeStatus.NotSynced,
+    RestBeaconNodeStatus.OptSynced,
+    RestBeaconNodeStatus.Synced,
+    RestBeaconNodeStatus.Unexpected,
+    RestBeaconNodeStatus.InternalError
+  }
+
+proc `$`*(to: TimeOffset): string =
+  if to.value < 0:
+    "-" & $chronos.nanoseconds(-to.value)
+  else:
+    $chronos.nanoseconds(to.value)
+
+chronicles.formatIt(TimeOffset):
+  $it
+
+chronicles.formatIt(Opt[TimeOffset]):
+  if it.isSome(): $it else: "<unknown>"
 
 proc `$`*(roles: set[BeaconNodeRole]): string =
   if card(roles) > 0:
@@ -1235,3 +1263,30 @@ proc waitForBlock*(
 iterator chunks*[T](data: openArray[T], maxCount: Positive): seq[T] =
   for i in countup(0, len(data) - 1, maxCount):
     yield @(data.toOpenArray(i, min(i + maxCount, len(data)) - 1))
+    
+func init*(t: typedesc[TimeOffset], duration: Duration): TimeOffset =
+  TimeOffset(value: duration.nanoseconds)
+
+func init*(t: typedesc[TimeOffset], offset: int64): TimeOffset =
+  TimeOffset(value: offset)
+
+func abs*(to: TimeOffset): TimeOffset =
+  TimeOffset(value: abs(to.value))
+
+func `<`*(a, b: TimeOffset): bool = a.value < b.value
+func `<=`*(a, b: TimeOffset): bool = a.value <= b.value
+func `==`*(a, b: TimeOffset): bool = a.value == b.value
+
+func nanoseconds*(to: TimeOffset): int64 = to.value
+
+proc waitForNextEpoch*(service: ClientServiceRef,
+                       delay: Duration) {.async.} =
+  let
+    vc = service.client
+    sleepTime = vc.beaconClock.durationToNextEpoch() + delay
+  debug "Sleeping until next epoch", service = service.name,
+                                     sleep_time = sleepTime, delay = delay
+  await sleepAsync(sleepTime)
+
+proc waitForNextEpoch*(service: ClientServiceRef): Future[void] =
+  waitForNextEpoch(service, ZeroDuration)

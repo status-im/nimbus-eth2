@@ -657,6 +657,14 @@ type
   RestRoot* = object
     root*: Eth2Digest
 
+  RestNimbusTimestamp1* = object
+    timestamp1*: uint64
+
+  RestNimbusTimestamp2* = object
+    timestamp1*: uint64
+    timestamp2*: uint64
+    timestamp3*: uint64
+
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[Attestation]
