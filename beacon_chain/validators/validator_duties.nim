@@ -821,7 +821,8 @@ proc proposeBlockAux(
     SBBB: typedesc, EPS: typedesc, node: BeaconNode,
     validator: AttachedValidator, validator_index: ValidatorIndex,
     head: BlockRef, slot: Slot, randao: ValidatorSig, fork: Fork,
-    genesis_validators_root: Eth2Digest): Future[BlockRef] {.async.} =
+    genesis_validators_root: Eth2Digest,
+    localBlockValueBoost: uint8): Future[BlockRef] {.async.} =
   # Collect bids
   let usePayloadBuilder =
     if node.config.payloadBuilderEnable:
@@ -887,10 +888,23 @@ proc proposeBlockAux(
         err = engineBlockFut.error.msg
       false
 
+  template builderBetterBid(builderValue: UInt256, engineValue: Wei): bool =
+    # Scale down to ensure no overflows; if lower few bits would have been
+    # otherwise decisive, was close enough not to matter. Calibrate to let
+    # uint8-range percentages avoid overflowing.
+    const scalingBits = 10
+    static: doAssert 1 shl scalingBits > 256 + 100
+    let
+      scaledBuilderValue = (builderValue shr scalingBits) * 100
+      scaledEngineValue = engineValue shr scalingBits
+    scaledBuilderValue >
+      scaledEngineValue * (localBlockValueBoost.uint16 + 100).u256
+
   let useBuilderBlock =
     if builderBidAvailable:
-      (not engineBidAvailable) or payloadBuilderBidFut.read.get().blockValue >
-        engineBlockFut.read.get().blockValue
+      (not engineBidAvailable) or builderBetterBid(
+        payloadBuilderBidFut.read.get().blockValue,
+        engineBlockFut.read.get().blockValue)
     else:
       if not engineBidAvailable:
         return head   # errors logged in router
@@ -1018,7 +1032,7 @@ proc proposeBlock(node: BeaconNode,
   template proposeBlockContinuation(type1, type2: untyped): auto =
     await proposeBlockAux(
       type1, type2, node, validator, validator_index, head, slot, randao, fork,
-        genesis_validators_root)
+        genesis_validators_root, node.config.localBlockValueBoost)
 
   return
     if slot.epoch >= node.dag.cfg.DENEB_FORK_EPOCH:
