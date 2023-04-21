@@ -893,7 +893,8 @@ proc proposeBlockAux(
     # otherwise decisive, was close enough not to matter. Calibrate to let
     # uint8-range percentages avoid overflowing.
     const scalingBits = 10
-    static: doAssert 1 shl scalingBits > 256 + 100
+    static: doAssert 1 shl scalingBits >
+      high(typeof(localBlockValueBoost)).uint16 + 100
     let
       scaledBuilderValue = (builderValue shr scalingBits) * 100
       scaledEngineValue = engineValue shr scalingBits
