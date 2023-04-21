@@ -626,7 +626,7 @@ template name*(cfg: RuntimeConfig): string =
   else:
     const_preset
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/p2p-interface.md#configuration
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#configuration
 func MIN_EPOCHS_FOR_BLOCK_REQUESTS*(cfg: RuntimeConfig): uint64 =
   cfg.MIN_VALIDATOR_WITHDRAWABILITY_DELAY + cfg.CHURN_LIMIT_QUOTIENT div 2
 

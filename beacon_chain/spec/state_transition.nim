@@ -359,7 +359,7 @@ template partialBeaconBlock*(
       deposits: List[Deposit, Limit MAX_DEPOSITS](deposits),
       voluntary_exits: validator_changes.voluntary_exits))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/altair/validator.md#preparing-a-beaconblock
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/validator.md#preparing-a-beaconblock
 template partialBeaconBlock*(
     cfg: RuntimeConfig,
     state: var altair.HashedBeaconState,
@@ -537,7 +537,7 @@ proc makeBeaconBlock*(
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/bellatrix/beacon-chain.md#beaconblockbody
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#beaconblockbody
           # Effectively hash_tree_root(ExecutionPayload) with the beacon block
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.
@@ -556,7 +556,7 @@ proc makeBeaconBlock*(
           forkyState.data.latest_execution_payload_header.transactions_root =
             transactions_root.get
 
-          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/capella/beacon-chain.md#beaconblockbody
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#beaconblockbody
           # Effectively hash_tree_root(ExecutionPayload) with the beacon block
           # body, with the execution payload replaced by the execution payload
           # header. htr(payload) == htr(payload header), so substitute.
