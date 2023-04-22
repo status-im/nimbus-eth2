@@ -213,7 +213,6 @@ func getKnownValidatorsForBlsChangeTracking(
   else:
     # It is not possible for any BLS to execution changes, for any validator,
     # to have been yet processed.
-    # https://github.com/nim-lang/Nim/issues/19802
     (static(@[]))
 
 proc updateHead*(self: var ConsensusManager, newHead: BlockRef) =

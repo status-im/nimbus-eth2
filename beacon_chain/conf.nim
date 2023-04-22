@@ -1298,7 +1298,6 @@ func defaultFeeRecipient*(conf: AnyConf): Eth1Address =
   if conf.suggestedFeeRecipient.isSome:
     conf.suggestedFeeRecipient.get
   else:
-    # https://github.com/nim-lang/Nim/issues/19802
     (static(default(Eth1Address)))
 
 proc loadJwtSecret*(

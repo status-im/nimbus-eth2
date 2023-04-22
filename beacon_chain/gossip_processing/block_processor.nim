@@ -235,7 +235,6 @@ proc expectValidForkchoiceUpdated(
       when typeof(receivedBlock).toFork >= ConsensusFork.Bellatrix:
         receivedBlock.message.body.execution_payload.block_hash
       else:
-        # https://github.com/nim-lang/Nim/issues/19802
         (static(default(Eth2Digest)))
 
   # Only called when expecting this to be valid because `newPayload` or some
