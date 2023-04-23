@@ -495,6 +495,67 @@ type
     bls_to_execution_changes*:
       List[SignedBLSToExecutionChange, Limit MAX_BLS_TO_EXECUTION_CHANGES]
 
+  BeaconStateDiff* = object
+    # Small and/or static; always include
+    slot*: Slot
+    latest_block_header*: BeaconBlockHeader
+
+    # Mod-increment/circular
+    block_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
+    state_roots*: array[SLOTS_PER_EPOCH, Eth2Digest]
+
+    # Replace
+    eth1_data*: Eth1Data
+
+    eth1_data_votes_replaced*: bool
+    eth1_data_votes*:
+      List[Eth1Data, Limit(EPOCHS_PER_ETH1_VOTING_PERIOD * SLOTS_PER_EPOCH)]
+
+    # Replace
+    eth1_deposit_index*: uint64
+
+    # Validators come in two parts, the immutable public key and mutable
+    # entrance/exit/slashed information about that validator.
+    validator_statuses*:
+      List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Represent in full
+    balances*: List[Gwei, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Mod-increment
+    randao_mix*: Eth2Digest
+    slashing*: uint64
+
+    # Represent in full; for the next epoch, current_epoch_participation in
+    # epoch n is previous_epoch_participation in epoch n+1 but this doesn't
+    # generalize.
+    previous_epoch_participation*: EpochParticipationFlags
+    current_epoch_participation*: EpochParticipationFlags
+
+    justification_bits*: JustificationBits
+    previous_justified_checkpoint*: Checkpoint
+    current_justified_checkpoint*: Checkpoint
+    finalized_checkpoint*: Checkpoint
+
+    # Represent in full
+    inactivity_scores*: List[uint64, Limit VALIDATOR_REGISTRY_LIMIT]
+
+    # Represent in full; for the next epoch, next_sync_committee is
+    # current_sync_committee, but this doesn't generalize.
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
+
+    # Not tiny, but small and infeasible to reliably reduce much
+    latest_execution_payload_header*: ExecutionPayloadHeader
+
+    # Small, so represent in full
+    next_withdrawal_index*: WithdrawalIndex
+    next_withdrawal_validator_index*: uint64
+
+    # Append-only; either 0 or 1 per epoch
+    historical_summary_added*: bool
+    historical_summary*: HistoricalSummary
+
 # TODO: There should be only a single generic HashedBeaconState definition
 func initHashedBeaconState*(s: BeaconState): HashedBeaconState =
   HashedBeaconState(data: s)
