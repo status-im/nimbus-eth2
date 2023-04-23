@@ -8,13 +8,13 @@
 {.used.}
 
 import
-  std/sequtils,
   unittest2,
   ./testutil, ./testdbutil, ./teststateutil,
-  ../beacon_chain/spec/datatypes/bellatrix,
-  ../beacon_chain/spec/[forks, helpers],
-  ../beacon_chain/statediff,
+  ../beacon_chain/spec/forks,
   ../beacon_chain/consensus_object_pools/[blockchain_dag, block_quarantine]
+
+from std/sequtils import mapIt
+from ../beacon_chain/statediff import applyDiff, diffStates
 
 when isMainModule:
   import chronicles # or some random compile error happens...
@@ -27,17 +27,19 @@ suite "state diff tests" & preset():
       dag = init(ChainDAGRef, defaultRuntimeConfig, db, validatorMonitor, {})
 
   test "random slot differences" & preset():
-    let testStates = getTestStates(dag.headState, ConsensusFork.Bellatrix)
+    let testStates = getTestStates(dag.headState, ConsensusFork.Capella)
 
     for i in 0 ..< testStates.len:
       for j in (i+1) ..< testStates.len:
         doAssert getStateField(testStates[i][], slot) <
           getStateField(testStates[j][], slot)
-        if getStateField(testStates[i][], slot) + SLOTS_PER_EPOCH != getStateField(testStates[j][], slot):
+        if  getStateField(testStates[i][], slot) + SLOTS_PER_EPOCH !=
+            getStateField(testStates[j][], slot):
           continue
-        let tmpStateApplyBase = assignClone(testStates[i].bellatrixData.data)
-        let diff = diffStates(
-          testStates[i].bellatrixData.data, testStates[j].bellatrixData.data)
+        let
+          tmpStateApplyBase = assignClone(testStates[i].capellaData.data)
+          diff = diffStates(
+            testStates[i].capellaData.data, testStates[j].capellaData.data)
         # Immutable parts of validators stored separately, so aren't part of
         # the state diff. Synthesize required portion here for testing.
         applyDiff(
@@ -48,5 +50,5 @@ suite "state diff tests" & preset():
               getStateField(testStates[j][], validators).len - 1],
             it.getImmutableValidatorData),
           diff)
-        check hash_tree_root(testStates[j][].bellatrixData.data) ==
+        check hash_tree_root(testStates[j][].capellaData.data) ==
           hash_tree_root(tmpStateApplyBase[])

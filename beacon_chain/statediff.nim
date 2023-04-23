@@ -9,8 +9,7 @@
 
 import
   stew/assign2,
-  ./spec/datatypes/bellatrix,
-  ./spec/helpers
+  ./spec/forks
 
 func diffModIncEpoch[T, U](hl: HashArray[U, T], startSlot: uint64):
     array[SLOTS_PER_EPOCH, T] =
@@ -82,7 +81,7 @@ func replaceOrAddDecodeEth1Votes[T, U](
     if not votes0.add item:
       raiseAssert "same limit"
 
-func getMutableValidatorStatuses(state: bellatrix.BeaconState):
+func getMutableValidatorStatuses(state: capella.BeaconState):
     List[ValidatorStatus, Limit VALIDATOR_REGISTRY_LIMIT] =
   if not result.setLen(state.validators.len):
     raiseAssert "same limt as validators"
@@ -97,7 +96,7 @@ func getMutableValidatorStatuses(state: bellatrix.BeaconState):
     assign(result[i].exit_epoch, validator.exit_epoch)
     assign(result[i].withdrawable_epoch, validator.withdrawable_epoch)
 
-func diffStates*(state0, state1: bellatrix.BeaconState): BeaconStateDiff =
+func diffStates*(state0, state1: capella.BeaconState): BeaconStateDiff =
   doAssert state1.slot > state0.slot
   doAssert state0.slot.is_epoch
   doAssert state1.slot == state0.slot + SLOTS_PER_EPOCH
@@ -106,11 +105,13 @@ func diffStates*(state0, state1: bellatrix.BeaconState): BeaconStateDiff =
   doAssert state0.genesis_time == state1.genesis_time
   doAssert state0.genesis_validators_root == state1.genesis_validators_root
   doAssert state0.fork == state1.fork
-  doAssert state1.historical_roots.len - state0.historical_roots.len in [0, 1]
+  doAssert state1.historical_roots == state0.historical_roots
+  doAssert state1.historical_summaries.len -
+    state0.historical_summaries.len in [0, 1]
 
   let
-    historical_root_added =
-      state0.historical_roots.len != state1.historical_roots.len
+    historical_summary_added =
+      state0.historical_summaries.len != state1.historical_summaries.len
     (eth1_data_votes_replaced, eth1_data_votes) =
       replaceOrAddEncodeEth1Votes(state0.eth1_data_votes, state1.eth1_data_votes)
 
@@ -120,12 +121,6 @@ func diffStates*(state0, state1: bellatrix.BeaconState): BeaconStateDiff =
 
     block_roots: diffModIncEpoch(state1.block_roots, state0.slot.uint64),
     state_roots: diffModIncEpoch(state1.state_roots, state0.slot.uint64),
-    historical_root_added: historical_root_added,
-    historical_root:
-      if historical_root_added:
-        state1.historical_roots[state0.historical_roots.len]
-      else:
-        default(Eth2Digest),
     eth1_data: state1.eth1_data,
     eth1_data_votes_replaced: eth1_data_votes_replaced,
     eth1_data_votes: eth1_data_votes,
@@ -151,11 +146,23 @@ func diffStates*(state0, state1: bellatrix.BeaconState): BeaconStateDiff =
     inactivity_scores: state1.inactivity_scores.data,
 
     current_sync_committee: state1.current_sync_committee,
-    next_sync_committee: state1.next_sync_committee
+    next_sync_committee: state1.next_sync_committee,
+
+    latest_execution_payload_header: state1.latest_execution_payload_header,
+
+    next_withdrawal_index: state1.next_withdrawal_index,
+    next_withdrawal_validator_index: state1.next_withdrawal_validator_index,
+
+    historical_summary_added: historical_summary_added,
+    historical_summary:
+      if historical_summary_added:
+        state1.historical_summaries[state0.historical_summaries.len]
+      else:
+        (static(default(HistoricalSummary)))
   )
 
 func applyDiff*(
-    state: var bellatrix.BeaconState,
+    state: var capella.BeaconState,
     immutableValidators: openArray[ImmutableValidatorData2],
     stateDiff: BeaconStateDiff) =
   template assign[T, U](tgt: var HashList[T, U], src: List[T, U]) =
@@ -167,9 +174,8 @@ func applyDiff*(
 
   applyModIncrement(state.block_roots, stateDiff.block_roots, state.slot.uint64)
   applyModIncrement(state.state_roots, stateDiff.state_roots, state.slot.uint64)
-  if stateDiff.historical_root_added:
-    if not state.historical_roots.add stateDiff.historical_root:
-      raiseAssert "cannot readd historical state root"
+
+  # Capella freezes historical_roots
 
   assign(state.eth1_data, stateDiff.eth1_data)
   replaceOrAddDecodeEth1Votes(
@@ -195,7 +201,8 @@ func applyDiff*(
 
   state.justification_bits = stateDiff.justification_bits
   assign(
-    state.previous_justified_checkpoint, stateDiff.previous_justified_checkpoint)
+    state.previous_justified_checkpoint,
+    stateDiff.previous_justified_checkpoint)
   assign(
     state.current_justified_checkpoint, stateDiff.current_justified_checkpoint)
   assign(state.finalized_checkpoint, stateDiff.finalized_checkpoint)
@@ -204,6 +211,19 @@ func applyDiff*(
 
   assign(state.current_sync_committee, stateDiff.current_sync_committee)
   assign(state.next_sync_committee, stateDiff.next_sync_committee)
+
+  assign(
+    state.latest_execution_payload_header,
+    stateDiff.latest_execution_payload_header)
+
+  assign(state.next_withdrawal_index, stateDiff.next_withdrawal_index)
+  assign(
+    state.next_withdrawal_validator_index,
+    stateDiff.next_withdrawal_validator_index)
+
+  if stateDiff.historical_summary_added:
+    if not state.historical_summaries.add stateDiff.historical_summary:
+      raiseAssert "cannot readd historical summary"
 
   # Don't update slot until the end, because various other updates depend on it
   state.slot = stateDiff.slot
