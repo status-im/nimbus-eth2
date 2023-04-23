@@ -587,6 +587,13 @@ type
         defaultValue: ""
         name: "payload-builder-url" .}: string
 
+      # Flag name and semantics borrowed from Prysm
+      # https://github.com/prysmaticlabs/prysm/pull/12227/files
+      localBlockValueBoost* {.
+        desc: "Increase execution layer block values for builder bid comparison by a percentage"
+        defaultValue: 0
+        name: "local-block-value-boost" .}: uint8
+
       historyMode* {.
         desc: "Retention strategy for historical data (archive/prune)"
         defaultValue: HistoryMode.Archive
