@@ -177,6 +177,8 @@ proc runVCSlotLoop(vc: ValidatorClientRef) {.async.} =
     if checkIfShouldStopAtEpoch(wallSlot, vc.config.stopAtEpoch):
       return
 
+    vc.processingDelay = Opt.some(nanoseconds(delay.nanoseconds))
+
     if len(vc.beaconNodes) > 1:
       let
         counts = vc.getNodeCounts()

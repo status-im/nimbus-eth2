@@ -19,7 +19,8 @@ proc getValidatorsActivity*(epoch: Epoch,
 proc getTimesyncInifo*(body: RestNimbusTimestamp1): RestPlainResponse {.
      rest, endpoint: "/nimbus/v1/timesync", meth: MethodPost.}
 
-proc getTimeOffset*(client: RestClientRef): Future[int64] {.async.} =
+proc getTimeOffset*(client: RestClientRef,
+                    delay: Duration): Future[int64] {.async.} =
   let
     timestamp1 = getTimestamp()
     data = RestNimbusTimestamp1(timestamp1: timestamp1)
@@ -38,16 +39,32 @@ proc getTimeOffset*(client: RestClientRef): Future[int64] {.async.} =
                                resp.contentType).valueOr:
         raise newException(RestError, $error)
 
+      trace "Time offset data",
+            timestamp1 = nanoseconds(int64(timestamp1)),
+            timestamp2 = nanoseconds(int64(stamps.timestamp2)),
+            timestamp3 = nanoseconds(int64(stamps.timestamp3)),
+            timestamp4 = nanoseconds(int64(timestamp4)),
+            delay14 = delay,
+            delay23 = nanoseconds(int64(stamps.delay))
+
       # t1 - time when we sent request.
       # t2 - time when remote server received request.
       # t3 - time when remote server sent response.
       # t4 - time when we received response.
+      # delay14 = validator client processing delay.
+      # delay23 = beacon node processing delay.
       #
       # Round-trip network delay `delta` = (t4 - t1) - (t3 - t2)
+      # but with delays this will be:
+      # `delta` = (t4 - t1 + delay14) - (t3 - t2 + delay23)
       # Estimated server time is t3 + (delta div 2)
       # Estimated clock skew `theta` = t3 + (delta div 2) - t4
-      let offset = ((int64(stamps.timestamp2) - int64(timestamp1)) +
-                    (int64(stamps.timestamp3) - int64(timestamp4))) div 2
+      let
+        delay14 = delay.nanoseconds
+        delay23 = int64(stamps.delay)
+        offset = (int64(stamps.timestamp2) - int64(timestamp1) +
+                  int64(stamps.timestamp3) - int64(timestamp4) +
+                  delay14 - delay23) div 2
       offset
     of 400:
       let error = decodeBytes(RestErrorMessage, resp.data,

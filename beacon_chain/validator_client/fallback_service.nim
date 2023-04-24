@@ -313,14 +313,16 @@ proc runTimeMonitor(service: FallbackServiceRef,
 
     let tres =
       try:
-        let res = await node.client.getTimeOffset()
+        let
+          delay = vc.processingDelay.valueOr: ZeroDuration
+          res = await node.client.getTimeOffset(delay)
         Opt.some(res)
       except RestError as exc:
         debug "Unable to obtain remote beacon node time offset",
               reason = $exc.msg
         Opt.none(int64)
       except RestResponseError as exc:
-        debug "Remote beacon node responds with invalid status",
+        debug "Remote beacon node responds with unexpected status code",
               status = $exc.status, reason = $exc.msg,
               error_message = $exc.message
         Opt.none(int64)

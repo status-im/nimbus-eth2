@@ -664,6 +664,7 @@ type
     timestamp1*: uint64
     timestamp2*: uint64
     timestamp3*: uint64
+    delay*: uint64
 
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]

@@ -201,6 +201,7 @@ type
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
     blocksSeen*: Table[Slot, BlockDataItem]
+    processingDelay*: Opt[Duration]
     rng*: ref HmacDrbgContext
 
   ApiStrategyKind* {.pure.} = enum

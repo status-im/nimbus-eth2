@@ -443,10 +443,12 @@ proc installNimbusApiHandlers*(router: var RestRouter, node: BeaconNode) =
                                              InvalidTimestampValue,
                                              $dres.error())
           dres.get().timestamp1
-    let response = RestNimbusTimestamp2(
-      timestamp1: timestamp1,
-      timestamp2: timestamp2,
-      timestamp3: getTimestamp()
-    )
+    let
+      delay = node.processingDelay.valueOr: ZeroDuration
+      response = RestNimbusTimestamp2(
+        timestamp1: timestamp1,
+        timestamp2: timestamp2,
+        timestamp3: getTimestamp(),
+        delay: uint64(delay.nanoseconds)
+      )
     return RestApiResponse.jsonResponsePlain(response)
-
