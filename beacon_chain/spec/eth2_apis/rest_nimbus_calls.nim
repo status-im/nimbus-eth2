@@ -40,12 +40,12 @@ proc getTimeOffset*(client: RestClientRef,
         raise newException(RestError, $error)
 
       trace "Time offset data",
-            timestamp1 = nanoseconds(int64(timestamp1)),
-            timestamp2 = nanoseconds(int64(stamps.timestamp2)),
-            timestamp3 = nanoseconds(int64(stamps.timestamp3)),
-            timestamp4 = nanoseconds(int64(timestamp4)),
-            delay14 = delay,
-            delay23 = nanoseconds(int64(stamps.delay))
+            timestamp1 = timestamp1,
+            timestamp2 = stamps.timestamp2,
+            timestamp3 = stamps.timestamp3,
+            timestamp4 = timestamp4,
+            delay14 = delay.nanoseconds,
+            delay23 = stamps.delay
 
       # t1 - time when we sent request.
       # t2 - time when remote server received request.
