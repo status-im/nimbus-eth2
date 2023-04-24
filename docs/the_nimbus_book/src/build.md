@@ -17,9 +17,9 @@ When building from source, you will need additional build dependencies to be ins
 - Developer tools (C compiler, Make, Bash, Git)
 - [CMake](https://cmake.org/)
 
-TODO: Please test whether the instructions below are correct. I think we are missing some dependencies on Windows.
-      Microsoft offer virtual machines that you can use for testing here:
-      https://developer.microsoft.com/en-us/windows/downloads/virtual-machines/
+<!-- TODO: Please test whether the instructions below are correct. I think we are missing some dependencies on Windows. -->
+<!--       Microsoft offer virtual machines that you can use for testing here: -->
+<!--       https://developer.microsoft.com/en-us/windows/downloads/virtual-machines/ -->
 
 === "Linux"
 

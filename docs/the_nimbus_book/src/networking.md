@@ -41,8 +41,7 @@ The first step however, is to check for incoming connections.
 
 To check if you have incoming connections set, run:
 
-TODO: It would be very sweet if we can create some kind of CI tests that verify that these
-      instructions work
+<!-- TODO: It would be very sweet if we can create some kind of CI tests that verify that these instructions work -->
 
 ```
 curl -s http://localhost:8008/metrics | grep libp2p_open_streams
