@@ -80,6 +80,9 @@ type
     getValidatorAndIdxFn*: ValidatorPubKeyToDataFn
     getBeaconTimeFn*: GetBeaconTimeFn
 
+  MultipleKeystoresDecryptor* = object
+    previouslyUsedPassword*: string
+
 const
   minPasswordLen = 12
   minPasswordEntropy = 60.0
@@ -88,6 +91,9 @@ const
     nimbusSecurityResourcesPath /
       "passwords" / "10-million-password-list-top-100000.txt",
     minWordLen = minPasswordLen)
+
+proc dispose*(decryptor: var MultipleKeystoresDecryptor) =
+  burnMem(decryptor.previouslyUsedPassword)
 
 func init*(T: type KeymanagerHost,
            validatorPool: ref ValidatorPool,
@@ -1497,6 +1503,7 @@ proc saveWallet*(wallet: WalletPathPair): Result[void, string] =
   saveWallet(wallet.wallet, wallet.path)
 
 proc readPasswordInput(prompt: string, password: var string): bool =
+  burnMem password
   try:
     when defined(windows):
       # readPasswordFromStdin() on Windows always returns `false`.
@@ -1533,11 +1540,9 @@ proc resetAttributesNoError() =
     except IOError: discard
 
 proc importKeystoreFromFile*(
-       fileName: string
-     ): Result[ValidatorPrivKey, string] =
-  var password: string  # TODO consider using a SecretString type
-  defer: burnMem(password)
-
+    decryptor: var MultipleKeystoresDecryptor,
+    fileName: string
+  ): Result[ValidatorPrivKey, string] =
   let
     data = readAllChars(fileName).valueOr:
       return err("Unable to read keystore file [" & ioErrorMsg(error) & "]")
@@ -1551,9 +1556,10 @@ proc importKeystoreFromFile*(
   var firstDecryptionAttempt = true
   while true:
     var secret: seq[byte]
-    let status = decryptCryptoField(keystore.crypto,
-                                    KeystorePass.init(password),
-                                    secret)
+    let status = decryptCryptoField(
+      keystore.crypto,
+      KeystorePass.init(decryptor.previouslyUsedPassword),
+      secret)
     case status
     of DecryptionStatus.Success:
       let privateKey = ValidatorPrivKey.fromRaw(secret).valueOr:
@@ -1572,9 +1578,9 @@ proc importKeystoreFromFile*(
       else:
         echo "The entered password was incorrect. Please try again."
 
-      if not(readPasswordInput("Password: ", password)):
+      if not(readPasswordInput("Password: ", decryptor.previouslyUsedPassword)):
         echo "System error while entering password. Please try again."
-        if len(password) == 0: break
+        if len(decryptor.previouslyUsedPassword) == 0: break
 
 proc importKeystoresFromDir*(rng: var HmacDrbgContext, meth: ImportMethod,
                              importedDir, validatorsDir, secretsDir: string) =

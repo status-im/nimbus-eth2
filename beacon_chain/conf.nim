@@ -683,12 +683,19 @@ type
           name: "method" .}: ImportMethod
 
       of DepositsCmd.exit:
-        exitedValidator* {.
-          name: "validator"
-          desc: "Validator index, public key or a keystore path of the exited validator" .}: string
+        exitedValidators* {.
+          desc: "One or more validator index, public key or a keystore path of " &
+                "the exited validator(s)"
+          name: "validator" .}: seq[string]
+
+        exitAllValidatorsFlag* {.
+          desc: "Exit all validators in the specified data directory or validators directory"
+          defaultValue: false
+          name: "all" .}: bool
 
         exitAtEpoch* {.
           name: "epoch"
+          defaultValueDesc: "immediately"
           desc: "The desired exit epoch" .}: Option[uint64]
 
         restUrlForExit* {.

@@ -19,6 +19,9 @@ To perform a voluntary exit, make sure your beacon node is running with the `--r
 !!! note
     In the command above, you must replace `<VALIDATOR_KEYSTORE_PATH>` with the file-system path of an Ethereum [ERC-2335 Keystore](https://eips.ethereum.org/EIPS/eip-2335) created by a tool such as [staking-deposit-cli](https://github.com/ethereum/staking-deposit-cli) or [ethdo](https://github.com/wealdtech/ethdo).
 
+!!! tip
+    You can perform multiple voluntary exits at once by supplying the `--validator` option multiple times on the command-line. This is typically more convenient when the provided keystores share the same password - you'll be asked to enter it only once.
+
 ## `rest-url` parameter
 
 The `--rest-url` parameter can be used to point the exit command to a specific node for publishing the request, as long as it's compatible with the [REST API](./rest-api.md).
