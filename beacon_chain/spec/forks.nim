@@ -1025,3 +1025,11 @@ func toBlockId*(blck: ForkedSignedBeaconBlock |
                       ForkedMsgTrustedSignedBeaconBlock |
                       ForkedTrustedSignedBeaconBlock): BlockId =
   withBlck(blck): BlockId(root: blck.root, slot: blck.message.slot)
+
+func historical_summaries*(state: ForkedHashedBeaconState):
+    HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT] =
+  withState(state):
+    when consensusFork >= ConsensusFork.Capella:
+      forkyState.data.historical_summaries
+    else:
+      HashList[HistoricalSummary, Limit HISTORICAL_ROOTS_LIMIT]()

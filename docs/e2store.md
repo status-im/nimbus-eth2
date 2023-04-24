@@ -187,6 +187,7 @@ Each era is identified by when it ends. Thus, the genesis era is era `0`, follow
 * `era-number` is the number of the _first_ era stored in the file - for example, the genesis era file has number 0 - as a 5-digit 0-filled decimal integer
 * `short-era-root` is the first 4 bytes of the last historical root in the _last_ state in the era file, lower-case hex-encoded (8 characters), except the genesis era which instead uses the `genesis_validators_root` field from the genesis state.
   * The root is available as `state.historical_roots[era - 1]` except for genesis, which is `state.genesis_validators_root`
+  * Post-Capella, the root must be computed from `state.historical_summaries[era - state.historical_roots.len - 1]`
 
 Era files with multiple eras use the era number of the lowest era stored in the file, and the root of the highest era.
 

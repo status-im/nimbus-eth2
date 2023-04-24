@@ -238,6 +238,7 @@ proc containsBlock(dag: ChainDAGRef, bid: BlockId): bool =
   (bid.slot <= dag.finalizedHead.slot and
     getBlockSZ(
       dag.era, getStateField(dag.headState, historical_roots).asSeq,
+      dag.headState.historical_summaries().asSeq,
       bid.slot, bytes).isOk and bytes.len > 0)
 
 proc getBlock*(
@@ -246,6 +247,7 @@ proc getBlock*(
   dag.db.getBlock(bid.root, T) or
     getBlock(
       dag.era, getStateField(dag.headState, historical_roots).asSeq,
+      dag.headState.historical_summaries().asSeq,
       bid.slot, Opt[Eth2Digest].ok(bid.root), T)
 
 proc getBlockSSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
@@ -256,6 +258,7 @@ proc getBlockSSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
     (bid.slot <= dag.finalizedHead.slot and
       getBlockSSZ(
         dag.era, getStateField(dag.headState, historical_roots).asSeq,
+        dag.headState.historical_summaries().asSeq,
         bid.slot, bytes).isOk)
 
 proc getBlockSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
@@ -268,6 +271,7 @@ proc getBlockSZ*(dag: ChainDAGRef, bid: BlockId, bytes: var seq[byte]): bool =
     (bid.slot <= dag.finalizedHead.slot and
       getBlockSZ(
         dag.era, getStateField(dag.headState, historical_roots).asSeq,
+        dag.headState.historical_summaries().asSeq,
         bid.slot, bytes).isOk)
 
 proc getForkedBlock*(
@@ -280,6 +284,7 @@ proc getForkedBlock*(
     blck = getBlock(dag, bid, T).valueOr:
         getBlock(
             dag.era, getStateField(dag.headState, historical_roots).asSeq,
+            dag.headState.historical_summaries().asSeq,
             bid.slot, Opt[Eth2Digest].ok(bid.root), T).valueOr:
           result.err()
           return
@@ -1152,13 +1157,15 @@ proc init*(T: type ChainDAGRef, cfg: RuntimeConfig, db: BeaconChainDB,
 
     let
       historical_roots = getStateField(dag.headState, historical_roots).asSeq()
+      historical_summaries = dag.headState.historical_summaries.asSeq()
 
     var
       blocks = 0
 
     # Here, we'll build up the slot->root mapping in memory for the range of
     # blocks from genesis to backfill, if possible.
-    for bid in dag.era.getBlockIds(historical_roots, Slot(0), Eth2Digest()):
+    for bid in dag.era.getBlockIds(
+        historical_roots, historical_summaries, Slot(0), Eth2Digest()):
       if bid.slot >= dag.backfill.slot:
         # If we end up in here, we failed the root comparison just below in
         # an earlier iteration
@@ -2394,6 +2401,7 @@ proc rebuildIndex*(dag: ChainDAGRef) =
   let
     roots = dag.db.loadStateRoots()
     historicalRoots = getStateField(dag.headState, historical_roots).asSeq()
+    historicalSummaries = dag.headState.historical_summaries.asSeq()
 
   var
     canonical = newSeq[Eth2Digest](
@@ -2456,7 +2464,8 @@ proc rebuildIndex*(dag: ChainDAGRef) =
         # If we can find an era file with this state, use it as an alternative
         # starting point - ignore failures for now
         var bytes: seq[byte]
-        if dag.era.getState(historicalRoots, slot, state[]).isOk():
+        if dag.era.getState(
+            historicalRoots, historicalSummaries, slot, state[]).isOk():
           state_root = getStateRoot(state[])
 
           withState(state[]): dag.db.putState(forkyState)
