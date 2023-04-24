@@ -120,14 +120,6 @@ validators), but if you don't want to use external validator clients and instead
 want to have all the validators handled by the beacon nodes you may use
 `DISABLE-VC="yes"` as an additional argument to `make local-testnet-minimal`.
 
-You can also separate the output from each beacon node in its own panel, using [multitail](https://www.vanheusden.com/multitail/):
-
-```bash
-make local-testnet-minimal USE_MULTITAIL="yes"
-```
-
-You can find out more about it in the [development update](https://our.status.im/nimbus-development-update-2018-12-2/).
-
 _Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us your feedback about the process!_
 
 ### Visualising simulation metrics
