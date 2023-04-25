@@ -7,9 +7,8 @@ See [here](./networking.md) for our networking related tips and tricks.
 ## Keep track of your attestation effectiveness
 
 Attestation effectiveness is a metric that directly affects your validator rewards.
-In simple terms, an attestation is more valuable the sooner it is put into a block and included in the chain.
 
-This interval is called the *inclusion distance* of an attestation.
+The interval between a validator performing its duty and an attestation is called the *inclusion distance* of an attestation.
 As long as your validator is within the allowed inclusion distance, you will get the full reward.
 
 You can verify your validator's effectiveness on the [beaconcha.in](https://beaconcha.in/) website.
