@@ -15,6 +15,7 @@ import
   ".."/spec/[eth2_merkleization, helpers, signatures, validator],
   ".."/spec/eth2_apis/[eth2_rest_serialization, rest_beacon_client,
                        dynamic_fee_recipients],
+  ".."/consensus_object_pools/block_pools_types,
   ".."/validators/[keystore_management, validator_pool, slashing_protection],
   ".."/[conf, beacon_clock, version, nimbus_binary_common]
 
@@ -26,7 +27,7 @@ export
   byteutils, presto_client, eth2_rest_serialization, rest_beacon_client,
   phase0, altair, helpers, signatures, validator, eth2_merkleization,
   beacon_clock, keystore_management, slashing_protection, validator_pool,
-  dynamic_fee_recipients, Time, toUnix, fromUnix, getTime
+  dynamic_fee_recipients, Time, toUnix, fromUnix, getTime, block_pools_types
 
 const
   SYNC_TOLERANCE* = 4'u64
@@ -151,6 +152,14 @@ type
   DoppelgangerAttempt* {.pure.} = enum
     None, Failure, SuccessTrue, SuccessFalse
 
+  BlockWaiter* = object
+    future*: Future[seq[Eth2Digest]]
+    count*: int
+
+  BlockDataItem* = object
+    blocks: seq[Eth2Digest]
+    waiters*: seq[BlockWaiter]
+
   ValidatorClient* = object
     config*: ValidatorClientConf
     metricsServer*: Opt[MetricsHttpServerRef]
@@ -186,6 +195,7 @@ type
     proposerTasks*: Table[Slot, seq[ProposerTask]]
     dynamicFeeRecipientsStore*: ref DynamicFeeRecipientsStore
     validatorsRegCache*: Table[ValidatorPubKey, SignedValidatorRegistrationV1]
+    blocksSeen*: Table[Slot, BlockDataItem]
     rng*: ref HmacDrbgContext
 
   ApiStrategyKind* {.pure.} = enum
@@ -223,6 +233,17 @@ const
     BeaconNodeRole.BlockProposalPublish,
     BeaconNodeRole.SyncCommitteeData,
     BeaconNodeRole.SyncCommitteePublish,
+  }
+  AllBeaconNodeStatuses* = {
+    RestBeaconNodeStatus.Offline,
+    RestBeaconNodeStatus.Online,
+    RestBeaconNodeStatus.Incompatible,
+    RestBeaconNodeStatus.Compatible,
+    RestBeaconNodeStatus.NotSynced,
+    RestBeaconNodeStatus.OptSynced,
+    RestBeaconNodeStatus.Synced,
+    RestBeaconNodeStatus.Unexpected,
+    RestBeaconNodeStatus.InternalError
   }
 
 proc `$`*(roles: set[BeaconNodeRole]): string =
@@ -1084,3 +1105,151 @@ proc checkedWaitForNextSlot*(vc: ValidatorClientRef, curSlot: Opt[Slot],
     nextSlot = currentSlot + 1
 
   vc.checkedWaitForSlot(nextSlot, offset, showLogs)
+
+proc checkedWaitForNextSlot*(vc: ValidatorClientRef, offset: TimeDiff,
+                             showLogs: bool): Future[Opt[Slot]] =
+  let
+    currentTime = vc.beaconClock.now()
+    currentSlot = currentTime.slotOrZero()
+    nextSlot = currentSlot + 1
+
+  vc.checkedWaitForSlot(nextSlot, offset, showLogs)
+
+proc expectBlock*(vc: ValidatorClientRef, slot: Slot,
+                  confirmations: int = 1): Future[seq[Eth2Digest]] =
+  var
+    retFuture = newFuture[seq[Eth2Digest]]("expectBlock")
+    waiter = BlockWaiter(future: retFuture, count: confirmations)
+
+  proc cancellation(udata: pointer) =
+    vc.blocksSeen.withValue(slot, adata):
+      adata[].waiters.keepItIf(it.future != retFuture)
+
+  proc scheduleCallbacks(data: var BlockDataItem,
+                         waiter: BlockWaiter) =
+    data.waiters.add(waiter)
+    for mitem in data.waiters.mitems():
+      if mitem.count <= len(data.blocks):
+        if not(mitem.future.finished()): mitem.future.complete(data.blocks)
+
+  vc.blocksSeen.mgetOrPut(slot, BlockDataItem()).scheduleCallbacks(waiter)
+  if not(retFuture.finished()): retFuture.cancelCallback = cancellation
+  retFuture
+
+proc registerBlock*(vc: ValidatorClientRef, data: EventBeaconBlockObject) =
+  let
+    wallTime = vc.beaconClock.now()
+    delay = wallTime - data.slot.start_beacon_time()
+
+  debug "Block received", slot = data.slot,
+        block_root = shortLog(data.block_root), optimistic = data.optimistic,
+        delay = delay
+
+  proc scheduleCallbacks(data: var BlockDataItem,
+                         blck: EventBeaconBlockObject) =
+    data.blocks.add(blck.block_root)
+    for mitem in data.waiters.mitems():
+      if mitem.count >= len(data.blocks):
+        if not(mitem.future.finished()): mitem.future.complete(data.blocks)
+  vc.blocksSeen.mgetOrPut(data.slot, BlockDataItem()).scheduleCallbacks(data)
+
+proc pruneBlocksSeen*(vc: ValidatorClientRef, epoch: Epoch) =
+  var blocksSeen: Table[Slot, BlockDataItem]
+  for slot, item in vc.blocksSeen.pairs():
+    if (slot.epoch() + HISTORICAL_DUTIES_EPOCHS) >= epoch:
+      blocksSeen[slot] = item
+    else:
+      let blockRoot =
+        if len(item.blocks) == 0:
+          "<missing>"
+        elif len(item.blocks) == 1:
+          shortLog(item.blocks[0])
+        else:
+          "[" & item.blocks.mapIt(shortLog(it)).join(", ") & "]"
+      debug "Block data has been pruned", slot = slot, blocks = blockRoot
+  vc.blocksSeen = blocksSeen
+
+proc waitForBlock*(
+       vc: ValidatorClientRef,
+       slot: Slot,
+       timediff: TimeDiff,
+       confirmations: int = 1
+     ) {.async.} =
+  ## This procedure will wait for a block proposal for a ``slot`` received
+  ## by the beacon node.
+  let
+    startTime = Moment.now()
+    waitTime = (start_beacon_time(slot) + timediff) - vc.beaconClock.now()
+
+  logScope:
+    slot = slot
+    timediff = timediff
+    wait_time = waitTime
+
+  debug "Waiting for block proposal"
+
+  if waitTime.nanoseconds <= 0'i64:
+    # We do not have time to wait for block.
+    return
+
+  let blocks =
+    try:
+      let timeout = nanoseconds(waitTime.nanoseconds)
+      await vc.expectBlock(slot, confirmations).wait(timeout)
+    except AsyncTimeoutError:
+      let dur = Moment.now() - startTime
+      debug "Block has not been received in time", duration = dur
+      return
+    except CancelledError as exc:
+      let dur = Moment.now() - startTime
+      debug "Block awaiting was interrupted", duration = dur
+      raise exc
+    except CatchableError as exc:
+      let dur = Moment.now() - startTime
+      error "Unexpected error occured while waiting for block publication",
+            err_name = exc.name, err_msg = exc.msg, duration = dur
+      return
+
+  let
+    dur = Moment.now() - startTime
+    blockRoot =
+      if len(blocks) == 0:
+        "<missing>"
+      elif len(blocks) == 1:
+        shortLog(blocks[0])
+      else:
+        "[" & blocks.mapIt(shortLog(it)).join(", ") & "]"
+
+  debug "Block proposal awaited", duration = dur,
+        block_root = blockRoot
+
+  # The expected block arrived - in our async loop however, we might
+  # have been doing other processing that caused delays here so we'll
+  # cap the waiting to the time when we would have sent out attestations
+  # had the block not arrived. An opposite case is that we received
+  # (or produced) a block that has not yet reached our neighbours. To
+  # protect against our attestations being dropped (because the others
+  # have not yet seen the block), we'll impose a minimum delay of
+  # 2000ms. The delay is enforced only when we're not hitting the
+  # "normal" cutoff time for sending out attestations. An earlier delay
+  # of 250ms has proven to be not enough, increasing the risk of losing
+  # attestations, and with growing block sizes, 1000ms started to be
+  # risky as well. Regardless, because we "just" received the block,
+  # we'll impose the delay.
+
+  # Take into consideration chains with a different slot time
+  const afterBlockDelay = nanos(attestationSlotOffset.nanoseconds div 2)
+  let
+    afterBlockTime = vc.beaconClock.now() + afterBlockDelay
+    afterBlockCutoff = vc.beaconClock.fromNow(
+      min(afterBlockTime, slot.attestation_deadline() + afterBlockDelay))
+
+  if afterBlockCutoff.inFuture:
+    debug "Got block, waiting for block cutoff time",
+          after_block_cutoff = shortLog(afterBlockCutoff.offset)
+    try:
+      await sleepAsync(afterBlockCutoff.offset)
+    except CancelledError as exc:
+      let dur = Moment.now() - startTime
+      debug "Waiting for block cutoff was interrupted", duration = dur
+      raise exc
