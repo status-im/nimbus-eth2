@@ -30,6 +30,7 @@ from ../consensus_object_pools/blob_quarantine import
 from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
+from ../beacon_chain_db import putBlobSidecar
 
 export sszdump, signatures_batch
 
@@ -493,7 +494,9 @@ proc storeBlock*(
     # If the EL responded at all, we don't need to try again for a while
     self[].lastPayload = signedBlock.message.slot
 
-  # TODO: store blobs in db
+  # write blobs now that block has been written.
+  for b in blobs:
+    self.consensusManager.dag.db.putBlobSidecar(b[])
 
   let storeBlockTick = Moment.now()
 
