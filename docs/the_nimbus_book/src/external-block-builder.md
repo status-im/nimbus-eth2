@@ -21,6 +21,11 @@ Setting up external block building typically involves running an additional serv
 
 External block building is must be enabled on both beacon node and [validator client](./validator-client.md) using the `--payload-builder=true` flag.
 
+You can use the `--local-block-value-boost` option to give preference to the best block provided by an execution client, as long as its value is within the specified percentage of the value advertised by the best external builder.
+
+!!! tip
+    Setting this flag to a non-zero value is recommended due to the additional risk introduced by the usage of an external block builder.
+
 Additionally, the URL of the service exposing the [builder API](https://ethereum.github.io/builder-specs/) must be provided to the beacon node:
 
 === "Mainnet Beacon Node"
