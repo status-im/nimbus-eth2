@@ -14,7 +14,6 @@ Nimbus `v23.4.0` is a `medium-urgency` upgrade addressing a number of low probab
 * Nimbus now supports the standardized Builder API liveness failsafe mechanism:
 
   https://github.com/status-im/nimbus-eth2/pull/4746
-  https://github.com/ethereum/builder-specs/pull/47
 
 * The `--sync-light-client` option is now enabled by default, providing significant speedups in beacon chain syncing and re-syncing:
 
