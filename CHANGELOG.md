@@ -1,3 +1,82 @@
+2023-04-25 v23.4.0
+==================
+
+Nimbus `v23.4.0` is a `medium-urgency` upgrade addressing a number of low probability risks for missed block proposals, bringing performance improvements in setups relying on the Nimbus validator client, and introducing some exciting new capabilities of the Nimbus light client and Builder API implementations.
+
+### Improvements
+
+* Nimbus now obtains blocks from the configured builder and execution layer nodes without providing timing advantage to any source. You can use the newly added `--local-block-value-boost` option to give preference to the best block provided by an execution layer node, as long as its value is within the specified percentage of the value advertised by the best external builder. Setting this flag to a non-zero value is recommended because the usage of an external builder introduces an additional risk that the advertised block won't be published by the builder:
+
+  https://github.com/status-im/nimbus-eth2/pull/4749
+  https://github.com/status-im/nimbus-eth2/pull/4795
+  https://github.com/status-im/nimbus-eth2/pull/4847
+
+* Nimbus now supports the standardized Builder API liveness failsafe mechanism:
+
+  https://github.com/status-im/nimbus-eth2/pull/4746
+
+* The `--sync-light-client` option is now enabled by default, providing significant speedups in beacon chain syncing and re-syncing:
+
+  https://github.com/status-im/nimbus-eth2/pull/4805
+
+* The `trustedNodeSync` command features a new `--trusted-block-root` option that leverages the Nimbus light client in order to minimize the required trust in the specified Beacon API endpoint. After downloading the state snapshot, the light client will verify that it conforms to the established consensus in the network. Note that the provided `--trusted-block-root` should be somewhat recent, and that additional security precautions such as comparing the state root against block explorers are still recommended.
+
+  https://github.com/status-im/nimbus-eth2/pull/4736
+
+* Improved scheduling mechanisms in the Nimbus validator client deliver stability and performance improvements:
+
+  https://github.com/status-im/nimbus-eth2/pull/4743
+
+* The `deposits exit` command can now be used to perform voluntary exits for multiple validators at once:
+
+  https://github.com/status-im/nimbus-eth2/pull/4855
+  https://nimbus.guide/voluntary-exit.html
+
+* Nimbus now supports the [`/eth/v1/beacon/states/{state_id}/randao`](https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getStateRandao) REST API endpoint:
+
+  https://github.com/status-im/nimbus-eth2/pull/4799
+
+* Nimbus now uses only the Capella-enabled `engine_forkchoiceUpdatedV2` endpoint in all communication with the execution layer:
+
+  https://github.com/status-im/nimbus-eth2/pull/4817
+
+### Fixes
+
+* Nimbus has addressed a risk of missed block proposal due to incorrectly computed withdrawals at epoch boundaries:
+
+  https://github.com/status-im/nimbus-eth2/pull/4820
+
+* Nimbus has addressed a low probability risk of missed block proposals when the configured builder doesn't respond in time:
+
+  https://github.com/status-im/nimbus-eth2/pull/4764/
+
+* Nimbus has addressed a low probability risk of missed block proposals when a late block triggers a chain re-org while an `engine_forkchoiceUpdated` request to the execution layer is in flight:
+
+  https://github.com/status-im/nimbus-eth2/pull/4800
+
+* Nimbus will no longer experience occasional response timeouts when performing a large number of concurrent HTTP requests (e.g. when configured to operate with a large number of remote keystores):
+
+  https://github.com/status-im/nim-presto/pull/44
+  https://github.com/status-im/nim-chronos/pull/324
+  https://github.com/status-im/nimbus-eth2/pull/4779
+
+* The Nimbus validator client will no longer crash on start-up when supplied with incorrect beacon node configuration:
+
+  https://github.com/status-im/nimbus-eth2/pull/4765
+
+* Nimbus will no longer crash when there is a network mismatch between the imported slashing protection database and the specified data directory:
+
+  https://github.com/status-im/nimbus-eth2/pull/4791
+
+* Inactive validators will no longer affect the initial GossipSub topic subscriptions:
+
+  https://github.com/status-im/nimbus-eth2/pull/4793
+
+* Failed or timed out request to `engine_exchangeTransitionConfigurationV1` will no longer degrade the status of the connection to the execution layer:
+
+  https://github.com/status-im/nimbus-eth2/pull/4831
+
+
 2023-03-22 v23.3.2
 ==================
 

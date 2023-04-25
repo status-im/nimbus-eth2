@@ -83,6 +83,13 @@ The `head` root is also printed in the log output at regular intervals.
 
 ## Advanced
 
+### Verify the downloaded state through the Nimbus light client
+
+!!! note ""
+    This feature is available from `v23.4.0` onwards.
+
+The `--trusted-block-root` option enables you to leverage the Nimbus light client in order to minimize the required trust in the specified Beacon API endpoint. After downloading a state snapshot, the light client will verify that it conforms to the established consensus on the network. Note that the provided `--trusted-block-root` should be somewhat recent, and that additional security precautions such as comparing the state root against block explorers is still recommended.
+
 ### Sync deposit history
 
 !!! note ""
