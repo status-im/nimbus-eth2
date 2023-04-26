@@ -245,6 +245,7 @@ type
     sync_distance*: uint64
     is_syncing*: bool
     is_optimistic*: Option[bool]
+    el_offline*: Option[bool]
 
   RestPeerCount* = object
     disconnected*: uint64

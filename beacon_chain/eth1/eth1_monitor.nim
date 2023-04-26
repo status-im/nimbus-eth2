@@ -1965,6 +1965,9 @@ func isNewLastBlock(m: ELManager, blk: Eth1BlockHeader|BlockObject): bool =
 func hasConnection*(m: ELManager): bool =
   m.elConnections.len > 0
 
+func hasAnyWorkingConnection*(m: ELManager): bool =
+  m.elConnections.anyIt(it.state == Working)
+
 func hasProperlyConfiguredConnection*(m: ELManager): bool =
   for connection in m.elConnections:
     if connection.etcStatus == EtcStatus.match:
