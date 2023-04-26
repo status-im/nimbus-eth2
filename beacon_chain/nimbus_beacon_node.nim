@@ -1356,7 +1356,7 @@ proc handleMissingBlobs(node: BeaconNode) =
     waitDur = TimeDiff(nanoseconds: BLOB_GOSSIP_WAIT_TIME_NS)
 
   var fetches: seq[BlobFetchRecord]
-  for blobless in node.quarantine[].peekSortedBlobless():
+  for blobless in node.quarantine[].peekBlobless():
 
     # give blobs a chance to arrive over gossip
     if blobless.message.slot == wallSlot and delay < waitDur:

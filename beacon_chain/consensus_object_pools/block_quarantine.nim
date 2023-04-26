@@ -315,10 +315,6 @@ func popBlobless*(quarantine: var Quarantine, root: Eth2Digest):
   else:
     return none(deneb.SignedBeaconBlock)
 
-iterator peekSortedBlobless*(quarantine: var Quarantine): deneb.SignedBeaconBlock =
-  var blobless: seq[deneb.SignedBeaconBlock]
+iterator peekBlobless*(quarantine: var Quarantine): deneb.SignedBeaconBlock =
   for k, v in quarantine.blobless.mpairs():
-    blobless.add(v)
-  let sorted = blobless.sortedByIt(it.message.slot)
-  for b in sorted:
-    yield b
+    yield v
