@@ -782,7 +782,6 @@ type
       .}: Option[string]
 
       lcTrustedBlockRoot* {.
-        hidden
         desc: "Recent trusted finalized block root to initialize light client from"
         name: "trusted-block-root" .}: Option[Eth2Digest]
 
