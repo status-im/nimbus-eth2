@@ -292,7 +292,7 @@ proc processSignedBlobSidecar*(
     debug "Blob received", delay
 
   let v =
-    self.dag.validateBlobSidecar(self.quarantine,
+    self.dag.validateBlobSidecar(self.quarantine, self.blob_quarantine,
                                  signedBlobSidecar, wallTime, idx)
 
   if v.isErr():

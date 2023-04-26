@@ -16,8 +16,8 @@ import
   ../spec/[
     beaconstate, state_transition_block, forks, helpers, network, signatures],
   ../consensus_object_pools/[
-    attestation_pool, blockchain_dag, block_quarantine, exit_pool, spec_cache,
-    light_client_pool, sync_committee_msg_pool],
+    attestation_pool, blockchain_dag, blob_quarantine, block_quarantine,
+    exit_pool, spec_cache, light_client_pool, sync_committee_msg_pool],
   ".."/[beacon_clock],
   ./batch_validation
 
@@ -223,7 +223,7 @@ template validateBeaconBlockBellatrix(
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/p2p-interface.md#blob_sidecar_index
 proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
-    sbs: SignedBlobSidecar,
+    blobQuarantine: ref BlobQuarantine,sbs: SignedBlobSidecar,
     wallTime: BeaconTime, idx: BlobIndex): Result[void, ValidationError] =
 
   # [REJECT] The sidecar is for the correct topic --
@@ -286,9 +286,10 @@ proc validateBlobSidecar*(
     sbs.signature):
     return errReject("SignedBlobSidecar: invalid blob signature")
 
-  # [IGNORE] The sidecar is the only sidecar with valid signature received for the tuple (sidecar.block_root, sidecar.index).
-  # TODO
-  # check that there isn't a conflicting sidecar in blob_quarantine
+  # [IGNORE] The sidecar is the only sidecar with valid signature
+  # received for the tuple (sidecar.block_root, sidecar.index).
+  if blobQuarantine[].hasBlob(sbs.message):
+    return errReject("SignedBlobSidecar: already have blob with valid signature")
 
   ok()
 
