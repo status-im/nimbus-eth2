@@ -14,6 +14,7 @@ import
   ../sszdump
 
 from std/deques import Deque, addLast, contains, initDeque, items, len, shrink
+from std/sequtils import mapIt
 from ../consensus_object_pools/consensus_manager import
   ConsensusManager, checkNextProposer, optimisticExecutionPayloadHash,
   runProposalForkchoiceUpdated, shouldSyncOptimistically, updateHead,
@@ -33,6 +34,7 @@ from ../validators/validator_monitor import
   MsgSource, ValidatorMonitor, registerAttestationInBlock, registerBeaconBlock,
   registerSyncAggregateInBlock
 from ../beacon_chain_db import putBlobSidecar
+from ../spec/state_transition_block import validate_blobs
 
 export sszdump, signatures_batch
 
@@ -196,8 +198,19 @@ proc storeBackfillBlock(
   # writing the block in case of blob error.
   let blobsOk =
       when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
-          blobs.len > 0 or true
-        # TODO: validate blobs
+        let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+        if blobs.len > 0 or kzgCommits.len > 0:
+          let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+                                 blobs.mapIt(it.kzg_proof))
+          if r.isErr():
+            debug "backfill blob validation failed",
+             blockRoot = shortLog(signedBlock.root),
+             blck = shortLog(signedBlock.message),
+             signature = shortLog(signedBlock.signature),
+             msg = r.error()
+          r.isOk()
+        else:
+            true
       else:
         true
   if not blobsOk:
@@ -222,7 +235,8 @@ proc storeBackfillBlock(
     return res
 
   # Only store blobs after successfully establishing block viability.
-  # TODO: store blobs in db
+  for b in blobs:
+    self.consensusManager.dag.db.putBlobSidecar(b[])
 
   res
 
@@ -450,9 +464,17 @@ proc storeBlock*(
   # Establish blob viability before calling addHeadBlock to avoid
   # writing the block in case of blob error.
   when typeof(signedBlock).toFork() >= ConsensusFork.Deneb:
-    if blobs.len > 0:
-      discard
-      # TODO: validate blobs
+    let kzgCommits = signedBlock.message.body.blob_kzg_commitments.asSeq
+    if blobs.len > 0 or kzgCommits.len > 0:
+      let r = validate_blobs(kzgCommits, blobs.mapIt(it.blob),
+                             blobs.mapIt(it.kzg_proof))
+      if r.isErr():
+        debug "blob validation failed",
+          blockRoot = shortLog(signedBlock.root),
+          blck = shortLog(signedBlock.message),
+          signature = shortLog(signedBlock.signature),
+          msg = r.error()
+        return err((VerifierError.Invalid, ProcessingStatus.completed))
 
   type Trusted = typeof signedBlock.asTrusted()
   let blck = dag.addHeadBlock(self.verifier, signedBlock, payloadValid) do (
