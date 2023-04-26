@@ -268,12 +268,10 @@ proc installNodeApiHandlers*(router: var RestRouter, node: BeaconNode) =
         else:
           none[bool]()
       elOffline =
-        if node.currentSlot().epoch() < node.dag.cfg.CAPELLA_FORK_EPOCH:
-          none[bool]()  # Added with ethereum/beacon-APIs v2.4.0
-        elif isNil(node.elManager):
-          some(true)
-        else:
+        if node.currentSlot().epoch() >= node.dag.cfg.CAPELLA_FORK_EPOCH:
           some(not node.elManager.hasAnyWorkingConnection)
+        else:
+          none[bool]()  # Added with ethereum/beacon-APIs v2.4.0
 
       info = RestSyncInfo(
         head_slot: headSlot, sync_distance: distance,
