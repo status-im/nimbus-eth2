@@ -475,7 +475,17 @@ proc doTrustedNodeSync*(
           data = blck.get()
 
         withBlck(data[]):
-          if (let res = dag.addBackfillBlock(blck.asSigVerified()); res.isErr()):
+          let res =
+            case syncTarget.kind
+            of TrustedNodeSyncKind.TrustedBlockRoot:
+              # Trust-minimized sync: the server is only trusted for
+              # data availability, responses must be verified
+              dag.addBackfillBlock(blck)
+            of TrustedNodeSyncKind.StateId:
+              # The server is fully trusted to provide accurate data;
+              # it could have provided a malicious state
+              dag.addBackfillBlock(blck.asSigVerified())
+          if res.isErr():
             case res.error()
             of VerifierError.Invalid,
                 VerifierError.MissingParent,
