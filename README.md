@@ -118,7 +118,7 @@ client processes (50/50), communicating through the
 beacon node and 6 validator client processes, where each of them will handle 16
 validators), but if you don't want to use external validator clients and instead
 want to have all the validators handled by the beacon nodes you may use
-`DISABLE-VC="yes"` as an additional argument to `make local-testnet-minimal`.
+`USE_VC=0` as an additional argument to `make local-testnet-minimal`.
 
 _Alternatively, fire up our [experimental Vagrant instance with Nim pre-installed](https://our.status.im/setting-up-a-local-vagrant-environment-for-nim-development/) and give us your feedback about the process!_
 
