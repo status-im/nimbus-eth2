@@ -11,7 +11,7 @@ You can set up a separate address or reuse the address from which you funded you
 
 ### 2. (Re)start the node
 
-Press `Ctrl-c` to stop the beacon node if it's running, then use the same command [as before]() to run it again, this time adding the `--suggested-fee-recipient` option in addition to `--web3-url`:
+Press `Ctrl-c` to stop the beacon node if it's running, then use the same command as before to run it again, this time adding the `--suggested-fee-recipient` option in addition to `--web3-url`:
 
 === "Mainnet"
     ```sh

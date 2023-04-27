@@ -43,6 +43,8 @@ nim_gc_heap_instance_occupied_bytes{type_name="seq[TrustedAttestation]"} 29728.0
     Metrics are by default only accessible from the same machine as the beacon node is running on.
     To fetch metrics from a remote machine, an SSH tunnel is recommended.
 
+<!-- TODO: Create a reference page with all metrics for each of the products (beacon node and validator client) -->
+
 The metrics server offers one snapshot in time of the state of the beacon node.
 Metrics, however, are at their most useful when collected over time — for this, we'll need to set up two more pieces of software: Prometheus and Grafana.
 
@@ -56,12 +58,13 @@ The following steps will take you through how to use Prometheus and Grafana to s
 
 Use your favourite package manager to download Prometheus: for example `apt-get install prometheus` on Ubuntu, or `brew install prometheus` on MacOS, should do the trick.
 
-> If you don't use a package manager, you can download the [latest release](https://prometheus.io/download/) of directly from Prometheus website. To extract it, run:
->
-> ```
-> tar xvfz prometheus-*.tar.gz
-> cd prometheus-*
-> ```
+!!! note
+    If you don't use a package manager, you can download the [latest release](https://prometheus.io/download/) of directly from Prometheus website. To extract it, run:
+
+    ```
+    tar xvfz prometheus-*.tar.gz
+    cd prometheus-*
+    ```
 
 
 #### 2. Copy the binary
@@ -106,7 +109,7 @@ level=info ts=2021-01-22T14:52:10.604Z caller=main.go:673 msg="Server is ready t
 
 #### 4. Download Grafana
 
-[Download the latest release]((https://grafana.com/grafana/download?platform=linux)) of Grafana for your platform.
+[Download the latest release](https://grafana.com/grafana/download?platform=linux) of Grafana for your platform.
 You need version 7.2 or newer.
 
 !!! note
@@ -209,10 +212,4 @@ Note that this dashboard does rely heavily on three prometheus exporter tools: `
 The good news is that you don't need to use all these tools, as long as you take care of removing the related panels.
 
 See [here](https://github.com/metanull-operator/eth2-grafana/tree/master/nimbus) for a detailed guide explaining how to use it.
-
-## Enabling mobile alerts
-
-### Telegram
-
-TODO
 

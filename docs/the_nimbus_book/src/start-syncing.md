@@ -21,21 +21,21 @@ Mainnet is the main Ethereum network where real assets are at stake, while testn
     If this is the first time you're setting up your node, it is recommended you run it on a testnet first.
     Later, when everything is working, you can easily switch to mainnet.
 
-### Testnet
+=== "Testnet"
 
-To start syncing the `prater` testnet from the `nimbus-eth2` repository, run:
+    To start syncing the `prater` testnet from the `nimbus-eth2` repository, run:
 
-```
- ./run-prater-beacon-node.sh
-```
+    ```
+     ./run-prater-beacon-node.sh
+    ```
 
-### Mainnet
+=== "Mainnet"
 
-To start syncing the Ethereum beacon chain mainnet, run:
+    To start syncing the Ethereum beacon chain mainnet, run:
 
-```
- ./run-mainnet-beacon-node.sh
-```
+    ```
+     ./run-mainnet-beacon-node.sh
+    ```
 
 ## Log output
 

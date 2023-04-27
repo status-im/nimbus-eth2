@@ -58,11 +58,7 @@ This simulates the maximum load that the consensus layer will put on the machine
 
 ### How do I add an additional validator?
 
-To add an additional validator, follow [the same steps](./keys.md) as you did when you added your first.
-You'll have to restart the beacon node for the changes to take effect.
-
-!!! note
-    A single Nimbus instance is able to handle multiple validators.
+See the information [here](./additional-validator.md).
 
 ### What does `synced/opt` mean, in the "Slot start" message?
 
@@ -167,7 +163,7 @@ At the other end of the spectrum, if your balance is closer to 31 ETH, it's prob
 
 ### When can I withdraw my funds, and what's the difference between exiting and withdrawing?
 
-After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use 0x01 withdrawal credentials will have their funds automatically withdrawn.
+After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use `0x01` withdrawal credentials will have their funds automatically withdrawn.
 Please see our dedicated [guide for withdrawals](./withdrawals.md) for further information.
 
 ### How are validators incentivized to stay active and honest?
@@ -251,7 +247,8 @@ This means that validators need not go to extreme lengths with backup clients or
 Again, it depends.
 Behaving maliciously, e.g. attesting to invalid or contradicting blocks, will lead to a validator's stake being slashed.
 
-The minimum amount that can be slashed is 1 ETH, but **this number increases if other validators are slashed at the same time.**
+If a malicious behavior is detected, 1/32 of validator's staked ether (up to a maximum of 1 ETH) is immediately slashed and a 36-day removal period begins.
+During this period, the validator's stake is gradually slashed and at day 18 an additional penalty is applied: the amount depends on the number of other slashed validators — the more validators are slashed, the magnitude of the slash increases.
 
 The idea behind this is to minimize the losses from honest mistakes, but strongly discouraging coordinated attacks.
 
@@ -271,22 +268,21 @@ Validators that are slashed are prevented from participating in the protocol fur
 
 If the signing key is lost, the validator can no longer propose or attest.
 
-Over time, the validator's balance will decrease as he or she is punished for not participating in the consensus process.
-When the validator's balance reaches 16 ETH, he or she will be automatically exited from the validator pool.
-
 However, all is not lost.
 Assuming validators derive their keys using [EIP2334](https://eips.ethereum.org/EIPS/eip-2334) (as per the default onboarding flow) then **validators can always recalculate their signing key from their withdrawal key**.
-
-The 16 ETH can then be withdrawn, with the withdrawal key, after a delay of around a day.
-
-Note that this delay can be longer if many others are exiting or being kicked out at the same time.
 
 ### What happens if I lose my withdrawal key?
 
 If the withdrawal key is lost, there is no way to obtain access to the funds held by the validator.
-
 As such, it's a good idea to create your keys from mnemonics which act as another backup.
 This will be the default for validators who join via this site's onboarding process.
+
+If the validator can no longer propose or attest, their balance will decrease over time as they are punished for not participating in the consensus process.
+When the validator's balance reaches 16 ETH, they will be automatically exited from the validator pool, and 16 ETH will be transfered to their withdrawal address (as long it's specified).
+
+!!! note
+    After the Capella hard-fork, activated on 12th of April 2023, all exited validators that use `0x01` withdrawal credentials will have their funds automatically withdrawn.
+    Please see our dedicated [guide for withdrawals](./withdrawals.md) for further information.
 
 ### What happens if my withdrawal key is stolen?
 

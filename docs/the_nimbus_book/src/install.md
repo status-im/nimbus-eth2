@@ -6,6 +6,11 @@ The Nimbus beacon node runs on Linux, macOS, Windows, and Android.
 
 Check that your machine matches the [minimal system requirements](./hardware.md).
 
+## Build prerequisites
+
+You will need to install developer tools (C compiler, Make, Bash, Git) and [CMake](https://cmake.org/).
+See the [build guide](./build.md).
+
 ## Time
 
 The beacon chain relies on your computer having the correct time set (±0.5 seconds).

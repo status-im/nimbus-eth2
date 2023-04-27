@@ -17,6 +17,10 @@ When building from source, you will need additional build dependencies to be ins
 - Developer tools (C compiler, Make, Bash, Git)
 - [CMake](https://cmake.org/)
 
+<!-- TODO: Please test whether the instructions below are correct. I think we are missing some dependencies on Windows. -->
+<!--       Microsoft offer virtual machines that you can use for testing here: -->
+<!--       https://developer.microsoft.com/en-us/windows/downloads/virtual-machines/ -->
+
 === "Linux"
 
     On common Linux distributions the dependencies can be installed with
@@ -51,10 +55,10 @@ When building from source, you will need additional build dependencies to be ins
     3. Set exceptions to "dwarf" on 32-bit and "seh" on 64-bit.
     4. Change the installation directory to `C:\mingw-w64` and add it to your system PATH in `"My Computer"/"This PC" -> Properties -> Advanced system settings -> Environment Variables -> Path -> Edit -> New -> C:\mingw-w64\mingw64\bin` (`C:\mingw-w64\mingw32\bin` on 32-bit).
 
-    Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build `nimbus-eth2`.
-
     !!! note
         If the online installer isn't working you can try installing `mingw-w64` through [MSYS2](https://www.msys2.org/).
+
+    Install [Git for Windows](https://gitforwindows.org/) and use a "Git Bash" shell to clone and build `nimbus-eth2`.
 
 === "Android"
 

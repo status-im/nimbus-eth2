@@ -40,7 +40,7 @@ cd nimbus-eth2
 
 ### 2. Run the build process
 
-To build the Nimbus light client and its dependencies, run:
+To build the Nimbus light client and its dependencies, make sure you have [all prerequisites](./install.md) and then run:
 
 ```sh
 make -j4 nimbus_light_client

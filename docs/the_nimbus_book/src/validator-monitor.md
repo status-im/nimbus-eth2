@@ -1,9 +1,5 @@
 # Validator monitoring
 
-!!! note
-    This feature is available from `v23.1.0` onwards.
-    Earlier Nimbus versions included a preview version this feature behind a feature flag without enabling it by default.
-
 The validator monitoring feature allows for tracking the life cycle and performance of one or more validators in detail.
 Monitoring can be carried out for any validator, with slightly more detail for validators that are running in the same beacon node.
 
@@ -79,6 +75,8 @@ Likewise, many metrics, such as aggregation inclusion, reflect conditions on the
 It may happen that the same message is counted more than once under certain conditions.
 
 ## Monitoring metrics
+
+For instructions on how to use Prometheus and Grafana, see [these instructions](./metrics-pretty-pictures.md).
 
 The full list of metrics supported by the validator monitoring feature can be seen in the [source code](https://github.com/status-im/nimbus-eth2/blob/unstable/beacon_chain/validators/validator_monitor.nim) or by examining the metrics output:
 

@@ -18,8 +18,8 @@ Enabling UPnP is usually as simple as checking a box in your router's configurat
 ## Monitor your Peer count
 
 !!! note
-    As of `v1.7.0`, peer scoring has been fine-tuned.
-    As such `--max-peers` should not be set below 70. Note that Lowering `max-peers` does not significantly improve bandwidth usage, but does increase the risk of missed attestations.
+    The `--max-peers` setting should not be set below 70.
+    Lowering `max-peers` does not significantly improve bandwidth usage, but does increase the risk of missed attestations.
 
 If your Peer count is low (less than `15`) and/or you repeatedly see either of the following warnings:
 
@@ -40,6 +40,8 @@ The first step however, is to check for incoming connections.
 ## Check for incoming connections
 
 To check if you have incoming connections set, run:
+
+<!-- TODO: It would be very sweet if we can create some kind of CI tests that verify that these instructions work -->
 
 ```
 curl -s http://localhost:8008/metrics | grep libp2p_open_streams
