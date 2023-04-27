@@ -24,6 +24,16 @@ import
 # TODO(zah):
 # We can compress the embedded states with snappy before embedding them here.
 
+# ATTENTION! This file is intentionally avoiding the Nim `/` operator for
+# constructing paths. The standard operator is relying the `DirSep` constant
+# which depends on the selected target OS (when doing cross-compilation), so
+# the compile-time manipulation of paths performed here will break (e.g. when
+# cross-compiling for Windows from Linux)
+#
+# Nim seems to need a more general solution for detecting the host OS during
+# compilation, so a host OS specific separator can be used when deriving paths
+# from `currentSourcePath`.
+
 export
   ethtypes, conversions, RuntimeConfig
 
@@ -192,7 +202,7 @@ proc loadEth2NetworkMetadata*(path: string, eth1Network = none(Eth1Network)): Et
 proc loadCompileTimeNetworkMetadata(
     path: string,
     eth1Network = none(Eth1Network)): Eth2NetworkMetadata {.raises: [Defect].} =
-  if fileExists(path / "config.yaml"):
+  if fileExists(path & "/config.yaml"):
     try:
       result = loadEth2NetworkMetadata(path, eth1Network)
       if result.incompatible:

@@ -268,6 +268,40 @@ jobs:
           name: Windows_amd64_checksum
           path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
           retention-days: 2
+  build-macos-amd64:
+    name: macOS AMD64 release asset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build project
+        id: make_dist
+        run: |
+          make dist-macos
+          cd dist
+          ARCHIVE=$(echo nimbus-eth2_macOS_amd64_*.tar.gz)
+          echo "::set-output name=archive::"${ARCHIVE}
+          echo "::set-output name=archive_dir::"${ARCHIVE%.tar.gz}
+          tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_beacon_node.sha512sum
+          tar -xzf ${ARCHIVE} ${ARCHIVE%.tar.gz}/build/nimbus_validator_client.sha512sum
+      - name: Upload archive artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macOS_amd64_archive
+          path: ./dist/${{ steps.make_dist.outputs.archive }}
+          retention-days: 2
+      - name: Upload BN checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macOS_amd64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_beacon_node.sha512sum
+          retention-days: 2
+      - name: Upload VC checksum artefact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macOS_amd64_checksum
+          path: ./dist/${{ steps.make_dist.outputs.archive_dir }}/build/nimbus_validator_client.sha512sum
+          retention-days: 2
   build-macos-arm64:
     name: macOS ARM64 release asset
     runs-on: ubuntu-latest
@@ -304,7 +338,7 @@ jobs:
           retention-days: 2
   prepare-release:
     name: Prepare release draft
-    needs: [build-amd64, build-arm64, build-arm, build-win64, build-macos-arm64]
+    needs: [build-amd64, build-arm64, build-arm, build-win64, build-macos-amd64, build-macos-arm64]
     runs-on: ubuntu-latest
     steps:
       - name: Download artefacts
@@ -334,6 +368,8 @@ jobs:
           cat Linux_arm_checksum/* >> release_notes.md
           echo '# Windows AMD64' >> release_notes.md
           cat Windows_amd64_checksum/* >> release_notes.md
+          echo '# macOS AMD64' >> release_notes.md
+          cat macOS_amd64_checksum/* >> release_notes.md
           echo '# macOS ARM64' >> release_notes.md
           cat macOS_arm64_checksum/* >> release_notes.md
           echo '```' >> release_notes.md
@@ -354,6 +390,7 @@ jobs:
             Linux_arm_archive/*
             Linux_arm_packages/*
             Windows_amd64_archive/*
+            macOS_amd64_archive/*
             macOS_arm64_archive/*
       - name: Delete artefacts
         uses: geekyeggo/delete-artifact@v1
@@ -371,6 +408,8 @@ jobs:
             Linux_arm_packages
             Windows_amd64_archive
             Windows_amd64_checksum
+            macOS_amd64_archive
+            macOS_amd64_checksum
             macOS_arm64_archive
             macOS_arm64_checksum
 
