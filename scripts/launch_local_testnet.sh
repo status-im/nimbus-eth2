@@ -51,14 +51,14 @@ CURL_BINARY="$(command -v curl)" || { echo "Curl not installed. Aborting."; exit
 JQ_BINARY="$(command -v jq)" || { echo "Jq not installed. Aborting."; exit 1; }
 
 OPTS="ht:n:d:g"
-LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,nimbus-signer-nodes:,web3signer-nodes:,with-ganache,stop-at-epoch:,disable-htop,disable-vc,enable-payload-builder,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,altair-fork-epoch:,bellatrix-fork-epoch:,capella-fork-epoch:,deneb-fork-epoch:"
+LONGOPTS="help,preset:,nodes:,data-dir:,remote-validators-count:,threshold:,nimbus-signer-nodes:,web3signer-nodes:,with-ganache,stop-at-epoch:,disable-htop,use-vc:,disable-vc,enable-payload-builder,enable-logtrace,log-level:,base-port:,base-rest-port:,base-metrics-port:,base-vc-metrics-port:,base-vc-keymanager-port:,base-remote-signer-port:,base-remote-signer-metrics-port:,base-el-net-port:,base-el-rpc-port:,base-el-ws-port:,base-el-auth-rpc-port:,el-port-offset:,reuse-existing-data-dir,reuse-binaries,timeout:,kill-old-processes,eth2-docker-image:,lighthouse-vc-nodes:,run-geth,dl-geth,dl-nimbus-eth1,dl-nimbus-eth2,light-clients:,run-nimbus-eth1,verbose,altair-fork-epoch:,bellatrix-fork-epoch:,capella-fork-epoch:,deneb-fork-epoch:"
 
 # default values
 BINARIES=""
 NUM_NODES="10"
 DATA_DIR="local_testnet_data"
 USE_HTOP="1"
-USE_VC="1"
+: ${USE_VC:="1"}
 USE_PAYLOAD_BUILDER="false"
 : ${PAYLOAD_BUILDER_HOST:=127.0.0.1}
 : ${PAYLOAD_BUILDER_PORT:=4888}
@@ -231,6 +231,10 @@ while true; do
     --disable-vc)
       USE_VC="0"
       shift
+      ;;
+    --use-vc)
+      USE_VC="$2"
+      shift 2
       ;;
     --enable-payload-builder)
       USE_PAYLOAD_BUILDER="true"
