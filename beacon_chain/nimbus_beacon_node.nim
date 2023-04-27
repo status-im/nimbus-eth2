@@ -14,6 +14,7 @@ import
   stew/[byteutils, io2],
   eth/p2p/discoveryv5/[enr, random2],
   eth/keys,
+  kzg4844/kzg_ex,
   ./consensus_object_pools/blob_quarantine,
   ./consensus_object_pools/vanity_logs/vanity_logs,
   ./networking/topic_params,
@@ -453,8 +454,11 @@ proc initFullNode(
 
   node.updateValidatorMetrics()
 
-const SlashingDbName = "slashing_protection"
+const
+  SlashingDbName = "slashing_protection"
   # changing this requires physical file rename as well or history is lost.
+  trustedSetup =
+    staticRead"../vendor/nim-kzg4844/kzg4844/csources/src/trusted_setup_4.txt"
 
 proc init*(T: type BeaconNode,
            rng: ref HmacDrbgContext,
@@ -1907,6 +1911,11 @@ proc doRunBeaconNode(config: var BeaconNodeConf, rng: ref HmacDrbgContext) {.rai
     config.bootstrapNodes.add node
 
   let node = BeaconNode.init(rng, config, metadata)
+
+  if node.dag.cfg.DENEB_FORK_EPOCH != FAR_FUTURE_EPOCH:
+    let res = Kzg.loadTrustedSetupFromString(trustedSetup)
+    if res.isErr():
+      raiseAssert res.error()
 
   if bnStatus == BeaconNodeStatus.Stopping:
     return
