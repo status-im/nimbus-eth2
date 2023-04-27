@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -89,7 +89,7 @@ template mockGenesisDepositsImpl(
       depositsData.add result[valIdx]
       depositsDataHash.add hash_tree_root(result[valIdx])
 
-func mockGenesisBalancedDeposits*(
+proc mockGenesisBalancedDeposits*(
         validatorCount: uint64,
         amountInEth: Positive,
         flags: UpdateFlags = {}
@@ -106,7 +106,7 @@ func mockGenesisBalancedDeposits*(
   mockGenesisDepositsImpl(result, validatorCount,amount,flags):
     discard
 
-func mockUpdateStateForNewDeposit*(
+proc mockUpdateStateForNewDeposit*(
        state: var ForkyBeaconState,
        validator_index: uint64,
        amount: uint64,
