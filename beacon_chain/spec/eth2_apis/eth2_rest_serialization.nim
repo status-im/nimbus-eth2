@@ -2742,6 +2742,8 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   writer.writeField("is_syncing", value.is_syncing)
   if value.is_optimistic.isSome():
     writer.writeField("is_optimistic", value.is_optimistic.get())
+  if value.el_offline.isSome():
+    writer.writeField("el_offline", value.el_offline.get())
   writer.endRecord()
 
 ## RestErrorMessage
