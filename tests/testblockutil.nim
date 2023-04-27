@@ -30,9 +30,7 @@ const
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0/tests/core/pyspec/eth2spec/test/helpers/keys.py
 func `[]`*(_: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
-  # 0 is not a valid BLS private key - 1000 helps interop with rust BLS library,
-  # lighthouse. EF tests use 1 instead of 1000.
-  var bytes = (index.uint64 + 1000'u64).toBytesLE()
+  var bytes = (index.uint64 + 1'u64).toBytesLE()  # Consistent with EF tests
   static: doAssert sizeof(bytes) <= sizeof(result)
   copyMem(addr result, addr bytes, sizeof(bytes))
 
