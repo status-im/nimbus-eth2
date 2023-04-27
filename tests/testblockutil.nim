@@ -34,15 +34,24 @@ func `[]`*(_: MockPrivKeysT, index: ValidatorIndex|uint64): ValidatorPrivKey =
   static: doAssert sizeof(bytes) <= sizeof(result)
   copyMem(addr result, addr bytes, sizeof(bytes))
 
-func `[]`*(_: MockPubKeysT, index: ValidatorIndex|uint64): ValidatorPubKey =
-  MockPrivKeys[index].toPubKey().toPubKey()
+proc `[]`*(_: MockPubKeysT, index: uint64): ValidatorPubKey =
+  var cache {.threadvar.}: Table[uint64, ValidatorPubKey]
+  cache.withValue(index, key) do:
+    return key[]
+  do:
+    let key = MockPrivKeys[index].toPubKey().toPubKey()
+    cache[index] = key
+    return key
+
+proc `[]`*(_: MockPubKeysT, index: ValidatorIndex): ValidatorPubKey =
+  _[index.uint64]
 
 func makeFakeHash*(i: int): Eth2Digest =
   var bytes = uint64(i).toBytesLE()
   static: doAssert sizeof(bytes) <= sizeof(result.data)
   copyMem(addr result.data[0], addr bytes[0], sizeof(bytes))
 
-func makeDeposit*(
+proc makeDeposit*(
     i: int,
     flags: UpdateFlags = {},
     cfg = defaultRuntimeConfig): DepositData =
@@ -59,7 +68,7 @@ func makeDeposit*(
   if skipBlsValidation notin flags:
     result.signature = get_deposit_signature(cfg, result, privkey).toValidatorSig()
 
-func makeInitialDeposits*(
+proc makeInitialDeposits*(
     n = SLOTS_PER_EPOCH, flags: UpdateFlags = {}, cfg = defaultRuntimeConfig): seq[DepositData] =
   for i in 0..<n.int:
     result.add makeDeposit(i, flags, cfg = cfg)
