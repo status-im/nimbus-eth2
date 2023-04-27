@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -184,8 +184,11 @@ proc runVCSlotLoop(vc: ValidatorClientRef) {.async.} =
         # Good nodes are nodes which can be used for ALL the requests.
         goodNodes = counts.data[int(RestBeaconNodeStatus.Synced)]
         # Viable nodes are nodes which can be used only SOME of the requests.
-        viableNodes = counts.data[int(RestBeaconNodeStatus.OptSynced)] +
+        viableNodes = counts.data[int(RestBeaconNodeStatus.SyncedELOff)] +
+                      counts.data[int(RestBeaconNodeStatus.OptSynced)] +
+                      counts.data[int(RestBeaconNodeStatus.OptSyncedELOff)] +
                       counts.data[int(RestBeaconNodeStatus.NotSynced)] +
+                      counts.data[int(RestBeaconNodeStatus.NotSyncedELOff)] +
                       counts.data[int(RestBeaconNodeStatus.Compatible)]
         # Bad nodes are nodes which can't be used at all.
         badNodes = counts.data[int(RestBeaconNodeStatus.Offline)] +

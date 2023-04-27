@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -35,8 +35,11 @@ proc otherNodesCount*(vc: ValidatorClientRef): int =
   vc.beaconNodes.countIt(it.status != RestBeaconNodeStatus.Synced)
 
 proc preGenesisNodes*(vc: ValidatorClientRef): seq[BeaconNodeServerRef] =
-  vc.beaconNodes.filterIt(it.status notin {RestBeaconNodeStatus.Synced,
-                                           RestBeaconNodeStatus.OptSynced})
+  vc.beaconNodes.filterIt(
+    it.status notin {RestBeaconNodeStatus.Synced,
+                     RestBeaconNodeStatus.SyncedELOff,
+                     RestBeaconNodeStatus.OptSynced,
+                     RestBeaconNodeStatus.OptSyncedELOff})
 
 proc waitNodes*(vc: ValidatorClientRef, timeoutFut: Future[void],
                 statuses: set[RestBeaconNodeStatus],
@@ -167,11 +170,20 @@ proc checkSync(
 
       if not(syncInfo.is_syncing) or (syncInfo.sync_distance < SYNC_TOLERANCE):
         if not(syncInfo.is_optimistic.get(false)):
-          RestBeaconNodeStatus.Synced
+          if not(syncInfo.el_offline.get(false)):
+            RestBeaconNodeStatus.Synced
+          else:
+            RestBeaconNodeStatus.SyncedELOff
         else:
-          RestBeaconNodeStatus.OptSynced
+          if not(syncInfo.el_offline.get(false)):
+            RestBeaconNodeStatus.OptSynced
+          else:
+            RestBeaconNodeStatus.OptSyncedELOff
       else:
-        RestBeaconNodeStatus.NotSynced
+        if not(syncInfo.el_offline.get(false)):
+          RestBeaconNodeStatus.NotSynced
+        else:
+          RestBeaconNodeStatus.NotSyncedELOff
   return res
 
 proc checkOnline(
@@ -226,8 +238,11 @@ proc checkNode(vc: ValidatorClientRef,
                  RestBeaconNodeStatus.Online,
                  RestBeaconNodeStatus.Incompatible,
                  RestBeaconNodeStatus.Compatible,
+                 RestBeaconNodeStatus.SyncedELOff,
                  RestBeaconNodeStatus.OptSynced,
-                 RestBeaconNodeStatus.NotSynced}:
+                 RestBeaconNodeStatus.OptSyncedELOff,
+                 RestBeaconNodeStatus.NotSynced,
+                 RestBeaconNodeStatus.NotSyncedELOff}:
     let status = await vc.checkSync(node)
     node.updateStatus(status)
     return nstatus != status

@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -125,15 +125,18 @@ type
     duties*: Table[Epoch, SyncCommitteeDuty]
 
   RestBeaconNodeStatus* {.pure.} = enum
-    Offline,      ## BN is offline.
-    Online,       ## BN is online, passed checkOnline() check.
-    Incompatible, ## BN configuration is NOT compatible with VC configuration.
-    Compatible,   ## BN configuration is compatible with VC configuration.
-    NotSynced,    ## BN is not in sync.
-    OptSynced,    ## BN is optimistically synced (EL is not in sync).
-    Synced,       ## BN and EL are synced.
-    Unexpected,   ## BN sends unexpected/incorrect response.
-    InternalError ## BN reports internal error.
+    Offline,        ## BN offline.
+    Online,         ## BN is online, passed checkOnline() check.
+    Incompatible,   ## BN configuration is NOT compatible with VC configuration.
+    Compatible,     ## BN configuration is compatible with VC configuration.
+    NotSyncedELOff, ## BN is not in sync (EL currently offline).
+    NotSynced,      ## BN is not in sync.
+    OptSyncedELOff, ## BN is optimistically synced (EL currently offline).
+    OptSynced,      ## BN is optimistically synced (EL is not in sync).
+    SyncedELOff,    ## BN and EL are synced (EL currently offline).
+    Synced,         ## BN and EL are synced.
+    Unexpected,     ## BN sends unexpected/incorrect response.
+    InternalError   ## BN reports internal error.
 
   BeaconNodesCounters* = object
     data*: array[int(high(RestBeaconNodeStatus)) + 1, int]
@@ -250,8 +253,11 @@ proc `$`*(status: RestBeaconNodeStatus): string =
   of RestBeaconNodeStatus.Online: "online"
   of RestBeaconNodeStatus.Incompatible: "incompatible"
   of RestBeaconNodeStatus.Compatible: "compatible"
+  of RestBeaconNodeStatus.NotSyncedELOff: "bn-unsynced/el-offline"
   of RestBeaconNodeStatus.NotSynced: "bn-unsynced"
+  of RestBeaconNodeStatus.OptSyncedELOff: "el-unsynced/el-offline"
   of RestBeaconNodeStatus.OptSynced: "el-unsynced"
+  of RestBeaconNodeStatus.SyncedELOff: "synced/el-offline"
   of RestBeaconNodeStatus.Synced: "synced"
   of RestBeaconNodeStatus.Unexpected: "unexpected data"
   of RestBeaconNodeStatus.InternalError: "internal error"
@@ -402,24 +408,70 @@ proc updateStatus*(node: BeaconNodeServerRef, status: RestBeaconNodeStatus) =
     if node.status != status:
       notice "Beacon node is compatible"
       node.status = status
-  of RestBeaconNodeStatus.NotSynced:
-    if node.status notin {RestBeaconNodeStatus.NotSynced,
+  of RestBeaconNodeStatus.NotSyncedELOff:
+    if node.status notin {RestBeaconNodeStatus.NotSyncedELOff,
+                          RestBeaconNodeStatus.OptSyncedELOff,
                           RestBeaconNodeStatus.OptSynced}:
       doAssert(node.syncInfo.isSome())
       let si = node.syncInfo.get()
-      warn "Beacon node not in sync",
+      warn "Beacon node not in sync (execution client offline)",
            last_head_slot = si.head_slot,
            last_sync_distance = si.sync_distance,
-           last_optimistic = si.is_optimistic.get(false)
+           last_optimistic = si.is_optimistic.get(false),
+           last_el_offline = si.el_offline.get(false)
+      node.status = status
+  of RestBeaconNodeStatus.NotSynced:
+    if node.status notin {RestBeaconNodeStatus.NotSynced,
+                          RestBeaconNodeStatus.OptSyncedELOff,
+                          RestBeaconNodeStatus.OptSynced}:
+      doAssert(node.syncInfo.isSome())
+      let si = node.syncInfo.get()
+      if node.status == RestBeaconNodeStatus.NotSyncedELOff and
+          si.el_offline.get(false):
+        discard  # Do not change status
+      else:
+        warn "Beacon node not in sync",
+             last_head_slot = si.head_slot,
+             last_sync_distance = si.sync_distance,
+             last_optimistic = si.is_optimistic.get(false),
+             last_el_offline = si.el_offline.get(false)
+        if si.el_offline.get(false):
+          node.status = RestBeaconNodeStatus.NotSyncedELOff
+        else:
+          node.status = status
+  of RestBeaconNodeStatus.OptSyncedELOff:
+    if node.status != status:
+      doAssert(node.syncInfo.isSome())
+      let si = node.syncInfo.get()
+      notice "Beacon node optimistically synced (execution client offline)",
+             last_head_slot = si.head_slot,
+             last_sync_distance = si.sync_distance,
+             last_optimistic = si.is_optimistic.get(false),
+             last_el_offline = si.el_offline.get(false)
       node.status = status
   of RestBeaconNodeStatus.OptSynced:
     if node.status != status:
       doAssert(node.syncInfo.isSome())
       let si = node.syncInfo.get()
-      notice "Execution client not in sync (beacon node optimistically synced)",
+      if node.status == RestBeaconNodeStatus.OptSyncedELOff and
+          si.el_offline.get(false):
+        discard  # Do not change status
+      else:
+        notice "Beacon node optimistically synced (execution client syncing)",
+               last_head_slot = si.head_slot,
+               last_sync_distance = si.sync_distance,
+               last_optimistic = si.is_optimistic.get(false),
+               last_el_offline = si.el_offline.get(false)
+        node.status = status
+  of RestBeaconNodeStatus.SyncedELOff:
+    if node.status != status:
+      doAssert(node.syncInfo.isSome())
+      let si = node.syncInfo.get()
+      notice "Beacon node is in sync (execution client offline)",
              last_head_slot = si.head_slot,
              last_sync_distance = si.sync_distance,
-             last_optimistic = si.is_optimistic.get(false)
+             last_optimistic = si.is_optimistic.get(false),
+             last_el_offline = si.el_offline.get(false)
       node.status = status
   of RestBeaconNodeStatus.Synced:
     if node.status != status:
@@ -427,7 +479,8 @@ proc updateStatus*(node: BeaconNodeServerRef, status: RestBeaconNodeStatus) =
       let si = node.syncInfo.get()
       notice "Beacon node is in sync",
              head_slot = si.head_slot, sync_distance = si.sync_distance,
-             is_optimistic = si.is_optimistic.get(false)
+             is_optimistic = si.is_optimistic.get(false),
+             el_offline = si.el_offline.get(false)
       node.status = status
   of RestBeaconNodeStatus.Unexpected:
     if node.status != status:

@@ -39,8 +39,11 @@ type
 
 const
   ViableNodeStatus = {RestBeaconNodeStatus.Compatible,
+                      RestBeaconNodeStatus.NotSyncedELOff,
                       RestBeaconNodeStatus.NotSynced,
+                      RestBeaconNodeStatus.OptSyncedELOff,
                       RestBeaconNodeStatus.OptSynced,
+                      RestBeaconNodeStatus.SyncedELOff,
                       RestBeaconNodeStatus.Synced}
 
 proc `$`*(strategy: ApiStrategyKind): string =
