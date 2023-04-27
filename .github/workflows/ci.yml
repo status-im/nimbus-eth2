@@ -62,7 +62,7 @@ jobs:
         #  submodules: true
 
       - name: Check copyright year (Linux)
-        if: runner.os == 'Linux'
+        if: github.event_name == 'pull_request' && runner.os == 'Linux'
         run: |
           excluded_extensions="md|png"
 
