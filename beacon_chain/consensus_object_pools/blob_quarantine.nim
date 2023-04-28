@@ -72,7 +72,7 @@ func hasBlobs*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
   let idxs = quarantine.blobIndices(blck.root)
   if len(blck.message.body.blob_kzg_commitments) != len(idxs):
     return false
-  for i in 0..len(idxs):
+  for i in 0..<len(idxs):
     if idxs[i] != uint64(i):
       return false
   true
