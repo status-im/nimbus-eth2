@@ -240,16 +240,10 @@ type
     executionPayload*: ExecutionPayloadV1
     blockValue*: UInt256
 
-  CancunExecutionPayloadAndBlobs* = object
-    executionPayload*: ExecutionPayloadV3
-    blockValue*: UInt256
-    kzgs*: seq[engine_api.KZGCommitment]
-    blobs*: seq[engine_api.Blob]
-
   SomeEnginePayloadWithValue =
     BellatrixExecutionPayloadWithValue |
     GetPayloadV2Response |
-    CancunExecutionPayloadAndBlobs
+    GetPayloadV3Response
 
 declareCounter failed_web3_requests,
   "Failed web3 requests"
@@ -524,17 +518,17 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
 
-func asConsensusType*(cancunPayload: CancunExecutionPayloadAndBlobs):
+func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     deneb.ExecutionPayloadForSigning =
   deneb.ExecutionPayloadForSigning(
-    executionPayload: cancunPayload.executionPayload.asConsensusType,
-    blockValue: cancunPayload.blockValue,
+    executionPayload: payload.executionPayload.asConsensusType,
+    blockValue: payload.blockValue,
     # TODO
     # The `mapIt` calls below are necessary only because we use different distinct
     # types for KZG commitments and Blobs in the `web3` and the `deneb` spec types.
     # Both are defined as `array[N, byte]` under the hood.
-    kzgs: KZGCommitments cancunPayload.kzgs.mapIt(it.bytes),
-    blobs: Blobs cancunPayload.blobs.mapIt(it.bytes)
+    kzgs: KZGCommitments payload.blobsBundle.commitments.mapIt(it.bytes),
+    blobs: Blobs payload.blobsBundle.blobs.mapIt(it.bytes)
   )
 
 func asEngineExecutionPayload*(executionPayload: bellatrix.ExecutionPayload):
@@ -800,7 +794,8 @@ proc getPayloadFromSingleEL(
             timestamp: Quantity timestamp,
             prevRandao: FixedBytes[32] randomData.data,
             suggestedFeeRecipient: suggestedFeeRecipient))
-      elif GetPayloadResponseType is engine_api.GetPayloadV2Response or GetPayloadResponseType is CancunExecutionPayloadAndBlobs:
+      elif GetPayloadResponseType is engine_api.GetPayloadV2Response or
+           GetPayloadResponseType is engine_api.GetPayloadV3Response:
         let response = await rpcClient.forkchoiceUpdated(
           ForkchoiceStateV1(
             headBlockHash: headBlock.asBlockHash,
@@ -825,19 +820,7 @@ proc getPayloadFromSingleEL(
     else:
       raise newException(CatchableError, "No confirmed execution head yet")
 
-  when GetPayloadResponseType is CancunExecutionPayloadAndBlobs:
-    let
-      response = await engine_api.getPayload(rpcClient,
-                                             GetPayloadV3Response,
-                                             payloadId)
-      blobsBundle = await engine_getBlobsBundleV1(rpcClient, payloadId)
-    # TODO validate the blobs bundle
-    return CancunExecutionPayloadAndBlobs(
-      executionPayload: response.executionPayload,
-      blockValue: response.blockValue,
-      kzgs: blobsBundle.kzgs, # TODO Avoid the copies here with `move`
-      blobs: blobsBundle.blobs)
-  elif GetPayloadResponseType is BellatrixExecutionPayloadWithValue:
+  when GetPayloadResponseType is BellatrixExecutionPayloadWithValue:
     let payload= await engine_api.getPayload(rpcClient, ExecutionPayloadV1, payloadId)
     return BellatrixExecutionPayloadWithValue(
       executionPayload: payload,
@@ -855,7 +838,7 @@ template EngineApiResponseType*(T: type capella.ExecutionPayloadForSigning): typ
   engine_api.GetPayloadV2Response
 
 template EngineApiResponseType*(T: type deneb.ExecutionPayloadForSigning): type =
-  CancunExecutionPayloadAndBlobs
+  engine_api.GetPayloadV3Response
 
 template payload(response: engine_api.ExecutionPayloadV1): engine_api.ExecutionPayloadV1 =
   response
