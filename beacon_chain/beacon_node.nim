@@ -19,8 +19,8 @@ import
   ./networking/eth2_network,
   ./eth1/eth1_monitor,
   ./consensus_object_pools/[
-    blockchain_dag, block_quarantine, consensus_manager, exit_pool,
-    attestation_pool, sync_committee_msg_pool],
+    blockchain_dag, blob_quarantine, block_quarantine, consensus_manager,
+    exit_pool, attestation_pool, sync_committee_msg_pool],
   ./spec/datatypes/[base, altair],
   ./spec/eth2_apis/dynamic_fee_recipients,
   ./sync/[sync_manager, request_manager],
@@ -64,6 +64,7 @@ type
     lightClient*: LightClient
     dag*: ChainDAGRef
     quarantine*: ref Quarantine
+    blobQuarantine*: ref BlobQuarantine
     attestationPool*: ref AttestationPool
     syncCommitteeMsgPool*: ref SyncCommitteeMsgPool
     lightClientPool*: ref LightClientPool

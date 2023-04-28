@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[options, tables],
+  std/[algorithm, options, tables],
   stew/bitops2,
   ../spec/forks
 
@@ -314,3 +314,7 @@ func popBlobless*(quarantine: var Quarantine, root: Eth2Digest):
     return some(blck)
   else:
     return none(deneb.SignedBeaconBlock)
+
+iterator peekBlobless*(quarantine: var Quarantine): deneb.SignedBeaconBlock =
+  for k, v in quarantine.blobless.mpairs():
+    yield v

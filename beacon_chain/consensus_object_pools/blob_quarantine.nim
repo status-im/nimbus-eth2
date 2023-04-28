@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/tables,
+  std/[sequtils, strutils, tables],
   ../spec/datatypes/deneb
 
 
@@ -19,7 +19,15 @@ const
 type
   BlobQuarantine* = object
     blobs*: Table[(Eth2Digest, BlobIndex), ref BlobSidecar]
+  BlobFetchRecord* = object
+    block_root*: Eth2Digest
+    indices*: seq[BlobIndex]
 
+func shortLog*(x: seq[BlobIndex]): string =
+  "<" & x.mapIt($it).join(", ") & ">"
+
+func shortLog*(x: seq[BlobFetchRecord]): string =
+  "[" & x.mapIt(shortLog(it.block_root) & shortLog(it.indices)).join(", ") & "]"
 
 func put*(quarantine: var BlobQuarantine, blobSidecar: ref BlobSidecar) =
   if quarantine.blobs.lenu64 > MaxBlobs:
@@ -30,7 +38,7 @@ func put*(quarantine: var BlobQuarantine, blobSidecar: ref BlobSidecar) =
 func blobIndices*(quarantine: BlobQuarantine, digest: Eth2Digest):
      seq[BlobIndex] =
   var r: seq[BlobIndex] = @[]
-  for i in 0..MAX_BLOBS_PER_BLOCK-1:
+  for i in 0..<MAX_BLOBS_PER_BLOCK:
     if quarantine.blobs.hasKey((digest, i)):
       r.add(i)
   r
@@ -41,7 +49,7 @@ func hasBlob*(quarantine: BlobQuarantine, blobSidecar: BlobSidecar) : bool =
 func popBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest):
      seq[ref BlobSidecar] =
   var r: seq[ref BlobSidecar] = @[]
-  for i in 0..MAX_BLOBS_PER_BLOCK-1:
+  for i in 0..<MAX_BLOBS_PER_BLOCK:
     var b: ref BlobSidecar
     if quarantine.blobs.pop((digest, i), b):
       r.add(b)
@@ -50,13 +58,13 @@ func popBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest):
 func peekBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest):
      seq[ref BlobSidecar] =
   var r: seq[ref BlobSidecar] = @[]
-  for i in 0..MAX_BLOBS_PER_BLOCK-1:
+  for i in 0..<MAX_BLOBS_PER_BLOCK:
     quarantine.blobs.withValue((digest, i), value):
       r.add(value[])
   r
 
 func removeBlobs*(quarantine: var BlobQuarantine, digest: Eth2Digest) =
-  for i in 0..MAX_BLOBS_PER_BLOCK-1:
+  for i in 0..<MAX_BLOBS_PER_BLOCK:
     quarantine.blobs.del((digest, i))
 
 func hasBlobs*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
@@ -68,3 +76,12 @@ func hasBlobs*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
     if idxs[i] != uint64(i):
       return false
   true
+
+func blobFetchRecord*(quarantine: BlobQuarantine, blck: deneb.SignedBeaconBlock):
+     BlobFetchRecord =
+  var indices: seq[BlobIndex]
+  for i in 0..<len(blck.message.body.blob_kzg_commitments):
+    let idx = BlobIndex(i)
+    if not quarantine.blobs.hasKey((blck.root, idx)):
+      indices.add(idx)
+  BlobFetchRecord(block_root: blck.root, indices: indices)

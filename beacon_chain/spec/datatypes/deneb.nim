@@ -17,6 +17,7 @@
 
 import
   chronicles,
+  std/[sequtils, strutils],
   stew/[bitops2, byteutils],
   json_serialization,
   ssz_serialization/[merkleization, proofs],
@@ -565,6 +566,9 @@ func shortLog*(v: ExecutionPayload): auto =
     num_transactions: len(v.transactions),
     num_withdrawals: len(v.withdrawals)
   )
+
+func shortLog*(x: seq[BlobIdentifier]): string =
+  "[" & x.mapIt(shortLog(it.block_root) & "/" & $it.index).join(", ") & "]"
 
 # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/light-client/sync-protocol.md#modified-get_lc_execution_root
 func get_lc_execution_root*(
