@@ -8,7 +8,7 @@
 {.push raises: [].}
 
 import
-  std/[algorithm, options, tables],
+  std/[options, tables],
   stew/bitops2,
   ../spec/forks
 
