@@ -396,9 +396,11 @@ openssl rand -hex 32 | tr -d "\n" > "${JWT_FILE}"
 if [[ "$CONST_PRESET" == "minimal" ]]; then
   SECONDS_PER_SLOT=6
   SLOTS_PER_EPOCH=8
+  FIELD_ELEMENTS_PER_BLOB=4
 else
   SECONDS_PER_SLOT=12
   SLOTS_PER_EPOCH=32
+  FIELD_ELEMENTS_PER_BLOB=4096
 fi
 
 VALIDATORS_DIR="${DATA_DIR}/validators"
@@ -714,7 +716,7 @@ done
 
 if [[ "${REUSE_BINARIES}" == "0" || "${BINARIES_MISSING}" == "1" ]]; then
   log "Rebuilding binaries ${BINARIES}"
-  ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET} -d:web3_consensus_const_preset=${CONST_PRESET}" ${BINARIES}
+  ${MAKE} -j ${NPROC} LOG_LEVEL=TRACE NIMFLAGS="${NIMFLAGS} -d:local_testnet -d:const_preset=${CONST_PRESET} -d:web3_consensus_const_preset=${CONST_PRESET} -d:FIELD_ELEMENTS_PER_BLOB=${FIELD_ELEMENTS_PER_BLOB}" ${BINARIES}
 fi
 
 if [[ "${RUN_NIMBUS_ETH1}" == "1" ]]; then
