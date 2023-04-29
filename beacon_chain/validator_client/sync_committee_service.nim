@@ -360,8 +360,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
           res.data.root
         else:
           if res.execution_optimistic.get():
-            notice "Execution client not in sync; skipping validator duties " &
-                   "for now", slot = slot
+            notice "Execution client not in sync", slot = slot
             return
           res.data.root
       except ValidatorApiError as exc:
