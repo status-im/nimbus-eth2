@@ -289,7 +289,8 @@ proc validateBlobSidecar*(
   # [IGNORE] The sidecar is the only sidecar with valid signature
   # received for the tuple (sidecar.block_root, sidecar.index).
   if blobQuarantine[].hasBlob(sbs.message):
-    return errReject("SignedBlobSidecar: already have blob with valid signature")
+    return errIgnore(
+      "SignedBlobSidecar: already have blob with valid signature")
 
   ok()
 
