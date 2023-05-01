@@ -619,7 +619,7 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
           "getBlindedExecutionPayload error: " & exc.msg)
 
   if executionPayloadHeader.isErr:
-    warn "getBlindedBlockParts: getBlindedExecutionPayload failed",
+    warn "Could not obtain blinded execution payload header",
       error = executionPayloadHeader.error, slot, validator_index,
       head = shortLog(head)
     # Haven't committed to the MEV block, so allow EL fallback.
