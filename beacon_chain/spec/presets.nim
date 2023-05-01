@@ -37,7 +37,7 @@ type
 
     # Transition
     TERMINAL_TOTAL_DIFFICULTY*: UInt256
-    TERMINAL_BLOCK_HASH*: BlockHash # TODO use in eht1monitor
+    TERMINAL_BLOCK_HASH*: BlockHash
 
     # Genesis
     MIN_GENESIS_ACTIVE_VALIDATOR_COUNT*: uint64

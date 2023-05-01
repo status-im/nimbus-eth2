@@ -619,7 +619,7 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
           "getBlindedExecutionPayload error: " & exc.msg)
 
   if executionPayloadHeader.isErr:
-    debug "getBlindedBlockParts: getBlindedExecutionPayload failed",
+    warn "Could not obtain blinded execution payload header",
       error = executionPayloadHeader.error, slot, validator_index,
       head = shortLog(head)
     # Haven't committed to the MEV block, so allow EL fallback.
@@ -759,6 +759,9 @@ proc proposeBlockMEV(node: BeaconNode, blindedBlock: auto):
         "Unblinded block not returned to proposer"
     err errMsg
 
+func isEFMainnet(cfg: RuntimeConfig): bool =
+  cfg.DEPOSIT_CHAIN_ID == 1 and cfg.DEPOSIT_NETWORK_ID == 1
+
 proc makeBlindedBeaconBlockForHeadAndSlot*[
     BBB: bellatrix_mev.BlindedBeaconBlock | capella_mev.BlindedBeaconBlock](
     node: BeaconNode, randao_reveal: ValidatorSig,
@@ -781,7 +784,7 @@ proc makeBlindedBeaconBlockForHeadAndSlot*[
     pubkey =
       # Relevant state for knowledge of validators
       withState(node.dag.headState):
-        if livenessFailsafeInEffect(
+        if node.dag.cfg.isEFMainnet and livenessFailsafeInEffect(
             forkyState.data.block_roots.data, forkyState.data.slot):
           # It's head block's slot which matters here, not proposal slot
           return err("Builder API liveness failsafe in effect")
@@ -832,8 +835,8 @@ proc proposeBlockAux(
         # EL fails -- i.e. it would change priorities, so any block from the
         # execution layer client would override builder API. But it seems an
         # odd requirement to produce no block at all in those conditions.
-        not livenessFailsafeInEffect(
-          forkyState.data.block_roots.data, forkyState.data.slot)
+        (not node.dag.cfg.isEFMainnet) or (not livenessFailsafeInEffect(
+          forkyState.data.block_roots.data, forkyState.data.slot))
     else:
       false
 
