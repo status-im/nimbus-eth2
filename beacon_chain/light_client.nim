@@ -90,7 +90,8 @@ proc createLightClient(
     forkDigests: ref ForkDigests,
     getBeaconTime: GetBeaconTimeFn,
     genesis_validators_root: Eth2Digest,
-    finalizationMode: LightClientFinalizationMode
+    finalizationMode: LightClientFinalizationMode,
+    strictVerification = false
 ): LightClient =
   let lightClient = LightClient(
     network: network,
@@ -136,7 +137,8 @@ proc createLightClient(
     cfg, genesis_validators_root, finalizationMode,
     lightClient.store, getBeaconTime, getTrustedBlockRoot,
     onStoreInitialized, onFinalizedHeader, onOptimisticHeader,
-    bootstrapObserver, updateObserver, finalityObserver, optimisticObserver)
+    bootstrapObserver, updateObserver, finalityObserver, optimisticObserver,
+    strictVerification)
 
   proc lightClientVerifier(obj: SomeForkedLightClientObject):
       Future[Result[void, VerifierError]] =
@@ -199,7 +201,8 @@ proc createLightClient*(
   createLightClient(
     network, rng,
     config.dumpEnabled, config.dumpDirInvalid, config.dumpDirIncoming,
-    cfg, forkDigests, getBeaconTime, genesis_validators_root, finalizationMode)
+    cfg, forkDigests, getBeaconTime, genesis_validators_root, finalizationMode,
+    strictVerification = config.strictVerification)
 
 proc createLightClient*(
     network: Eth2Node,
