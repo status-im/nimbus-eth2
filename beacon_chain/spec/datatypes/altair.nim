@@ -290,14 +290,15 @@ type
 
     # Participation
     previous_epoch_participation*: EpochParticipationFlags
+      ## [Modified in Altair]
     current_epoch_participation*: EpochParticipationFlags
+      ## [Modified in Altair]
 
     # Finality
     justification_bits*: JustificationBits
+      ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
-      ## Previous epoch snapshot
-
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
