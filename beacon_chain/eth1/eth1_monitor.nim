@@ -322,6 +322,8 @@ proc trackEngineApiRequest(connection: ELConnection,
     if not request.finished:
       request.cancel()
       engine_api_timeouts.inc(1, [connection.engineUrl.url, requestName])
+      if not failureAllowed:
+        connection.setDegradedState(requestName, 0, "Request timed out")
     else:
       let statusCode = if not request.failed:
         200
