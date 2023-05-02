@@ -20,6 +20,7 @@ const
   ResponseNotFoundError = "Received resource missing error response"
   ResponseNoSyncError = "Received nosync error response"
   ResponseDecodeError = "Received response could not be decoded"
+  ResponseECNotInSyncError* = "Execution client not in sync"
 
 type
   ApiResponse*[T] = Result[T, string]
@@ -1138,7 +1139,9 @@ proc getHeadBlockRoot*(
             let data = res.get()
             if data.execution_optimistic.get(false):
               node.updateStatus(RestBeaconNodeStatus.OptSynced)
-            ApiResponse[GetBlockRootResponse].ok(data)
+              ApiResponse[GetBlockRootResponse].err(ResponseECNotInSyncError)
+            else:
+              ApiResponse[GetBlockRootResponse].ok(data)
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node, reason = response.getErrorMessage()
@@ -1189,13 +1192,16 @@ proc getHeadBlockRoot*(
             let data = res.get()
             if data.execution_optimistic.get(false):
               node.updateStatus(RestBeaconNodeStatus.OptSynced)
-            return data
-
-          debug ResponseDecodeError, response_code = response.status,
-                endpoint = node, reason = res.error
-          node.updateStatus(RestBeaconNodeStatus.Unexpected)
-          failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
-          false
+              failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+              false
+            else:
+              return data
+          else:
+            debug ResponseDecodeError, response_code = response.status,
+                  endpoint = node, reason = res.error
+            node.updateStatus(RestBeaconNodeStatus.Unexpected)
+            failures.add(ApiNodeFailure.init(node, ApiFailure.Invalid))
+            false
         of 400:
           debug ResponseInvalidError, response_code = response.status,
                 endpoint = node, reason = response.getErrorMessage()
