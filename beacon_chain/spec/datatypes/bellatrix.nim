@@ -137,19 +137,18 @@ type
 
     # Finality
     justification_bits*: JustificationBits
+      ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
-      ## Previous epoch snapshot
-
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
     # Inactivity
-    inactivity_scores*: InactivityScores # [New in Altair]
+    inactivity_scores*: InactivityScores
 
     # Light client sync committees
-    current_sync_committee*: SyncCommittee     # [New in Altair]
-    next_sync_committee*: SyncCommittee        # [New in Altair]
+    current_sync_committee*: SyncCommittee
+    next_sync_committee*: SyncCommittee
 
     # Execution
     latest_execution_payload_header*: ExecutionPayloadHeader  # [New in Bellatrix]

@@ -16,8 +16,9 @@ from ./spec/datatypes/capella import
 from ./spec/datatypes/deneb import ExecutionPayloadHeader
 
 type
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#beaconstate
-  # Memory-representation-equivalent to a phase0 BeaconState for in-place SSZ reading and writing
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#beaconstate
+  # Memory-representation-equivalent to a phase0 BeaconState for in-place SSZ
+  # reading and writing
   Phase0BeaconStateNoImmutableValidators* = object
     # Versioning
     genesis_time*: uint64
@@ -26,11 +27,11 @@ type
     fork*: Fork
 
     # History
-    latest_block_header*: BeaconBlockHeader ##\
-    ## `latest_block_header.state_root == ZERO_HASH` temporarily
+    latest_block_header*: BeaconBlockHeader
+      ## `latest_block_header.state_root == ZERO_HASH` temporarily
 
-    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## Needed to process attestations, older to newer
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      ## Needed to process attestations, older to newer
 
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
@@ -49,8 +50,8 @@ type
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
-    ## Per-epoch sums of slashed effective balances
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64]
+      ## Per-epoch sums of slashed effective balances
 
     # Attestations
     previous_epoch_attestations*:
@@ -60,14 +61,15 @@ type
 
     # Finality
     justification_bits*: JustificationBits
+      ## Bit set for every recent justified epoch
 
-    previous_justified_checkpoint*: Checkpoint ##\
-    ## Previous epoch snapshot
+    previous_justified_checkpoint*: Checkpoint
+      ## Previous epoch snapshot
 
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#beaconstate
   # Memory-representation-equivalent to an Altair BeaconState for in-place SSZ
   # reading and writing
   AltairBeaconStateNoImmutableValidators* = object
@@ -78,11 +80,11 @@ type
     fork*: Fork
 
     # History
-    latest_block_header*: BeaconBlockHeader ##\
-    ## `latest_block_header.state_root == ZERO_HASH` temporarily
+    latest_block_header*: BeaconBlockHeader
+      ## `latest_block_header.state_root == ZERO_HASH` temporarily
 
-    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## Needed to process attestations, older to newer
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      ## Needed to process attestations, older to newer
 
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
@@ -101,19 +103,20 @@ type
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
-    ## Per-epoch sums of slashed effective balances
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64]
+      ## Per-epoch sums of slashed effective balances
 
     # Participation
     previous_epoch_participation*: EpochParticipationFlags
+      ## [Modified in Altair]
     current_epoch_participation*: EpochParticipationFlags
+      ## [Modified in Altair]
 
     # Finality
     justification_bits*: JustificationBits
+      ## Bit set for every recent justified epoch
 
-    previous_justified_checkpoint*: Checkpoint ##\
-    ## Previous epoch snapshot
-
+    previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
@@ -135,11 +138,11 @@ type
     fork*: Fork
 
     # History
-    latest_block_header*: BeaconBlockHeader ##\
-    ## `latest_block_header.state_root == ZERO_HASH` temporarily
+    latest_block_header*: BeaconBlockHeader
+      ## `latest_block_header.state_root == ZERO_HASH` temporarily
 
-    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest] ##\
-    ## Needed to process attestations, older to newer
+    block_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
+      ## Needed to process attestations, older to newer
 
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
@@ -158,8 +161,8 @@ type
     randao_mixes*: HashArray[Limit EPOCHS_PER_HISTORICAL_VECTOR, Eth2Digest]
 
     # Slashings
-    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64] ##\
-    ## Per-epoch sums of slashed effective balances
+    slashings*: HashArray[Limit EPOCHS_PER_SLASHINGS_VECTOR, uint64]
+      ## Per-epoch sums of slashed effective balances
 
     # Participation
     previous_epoch_participation*: EpochParticipationFlags
@@ -167,10 +170,9 @@ type
 
     # Finality
     justification_bits*: JustificationBits
+      ## Bit set for every recent justified epoch
 
-    previous_justified_checkpoint*: Checkpoint ##\
-    ## Previous epoch snapshot
-
+    previous_justified_checkpoint*: Checkpoint
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
@@ -184,7 +186,7 @@ type
     # Execution
     latest_execution_payload_header*: bellatrix.ExecutionPayloadHeader  # [New in Bellatrix]
 
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.1/specs/capella/beacon-chain.md#beaconstate
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#beaconstate
   # with indirect changes via ExecutionPayload
   # Memory-representation-equivalent to a Capella BeaconState for in-place SSZ
   # reading and writing
@@ -204,6 +206,7 @@ type
 
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+      ## Frozen in Capella, replaced by historical_summaries
 
     # Eth1
     eth1_data*: Eth1Data
@@ -229,10 +232,9 @@ type
 
     # Finality
     justification_bits*: JustificationBits
+      ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
-      ## Previous epoch snapshot
-
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
@@ -245,9 +247,10 @@ type
 
     # Execution
     latest_execution_payload_header*: capella.ExecutionPayloadHeader
+      ## [Modified in Capella]
 
     # Withdrawals
-    next_withdrawal_index*: WithdrawalIndex # [New in Capella]
+    next_withdrawal_index*: WithdrawalIndex  # [New in Capella]
     next_withdrawal_validator_index*: uint64  # [New in Capella]
 
     # Deep history valid from Capella onwards
@@ -275,6 +278,7 @@ type
 
     state_roots*: HashArray[Limit SLOTS_PER_HISTORICAL_ROOT, Eth2Digest]
     historical_roots*: HashList[Eth2Digest, Limit HISTORICAL_ROOTS_LIMIT]
+      ## Frozen in Capella, replaced by historical_summaries
 
     # Eth1
     eth1_data*: Eth1Data
@@ -300,10 +304,9 @@ type
 
     # Finality
     justification_bits*: JustificationBits
+      ## Bit set for every recent justified epoch
 
     previous_justified_checkpoint*: Checkpoint
-      ## Previous epoch snapshot
-
     current_justified_checkpoint*: Checkpoint
     finalized_checkpoint*: Checkpoint
 
