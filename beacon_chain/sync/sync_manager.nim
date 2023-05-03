@@ -433,18 +433,19 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
           debug "Failed to receive blobs on request", request = req
           return
         let blobData = blobs.get().asSeq()
-        let slots = mapIt(blobData, it[].slot)
         let blobSmap = getShortMap(req, blobData)
         debug "Received blobs on request", blobs_count = len(blobData),
                        blobs_map = blobSmap, request = req
 
-        let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
-        if not(checkResponse(req, uniqueSlots)):
-          peer.updateScore(PeerScoreBadResponse)
-          warn "Received blobs sequence is not in requested range",
-            blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
-            request = req
-          return
+        if len(blobData) > 0:
+          let slots = mapIt(blobData, it[].slot)
+          let uniqueSlots = foldl(slots, combine(a, b), @[slots[0]])
+          if not(checkResponse(req, uniqueSlots)):
+            peer.updateScore(PeerScoreBadResponse)
+            warn "Received blobs sequence is not in requested range",
+              blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
+                            request = req
+            return
         let groupedBlobs = groupBlobs(req, blockData, blobData)
         if groupedBlobs.isErr():
           warn "Received blobs sequence is invalid",
