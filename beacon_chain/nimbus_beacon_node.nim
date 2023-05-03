@@ -1155,7 +1155,10 @@ proc onSlotEnd(node: BeaconNode, slot: Slot) {.async.} =
   node.consensusManager[].pruneStateCachesAndForkChoice()
 
   if node.config.historyMode == HistoryMode.Prune:
-    node.dag.pruneHistory()
+    if not (slot + 1).is_epoch():
+      # The epoch slot already is "heavy" due to the epoch processing, leave
+      # the pruning for later
+      node.dag.pruneHistory()
 
   when declared(GC_fullCollect):
     # The slots in the beacon node work as frames in a game: we want to make
