@@ -233,22 +233,33 @@ proc remainingSlots(man: SyncManager): uint64 =
     else:
       0'u64
 
-func groupBlobs*[T](req: SyncRequest[T], blobs: seq[ref BlobSidecar]):
-     Result[seq[BlobSidecars], string] =
-  var grouped = newSeq[BlobSidecars](req.count)
-  var rawCur = 0
+func groupBlobs*[T](req: SyncRequest[T],
+                    blocks: seq[ref ForkedSignedBeaconBlock],
+                    blobs: seq[ref BlobSidecar]):
+                      Result[seq[BlobSidecars], string] =
+  var grouped = newSeq[BlobSidecars](len(blocks))
+  var blobCursor = 0
+  var i = 0
+  for blck in blocks:
+    let slot = blck[].slot
+    if blobCursor == len(blobs):
+      # reached end of blobs, have more blobless blocks
+      break
+    for blob in blobs[blobCursor..len(blobs)-1]:
+      if blob.slot < slot:
+        return Result[seq[BlobSidecars], string].err "invalid blob sequence"
+      if blob.slot==slot:
+        grouped[i].add(blob)
+        blobCursor = blobCursor + 1
+    i = i + 1
 
-  for groupedCur in 0 ..< len(grouped):
-    grouped[groupedCur] = newSeq[ref BlobSidecar](0)
-    let slot = req.slot + groupedCur.uint64
-    while rawCur < len(blobs) and blobs[rawCur].slot == slot:
-      grouped[groupedCur].add(blobs[rawCur])
-      inc(rawCur)
-
-    if rawCur != len(blobs):
-      result.err "invalid blob sequence"
-    else:
-      result.ok grouped
+  if blobCursor != len(blobs):
+    # we reached end of blocks without consuming all blobs so either
+    # the peer we got too few blocks in the paired request, or the
+    # peer is sending us spurious blobs.
+    Result[seq[BlobSidecars], string].err "invalid block or blob sequence"
+  else:
+    Result[seq[BlobSidecars], string].ok grouped
 
 proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
   logScope:
@@ -434,7 +445,7 @@ proc syncStep[A, B](man: SyncManager[A, B], index: int, peer: A) {.async.} =
             blobs_count = len(blobData), blobs_map = getShortMap(req, blobData),
             request = req
           return
-        let groupedBlobs = groupBlobs(req, blobData)
+        let groupedBlobs = groupBlobs(req, blockData, blobData)
         if groupedBlobs.isErr():
           warn "Received blobs sequence is invalid",
             blobs_map = getShortMap(req, blobData), request = req, msg=groupedBlobs.error()
