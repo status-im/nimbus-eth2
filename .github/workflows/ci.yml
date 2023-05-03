@@ -64,7 +64,7 @@ jobs:
       - name: Check copyright year (Linux)
         if: github.event_name == 'pull_request' && runner.os == 'Linux'
         run: |
-          excluded_extensions="md|png"
+          excluded_extensions="ans|md|png|txt"
 
           base_branch=$(jq -r '.pull_request.base.ref' "$GITHUB_EVENT_PATH")
           git fetch origin "$base_branch" 2>/dev/null
