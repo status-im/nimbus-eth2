@@ -658,7 +658,7 @@ proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
     transactions_root =
       Opt.some executionPayloadHeader.get.blindedBlckPart.transactions_root,
     execution_payload_root =
-      Opt.some hash_tree_root(executionPayloadHeader.get),
+      Opt.some hash_tree_root(executionPayloadHeader.get.blindedBlckPart),
     withdrawals_root = withdrawals_root)
 
   if newBlock.isErr():
