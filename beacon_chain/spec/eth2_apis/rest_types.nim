@@ -639,6 +639,17 @@ type
   RestRoot* = object
     root*: Eth2Digest
 
+  RestBeaconCommitteeSelection* = object
+    validator_index*: RestValidatorIndex
+    slot*: Slot
+    selection_proof*: ValidatorSig
+
+  RestSyncCommitteeSelection* = object
+    validator_index*: RestValidatorIndex
+    slot*: Slot
+    subcommittee_index*: uint64
+    selection_proof*: ValidatorSig
+
   # Types based on the OAPI yaml file - used in responses to requests
   GetBeaconHeadResponse* = DataEnclosedObject[Slot]
   GetAggregatedAttestationResponse* = DataEnclosedObject[Attestation]
@@ -684,6 +695,8 @@ type
   SubmitBlindedBlockResponseCapella* = DataEnclosedObject[capella.ExecutionPayload]
   GetValidatorsActivityResponse* = DataEnclosedObject[seq[RestActivityItem]]
   GetValidatorsLivenessResponse* = DataEnclosedObject[seq[RestLivenessItem]]
+  SubmitBeaconCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestBeaconCommitteeSelection]]
+  SubmitSyncCommitteeSelectionsResponse* = DataEnclosedObject[seq[RestSyncCommitteeSelection]]
 
   RestNodeValidity* {.pure.} = enum
     valid = "VALID",

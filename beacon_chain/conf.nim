@@ -938,6 +938,11 @@ type
       defaultValue: false
       name: "payload-builder" .}: bool
 
+    distributedEnabled* {.
+      desc: "Enable usage of beacon node middleware (BETA)"
+      defaultValue: false
+      name: "distributed".}: bool
+
     beaconNodes* {.
       desc: "URL addresses to one or more beacon node HTTP REST APIs",
       defaultValue: @[defaultBeaconNodeUri]

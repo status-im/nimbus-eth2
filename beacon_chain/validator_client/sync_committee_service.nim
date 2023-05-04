@@ -406,7 +406,7 @@ proc publishSyncMessagesAndContributions(service: SyncCommitteeServiceRef,
   await service.produceAndPublishContributions(slot, beaconBlockRoot, duties)
 
 proc processSyncCommitteeTasks(service: SyncCommitteeServiceRef,
-                             slot: Slot) {.async.} =
+                               slot: Slot) {.async.} =
   let
     vc = service.client
     duties = vc.getSyncCommitteeDutiesForSlot(slot + 1)

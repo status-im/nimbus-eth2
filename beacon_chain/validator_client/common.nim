@@ -851,6 +851,19 @@ proc isExpired*(vc: ValidatorClientRef,
     else:
       true
 
+func getSelections*(
+       daps: openArray[DutyAndProof]
+     ): seq[RestBeaconCommitteeSelection] =
+  var res: seq[RestBeaconCommitteeSelection]
+  for item in daps:
+    if item.slotSig.isSome():
+      res.add(RestBeaconCommitteeSelection(
+        validator_index: RestValidatorIndex(item.data.validator_index),
+        slot: item.data.slot,
+        selection_proof: item.slotSig.get()
+      ))
+  res
+
 proc getValidatorRegistration(
        vc: ValidatorClientRef,
        validator: AttachedValidator,

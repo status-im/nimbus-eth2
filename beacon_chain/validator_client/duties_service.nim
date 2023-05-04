@@ -198,12 +198,12 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
     var pendingRequests: seq[Future[SignatureResult]]
     var validators: seq[AttachedValidator]
     for item in addOrReplaceItems:
-      let validator =
+      let
+        validator =
           vc.attachedValidators[].getValidator(item.duty.pubkey).valueOr:
-        continue
-      let fork = vc.forkAtEpoch(item.duty.slot.epoch)
-      let future = validator.getSlotSignature(
-        fork, genesisRoot, item.duty.slot)
+            continue
+        fork = vc.forkAtEpoch(item.duty.slot.epoch)
+        future = validator.getSlotSignature(fork, genesisRoot, item.duty.slot)
       pendingRequests.add(future)
       validators.add(validator)
 
@@ -217,27 +217,85 @@ proc pollForAttesterDuties*(service: DutiesServiceRef,
       await allFutures(pendingCancel)
       raise exc
 
-    for index, fut in pendingRequests:
-      let item = addOrReplaceItems[index]
-      let dap =
-        if fut.completed():
-          let sigRes = fut.read()
-          if sigRes.isErr():
-            warn "Unable to create slot signature using remote signer",
-                  validator = shortLog(validators[index]),
-                  error_msg = sigRes.error()
-            DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                              Opt.none(ValidatorSig))
-          else:
-            DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                              Opt.some(sigRes.get()))
-        else:
-          DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
-                            Opt.none(ValidatorSig))
+    let daps =
+      block:
+        var res: seq[DutyAndProof]
+        for index, fut in pendingRequests:
+          let
+            item = addOrReplaceItems[index]
+            dap =
+              if fut.done():
+                let sigRes = fut.read()
+                if sigRes.isErr():
+                  warn "Unable to create slot signature using remote signer",
+                        validator = shortLog(validators[index]),
+                        error_msg = sigRes.error()
+                  DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
+                                    none[ValidatorSig]())
+                else:
+                  DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
+                                    some(sigRes.get()))
+              else:
+                DutyAndProof.init(item.epoch, currentRoot.get(), item.duty,
+                                  none[ValidatorSig]())
+          res.add(dap)
+        res
 
-      var validatorDuties = vc.attesters.getOrDefault(item.duty.pubkey)
-      validatorDuties.duties[item.epoch] = dap
-      vc.attesters[item.duty.pubkey] = validatorDuties
+    for item in daps:
+      # Update VC attesters registry with current version of DutyAndProof.
+      vc.attesters.mgetOrPut(item.data.pubkey,
+                             default(EpochDuties)).duties[item.epoch] = item
+
+    if vc.config.distributedEnabled:
+      let selections = daps.getSelections()
+      if len(selections) == 0:
+        return len(addOrReplaceItems)
+
+      let sresponse =
+        try:
+          # Query middleware for aggregated signatures.
+          await vc.submitBeaconCommitteeSelections(selections,
+                                                   ApiStrategyKind.Best)
+        except ValidatorApiError as exc:
+          warn "Unable to submit beacon committee selections", epoch = epoch,
+               reason = exc.getFailureReason()
+          return 0
+        except CancelledError as exc:
+          debug "Beacon committee selections processing was interrupted"
+          raise exc
+        except CatchableError as exc:
+          error "Unexpected error occured while trying to submit beacon " &
+                "committee selections", epoch = epoch, err_name = exc.name,
+                err_msg = exc.msg
+          return 0
+
+      for selection in sresponse.data:
+        let selectionProof = selection.selection_proof.load().valueOr:
+          warn "Invalid signature encountered while processing beacon " &
+               "committee selections",
+               validator_index = ValidatorIndex(selection.validator_index),
+               slot = selection.slot,
+               selection_proof = shortLog(selection.selection_proof)
+          continue
+
+        let dres =
+          block:
+            var res: Opt[DutyAndProof]
+            for dap in daps:
+              if (uint64(dap.data.validator_index) ==
+                   uint64(selection.validator_index)) and
+                 (dap.data.slot == selection.slot):
+                var ndap = dap
+                ndap.slotSig = some(selection.selection_proof)
+                res = Opt.some(ndap)
+                break
+            res
+
+        if dres.isSome():
+          # Update VC attesters registry with new aggregated DutyAndProof.
+          let dap = dres.get()
+          vc.attesters.mgetOrPut(
+            dap.data.pubkey, default(EpochDuties)).duties[dap.epoch] = dap
 
   return len(addOrReplaceItems)
 
