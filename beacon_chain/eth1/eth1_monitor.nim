@@ -678,7 +678,9 @@ func getJsonRpcRequestHeaders(jwtSecret: Option[seq[byte]]):
     (proc(): seq[(string, string)] = @[])
 
 proc newWeb3*(engineUrl: EngineApiUrl): Future[Web3] =
-  newWeb3(engineUrl.url, getJsonRpcRequestHeaders(engineUrl.jwtSecret))
+  newWeb3(engineUrl.url,
+          getJsonRpcRequestHeaders(engineUrl.jwtSecret),
+          httpFlags = {HttpClientFlag.NewConnectionAlways})
 
 proc establishEngineApiConnection*(url: EngineApiUrl):
                                    Future[Result[Web3, string]] {.async.} =
