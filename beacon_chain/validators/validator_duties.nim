@@ -883,7 +883,7 @@ proc proposeBlockAux(
       else:
         info "Engine block building error",
           slot, head = shortLog(head), validator = shortLog(validator),
-          err = payloadBuilderBidFut.read().error()
+          err = engineBlockFut.read.error()
         false
     else:
       info "Engine block building failed",
