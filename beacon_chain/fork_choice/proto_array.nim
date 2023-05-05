@@ -24,7 +24,7 @@ logScope:
 
 export results
 
-# https://github.com/ethereum/consensus-specs/blob/v0.11.1/specs/phase0/fork-choice.md
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
 # See also:
@@ -202,7 +202,7 @@ func applyScoreChanges*(self: var ProtoArray,
     # If we find the node matching the current proposer boost root, increase
     # the delta by the new score amount.
     #
-    # https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#get_weight
     if (not proposerBoostRoot.isZero) and proposerBoostRoot == node.bid.root:
       proposerBoostScore = calculateProposerBoost(newBalances)
       if  nodeDelta >= 0 and
@@ -531,15 +531,21 @@ func nodeLeadsToViableHead(
 
 func nodeIsViableForHead(
     self: ProtoArray, node: ProtoNode, nodeIdx: Index): bool =
-  ## This is the equivalent of `filter_block_tree` function in eth2 spec
-  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/fork-choice.md#filter_block_tree
+  ## This is the equivalent of `filter_block_tree` function in consensus specs
+  ## https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#filter_block_tree
 
   if node.invalid:
     return false
 
+  # The voting source should be at the same height as the store's
+  # justified checkpoint
   var correctJustified =
     self.checkpoints.justified.epoch == GENESIS_EPOCH or
     node.checkpoints.justified.epoch == self.checkpoints.justified.epoch
+
+  # If the previous epoch is justified, the block should be pulled-up.
+  # In this case, check that unrealized justification is higher than the store
+  # and that the voting source is not more than two epochs ago
   if not correctJustified and self.isPreviousEpochJustified and
       node.bid.slot.epoch == self.currentEpoch:
     let unrealized =
@@ -547,6 +553,7 @@ func nodeIsViableForHead(
     correctJustified =
       unrealized.justified.epoch >= self.checkpoints.justified.epoch and
       node.checkpoints.justified.epoch + 2 >= self.currentEpoch
+      
   return
     if not correctJustified:
       false
