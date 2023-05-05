@@ -22,7 +22,7 @@ import
 export results, fork_choice_types
 export proto_array.len
 
-# https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md
 # This is a port of https://github.com/sigp/lighthouse/pull/804
 # which is a port of "Proto-Array": https://github.com/protolambda/lmd-ghost
 # See also:
@@ -107,7 +107,7 @@ proc update_justified(
   self.update_justified(dag, blck, justified.epoch)
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/fork-choice.md#on_block
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#update_checkpoints
 proc update_checkpoints(
     self: var Checkpoints, dag: ChainDAGRef,
     checkpoints: FinalityCheckpoints): FcResult[void] =
@@ -124,13 +124,13 @@ proc update_checkpoints(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/fork-choice.md#on_tick
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_tick_per_slot
 proc on_tick(
     self: var ForkChoice, dag: ChainDAGRef, time: BeaconTime): FcResult[void] =
   ## Must be called at least once per slot.
   let previous_time = self.checkpoints.time
 
-  # update store time
+  # Update store time
   if time < previous_time:
     return err ForkChoiceError(kind: fcInconsistentTick)
   self.checkpoints.time = time
@@ -139,17 +139,14 @@ proc on_tick(
     current_slot = time.slotOrZero
     previous_slot = previous_time.slotOrZero
 
-  # Reset store.proposer_boost_root if this is a new slot
+  # If this is a new slot, reset store.proposer_boost_root
   if current_slot > previous_slot:
     self.checkpoints.proposer_boost_root = ZERO_HASH
 
-  # Not a new epoch, return
-  if not (current_slot > previous_slot and current_slot.is_epoch):
-    return ok()
-
-  # Pull-up chain tips from previous epoch
-  for realized in self.backend.proto_array.realizePendingCheckpoints():
-    ? self.checkpoints.update_checkpoints(dag, realized)
+  # If a new epoch, pull-up justification and finalization from previous epoch
+  if current_slot > previous_slot and current_slot.is_epoch:
+    for realized in self.backend.proto_array.realizePendingCheckpoints():
+      ? self.checkpoints.update_checkpoints(dag, realized)
 
   ok()
 
@@ -209,7 +206,7 @@ func contains*(self: ForkChoiceBackend, block_root: Eth2Digest): bool =
   ## In particular, before adding a block, its parent must be known to the fork choice
   self.proto_array.indices.contains(block_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.5/specs/phase0/fork-choice.md#on_attestation
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_attestation
 proc on_attestation*(
        self: var ForkChoice,
        dag: ChainDAGRef,
@@ -238,7 +235,7 @@ proc on_attestation*(
       block_root: beacon_block_root))
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/fork-choice.md#on_attester_slashing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_attester_slashing
 func process_equivocation*(
        self: var ForkChoice,
        validator_index: ValidatorIndex
@@ -254,7 +251,7 @@ func process_equivocation*(
     trace "Integrating equivocation in fork choice",
       validator_index
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.1/specs/phase0/fork-choice.md#on_block
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#on_block
 func process_block*(self: var ForkChoiceBackend,
                     bid: BlockId,
                     parent_root: Eth2Digest,
@@ -311,7 +308,7 @@ proc process_block*(self: var ForkChoice,
     else:
       ? process_block(
         self.backend, blckRef.bid, blck.parent_root,
-        epochRef.checkpoints, some unrealized) # Realized in `on_tick`
+        epochRef.checkpoints, some unrealized)  # Realized in `on_tick`
   else:
     ? process_block(
       self.backend, blckRef.bid, blck.parent_root, epochRef.checkpoints)
@@ -353,7 +350,7 @@ func find_head*(
 
   return ok(new_head)
 
-# https://github.com/ethereum/consensus-specs/blob/v0.12.1/specs/phase0/fork-choice.md#get_head
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#get_head
 proc get_head*(self: var ForkChoice,
                dag: ChainDAGRef,
                wallTime: BeaconTime): FcResult[Eth2Digest] =
@@ -367,7 +364,7 @@ proc get_head*(self: var ForkChoice,
     self.checkpoints.justified.balances,
     self.checkpoints.proposer_boost_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/fork_choice/safe-block.md#get_safe_beacon_block_root
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/fork_choice/safe-block.md#get_safe_beacon_block_root
 func get_safe_beacon_block_root*(self: ForkChoice): Eth2Digest =
   # Use most recent justified block as a stopgap
   self.checkpoints.justified.checkpoint.root
