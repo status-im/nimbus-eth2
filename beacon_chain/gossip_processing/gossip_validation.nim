@@ -302,10 +302,18 @@ proc validateBlobSidecar*(
   if not (sbs.message.slot > dag.finalizedHead.slot):
     return errIgnore("SignedBlobSidecar: slot already finalized")
 
+  # [IGNORE] The block's parent (defined by block.parent_root) has
+  # been seen (via both gossip and non-gossip sources) (a client MAY
+  # queue blocks for processing once the parent block is retrieved).
   # [REJECT] The sidecar's block's parent (defined by sidecar.block_parent_root)
   # passes validation.
-  let parent = dag.getBlockRef(sbs.message.block_parent_root).valueOr:
-    return dag.checkedReject("SignedBlobSidecar: parent not validated")
+  let parentRes = dag.getBlockRef(sbs.message.block_parent_root)
+  if parentRes.isErr:
+    if sbs.message.block_parent_root in quarantine[].unviable:
+      return dag.checkedReject("SignedBlobSidecar: parent not validated")
+    else:
+      return errIgnore("SignedBlobSidecar: parent not found")
+  template parent: untyped = parentRes.get
 
   # [REJECT] The sidecar is from a higher slot than the sidecar's
   # block's parent (defined by sidecar.block_parent_root).
