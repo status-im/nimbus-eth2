@@ -91,6 +91,7 @@ const
   ignoredValues = [
     "TRANSITION_TOTAL_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
     "MIN_ANCHOR_POW_BLOCK_DIFFICULTY", # Name that appears in some altair alphas, obsolete, remove when no more testnets
+    "SAFE_SLOTS_TO_UPDATE_JUSTIFIED",  # Removed in consensus-specs v1.3.0
   ]
 
 when const_preset == "mainnet":
@@ -539,7 +540,6 @@ proc readRuntimeConfig*(
   checkCompatibility HYSTERESIS_QUOTIENT
   checkCompatibility HYSTERESIS_DOWNWARD_MULTIPLIER
   checkCompatibility HYSTERESIS_UPWARD_MULTIPLIER
-  checkCompatibility SAFE_SLOTS_TO_UPDATE_JUSTIFIED
   checkCompatibility MIN_DEPOSIT_AMOUNT
   checkCompatibility MAX_EFFECTIVE_BALANCE
   checkCompatibility EFFECTIVE_BALANCE_INCREMENT

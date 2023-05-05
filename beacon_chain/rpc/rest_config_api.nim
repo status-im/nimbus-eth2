@@ -22,7 +22,7 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
     cachedConfigSpec =
       RestApiResponse.prepareJsonResponse(
         (
-          # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/presets/mainnet/phase0.yaml
+          # https://github.com/ethereum/consensus-specs/blob/v1.3.0/presets/mainnet/phase0.yaml
           MAX_COMMITTEES_PER_SLOT:
             Base10.toString(MAX_COMMITTEES_PER_SLOT),
           TARGET_COMMITTEE_SIZE:
@@ -37,8 +37,6 @@ proc installConfigApiHandlers*(router: var RestRouter, node: BeaconNode) =
             Base10.toString(HYSTERESIS_DOWNWARD_MULTIPLIER),
           HYSTERESIS_UPWARD_MULTIPLIER:
             Base10.toString(HYSTERESIS_UPWARD_MULTIPLIER),
-          SAFE_SLOTS_TO_UPDATE_JUSTIFIED:
-            Base10.toString(SAFE_SLOTS_TO_UPDATE_JUSTIFIED),
           MIN_DEPOSIT_AMOUNT:
             Base10.toString(MIN_DEPOSIT_AMOUNT),
           MAX_EFFECTIVE_BALANCE:
