@@ -1027,7 +1027,6 @@ suite "Eth1 monitor":
         timestamp:        17932057306109702405'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[55'u8, 184'u8, 18'u8, 128'u8, 63'u8, 61'u8, 26'u8, 79'u8, 3'u8, 225'u8, 167'u8, 15'u8, 240'u8, 167'u8, 180'u8, 141'u8, 205'u8, 10'u8, 246'u8, 70'u8, 248'u8, 35'u8, 19'u8, 45'u8, 252'u8, 187'u8, 168'u8, 42'u8]),
         base_fee_per_gas: UInt256.fromHex("0xaf8acbd8a0f0f8eeced9a1014333cdddbd2090d663a06cd919cf17529e9d7862"),
-        excess_data_gas: Uint256.fromHex("0xaf8acbd8a0f0f8eeced9a1014333cdddbd2090d663a06cd919cf17529e9d7862"),
         block_hash:       Eth2Digest.fromHex("0x86b46255725b39af70a9e1a3096287d9772ccc635408fe06c34cc8b680977ff5"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
@@ -1035,7 +1034,8 @@ suite "Eth1 monitor":
           capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 500164'u64, address: ExecutionAddress.fromHex("0x271215240885828779da36212489170f19a8f5bb"), amount: 2071087476832314128'u64.Gwei),
           capella.Withdrawal(index: 26148315722507923'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0x340bd9f489ec124b8a879673f12969b14d0b5555"), amount: 9486787560616102568'u64.Gwei),
           capella.Withdrawal(index: 4839737623914146930'u64, validator_index: 273755626242170824'u64, address: ExecutionAddress.fromHex("0xcacc573cfc0ad561aae27f7be1c38b8dd6fab2cc"), amount: 9475975971913976804'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0xaf8acbd8a0f0f8eeced9a1014333cdddbd2090d663a06cd919cf17529e9d7862")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x2cb54ddf357864102f4ab6bce57317a75cee972f303449bf7047f4e0e5809127"),
@@ -1051,14 +1051,14 @@ suite "Eth1 monitor":
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[254'u8, 188'u8, 92'u8, 24'u8, 153'u8, 206'u8, 74'u8, 108'u8, 96'u8, 100'u8, 148'u8, 84'u8, 151'u8, 74'u8, 73'u8, 167'u8, 65'u8, 177'u8, 253'u8, 62'u8]),
         base_fee_per_gas: UInt256.fromHex("0xb1c4b2bffcb38aaa1f98b483441aa212c9dd951d4706dd505a973fd5fd84796f"),
         block_hash:       Eth2Digest.fromHex("0x8b150d453d802fdbb19be0132621a5e8061e70cfe6668ee6a63e4ff217434999"),
-        excess_data_gas: Uint256.fromHex("0x8b150d453d802fdbb19be0132621a5e8061e70cfe6668ee6a63e4ff217434999"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[142'u8, 197'u8, 221'u8, 83'u8, 32'u8, 126'u8, 145'u8, 86'u8, 28'u8, 39'u8, 112'u8, 240'u8, 168'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[175'u8, 191'u8, 143'u8, 78'u8, 162'u8, 249'u8, 87'u8, 193'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 168'u8, 190'u8, 157'u8, 39'u8, 143'u8, 147'u8, 156'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 11497754023538902580'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0xb0b680a6d93e520fa32e399ded64871d99c1f2c6"), amount: 15592017597077727306'u64.Gwei),
           capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 14269483352942387358'u64, address: ExecutionAddress.fromHex("0x97e4451d09c9af077dc9081e5081563aa26e4c51"), amount: 18446744073709551615'u64.Gwei),
           capella.Withdrawal(index: 9664968187979079659'u64, validator_index: 750818'u64, address: ExecutionAddress.fromHex("0x1e4bc6f12efe96b9f5ca549b77a3d62c5f5403d8"), amount: 18446744073709551615'u64.Gwei),
           capella.Withdrawal(index: 727020'u64, validator_index: 10133766089843653238'u64, address: ExecutionAddress.fromHex("0x6a1ed64277cf1eba8c96281531d2799d1fa7c409"), amount: 130469'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x8b150d453d802fdbb19be0132621a5e8061e70cfe6668ee6a63e4ff217434999")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xac5a7347865f503e1578d1b47271c8e60027b5ba24b0da8e7c3733bcdbeda220"),
@@ -1073,12 +1073,12 @@ suite "Eth1 monitor":
         timestamp:        7404562418233177323'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[220'u8, 149'u8, 177'u8, 36'u8, 228'u8, 88'u8, 47'u8, 149'u8, 211'u8, 213'u8, 170'u8, 40'u8, 207'u8, 145'u8, 137'u8, 64'u8, 153'u8, 22'u8]),
         base_fee_per_gas: UInt256.fromHex("0xfc82d0e46d05b21aedab6f368183611d2885b28c52842f28f621ef6c631b6e6a"),
-        excess_data_gas: Uint256.fromHex("0xfc82d0e46d05b21aedab6f368183611d2885b28c52842f28f621ef6c631b6e6a"),
         block_hash:       Eth2Digest.fromHex("0xa8c6b2dcc2496f0230e796f8a69642126955ae6209a0d0c2dee2c925212f447e"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[138'u8, 17'u8, 34'u8, 168'u8, 105'u8, 179'u8, 196'u8, 21'u8, 253'u8, 242'u8, 106'u8, 30'u8, 40'u8, 190'u8, 179'u8, 93'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 1'u64, validator_index: 239183'u64, address: ExecutionAddress.fromHex("0x75efb2a04b5f25ae56ff7256ee9f4fdc4e25baf3"), amount: 402148'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0xfc82d0e46d05b21aedab6f368183611d2885b28c52842f28f621ef6c631b6e6a")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xd3be9b45bfe67229afb47461ca2970505586cab8eb8e00f280ceb07a9d47866f"),
@@ -1093,10 +1093,10 @@ suite "Eth1 monitor":
         timestamp:        1,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[139'u8]),
         base_fee_per_gas: UInt256.fromHex("0x1eb821a0ee3f9d2e5b49c64177db9ffc96ec6b06249cefa8c51d0ce7e664a3ae"),
-        excess_data_gas: Uint256.fromHex("0x1eb821a0ee3f9d2e5b49c64177db9ffc96ec6b06249cefa8c51d0ce7e664a3ae"),
         block_hash:       Eth2Digest.fromHex("0x99479be6429eac4a945ca8171d3d3ce42d7b5af298292e833e20462438e06229"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[99'u8, 198'u8, 91'u8, 86'u8, 23'u8, 222'u8, 121'u8, 250'u8, 12'u8, 135'u8, 133'u8, 37'u8, 61'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[81'u8, 173'u8, 241'u8, 145'u8, 54'u8, 3'u8, 36'u8, 121'u8])]),
-        withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[])
+        withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[]),
+        excess_data_gas:  UInt256.fromHex("0x1eb821a0ee3f9d2e5b49c64177db9ffc96ec6b06249cefa8c51d0ce7e664a3ae")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x06504beb0dc3bae44ef75678d29ec5138d87da68d307ca7d43e259cede60fda6"),
@@ -1111,12 +1111,12 @@ suite "Eth1 monitor":
         timestamp:        1,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[11'u8, 46'u8, 127'u8, 104'u8, 141'u8, 79'u8, 55'u8, 48'u8, 242'u8, 12'u8, 142'u8, 2'u8]),
         base_fee_per_gas: UInt256.fromHex("0x6241db2a44a58a2c1aac93c4aa18aed5add30d1937c31078542bb544bf9ba2df"),
-        excess_data_gas: Uint256.fromHex("0x6241db2a44a58a2c1aac93c4aa18aed5add30d1937c31078542bb544bf9ba2df"),
         block_hash:       Eth2Digest.fromHex("0xdc1756667e7c3f1615650cbbaae1117a6bac817c6579cf3f7afbc93277eb3ea1"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[13'u8, 24'u8, 248'u8, 26'u8, 141'u8, 177'u8, 236'u8, 2'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[213'u8, 208'u8, 242'u8, 46'u8, 0'u8, 31'u8, 219'u8, 213'u8, 197'u8, 218'u8, 148'u8, 236'u8, 43'u8, 152'u8, 123'u8, 96'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[84'u8, 163'u8, 60'u8, 195'u8, 40'u8, 68'u8, 185'u8, 20'u8, 244'u8, 82'u8, 34'u8, 181'u8, 26'u8, 201'u8, 2'u8, 108'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 15531362396155364476'u64, address: ExecutionAddress.fromHex("0x063b2e1de01c4dad4402641553c7c60ea990ab30"), amount: 106054'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x6241db2a44a58a2c1aac93c4aa18aed5add30d1937c31078542bb544bf9ba2df")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xb5d4a5eae3a1ea004ed573b0b8f8a22c847616758c0faf1e7e9589f16e55415c"),
@@ -1131,12 +1131,12 @@ suite "Eth1 monitor":
         timestamp:        12670133468877091192'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[31'u8, 7'u8, 1'u8, 212'u8, 152'u8, 82'u8, 167'u8, 57'u8, 116'u8, 147'u8, 97'u8, 109'u8, 219'u8, 207'u8, 151'u8, 116'u8, 43'u8, 218'u8, 91'u8, 253'u8, 14'u8, 182'u8, 102'u8, 57'u8, 153'u8, 72'u8, 172'u8, 208'u8, 0'u8, 64'u8, 97'u8]),
         base_fee_per_gas: UInt256.fromHex("0xf1daaa067663bf3277b9149aab162f4e330f988f0be8f83a556743a57ae5c8fd"),
-        excess_data_gas: Uint256.fromHex("0xf1daaa067663bf3277b9149aab162f4e330f988f0be8f83a556743a57ae5c8fd"),
         block_hash:       Eth2Digest.fromHex("0x5d462b4b243c6292b6a3b32f4e05849c0613d0a61954734c524f75f8df66cf8d"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 5416630176463173042'u64, validator_index: 0'u64, address: ExecutionAddress.fromHex("0xd7b1d18e4eb7b5041b4b08bae2ce8e22982d6e6c"), amount: 911474'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0xf1daaa067663bf3277b9149aab162f4e330f988f0be8f83a556743a57ae5c8fd")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x2629683cfc70198038837270bde3c60176c2a4aeeced0d4a4f14dc99a380c377"),
@@ -1151,14 +1151,14 @@ suite "Eth1 monitor":
         timestamp:        1,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[57'u8]),
         base_fee_per_gas: UInt256.fromHex("0x6c98d9ff36f1032fd55d8a6038d7b1f7c4e5f7c884b73f626fe43e687beeb46d"),
-        excess_data_gas: Uint256.fromHex("0x6c98d9ff36f1032fd55d8a6038d7b1f7c4e5f7c884b73f626fe43e687beeb46d"),
         block_hash:       Eth2Digest.fromHex("0x2c95101857b07bdda0502741da8cd9160ec0474929d132e9159098576f9a7c35"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[75'u8, 85'u8, 130'u8, 87'u8, 90'u8, 172'u8, 176'u8, 44'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[207'u8, 150'u8, 64'u8, 87'u8, 15'u8, 18'u8, 3'u8, 236'u8, 232'u8, 87'u8, 174'u8, 192'u8, 29'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[23'u8, 37'u8, 57'u8, 158'u8, 137'u8, 222'u8, 53'u8, 111'u8, 63'u8, 13'u8, 69'u8, 110'u8, 175'u8, 108'u8, 16'u8, 207'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 1071093368516669975'u64, validator_index: 15999188653672167093'u64, address: ExecutionAddress.fromHex("0x368b0ae1a6bfc3312460f212017e8bb32aae55bf"), amount: 13132185675616884508'u64.Gwei),
           capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 1251419977457119333'u64, address: ExecutionAddress.fromHex("0x0a4d18e47c5ec0c639ff29d8f8c9be0b60f00452"), amount: 1'u64.Gwei),
           capella.Withdrawal(index: 2046299652899032730'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0x44bfe00f98603a5e8363030de4202ba50c7e8138"), amount: 15403504672180847702'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x6c98d9ff36f1032fd55d8a6038d7b1f7c4e5f7c884b73f626fe43e687beeb46d")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x190544155dd98bf86d3ed5ee94d01afd3a8e67b8476f94d90604706da0a7d340"),
@@ -1173,7 +1173,6 @@ suite "Eth1 monitor":
         timestamp:        8811957812590656903'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[95'u8, 124'u8, 151'u8, 79'u8, 76'u8, 171'u8, 74'u8, 213'u8, 207'u8, 202'u8, 63'u8, 2'u8, 182'u8, 32'u8, 115'u8, 65'u8, 90'u8, 186'u8, 34'u8, 63'u8, 241'u8, 191'u8, 88'u8, 10'u8, 197'u8, 52'u8, 33'u8, 98'u8, 78'u8, 210'u8]),
         base_fee_per_gas: UInt256.fromHex("0x3c1ba8cf82268c828c1a7f249328741ae21f35a7659365efd7496df94dbb85e9"),
-        excess_data_gas: Uint256.fromHex("0x3c1ba8cf82268c828c1a7f249328741ae21f35a7659365efd7496df94dbb85e9"),
         block_hash:       Eth2Digest.fromHex("0xc2b2bc39ed0cf5764800d3c91401828ed32d0eea58f9d336c32f9e6f7200ac8d"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
@@ -1181,7 +1180,8 @@ suite "Eth1 monitor":
           capella.Withdrawal(index: 4169028257817284566'u64, validator_index: 496485'u64, address: ExecutionAddress.fromHex("0xf99805deece4ff418b55557b45060e88035f755a"), amount: 4870783513883486430'u64.Gwei),
           capella.Withdrawal(index: 10410265605811982468'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0x31e886453fa4e7fcec6ce6094ad22950637d41a1"), amount: 157748'u64.Gwei),
           capella.Withdrawal(index: 10622085591419415519'u64, validator_index: 8179967808007927229'u64, address: ExecutionAddress.fromHex("0x03d2493395b71bb181db626a99c24dbc1d07065f"), amount: 18446744073709551615'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x3c1ba8cf82268c828c1a7f249328741ae21f35a7659365efd7496df94dbb85e9")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x86d7b430f69b215ab5ae863998ce41f01a5016376c8bec7f5b7a6e16a2326d92"),
@@ -1196,7 +1196,6 @@ suite "Eth1 monitor":
         timestamp:        15490999633909732541'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[199'u8]),
         base_fee_per_gas: UInt256.fromHex("0x9fc9f32819a67c4aebae259b0648e2b82f526ce8eef8fee33961f9fc69653b2b"),
-        excess_data_gas: Uint256.fromHex("0x9fc9f32819a67c4aebae259b0648e2b82f526ce8eef8fee33961f9fc69653b2b"),
         block_hash:       Eth2Digest.fromHex("0x1ac3f16da76520977c5e5d86f0c261d76e18413c202e8a46241951b3a80ca601"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[223'u8, 37'u8, 18'u8, 125'u8, 208'u8, 57'u8, 114'u8, 113'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 181'u8, 143'u8, 219'u8, 145'u8, 77'u8, 39'u8, 126'u8, 173'u8, 30'u8, 59'u8, 70'u8, 205'u8, 51'u8, 16'u8, 213'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
@@ -1204,7 +1203,8 @@ suite "Eth1 monitor":
           capella.Withdrawal(index: 8891974894683849035'u64, validator_index: 18060634568259374245'u64, address: ExecutionAddress.fromHex("0x53a6cc4c3996f0181cfe62be861900f56cb75a87"), amount: 235145'u64.Gwei),
           capella.Withdrawal(index: 11531749110606308043'u64, validator_index: 9858359378531619375'u64, address: ExecutionAddress.fromHex("0x6b7a4bc00868b077f1c4aa53369e893162bcc384"), amount: 18446744073709551615'u64.Gwei),
           capella.Withdrawal(index: 530041'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0x4b7853973d34b1efe7722be5c688589b49c1aaa9"), amount: 18446744073709551615'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x9fc9f32819a67c4aebae259b0648e2b82f526ce8eef8fee33961f9fc69653b2b")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xc51bf481df9be981c6656081e3854ffcf27551e2b4fdaed4ab12b355f247f4e1"),
@@ -1219,7 +1219,6 @@ suite "Eth1 monitor":
         timestamp:        5625804670695895441'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[183'u8]),
         base_fee_per_gas: UInt256.fromHex("0x1443705192ff4dc1a819be4f22b8dcd6e7802337e62082880b1090f44a27d0e2"),
-        excess_data_gas: Uint256.fromHex("0x1443705192ff4dc1a819be4f22b8dcd6e7802337e62082880b1090f44a27d0e2"),
         block_hash:       Eth2Digest.fromHex("0x68da52444eb5322f3a0bda6bdc9a3a11a540dbd22026bb2d24862bbc32af9460"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[212'u8, 80'u8, 176'u8, 133'u8, 132'u8, 119'u8, 233'u8, 131'u8, 195'u8, 118'u8, 54'u8, 94'u8, 129'u8, 206'u8, 47'u8, 107'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 31'u8, 192'u8, 94'u8, 136'u8, 120'u8, 228'u8, 222'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[114'u8, 23'u8, 239'u8, 220'u8, 169'u8, 188'u8, 213'u8, 179'u8, 223'u8, 129'u8, 189'u8, 50'u8, 158'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
@@ -1227,7 +1226,8 @@ suite "Eth1 monitor":
           capella.Withdrawal(index: 3744271566165938073'u64, validator_index: 162930'u64, address: ExecutionAddress.fromHex("0x9a3eee4729cf5ef57a1c4aeb474636461991270a"), amount: 9043308530560640624'u64.Gwei),
           capella.Withdrawal(index: 10893292846301120513'u64, validator_index: 15952780188276928656'u64, address: ExecutionAddress.fromHex("0xfccc1279aa3dde74ea08b699fecb4481c777f259"), amount: 5614376920521492084'u64.Gwei),
           capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 2895353066704396409'u64, address: ExecutionAddress.fromHex("0x7e8b34a029236dc0d15db19153165d1eccab05a8"), amount: 3749025806369957542'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x1443705192ff4dc1a819be4f22b8dcd6e7802337e62082880b1090f44a27d0e2")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x8b3e7e8d447527b9d00693389928260e7ea9da6855efd99369182bd9c213988a"),
@@ -1242,10 +1242,10 @@ suite "Eth1 monitor":
         timestamp:        18065456863038184935'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[235'u8, 229'u8, 162'u8, 249'u8, 154'u8, 135'u8]),
         base_fee_per_gas: UInt256.fromHex("0xbe93cc3dc2bb7e012db659df49e57653bf6ff21354c64eeb69c0002e9f933035"),
-        excess_data_gas: Uint256.fromHex("0xbe93cc3dc2bb7e012db659df49e57653bf6ff21354c64eeb69c0002e9f933035"),
         block_hash:       Eth2Digest.fromHex("0x46cb3f590b2fbce372e67968a0d2ff4ce1b2c530fcc26b7a24ed6db054f52035"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 66'u8, 215'u8, 40'u8, 223'u8, 195'u8, 43'u8, 228'u8, 225'u8, 244'u8, 34'u8, 14'u8, 117'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[92'u8, 46'u8, 215'u8, 218'u8, 71'u8, 99'u8, 115'u8, 119'u8])]),
-        withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[])
+        withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[]),
+        excess_data_gas:  UInt256.fromHex("0xbe93cc3dc2bb7e012db659df49e57653bf6ff21354c64eeb69c0002e9f933035")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xa4854e346d2e9a921cc6b3c4ce9fc739c99795cf10002924089f9886f8624d59"),
@@ -1260,7 +1260,6 @@ suite "Eth1 monitor":
         timestamp:        4380084205540210041'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[217'u8, 40'u8, 125'u8, 94'u8, 156'u8, 71'u8, 79'u8, 66'u8, 117'u8, 228'u8, 173'u8, 189'u8, 115'u8, 41'u8, 153'u8, 226'u8, 130'u8, 21'u8, 108'u8, 194'u8, 206'u8, 218'u8, 141'u8]),
         base_fee_per_gas: UInt256.fromHex("0x436767990abff9288346859c6b85b8a972421619eab2253483385c8151cb2016"),
-        excess_data_gas: Uint256.fromHex("0x436767990abff9288346859c6b85b8a972421619eab2253483385c8151cb2016"),
         block_hash:       Eth2Digest.fromHex("0xca4f05c33836d82aee8230ef660016b993bca4aaf9a7b6cad96c2a0193eb026c"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[156'u8, 143'u8, 203'u8, 250'u8, 238'u8, 137'u8, 34'u8, 245'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[64'u8, 44'u8, 165'u8, 9'u8, 1'u8, 211'u8, 27'u8, 108'u8, 166'u8, 61'u8, 119'u8, 11'u8, 222'u8, 85'u8, 48'u8, 185'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[165'u8, 95'u8, 221'u8, 213'u8, 229'u8, 134'u8, 185'u8, 221'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
@@ -1268,7 +1267,8 @@ suite "Eth1 monitor":
           capella.Withdrawal(index: 7007268656739027478'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0xca30e17b5a7925b1a5afa06710d6cffb4681d2fb"), amount: 13141021224557402822'u64.Gwei),
           capella.Withdrawal(index: 10730268187610256048'u64, validator_index: 7483561449283560970'u64, address: ExecutionAddress.fromHex("0x84e755db228c9399912364a239227c467477e076"), amount: 16091384671148001130'u64.Gwei),
           capella.Withdrawal(index: 861292'u64, validator_index: 101133'u64, address: ExecutionAddress.fromHex("0x70e7126e6288dd8559b6bf8946b98fe02bc53e8f"), amount: 5439105246644982514'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x436767990abff9288346859c6b85b8a972421619eab2253483385c8151cb2016")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x5e7b12465e0461e5dfa59a3254282378c55961b0e411023ce89d968bbdc33e9c"),
@@ -1283,13 +1283,13 @@ suite "Eth1 monitor":
         timestamp:        6263571560389404595'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[177'u8, 36'u8, 79'u8, 26'u8, 164'u8, 59'u8, 182'u8, 88'u8, 223'u8, 22'u8, 79'u8, 197'u8, 109'u8, 53'u8, 53'u8, 134'u8, 244'u8, 84'u8, 146'u8, 158'u8, 234'u8, 252'u8, 188'u8, 175'u8, 69'u8, 51'u8, 118'u8, 101'u8, 242'u8, 0'u8, 51'u8, 103'u8]),
         base_fee_per_gas: UInt256.fromHex("0x997e6c8ffbd1ea95e875612109843c6cdfd0c6bcaffa1e06ba303b3012b3c371"),
-        excess_data_gas: Uint256.fromHex("0x997e6c8ffbd1ea95e875612109843c6cdfd0c6bcaffa1e06ba303b3012b3c371"),
         block_hash:       Eth2Digest.fromHex("0x9a7f83cf6a64e153fc3316244fabd972a49ebf5dfb173d7e611bf3447a175c41"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[137'u8, 103'u8, 164'u8, 112'u8, 136'u8, 91'u8, 170'u8, 241'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 12452742873210027116'u64, validator_index: 163643'u64, address: ExecutionAddress.fromHex("0x5d09dd69d2b2370e11b21d758bc82c2a73ee00d0"), amount: 12246034467900494037'u64.Gwei),
           capella.Withdrawal(index: 256915780184525584'u64, validator_index: 364410'u64, address: ExecutionAddress.fromHex("0x40a55ad4a156caf112e2abe789554520814e48a1"), amount: 297315'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x997e6c8ffbd1ea95e875612109843c6cdfd0c6bcaffa1e06ba303b3012b3c371")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xa8f90a617f1f230506d200c6026bd60e38f599930ed04f90cdc320a6d45bb022"),
@@ -1304,12 +1304,12 @@ suite "Eth1 monitor":
         timestamp:        13764471837770950237'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[60'u8, 109'u8, 153'u8, 55'u8, 17'u8, 196'u8, 17'u8, 96'u8, 202'u8, 173'u8, 16'u8, 189'u8, 165'u8, 107'u8, 68'u8, 230'u8, 238'u8, 62'u8, 199'u8, 211'u8, 244'u8, 83'u8, 88'u8]),
         base_fee_per_gas: UInt256.fromHex("0x3adad83f48e34c6220dce41ecc0b09f9bb1ae4bda4466935c70e7c6cd54e185e"),
-        excess_data_gas: Uint256.fromHex("0x3adad83f48e34c6220dce41ecc0b09f9bb1ae4bda4466935c70e7c6cd54e185e"),
         block_hash:       Eth2Digest.fromHex("0x9183524f908425608c1e3a80d7c4ac2c539903af4b3a2f1b22c3283281706aba"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 645596'u64, validator_index: 248698'u64, address: ExecutionAddress.fromHex("0x124e32ea8d0363647a58a5511b6de35bdd50236e"), amount: 18446744073709551615'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x3adad83f48e34c6220dce41ecc0b09f9bb1ae4bda4466935c70e7c6cd54e185e")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xc914f63464f3f1588a32d3751900d415bbf1fe002c42068650f5c7c588b1935c"),
@@ -1324,14 +1324,14 @@ suite "Eth1 monitor":
         timestamp:        9957937708118639445'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
         base_fee_per_gas: UInt256.fromHex("0xe2df33500d1162994934e9fa65fd5db641b0be2b61a6c302c7b9019f86042338"),
-        excess_data_gas: Uint256.fromHex("0xe2df33500d1162994934e9fa65fd5db641b0be2b61a6c302c7b9019f86042338"),
         block_hash:       Eth2Digest.fromHex("0xce58ef51926a6eb4cf2997c4ec771b54907737ae8fe9522fc316c97a1c7ee6d7"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 16986670237072862757'u64, validator_index: 701065'u64, address: ExecutionAddress.fromHex("0x50371592a27339f868b9ef63f6c02e8c1e72ce94"), amount: 3561319411833205205'u64.Gwei),
           capella.Withdrawal(index: 2402770018709110103'u64, validator_index: 798632'u64, address: ExecutionAddress.fromHex("0x9d42c6c10cbc0b04e3f2e74f63c777802d4ca064"), amount: 898967'u64.Gwei),
           capella.Withdrawal(index: 944680'u64, validator_index: 507423'u64, address: ExecutionAddress.fromHex("0x640d578aeed6b8a9acc83f13343f3139fe8f4a15"), amount: 941781'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0xe2df33500d1162994934e9fa65fd5db641b0be2b61a6c302c7b9019f86042338")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x086322b79160568c7d096747ef351338ddc93f252dab1df3ef65aaf24723d2c3"),
@@ -1346,14 +1346,14 @@ suite "Eth1 monitor":
         timestamp:        18028498231539883963'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[]),
         base_fee_per_gas: UInt256.fromHex("0xfbe348f0c77be2ddbd3ec038e3aad88107625dc6e96b1fb3bbfdba8c737a3d7e"),
-        excess_data_gas: Uint256.fromHex("0xfbe348f0c77be2ddbd3ec038e3aad88107625dc6e96b1fb3bbfdba8c737a3d7e"),
         block_hash:       Eth2Digest.fromHex("0xc545e833aa2ee5d708e041f4dcb44bda654372b3f5f660c683d12230303da729"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[89'u8, 59'u8, 131'u8, 146'u8, 186'u8, 180'u8, 208'u8, 76'u8, 69'u8, 40'u8, 29'u8, 211'u8, 97'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[208'u8, 136'u8, 157'u8, 0'u8, 120'u8, 231'u8, 99'u8, 33'u8, 31'u8, 210'u8, 80'u8, 203'u8, 24'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 225873861246030158'u64, validator_index: 3132710425326779052'u64, address: ExecutionAddress.fromHex("0x4d2573288e7949201c806877449e441801ba62c5"), amount: 9096383177302198854'u64.Gwei),
           capella.Withdrawal(index: 2816791477401799195'u64, validator_index: 12199871733060832130'u64, address: ExecutionAddress.fromHex("0xd4e21e668d5e8b1c097cb250dc862bfd7f8a2b76"), amount: 7278220627858832735'u64.Gwei),
           capella.Withdrawal(index: 12003547154719720523'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0xe888b3288bfaf8f979c93699cbabef6c1f156f19"), amount: 18446744073709551615'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0xfbe348f0c77be2ddbd3ec038e3aad88107625dc6e96b1fb3bbfdba8c737a3d7e")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xcfba7f4aa4ff01d3d9de84dbe1761c79627a10c3188fb0a7c8adfa0d489e6441"),
@@ -1368,12 +1368,12 @@ suite "Eth1 monitor":
         timestamp:        8496536260448579184'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[152'u8]),
         base_fee_per_gas: UInt256.fromHex("0xd8b104041bdc4c76a9735e2b4b45f0f3612e8962f672aaf511f06a94b48562c8"),
-        excess_data_gas: Uint256.fromHex("0xd8b104041bdc4c76a9735e2b4b45f0f3612e8962f672aaf511f06a94b48562c8"),
         block_hash:       Eth2Digest.fromHex("0x8ca67fec04b7e3bc5a01f5bb265b93b4488b58ec2ac7f2c3ced030311de2762e"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[152'u8, 232'u8, 136'u8, 228'u8, 253'u8, 248'u8, 85'u8, 92'u8, 103'u8, 38'u8, 106'u8, 166'u8, 148'u8, 8'u8, 37'u8, 245'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[58'u8, 215'u8, 97'u8, 99'u8, 152'u8, 126'u8, 14'u8, 252'u8, 64'u8, 87'u8, 242'u8, 60'u8, 210'u8, 217'u8, 75'u8, 189'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 18405055677765556765'u64, validator_index: 13513833286292305941'u64, address: ExecutionAddress.fromHex("0xfe53af2bf3560b2157a683a545d4f898354f4d55"), amount: 911502'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0xd8b104041bdc4c76a9735e2b4b45f0f3612e8962f672aaf511f06a94b48562c8")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x063bc56b731eeeff8bf1c33d88523a04a14fa0c745eb3c750139842d88244982"),
@@ -1388,13 +1388,13 @@ suite "Eth1 monitor":
         timestamp:        13439825139187707720'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[73'u8, 163'u8, 138'u8, 201'u8, 62'u8, 1'u8, 37'u8, 90'u8, 157'u8]),
         base_fee_per_gas: UInt256.fromHex("0x8a42339ef76757729ef6c4536b3b59255b18d7085d8ba786275b2076fc55b3c6"),
-        excess_data_gas: Uint256.fromHex("0x8a42339ef76757729ef6c4536b3b59255b18d7085d8ba786275b2076fc55b3c6"),
         block_hash:       Eth2Digest.fromHex("0xb3f6ec11b285a105833f5b68b67e8e23c85c28df2362a13a76db705f110fce8c"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 5477557954669138518'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0x4b840b26a19377c64b870be600aa336a40ae46ed"), amount: 42381'u64.Gwei),
           capella.Withdrawal(index: 0'u64, validator_index: 1'u64, address: ExecutionAddress.fromHex("0x3d22a723824a2944ea9accc8653002bf7d61a10a"), amount: 2799163561369818755'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x8a42339ef76757729ef6c4536b3b59255b18d7085d8ba786275b2076fc55b3c6")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xb31c41d39ef7e9a9b905cc93d82264415024d7daef48d886f1b3bc0fd6545edb"),
@@ -1409,13 +1409,13 @@ suite "Eth1 monitor":
         timestamp:        5900615379943209755'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[56'u8, 176'u8, 67'u8, 30'u8, 11'u8, 27'u8, 136'u8, 121'u8, 86'u8, 17'u8, 4'u8, 121'u8, 11'u8, 222'u8, 158'u8, 78'u8, 56'u8, 66'u8, 243'u8]),
         base_fee_per_gas: UInt256.fromHex("0xfbaacdba879288838ff725df19b7a31148ec5a24e7989441544d6dec1c980034"),
-        excess_data_gas: Uint256.fromHex("0xfbaacdba879288838ff725df19b7a31148ec5a24e7989441544d6dec1c980034"),
         block_hash:       Eth2Digest.fromHex("0x04616c0808df7a1bc177bc48cb6ed865125fbbac2fa3e3c36f33a5f1c48a23fd"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 143666'u64, validator_index: 849676'u64, address: ExecutionAddress.fromHex("0xbf06178f996afec7c9d3cb488e812f32aafe4242"), amount: 18446744073709551615'u64.Gwei),
           capella.Withdrawal(index: 560588584813483246'u64, validator_index: 18446744073709551615'u64, address: ExecutionAddress.fromHex("0x1a1b89bf52af0d4a8eff759986ffd93cf4464114"), amount: 13046900622089392610'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0xfbaacdba879288838ff725df19b7a31148ec5a24e7989441544d6dec1c980034")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0xf6cba3ced37c08da230babbf9d1e360661e5a21ac235fefa75cbe756f15809de"),
@@ -1430,7 +1430,6 @@ suite "Eth1 monitor":
         timestamp:        16758901654456753273'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[28'u8, 8'u8, 171'u8, 122'u8, 126'u8, 38'u8, 142'u8, 246'u8, 162'u8, 197'u8, 241'u8, 216'u8, 158'u8, 184'u8, 73'u8, 191'u8, 208'u8, 5'u8, 79'u8, 231'u8, 254'u8, 55'u8, 126'u8, 97'u8, 184'u8, 78'u8, 36'u8, 80'u8, 160'u8, 124'u8, 188'u8, 176'u8]),
         base_fee_per_gas: UInt256.fromHex("0x0ea1185e0ac50d1e2cc0be7229c846528380def25f7d8860cf366e6edd793be0"),
-        excess_data_gas: Uint256.fromHex("0x0ea1185e0ac50d1e2cc0be7229c846528380def25f7d8860cf366e6edd793be0"),
         block_hash:       Eth2Digest.fromHex("0xb471874aa6e8987deee40902d59537fed8af3e9b6ae2f8b476ddb051629b3b09"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[231'u8, 215'u8, 225'u8, 83'u8, 163'u8, 187'u8, 111'u8, 141'u8, 246'u8, 57'u8, 238'u8, 163'u8, 25'u8, 91'u8, 114'u8, 111'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[93'u8, 42'u8, 101'u8, 80'u8, 160'u8, 252'u8, 158'u8, 121'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[164'u8, 98'u8, 105'u8, 179'u8, 25'u8, 33'u8, 130'u8, 239'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
@@ -1438,7 +1437,8 @@ suite "Eth1 monitor":
           capella.Withdrawal(index: 17328504288784263137'u64, validator_index: 305278'u64, address: ExecutionAddress.fromHex("0xa00491dfbee05f23fc7ddcfcb1b27b2855334e81"), amount: 7734460020873819187'u64.Gwei),
           capella.Withdrawal(index: 0'u64, validator_index: 444647'u64, address: ExecutionAddress.fromHex("0x0689ed39160f4b4c20138f300b3b2502e6d6ab5a"), amount: 18446744073709551615'u64.Gwei),
           capella.Withdrawal(index: 834083'u64, validator_index: 10715076713456342424'u64, address: ExecutionAddress.fromHex("0x07ee24f650e7254d10d61b832db7174128bf22b4"), amount: 17794546242151296198'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x0ea1185e0ac50d1e2cc0be7229c846528380def25f7d8860cf366e6edd793be0")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x62ce6a6d68578309c4730f96f98a809d4b4225fc3d37a285daf26288b10f9590"),
@@ -1453,12 +1453,12 @@ suite "Eth1 monitor":
         timestamp:        18446744073709551615'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[227'u8, 111'u8, 127'u8, 243'u8, 191'u8, 237'u8, 88'u8, 146'u8, 146'u8, 236'u8, 162'u8, 237'u8, 164'u8, 177'u8, 249'u8, 52'u8, 1'u8, 26'u8, 187'u8, 208'u8, 244'u8, 234'u8, 113'u8, 199'u8, 30'u8, 209'u8, 197'u8, 63'u8, 126'u8, 104'u8, 143'u8, 30'u8]),
         base_fee_per_gas: UInt256.fromHex("0x6bcd9684e1bc8f4fc5d089e0bf5fed35a8bf3039808d030bb9eb1ff7147180b5"),
-        excess_data_gas: Uint256.fromHex("0x6bcd9684e1bc8f4fc5d089e0bf5fed35a8bf3039808d030bb9eb1ff7147180b5"),
         block_hash:       Eth2Digest.fromHex("0x9e2505de9f245873565b553e7215abff698bdfcee1dbd93e40eb295dd84e7f45"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[140'u8, 134'u8, 173'u8, 70'u8, 168'u8, 181'u8, 221'u8, 210'u8, 25'u8, 142'u8, 168'u8, 139'u8, 77'u8, 134'u8, 203'u8, 219'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 0'u64, validator_index: 780337'u64, address: ExecutionAddress.fromHex("0xf0ab5949e96d8befa8090fe5612d9c45beea0c8f"), amount: 2246589958612652012'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x6bcd9684e1bc8f4fc5d089e0bf5fed35a8bf3039808d030bb9eb1ff7147180b5")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x4f8251c361a23171de8648d1e96c91fea2cc5a691dcd884e3a957dc8f6a8802a"),
@@ -1473,10 +1473,10 @@ suite "Eth1 monitor":
         timestamp:        1,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[136'u8, 133'u8, 189'u8, 60'u8, 229'u8, 217'u8, 70'u8, 145'u8, 136'u8, 97'u8, 175'u8, 23'u8, 183'u8, 73'u8]),
         base_fee_per_gas: UInt256.fromHex("0xe1307a28a2868b4d934aefdde7bbd09b0644b5c422d2c680770775cb44623512"),
-        excess_data_gas: Uint256.fromHex("0xe1307a28a2868b4d934aefdde7bbd09b0644b5c422d2c680770775cb44623512"),
         block_hash:       Eth2Digest.fromHex("0x11e23850b143b8b4dd8394ee1f2cebf073068502d04dde00000925cf23ff55cc"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[]),
-        withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[])
+        withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[]),
+        excess_data_gas:  UInt256.fromHex("0xe1307a28a2868b4d934aefdde7bbd09b0644b5c422d2c680770775cb44623512")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x0c67b44b492590ffb9e6d2a63c84714821be7526ce1c337c06276e33a62b7b93"),
@@ -1491,12 +1491,12 @@ suite "Eth1 monitor":
         timestamp:        6602476120092784163'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[223'u8, 228'u8, 253'u8, 3'u8, 38'u8, 218'u8, 253'u8, 87'u8, 206'u8, 243'u8, 168'u8, 113'u8]),
         base_fee_per_gas: UInt256.fromHex("0x972a01f27d586035ce5fb233118e52652ebbf89f6d39558a41b27c8840c849b1"),
-        excess_data_gas: Uint256.fromHex("0x972a01f27d586035ce5fb233118e52652ebbf89f6d39558a41b27c8840c849b1"),
         block_hash:       Eth2Digest.fromHex("0x9280fa96a569e7c25b2dfc12a141d3edd24acf2fbfa19ee72e5a1fd5dba25a11"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[116'u8, 179'u8, 195'u8, 80'u8, 193'u8, 73'u8, 187'u8, 64'u8, 41'u8, 251'u8, 55'u8, 90'u8, 161'u8, 30'u8, 221'u8, 210'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 820354'u64, validator_index: 626992'u64, address: ExecutionAddress.fromHex("0x4abb3f9a694bf6b27be97e24290ca6826b23c5d0"), amount: 100271'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x972a01f27d586035ce5fb233118e52652ebbf89f6d39558a41b27c8840c849b1")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x7a9d6ab34c0314959d5bdceb0bd80f142e59e5e2addedcd178612303897e7a8a"),
@@ -1511,13 +1511,13 @@ suite "Eth1 monitor":
         timestamp:        195835912833125491'u64,
         extra_data:       List[byte, MAX_EXTRA_DATA_BYTES].init(@[34'u8, 35'u8, 209'u8, 45'u8, 117'u8]),
         base_fee_per_gas: UInt256.fromHex("0x7b5b4e48b3daadecb9724a74d426a86ffb5c5f8abd43469b4e3fe2a728b5a645"),
-        excess_data_gas: Uint256.fromHex("0x7b5b4e48b3daadecb9724a74d426a86ffb5c5f8abd43469b4e3fe2a728b5a645"),
         block_hash:       Eth2Digest.fromHex("0xc71c294b5562af30b9e2b03e76cec0cc6d8b50694219404aaed2ace8f756a22e"),
         transactions:     List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(@[List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[178'u8, 142'u8, 115'u8, 217'u8, 56'u8, 74'u8, 150'u8, 16'u8, 244'u8, 148'u8, 19'u8, 33'u8, 89'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[195'u8, 248'u8, 42'u8, 129'u8, 151'u8, 119'u8, 232'u8, 235'u8, 245'u8, 240'u8, 113'u8, 157'u8, 235'u8, 158'u8, 160'u8, 222'u8]), List[byte, Limit MAX_BYTES_PER_TRANSACTION].init(@[16'u8, 27'u8, 72'u8, 107'u8, 18'u8, 210'u8, 127'u8, 78'u8])]),
         withdrawals:      List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(@[
           capella.Withdrawal(index: 5186085670428433087'u64, validator_index: 156817'u64, address: ExecutionAddress.fromHex("0xf8d93a548c4b243e66f4f73b29da342a0fab04de"), amount: 18446744073709551615'u64.Gwei),
           capella.Withdrawal(index: 9475052657186699106'u64, validator_index: 759532'u64, address: ExecutionAddress.fromHex("0x97559fac3168c6ee81b0f0b0b88563080ca24769"), amount: 4852567582077527137'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0x7b5b4e48b3daadecb9724a74d426a86ffb5c5f8abd43469b4e3fe2a728b5a645")
       ),
       (deneb.ExecutionPayload)(
         parent_hash:      Eth2Digest.fromHex("0x806a868f0f31e8f519fa6339ad18c414dba17feb03aaf6ca3775b152bac64f3b"),
@@ -1539,7 +1539,8 @@ suite "Eth1 monitor":
           capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 0'u64, address: ExecutionAddress.fromHex("0xc6a0db1d09160cec69bda14b444c46745e09c96b"), amount: 742028'u64.Gwei),
           capella.Withdrawal(index: 858390'u64, validator_index: 326055'u64, address: ExecutionAddress.fromHex("0x6a861508a89443c763d5daf15dab44a8a45147fc"), amount: 597242'u64.Gwei),
           capella.Withdrawal(index: 18446744073709551615'u64, validator_index: 17239721441660215355'u64, address: ExecutionAddress.fromHex("0x1450447dc71e28e312c7de7034523cd322eabc98"), amount: 18446744073709551615'u64.Gwei),
-        ])
+        ]),
+        excess_data_gas:  UInt256.fromHex("0xaac988479abbe95e03cc214e7b99795c4ec117bfe4da06e4624e94b262b015e2")
       )]
 
     for executionPayload in executionPayloads:

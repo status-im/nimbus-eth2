@@ -1302,10 +1302,10 @@ func upgrade_to_deneb*(cfg: RuntimeConfig, pre: capella.BeaconState):
       timestamp: pre.latest_execution_payload_header.timestamp,
       extra_data: pre.latest_execution_payload_header.extra_data,
       base_fee_per_gas: pre.latest_execution_payload_header.base_fee_per_gas,
-      excess_data_gas: 0.u256,  # [New in Deneb]
       block_hash: pre.latest_execution_payload_header.block_hash,
       transactions_root: pre.latest_execution_payload_header.transactions_root,
-      withdrawals_root: pre.latest_execution_payload_header.withdrawals_root
+      withdrawals_root: pre.latest_execution_payload_header.withdrawals_root,
+      excess_data_gas: 0.u256  # [New in Deneb]
     )
 
   (ref deneb.BeaconState)(

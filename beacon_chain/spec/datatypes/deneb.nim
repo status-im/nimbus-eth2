@@ -561,10 +561,10 @@ func shortLog*(v: ExecutionPayload): auto =
     timestamp: v.timestamp,
     extra_data_len: len(v.extra_data),
     base_fee_per_gas: $(v.base_fee_per_gas),
-    excess_data_gas: $(v.excess_data_gas),
     block_hash: shortLog(v.block_hash),
     num_transactions: len(v.transactions),
-    num_withdrawals: len(v.withdrawals)
+    num_withdrawals: len(v.withdrawals),
+    excess_data_gas: $(v.excess_data_gas)
   )
 
 func shortLog*(x: seq[BlobIdentifier]): string =
