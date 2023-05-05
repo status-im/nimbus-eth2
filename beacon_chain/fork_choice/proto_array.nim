@@ -123,24 +123,12 @@ iterator realizePendingCheckpoints*(
   # Reset tip tracking for new epoch
   self.currentEpochTips.clear()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/phase0/fork-choice.md#get_latest_attesting_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/fork-choice.md#get_weight
 func calculateProposerBoost(validatorBalances: openArray[Gwei]): uint64 =
-  var
-    total_balance: uint64
-    num_validators: uint64
+  var total_balance: uint64
   for balance in validatorBalances:
-    # We need to filter zero balances here to get an accurate active validator
-    # count. This is because we default inactive validator balances to zero
-    # when creating this balances array.
-    if balance != 0:
-      total_balance += balance
-      num_validators += 1
-  if num_validators == 0:
-    return 0
-  let
-    average_balance = total_balance div num_validators.uint64
-    committee_size = num_validators div SLOTS_PER_EPOCH
-    committee_weight = committee_size * average_balance
+    total_balance += balance
+  let committee_weight = total_balance div SLOTS_PER_EPOCH
   (committee_weight * PROPOSER_SCORE_BOOST) div 100
 
 func applyScoreChanges*(self: var ProtoArray,
