@@ -513,12 +513,12 @@ func asConsensusType*(rpcExecutionPayload: ExecutionPayloadV3):
     timestamp: rpcExecutionPayload.timestamp.uint64,
     extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(rpcExecutionPayload.extraData.bytes),
     base_fee_per_gas: rpcExecutionPayload.baseFeePerGas,
-    excess_data_gas: rpcExecutionPayload.excessDataGas,
     block_hash: rpcExecutionPayload.blockHash.asEth2Digest,
     transactions: List[bellatrix.Transaction, MAX_TRANSACTIONS_PER_PAYLOAD].init(
       mapIt(rpcExecutionPayload.transactions, it.getTransaction)),
     withdrawals: List[capella.Withdrawal, MAX_WITHDRAWALS_PER_PAYLOAD].init(
-      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)))
+      mapIt(rpcExecutionPayload.withdrawals, it.asConsensusWithdrawal)),
+    excess_data_gas: rpcExecutionPayload.excessDataGas)
 
 func asConsensusType*(payload: engine_api.GetPayloadV3Response):
     deneb.ExecutionPayloadForSigning =
@@ -603,10 +603,10 @@ func asEngineExecutionPayload*(executionPayload: deneb.ExecutionPayload):
     timestamp: Quantity(executionPayload.timestamp),
     extraData: DynamicBytes[0, MAX_EXTRA_DATA_BYTES](executionPayload.extra_data),
     baseFeePerGas: executionPayload.base_fee_per_gas,
-    excessDataGas: executionPayload.excess_data_gas,
     blockHash: executionPayload.block_hash.asBlockHash,
     transactions: mapIt(executionPayload.transactions, it.getTypedTransaction),
-    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal))
+    withdrawals: mapIt(executionPayload.withdrawals, it.asEngineWithdrawal),
+    excessDataGas: executionPayload.excess_data_gas)
 
 func shortLog*(b: Eth1Block): string =
   try:

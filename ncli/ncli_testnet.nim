@@ -300,10 +300,10 @@ func `as`(blk: BlockObject, T: type deneb.ExecutionPayloadHeader): T =
     timestamp: uint64 blk.timestamp,
     extra_data: List[byte, MAX_EXTRA_DATA_BYTES].init(blk.extraData.bytes),
     base_fee_per_gas: blk.baseFeePerGas.getOrDefault(),
-    excess_data_gas: blk.excessDataGas.getOrDefault(),
     block_hash: blk.hash as Eth2Digest,
     transactions_root: blk.transactionsRoot as Eth2Digest,
-    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest)
+    withdrawals_root: blk.withdrawalsRoot.getOrDefault() as Eth2Digest,
+    excess_data_gas: blk.excessDataGas.getOrDefault())
 
 proc createDepositTreeSnapshot(deposits: seq[DepositData],
                                blockHash: Eth2Digest,
