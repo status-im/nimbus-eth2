@@ -315,7 +315,7 @@ type
     of ConsensusFork.Deneb:     denebBody*:     deneb.BeaconBlockBody
 
   RestSpec* = object
-    # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/presets/mainnet/phase0.yaml
+    # https://github.com/ethereum/consensus-specs/blob/v1.3.0/presets/mainnet/phase0.yaml
     MAX_COMMITTEES_PER_SLOT*: uint64
     TARGET_COMMITTEE_SIZE*: uint64
     MAX_VALIDATORS_PER_COMMITTEE*: uint64
@@ -323,7 +323,6 @@ type
     HYSTERESIS_QUOTIENT*: uint64
     HYSTERESIS_DOWNWARD_MULTIPLIER*: uint64
     HYSTERESIS_UPWARD_MULTIPLIER*: uint64
-    SAFE_SLOTS_TO_UPDATE_JUSTIFIED*: uint64
     MIN_DEPOSIT_AMOUNT*: uint64
     MAX_EFFECTIVE_BALANCE*: uint64
     EFFECTIVE_BALANCE_INCREMENT*: uint64
