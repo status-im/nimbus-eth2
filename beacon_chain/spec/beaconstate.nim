@@ -522,11 +522,11 @@ func get_attestation_participation_flag_indices(
 # TODO these duplicate some stuff in state_transition_epoch which uses TotalBalances
 # better to centralize around that if feasible
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_total_active_balance
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#get_total_active_balance
 func get_total_active_balance*(state: ForkyBeaconState, cache: var StateCache): Gwei =
   ## Return the combined effective balance of the active validators.
-  # Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
-  # minimum to avoid divisions by zero.
+  ## Note: ``get_total_balance`` returns ``EFFECTIVE_BALANCE_INCREMENT`` Gwei
+  ## minimum to avoid divisions by zero.
 
   let epoch = state.get_current_epoch()
 
@@ -798,12 +798,12 @@ func get_expected_withdrawals*(
     validator_index = (validator_index + 1) mod num_validators
   withdrawals
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/altair/beacon-chain.md#get_next_sync_committee
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/beacon-chain.md#get_next_sync_committee
 func get_next_sync_committee*(
     state: altair.BeaconState | bellatrix.BeaconState | capella.BeaconState |
            deneb.BeaconState):
     SyncCommittee =
-  ## Return the *next* sync committee for a given ``state``.
+  ## Return the next sync committee, with possible pubkey duplicates.
   var res: SyncCommittee
   res.pubkeys.data = get_next_sync_committee_keys(state)
 
@@ -837,7 +837,7 @@ proc initialize_beacon_state_from_eth1*(
   # Not in spec: the system doesn't work unless there are at least SLOTS_PER_EPOCH
   # validators - there needs to be at least one member in each committee -
   # good to know for testing, though arguably the system is not that useful at
-  # at that point :)
+  # that point :)
   doAssert deposits.lenu64 >= SLOTS_PER_EPOCH
 
   # TODO https://github.com/nim-lang/Nim/issues/19094

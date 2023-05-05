@@ -55,13 +55,13 @@ func integer_squareroot*(n: SomeInteger): SomeInteger =
     y = (x + n div x) div 2
   x
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#is_active_validator
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#is_active_validator
 func is_active_validator*(validator: Validator, epoch: Epoch): bool =
-  ## Check if ``validator`` is active
+  ## Check if ``validator`` is active.
   validator.activation_epoch <= epoch and epoch < validator.exit_epoch
 
 func is_exited_validator*(validator: Validator, epoch: Epoch): bool =
-  ## Check if ``validator`` is exited
+  ## Check if ``validator`` is exited.
   validator.exit_epoch <= epoch
 
 func is_withdrawable_validator*(validator: Validator, epoch: Epoch): bool =
@@ -109,9 +109,9 @@ func get_previous_epoch*(
   ## Return the previous epoch (unless the current epoch is ``GENESIS_EPOCH``).
   get_previous_epoch(get_current_epoch(state))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#get_randao_mix
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#get_randao_mix
 func get_randao_mix*(state: ForkyBeaconState, epoch: Epoch): Eth2Digest =
-  ## Returns the randao mix at a recent ``epoch``.
+  ## Return the randao mix at a recent ``epoch``.
   state.randao_mixes[epoch mod EPOCHS_PER_HISTORICAL_VECTOR]
 
 func bytes_to_uint32*(data: openArray[byte]): uint32 =
@@ -166,10 +166,9 @@ func get_domain*(
   ## of a message.
   get_domain(state.fork, domain_type, epoch, state.genesis_validators_root)
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/beacon-chain.md#compute_signing_root
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#compute_signing_root
 func compute_signing_root*(ssz_object: auto, domain: Eth2Domain): Eth2Digest =
-  ## Return the signing root of an object by calculating the root of the
-  ## object-domain tree.
+  ## Return the signing root for the corresponding signing data.
   let domain_wrapped_object = SigningData(
     object_root: hash_tree_root(ssz_object),
     domain: domain
