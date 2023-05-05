@@ -8,6 +8,7 @@
 {.push raises: [].}
 
 import
+  chronicles,
   std/[options, tables],
   stew/bitops2,
   ../spec/forks
@@ -303,6 +304,7 @@ proc addBlobless*(
   if quarantine.blobless.lenu64 >= MaxBlobless:
     return false
 
+  debug "block quarantine: Adding blobless", blck = shortLog(signedBlock)
   quarantine.blobless[signedBlock.root] = signedBlock
   quarantine.missing.del(signedBlock.root)
   true
