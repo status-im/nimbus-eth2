@@ -258,18 +258,7 @@ func get_initial_beacon_block*(state: bellatrix.HashedBeaconState):
   bellatrix.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
-func get_initial_beacon_block*(state: deneb.HashedBeaconState):
-    deneb.TrustedSignedBeaconBlock =
-  # The genesis block is implicitly trusted
-  let message = deneb.TrustedBeaconBlock(
-    slot: state.data.slot,
-    state_root: state.root)
-    # parent_root, randao_reveal, eth1_data, signature, and body automatically
-    # initialized to default values.
-  deneb.TrustedSignedBeaconBlock(
-    message: message, root: hash_tree_root(message))
-
-# https://github.com/ethereum/consensus-specs/blob/v1.1.7/specs/merge/beacon-chain.md#testing
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/capella/beacon-chain.md#testing
 func get_initial_beacon_block*(state: capella.HashedBeaconState):
     capella.TrustedSignedBeaconBlock =
   # The genesis block is implicitly trusted
@@ -279,6 +268,18 @@ func get_initial_beacon_block*(state: capella.HashedBeaconState):
     # parent_root, randao_reveal, eth1_data, signature, and body automatically
     # initialized to default values.
   capella.TrustedSignedBeaconBlock(
+    message: message, root: hash_tree_root(message))
+
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/beacon-chain.md#testing
+func get_initial_beacon_block*(state: deneb.HashedBeaconState):
+    deneb.TrustedSignedBeaconBlock =
+  # The genesis block is implicitly trusted
+  let message = deneb.TrustedBeaconBlock(
+    slot: state.data.slot,
+    state_root: state.root)
+    # parent_root, randao_reveal, eth1_data, signature, and body automatically
+    # initialized to default values.
+  deneb.TrustedSignedBeaconBlock(
     message: message, root: hash_tree_root(message))
 
 func get_initial_beacon_block*(state: ForkedHashedBeaconState):
