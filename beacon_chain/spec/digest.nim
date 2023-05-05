@@ -5,19 +5,20 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-# Serenity hash function / digest
+# Consensus hash function / digest
 #
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/beacon-chain.md#hash
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/beacon-chain.md#hash
 #
 # In Phase 0 the beacon chain is deployed with SHA256 (SHA2-256).
 # Note that is is different from Keccak256 (often mistakenly called SHA3-256)
 # and SHA3-256.
 #
-# In Eth1.0, the default hash function is Keccak256 and SHA256 is available as a precompiled contract.
+# In execution, the default hash function is Keccak256,
+# and SHA256 is available as a precompiled contract.
 #
 # In our code base, to enable a smooth transition
 # (already did Blake2b --> Keccak256 --> SHA2-256),
-# we call this function `eth2digest`, and it outputs a `Eth2Digest`. Easy to sed :)
+# we call this function `eth2digest` and it outputs `Eth2Digest`. Easy to sed :)
 
 {.push raises: [].}
 
