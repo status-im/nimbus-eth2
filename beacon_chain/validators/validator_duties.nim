@@ -571,31 +571,28 @@ proc blindedBlockCheckSlashingAndSign[T](
 
   return ok blindedBlock
 
-proc getBlindedBeaconBlock[
+proc getUnsignedBlindedBeaconBlock[
     T: bellatrix_mev.SignedBlindedBeaconBlock |
        capella_mev.SignedBlindedBeaconBlock](
     node: BeaconNode, slot: Slot, validator: AttachedValidator,
     validator_index: ValidatorIndex, forkedBlock: ForkedBeaconBlock,
     executionPayloadHeader: bellatrix.ExecutionPayloadHeader |
-                            capella.ExecutionPayloadHeader):
-    Future[Result[T, string]] {.async.} =
+                            capella.ExecutionPayloadHeader): Result[T, string] =
   withBlck(forkedBlock):
     when consensusFork >= ConsensusFork.Deneb:
-      debugRaiseAssert $denebImplementationMissing & ": getBlindedBeaconBlock"
-      return err("getBlindedBeaconBlock: Deneb blinded block creation not implemented")
+      debugRaiseAssert $denebImplementationMissing & ": getUnsignedBlindedBeaconBlock"
+      return err("getUnsignedBlindedBeaconBlock: Deneb blinded block creation not implemented")
     elif consensusFork >= ConsensusFork.Bellatrix:
       when not (
           (T is bellatrix_mev.SignedBlindedBeaconBlock and
            consensusFork == ConsensusFork.Bellatrix) or
           (T is capella_mev.SignedBlindedBeaconBlock and
            consensusFork == ConsensusFork.Capella)):
-        return err("getBlindedBeaconBlock: mismatched block/payload types")
+        return err("getUnsignedBlindedBeaconBlock: mismatched block/payload types")
       else:
-        return await blindedBlockCheckSlashingAndSign(
-          node, slot, validator, validator_index,
-          constructSignableBlindedBlock[T](blck, executionPayloadHeader))
+        return ok constructSignableBlindedBlock[T](blck, executionPayloadHeader)
     else:
-      return err("getBlindedBeaconBlock: attempt to construct pre-Bellatrix blinded block")
+      return err("getUnsignedBlindedBeaconBlock: attempt to construct pre-Bellatrix blinded block")
 
 proc getBlindedBlockParts[EPH: ForkyExecutionPayloadHeader](
     node: BeaconNode, head: BlockRef, pubkey: ValidatorPubKey,
@@ -678,7 +675,8 @@ proc getBuilderBid[
     node: BeaconNode, head: BlockRef, validator: AttachedValidator, slot: Slot,
     randao: ValidatorSig, validator_index: ValidatorIndex):
     Future[BlindedBlockResult[SBBB]] {.async.} =
-  # Used by the BN's own validators, but not the REST server
+  ## Returns the unsigned blinded block obtained from the Builder API.
+  ## Used by the BN's own validators, but not the REST server
   when SBBB is bellatrix_mev.SignedBlindedBeaconBlock:
     type EPH = bellatrix.ExecutionPayloadHeader
   elif SBBB is capella_mev.SignedBlindedBeaconBlock:
@@ -698,38 +696,14 @@ proc getBuilderBid[
   # proposal through the relay network.
   let (executionPayloadHeader, bidValue, forkedBlck) = blindedBlockParts.get
 
-  # This is only substantively asynchronous with a remote key signer, whereas
-  # using local key signing, the await can't stall indefinitely any more than
-  # any other await. However, by imposing an arbitrary timeout, it risks that
-  # getBlindedBeaconBlock will check slashing conditions, register that block
-  # in the database to avoid future slashing, then take long enough to exceed
-  # any specific timeout provided. It's always better to at least try to send
-  # this proposal. Furthermore, because one attempt to propose on that slot's
-  # already been registered, the EL fallback will refuses to function, so the
-  # timeout ensures missing both by builder and engine APIs.
-  #
-  # When using web3signer or some other remote signer, this is to some extent
-  # difficult to avoid entirely, because some timeout should exist, so Nimbus
-  # can still fall back to EL block production in time. For local signing, it
-  # simply therefore uses `await` and avoids this potential race.
-  let blindedBlock =
-    case validator.kind
-    of ValidatorKind.Local:
-      await getBlindedBeaconBlock[SBBB](
-        node, slot, validator, validator_index, forkedBlck,
-        executionPayloadHeader)
-    of ValidatorKind.Remote:
-      awaitWithTimeout(
-          getBlindedBeaconBlock[SBBB](
-            node, slot, validator, validator_index, forkedBlck,
-            executionPayloadHeader),
-          1.seconds):
-        Result[SBBB, string].err("getBlindedBlock timed out")
+  let unsignedBlindedBlock = getUnsignedBlindedBeaconBlock[SBBB](
+    node, slot, validator, validator_index, forkedBlck,
+    executionPayloadHeader)
 
-  if blindedBlock.isErr:
-    return err blindedBlock.error()
+  if unsignedBlindedBlock.isErr:
+    return err unsignedBlindedBlock.error()
 
-  return ok (blindedBlock.get, bidValue)
+  return ok (unsignedBlindedBlock.get, bidValue)
 
 proc proposeBlockMEV(node: BeaconNode, blindedBlock: auto):
     Future[Result[BlockRef, string]] {.async.} =
@@ -916,18 +890,20 @@ proc proposeBlockAux(
 
   if useBuilderBlock:
     let
-      blindedBlock = payloadBuilderBidFut.read
+      blindedBlock = (await blindedBlockCheckSlashingAndSign(
+        node, slot, validator, validator_index,
+        payloadBuilderBidFut.read.get.blindedBlckPart)).valueOr:
+          return head
       # Before proposeBlockMEV, can fall back to EL; after, cannot without
       # risking slashing.
-      maybeUnblindedBlock = await proposeBlockMEV(
-        node, blindedBlock.get.blindedBlckPart)
+      maybeUnblindedBlock = await proposeBlockMEV(node, blindedBlock)
 
     return maybeUnblindedBlock.valueOr:
       warn "Blinded block proposal incomplete",
         head = shortLog(head), slot, validator_index,
         validator = shortLog(validator),
         err = maybeUnblindedBlock.error,
-        blindedBlck = shortLog(blindedBlock.get().blindedBlckPart)
+        blindedBlck = shortLog(blindedBlock)
       beacon_block_builder_missed_without_fallback.inc()
       return head
 
