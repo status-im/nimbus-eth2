@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Copyright (c) 2020-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1064,9 +1064,11 @@ suite "SyncManager test suite":
       checkResponse(r21, @[slots[3]]) == false
 
   test "[SyncManager] groupBlobs() test":
-    let blobs = createBlobs(@[Slot(11), Slot(11), Slot(12), Slot(14)])
-    let req = SyncRequest[SomeTPeer](slot: Slot(10), count: 6'u64)
-    let groupedRes = groupBlobs(req, blobs)
+    var blobs = createBlobs(@[Slot(11), Slot(11), Slot(12), Slot(14)])
+    var blocks = createChain(Slot(10), Slot(15))
+
+    let req = SyncRequest[SomeTPeer](slot: Slot(10))
+    let groupedRes = groupBlobs(req, blocks, blobs)
 
     check:
       groupedRes.isOk()
@@ -1091,6 +1093,29 @@ suite "SyncManager test suite":
       grouped[4][0].slot == Slot(14)
       # slot 15
       len(grouped[5]) == 0
+
+    # Add block with a gap from previous block.
+    let block17 = new (ref ForkedSignedBeaconBlock)
+    block17[].phase0Data.message.slot = Slot(17)
+    blocks.add(block17)
+    let groupedRes2 = groupBlobs(req, blocks, blobs)
+
+    check:
+      groupedRes2.isOk()
+    let grouped2 = groupedRes2.get()
+    check:
+      len(grouped2) == 7
+      len(grouped2[6]) == 0 # slot 17
+
+    let blob18 = new (ref BlobSidecar)
+    blob18[].slot = Slot(18)
+    blobs.add(blob18)
+    let groupedRes3 = groupBlobs(req, blocks, blobs)
+
+    check:
+      groupedRes3.isErr()
+
+
 
   test "[SyncQueue#Forward] getRewindPoint() test":
     let aq = newAsyncQueue[BlockEntry]()

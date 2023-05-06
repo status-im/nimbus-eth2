@@ -768,7 +768,7 @@ func forkDigests(node: BeaconNode): auto =
     node.dag.forkDigests.deneb]
   forkDigestsArray
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/validator.md#phase-0-attestation-subnet-stability
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#phase-0-attestation-subnet-stability
 proc updateAttestationSubnetHandlers(node: BeaconNode, slot: Slot) =
   if node.gossipState.card == 0:
     # When disconnected, updateGossipState is responsible for all things
@@ -1360,6 +1360,7 @@ proc handleMissingBlobs(node: BeaconNode) =
 
     # give blobs a chance to arrive over gossip
     if blobless.message.slot == wallSlot and delay < waitDur:
+      debug "Not handling missing blobs as early in slot"
       continue
 
     if not node.blobQuarantine[].hasBlobs(blobless):
@@ -1376,6 +1377,7 @@ proc handleMissingBlobs(node: BeaconNode) =
           blobless.root)
       )
       node.quarantine[].removeBlobless(blobless)
+  debug "Requesting detected missing blobs", blobs = shortLog(fetches)
   node.requestManager.fetchMissingBlobs(fetches)
 
 proc handleMissingBlocks(node: BeaconNode) =
@@ -1430,7 +1432,8 @@ proc installRestHandlers(restServer: RestServerRef, node: BeaconNode) =
 from ./spec/datatypes/capella import SignedBeaconBlock
 
 proc installMessageValidators(node: BeaconNode) =
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.3/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#attestations-and-aggregation
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync-committees-and-aggregation
   # These validators stay around the whole time, regardless of which specific
   # subnets are subscribed to during any given epoch.
   let forkDigests = node.dag.forkDigests

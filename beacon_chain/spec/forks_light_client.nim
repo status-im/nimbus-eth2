@@ -930,10 +930,10 @@ func toDenebLightClientHeader(
       timestamp: payload.timestamp,
       extra_data: payload.extra_data,
       base_fee_per_gas: payload.base_fee_per_gas,
-      excess_data_gas: payload.excess_data_gas,
       block_hash: payload.block_hash,
       transactions_root: hash_tree_root(payload.transactions),
-      withdrawals_root: hash_tree_root(payload.withdrawals)),
+      withdrawals_root: hash_tree_root(payload.withdrawals),
+      excess_data_gas: payload.excess_data_gas),
     execution_branch: blck.message.body.build_proof(
       capella.EXECUTION_PAYLOAD_INDEX).get)
 

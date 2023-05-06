@@ -116,14 +116,17 @@ proc getShortMap*[T](req: SyncRequest[T],
   var res = newStringOfCap(req.count * MAX_BLOBS_PER_BLOCK)
   var cur : uint64 = 0
   for slot in req.slot..<req.slot+req.count:
+    if cur >= lenu64(data):
+      res.add('|')
+      continue
     if slot == data[cur].slot:
       for k in cur..<cur+MAX_BLOBS_PER_BLOCK:
-        inc(cur)
-        if slot == data[k].slot:
-          res.add('x')
-        else:
+        if k >= lenu64(data) or slot != data[k].slot:
           res.add('|')
           break
+        else:
+          inc(cur)
+          res.add('x')
     else:
       res.add('|')
   res

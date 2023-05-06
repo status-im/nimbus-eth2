@@ -246,7 +246,7 @@ template validateBeaconBlockBellatrix(
   #
   # `is_merge_transition_complete(state)` tests for
   # `state.latest_execution_payload_header != ExecutionPayloadHeader()`, while
-  # https://github.com/ethereum/consensus-specs/blob/v1.2.0-rc.1/specs/bellatrix/beacon-chain.md#block-processing
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/beacon-chain.md#block-processing
   # shows that `state.latest_execution_payload_header` being default or not is
   # exactly equivalent to whether that block's execution payload is default or
   # not, so test cached block information rather than reconstructing a state.
@@ -273,7 +273,7 @@ template validateBeaconBlockBellatrix(
   # `ACCEPTED` or `SYNCING` from the EL to get this far.
 
 
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/deneb/p2p-interface.md#blob_sidecar_index
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/deneb/p2p-interface.md#blob_sidecar_index
 proc validateBlobSidecar*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     blobQuarantine: ref BlobQuarantine,sbs: SignedBlobSidecar,
@@ -356,8 +356,8 @@ proc validateBlobSidecar*(
   ok()
 
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_block
-# https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/bellatrix/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_block
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
 proc validateBeaconBlock*(
     dag: ChainDAGRef, quarantine: ref Quarantine,
     signed_beacon_block: ForkySignedBeaconBlock,
@@ -384,7 +384,7 @@ proc validateBeaconBlock*(
   # proposer for the slot, signed_beacon_block.message.slot.
   #
   # While this condition is similar to the proposer slashing condition at
-  # https://github.com/ethereum/consensus-specs/blob/v1.3.0-rc.5/specs/phase0/validator.md#proposer-slashing
+  # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/validator.md#proposer-slashing
   # it's not identical, and this check does not address slashing:
   #
   # (1) The beacon blocks must be conflicting, i.e. different, for the same
@@ -436,7 +436,7 @@ proc validateBeaconBlock*(
     if signed_beacon_block.message.parent_root in quarantine[].unviable:
       quarantine[].addUnviable(signed_beacon_block.root)
 
-      # https://github.com/ethereum/consensus-specs/blob/v1.3.0-alpha.0/specs/bellatrix/p2p-interface.md#beacon_block
+      # https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/bellatrix/p2p-interface.md#beacon_block
       # `is_execution_enabled(state, block.body)` check, but unlike in
       # validateBeaconBlockBellatrix() don't have parent BlockRef.
       if  signed_beacon_block.message.is_execution_block or
@@ -524,7 +524,7 @@ proc validateBeaconBlock*(
 
   ok()
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_attestation_subnet_id
 proc validateAttestation*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -652,6 +652,8 @@ proc validateAttestation*(
     # can't happen, in theory, because we checked the aggregator index above
     return errIgnore("Attestation: cannot find validator pubkey")
 
+  # [REJECT] The signature of `attestation` is valid.
+
   # In the spec, is_valid_indexed_attestation is used to verify the signature -
   # here, we do a batch verification instead
   let sig =
@@ -688,7 +690,7 @@ proc validateAttestation*(
 
   return ok((validator_index, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.9/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/phase0/p2p-interface.md#beacon_aggregate_and_proof
 proc validateAggregate*(
     pool: ref AttestationPool,
     batchCrypto: ref BatchCrypto,
@@ -1098,7 +1100,7 @@ proc validateSyncCommitteeMessage*(
 
   return ok((positionsInSubcommittee, sig))
 
-# https://github.com/ethereum/consensus-specs/blob/v1.1.10/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
+# https://github.com/ethereum/consensus-specs/blob/v1.3.0/specs/altair/p2p-interface.md#sync_committee_contribution_and_proof
 proc validateContribution*(
     dag: ChainDAGRef,
     batchCrypto: ref BatchCrypto,
@@ -1179,7 +1181,7 @@ proc validateContribution*(
 
     block:
       # [REJECT] The aggregator signature,
-      # signed_contribution_and_proof.signature, is valid
+      # `signed_contribution_and_proof.signature`, is valid.
       let x = await aggregatorFut
       case x
       of BatchResult.Invalid:
@@ -1193,6 +1195,10 @@ proc validateContribution*(
         discard
 
     block:
+      # [REJECT] The `contribution_and_proof.selection_proof`
+      # is a valid signature of the `SyncAggregatorSelectionData`
+      # derived from the `contribution` by the validator with index
+      # `contribution_and_proof.aggregator_index`.
       let x = await proofFut
       case x
       of BatchResult.Invalid:
@@ -1204,8 +1210,10 @@ proc validateContribution*(
         discard
 
     block:
-      # [REJECT] The aggregator signature,
-      # signed_aggregate_and_proof.signature, is valid.
+      # [REJECT] The aggregate signature is valid for the message
+      # `beacon_block_root` and aggregate pubkey derived from the
+      # participation info in `aggregation_bits` for the subcommittee
+      # specified by the `contribution.subcommittee_index`.
       let x = await contributionFut
       case x
       of BatchResult.Invalid:
