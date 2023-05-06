@@ -1360,6 +1360,7 @@ proc handleMissingBlobs(node: BeaconNode) =
 
     # give blobs a chance to arrive over gossip
     if blobless.message.slot == wallSlot and delay < waitDur:
+      debug "Not handling missing blobs as early in slot"
       continue
 
     if not node.blobQuarantine[].hasBlobs(blobless):
@@ -1376,6 +1377,7 @@ proc handleMissingBlobs(node: BeaconNode) =
           blobless.root)
       )
       node.quarantine[].removeBlobless(blobless)
+  debug "Requesting detected missing blobs", blobs = shortLog(fetches)
   node.requestManager.fetchMissingBlobs(fetches)
 
 proc handleMissingBlocks(node: BeaconNode) =
