@@ -66,13 +66,15 @@ jobs:
         run: |
           excluded_extensions="ans|json|md|png|txt"
 
+          git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD
+
           current_year=$(date +"%Y")
           outdated_files=()
-          git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | { grep -vE '\.('$excluded_extensions')$' || true; } | while read -r file; do
+          while read -r file; do
             if ! grep -qE 'Copyright \(c\) .*'$current_year' Status Research & Development GmbH' "$file"; then
               outdated_files+=("$file")
             fi
-          done
+          done < <(git diff --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | grep -vE '\.('$excluded_extensions')$' || true)
 
           if (( ${#outdated_files[@]} )); then
             echo "The following files do not have an up-to-date copyright year:"
