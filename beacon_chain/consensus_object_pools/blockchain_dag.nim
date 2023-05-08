@@ -474,7 +474,7 @@ func findShufflingRef*(
   ## Lookup a shuffling in the cache, returning `none` if it's not present - see
   ## `getShufflingRef` for a version that creates a new instance if it's missing
   let
-    dependent_slot = if epoch > 2: (epoch - 1).start_slot() - 1 else: Slot(0)
+    dependent_slot = if epoch >= 2: (epoch - 1).start_slot() - 1 else: Slot(0)
     dependent_bsi = dag.atSlot(bid, dependent_slot).valueOr:
       return Opt.none(ShufflingRef)
 
