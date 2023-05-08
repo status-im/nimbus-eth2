@@ -29,8 +29,8 @@ eth2_mainnet_genesis_end:
     .p2align 3
 cdecl(eth2_mainnet_genesis):
     .quad eth2_mainnet_genesis_data
-    .global eth2_mainnet_genesis_size
-eth2_mainnet_genesis_size:
+    .global cdecl(eth2_mainnet_genesis_size)
+cdecl(eth2_mainnet_genesis_size):
     .quad    eth2_mainnet_genesis_end - eth2_mainnet_genesis_data
 
 eth2_goerli_genesis_data:
