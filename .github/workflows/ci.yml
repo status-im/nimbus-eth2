@@ -68,7 +68,8 @@ jobs:
 
           base_branch=$(jq -r '.pull_request.base.ref' "$GITHUB_EVENT_PATH")
           git fetch origin "$base_branch" 2>/dev/null
-          modified_files=$(git diff --name-only --diff-filter=d --ignore-submodules "origin/$base_branch" HEAD | grep -vE '\.('$excluded_extensions')$' || true)
+          common_ancestor=$(git merge-base "origin/$base_branch" HEAD)
+          modified_files=$(git diff --name-only --diff-filter=d --ignore-submodules "$common_ancestor" HEAD | grep -vE '\.('$excluded_extensions')$' || true)
 
           current_year=$(date +"%Y")
           outdated_files=()
