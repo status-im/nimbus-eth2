@@ -78,7 +78,7 @@ template blockProcessor(router: MessageRouter): ref BlockProcessor =
 template getCurrentBeaconTime(router: MessageRouter): BeaconTime =
   router.processor[].getCurrentBeaconTime()
 
-type RouteBlockResult* = Result[Opt[BlockRef], cstring]
+type RouteBlockResult = Result[Opt[BlockRef], cstring]
 proc routeSignedBeaconBlock*(
     router: ref MessageRouter, blck: ForkySignedBeaconBlock):
     Future[RouteBlockResult] {.async.} =
@@ -126,10 +126,21 @@ proc routeSignedBeaconBlock*(
   # The boolean we return tells the caller whether the block was integrated
   # into the chain
   if newBlockRef.isErr():
-    warn "Unable to add routed block to block pool",
-      blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
-      signature = shortLog(blck.signature), err = newBlockRef.error()
-    return ok(Opt.none(BlockRef))
+    return if newBlockRef.error()[0] != VerifierError.Duplicate:
+      warn "Unable to add routed block to block pool",
+        blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+        signature = shortLog(blck.signature), err = newBlockRef.error()
+      ok(Opt.none(BlockRef))
+    else:
+      # If it's duplicate, there's an existing BlockRef to return. The block
+      # shouldn't be finalized already because that requires a couple epochs
+      # before occurring, so only check non-finalized resolved blockrefs.
+      let blockRef = router[].dag.getBlockRef(blck.root)
+      if blockRef.isErr:
+        warn "Unable to add routed duplicate block to block pool",
+          blockRoot = shortLog(blck.root), blck = shortLog(blck.message),
+          signature = shortLog(blck.signature), err = newBlockRef.error()
+      ok(blockRef)
 
   return ok(Opt.some(newBlockRef.get()))
 
