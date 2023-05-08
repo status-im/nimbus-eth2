@@ -66,15 +66,19 @@ jobs:
         run: |
           excluded_extensions="ans|json|md|png|txt"
 
+          git diff-tree --no-commit-id --diff-filter=AM -r HEAD^ HEAD
+
           base_branch="${{ github.event.pull_request.base.ref }}"
           git fetch origin "$base_branch"
           git log --oneline -n 10
-          git diff-tree --no-commit-id --diff-filter=AM -r HEAD^ HEAD
           common_ancestor=$(git merge-base "origin/$base_branch" HEAD)
+          echo "$common_ancestor"
+
+          exit 3
 
           current_year=$(date +"%Y")
           outdated_files=()
-          git diff --name-only --diff-filter=d --ignore-submodules "$common_ancestor" HEAD | grep -vE '\.('$excluded_extensions')$' || true | while read -r file; do
+          git diff --name-only --diff-filter=AM --ignore-submodules "$common_ancestor" HEAD | grep -vE '\.('$excluded_extensions')$' || true | while read -r file; do
             if ! grep -qE 'Copyright \(c\) .*'$current_year' Status Research & Development GmbH' "$file"; then
               outdated_files+=("$file")
             fi
@@ -85,7 +89,7 @@ jobs:
             for file in "${outdated_files[@]}"; do
               echo "- $file"
             done
-            exit 1
+            exit 2
           fi
 
       - name: MSYS2 (Windows amd64)
