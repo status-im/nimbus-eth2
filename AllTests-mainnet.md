@@ -356,6 +356,16 @@ OK: 4/4 Fail: 0/4 Skip: 0/4
 + Voluntary exit signatures                                                                  OK
 ```
 OK: 8/8 Fail: 0/8 Skip: 0/8
+## Nimbus remote signer/signing test (verifying-web3signer)
+```diff
++ Signing BeaconBlock (getBlockSignature(altair))                                            OK
++ Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
++ Signing BeaconBlock (getBlockSignature(capella))                                           OK
++ Signing BeaconBlock (getBlockSignature(deneb))                                             OK
++ Signing BeaconBlock (getBlockSignature(phase0))                                            OK
++ Waiting for signing node (/upcheck) test                                                   OK
+```
+OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Nimbus remote signer/signing test (web3signer)
 ```diff
 + Connection timeout test                                                                    OK
@@ -382,16 +392,6 @@ OK: 8/8 Fail: 0/8 Skip: 0/8
 + Waiting for signing node (/upcheck) test                                                   OK
 ```
 OK: 22/22 Fail: 0/22 Skip: 0/22
-## Nimbus remote signer/signing test (web3signer-diva)
-```diff
-+ Signing BeaconBlock (getBlockSignature(altair))                                            OK
-+ Signing BeaconBlock (getBlockSignature(bellatrix))                                         OK
-+ Signing BeaconBlock (getBlockSignature(capella))                                           OK
-+ Signing BeaconBlock (getBlockSignature(deneb))                                             OK
-+ Signing BeaconBlock (getBlockSignature(phase0))                                            OK
-+ Waiting for signing node (/upcheck) test                                                   OK
-```
-OK: 6/6 Fail: 0/6 Skip: 0/6
 ## Old database versions [Preset: mainnet]
 ```diff
 + pre-1.1.0                                                                                  OK
@@ -420,11 +420,13 @@ OK: 12/12 Fail: 0/12 Skip: 0/12
 OK: 1/1 Fail: 0/1 Skip: 0/1
 ## Remove keystore testing suite
 ```diff
++ Many remotes                                                                               OK
++ Single remote                                                                              OK
++ Verifying Signer / Many remotes                                                            OK
++ Verifying Signer / Single remote                                                           OK
 + vesion 1                                                                                   OK
-+ vesion 2 many remotes                                                                      OK
-+ vesion 2 single remote                                                                     OK
 ```
-OK: 3/3 Fail: 0/3 Skip: 0/3
+OK: 5/5 Fail: 0/5 Skip: 0/5
 ## Serialization/deserialization [Beacon Node] [Preset: mainnet]
 ```diff
 + Deserialization test vectors                                                               OK
@@ -667,4 +669,4 @@ OK: 2/2 Fail: 0/2 Skip: 0/2
 OK: 9/9 Fail: 0/9 Skip: 0/9
 
 ---TOTAL---
-OK: 380/385 Fail: 0/385 Skip: 5/385
+OK: 382/387 Fail: 0/387 Skip: 5/387

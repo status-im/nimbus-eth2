@@ -25,7 +25,7 @@ type
     signature*: ValidatorSig
 
   # https://github.com/ethereum/builder-specs/blob/v0.3.0/specs/capella/builder.md#blindedbeaconblockbody
-  BlindedBeaconBlockBody = object
+  BlindedBeaconBlockBody* = object
     randao_reveal*: ValidatorSig
     eth1_data*: Eth1Data
     graffiti*: GraffitiBytes
