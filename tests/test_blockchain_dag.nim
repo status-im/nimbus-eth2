@@ -1,5 +1,5 @@
 # beacon_chain
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at https://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
@@ -1165,3 +1165,67 @@ suite "Pruning":
     check:
       dag.tail.slot == Epoch(EPOCHS_PER_STATE_SNAPSHOT).start_slot - 1
       not db.containsBlock(blocks[1].root)
+
+suite "Shufflings":
+  const
+    numEpochs = 10
+    numValidators = SLOTS_PER_EPOCH
+  let
+    cfg = defaultRuntimeConfig
+    validatorMonitor = newClone(ValidatorMonitor.init())
+    dag = ChainDAGRef.init(
+      cfg, makeTestDB(numValidators, cfg = cfg), validatorMonitor, {})
+    quarantine = newClone(Quarantine.init())
+    taskpool = Taskpool.new()
+  var
+    verifier = BatchVerifier(rng: keys.newRng(), taskpool: taskpool)
+    cache: StateCache
+  proc addBlocks(blocks: uint64) =
+    for blck in makeTestBlocks(
+        dag.headState, cache, blocks.int, attested = true, cfg = cfg):
+      let added =
+        case blck.kind
+        of ConsensusFork.Phase0:
+          const nilCallback = OnPhase0BlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.phase0Data, nilCallback)
+        of ConsensusFork.Altair:
+          const nilCallback = OnAltairBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.altairData, nilCallback)
+        of ConsensusFork.Bellatrix:
+          const nilCallback = OnBellatrixBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.bellatrixData, nilCallback)
+        of ConsensusFork.Capella:
+          const nilCallback = OnCapellaBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.capellaData, nilCallback)
+        of ConsensusFork.Deneb:
+          const nilCallback = OnDenebBlockAdded(nil)
+          dag.addHeadBlock(verifier, blck.denebData, nilCallback)
+      doAssert added.isOk()
+      dag.updateHead(added[], quarantine[], [])
+
+  var states: array[numEpochs, ref ForkedHashedBeaconState]
+  for i in 0 ..< states.len:
+    states[i] = newClone(dag.headState)
+    addBlocks(SLOTS_PER_EPOCH)
+
+  test "Accelerated shuffling computation":
+    var blck = dag.head
+    while blck != nil and blck.bid.slot >= dag.finalizedHead.slot:
+      for epoch in 0.Epoch .. numEpochs.Epoch + 2:
+        let expectedShuffling = dag.getShufflingRef(blck, epoch, true)
+        check expectedShuffling.isSome
+        let computedShuffling = dag.computeShufflingRef(blck, epoch)
+        check:
+          computedShuffling.isSome
+          computedShuffling.get[] == expectedShuffling.get[]
+        for state in states:
+          withState(state[]):
+            let ancestorSlot = dag.ancestorSlotForShuffling(
+              forkyState, blck, epoch)
+            if ancestorSlot.isSome:
+              let shufflingRef = dag.computeShufflingRef(
+                forkyState, ancestorSlot.get, blck, epoch)
+              check:
+                shufflingRef.isSome
+                shufflingRef.get[] == expectedShuffling.get[]
+      blck = blck.parent
