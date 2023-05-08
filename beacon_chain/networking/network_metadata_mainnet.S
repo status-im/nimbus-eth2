@@ -5,7 +5,7 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-#if defined(__WIN32__) or defined (__APPLE__)
+#if defined(__WIN32__) || defined (__APPLE__)
 # define cdecl(s) _##s
 #else
 # define cdecl(s) s
@@ -32,7 +32,6 @@ cdecl(eth2_mainnet_genesis):
     .global eth2_mainnet_genesis_size
 eth2_mainnet_genesis_size:
     .quad    eth2_mainnet_genesis_end - eth2_mainnet_genesis_data
-
 
 eth2_goerli_genesis_data:
     .incbin "../../vendor/eth2-networks/shared/prater/genesis.ssz"

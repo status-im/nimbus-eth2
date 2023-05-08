@@ -240,7 +240,7 @@ elif const_preset == "mainnet":
     sepoliaGenesis {.importc: "eth2_sepolia_genesis".}: ptr UncheckedArray[byte]
     sepoliaGenesisSize {.importc: "eth2_sepolia_genesis_size".}: int
 
-  {.compile: "network_metadata_mainnet.s".}
+  {.compile: "network_metadata_mainnet.S".}
 
   const
     eth2NetworksDir = vendorDir & "/eth2-networks"
