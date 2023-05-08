@@ -57,19 +57,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        # Fails on nimyaml tests:
-        # with:
-        #  submodules: true
+          with:
+            fetch-depth: 2
+            # submodules: true  # Fails on nimyaml tests
 
       - name: Check copyright year (Linux)
         if: github.event_name == 'pull_request' && runner.os == 'Linux'
         run: |
           excluded_extensions="ans|json|md|png|txt"
 
-          base_branch=$(jq -r '.pull_request.base.ref' "$GITHUB_EVENT_PATH")
-          git fetch origin "$base_branch" 2>/dev/null
+          base_branch="${{ github.event.pull_request.base.ref }}"
+          git fetch origin "$base_branch"
+          git log --oneline -n 10
           common_ancestor=$(git merge-base "origin/$base_branch" HEAD)
-          echo $common_ancestor
 
           current_year=$(date +"%Y")
           outdated_files=()
