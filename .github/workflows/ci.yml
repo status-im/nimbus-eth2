@@ -66,11 +66,16 @@ jobs:
         run: |
           excluded_extensions="ans|json|md|png|txt"
 
-          git diff-tree --no-commit-id --diff-filter=AM -r HEAD^ HEAD
+          git log --oneline -n 10 --graph --all
+          echo "#####"
+          git diff-tree --no-commit-id --diff-filter=AM -r HEAD^1 HEAD
+          echo "-----"
+          git diff-tree --no-commit-id --diff-filter=AM -r HEAD^2 HEAD
+          echo "now getting ancestor"
 
           base_branch="${{ github.event.pull_request.base.ref }}"
           git fetch origin "$base_branch"
-          git log --oneline -n 10
+          git log --oneline -n 10 --graph --all
           common_ancestor=$(git merge-base "origin/$base_branch" HEAD)
           echo "$common_ancestor"
 
