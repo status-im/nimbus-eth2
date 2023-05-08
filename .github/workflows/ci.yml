@@ -58,7 +58,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          fetch-depth: 2
+          fetch-depth: 2  # In PR, has extra merge commit: ^1 = PR, ^2 = base
           # submodules: true  # Fails on nimyaml tests
 
       - name: Check copyright year (Linux)
@@ -66,24 +66,9 @@ jobs:
         run: |
           excluded_extensions="ans|json|md|png|txt"
 
-          git log --oneline -n 10 --graph --all
-          echo "#####"
-          git diff-tree --no-commit-id --diff-filter=AM -r HEAD^1 HEAD
-          echo "-----"
-          git diff-tree --no-commit-id --diff-filter=AM -r HEAD^2 HEAD
-          echo "now getting ancestor"
-
-          base_branch="${{ github.event.pull_request.base.ref }}"
-          git fetch origin "$base_branch"
-          git log --oneline -n 10 --graph --all
-          common_ancestor=$(git merge-base "origin/$base_branch" HEAD)
-          echo "$common_ancestor"
-
-          exit 3
-
           current_year=$(date +"%Y")
           outdated_files=()
-          git diff --name-only --diff-filter=AM --ignore-submodules "$common_ancestor" HEAD | grep -vE '\.('$excluded_extensions')$' || true | while read -r file; do
+          git diff-tree --name-only --diff-filter=AM --ignore-submodules HEAD^ HEAD | grep -vE '\.('$excluded_extensions')$' || true | while read -r file; do
             if ! grep -qE 'Copyright \(c\) .*'$current_year' Status Research & Development GmbH' "$file"; then
               outdated_files+=("$file")
             fi
