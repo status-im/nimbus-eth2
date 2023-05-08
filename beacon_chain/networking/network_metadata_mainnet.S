@@ -5,7 +5,17 @@
 #   * Apache v2 license (license terms in the root directory or at https://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+#if defined(__WIN32__) or defined (__APPLE__)
+# define cdecl(s) _##s
+#else
+# define cdecl(s) s
+#endif
+
+#ifdef __linux__
+    .section .rodata
+#else
     .data
+#endif
 
 # name_data = start of data
 # name_end = end of data (without alignment)
@@ -15,9 +25,9 @@
 eth2_mainnet_genesis_data:
     .incbin "../../vendor/eth2-networks/shared/mainnet/genesis.ssz"
 eth2_mainnet_genesis_end:
-    .global eth2_mainnet_genesis
+    .global cdecl(eth2_mainnet_genesis)
     .p2align 3
-eth2_mainnet_genesis:
+cdecl(eth2_mainnet_genesis):
     .quad eth2_mainnet_genesis_data
     .global eth2_mainnet_genesis_size
 eth2_mainnet_genesis_size:
@@ -27,22 +37,22 @@ eth2_mainnet_genesis_size:
 eth2_goerli_genesis_data:
     .incbin "../../vendor/eth2-networks/shared/prater/genesis.ssz"
 eth2_goerli_genesis_end:
-    .global eth2_goerli_genesis
+    .global cdecl(eth2_goerli_genesis)
     .p2align 3
-eth2_goerli_genesis:
+cdecl(eth2_goerli_genesis):
     .quad eth2_goerli_genesis_data
-    .global eth2_goerli_genesis_size
-eth2_goerli_genesis_size:
+    .global cdecl(eth2_goerli_genesis_size)
+cdecl(eth2_goerli_genesis_size):
     .quad    eth2_goerli_genesis_end - eth2_goerli_genesis_data
 
 
 eth2_sepolia_genesis_data:
     .incbin "../../vendor/sepolia/bepolia/genesis.ssz"
 eth2_sepolia_genesis_end:
-    .global eth2_sepolia_genesis
+    .global cdecl(eth2_sepolia_genesis)
     .p2align 3
-eth2_sepolia_genesis:
+cdecl(eth2_sepolia_genesis):
     .quad eth2_sepolia_genesis_data
-    .global eth2_sepolia_genesis_size
-eth2_sepolia_genesis_size:
+    .global cdecl(eth2_sepolia_genesis_size)
+cdecl(eth2_sepolia_genesis_size):
     .quad    eth2_sepolia_genesis_end - eth2_sepolia_genesis_data
